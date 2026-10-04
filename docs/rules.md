@@ -390,6 +390,11 @@ constructors and special methods along one proven local base chain, with verifie
 substitutions (AD-145). Signatures resolve in their defining module; subclass bindings override
 base members. Private helpers stay excluded. Unproven bases, multiple-base precedence, mutations,
 class transformations and unproven method decorators preserve `inherited_surface` UNKNOWN.
+Direct declarations retain their signature policy. Property and repeated-name chains use
+proven effective bindings. When a chain cannot be proven, its source-declared positions remain
+UNKNOWN candidates with raw annotations and source evidence (AD-153). Candidates do not prove
+runtime signatures, expose types or consume allowances. Their counts can rise without a code
+defect being fixed; existing UNKNOWN budgets still apply.
 A named type may be public through its owner's proven facade export; it need not expose its
 implementation module. Without a proven public route, a matching uncertain export is UNKNOWN.
 An export by another owner does not grant publication. Public model fields are still checked.

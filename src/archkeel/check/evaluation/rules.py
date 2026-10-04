@@ -3538,7 +3538,7 @@ def _inherited_facade_types(
         incoming_imports=incoming_imports,
     )
     if surface is None:
-        return [], [], False
+        return [], _declared_chain_positions(item, classes_by_location, methods_by_parent), False
     property_chains = _property_chains(methods_by_parent.get(item["data"]["qualified_name"], ()))
     names: set[str] = set()
     positions: list[tuple[str, str, str, str, _Position]] = []
@@ -3564,6 +3564,45 @@ def _inherited_facade_types(
             names.update(method_names)
             positions.extend(method_positions)
     return sorted(names), positions, True
+
+
+def _declared_chain_positions(
+    item: RawRecord,
+    classes: BindingIndex,
+    methods_by_parent: dict[str, list[RawRecord]],
+) -> list[tuple[str, str, str, str, _Position]]:
+    data = item["data"]
+    owner = data["qualified_name"]
+    source_owner = classes.get((data["module"], data["name"]))
+    if (
+        not isinstance(source_owner, dict)
+        or source_owner.get("symbol_category") != "class"
+        or source_owner.get("qualified_name") != owner
+    ):
+        return []
+    methods = methods_by_parent.get(owner, ())
+    chains = _property_chains(methods) - {
+        method["data"]["qualified_name"]
+        for method in methods
+        if method["data"].get("source_final_method_binding") is True
+        and method["data"].get("signature_decorators_proven") is True
+    }
+    return [
+        (
+            method["data"]["name"],
+            method["id"],
+            position,
+            annotation,
+            _Position(undecidable="inherited_surface"),
+        )
+        for method in methods
+        if method["data"]["qualified_name"] in chains
+        and not (
+            method["data"].get("overloaded") is True
+            and method["data"].get("overload_signature") is not True
+        )
+        for position, annotation in _method_signature_positions(method["data"])
+    ]
 
 
 def _bound_method_positions(
@@ -4310,6 +4349,12 @@ def _boundary_type_position_record(
     occurrence = detail["occurrence"]
     path = detail.get("path")
     location = f" at {path}" if isinstance(path, str) else ""
+    title = (
+        f"{qualified_name} {position}: declared annotation {detail['annotation'] or '(missing)'}; "
+        "effective binding UNKNOWN"
+        if detail.get("signature_scope") == "declared"
+        else f"{qualified_name} {position}: {reason}{location}"
+    )
     return classified(
         item_id=stable_id(
             "UNKNOWN-BOUNDARY-TYPE-POSITION",
@@ -4322,7 +4367,7 @@ def _boundary_type_position_record(
         evidence_class=EvidenceClass.UNKNOWN,
         area="type_architecture",
         kind="boundary_type_position",
-        title=f"{qualified_name} {position}: {reason}{location}",
+        title=title,
         subjects=[rule.source, module, qualified_name],
         evidence_ids=sorted(
             set(symbol["evidence_ids"])
@@ -4672,7 +4717,9 @@ def _boundary_rule_positions(
             if complete and not ambiguous_facade:
                 positions = []
             if ambiguous_facade:
-                inherited_positions = []
+                inherited_positions = _declared_chain_positions(
+                    item, classes_by_location, methods_by_parent
+                )
         details = _undecidable_declared_positions(
             module,
             qualified_name,
@@ -4715,6 +4762,8 @@ def _boundary_rule_positions(
                     "reason": verdict.undecidable,
                     "occurrence": occurrence * 1000 + inherited_index,
                 }
+                if not complete or ambiguous_facade:
+                    detail["signature_scope"] = "declared"
                 method_data = symbols_by_id[method_id]["data"]
                 uncertainties = (
                     method_data["annotation_binding_uncertainties"]

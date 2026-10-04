@@ -1111,6 +1111,27 @@ _INHERITED_LOCAL_UNKNOWN = Variant(
 )
 
 
+_OWNED_PROPERTY_UNKNOWN = Variant(
+    id="class-a-owned-property-unknown",
+    section="validation",
+    item="boundary_types:declared_accessor_candidates",
+    summary="An unproven class retains declared accessor annotations as UNKNOWN candidates, "
+    "without claiming runtime violations (AD-153).",
+    files={
+        **_local_inherited_service("str"),
+        "shop/app/service.py": HEADER
+        + "class Child(Missing):\n"
+        + "    @property\n    def properties(self): ...\n"
+        + "    @properties.setter\n    def properties(self, value): ...\n"
+        + "    @property\n    def generators(self) -> dict: ...\n"
+        + "    @generators.setter\n    def generators(self, value) -> None: ...\n",
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_declared_rules="UNKNOWN",
+)
+
+
 _PUBLIC_API_INHERITED_MISSING = Variant(
     id="public-api-inherited-missing",
     section="validation",
@@ -1205,6 +1226,7 @@ VARIANTS: tuple[Variant, ...] = (
     _INHERITED_LOCAL_DECLARED,
     _INHERITED_LOCAL_BROAD,
     _INHERITED_LOCAL_UNKNOWN,
+    _OWNED_PROPERTY_UNKNOWN,
     _PUBLIC_API_INHERITED_MISSING,
     _PUBLIC_API_INHERITED_DECLARED,
     _PUBLIC_API_INHERITED_UNKNOWN,
