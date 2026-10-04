@@ -4,13 +4,12 @@
 """Reobserve Archkeel and verify its saved evidence and product quality checks."""
 
 import json
-import subprocess
-import sys
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
+from conftest import SelfRun
 
 from archkeel.check.onboarding import (
     _crossing_targets,
@@ -26,7 +25,7 @@ from archkeel.check.validation import (
     public_api_diagnostics,
     rationale_diagnostics,
 )
-from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
+from archkeel.ir.codec import canonical_report_bytes, decode_json, parse_contract
 from archkeel.ir.digest import package_digest
 from archkeel.ir.interfaces import interface_profile
 from archkeel.ir.levels import inside_levels
@@ -142,49 +141,6 @@ def _architecture_documents() -> tuple[tuple[str, str], ...]:
     return tuple((str(path.relative_to(ROOT)), path.read_text()) for path in paths)
 
 
-@dataclass(frozen=True, slots=True)
-class SelfRun:
-    """One `archkeel report` on this repository: the model it wrote and the result it printed."""
-
-    observation: Observation
-    result: str
-
-
-@pytest.fixture(scope="module")
-def self_run(tmp_path_factory: pytest.TempPathFactory) -> SelfRun:
-    output = tmp_path_factory.mktemp("self-report") / "architecture.json"
-    run = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "archkeel.cli",
-            "report",
-            "--root",
-            str(ROOT),
-            "--output",
-            str(output),
-        ],
-        capture_output=True,
-        text=True,
-    )
-    assert run.returncode == 0, (run.stdout, run.stderr)
-    assert output.with_name("architecture.report.html").is_file()
-    result = json.loads(run.stdout)
-    assert result["diagnostics"] == []
-    # The self-report has real undecided boundary evidence. A complete scan must not turn
-    # those checker limits into PASS; D-self binds the current counts instead of this comment.
-    assert result["observation_complete"] == "PASS"
-    assert result["declared_rules"] == "UNKNOWN"
-    assert result["expectation_fulfilled"] == "n/a"
-    observation = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
-    return SelfRun(observation, run.stdout)
-
-
-@pytest.fixture(scope="module")
-def self_observation(self_run: SelfRun) -> Observation:
-    return self_run.observation
-
-
 def test_self_result_matches_the_saved_run(self_run: SelfRun) -> None:
     """The saved result is what the command printed, or it is decoration that drifts.
 
@@ -200,34 +156,41 @@ def test_self_result_matches_the_saved_run(self_run: SelfRun) -> None:
     assert saved == observed, STALE
 
 
+def _assert_self_provenance(observed: Observation, provenance: dict[str, object]) -> None:
+    git_head = provenance.get("git_head")
+    dirty = provenance.get("dirty")
+    assert isinstance(git_head, str) and len(git_head) == 40, STALE
+    assert all(character in "0123456789abcdef" for character in git_head), STALE
+    assert isinstance(dirty, bool), STALE
+    saved_context = replace(
+        observed, source=replace(observed.source, git_head=git_head, dirty=dirty)
+    )
+    # Only Git context differs between equivalent runs after a commit or an unrelated edit.
+    # Source, checker, contract and every observation record remain part of the proof.
+    assert provenance == {
+        "analyzer_digest": observed.analyzer.code_digest,
+        "checker_digest": package_digest(),
+        "source_digest": observed.source.source_digest,
+        "contract_digest": observed.contract.digest,
+        "artifact_digest": sha256(canonical_report_bytes(saved_context)).hexdigest(),
+        "command": "archkeel report --root . --output fixtures/D-self/architecture.json",
+        "exit_code": 0,
+        "python_version": observed.python_version,
+        "git_head": git_head,
+        "dirty": dirty,
+    }, STALE
+
+
 def test_self_report_is_complete_and_matches_saved_evidence(self_observation: Observation) -> None:
     observed = self_observation
-    artifact = (FIXTURE / "architecture.json").read_bytes()
     provenance = json.loads((FIXTURE / "provenance.json").read_bytes())
-    saved = parse_observation(decode_canonical_model(json.loads(artifact)))
     assert observed.records("violations") == ()
     assert all(record.kind != "rule-without-subjects" for record in observed.records("unknowns"))
     coverage = observed.coverage
     assert coverage.status == coverage.rules == "PASS"
     assert coverage.files_discovered == coverage.files_read == coverage.files_parsed > 0
     assert coverage.failures == ()
-    assert observed.python_version == saved.python_version, STALE
-    assert observed.source.source_digest == saved.source.source_digest, STALE
-    assert observed.contract.digest == saved.contract.digest, STALE
-    assert observed.analyzer.code_digest == saved.analyzer.code_digest, STALE
-    assert coverage == saved.coverage, STALE
-    # Spelled out, not imported from fixtures/reproduce_self.py: one bug there must not
-    # produce both the saved value and the value this test expects.
-    assert provenance == {
-        "analyzer_digest": saved.analyzer.code_digest,
-        "checker_digest": package_digest(),
-        "source_digest": saved.source.source_digest,
-        "contract_digest": saved.contract.digest,
-        "artifact_digest": sha256(artifact).hexdigest(),
-        "command": "archkeel report --root . --output fixtures/D-self/architecture.json",
-        "exit_code": 0,
-        "python_version": saved.python_version,
-    }, STALE
+    _assert_self_provenance(observed, provenance)
 
 
 def test_self_contract_covers_modules_and_analyzer_interface(

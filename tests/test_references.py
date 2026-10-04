@@ -3,26 +3,20 @@
 # SPDX-License-Identifier: MIT
 """AD-26: the unreferenced-symbol claim needs its signal and never guesses without it."""
 
-import json
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from test_analyzer import _observe
 
-from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.model import Observation
 from archkeel.ir.references import unreferenced_symbols
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _self_observation():
-    artifact = (ROOT / "fixtures/D-self/architecture.json").read_bytes()
-    return parse_observation(decode_canonical_model(json.loads(artifact)))
-
-
-def test_the_claim_is_unknown_without_the_reference_signal() -> None:
-    observation = _self_observation()
+def test_the_claim_is_unknown_without_the_reference_signal(self_observation: Observation) -> None:
+    observation = self_observation
     without = replace(
         observation,
         sections=tuple(item for item in observation.sections if item.name != "references"),
@@ -35,9 +29,9 @@ def test_the_claim_is_unknown_without_the_reference_signal() -> None:
     assert result.symbols == 0
 
 
-def test_a_function_used_only_as_a_value_is_not_a_candidate() -> None:
+def test_a_function_used_only_as_a_value_is_not_a_candidate(self_observation: Observation) -> None:
     """The parser functions live in a dispatch table; no call site names them."""
-    result = unreferenced_symbols(_self_observation())
+    result = unreferenced_symbols(self_observation)
     names = {candidate.name for candidate in result.candidates}
 
     assert result.status == "SUPPORTED"
@@ -46,9 +40,11 @@ def test_a_function_used_only_as_a_value_is_not_a_candidate() -> None:
     assert "archkeel.cli._sha" not in names
 
 
-def test_runtime_dispatch_and_declared_interfaces_are_set_aside() -> None:
+def test_runtime_dispatch_and_declared_interfaces_are_set_aside(
+    self_observation: Observation,
+) -> None:
     """Visitor methods and dunder methods are called by the runtime, not by the code."""
-    result = unreferenced_symbols(_self_observation())
+    result = unreferenced_symbols(self_observation)
     names = [candidate.name for candidate in result.candidates]
 
     assert result.exempt > 0
@@ -60,9 +56,9 @@ def test_runtime_dispatch_and_declared_interfaces_are_set_aside() -> None:
     ]
 
 
-def test_the_claim_stays_small_enough_to_read() -> None:
+def test_the_claim_stays_small_enough_to_read(self_observation: Observation) -> None:
     """A review claim is only useful while a person can still check every candidate."""
-    result = unreferenced_symbols(_self_observation())
+    result = unreferenced_symbols(self_observation)
 
     assert result.symbols > 400
     assert len(result.candidates) < 10

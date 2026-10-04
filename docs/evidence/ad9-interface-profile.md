@@ -7,6 +7,7 @@ reads an `architecture.json` and its contract and prints these counts; it change
 ## Commands
 
 ```sh
+make self-observation
 uv run --locked python tools/interface_profile.py \
   --architecture fixtures/D-self/architecture.json --contract architecture-contract.json
 

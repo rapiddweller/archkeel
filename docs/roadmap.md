@@ -7,6 +7,7 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| Compact self evidence retains raw artifact proof; one lazy report is shared across test workers (AD-156, #316) | `tests/test_self_fixture.py`; `tests/test_self.py`; `make self-observation` |
 | Validated construct identity controls rules; descriptive kinds cannot hide accepted facts (AD-152) | `tests/test_collection_capabilities.py` |
 | TypeScript runtime aliases, unproved CommonJS targets and hidden namespace escapes retain coverage gaps; existing explicit JavaScript substitution observes runtime closure (AD-150, AD-151) | `packages/typescript-adapter/test/adapter.test.mjs`; `fixtures/typescript-runtime-aliases.json`; `fixtures/typescript-hidden-loaders.json`; `tests/test_typescript_init_acceptance.py` |
 | Explicit Python bases project to typed inheritance and Protocol realization with binding limits and classifier coverage (AD-181); complete binding proof and static instances remain open | `tests/test_uml_classifier_facts.py`; `tests/test_source_graph.py`; `tests/test_uml_comparison.py`; `docs/architecture/decisions/ad-181-uml-bases-retain-binding-evidence.md` |
