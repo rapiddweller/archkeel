@@ -32,6 +32,8 @@ from archkeel.ir.model import (
     RuleVerdict,
 )
 from archkeel.ir.trace import trace_valid_violations
+from archkeel.render.html import render_architecture_html
+from archkeel.render.summary import badge, report_summary
 from fixtures import architecture_demo
 from fixtures.architecture_demo import CATALOG, markdown
 from fixtures.architecture_demo import main as demo_main
@@ -641,6 +643,17 @@ def _report_findings(
     report, architecture = run_report(root, config=config, analyzer=observe)
     if architecture is None:
         return (), (), report.declared_rules
+    summary = report_summary(report)
+    expected = badge(report.declared_rules)
+    assert summary.decision == expected
+    assert (
+        next(row.value for row in summary.verdicts if row.key == "declared_rules")
+        == report.declared_rules
+    )
+    page = render_architecture_html(
+        report, architecture, repository="sample", architecture_href="architecture.json"
+    ).decode()
+    assert f'data-decision="{expected.state}"' in page
     observation = parse_observation(decode_canonical_model(json.loads(architecture)))
     violations = trace_valid_violations(observation)
     actual_violations = tuple(

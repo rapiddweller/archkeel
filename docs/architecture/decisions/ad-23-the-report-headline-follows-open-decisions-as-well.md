@@ -1,8 +1,7 @@
-# AD-23 The report headline follows open decisions as well
+# AD-23 Open decisions remain visible context
 
-A `report` whose contract still has
-open decisions must not read PASS: the headline names them, the way [AD-14](ad-14-the-report-headline-follows-its-verdicts-never-the-exit.md) makes it name violated
-rules. Reason: on a freshly drafted second level, `report` exited 0 with zero violations and said
-nothing about 132 undecided pairs, so a contract that decides nothing looked finished. Check: a
-render test for a report whose contract leaves one pair undecided.
+The report banner follows `declared_rules` (AD-14). Open component pairs remain a counted
+worklist; they do not override that verdict with FAIL. The shared headline names a few actual
+FAIL and UNKNOWN rule IDs. HTML lists those rows first without reordering the JSON result.
 
+Checks: terminal/HTML tests and the existing demo catalog sweep compare banner and rule verdict.

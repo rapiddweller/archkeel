@@ -352,7 +352,8 @@ def _violation_group(
 def _rule_assessments(items: tuple[RuleAssessment, ...] | None) -> str:
     if items is None:
         return ""
-    rows = "".join(_rule_assessment_row(item) for item in items)
+    ranked = sorted(items, key=lambda item: (item.status != "FAIL", item.status != "UNKNOWN"))
+    rows = "".join(_rule_assessment_row(item) for item in ranked)
     return f"""
     <section class="report-section" aria-labelledby="rule-assessments-heading">
       <h2 id="rule-assessments-heading">Declared rules · {len(items)}</h2>

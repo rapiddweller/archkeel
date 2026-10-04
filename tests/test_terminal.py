@@ -19,6 +19,7 @@ from archkeel.ir.model import (
     OpenDecision,
     RatchetObservations,
     ReviewClaims,
+    RuleAssessment,
     RunResult,
 )
 from archkeel.render.summary import Summary, check_summary, init_summary, report_summary
@@ -68,7 +69,7 @@ def test_terminal_view_fits_80_columns_and_uses_the_shared_wording(case: str) ->
     }[case]
     narrow = _render(result, summary, 80)
     assert all(len(line) <= 80 for line in narrow.splitlines())
-    wide = _render(result, summary, 200)
+    wide = _render(result, summary, 400)
     assert summary.sentence in wide
     assert summary.decision.label in wide
     assert all(row.reason in wide and row.key in wide for row in summary.verdicts)
@@ -158,7 +159,7 @@ def test_terminal_view_names_agent_decisions_awaiting_the_architect() -> None:
     result = RunResult("report", 0, "PASS", "PASS", "n/a", agent_decisions=(3, 10))
     summary = report_summary(result)
     assert "3 of 10 decisions made by the agent, awaiting the architect." in summary.sentence
-    wide = _render(result, summary, 200)
+    wide = _render(result, summary, 400)
     assert "3 of 10 decisions made by the agent, awaiting the architect." in wide
 
 
@@ -295,14 +296,37 @@ _OPEN_PAIR = OpenDecision(
 )
 
 
-def test_report_headline_fails_while_the_target_still_has_open_decisions() -> None:
-    """AD-23: a target that decides nothing must not read PASS, even with zero violations."""
-    result = RunResult("report", 0, "PASS", "PASS", "n/a", open_decisions=(_OPEN_PAIR,))
+@pytest.mark.parametrize("verdict", ["PASS", "FAIL", "UNKNOWN"])
+def test_report_headline_keeps_the_rule_verdict_with_open_decisions(verdict: str) -> None:
+    result = RunResult("report", 0, "PASS", verdict, "n/a", open_decisions=(_OPEN_PAIR,))
     summary = report_summary(result)
 
-    assert result.exit_code == 0
-    assert summary.decision.label == "FAIL"
-    assert summary.decision.state == "fail"
-    assert "The declared target is incomplete" in summary.sentence
+    assert summary.decision.state == {"PASS": "pass", "FAIL": "fail", "UNKNOWN": "unknown"}[verdict]
     assert "1 open decision(s) remain" in summary.sentence
     assert "core -> cli: 3 import site(s)" in summary.sentence
+    assert "The declared target is incomplete" not in summary.sentence
+
+
+def test_report_names_bounded_fail_and_unknown_rules_without_a_second_verdict() -> None:
+    assessments = tuple(
+        RuleAssessment(
+            name, "complete_requires", status, False, 0, 0, "architect", "", (), "", "pkg", ()
+        )
+        for name, status in (
+            ("PASS-ONE", "PASS"),
+            ("UNKNOWN-ONE", "UNKNOWN"),
+            ("FAIL-ONE", "FAIL"),
+            ("FAIL-TWO", "FAIL"),
+            ("FAIL-THREE", "FAIL"),
+            ("FAIL-FOUR", "FAIL"),
+        )
+    )
+    result = RunResult("report", 0, "PASS", "FAIL", "n/a", rule_assessments=assessments)
+    summary = report_summary(result)
+    assert summary.decision.label == "FAIL"
+    assert "FAIL rules: FAIL-ONE, FAIL-TWO, FAIL-THREE (+1 more)." in summary.sentence
+    assert "UNKNOWN rules: UNKNOWN-ONE." in summary.sentence
+    assert "PASS-ONE" not in summary.sentence
+    assert "archkeel validate --baseline architecture-baseline.json" in summary.sentence
+    assert "--accept-new" not in summary.sentence
+    assert report_summary(replace(result, declared_rules="PASS")).decision.label == "PASS"

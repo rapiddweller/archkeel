@@ -59,11 +59,6 @@ def report_violates_rules(result: RunResult) -> bool:
     return result.command == "report" and result.exit_code == 0 and result.declared_rules == "FAIL"
 
 
-def report_lacks_decisions(result: RunResult) -> bool:
-    """Whether a completed report rests on a target that leaves pairs undecided (AD-23)."""
-    return result.command == "report" and result.exit_code == 0 and bool(result.open_decisions)
-
-
 def check_leaves_a_verdict_undecided(result: RunResult) -> bool:
     """Whether a passing check carries a verdict nothing decided (AD-72).
 
@@ -82,16 +77,13 @@ def report_leaves_rules_undecided(result: RunResult) -> bool:
     return (
         result.command in {"report", "validate"}
         and result.exit_code == 0
-        and (
-            result.declared_rules == "UNKNOWN"
-            or any(item.status == "UNKNOWN" for item in result.rule_assessments or ())
-        )
+        and result.declared_rules == "UNKNOWN"
     )
 
 
 def _decision_badge(result: RunResult) -> Badge:
-    if report_violates_rules(result) or report_lacks_decisions(result):
-        return badge("FAIL")
+    if result.command == "report" and result.exit_code == 0:
+        return badge(result.declared_rules)
     if check_leaves_a_verdict_undecided(result) or report_leaves_rules_undecided(result):
         return badge("UNKNOWN")
     if result.exit_code == 0:
@@ -248,23 +240,20 @@ def report_summary(result: RunResult) -> Summary:
         )
         sentence = (
             f"{found}; report records violations without gating (exit code stays 0). "
-            "Run archkeel check to gate on rule violations."
-        )
-    elif report_lacks_decisions(result):
-        # AD-23: a target that decides nothing cannot be met, so the headline must not pass.
-        sentence = (
-            "The declared target is incomplete, so this report cannot pass. "
-            "Run archkeel validate for the worklist."
+            "Run archkeel validate --baseline architecture-baseline.json with an existing baseline "
+            "(see onboarding)."
         )
     elif report_leaves_rules_undecided(result):
-        if result.declared_rules == "PASS":
-            unknown = sum(item.status == "UNKNOWN" for item in result.rule_assessments or ())
-            sentence = f"The scan completed. Overall verdict: PASS. Rules still UNKNOWN: {unknown}."
-        else:
-            sentence = (
-                "The requested deterministic checks completed, but declared rules could not be "
-                "evaluated completely."
-            )
+        sentence = (
+            "The requested deterministic checks completed, but declared rules could not be "
+            "evaluated completely."
+        )
+    for status in ("FAIL", "UNKNOWN"):
+        rules = [item.id for item in result.rule_assessments or () if item.status == status]
+        if rules:
+            shown = ", ".join(rules[:3])
+            more = f" (+{len(rules) - 3} more)" if len(rules) > 3 else ""
+            sentence += f"\n\n{status} rules: {shown}{more}."
     rules_reason = {
         "PASS": "No declared-rule violation was found.",
         "FAIL": "At least one declared rule was violated.",
