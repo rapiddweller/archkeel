@@ -17,7 +17,7 @@ are additive; field removals, new requirements, type/meaning/nullability changes
 extensions are breaking. Details live once in `docs/reference.md`.
 
 Result schema and accepted lock 2.0.0 correct unmeasured call totals to null (#122, #276).
-The pending profile-aware Delta 1.4.0 carries the same field. Published older lock/delta
+The profile-aware Delta 1.4.0 carries the same field. Published older lock/delta
 versions retain integer totals; their zero/null sentinel remains readable. Measured zero
 and independent count/share guards keep their meaning (AD-97, AD-136).
 

@@ -1,3 +1,24 @@
+# Archkeel 0.9.0 — Language facts with explicit limits
+
+- Python, Dart and TypeScript collectors use the source-facts process port; Core validates
+  evidence and owns architecture verdicts.
+- TypeScript checks import-graph boundaries, cycles, ownership and external packages.
+  Its [catalog and revision demo](docs/architecture/typescript-demo.md) keep unavailable
+  symbol, call, typing and private-use evidence explicit.
+- Unmeasured call totals are null; measured Python zero remains zero. Reports retain n/a.
+- Proven inherited Python getter/setter signatures are checked in their defining scopes.
+  Missing proof, custom descriptors and mutations remain UNKNOWN (#290).
+- Construct rules use validated identities; report scope text describes selected roots.
+
+Command-result and accepted-lock schemas use 2.0.0; fresh Delta uses 1.4.0. Pin CLI and schema
+together: older consumers cannot read fresh null totals. New readers retain legacy
+formats; re-observe evidence when its analyzer profile is incomparable
+([compatibility](docs/reference.md)).
+
+TypeScript requires a separate adapter 1.0.0 build and a supported Node runtime;
+the Python distribution does not bundle it. This is import-graph analysis, with no
+full type/call analysis or cross-repository runtime observation claim.
+
 # Archkeel 0.8.4 — Assign exact modules without claiming their children
 
 - Components may own exact module names with `exact_modules` as well as recursive `packages`;
