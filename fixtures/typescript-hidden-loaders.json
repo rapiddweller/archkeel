@@ -503,5 +503,299 @@
     },
     "complete": false,
     "cycle": false
+  },
+  {
+    "name": "export-namespace-local",
+    "source": "import {mod} from './barrel.js'; const load=mod.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false,
+    "files": {
+      "src/barrel.ts": "import * as mod from 'node:module'; export {mod};"
+    },
+    "observed_files": [
+      "src/barrel.ts",
+      "src/main.ts"
+    ]
+  },
+  {
+    "name": "export-namespace-aliased",
+    "source": "import {api} from './barrel.js'; const load=api.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false,
+    "files": {
+      "src/barrel.ts": "import * as mod from 'node:module'; export {mod as api};"
+    },
+    "observed_files": [
+      "src/barrel.ts",
+      "src/main.ts"
+    ]
+  },
+  {
+    "name": "export-module-local",
+    "source": "import {Module} from './barrel.js'; const load=Module.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false,
+    "files": {
+      "src/barrel.ts": "import {Module} from 'node:module'; export {Module};"
+    },
+    "observed_files": [
+      "src/barrel.ts",
+      "src/main.ts"
+    ]
+  },
+  {
+    "name": "export-factory-local",
+    "source": "import {createRequire} from './barrel.js'; const load=createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false,
+    "files": {
+      "src/barrel.ts": "import {createRequire} from 'node:module'; export {createRequire};"
+    },
+    "observed_files": [
+      "src/barrel.ts",
+      "src/main.ts"
+    ]
+  },
+  {
+    "name": "export-default-local",
+    "source": "import {Module} from './barrel.js'; const load=Module.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false,
+    "files": {
+      "src/barrel.ts": "import Module from 'node:module'; export {Module};"
+    },
+    "observed_files": [
+      "src/barrel.ts",
+      "src/main.ts"
+    ]
+  },
+  {
+    "name": "export-module-direct",
+    "source": "export {Module} from 'node:module';",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "export-default-direct",
+    "source": "export {default as ctor} from 'module';",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "export-factory-direct",
+    "source": "export {createRequire as factory} from 'node:module';",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "export-namespace-direct",
+    "source": "export * as mod from 'node:module';",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "export-star-direct",
+    "source": "export * from 'node:module';",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "export-type-module-alias",
+    "source": "import type {Module} from 'node:module'; export type {Module as M};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-type-factory-alias",
+    "source": "import type {createRequire} from 'node:module'; export type {createRequire as factory};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-type-module-specifier",
+    "source": "import type {Module} from 'node:module'; export {type Module as M};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-type-factory-specifier",
+    "source": "import type {createRequire} from 'node:module'; export {type createRequire as factory};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-type-namespace-alias",
+    "source": "import type * as mod from 'node:module'; export type {mod as api};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-type-module-direct",
+    "source": "export type {Module as M} from 'node:module';",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-type-default-direct",
+    "source": "export type {default as M} from 'node:module';",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-type-factory-direct",
+    "source": "export type {createRequire as factory} from 'node:module';",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-type-specifiers-direct",
+    "source": "export {type Module as M,type createRequire as factory} from 'node:module';",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-type-namespace-direct",
+    "source": "export type * as mod from 'node:module';",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-type-star-direct",
+    "source": "export type * from 'node:module';",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-ordinary-member-local",
+    "source": "import {isBuiltin} from 'node:module'; export {isBuiltin};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-ordinary-member-direct",
+    "source": "export {isBuiltin} from 'node:module';",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-ordinary-mixed-direct",
+    "source": "export {type Module,isBuiltin} from 'node:module';",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-ordinary-unrelated-local",
+    "source": "const Module={createRequire(){return 1}}; export {Module};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-type-module-unaliased",
+    "source": "import type {Module} from 'node:module'; export type {Module};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-type-factory-unaliased",
+    "source": "import type {createRequire} from 'node:module'; export type {createRequire};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-factory-aliased",
+    "source": "import {factory} from './barrel.js'; const load=factory(import.meta.url); load('./hidden.cjs');",
+    "files": {
+      "src/barrel.ts": "import {createRequire} from 'node:module'; export {createRequire as factory};"
+    },
+    "observed_files": [
+      "src/barrel.ts",
+      "src/main.ts"
+    ],
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
   }
 ]
