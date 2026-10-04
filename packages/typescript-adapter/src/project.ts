@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import nodePath, { isAbsolute, relative, resolve } from "node:path";
-import ts from "typescript";
+import ts = require("typescript");
 import { digest, type Request } from "./protocol.js";
 
 export function withinRoot(scope: string, path: string, platform = nodePath): boolean {

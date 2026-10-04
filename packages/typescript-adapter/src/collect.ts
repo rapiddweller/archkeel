@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { isBuiltin } from "node:module";
 import { dirname, isAbsolute, resolve } from "node:path";
-import ts from "typescript";
+import ts = require("typescript");
 import { loadProject } from "./project.js";
 import { digest, id, moduleIdentity, nodeRequirement, type Evidence, type Request, type SourceRecord, type Target } from "./protocol.js";
 
