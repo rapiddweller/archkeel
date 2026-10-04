@@ -7,10 +7,8 @@ executes project code or scripts.
 
 Selected source and resolver inputs bind exact bytes to the revision. Explicit
 JavaScript runtime closure remains distinct from TypeScript and declarations.
-Extensionless CommonJS lookup checks the exact file, `.js`, `.json`, then `.node`.
-Observe a proven `.js` file or metadata-free `index.js`; digest its closure even
-when the compiler selects TypeScript. Exact extensionless files, JSON, native
-modules and directory metadata remain unproved.
+Non-explicit CommonJS targets, including extensionless, dotted-stem and directory
+specifiers, stay UNKNOWN. Compiler resolution does not prove Node runtime lookup.
 Computed, indirect and incomplete imports stay UNKNOWN. Local value aliases and
 unproved runtime targets keep compiler evidence, null runtime_file and UNKNOWN
 coverage; unread runtime bytes are not claimed in the digest. Type-only aliases

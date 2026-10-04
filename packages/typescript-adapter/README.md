@@ -25,8 +25,6 @@ runtime `.cjs` beside `.d.cts`. Declaration and runtime targets remain distinct.
 An existing explicit `.js`, `.mjs` or `.cjs` runtime is observed even when the
 compiler substitutes TypeScript source. Type-only `node:` aliases use compiler
 resolution; Node value imports retain their builtin identity.
-Extensionless CommonJS checks the exact file, `.js`, `.json`, then `.node`.
-Proven `.js` and metadata-free `index.js` runtime closure is observed and digested.
 Paths include extensions in the collision-free module identity.
 
 Computed or unproven imports, syntax/config errors, missing runtime sources,
@@ -35,8 +33,9 @@ contexts produce UNKNOWN gaps.
 Indirect `module.require` bindings and Node loader factories remain UNKNOWN,
 including erased TypeScript wrappers. Known Node module namespaces used through
 `.then` or passed as call/constructor arguments also retain a coverage gap.
-Local value aliases, non-JavaScript runtime files and directory package metadata
-remain UNKNOWN: compiler resolution alone cannot prove the runtime target.
+Local value aliases and non-explicit CommonJS targets remain UNKNOWN, including
+extensionless, dotted-stem and directory specifiers. Compiler resolution alone
+cannot prove the runtime target; runtime_file stays null.
 Resolved external package identities require digested resolver inputs inside the
 supplied snapshot. Missing or outside-snapshot inputs remain UNKNOWN. Resolver
 files are digested separately from selected graph files. Function calls, symbol-level
