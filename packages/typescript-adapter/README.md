@@ -37,6 +37,9 @@ containers, returns and reassignment. Direct member use and proven aliases remai
 supported, including known `Module` and `default` exports. Namespace rest, nested
 export bindings and default initializer escapes stay UNKNOWN; type-only references
 create no value gap.
+Local value exports retain loader identity. Direct Node loader-bearing reexports,
+namespace and star exports stay UNKNOWN. Explicit type-only exports and local
+exports of proven type-only imports remain supported.
 Local value aliases and non-explicit CommonJS targets remain UNKNOWN, including
 extensionless, dotted-stem and directory specifiers. Compiler resolution alone
 cannot prove the runtime target; runtime_file stays null.

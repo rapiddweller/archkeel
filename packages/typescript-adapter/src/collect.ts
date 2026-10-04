@@ -156,6 +156,11 @@ export function collect(request: Request) {
       return parent !== undefined && ts.isImportDeclaration(parent) && ts.isStringLiteralLike(parent.moduleSpecifier)
         && ["module", "node:module"].includes(parent.moduleSpecifier.text);
     }
+    function referenceSymbol(node: ts.Identifier): ts.Symbol | undefined {
+      if (ts.isShorthandPropertyAssignment(node.parent)) return checker.getShorthandAssignmentValueSymbol(node.parent);
+      if (ts.isExportSpecifier(node.parent)) return checker.getExportSpecifierLocalTargetSymbol(node.parent);
+      return checker.getSymbolAtLocation(node);
+    }
     function nodeModuleReference(node: ts.Node | undefined, seen = new Set<ts.Node>()): boolean {
       if (!node || seen.has(node)) return false;
       seen.add(node);
@@ -169,8 +174,7 @@ export function collect(request: Request) {
           && argument !== undefined && ts.isStringLiteralLike(argument) && ["module", "node:module"].includes(argument.text);
       }
       if (!ts.isIdentifier(node)) return false;
-      const symbol = ts.isShorthandPropertyAssignment(node.parent)
-        ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node);
+      const symbol = referenceSymbol(node);
       if (commonJS && node.text === "module" && !symbol?.declarations?.length) return true;
       return symbol?.declarations?.some(declaration => {
         if (ts.isNamespaceImport(declaration) || ts.isImportClause(declaration)) return nodeModuleImport(declaration);
@@ -189,8 +193,19 @@ export function collect(request: Request) {
         return false;
       }) ?? false;
     }
+    function typeOnlyImport(declaration: ts.Declaration): boolean {
+      if (ts.isImportSpecifier(declaration)) return declaration.isTypeOnly || declaration.parent.parent.isTypeOnly;
+      if (ts.isNamespaceImport(declaration)) return declaration.parent.isTypeOnly;
+      return (ts.isImportClause(declaration) || ts.isImportEqualsDeclaration(declaration)) && declaration.isTypeOnly;
+    }
     function isValueUse(node: ts.Node): boolean {
-      for (let parent = node.parent; parent; parent = parent.parent) if (ts.isTypeNode(parent)) return false;
+      for (let parent = node.parent; parent; parent = parent.parent) {
+        if (ts.isTypeNode(parent) || ((ts.isExportDeclaration(parent) || ts.isExportSpecifier(parent)) && parent.isTypeOnly)) return false;
+        if (ts.isExportSpecifier(parent)) {
+          const declarations = checker.getExportSpecifierLocalTargetSymbol(parent)?.declarations;
+          if (declarations?.length && declarations.every(typeOnlyImport)) return false;
+        }
+      }
       return true;
     }
     function createRequireReference(node: ts.Node): boolean {
@@ -201,9 +216,7 @@ export function collect(request: Request) {
           || (node.propertyName && ts.isComputedPropertyName(node.propertyName) && !ts.isStringLiteralLike(name))) return nodeModuleReference(node.parent.parent.initializer);
       }
       if (ts.isIdentifier(node) && !ts.isImportSpecifier(node.parent)) {
-        const symbol = ts.isShorthandPropertyAssignment(node.parent)
-          ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node);
-        return symbol?.declarations?.some(declaration =>
+        return referenceSymbol(node)?.declarations?.some(declaration =>
           ts.isImportSpecifier(declaration) && (declaration.propertyName ?? declaration.name).text === "createRequire" && nodeModuleImport(declaration)) ?? false;
       }
       if ((ts.isPropertyAccessExpression(node) && node.name.text === "createRequire")
@@ -247,7 +260,12 @@ export function collect(request: Request) {
         gap(ts.isElementAccessExpression(node) ? "Computed require member use" : "Unproven require member use", [location(node)], module);
       }
       if (ts.isImportDeclaration(node)) add(node, node.moduleSpecifier, (node.importClause?.isTypeOnly || (node.importClause?.namedBindings && ts.isNamedImports(node.importClause.namedBindings) && node.importClause.namedBindings.elements.length > 0 && !node.importClause.name && node.importClause.namedBindings.elements.every(item => item.isTypeOnly))) ?? false, "import");
-      else if (ts.isExportDeclaration(node) && node.moduleSpecifier) add(node, node.moduleSpecifier, node.isTypeOnly || (node.exportClause !== undefined && ts.isNamedExports(node.exportClause) && node.exportClause.elements.length > 0 && node.exportClause.elements.every(item => item.isTypeOnly)), "reexport");
+      else if (ts.isExportDeclaration(node) && node.moduleSpecifier) {
+        if (!node.isTypeOnly && ts.isStringLiteralLike(node.moduleSpecifier) && ["module", "node:module"].includes(node.moduleSpecifier.text)
+          && (!node.exportClause || ts.isNamespaceExport(node.exportClause)
+            || node.exportClause.elements.some(item => !item.isTypeOnly && (nodeModuleExports.has((item.propertyName ?? item.name).text) || (item.propertyName ?? item.name).text === "createRequire")))) gap("Node module value reexport is not observed", [location(node)], module);
+        add(node, node.moduleSpecifier, node.isTypeOnly || (node.exportClause !== undefined && ts.isNamedExports(node.exportClause) && node.exportClause.elements.length > 0 && node.exportClause.elements.every(item => item.isTypeOnly)), "reexport");
+      }
       else if (ts.isJSDocImportTag(node)) add(node, node.moduleSpecifier, true, "jsdoc_import");
       else if (ts.isImportTypeNode(node)) add(node, ts.isLiteralTypeNode(node.argument) ? node.argument.literal : node.argument, true, "import_type");
       else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) add(node, node.moduleReference.expression, node.isTypeOnly, "import_equals", ts.ModuleKind.CommonJS);

@@ -12,6 +12,9 @@ including calls, containers, returns and reassignment. Direct members and proven
 aliases stay supported, including the known `Module` and `default` exports.
 Namespace rest, nested export bindings and default initializer escapes stay UNKNOWN.
 Type-only references create no value gap.
+Local value exports retain the checker's local binding. Direct Node loader-bearing
+reexports, namespace and star exports stay UNKNOWN. Explicit type-only exports
+and local exports of proven type-only imports remain supported.
 Keep supported direct literal calls resolved. Resolving
 arbitrary loader aliases would require further binding and flow proof; this phase
 does not claim it.
