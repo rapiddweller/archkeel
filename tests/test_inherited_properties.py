@@ -220,3 +220,54 @@ def test_private_direct_property_does_not_create_a_public_surface(tmp_path: Path
     _, report, _ = _validate(tmp_path, source)
     assert report.declared_rules == "PASS"
     assert report.measurements.scalars.unknown_positions == 0
+
+
+_PROPERTY_SPELLINGS = [
+    ("", "property", "property"),
+    ("from builtins import property\n", "property", "property"),
+    ("from builtins import property as prop\n", "prop", "prop"),
+    ("import builtins\n", "builtins.property", "builtins"),
+]
+
+
+@pytest.mark.parametrize("prefix,decorator,binding", _PROPERTY_SPELLINGS)
+@pytest.mark.parametrize(
+    "annotation,expected", [("int", "PASS"), ("object", "FAIL"), ("Hidden", "FAIL")]
+)
+def test_builtin_property_spellings_keep_inherited_accessor_findings(
+    tmp_path, prefix, decorator, binding, annotation, expected
+):
+    source = prefix + _property(setter=annotation).replace("@property", f"@{decorator}")
+    result, report, observation = _validate(tmp_path, source)
+    assert report.declared_rules == expected
+    assert result.exit_code == (0 if expected == "PASS" else 2)
+    assert report.measurements.scalars.unknown_positions == 0
+    assert bool(trace_valid_violations(observation)) == (expected == "FAIL")
+
+
+@pytest.mark.parametrize("prefix,decorator,binding", _PROPERTY_SPELLINGS)
+@pytest.mark.parametrize("change", ["module-shadow", "class-shadow", "owner-mutation"])
+def test_builtin_property_spellings_preserve_binding_and_mutation_uncertainty(
+    tmp_path, prefix, decorator, binding, change
+):
+    source = _property().replace("@property", f"@{decorator}")
+    if change == "module-shadow":
+        source = f"{binding} = custom\n" + source
+    elif change == "class-shadow":
+        source = source.replace("class Base:\n", f"class Base:\n    {binding} = custom\n")
+    else:
+        source = source.replace("class Child(Base):", "Base.value = custom\nclass Child(Base):")
+    _, report, observation = _validate(tmp_path, prefix + source)
+    assert report.declared_rules == "UNKNOWN"
+    assert report.measurements.scalars.unknown_positions > 0
+    assert trace_valid_violations(observation) == ()
+
+
+def test_qualified_builtin_property_mutation_stays_unknown(tmp_path):
+    source = "import builtins\nbuiltins.property = custom\n" + _property().replace(
+        "@property", "@builtins.property"
+    )
+    _, report, observation = _validate(tmp_path, source)
+    assert report.declared_rules == "UNKNOWN"
+    assert report.measurements.scalars.unknown_positions > 0
+    assert trace_valid_violations(observation) == ()

@@ -1149,7 +1149,7 @@ def _unproven_member_roots(
     properties = {
         method
         for owner in nodes
-        if isinstance(owner, ast.ClassDef)
+        if member_surface and include_creation_uncertainty and isinstance(owner, ast.ClassDef)
         for method in property_bindings(module, owner)
     }
     changed: set[str] = (
