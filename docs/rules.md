@@ -390,7 +390,7 @@ constructors and special methods along one proven local base chain, with verifie
 substitutions (AD-145). Signatures resolve in their defining module; subclass bindings override
 base members. Private helpers stay excluded. Unproven bases, multiple-base precedence, mutations,
 class transformations and unproven method decorators preserve `inherited_surface` UNKNOWN.
-Direct declarations retain their signature policy. Property and repeated-name chains use
+Direct signatures are checked as declared. Property and repeated-name chains use
 proven effective bindings. When a chain cannot be proven, its source-declared positions remain
 UNKNOWN candidates with raw annotations and source evidence (AD-153). Candidates do not prove
 runtime signatures, expose types or consume allowances. Their counts can rise without a code

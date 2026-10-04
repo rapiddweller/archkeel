@@ -3581,28 +3581,33 @@ def _declared_chain_positions(
     ):
         return []
     methods = methods_by_parent.get(owner, ())
-    chains = _property_chains(methods) - {
-        method["data"]["qualified_name"]
-        for method in methods
-        if method["data"].get("source_final_method_binding") is True
-        and method["data"].get("signature_decorators_proven") is True
-    }
-    return [
-        (
-            method["data"]["name"],
-            method["id"],
-            position,
-            annotation,
-            _Position(undecidable="inherited_surface"),
+    chains = _property_chains(methods)
+    for method in methods:
+        method_data = method["data"]
+        if (
+            method_data.get("source_final_method_binding") is True
+            and method_data.get("signature_decorators_proven") is True
+        ):
+            chains -= {method_data["qualified_name"]}
+    positions: list[tuple[str, str, str, str, _Position]] = []
+    for method in methods:
+        method_data = method["data"]
+        if method_data["qualified_name"] not in chains or (
+            method_data.get("overloaded") is True
+            and method_data.get("overload_signature") is not True
+        ):
+            continue
+        positions.extend(
+            (
+                method_data["name"],
+                method["id"],
+                position,
+                annotation,
+                _Position(undecidable="inherited_surface"),
+            )
+            for position, annotation in _method_signature_positions(method_data)
         )
-        for method in methods
-        if method["data"]["qualified_name"] in chains
-        and not (
-            method["data"].get("overloaded") is True
-            and method["data"].get("overload_signature") is not True
-        )
-        for position, annotation in _method_signature_positions(method["data"])
-    ]
+    return positions
 
 
 def _bound_method_positions(
