@@ -188,16 +188,25 @@ class ParsedModule:
     scope_nodes: tuple[ast.AST, ...] = field(init=False, repr=False)
     bound_names: tuple[str, ...] = field(init=False, repr=False)
     scope_bound_names: tuple[str, ...] = field(init=False, repr=False)
+    unique_bindings: frozenset[str] = field(init=False, repr=False)
+    stable_binding_cache: tuple[dict[str, AliasBinding], frozenset[str]] | None = field(
+        default=None, init=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         self.all_nodes = tuple(ast.walk(self.tree))
         self.scope_nodes = tuple(_module_scope_nodes(self.tree))
         self.bound_names = tuple(_bound_names(self.all_nodes))
         self.scope_bound_names = tuple(_bound_names(self.scope_nodes))
+        self.unique_bindings = _unique_direct_module_bindings(self)
 
 
 def unique_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     """Names with one direct definition or import and no competing binder in the module."""
+    return module.unique_bindings
+
+
+def _unique_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     nodes = module.all_nodes
     imports = [
         (name, node in module.tree.body)
@@ -231,6 +240,14 @@ def unique_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
 
 def stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     """Names bound once at module level without a conditional or explicit global rebind."""
+    cache = module.stable_binding_cache
+    if cache is None or cache[0] != module.aliases:
+        cache = (dict(module.aliases), _stable_direct_module_bindings(module))
+        module.stable_binding_cache = cache
+    return cache[1]
+
+
+def _stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     direct: dict[str, int] = {}
     for statement in module.tree.body:
         if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
