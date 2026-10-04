@@ -570,7 +570,7 @@ cannot authorize a rename. Every Python rename candidate needs a complete histor
 even when roots and namespace are unchanged, because physical layout may move within those roots.
 Changed-root Dart remains unsupported; same-root Dart renames keep their existing behavior. A
 widening fails (`failures`, exit 1) unless `--amendment <path>` names a file
-binding its exact before/after contract digest, recording who decided it and why:
+binding its recursive contract and canonical baseline policies on both sides, recording who decided it and why:
 
 ```bash
 archkeel validate --against origin/main --amendment widening.json \
@@ -817,3 +817,5 @@ Set `schema_version` to `2.1.0`. The optional `$schema` points to
 empty arrays. Put each permitted outbound component edge in its source component's `requires`
 list and add one `complete_requires` rule; absence then forbids every other pair (AD-32). Run
 `archkeel validate --root . --json` to verify the migrated contract.
+
+V2 amendments require `before_baseline_digest` and `after_baseline_digest`; null means no baseline comparison. Missing files have a path-bound identity distinct from empty baselines. Digests use the original before policy, before rename classification, and the actual after policy (including an allowed baseline rewrite). Refused rewrites emit no amendment. Legacy v1 records authorize contract-only comparisons. An explicitly supplied stale record fails even without widening. Free-text authors and reasons do not authenticate approval.

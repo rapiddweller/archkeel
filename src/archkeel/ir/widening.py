@@ -52,7 +52,7 @@ class _DataclassInstance(Protocol):
     __dataclass_fields__: ClassVar[dict[str, Any]]
 
 
-AMENDMENT_SCHEMA_VERSION = "1.0.0"
+AMENDMENT_SCHEMA_VERSION = "2.0.0"
 
 # Rationale and provenance are the design's own "neutral" prose; `id` and `kind` are the keys
 # these classifiers match entries by, never content to diff themselves.
@@ -92,11 +92,27 @@ class Amendment:
     after_digest: str
     decided_by: str
     rationale: str
+    before_baseline_digest: str | None = None
+    after_baseline_digest: str | None = None
+    schema_version: str = AMENDMENT_SCHEMA_VERSION
 
 
-def verify_amendment(amendment: Amendment, *, before_digest: str, after_digest: str) -> bool:
-    """True when `amendment` was written for exactly this before/after contract pair."""
-    return amendment.before_digest == before_digest and amendment.after_digest == after_digest
+def verify_amendment(
+    amendment: Amendment,
+    *,
+    before_digest: str,
+    after_digest: str,
+    before_baseline_digest: str | None = None,
+    after_baseline_digest: str | None = None,
+) -> bool:
+    """Bind the original contract tree and baseline policies on both sides."""
+    return (
+        amendment.before_digest == before_digest
+        and amendment.after_digest == after_digest
+        and amendment.before_baseline_digest == before_baseline_digest
+        and amendment.after_baseline_digest == after_baseline_digest
+        and (amendment.schema_version != "1.0.0" or before_baseline_digest is None)
+    )
 
 
 def _set_widenings(

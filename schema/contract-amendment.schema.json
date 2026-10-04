@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:archkeel:contract-amendment:1",
+  "$id": "urn:archkeel:contract-amendment:2",
   "title": "Amendment record for archkeel validate --against widening",
-  "$comment": "Written and read by `archkeel validate --against <ref> --amendment <path>` (AD-61, #11). Binds one exact before/after contract digest pair, computed with archkeel.ir.codec.contract_digest, so an amendment written for one change cannot silently authorise a different one.",
+  "$comment": "Binds the recursive contract tree and canonical original before/actual after baseline policies. Legacy v1 records authorize contract-only comparisons.",
   "type": "object",
   "required": [
     "schema_version",
@@ -14,18 +14,22 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "1.0.0",
-      "description": "The only amendment schema this Archkeel reads."
+      "enum": [
+        "1.0.0",
+        "2.0.0"
+      ]
     },
     "before_digest": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 of the --against revision's contract, in the canonical form archkeel.ir.codec.contract_bytes writes. When that revision holds no contract at the configured path, archkeel.ir.codec.absent_contract_digest: the SHA-256 of a NUL byte, \"no contract at \" and the contract's repository path, which no canonical contract can have (AD-104)."
+      "description": "The --against revision's InsideContractTree.comparison_digest, binding the root and recursively mounted inside contracts. Without inside contracts this equals archkeel.ir.codec.contract_digest, SHA-256 of canonical contract_bytes. When the revision lacks the configured contract, archkeel.ir.codec.absent_contract_digest binds its repository path (AD-104).",
+      "maxLength": 64
     },
     "after_digest": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 of the contract being validated, in the same canonical form."
+      "description": "InsideContractTree.comparison_digest of the contract being validated, binding the root and recursively mounted inside contracts. Without inside contracts this equals archkeel.ir.codec.contract_digest, SHA-256 of canonical contract_bytes.",
+      "maxLength": 64
     },
     "decided_by": {
       "type": "string",
@@ -36,6 +40,55 @@
       "type": "string",
       "minLength": 1,
       "description": "Free text: why the widening was decided."
+    },
+    "before_baseline_digest": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$",
+      "maxLength": 64
+    },
+    "after_baseline_digest": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$",
+      "maxLength": 64
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "2.0.0"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "before_baseline_digest",
+          "after_baseline_digest"
+        ]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "before_baseline_digest"
+              ]
+            },
+            {
+              "required": [
+                "after_baseline_digest"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
 }

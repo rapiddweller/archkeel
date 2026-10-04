@@ -46,3 +46,23 @@ def test_gate_does_not_mask_a_failed_project_check(
     assert steps.exists(), result.stderr
     assert steps.read_text().splitlines() == expected_steps
     assert result.returncode == expected_exit, result.stderr
+
+
+def test_against_uses_pinned_base_and_stops_before_gate(tmp_path: Path) -> None:
+    steps = tmp_path / "steps"
+    runner = tmp_path / "uv"
+    runner.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{steps}"\nexit 1\n')
+    runner.chmod(0o755)
+    result = subprocess.run(
+        ["sh", "-c", "make against && make gate"],
+        cwd=ROOT,
+        env={**os.environ, "UV": str(runner), "BASE": "a" * 40},
+        capture_output=True,
+    )
+    assert result.returncode != 0
+    assert steps.read_text().splitlines() == [
+        f"run --locked python -m tools.against --base {'a' * 40}"
+    ]
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    assert "BASE: ${{ github.event.pull_request.base.sha }}" in workflow
+    assert workflow.index("run: make against") < workflow.index("run: make gate")

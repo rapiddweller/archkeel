@@ -586,7 +586,9 @@ def test_amendment_round_trips_through_codec() -> None:
     assert (
         parse_amendment(
             {
-                "schema_version": "1.0.0",
+                "schema_version": "2.0.0",
+                "before_baseline_digest": None,
+                "after_baseline_digest": None,
                 "before_digest": amendment.before_digest,
                 "after_digest": amendment.after_digest,
                 "decided_by": amendment.decided_by,

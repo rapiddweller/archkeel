@@ -55,3 +55,5 @@ unneeded one rewrites `architecture.json` and conflicts with other branches for 
   new import between components needs a `requires` entry with its reason. Never widen a rule to
   make a check pass.
 - **Commit messages** start with an imperative sentence and explain why in the body.
+
+Contract or baseline budget widenings require a reviewed v2 amendment binding both policies. Run `make against BASE=<base-commit>` before the full gate. A changed amendment must match exactly; multiple changed records fail. `decided_by` and `rationale` are free text, not authenticated approval.

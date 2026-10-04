@@ -26,8 +26,10 @@ removed one passes silently. A baseline is exactly the file an agent would pad t
 violation disappear, so it is checked, not assumed clean. A widening is reported in `failures`
 with exit 1, exactly the way AD-52's baseline drift is, unless `--amendment <path>` names a file
 that binds this exact before/after pair: `schema/contract-amendment.schema.json`'s
-`before_digest` and `after_digest`, each a SHA-256 of `ir.codec.contract_bytes`' canonical form
-via the new `ir.codec.contract_digest`, the way the lock binds its own inputs. `decided_by` and
+`before_digest` and `after_digest` bind `InsideContractTree.comparison_digest`, covering the root
+and recursively mounted inside contracts. Without inside contracts this is
+`ir.codec.contract_digest`, SHA-256 of canonical `contract_bytes`; an absent prior contract
+uses `absent_contract_digest`, bound to its repository path (AD-104). `decided_by` and
 `rationale` are free text, checked for non-emptiness only, the way a rule's own `rationale` is.
 `--write-amendment`, with `--decided-by` and `--rationale`, writes that file instead of checking
 it, the way `--write-baseline` does; an amendment written for one change does not verify against
@@ -89,3 +91,5 @@ Check: `tests/test_widening.py::test_rule_kind_widening_table`,
 `tests/test_widening.py::test_a_shrunk_baseline_entry_is_narrowing_and_passes`,
 `tests/test_widening.py::test_validate_without_against_is_unchanged` and
 `tests/test_architecture_demo.py::test_against_variant_produces_the_catalogued_verdict`.
+
+#310: v2 also binds canonical original-before and actual-after baseline policies, including roles, debt counts and named budgets. Null means no baseline comparison; absence is path-bound and differs from an empty file. Rename classification does not change the bound original policy. Legacy v1 remains readable for contract-only comparisons. Explicit stale records fail even without widening; refused baseline rewrites emit no amendment. PR CI runs `make against` against the pinned event base before the full gate.

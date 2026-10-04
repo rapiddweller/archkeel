@@ -244,3 +244,5 @@ answer key are prepared; human effectiveness and the need for a separate explore
   names none, since a private symbol reaching another module is already an `interface_boundary`
   violation. A claim that either repeats a verdict or names a quarter of the repository teaches
   readers to skip it, which AD-26 warns against.
+
+#310: PR CI runs `make against` with the pinned event base before the full gate. One changed v2 amendment binds recursive contracts and original-before/actual-after baseline policies; stale or multiple records fail closed. Legacy v1 remains contract-only.

@@ -213,15 +213,36 @@ def test_baseline_schema_accepts_what_the_writer_writes_and_the_parser_reads() -
     assert not list(Draft202012Validator(schema).iter_errors(written))
 
 
-def test_amendment_schema_accepts_what_the_writer_writes_and_the_parser_reads() -> None:
+@pytest.mark.parametrize("baseline_digests", [(None, None), ("c" * 64, "d" * 64)])
+def test_amendment_schema_accepts_what_the_writer_writes_and_the_parser_reads(
+    baseline_digests: tuple[str | None, str | None],
+) -> None:
     """AD-61: one shape for the file, checked against the executable writer and parser."""
-    amendment = Amendment("0" * 64, "1" * 64, "architect: Jordan", "Planned migration, phase 2.")
+    amendment = Amendment(
+        "0" * 64,
+        "1" * 64,
+        "architect: Jordan",
+        "Planned migration, phase 2.",
+        *baseline_digests,
+    )
     schema = _schema("contract-amendment.schema.json")
     Draft202012Validator.check_schema(schema)
     written = json.loads(amendment_bytes(amendment))
 
     assert parse_amendment(written) == amendment
     assert not list(Draft202012Validator(schema).iter_errors(written))
+
+
+@pytest.mark.parametrize(
+    "field", ["before_digest", "after_digest", "before_baseline_digest", "after_baseline_digest"]
+)
+@pytest.mark.parametrize("digest", ["a" * 64 + "\n", "a" * 63, "a" * 65, "A" * 64, "g" * 64])
+def test_amendment_schema_and_parser_reject_malformed_digests(field: str, digest: str) -> None:
+    record = json.loads(amendment_bytes(Amendment("a" * 64, "b" * 64, "who", "why")))
+    record[field] = digest
+    with pytest.raises(ValueError, match="lowercase SHA-256 digest"):
+        parse_amendment(record)
+    assert not Draft202012Validator(_schema("contract-amendment.schema.json")).is_valid(record)
 
 
 def test_ir_schemas_accept_the_parsed_self_observation() -> None:

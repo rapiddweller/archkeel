@@ -1,12 +1,16 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: gate check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield
+.PHONY: against gate check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield
 check: lint typecheck test
 
 gate: release-check self-validate
 
 release-check: check build smoke
+
+against: BASE ?= origin/main
+against:
+	$(UV) run --locked python -m tools.against --base "$(BASE)"
 
 self-validate:
 	$(UV) run --locked archkeel validate --root . --baseline architecture-baseline.json --json
@@ -27,7 +31,7 @@ typescript-adapter:
 	$(MAKE) -C packages/typescript-adapter install pack
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py \
-	tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py tools/github_pr_report.py \
+	tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/reproduce_typescript.py \
@@ -38,7 +42,7 @@ lint:
 	$(UV) run --locked ruff check $(LINT_PATHS)
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/github_pr_report.py
+	$(UV) run --locked mypy src/archkeel tools/github_pr_report.py tools/against.py
 
 fixtures:
 	$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)")

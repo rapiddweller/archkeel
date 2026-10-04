@@ -36,6 +36,12 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
+      - name: Check widening against the pinned PR base
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: make against
+
       - name: Run the locked project gate
         run: make gate
 
