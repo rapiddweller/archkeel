@@ -270,7 +270,7 @@ def test_deepest_forbidden_dependency_has_a_same_rule_clean_positive_control(
     ("deep_rules", "source_import", "expected_exit", "expected_verdict"),
     [
         ([], "", 0, "PASS"),
-        ([_forbidden_edge()], "from sample.layer.target.api import VALUE\n", 2, "UNKNOWN"),
+        ([_forbidden_edge()], "from sample.layer.target.api import VALUE\n", 2, "FAIL"),
     ],
     ids=["clean-deep-scope", "deepest-boundary-violation"],
 )
@@ -303,10 +303,11 @@ def test_validate_cli_keeps_the_deepest_scope_decided(
     result = json.loads(capsys.readouterr().out)
 
     assert result["declared_rules"] == expected_verdict
+    assert result["observation_complete"] == "PASS"
+    assert result["expectation_fulfilled"] == "n/a"
     if expected_verdict == "PASS":
-        assert result["observation_complete"] == "PASS"
+        assert result["diagnostics"] == []
     else:
-        assert result["observation_complete"] == "UNKNOWN"
         assert [
             (item["code"], item["subject"], item["pointer"])
             for item in result["diagnostics"]

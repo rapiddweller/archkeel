@@ -102,9 +102,9 @@ def capture_inside_violation() -> str:
         output = capture(
             command,
             expected_exit_code=2,
-            required_output=("NOT CHECKED", "store:STORE-REQUIRES-COMPLETE", "rule.violated"),
+            required_output=("× FAIL", "store:STORE-REQUIRES-COMPLETE", "rule.violated"),
         )
-        if output.count("rule.violated") != 3 or "PASS" in output:
+        if output.count("rule.violated") != 3 or "NOT CHECKED" in output:
             raise RuntimeError("inside-rule CLI output does not match its three-finding fixture")
         result = subprocess.run([*command, "--json"], capture_output=True, check=False, text=True)
         if result.returncode != 2:
@@ -112,7 +112,11 @@ def capture_inside_violation() -> str:
         report = json.loads(result.stdout)
         diagnostics = [(item["code"], item["subject"]) for item in report["diagnostics"]]
         expected = [("rule.violated", "store:STORE-REQUIRES-COMPLETE")] * 3
-        if report["declared_rules"] != "UNKNOWN" or diagnostics != expected:
+        if (
+            report["observation_complete"] != "PASS"
+            or report["declared_rules"] != "FAIL"
+            or diagnostics != expected
+        ):
             raise RuntimeError(f"inside-rule JSON evidence changed: {report}")
         return output
 
