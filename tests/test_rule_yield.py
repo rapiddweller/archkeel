@@ -758,7 +758,8 @@ def test_requires_observed_passes_do_not_certify_unowned_facade_scope(tmp_path: 
         assert ledger["violations"] == ledger["unknowns"] == 0
         assert ledger["scope_complete"] is False
         assert row["assessment_status"] == "UNKNOWN"
-        assert "No complete evaluator receipt" in row["assessment_reason"]
+        assert "sample.app" in row["assessment_reason"]
+        assert 'exact_modules: ["sample.app"]' in row["assessment_reason"]
 
 
 @pytest.mark.parametrize(

@@ -40,6 +40,7 @@ from archkeel.ir.decisions import (
     agent_decisions,
     open_decisions,
     review_claims,
+    rule_assessments,
     violation_counts,
 )
 from archkeel.ir.interfaces import interface_budgets
@@ -93,7 +94,7 @@ from archkeel.ir.widening import (
 
 from .git import GitError, MissingBlobError, read_blob, tracked_paths, working_tree_paths
 from .ports import Analyzer, FilesToWrite, ScanConfig
-from .ratchets import measure_python_ratchets, unresolved_call_changes
+from .ratchets import measure_python_ratchets, unknown_positions_by_rule, unresolved_call_changes
 from .report import observe_repository
 from .run import inspect_observation, observe_revision
 from .snapshot import SnapshotError
@@ -2055,6 +2056,11 @@ def _observed_result(
         open_decisions=decisions,
         agent_decisions=counts,
         claims=review_claims(observation) if measurements is not None else None,
+        rule_assessments=(
+            rule_assessments(observation, undecided_by_rule=unknown_positions_by_rule(observation))
+            if measurements is not None
+            else None
+        ),
         violations_by_rule=counted.by_rule,
         violations_by_component_pair=counted.by_component_pair,
         interface_budgets=interface_budgets,

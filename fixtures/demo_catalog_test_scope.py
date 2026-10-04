@@ -41,6 +41,7 @@ VARIANTS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         config=TEST_CONFIG,
+        expected_declared_rules="PASS",
     ),
     Variant(
         id="test-scope-helper-in-unit",

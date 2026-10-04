@@ -7,7 +7,7 @@ it. The product contract does not change.
 
 | Suite | Package | Responsibility |
 |---|---|---|
-| support | `tests.support` | Builders every test may share |
+| support | `tests.support`; exact module `tests` | Shared builders and package metadata |
 | unit | `tests.unit` | One component at a time, no files on disk |
 | integration | `tests.integration` | Use cases against a real store directory |
 

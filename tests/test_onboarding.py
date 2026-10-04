@@ -429,3 +429,20 @@ def test_interface_entries_applies_the_ad9_module_entry_rule() -> None:
     assert interface_entries(
         "pkg.mod", {"_hidden", "shown"}, False, False, {"shown", "b", "c", "d"}
     ) == ["pkg.mod:shown"]
+
+
+@pytest.mark.parametrize("source", ['"""Package API."""\n', '__version__ = "1"\n'])
+def test_init_flags_namespace_ownership_without_choosing_owner(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], source: str
+) -> None:
+    root = _repository(tmp_path)
+    initializer = root / "src/archkeel/__init__.py"
+    initializer.write_text(source)
+    _init(root, capsys)
+    assert initializer.read_text() == source
+    document = (root / DOCUMENT_PATH).read_text()
+    assert "src/archkeel/__init__.py" in document
+    assert 'exact_modules: ["archkeel"]' in document
+    assert "AST-empty" in document
+    draft = _contract(root / CONTRACT_PATH)
+    assert draft.component_for("archkeel") is None

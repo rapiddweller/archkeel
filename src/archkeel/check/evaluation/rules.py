@@ -415,13 +415,9 @@ def _assignment_violations(
             continue
         for item in modules:
             module = item["data"]["qualified_name"]
-            # The namespace container and blank files hold no code a component could own.
-            explicit_claims = sum(
-                component_owns_module(component, module) for component in contract.components
-            )
+            # Assignment retains its legacy exemption for all AST-empty files.
             if (
-                (module == rule.source and explicit_claims == 0)
-                or module in blank
+                module in blank
                 or not in_scope(module, rule.source)
                 or contract.component_for(module) is not None
             ):
@@ -5548,7 +5544,7 @@ def _collect_rule_violations(
     ]
     if assessment_facts is not None:
         assessment_facts.extend(
-            rule_evaluation_receipts(
+            rule_evaluation_facts(
                 contract,
                 profile=profile,
                 scope=assessment_parent or "root",
@@ -5846,7 +5842,7 @@ def _contains(root: PurePosixPath, path: PurePosixPath) -> bool:
     return not root.is_absolute() and path.is_relative_to(root)
 
 
-def rule_evaluation_receipts(
+def rule_evaluation_facts(
     contract: ArchitectureContract,
     *,
     profile: Profile,
@@ -5856,10 +5852,10 @@ def rule_evaluation_receipts(
     blank_modules: frozenset[str],
     receipt_scope_complete: bool,
 ) -> list[RawRecord]:
-    """Record the supported rule evaluators that just ran for one observation scope.
+    """Record completed evaluations or ownership blockers for one observation scope.
 
-    This is deliberately emitted by the analyzer beside `rule_violations`, not inferred by a
-    report from missing findings. Declaration-only permissions and profile-unsupported rules
+    Only `rule_evaluation` records certify completion. Blocker facts explain missing receipts
+    without turning an incomplete scope into PASS. Declaration-only and unsupported rules
     have no evaluation receipt.
     """
     observed = tuple(
@@ -5867,7 +5863,7 @@ def rule_evaluation_receipts(
         for item in modules
         if source_modules is None or item["data"]["qualified_name"] in source_modules
     )
-    receipts: list[RawRecord] = []
+    facts: list[RawRecord] = []
     for rule in contract.rules:
         if rule.kind in profile.unsupported_rules or isinstance(
             rule, AllowedDependencyRule | BoundaryTypesRule | NoComponentCyclesRule
@@ -5884,6 +5880,12 @@ def rule_evaluation_receipts(
                 )
                 else ()
             )
+            if not selected and receipt_scope_complete:
+                facts.extend(
+                    _inside_ownership_blockers(
+                        rule, scope, contract, observed, profile, blank_modules
+                    )
+                )
         elif isinstance(rule, ForbiddenDependencyRule):
             selected = _modules_for_rule_source(rule.source, observed, contract)
         elif isinstance(rule, SiblingIsolationRule):
@@ -5907,8 +5909,70 @@ def rule_evaluation_receipts(
         else:
             assert_never(rule)
         if selected:
-            receipts.append(_rule_evaluation_receipt(rule, scope, selected))
-    return receipts
+            facts.append(_rule_evaluation_receipt(rule, scope, selected))
+    return facts
+
+
+def _inside_ownership_blockers(
+    rule: CompleteRequiresRule | InterfaceBoundaryRule,
+    scope: str,
+    contract: ArchitectureContract,
+    observed: Sequence[RawRecord],
+    profile: Profile,
+    blank_modules: frozenset[str],
+) -> list[RawRecord]:
+    blockers: list[RawRecord] = []
+    for item in sorted(observed, key=lambda item: item["data"]["qualified_name"]):
+        module = item["data"]["qualified_name"]
+        owners = sorted(
+            component.label
+            for component in contract.components
+            if component_owns_module(component, module)
+        )
+        if len(owners) == 1 or (
+            not owners and _empty_python_initializer(item, profile, blank_modules)
+        ):
+            continue
+        file = item["data"]["file"]
+        reason = (
+            f"{module} ({file}) has no owner in scope {scope}. "
+            f'Assign it to one existing component using exact_modules: ["{module}"].'
+            if not owners
+            else f"{module} ({file}) has overlapping owners in scope {scope}: {', '.join(owners)}. "
+            "Remove overlapping claims so exactly one component owns it."
+        )
+        blockers.append(
+            classified(
+                item_id=stable_id("RULE-OWNERSHIP-BLOCKER", scope, rule.id, item["id"]),
+                evidence_class=EvidenceClass.FACT,
+                area="rules",
+                kind="rule_ownership_blocker",
+                title=reason,
+                subjects=[module],
+                rule_ids=[rule.id],
+                fact_ids=[item["id"]],
+                evidence_ids=item["evidence_ids"],
+                data={
+                    "scope": scope,
+                    "module": module,
+                    "file": file,
+                    "owners": owners,
+                    "owner_count": len(owners),
+                    "reason": reason,
+                },
+            )
+        )
+    return blockers
+
+
+def _empty_python_initializer(
+    item: RawRecord, profile: Profile, blank_modules: frozenset[str]
+) -> bool:
+    return (
+        profile.source_suffix == ".py"
+        and PurePosixPath(item["data"]["file"]).name == "__init__.py"
+        and item["data"]["qualified_name"] in blank_modules
+    )
 
 
 def _inside_rule_scope_is_complete(
@@ -5932,12 +5996,7 @@ def _inside_rule_scope_is_complete(
     )
     return any(owner_count == 1 for _, owner_count in ownership) and all(
         owner_count == 1
-        or (
-            owner_count == 0
-            and profile.source_suffix == ".py"
-            and PurePosixPath(item["data"]["file"]).name == "__init__.py"
-            and item["data"]["qualified_name"] in blank_modules
-        )
+        or (owner_count == 0 and _empty_python_initializer(item, profile, blank_modules))
         for item, owner_count in ownership
     )
 

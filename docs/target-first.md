@@ -10,8 +10,11 @@ the backlog down, and land the interfaces the target already names.
 
 Every command below runs on a working copy of `fixtures/F-architecture`, the shop sample, with
 one addition already in flight and the diffs shown inline, so the whole page is reproducible.
-The sample itself commits clean; the additions are what a refactoring in progress looks like
-before it converges on its target.
+Base validation exits 0, but the store rule is UNKNOWN: `shop.store` re-exports an interface
+and has no child owner. Before claiming PASS, add `"exact_modules": ["shop.store"]` to the
+existing `repository` component in `shop/store/architecture-contract.json`. This is the
+`ownership-exact-module-positive` demo overlay; it assigns only the initializer. The additions
+below then show a refactoring in progress before it converges on its target.
 
 ## 1. Write the target, not a description
 
