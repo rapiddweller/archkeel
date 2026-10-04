@@ -1,12 +1,37 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: against gate check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema
+.PHONY: against gate ci ci-typescript mermaid check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema
 check: lint typecheck test
 
-gate: release-check self-validate
+# These stages consume the previous stage's success, even with make -j.
+.NOTPARALLEL: gate release-check ci
+
+gate: $(if $(strip $(BASE)),against,self-validate) release-check
 
 release-check: check build smoke
+
+ci: gate ci-typescript browser-install report-browser
+
+ci-typescript: OUTPUT := test-artifacts/typescript-demo
+ci-typescript: demo-typescript
+
+mermaid:
+	@set -eu; mermaid_dir=$$(mktemp -d); \
+		trap 'rm -rf "$$mermaid_dir"' 0; \
+		python3 tools/mermaid_blocks.py --write "$$mermaid_dir"; \
+		printf '{"args": ["--no-sandbox"]}\n' > "$$mermaid_dir/puppeteer-config.json"; \
+		fail=0; \
+		for mmd in "$$mermaid_dir"/*.mmd; do \
+			[ -f "$$mmd" ] || continue; \
+			number=$$(basename "$$mmd" .mmd); \
+			location=$$(awk -F'\t' -v n="$$number" '$$1 == n { print $$2 }' "$$mermaid_dir/index.txt"); \
+			if ! npx --yes @mermaid-js/mermaid-cli@11.17.0 -p "$$mermaid_dir/puppeteer-config.json" -i "$$mmd" -o "$$mmd.svg"; then \
+				echo "::error::$$location: mermaid-cli failed to render this block"; \
+				fail=1; \
+			fi; \
+		done; \
+		exit "$$fail"
 
 against: BASE ?= origin/main
 against:
@@ -31,7 +56,7 @@ typescript-adapter:
 	$(MAKE) -C packages/typescript-adapter install pack
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py \
-	tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
+	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/reproduce_typescript.py \
