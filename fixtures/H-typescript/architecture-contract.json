@@ -1,0 +1,200 @@
+{
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "COMP-APP",
+      "label": "app",
+      "role": "component",
+      "packages": [
+        "shop.src.main_x2e_ts"
+      ],
+      "public": [
+        "shop.src.main_x2e_ts"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "requires": [
+        {
+          "component": "data",
+          "rationale": "Use the declared layer."
+        },
+        {
+          "component": "presentation",
+          "rationale": "Use the declared layer."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-PRESENTATION",
+      "label": "presentation",
+      "role": "component",
+      "packages": [
+        "shop.src.presentation"
+      ],
+      "public": [
+        "shop.src.presentation"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "requires": [
+        {
+          "component": "domain",
+          "rationale": "Use the declared layer."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-DATA",
+      "label": "data",
+      "role": "component",
+      "packages": [
+        "shop.src.data"
+      ],
+      "public": [
+        "shop.src.data"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "requires": [
+        {
+          "component": "domain",
+          "rationale": "Use the declared layer."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-DOMAIN",
+      "label": "domain",
+      "role": "component",
+      "packages": [
+        "shop.src.domain"
+      ],
+      "public": [
+        "shop.src.domain"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "requires": [],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES",
+      "kind": "complete_requires",
+      "rationale": "Keep the shop dependency boundary explicit.",
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "ASSIGNMENT",
+      "kind": "complete_assignment",
+      "source": "shop",
+      "rationale": "Keep the shop dependency boundary explicit.",
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "LAYOUT",
+      "kind": "root_layout",
+      "root": "shop.src",
+      "allowed_children": [
+        "shop.src.domain",
+        "shop.src.data",
+        "shop.src.presentation",
+        "shop.src.main_x2e_ts"
+      ],
+      "rationale": "Keep the shop dependency boundary explicit.",
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMPONENT-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Keep the shop dependency boundary explicit.",
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "MODULE-CYCLES",
+      "kind": "no_component_cycles",
+      "level": "module",
+      "rationale": "Keep the shop dependency boundary explicit.",
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DOMAIN-NO-DATA",
+      "kind": "forbidden_dependency",
+      "source": "shop.src.domain",
+      "target": "shop.src.data",
+      "include_type_checking": true,
+      "rationale": "Keep the shop dependency boundary explicit.",
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DATA-PEERS",
+      "kind": "sibling_isolation",
+      "members": [
+        "shop.src.data.local_x2e_ts",
+        "shop.src.data.remote_x2e_ts"
+      ],
+      "rationale": "Keep the shop dependency boundary explicit.",
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "EXTERNAL-COMPLETE",
+      "kind": "complete_external_scope",
+      "source": "shop",
+      "rationale": "Keep the shop dependency boundary explicit.",
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "EXTERNAL-SHOP",
+      "kind": "external_dependency_scope",
+      "dependency": "@shop/transport",
+      "allowed_sources": [
+        "shop.src.data"
+      ],
+      "rationale": "Keep the shop dependency boundary explicit.",
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "decided_by": "architect"
+    }
+  ]
+}

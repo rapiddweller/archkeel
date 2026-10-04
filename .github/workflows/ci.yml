@@ -39,6 +39,9 @@ jobs:
       - name: Run the locked project gate
         run: make gate
 
+      - name: Replay TypeScript rules through the CLI
+        run: make demo-typescript OUTPUT=test-artifacts/typescript-demo
+
       - name: Install Chromium for report acceptance
         run: make browser-install
 
