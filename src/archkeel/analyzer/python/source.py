@@ -548,6 +548,8 @@ def unproven_class_body(
 def property_bindings(
     module: ParsedModule, parent: ast.ClassDef
 ) -> dict[FunctionNode, _PropertyBinding]:
+    if parent not in module.tree.body:
+        return {}
     bindings: dict[FunctionNode, _PropertyBinding] = {}
     previous: dict[str, FunctionNode] = {}
     for child in parent.body:
@@ -649,6 +651,7 @@ def method_decorator_data(
         "signature_decorators_proven": signature_proven and descriptor_count <= 1,
         "source_final_method_binding": not node.decorator_list
         and parent is not None
+        and parent in module.tree.body
         and parent.name in stable_direct_module_bindings(module)
         and binding_may_exist_before(parent.body, node, node.name)
         and not binding_may_exist_before(tuple(reversed(parent.body)), node, node.name),

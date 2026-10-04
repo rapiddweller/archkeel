@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 from test_inherited_properties import _property, _validate
+from test_local_inherited_methods import _report
 
 from archkeel.analyzer.python.collect import collect
 from archkeel.check.observation import assemble_observation
@@ -141,6 +142,48 @@ def test_repeated_class_names_do_not_create_final_binding_proof(tmp_path):
     _, report, observation = _validate(tmp_path, source)
     assert report.declared_rules == "UNKNOWN"
     assert observation.records("violations") == ()
+
+
+@pytest.mark.parametrize("collision", [False, True])
+@pytest.mark.parametrize("replacement", ["", "    class Shared: pass\n", "    Shared = object\n"])
+@pytest.mark.parametrize("accessor", [False, True], ids=["ordinary", "property"])
+def test_nested_owner_cannot_borrow_module_class_proof(tmp_path, collision, replacement, accessor):
+    source = (
+        ("class Shared: pass\n" if collision else "")
+        + "class Child:\n    class Shared:\n"
+        + ("        @property\n" if accessor else "")
+        + "        def value(self) -> int: ...\n"
+        + ("        @value.setter\n" if accessor else "")
+        + "        def value(self, arg: object) -> object: ...\n"
+        + replacement
+    )
+    report, observation = _report(tmp_path, source, public=["sample.app.api"])
+    assert report.declared_rules == "UNKNOWN"
+    assert unknown_positions(observation) > 0
+    assert observation.records("violations") == ()
+    nested = [
+        record for record in observation.records("symbols") if record.data.get("parent") is not None
+    ]
+    assert all(
+        record.data.get("source_binding_unique") is False
+        for record in nested
+        if record.kind == "class"
+    )
+    assert all(record.data.get("source_final_method_binding") is not True for record in nested)
+
+
+def test_module_property_keeps_its_own_proof_beside_a_same_named_nested_class(tmp_path):
+    source = (
+        "class Shared:\n    @property\n    def value(self) -> int: ...\n"
+        "    @value.setter\n    def value(self, arg: object) -> None: ...\n"
+        "class Child:\n    class Shared: pass\n"
+    )
+    report, observation = _report(tmp_path, source, public=["sample.app.api"])
+    assert report.declared_rules == "FAIL"
+    assert {
+        (record.data.get("qualified_name"), record.data.get("position"))
+        for record in observation.records("violations")
+    } == {("sample.app.api.Shared.value", "arg")}
 
 
 @pytest.mark.parametrize("missing_owner_proof", [False, True])
