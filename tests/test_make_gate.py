@@ -9,21 +9,31 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).parents[1]
 
 
-def test_gate_does_not_mask_a_failed_project_check(tmp_path: Path) -> None:
-    """A failed check stops the gate before a later release step can look successful."""
-    marker = tmp_path / "later-step-ran"
+@pytest.mark.parametrize(
+    ("check_exit", "expected_exit", "expected_steps"),
+    [(1, 2, ["check"]), (0, 0, ["check", "build", "smoke", "self-validate"])],
+)
+def test_gate_does_not_mask_a_failed_project_check(
+    tmp_path: Path, check_exit: int, expected_exit: int, expected_steps: list[str]
+) -> None:
+    """A failed check stops release steps; a successful check reaches them in order."""
+    steps = tmp_path / "steps"
     makefile = tmp_path / "Makefile"
     makefile.write_text(
         f"include {ROOT / 'Makefile'}\n\n"
-        ".PHONY: lint typecheck test check build smoke\n"
-        "lint typecheck test build:\n\t@:\n"
-        "check:\n\t@false\n"
-        f"smoke:\n\t@touch {marker}\n"
+        ".PHONY: lint typecheck test typescript-adapter check build smoke self-validate\n"
+        "lint typecheck test typescript-adapter:\n\t@:\n"
+        f'check:\n\t@echo check >> "{steps.as_posix()}"\n\t@exit {check_exit}\n'
+        f'build:\n\t@echo build >> "{steps.as_posix()}"\n'
+        f'smoke:\n\t@echo smoke >> "{steps.as_posix()}"\n'
+        f'self-validate:\n\t@echo self-validate >> "{steps.as_posix()}"\n'
     )
-    environment = {**os.environ, "UV": "false"}
+    environment = {**os.environ, "UV": "false", "NPM": "false"}
 
     result = subprocess.run(
         ["make", "-f", str(makefile), "gate"],
@@ -33,5 +43,6 @@ def test_gate_does_not_mask_a_failed_project_check(tmp_path: Path) -> None:
         text=True,
     )
 
-    assert result.returncode != 0
-    assert not marker.exists()
+    assert steps.exists(), result.stderr
+    assert steps.read_text().splitlines() == expected_steps
+    assert result.returncode == expected_exit, result.stderr
