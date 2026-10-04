@@ -570,13 +570,11 @@ def _opaque_import_member_escapes(
         escaped |= {data["binding"]}
     if data["symbol"] is None or owner_exposure_only:
         base_bindings = (
-            member_binding_closure(
-                list(ast.walk(module.tree)), {data["binding"]}, member_surface=True
-            )
+            member_binding_closure(module.all_nodes, {data["binding"]}, member_surface=True)
             if owner_exposure_only
             else {data["binding"]}
         )
-        for owner in ast.walk(module.tree):
+        for owner in module.all_nodes:
             if not isinstance(owner, ast.ClassDef) or (
                 owner_exposure_only
                 and native_owner_creation_static(module, owner, unsafe_providers)
