@@ -241,6 +241,7 @@ unless the check has already classified them as a failure.
   recalculate card positions without changing navigation or architecture evidence.
   Focus draws one exact entity and its direct incoming/outgoing neighbors. Counts show
   the subset and complete level; Reset filters restores all elements and connections.
+  Automatic fit keeps focused views at least at 100% zoom; larger views scroll.
   Details and Core status retain complete evidence. Hover does not change the layout.
   The UML legend selects one relationship kind or all kinds. It shows complete-level
   counts; the filter status names the visible subset. Hidden edges have no hit areas.
@@ -259,7 +260,8 @@ unless the check has already classified them as a failure.
   first search. Retries require measured cards to fit within the canvas area;
   larger levels need filtering. No architectural evidence or status changes.
   Dense graphs still require visual review; crossings can remain.
-  Fit overview includes every card. It may reduce text below reading size in large levels;
+  Unfiltered Fit overview includes every card. It may reduce text below reading size
+  in large levels;
   Reset returns to 100%, and drill-down or Details exposes readable content.
 - Long lists of imported names and facade measurements use native disclosure controls. The
   summary keeps counts visible and the complete evidence accessible without JavaScript.

@@ -1816,11 +1816,12 @@
   function fit() {
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height || !canvas.clientWidth || !canvas.clientHeight) return;
-    transform.k = Math.min(
+    // Focused neighborhoods stay readable; oversized content uses native scrolling.
+    transform.k = Math.max(focusLabel ? 1 : 0, Math.min(
       1.4,
       canvas.clientWidth / (bounds.width + 48),
       canvas.clientHeight / (bounds.height + 48),
-    );
+    ));
     diagramOrigin = null;
     sizeDiagram();
     canvas.scrollLeft = 0;

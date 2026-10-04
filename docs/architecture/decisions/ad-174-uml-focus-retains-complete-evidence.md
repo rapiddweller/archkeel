@@ -10,7 +10,8 @@ only. An isolated entity has no connection hit areas.
 
 This is a rendering filter. It changes no graph values, evidence, Target intent,
 Core assessment or verdict. Diff keeps its complete Core status visible.
-Large neighborhoods can still be unreadable; focus is not a global layout proof.
+Automatic fit keeps focused views at least at 100% zoom; larger views scroll.
+Focus is not a global layout proof.
 
 Proof: `tests/test_uml_visual_acceptance.py` exercises Source, Target and Diff,
 an unrelated classifier, a Core FAIL, actual route geometry and restored identities.
