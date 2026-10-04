@@ -978,6 +978,7 @@ def _boundary_type_subject_modules(
     of reading an empty result as a clean pass.
     """
     reexports = _reexport_index(imports)
+    property_chains = _property_chains(symbols)
     function_subjects = frozenset(
         module
         for item in symbols
@@ -990,6 +991,7 @@ def _boundary_type_subject_modules(
                 imports,
                 uncertain_reexport_origins,
                 reexports,
+                property_chains,
             )
         )
         is not None
@@ -2742,6 +2744,36 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
     return _Position(resolved=reached, mapping_occurrences=mapping_occurrences)
 
 
+def _ambiguous_method_group(methods: Sequence[RawRecord]) -> bool:
+    if len(methods) < 2:
+        return False
+    for method in methods:
+        data = method["data"]
+        if (
+            data.get("overloaded") is not True
+            or data.get("signature_decorators_proven") is not True
+        ):
+            return True
+    return False
+
+
+def _property_chains(symbols: Sequence[RawRecord]) -> frozenset[str]:
+    grouped: dict[str, list[RawRecord]] = defaultdict(list)
+    chains: set[str] = set()
+    for item in symbols:
+        if item["kind"] != "method" or not _is_public_method_name(item["data"]["name"]):
+            continue
+        data = item["data"]
+        name = data["qualified_name"]
+        group: list[RawRecord] = grouped[name]
+        group.append(item)
+        if "property_binding" in data and data["property_binding"]["operation"] != "create":
+            chains.add(name)
+    return frozenset(
+        chains | {name for name, group in grouped.items() if _ambiguous_method_group(group)}
+    )
+
+
 def _declared_facade_positions(
     item: RawRecord,
     contract: ArchitectureContract,
@@ -2749,6 +2781,7 @@ def _declared_facade_positions(
     imports: Sequence[RawRecord] = (),
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
     reexports: ReexportIndex | None = None,
+    property_chains: frozenset[str] = frozenset(),
 ) -> DeclaredFacade | None:
     """The (module, qualified name, annotated positions) for one declared facade callable.
 
@@ -2759,8 +2792,19 @@ def _declared_facade_positions(
     data = item["data"]
     if item["kind"] == "class" and data.get("symbol_category") == "class":
         return _declared_facade_inherited_positions(
-            data, contract, exports_by_module, imports, uncertain_reexport_origins, reexports
+            data,
+            contract,
+            exports_by_module,
+            imports,
+            uncertain_reexport_origins,
+            reexports,
+            property_chains,
         )
+    if data.get("qualified_name") in property_chains and not (
+        data.get("source_final_method_binding") is True
+        and data.get("signature_decorators_proven") is True
+    ):
+        return None
     if data.get("overloaded") is True and data.get("overload_signature") is not True:
         return None
     method = item["kind"] == "method" and data.get("symbol_category") == "method"
@@ -2813,9 +2857,12 @@ def _declared_facade_inherited_positions(
     imports: Sequence[RawRecord],
     uncertain_reexport_origins: UncertainReexportOrigins | None,
     reexports: ReexportIndex | None,
+    property_chains: frozenset[str],
 ) -> DeclaredFacade | None:
     base_roots = data["base_roots"] if "base_roots" in data else data["bases"]
-    if not any(base not in _FRAMEWORK_BASES for base in base_roots):
+    if not any(
+        f"{data['qualified_name']}.{name}" in property_chains for name in data["class_members"]
+    ) and not any(base not in _FRAMEWORK_BASES for base in base_roots):
         return None
     module, name = data["module"], data["name"]
     entries: list[FacadeEntry] = []
@@ -2984,6 +3031,7 @@ def _facade_positions(
     imports: Sequence[RawRecord] = (),
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
     reexports: ReexportIndex | None = None,
+    property_chains: frozenset[str] = frozenset(),
 ) -> (
     tuple[
         str,
@@ -2998,7 +3046,13 @@ def _facade_positions(
     """The declared facade positions `rule` must check, or None when the function is out of
     scope or exempted (AD-49)."""
     found = _declared_facade_positions(
-        item, contract, exports_by_module, imports, uncertain_reexport_origins, reexports
+        item,
+        contract,
+        exports_by_module,
+        imports,
+        uncertain_reexport_origins,
+        reexports,
+        property_chains,
     )
     if found is None:
         return None
@@ -3063,6 +3117,7 @@ def facade_signature_types(
         ancestor_contracts,
     )
     reexports = _reexport_index(imports)
+    property_chains = _property_chains(symbols)
     classes_by_qualified_name = {
         item["data"]["qualified_name"]: item for item in symbols if item["kind"] == "class"
     }
@@ -3093,7 +3148,13 @@ def facade_signature_types(
     recorded: list[RawRecord] = []
     for item in symbols:
         found = _declared_facade_positions(
-            item, contract, exports_by_module, imports, uncertain_reexport_origins, reexports
+            item,
+            contract,
+            exports_by_module,
+            imports,
+            uncertain_reexport_origins,
+            reexports,
+            property_chains,
         )
         has_proven_facade = found is not None and any(not entry[3] for entry in found[4])
         names = (
@@ -3173,6 +3234,7 @@ def _scoped_facade_signature_types(
     type_shapes: TypeShapeIndex,
 ) -> list[RawRecord]:
     """Attach nested facade type evidence to its mount and physical publisher module."""
+    property_chains = _property_chains(symbols)
     owners = (contract, *ancestor_contracts)
     recorded: list[RawRecord] = []
     for item in symbols:
@@ -3194,7 +3256,13 @@ def _scoped_facade_signature_types(
         scoped_types = by_mount.get(scope_id, {})
         for owner in owners:
             found = _declared_facade_positions(
-                item, owner, exports_by_module, imports, uncertain_reexport_origins, reexports
+                item,
+                owner,
+                exports_by_module,
+                imports,
+                uncertain_reexport_origins,
+                reexports,
+                property_chains,
             )
             if found is None:
                 continue
@@ -3319,6 +3387,133 @@ def _resolved_position_types(
     return sorted(names)
 
 
+class _BoundMethod(NamedTuple):
+    symbol: RawRecord
+    owner: RecordData
+    imports: BindingIndex
+    classes: BindingIndex
+
+
+class _PropertyMethods(NamedTuple):
+    getter: _BoundMethod
+    setter: _BoundMethod | None = None
+
+
+_MethodSurface: TypeAlias = dict[str, tuple[_BoundMethod, ...] | _PropertyMethods]
+
+
+def _apply_property_methods(
+    data: RecordData,
+    methods: Sequence[RawRecord],
+    inherited: _MethodSurface,
+    imports: BindingIndex,
+    classes: BindingIndex,
+) -> _MethodSurface | None:
+    surface = {
+        name: value for name, value in inherited.items() if name not in data["class_members"]
+    }
+    grouped: dict[str, list[RawRecord]] = defaultdict(list)
+    for method in methods:
+        declared: list[RawRecord] = grouped[method["data"]["name"]]
+        declared.append(method)
+    for name, group in grouped.items():
+        if name not in data.get("property_members", ()):
+            if _ambiguous_method_group(group):
+                return None
+            for item in group:
+                method_data = item["data"]
+                if method_data.get("signature_decorators_proven") is not True:
+                    return None
+            surface[name] = tuple(_BoundMethod(item, data, imports, classes) for item in group)
+            continue
+        if any("property_binding" not in item["data"] for item in group):
+            return None
+        local: dict[int, _PropertyMethods] = {}
+        for method in sorted(group, key=lambda item: item["data"]["property_binding"]["line"]):
+            method_data = method["data"]
+            binding = method_data["property_binding"]
+            bound = _BoundMethod(method, data, imports, classes)
+            if binding["operation"] == "create":
+                if method_data.get("signature_decorators_proven") is not True:
+                    return None
+                selected = _PropertyMethods(bound)
+            else:
+                origin = (
+                    inherited.get(name)
+                    if binding["source"] == "base"
+                    else local.get(binding["source_line"])
+                )
+                if not isinstance(origin, _PropertyMethods):
+                    return None
+                selected = (
+                    _PropertyMethods(bound, origin.setter)
+                    if binding["operation"] == "getter"
+                    else _PropertyMethods(origin.getter, bound)
+                )
+            local[binding["line"]] = selected
+            surface[name] = selected
+    return surface
+
+
+def _effective_method_surface(
+    item: RawRecord,
+    symbols: Sequence[RawRecord],
+    methods_by_parent: dict[str, list[RawRecord]],
+    contract: ArchitectureContract,
+    exports: dict[str, frozenset[str]],
+    imports: BindingIndex,
+    classes: BindingIndex,
+    *,
+    type_shapes: TypeShapeIndex,
+    incoming_imports: Sequence[RawRecord],
+    visited: frozenset[str] = frozenset(),
+) -> _MethodSurface | None:
+    data = item["data"]
+    qualified_name = data["qualified_name"]
+    if (
+        qualified_name in visited
+        or data["class_body_control_flow"]
+        or data.get("class_header_static") is not True
+        or data.get("source_binding_unique") is not True
+        or data.get("source_member_binding_static") is not True
+        or not _member_origin_static(qualified_name, incoming_imports)
+    ):
+        return None
+    base, reason = _public_api_base(
+        item,
+        symbols,
+        contract,
+        exports,
+        imports,
+        classes,
+        member_surface=True,
+        type_shapes=type_shapes,
+    )
+    if reason is not None:
+        return None
+    inherited: _MethodSurface = {}
+    if base is not None:
+        base_symbol, base_imports, base_classes = base
+        found = _effective_method_surface(
+            base_symbol,
+            symbols,
+            methods_by_parent,
+            contract,
+            exports,
+            base_imports,
+            base_classes,
+            type_shapes=type_shapes,
+            incoming_imports=incoming_imports,
+            visited=visited | {qualified_name},
+        )
+        if found is None:
+            return None
+        inherited = found
+    return _apply_property_methods(
+        data, methods_by_parent.get(qualified_name, ()), inherited, imports, classes
+    )
+
+
 def _inherited_facade_types(
     item: RawRecord,
     symbols: Sequence[RawRecord],
@@ -3330,129 +3525,81 @@ def _inherited_facade_types(
     *,
     type_shapes: TypeShapeIndex,
     incoming_imports: Sequence[RawRecord],
-    overrides: frozenset[str] = frozenset(),
-    visited: frozenset[str] = frozenset(),
 ) -> tuple[list[str], list[tuple[str, str, str, str, _Position]], bool]:
-    """Evaluate effective methods along one proven local base chain, in their defining scope."""
-    data = item["data"]
-    qualified_name = data["qualified_name"]
-    if (
-        qualified_name in visited
-        or data["class_body_control_flow"]
-        or data.get("class_header_static") is not True
-        or data.get("source_binding_unique") is not True
-        or data.get("source_member_binding_static") is not True
-        or not _member_origin_static(qualified_name, incoming_imports)
-    ):
-        return [], [], False
-    base, reason = _public_api_base(
+    surface = _effective_method_surface(
         item,
-        symbols,
-        contract,
-        exports_by_module,
-        imports_by_binding,
-        classes_by_location,
-        member_surface=True,
-        type_shapes=type_shapes,
-    )
-    if base is None:
-        return [], [], reason is None
-    base_symbol, base_imports, base_classes = base
-    base_data = base_symbol["data"]
-    if (
-        base_data["class_body_control_flow"]
-        or base_data.get("class_header_static") is not True
-        or base_data.get("source_binding_unique") is not True
-        or base_data.get("source_member_binding_static") is not True
-        or not _member_origin_static(base_data["qualified_name"], incoming_imports)
-    ):
-        return [], [], False
-    overridden = overrides | frozenset(data["class_members"])
-    complete = True
-    for method in methods_by_parent.get(qualified_name, ()):
-        method_data = method["data"]
-        name = method_data["name"]
-        if name not in overrides and _is_public_method_name(name):
-            if method_data.get("signature_decorators_proven") is not True:
-                complete = False
-    names, positions, base_complete = _inherited_method_positions(
-        base_data,
-        methods_by_parent.get(base_data["qualified_name"], ()),
-        overridden,
-        contract,
-        exports_by_module,
-        base_imports,
-        base_classes,
-        type_shapes=type_shapes,
-    )
-    inherited_names, inherited_positions, inherited_complete = _inherited_facade_types(
-        base_symbol,
         symbols,
         methods_by_parent,
         contract,
         exports_by_module,
-        base_imports,
-        base_classes,
-        overrides=overridden,
-        visited=visited | {qualified_name},
-        incoming_imports=incoming_imports,
+        imports_by_binding,
+        classes_by_location,
         type_shapes=type_shapes,
+        incoming_imports=incoming_imports,
     )
-    if not (complete and base_complete and inherited_complete):
+    if surface is None:
         return [], [], False
-    return sorted(names | set(inherited_names)), [*positions, *inherited_positions], True
-
-
-def _inherited_method_positions(
-    base_data: RecordData,
-    methods: Sequence[RawRecord],
-    overridden: frozenset[str],
-    contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
-    base_imports: BindingIndex,
-    base_classes: BindingIndex,
-    *,
-    type_shapes: TypeShapeIndex,
-) -> tuple[set[str], list[tuple[str, str, str, str, _Position]], bool]:
+    property_chains = _property_chains(methods_by_parent.get(item["data"]["qualified_name"], ()))
     names: set[str] = set()
     positions: list[tuple[str, str, str, str, _Position]] = []
-    complete = True
-    for method in methods:
-        method_data = method["data"]
-        name = method_data["name"]
-        if (
-            name in overridden
-            or not _is_public_method_name(name)
-            or (
-                method_data.get("overloaded") is True
-                and method_data.get("overload_signature") is not True
-            )
-        ):
+    for name, members in surface.items():
+        if not _is_public_method_name(name):
             continue
-        if method_data.get("signature_decorators_proven") is not True:
-            complete = False
-            continue
-        uncertainties = method_data.get("annotation_binding_uncertainties", {})
-        for position, annotation in _method_signature_positions(method_data):
-            verdict = _boundary_type_verdict(
-                annotation,
-                base_data["module"],
-                contract,
-                exports_by_module,
-                base_imports,
-                base_classes,
-                uncertain_bindings=uncertainties.get(position, ()),
-                type_shapes=type_shapes,
+        property_methods = isinstance(members, _PropertyMethods)
+        selected = (
+            (members.getter, members.setter) if isinstance(members, _PropertyMethods) else members
+        )
+        for bound in selected:
+            if bound is None or (
+                bound.owner["qualified_name"] == item["data"]["qualified_name"]
+                and (
+                    not property_methods
+                    or bound.symbol["data"]["qualified_name"] not in property_chains
+                )
+            ):
+                continue
+            method_names, method_positions = _bound_method_positions(
+                bound, contract, exports_by_module, type_shapes=type_shapes
             )
-            positions.append((name, method["id"], position, annotation, verdict))
-            for origin in verdict.resolved:
-                symbol = base_classes.get(origin)
-                if isinstance(symbol, dict) and (
-                    symbol.get("symbol_category") == "class"
-                    or symbol.get("record_kind") == "type_alias"
-                ):
-                    names.add(f"{origin[0]}.{origin[1]}")
-    return names, positions, complete
+            names.update(method_names)
+            positions.extend(method_positions)
+    return sorted(names), positions, True
+
+
+def _bound_method_positions(
+    bound: _BoundMethod,
+    contract: ArchitectureContract,
+    exports: dict[str, frozenset[str]],
+    *,
+    type_shapes: TypeShapeIndex,
+) -> tuple[set[str], list[tuple[str, str, str, str, _Position]]]:
+    names: set[str] = set()
+    positions: list[tuple[str, str, str, str, _Position]] = []
+    method = bound.symbol
+    data = method["data"]
+    if data.get("overloaded") is True and data.get("overload_signature") is not True:
+        return names, positions
+    uncertainties = data.get("annotation_binding_uncertainties", {})
+    for position, annotation in _method_signature_positions(data):
+        verdict = _boundary_type_verdict(
+            annotation,
+            bound.owner["module"],
+            contract,
+            exports,
+            bound.imports,
+            bound.classes,
+            uncertain_bindings=uncertainties.get(position, ()),
+            type_shapes=type_shapes,
+        )
+        positions.append((data["name"], method["id"], position, annotation, verdict))
+        for origin in verdict.resolved:
+            symbol = bound.classes.get(origin)
+            if isinstance(symbol, dict) and (
+                symbol.get("symbol_category") == "class"
+                or symbol.get("record_kind") == "type_alias"
+            ):
+                names.add(f"{origin[0]}.{origin[1]}")
+    return names, positions
 
 
 def _direct_generic_candidate_types(
@@ -3924,6 +4071,7 @@ def _boundary_types_violations(
         ancestor_contracts,
     )
     reexports = _reexport_index(imports)
+    property_chains = _property_chains(symbols)
     methods_by_parent: dict[str, list[RawRecord]] = defaultdict(list)
     for item in symbols:
         parent = item["data"]["parent"]
@@ -3943,6 +4091,7 @@ def _boundary_types_violations(
                 imports,
                 uncertain_reexport_origins,
                 reexports,
+                property_chains,
             )
             if found is None:
                 continue
@@ -4479,6 +4628,7 @@ def _boundary_rule_positions(
     positions_out: list[RawRecord] = []
     occurrences: dict[tuple[str, str], int] = {}
     reexports = _reexport_index(imports)
+    property_chains = _property_chains(ordered_symbols)
     methods_by_parent: dict[str, list[RawRecord]] = defaultdict(list)
     for item in ordered_symbols:
         parent = item["data"]["parent"]
@@ -4488,7 +4638,14 @@ def _boundary_rule_positions(
     seen = 0
     for item in ordered_symbols:
         found = _facade_positions(
-            item, rule, contract, exports_by_module, imports, uncertain_reexport_origins, reexports
+            item,
+            rule,
+            contract,
+            exports_by_module,
+            imports,
+            uncertain_reexport_origins,
+            reexports,
+            property_chains,
         )
         if found is None:
             continue
@@ -4575,7 +4732,13 @@ def _boundary_rule_positions(
                 )
         selected = _selected_facade(module, qualified_name, resolution_module)
         declared = _declared_facade_positions(
-            item, contract, exports_by_module, imports, uncertain_reexport_origins, reexports
+            item,
+            contract,
+            exports_by_module,
+            imports,
+            uncertain_reexport_origins,
+            reexports,
+            property_chains,
         )
         if declared is None:
             continue

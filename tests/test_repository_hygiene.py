@@ -41,9 +41,6 @@ SOURCES = tuple(
 )
 LONG_FUNCTION_LINES = 80
 ALLOWED_LONG_FUNCTIONS = {
-    "src/archkeel/check/evaluation/rules.py::_inherited_facade_types": (
-        "One proven local base chain retains defining scopes and overrides together."
-    ),
     "src/archkeel/check/delta.py::require_comparable_runtime": (
         "One profile boundary retains legacy Python provenance while checking explicit runtimes."
     ),

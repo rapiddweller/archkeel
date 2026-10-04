@@ -13,7 +13,7 @@ from collections.abc import Iterable, Iterator, Sequence
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Final, Protocol
+from typing import Final, Literal, Protocol, TypedDict
 
 from archkeel.ir.facts import EvidenceClass, stable_id
 from archkeel.ir.facts_codec import RawData as RecordData
@@ -30,6 +30,16 @@ from archkeel.ir.facts_codec import (
 )
 from archkeel.ir.source_records import FRAMEWORK_BASES as FRAMEWORK_BASES
 from archkeel.ir.source_records import is_public_method_name as is_public_method_name
+
+
+class _PropertyBinding(TypedDict):
+    """One ordered operation on a statically named standard property binding."""
+
+    operation: Literal["create", "getter", "setter"]
+    source: Literal["new", "local", "base"]
+    line: int
+    source_line: int
+
 
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 NATIVE_DATACLASS_DECORATOR: Final = "dataclasses.dataclass"
@@ -481,11 +491,16 @@ def unproven_class_body(
         for child in node.body
     ):
         return True
+    properties = property_bindings(module, node)
     bindings: dict[str, tuple[int, int, int, bool, bool]] = {}
     for child in node.body:
         if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef) and (
             child.name in {"__init_subclass__", "__class_getitem__"}
-            or method_decorator_data(module, child, node)["signature_decorators_proven"] is not True
+            or (
+                child not in properties
+                and method_decorator_data(module, child, node)["signature_decorators_proven"]
+                is not True
+            )
         ):
             return True
         if (
@@ -513,20 +528,82 @@ def unproven_class_body(
             )
     return any(
         count > 1
+        and sum(method.name == name for method in properties) != count
         and not (
             all_functions
             and overload_count == count - 1
             and implementation_count == 1
             and not last_overload
         )
-        for (
+        for name, (
             count,
             overload_count,
             implementation_count,
             last_overload,
             all_functions,
-        ) in bindings.values()
+        ) in bindings.items()
     )
+
+
+def property_bindings(
+    module: ParsedModule, parent: ast.ClassDef
+) -> dict[FunctionNode, _PropertyBinding]:
+    if parent not in module.tree.body:
+        return {}
+    bindings: dict[FunctionNode, _PropertyBinding] = {}
+    previous: dict[str, FunctionNode] = {}
+    for child in parent.body:
+        names = _class_statement_bindings(child)
+        if not isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+            for name in names[0] if names is not None else tuple(previous):
+                previous.pop(name, None)
+            continue
+        binding = _property_operation(module, child, parent, previous, bindings)
+        if binding is not None:
+            bindings[child] = binding
+        previous[child.name] = child
+    return bindings
+
+
+def _property_operation(
+    module: ParsedModule,
+    node: FunctionNode,
+    parent: ast.ClassDef,
+    previous: dict[str, FunctionNode],
+    bindings: dict[FunctionNode, _PropertyBinding],
+) -> _PropertyBinding | None:
+    if len(node.decorator_list) != 1 or isinstance(node, ast.AsyncFunctionDef):
+        return None
+    decorator = node.decorator_list[0]
+    if is_proven_decorator(
+        module, decorator, node, parent, frozenset({"property", "builtins.property"})
+    ) and not isinstance(decorator, ast.Call):
+        return {"operation": "create", "source": "new", "line": node.lineno, "source_line": 0}
+    if not isinstance(decorator, ast.Attribute) or decorator.attr not in {"getter", "setter"}:
+        return None
+    operation: Literal["getter", "setter"] = "getter" if decorator.attr == "getter" else "setter"
+    descriptor = decorator.value
+    if isinstance(descriptor, ast.Name) and descriptor.id == node.name:
+        origin = previous.get(node.name)
+        if origin is not None and origin in bindings:
+            return {
+                "operation": operation,
+                "source": "local",
+                "line": node.lineno,
+                "source_line": origin.lineno,
+            }
+    if (
+        isinstance(descriptor, ast.Attribute)
+        and descriptor.attr == node.name
+        and len(parent.bases) == 1
+        and ast.dump(descriptor.value) == ast.dump(parent.bases[0])
+    ):
+        root = descriptor.value
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        if isinstance(root, ast.Name) and not binding_may_exist_before(parent.body, node, root.id):
+            return {"operation": operation, "source": "base", "line": node.lineno, "source_line": 0}
+    return None
 
 
 def method_decorator_data(
@@ -567,9 +644,24 @@ def method_decorator_data(
                 method_kind = "static"
             elif resolved in {"classmethod", "builtins.classmethod"}:
                 method_kind = "class"
+    properties = property_bindings(module, parent) if parent is not None else {}
+    binding = properties.get(node)
+    if (
+        binding is not None
+        and parent is not None
+        and parent.name not in stable_direct_module_bindings(module)
+    ):
+        binding = None
     return {
         "method_kind": method_kind,
         "signature_decorators_proven": signature_proven and descriptor_count <= 1,
+        "source_final_method_binding": not node.decorator_list
+        and parent is not None
+        and parent in module.tree.body
+        and parent.name in stable_direct_module_bindings(module)
+        and binding_may_exist_before(parent.body, node, node.name)
+        and not binding_may_exist_before(tuple(reversed(parent.body)), node, node.name),
+        **({"property_binding": binding} if binding is not None else {}),
     }
 
 
@@ -582,10 +674,9 @@ def _class_members_receive_owner(module: ParsedModule, owner: ast.ClassDef) -> b
         if exposes_dynamic_namespace(module, node, local_namespace=True):
             return True
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            if (
-                method_decorator_data(module, node, owner)["signature_decorators_proven"]
-                is not True
-            ):
+            if method_decorator_data(module, node, owner)[
+                "signature_decorators_proven"
+            ] is not True and node not in property_bindings(module, owner):
                 return True
         elif isinstance(node, ast.ClassDef):
             if not class_header_static(node) or node.bases:
@@ -1005,6 +1096,15 @@ def _protected_member_references(
     type_expressions = _protected_type_expressions(nodes)
     protected = _type_reference_nodes(module, type_expressions) if member_surface else set()
     if member_surface:
+        protected |= {
+            item
+            for owner in nodes
+            if isinstance(owner, ast.ClassDef)
+            for method in property_bindings(module, owner)
+            for decorator in method.decorator_list
+            for item in ast.walk(decorator)
+        }
+    if member_surface:
         protected |= _type_reference_nodes(
             module,
             [base for node in nodes if isinstance(node, ast.ClassDef) for base in node.bases],
@@ -1046,6 +1146,12 @@ def _unproven_member_roots(
     protected = _protected_member_references(
         module, nodes, member_surface=member_surface, owner_exposure_only=owner_exposure_only
     )
+    properties = {
+        method
+        for owner in nodes
+        if member_surface and include_creation_uncertainty and isinstance(owner, ast.ClassDef)
+        for method in property_bindings(module, owner)
+    }
     changed: set[str] = (
         {
             node.name
@@ -1059,6 +1165,7 @@ def _unproven_member_roots(
                     unsafe_providers=unsafe_providers,
                 )
                 or isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+                and node not in properties
                 and method_decorator_data(module, node, None)["signature_decorators_proven"]
                 is not True
             )

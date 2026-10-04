@@ -9,8 +9,10 @@ from pathlib import PurePosixPath
 from .facts import (
     BuiltinTarget,
     ConstructSupport,
+    Evidence,
     EvidenceClass,
     ExternalPackageTarget,
+    JsonValue,
     LocalTarget,
     Record,
     RecordData,
@@ -102,12 +104,21 @@ _PROOF_FLAGS = frozenset(
         "class_header_static",
         "class_body_control_flow",
         "signature_decorators_proven",
+        "source_final_method_binding",
         "overload_signature",
         "overloaded",
     }
 )
 _STRING_ARRAYS = frozenset(
-    {"targets", "evidence_ids", "target_evidence_ids", "bases", "decorators", "handled"}
+    {
+        "targets",
+        "evidence_ids",
+        "target_evidence_ids",
+        "bases",
+        "decorators",
+        "handled",
+        "property_members",
+    }
 )
 _POLICY_FIELDS = frozenset(
     {"contract", "baseline", "verdict", "rule_id", "rule_ids", "violations", "declared_root"}
@@ -127,6 +138,8 @@ def _payload(value: RecordData) -> None:
     # Nested mappings may use source-defined names such as `status` or `contract`.
     # Only the record envelope's own fields have protocol meaning.
     for key, child in value.entries:
+        if key == "property_binding":
+            _property_payload(child)
         if key in _POLICY_FIELDS:
             raise ValueError(f"policy field {key} is not a source fact")
         if key in _STRING_FIELDS and not isinstance(child, str):
@@ -146,6 +159,107 @@ def _payload(value: RecordData) -> None:
             not isinstance(child, tuple) or any(not isinstance(item, str) for item in child)
         ):
             raise ValueError(f"source payload {key} must be a string array")
+
+
+def _property_payload(value: JsonValue) -> None:
+    if not isinstance(value, RecordData) or {key for key, _ in value.entries} != {
+        "operation",
+        "source",
+        "line",
+        "source_line",
+    }:
+        raise ValueError("invalid property binding fields")
+    operation, source = value.get("operation"), value.get("source")
+    line, source_line = value.get("line"), value.get("source_line")
+    if (
+        operation not in ("create", "getter", "setter")
+        or source not in ("new", "local", "base")
+        or type(line) is not int
+        or type(source_line) is not int
+        or line < 1
+        or source_line < 0
+        or source_line >= line
+        or (operation == "create") != (source == "new")
+        or (source == "local") != (source_line > 0)
+    ):
+        raise ValueError("invalid property binding operation or order")
+
+
+def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> None:
+    classes = {
+        name: record
+        for record in records
+        if record.kind == "class" and isinstance(name := record.data.get("qualified_name"), str)
+    }
+    members: dict[str, set[str]] = {}
+    ordered: dict[tuple[str, str], dict[int, Record]] = {}
+    for record in records:
+        parent, name = record.data.get("parent"), record.data.get("name")
+        if record.kind == "method" and isinstance(parent, str) and isinstance(name, str):
+            for reference in record.evidence_ids:
+                if reference in evidence:
+                    ordered.setdefault((parent, name), {})[evidence[reference].line] = record
+    for record in records:
+        if record.data.get("property_members") is not None and record.kind != "class":
+            raise ValueError("property members need a class owner")
+        binding = record.data.get("property_binding")
+        if record.data.get("source_final_method_binding") is True:
+            parent, name = record.data.get("parent"), record.data.get("name")
+            owner = classes.get(parent) if isinstance(parent, str) else None
+            group = (
+                ordered.get((parent, name), {})
+                if isinstance(parent, str) and isinstance(name, str)
+                else {}
+            )
+            if (
+                record.kind != "method"
+                or owner is None
+                or owner.data.get("source_binding_unique") is not True
+                or record.data.get("qualified_name") != f"{parent}.{name}"
+                or owner.data.get("module") != record.data.get("module")
+                or record.data.get("decorators") != ()
+                or binding is not None
+                or group.get(max(group, default=0)) != record
+            ):
+                raise ValueError("final method binding needs its last undecorated definition")
+        if binding is None:
+            continue
+        parent, name = record.data.get("parent"), record.data.get("name")
+        owner = classes.get(parent) if isinstance(parent, str) else None
+        if (
+            record.kind != "method"
+            or record.data.get("symbol_category") != "method"
+            or record.data.get("method_kind") != "instance"
+            or record.data.get("async") is not False
+            or not isinstance(binding, RecordData)
+            or not isinstance(parent, str)
+            or not isinstance(name, str)
+            or owner is None
+            or record.data.get("qualified_name") != f"{parent}.{name}"
+            or owner.data.get("module") != record.data.get("module")
+        ):
+            raise ValueError("property binding needs its defining class and method")
+        line, source_line = binding.get("line"), binding.get("source_line")
+        group = ordered.get((parent, name), {})
+        if not isinstance(line, int) or group.get(line) != record:
+            raise ValueError("property order disagrees with method evidence")
+        if binding.get("source") == "local":
+            previous = max((position for position in group if position < line), default=0)
+            previous_record = group.get(previous)
+            if (
+                previous != source_line
+                or previous_record is None
+                or previous_record.data.get("property_binding") is None
+            ):
+                raise ValueError("property source must be the previous binding in its class")
+        member_names: set[str] = members.setdefault(parent, set())
+        member_names.add(name)
+    for parent, record in classes.items():
+        names = record.data.get("property_members", ())
+        if not isinstance(names, tuple) or _unique(
+            (name for name in names if isinstance(name, str)), "property member"
+        ) != members.get(parent, set()):
+            raise ValueError("property members disagree with method binding proofs")
 
 
 def _source_record(record: Record, section: str) -> None:
@@ -242,6 +356,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         if not set(record.fact_ids).issubset(record_ids | file_ids):
             raise ValueError("dangling source fact reference")
     record_by_id = {record.id: record for record in records}
+    _property_bindings(records, base_by_id)
     for gap in facts.coverage.gaps:
         _source_record(gap, "unknowns")
         if gap.evidence_class != EvidenceClass.UNKNOWN:

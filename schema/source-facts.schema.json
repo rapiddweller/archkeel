@@ -87,6 +87,9 @@
             "signature_decorators_proven": {
               "type": "boolean"
             },
+            "source_final_method_binding": {
+              "type": "boolean"
+            },
             "overload_signature": {
               "type": "boolean"
             },
@@ -99,6 +102,48 @@
                 "type": "string",
                 "minLength": 1
               }
+            },
+            "property_members": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "property_binding": {
+              "type": "object",
+              "properties": {
+                "operation": {
+                  "enum": [
+                    "create",
+                    "getter",
+                    "setter"
+                  ]
+                },
+                "source": {
+                  "enum": [
+                    "new",
+                    "local",
+                    "base"
+                  ]
+                },
+                "line": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "source_line": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "operation",
+                "source",
+                "line",
+                "source_line"
+              ],
+              "additionalProperties": false
             }
           }
         }

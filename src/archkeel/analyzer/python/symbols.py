@@ -27,6 +27,7 @@ from .source import (
     is_static_type_alias_value,
     location,
     module_scope_bindings,
+    property_bindings,
     stable_direct_module_bindings,
     unproven_class_body,
     unproven_member_bindings,
@@ -206,7 +207,8 @@ def _symbol_data(
                 "symbol_category": "class",
                 "fields": _class_field_annotations(node),
                 "class_members": _class_member_names(node),
-                "source_binding_unique": node.name in stable_direct_module_bindings(module),
+                "source_binding_unique": node in module.tree.body
+                and node.name in stable_direct_module_bindings(module),
                 "source_member_binding_static": node.name not in unproven_member_bindings(module),
                 "class_header_static": class_header_static(node),
                 "class_body_control_flow": unproven_class_body(module, node),
@@ -214,6 +216,10 @@ def _symbol_data(
                 **({"generic_bases": generic_bases} if generic_bases else {}),
             }
         )
+        if data["source_binding_unique"] is True and (
+            properties := property_bindings(module, node)
+        ):
+            data["property_members"] = sorted({method.name for method in properties})
     else:
         data.update(_function_signature(node))
         data["symbol_category"] = "method" if parent else "function"
