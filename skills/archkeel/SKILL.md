@@ -300,14 +300,9 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md
 
 ## Exit codes
 
-- `init`: 0 draft written, 2 not checked (with a diagnostic).
-- `validate`: 0 contract valid for this repository, 2 invalid (diagnostics with JSON
-  Pointers). With `--baseline <file>` also 1: a violation or selected measurement differs from
-  the baseline, named in `failures` (AD-52, AD-89). With `--against
-  <ref>` also 1: an unamended widening, named in `failures` (AD-61, #11).
-- `report`: 0 observation complete (a rule violation is a FAIL verdict), 2 not checked.
-- `skill install claude|codex`: 0 instructions written, 2 the target file could not be updated.
-- `check`: 0 merge, 1 reject, 2 not checked. Its expectation's `selected_changes` may be `[]`
+See the canonical [per-command exit table](https://github.com/rapiddweller/archkeel/blob/main/docs/reference.md#exit-codes).
+
+`check`'s expectation's `selected_changes` may be `[]`
   when a candidate is not meant to change anything architectural, such as a pure refactor. That
   declares absence, not "nothing to report": `check` then fails on any semantic change the
   candidate actually produced, in any dimension, not only the six guardrail ones. Declare `[]`

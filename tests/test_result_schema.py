@@ -396,7 +396,7 @@ def test_real_dart_delta_matches_the_published_schema(validator, tmp_path: Path)
             checker_digest="b" * 64,
         )
     )
-    schema = validator.evolve(schema={"$ref": "urn:archkeel:command-result:2.0.0#/$defs/delta"})
+    schema = validator.evolve(schema={"$ref": "urn:archkeel:command-result:3.0.0#/$defs/delta"})
     assert not list(schema.iter_errors(delta))
     delta["analyzer"]["name"] = "unknown-analyzer"
     assert not schema.is_valid(delta)
@@ -597,6 +597,7 @@ def test_small_consumer_preserves_report_fail_and_unknown(results) -> None:
     for name, expected in (
         ("C-check.stdout", "check: PASS / PASS / PASS\n"),
         ("tour-report", "report: PASS / FAIL / n/a\n"),
+        ("tour-validate", "validate: PASS / FAIL / n/a\n"),
         ("invalid-validate", "validate: UNKNOWN / UNKNOWN / UNKNOWN\n"),
     ):
         run = subprocess.run(
@@ -607,3 +608,46 @@ def test_small_consumer_preserves_report_fail_and_unknown(results) -> None:
         )
         assert run.returncode == 0, (run.stdout, run.stderr)
         assert run.stdout == expected
+
+
+def test_diagnostic_validate_preserves_complete_evidence_only(validator, results) -> None:
+    payload = copy.deepcopy(results["tour-validate"])
+    assert payload["exit_code"] == 2
+    assert [payload[key] for key in VERDICTS] == ["PASS", "FAIL", "n/a"]
+    assert validator.is_valid(payload)
+    for field in ("measurements", "coverage", "claims"):
+        invalid = copy.deepcopy(payload)
+        invalid[field] = None
+        assert not validator.is_valid(invalid), field
+    for command in ("check", "report"):
+        invalid = copy.deepcopy(payload)
+        invalid["command"] = command
+        assert not validator.is_valid(invalid), command
+    incomplete = copy.deepcopy(payload)
+    incomplete["observation_complete"] = "UNKNOWN"
+    assert not validator.is_valid(incomplete)
+    legacy = copy.deepcopy(validator.schema)
+    legacy["allOf"][1]["then"] = legacy["allOf"][1]["then"]["else"]
+    assert not validator.evolve(schema=legacy).is_valid(payload)
+    assert validator.evolve(schema=legacy).is_valid(results["invalid-validate"])
+
+
+@pytest.mark.parametrize(
+    "field", ["agent_decisions", "violations_by_rule", "violations_by_component_pair"]
+)
+def test_completed_diagnostic_validate_requires_measured_counts(validator, results, field) -> None:
+    payload = copy.deepcopy(results["tour-validate"])
+    assert payload["exit_code"] == 2 and payload["observation_complete"] == "PASS"
+    assert payload[field] is not None and validator.is_valid(payload)
+    payload[field] = None
+    assert not validator.is_valid(payload)
+
+
+def test_validate_assessments_require_completed_inspection(validator, results) -> None:
+    incomplete = copy.deepcopy(results["invalid-validate"])
+    assert incomplete["rule_assessments"] is None and validator.is_valid(incomplete)
+    incomplete["rule_assessments"] = []
+    assert not validator.is_valid(incomplete)
+    complete = copy.deepcopy(results["tour-validate"])
+    complete["rule_assessments"] = results["tour-report"]["rule_assessments"]
+    assert complete["rule_assessments"] and validator.is_valid(complete)

@@ -197,7 +197,7 @@ def build_parser() -> _Parser:
             "  0  the contract is valid for this repository\n"
             "  1  with --baseline: a violation or selected measurement changed; with\n"
             "     --against: an unamended widening\n"
-            "  2  invalid: each diagnostic names the JSON Pointer to fix\n\n"
+            "  2  validation diagnostics; completed inspections retain their rule verdict\n\n"
             f"Rules: {_DOCS}/rules.md"
         ),
     )

@@ -123,11 +123,7 @@ Dart and TypeScript support imports. TypeScript roots may name files or director
 runtime behavior, performance, or the quality of every design decision. Separate test trees need their own
 scan and contract.
 
-| Exit | Meaning |
-| ---: | --- |
-| `0` | Complete report or successful check; read the individual verdicts |
-| `1` | Rejected, including a baseline that needs updating |
-| `2` | Input or evidence could not be verified; read the diagnostic |
+Exit meanings are defined [per command](docs/reference.md#exit-codes).
 
 Details: [rules](docs/rules.md) · [known limits](docs/known-limits.md) ·
 [command reference](docs/reference.md) · [roadmap](docs/roadmap.md).

@@ -533,13 +533,13 @@ def test_public_api_member_ambiguity_does_not_hide_known_inherited_fields(tmp_pa
 @pytest.mark.parametrize(
     ("entries", "source", "exit_code", "status"),
     [
-        (["sample:ChildPublic"], "class Child(Base): pass\n", 2, "UNKNOWN"),
-        (["sample.facade:Child"], "class Child(Base): pass\n", 2, "UNKNOWN"),
-        (["sample:Public"], "class Child(Base): pass\n", 2, "UNKNOWN"),
+        (["sample:ChildPublic"], "class Child(Base): pass\n", 2, "PASS"),
+        (["sample.facade:Child"], "class Child(Base): pass\n", 2, "PASS"),
+        (["sample:Public"], "class Child(Base): pass\n", 2, "PASS"),
         (["sample:Public", "sample.facade:Nested"], "class Child(Base): pass\n", 0, "PASS"),
         (["sample:ChildPublic", "sample.facade:Nested"], "class Child(Base): pass\n", 0, "PASS"),
         (["sample:ChildPublic"], "class Child(Missing): pass\n", 0, "UNKNOWN"),
-        (["sample.facade:Alias"], "class Child(Base): pass\nAlias = Child\n", 2, "UNKNOWN"),
+        (["sample.facade:Alias"], "class Child(Base): pass\nAlias = Child\n", 2, "PASS"),
         (
             ["sample.facade:Alias", "sample.facade:Nested"],
             "class Child(Base): pass\nAlias = Child\n",
@@ -547,7 +547,7 @@ def test_public_api_member_ambiguity_does_not_hide_known_inherited_fields(tmp_pa
             "PASS",
         ),
         (["sample.facade:Alias"], "class Child(Missing): pass\nAlias = Child\n", 0, "UNKNOWN"),
-        (["sample:AliasPublic"], "class Child(Base): pass\nAlias = Child\n", 2, "UNKNOWN"),
+        (["sample:AliasPublic"], "class Child(Base): pass\nAlias = Child\n", 2, "PASS"),
         (
             ["sample:AliasPublic", "sample.facade:Nested"],
             "class Child(Base): pass\nAlias = Child\n",
@@ -584,13 +584,15 @@ def test_public_api_inheritance_cli_and_report(
     assert main(["validate", "--root", str(tmp_path), "--json"]) == exit_code
     validation = json.loads(capsys.readouterr().out)
     assert validation["declared_rules"] == status, validation
+    assert validation["observation_complete"] == "PASS"
+    assert validation["expectation_fulfilled"] == "n/a"
     assert [item["code"] for item in validation["diagnostics"]] == (
         ["api_surface.missing"] if exit_code == 2 else []
     )
     output = tmp_path / "report.json"
     assert main(["report", "--root", str(tmp_path), "--output", str(output), "--json"]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert report["declared_rules"] == ("UNKNOWN" if "Missing" in source else "PASS"), report
+    assert report["declared_rules"] == status, report
     observation = parse_observation(decode_canonical_model(json.loads(output.read_text())))
     api = next(
         item

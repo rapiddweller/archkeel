@@ -11,6 +11,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 import pytest
+from rich.text import Text
 
 from tools.terminal_svg import capture, capture_inside_violation
 
@@ -44,8 +45,13 @@ def test_inside_violation_capture_shows_all_findings_without_claiming_pass() -> 
     output = capture_inside_violation()
 
     assert output.count("rule.violated") == 3
-    assert "NOT CHECKED" in output
-    assert "PASS" not in output
+    terminal = " ".join(Text.from_ansi(output).plain.split())
+    summary = terminal.split("Independent verdicts", 1)[0]
+    assert "× FAIL" in summary
+    assert "✓ PASS" not in summary
+    assert "Scan complete ✓ PASS" in terminal
+    assert "Rules followed × FAIL" in terminal
+    assert "NOT CHECKED" not in terminal
 
 
 def test_demo_screenshots_routes_terminal_export_through_module(tmp_path: Path) -> None:
@@ -82,7 +88,12 @@ def test_module_exports_real_inside_capture_without_pythonpath(tmp_path: Path) -
     document = ElementTree.parse(output / "archkeel-shop-inside-violation.svg")
     svg = " ".join(" ".join(document.getroot().itertext()).replace("\u00a0", " ").split())
     assert "rule.violated" in svg
-    assert "NOT CHECKED" in svg
+    summary = svg.split("Independent verdicts", 1)[0]
+    assert "× FAIL" in summary
+    assert "✓ PASS" not in summary
+    assert "Scan complete ✓ PASS" in svg
+    assert "Rules followed × FAIL" in svg
+    assert "NOT CHECKED" not in svg
 
 
 def test_demo_accepts_relative_output_with_local_git_remotes(tmp_path: Path) -> None:

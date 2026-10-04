@@ -86,6 +86,12 @@ def _decision_badge(result: RunResult) -> Badge:
         return badge(result.declared_rules)
     if check_leaves_a_verdict_undecided(result) or report_leaves_rules_undecided(result):
         return badge("UNKNOWN")
+    if (
+        result.command == "validate"
+        and result.observation_complete == "PASS"
+        and result.exit_code == 2
+    ):
+        return badge("FAIL") if result.declared_rules == "FAIL" else Badge("fail", "×", "REJECT")
     if result.exit_code == 0:
         return Badge("pass", "✓", "PASS")
     if result.exit_code == 1:
@@ -232,6 +238,15 @@ def report_summary(result: RunResult) -> Summary:
         1: "One or more deterministic checks rejected the candidate.",
         2: "Nothing was checked: the evidence needed for a decision is missing or invalid.",
     }[result.exit_code]
+    if (
+        result.command == "validate"
+        and result.observation_complete == "PASS"
+        and result.exit_code == 2
+    ):
+        sentence = (
+            "The scan completed; validation diagnostics rejected the contract. "
+            "Read the rule verdict and diagnostics."
+        )
     if report_violates_rules(result):
         found = (
             f"{result.measurements.scalars.violations} declared-rule violation(s) found"
