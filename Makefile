@@ -12,7 +12,7 @@ self-validate:
 	$(UV) run --locked archkeel validate --root . --baseline architecture-baseline.json --json
 
 test: typescript-adapter
-	$(UV) run --locked python -m pytest -q
+	$(UV) run --locked python -m pytest -q --durations=20 --junitxml=test-artifacts/pytest/results.xml
 
 collector-safety:
 	$(UV) run --locked python -m pytest -q tests/test_collection_protocol.py \
