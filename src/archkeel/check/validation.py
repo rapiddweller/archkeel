@@ -25,9 +25,11 @@ from archkeel.ir.codec import (
     ContractVersionError,
     InsideContractMount,
     InsideContractTree,
+    absent_baseline_digest,
     absent_contract_digest,
     amendment_bytes,
     baseline_bytes,
+    baseline_digest,
     contract_digest,
     contract_provenance_paths,
     decode_json,
@@ -2303,6 +2305,7 @@ class _AgainstContext:
     rationale: str | None
     config: ScanConfig | None
     tree_digest: str | None = None
+    baseline_digest: str | None = None
 
 
 def _revision_contract_tree(root: Path, revision: str, path: str) -> InsideContractTree:
@@ -2377,8 +2380,8 @@ def _resolve_against_context(
     except (GitError, ValueError) as error:
         return empty, _against_invalid(against, error)
     try:
-        against_baseline, against_budgets, missing_budgets = _against_baseline_state(
-            root, against, baseline, against_contract
+        against_baseline, against_budgets, missing_budgets, before_baseline_digest = (
+            _against_baseline_state(root, against, baseline, against_contract)
         )
     except (GitError, ValueError) as error:
         return empty, _against_invalid(against, error)
@@ -2400,6 +2403,7 @@ def _resolve_against_context(
         rationale,
         against_config,
         before_tree_digest,
+        before_baseline_digest,
     )
     return context, amendment_error
 
@@ -2413,6 +2417,7 @@ def _against_baseline_state(
     tuple[KnownViolation, ...] | None,
     tuple[MeasurementBudget, ...],
     list[str],
+    str | None,
 ]:
     # Without the contract every entry of a baseline the revision lacks too would repeat the
     # introduction, so that baseline is not compared rather than read as no known debt.
@@ -2432,7 +2437,13 @@ def _against_baseline_state(
     for budget in budgets:
         known.add(budget.label)
     missing = sorted(declared - known)
-    return violations, budgets, missing
+    if baseline_at is None:
+        digest = None
+    elif prior is None:
+        digest = absent_baseline_digest(baseline_at)
+    else:
+        digest = baseline_digest(prior.violations, prior.budgets)
+    return violations, budgets, missing, digest
 
 
 def _prior_baseline(root: Path, against: str, path: str) -> ValidationBaseline | None:
@@ -2559,6 +2570,7 @@ def _widening_failures(
     after_budgets: tuple[MeasurementBudget, ...],
     cycle_rules: frozenset[str],
     after_digest: str,
+    after_policy_digest: str | None,
 ) -> tuple[str, ...]:
     """Every unamended widening from `ctx.contract` to `contract` (AD-61, #11).
 
@@ -2589,8 +2601,12 @@ def _widening_failures(
             ctx.parsed_amendment,
             before_digest=_before_digest(ctx.contract, ctx.tree_digest),
             after_digest=after_digest,
+            before_baseline_digest=ctx.baseline_digest,
+            after_baseline_digest=after_policy_digest,
         )
     )
+    if ctx.parsed_amendment is not None and not amended:
+        return tuple(findings) or ("amendment does not bind this contract and baseline comparison",)
     return tuple(findings) if findings and not amended else ()
 
 
@@ -2604,6 +2620,8 @@ def _artifact_files(
     edits: tuple[tuple[str, str], ...],
     exit_code: int,
     current_digest: str,
+    after_baseline_digest: str | None,
+    refused: bool,
 ) -> tuple[dict[str, bytes], str | None]:
     """Every file this run writes, and the last one written, as the result's `artifact`.
 
@@ -2618,6 +2636,7 @@ def _artifact_files(
         files[artifact] = baseline_bytes(violations, budgets)
     if (
         against.write_amendment
+        and not refused
         and against.contract is not None
         and against.amendment is not None
         and exit_code != 2
@@ -2629,6 +2648,8 @@ def _artifact_files(
                 current_digest,
                 against.decided_by or "",
                 against.rationale or "",
+                against.baseline_digest,
+                after_baseline_digest,
             )
         )
     for page, written in edits:
@@ -2847,15 +2868,24 @@ def run_validate(
         for component, entry in sorted(resolved_public_entries)
     )
     rename = _rename_since(against_ctx, contract, observation, root, config, analyzer)
+    after_policy_digest = None
+    if baseline is not None:
+        if write_baseline and not refused:
+            after_policy_digest = baseline_digest(violations, observed_budgets)
+        elif baseline_exists:
+            after_policy_digest = baseline_digest(known, known_budgets)
+        else:
+            after_policy_digest = absent_baseline_digest(baseline.relative_to(root).as_posix())
     widening_failures = _widening_failures(
         against_ctx,
         comparison_contract,
         rename,
         baseline,
-        violations if write_baseline else known,
-        observed_budgets if write_baseline else known_budgets,
+        violations if write_baseline and not refused else known,
+        observed_budgets if write_baseline and not refused else known_budgets,
         cycle_rules,
         current_tree_digest,
+        after_policy_digest,
     )
     result = _observed_result(
         observation,
@@ -2895,5 +2925,7 @@ def run_validate(
         edits=edits,
         exit_code=result.exit_code,
         current_digest=current_tree_digest,
+        after_baseline_digest=after_policy_digest,
+        refused=refused,
     )
     return (result if artifact is None else replace(result, artifact=artifact)), FilesToWrite(files)

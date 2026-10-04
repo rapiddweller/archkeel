@@ -89,3 +89,5 @@ Check: `tests/test_widening.py::test_rule_kind_widening_table`,
 `tests/test_widening.py::test_a_shrunk_baseline_entry_is_narrowing_and_passes`,
 `tests/test_widening.py::test_validate_without_against_is_unchanged` and
 `tests/test_architecture_demo.py::test_against_variant_produces_the_catalogued_verdict`.
+
+#310: v2 also binds canonical original-before and actual-after baseline policies, including roles, debt counts and named budgets. Null means no baseline comparison; absence is path-bound and differs from an empty file. Rename classification does not change the bound original policy. Legacy v1 remains readable for contract-only comparisons. Explicit stale records fail even without widening; refused baseline rewrites emit no amendment. PR CI runs `make against` against the pinned event base before the full gate.

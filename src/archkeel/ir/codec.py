@@ -2651,35 +2651,54 @@ def _amendment_digest(raw: RawJson, label: str) -> str:
     return value
 
 
+def baseline_digest(
+    violations: tuple[KnownViolation, ...], budgets: tuple[MeasurementBudget, ...]
+) -> str:
+    return hashlib.sha256(baseline_bytes(violations, budgets)).hexdigest()
+
+
+def absent_baseline_digest(path: str) -> str:
+    return hashlib.sha256(("\0no baseline at " + path).encode()).hexdigest()
+
+
 def parse_amendment(raw: object) -> Amendment:
-    """Read a contract-widening amendment record, ordered like `archkeel validate` writes it."""
-    document = _exact(
-        raw,
-        {"schema_version", "before_digest", "after_digest", "decided_by", "rationale"},
-        "amendment",
-    )
-    if document["schema_version"] != AMENDMENT_SCHEMA_VERSION:
-        raise ValueError(
-            f"amendment schema {document['schema_version']!r} cannot be read as "
-            f"{AMENDMENT_SCHEMA_VERSION}"
-        )
+    document = _object(raw, "amendment")
+    version = document.get("schema_version")
+    fields = {"schema_version", "before_digest", "after_digest", "decided_by", "rationale"}
+    if version == AMENDMENT_SCHEMA_VERSION:
+        fields |= {"before_baseline_digest", "after_baseline_digest"}
+    elif version != "1.0.0":
+        raise ValueError(f"unsupported amendment schema {version!r}")
+    document = _exact(raw, fields, "amendment")
+    before_baseline = document.get("before_baseline_digest")
+    after_baseline = document.get("after_baseline_digest")
     return Amendment(
         _amendment_digest(document["before_digest"], "amendment.before_digest"),
         _amendment_digest(document["after_digest"], "amendment.after_digest"),
         _nonempty(document["decided_by"], "amendment.decided_by"),
         _nonempty(document["rationale"], "amendment.rationale"),
+        None
+        if before_baseline is None
+        else _amendment_digest(before_baseline, "amendment.before_baseline_digest"),
+        None
+        if after_baseline is None
+        else _amendment_digest(after_baseline, "amendment.after_baseline_digest"),
+        "1.0.0" if version == "1.0.0" else AMENDMENT_SCHEMA_VERSION,
     )
 
 
 def amendment_bytes(amendment: Amendment) -> bytes:
     """Write the amendment indented and sorted: this file is read and reviewed in diffs."""
-    payload = {
-        "schema_version": AMENDMENT_SCHEMA_VERSION,
+    payload: dict[str, RawJson] = {
+        "schema_version": amendment.schema_version,
         "before_digest": amendment.before_digest,
         "after_digest": amendment.after_digest,
         "decided_by": amendment.decided_by,
         "rationale": amendment.rationale,
     }
+    if amendment.schema_version == AMENDMENT_SCHEMA_VERSION:
+        payload["before_baseline_digest"] = amendment.before_baseline_digest
+        payload["after_baseline_digest"] = amendment.after_baseline_digest
     return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
         "utf-8"
     )

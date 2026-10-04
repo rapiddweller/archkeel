@@ -179,7 +179,7 @@ def build_parser() -> _Parser:
             "raised or removed measurement budget -\n"
             "or a narrowing, its harmless reverse. A contract the revision does not hold yet\n"
             "is one widening, its introduction. A widening fails unless --amendment names\n"
-            "a file recording who decided it and why, bound to this exact before/after pair;\n"
+            "a file binding both recursive contracts and, with v2, both baseline policies;\n"
             "write it with --write-amendment, --decided-by and --rationale.\n\n"
             "Examples:\n"
             "  archkeel validate\n"
@@ -233,7 +233,7 @@ def build_parser() -> _Parser:
         "--amendment",
         type=Path,
         help="File recording who decided a widening from --against, and why, relative to "
-        "--root or absolute inside it. Needs --against.",
+        "--root or absolute inside it. V2 binds contract and baseline policies. Needs --against.",
     )
     validate.add_argument(
         "--write-amendment",
