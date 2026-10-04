@@ -23,7 +23,8 @@ Some catalog replays exit `2` because validation rejects the fixture. They still
 valid reports; inspect the report's own verdicts. `make demo` verifies the expected check exits.
 
 For a scored pair, both layouts must use the same saved result and canonical observation.
-The render entry point is `render_architecture_html(result, architecture_json, ...)`.
+Use `render_architecture_html(result, architecture_json, ...)` for snapshot reports and
+`render_check_html(result, ...)` for Check A. Both require a typed `RunResult`.
 Freeze the source/contract digests, findings, UNKNOWNs, assessments and measurements.
 Keep renderer revision and observer provenance separate. Reject a pair if its evidence differs.
 Use `clean` for an unscored introduction; participants must not see the answer key.
@@ -33,10 +34,10 @@ Use `clean` for an unscored introduction; participants must not see the answer k
 | Case | Ask the reviewer | Required answer |
 |---|---|---|
 | Dependency | Find the forbidden crossing and its source. What should change? | `shop.render` imports `OrderRepository` from `shop.store`; `DEP-RENDER-NO-STORE` forbids it. Fix the crossing or request an explicit target decision. |
-| Mixed evidence | Did `APP-TYPES-NOT-DICT` pass? Explain with source evidence. | `FAIL`: `snapshot(context: dict, future: FutureOrder)` has a confirmed dict violation and an unresolved type. The UNKNOWN filter must retain both. |
+| Mixed evidence | Did `APP-TYPES-NOT-DICT` pass? Explain with source evidence. | `FAIL`: `snapshot(context: dict, future: FutureOrder)` has a confirmed dict violation and an unresolved type. The UNKNOWN filter keeps the FAIL assessment with its violation and undecided counts. |
 | Unknown facade | Does no confirmed violation certify the render interface? | `UNKNOWN`: an ordinary re-export hop lacks literal `__all__`; the signature route is unproven. |
 | Wide package | Find `shop.store.backend.tasks.isolated`. What does an absent visible edge establish? | Locate the module in Actual/Structure. The displayed static graph does not certify runtime behavior. |
-| Check A | Why reject a candidate with no new finding fingerprints? Does Actual/Target Diff show this history? | `handlers[key]()` at `sample/work.py:9` worsens unresolved calls from 0 to 1 (0/2 to 1/1). Check compares revisions; Actual/Target Diff compares a snapshot with its contract. |
+| Check A | Why reject a candidate with no new violations? Does Actual/Target Diff show this history? | `handlers[key]()` at `sample/work.py:9` worsens unresolved calls from 0 to 1 (0/2 to 1/1). Its changed dynamic-call UNKNOWN fingerprint also fails a guardrail. Check compares revisions; Actual/Target Diff compares a snapshot with its contract. |
 
 After each task, ask what evidence the reviewer would give a coding agent: source location,
 rule/finding identity, unresolved evidence, and the analyzed commit and source/contract binding.
