@@ -256,7 +256,9 @@ references retain their own constraints.
 Schema validation checks shape, not source authenticity, count arithmetic or conformance.
 
 `report` and `check --output` write `<output-stem>.report.html` and `<output-stem>.check.html`. The suffix separates commands; the stem separates runs.
-The `report` headline follows its verdicts, not the exit code alone: exit 0 with `declared_rules: FAIL` renders a FAIL headline, because `report` records violations without gating and `check` is the gate.
+The `report` headline follows `declared_rules`: FAIL and UNKNOWN stay visible even on exit 0.
+Open decisions remain context. Use `archkeel validate --baseline architecture-baseline.json`
+with your existing baseline to gate changes; see onboarding to create a baseline.
 The report's declared-facade section measures export counts, re-exports, names defined in each
 facade, unused re-exports, consumers per export and distinct exported names per component pair.
 They do not assert that a barrel is complete (AD-88). `validate` measures

@@ -24,6 +24,7 @@ from archkeel.ir.model import (
     Diagnostic,
     RatchetObservations,
     RequiredComponent,
+    RuleAssessment,
     RunResult,
 )
 from archkeel.render.html import (
@@ -214,7 +215,7 @@ def test_html_report_shows_fail_headline_when_declared_rules_fail() -> None:
     assert 'data-decision="pass"' not in body
     assert "3 declared-rule violation(s) found" in page
     assert "report records violations without gating (exit code stays 0)" in page
-    assert "Run archkeel check to gate on rule violations" in page
+    assert "archkeel validate --baseline architecture-baseline.json" in page
     failures_section = page.split("<h3>Failures</h3>", 1)[1].split("<h3>Diagnostics</h3>", 1)[0]
     assert "None." not in failures_section
     assert "see declared-rule violations below" in failures_section
@@ -728,3 +729,31 @@ def test_a_completed_run_with_undecided_rules_does_not_claim_pass(command: str) 
     summary = report_summary(result)
     assert summary.decision.label == "NOT CHECKED"
     assert "declared rules could not be evaluated completely" in summary.sentence
+
+
+def test_rule_rows_show_fail_then_unknown_without_reordering_the_result() -> None:
+    observation = parse_observation(_model(git_head="a" * 40))
+    assessments = tuple(
+        RuleAssessment(
+            name, "complete_requires", status, False, 0, 1, "architect", "", (), "", "pkg", ()
+        )
+        for name, status in (
+            ("PASS-ONE", "PASS"),
+            ("UNKNOWN-ONE", "UNKNOWN"),
+            ("FAIL<ONE>", "FAIL"),
+            ("PASS-TWO", "PASS"),
+        )
+    )
+    result = RunResult("report", 0, "PASS", "FAIL", "n/a", rule_assessments=assessments)
+    page = render_html(
+        result, observation, repository="sample", architecture_href="architecture.json"
+    ).decode()
+    table = page.split('id="rule-assessments-heading"', 1)[1].split("</section>", 1)[0]
+    assert (
+        table.index("FAIL&lt;ONE&gt;")
+        < table.index("UNKNOWN-ONE")
+        < table.index("PASS-ONE")
+        < table.index("PASS-TWO")
+    )
+    assert result.rule_assessments == assessments
+    assert "FAIL&lt;ONE&gt;" in page.split('id="rule-assessments-heading"', 1)[0]

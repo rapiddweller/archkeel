@@ -43,6 +43,7 @@ def _make_reports(output: Path) -> dict[str, Path]:
     cases = {
         "tour": ("tour", 2),
         "clean": ("clean", 0),
+        "open": ("class-a-decision-open", 2),
         "wide": ("class-a-recursive-wide-package", 0),
         "deep": ("class-a-recursive-inside-violation", 2),
         "mixed": ("class-a-boundary-types-mixed-evidence", 2),
@@ -64,6 +65,8 @@ def _make_reports(output: Path) -> dict[str, Path]:
             f"{variant}: exit {actual_exit}, expected {expected_exit}\n"
             f"{stdout.getvalue()}\n{stderr.getvalue()}"
         )
+        result = json.loads(stdout.getvalue().splitlines()[-1])
+        (output / f"{name}.result.json").write_text(json.dumps(result, indent=2) + "\n")
         html = report.with_name(f"{name}.report.html")
         assert html.is_file(), f"{variant} did not produce {html}"
         reports[name] = html
@@ -474,6 +477,44 @@ def _finish(page: Page, name: str, output: Path) -> None:
     page.context.close()
 
 
+def _check_report_verdicts(browser: Browser, reports: dict[str, Path], output: Path) -> None:
+    for name in ("open", "tour", "mixed", "clean"):
+        result = json.loads((output / f"{name}.result.json").read_text())
+        state = {"PASS": "pass", "FAIL": "fail", "UNKNOWN": "unknown"}[result["declared_rules"]]
+        for javascript in (True, False):
+            page = browser.new_page(java_script_enabled=javascript)
+            try:
+                page.goto(reports[name].as_uri(), wait_until="load")
+                assert page.locator(".decision-banner").get_attribute("data-decision") == state
+                rules = page.locator(".verdict-card").filter(
+                    has=page.locator("code", has_text="declared_rules")
+                )
+                assert rules.get_attribute("data-verdict") == state
+                rows = page.locator('[aria-labelledby="rule-assessments-heading"] tbody tr')
+                statuses = rows.evaluate_all("rows => rows.map(row => row.dataset.status)")
+                assert statuses == sorted(
+                    statuses, key=lambda status: (status != "FAIL", status != "UNKNOWN")
+                )
+                headline = page.locator(".decision-banner").inner_text()
+                for status in ("FAIL", "UNKNOWN"):
+                    names = [
+                        item["id"]
+                        for item in result["rule_assessments"] or []
+                        if item["status"] == status
+                    ]
+                    assert all(rule in headline for rule in names[:3])
+                if name == "open":
+                    assert "open decision(s) remain" in headline
+                for width in (1440, 375):
+                    page.set_viewport_size({"width": width, "height": 1000})
+                    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+                    page.screenshot(
+                        path=str(output / f"headline-{name}-{width}-js{int(javascript)}.png")
+                    )
+            finally:
+                page.close()
+
+
 def _check_no_javascript(browser: Browser, report: Path, output: Path) -> None:
     page = browser.new_page(viewport={"width": 1440, "height": 1000}, java_script_enabled=False)
     try:
@@ -753,6 +794,7 @@ def main() -> int:
             finally:
                 _finish(known, "known", output)
             _check_module_target_reports(browser, reports, output)
+            _check_report_verdicts(browser, reports, output)
             _capture_readme_assets(browser, reports, output)
         finally:
             _finish(wide, "wide", output)
