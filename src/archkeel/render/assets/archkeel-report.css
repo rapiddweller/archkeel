@@ -223,7 +223,7 @@ h3 {
 }
 .decision-banner {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: var(--ck-space-4);
   align-items: start;
   margin: var(--ck-space-6) 0;
@@ -250,6 +250,7 @@ h3 {
   line-height: 1;
 }
 .decision-banner p {
+  overflow-wrap: anywhere;
   margin-bottom: 0;
   color: var(--ck-muted);
 }

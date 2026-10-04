@@ -18,6 +18,8 @@ try:
 except ImportError as error:
     raise SystemExit("Playwright is missing; run `make browser-install` first.") from error
 
+from archkeel.ir.model import RuleAssessment, RunResult
+from archkeel.render.html import render_architecture_html
 from fixtures.architecture_demo import replay
 
 WIDE_MODULES = {
@@ -515,6 +517,41 @@ def _check_report_verdicts(browser: Browser, reports: dict[str, Path], output: P
                 page.close()
 
 
+def _check_long_rule_ids(browser: Browser, output: Path) -> None:
+    names = ("R" * 200, '<rule&"unknown">' * 20)
+    assessments = tuple(
+        RuleAssessment(
+            name, "complete_requires", status, False, 0, 1, "architect", "", (), "", "pkg", ()
+        )
+        for name, status in zip(names, ("FAIL", "UNKNOWN"), strict=True)
+    )
+    result = RunResult("report", 0, "PASS", "FAIL", "n/a", rule_assessments=assessments)
+    report = output / "long-rule-ids.report.html"
+    report.write_bytes(
+        render_architecture_html(
+            result,
+            (output / "mixed.json").read_bytes(),
+            repository="shop",
+            architecture_href="mixed.json",
+        )
+    )
+    for javascript in (True, False):
+        page = browser.new_page(java_script_enabled=javascript)
+        try:
+            page.goto(report.as_uri(), wait_until="load")
+            headline = page.locator(".decision-banner")
+            assert all(name in headline.inner_text() for name in names)
+            for width in (1440, 375):
+                page.set_viewport_size({"width": width, "height": 1000})
+                actual = page.evaluate("document.documentElement.scrollWidth")
+                assert actual <= width, f"long rule IDs: {actual}px at {width}px"
+                page.screenshot(
+                    path=str(output / f"headline-long-ids-{width}-js{int(javascript)}.png")
+                )
+        finally:
+            page.close()
+
+
 def _check_no_javascript(browser: Browser, report: Path, output: Path) -> None:
     page = browser.new_page(viewport={"width": 1440, "height": 1000}, java_script_enabled=False)
     try:
@@ -795,6 +832,7 @@ def main() -> int:
                 _finish(known, "known", output)
             _check_module_target_reports(browser, reports, output)
             _check_report_verdicts(browser, reports, output)
+            _check_long_rule_ids(browser, output)
             _capture_readme_assets(browser, reports, output)
         finally:
             _finish(wide, "wide", output)
