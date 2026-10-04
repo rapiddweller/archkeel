@@ -144,6 +144,43 @@ def test_repeated_class_names_do_not_create_final_binding_proof(tmp_path):
     assert observation.records("violations") == ()
 
 
+@pytest.mark.parametrize(
+    "prefix,suffix",
+    [
+        ("class Child: pass\n", ""),
+        ("", "class Child: pass\n"),
+        ("", "Child = object\n"),
+        ("", "Child.value = object\n"),
+    ],
+    ids=["earlier-class", "later-class", "rebound-owner", "replaced-member"],
+)
+def test_unstable_property_owner_keeps_native_facts_valid_and_unknown(tmp_path, prefix, suffix):
+    source = (
+        prefix
+        + "class Child:\n    @property\n    def value(self) -> int: ...\n"
+        + "    @value.setter\n    def value(self, arg: object) -> None: ...\n"
+        + suffix
+    )
+    result, report, observation = _validate(tmp_path, source)
+    assert result.exit_code == 0
+    assert report.declared_rules == "UNKNOWN"
+    assert unknown_positions(observation) > 0
+    assert observation.records("violations") == ()
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = encode_response(CollectionResponse(facts))
+    decode_response(payload)
+    assert all(
+        "property_binding" not in record["data"] and "property_members" not in record["data"]
+        for record in _records(json.loads(payload))
+    )
+
+
 @pytest.mark.parametrize("collision", [False, True])
 @pytest.mark.parametrize("replacement", ["", "    class Shared: pass\n", "    Shared = object\n"])
 @pytest.mark.parametrize("accessor", [False, True], ids=["ordinary", "property"])

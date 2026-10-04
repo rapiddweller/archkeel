@@ -646,6 +646,12 @@ def method_decorator_data(
                 method_kind = "class"
     properties = property_bindings(module, parent) if parent is not None else {}
     binding = properties.get(node)
+    if (
+        binding is not None
+        and parent is not None
+        and parent.name not in stable_direct_module_bindings(module)
+    ):
+        binding = None
     return {
         "method_kind": method_kind,
         "signature_decorators_proven": signature_proven and descriptor_count <= 1,

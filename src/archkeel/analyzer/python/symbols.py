@@ -216,7 +216,9 @@ def _symbol_data(
                 **({"generic_bases": generic_bases} if generic_bases else {}),
             }
         )
-        if properties := property_bindings(module, node):
+        if data["source_binding_unique"] is True and (
+            properties := property_bindings(module, node)
+        ):
             data["property_members"] = sorted({method.name for method in properties})
     else:
         data.update(_function_signature(node))

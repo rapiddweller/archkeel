@@ -46,8 +46,8 @@ then checks their signatures in their defining scopes. A copied getter retains i
 a fresh property replaces it. Missing proof, custom descriptors and mutations stay UNKNOWN.
 An explicit final undecorated binding retains its direct signature findings despite earlier
 repeated names. This does not certify an otherwise uncertain class surface.
-Module-binding and ordered property proofs require the actual module-level class;
-a same-named nested class cannot borrow them.
+Module-binding and ordered property proofs require a uniquely bound, stable module-level class;
+a same-named nested or replaced class cannot borrow them.
 
 ## Alternatives
 
