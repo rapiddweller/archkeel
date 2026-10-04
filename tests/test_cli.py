@@ -73,14 +73,18 @@ def test_no_arguments_prints_the_command_overview(capsys: pytest.CaptureFixture)
 
 
 def test_interactive_terminal_gets_a_summary_and_json_stays_available(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:
+    root = _prepare_repo(tmp_path, {})
+    baseline = str(root / "architecture-baseline.json")
+    arguments = ["validate", "--root", str(root), "--baseline", baseline]
+    assert main([*arguments, "--write-baseline", "--json"]) == 0
+    capsys.readouterr()
     monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
-    baseline = str(ROOT / "architecture-baseline.json")
-    assert main(["validate", "--root", str(ROOT), "--baseline", baseline]) == 0
+    assert main(arguments) == 0
     summary = capsys.readouterr().out
     assert "Independent verdicts" in summary and not summary.startswith("{")
-    assert main(["validate", "--root", str(ROOT), "--baseline", baseline, "--json"]) == 0
+    assert main([*arguments, "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["exit_code"] == 0
 
 
@@ -307,16 +311,22 @@ def test_unknown_against_ref_keeps_the_against_invalid_diagnostic(
     )
 
 
-def test_validate_self_and_json_are_identical(capsys: pytest.CaptureFixture) -> None:
-    baseline = str(ROOT / "architecture-baseline.json")
-    assert main(["validate", "--root", str(ROOT), "--baseline", baseline]) == 0
+def test_validate_default_and_explicit_json_are_identical(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _prepare_repo(tmp_path, {})
+    baseline = str(root / "architecture-baseline.json")
+    arguments = ["validate", "--root", str(root), "--baseline", baseline]
+    assert main([*arguments, "--write-baseline", "--json"]) == 0
+    capsys.readouterr()
+    assert main(arguments) == 0
     default = capsys.readouterr().out
-    assert main(["validate", "--root", str(ROOT), "--baseline", baseline, "--json"]) == 0
+    assert main([*arguments, "--json"]) == 0
     explicit = capsys.readouterr().out
     assert explicit == default
     result = json.loads(explicit)
     assert result["observation_complete"] == "PASS"
-    assert result["declared_rules"] == "UNKNOWN"  # AD-72, see test_validation.py
+    assert result["declared_rules"] == "UNKNOWN"
 
 
 def test_validate_write_graph_regenerates_both_marked_graphs(

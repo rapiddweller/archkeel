@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """AD-7: report bytes depend on declared inputs, never on the environment.
 
-The scanned sources are two clones of the committed repository that share a basename but
+The scanned sources are two clones of the committed shop fixture that share a basename but
 differ in parent path; the running Archkeel is the working tree's installed package. Runs
 vary hash seed, time zone, locale and working directory, and one run repeats verbatim.
 """
@@ -14,7 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).parents[1]
+from test_architecture_demo import _prepare_repo
 
 
 def _clone(source: Path, dest: Path) -> None:
@@ -47,10 +47,13 @@ def _report(clone: Path, *, cwd: Path, env: dict[str, str]) -> tuple[bytes, byte
 
 
 def test_report_bytes_are_independent_of_seed_timezone_locale_and_cwd(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    repository = _prepare_repo(source, {})
     clone_a = tmp_path / "a" / "archkeel"
     clone_b = tmp_path / "b" / "deeper" / "archkeel"
-    _clone(ROOT, clone_a)
-    _clone(ROOT, clone_b)
+    _clone(repository, clone_a)
+    _clone(repository, clone_b)
 
     env_a = {**os.environ, "PYTHONHASHSEED": "0", "TZ": "UTC", "LC_ALL": "C"}
     env_b = {**os.environ, "PYTHONHASHSEED": "4242", "TZ": "Asia/Ho_Chi_Minh"}
