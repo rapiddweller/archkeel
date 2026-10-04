@@ -226,5 +226,282 @@
     },
     "complete": false,
     "cycle": false
+  },
+  {
+    "name": "namespace-object-property",
+    "source": "import * as mod from 'node:module'; const holder={value:mod}; const load=holder.value.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "namespace-object-shorthand",
+    "source": "import * as mod from 'node:module'; const holder={mod}; const load=holder.mod.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "namespace-object-spread",
+    "source": "import * as mod from 'node:module'; const holder={...mod}; const load=holder.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "namespace-array",
+    "source": "import * as mod from 'node:module'; const holder=[mod]; const load=holder[0].createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "namespace-function-return",
+    "source": "import * as mod from 'node:module'; function holder() { return mod; } const load=holder().createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "namespace-arrow-return",
+    "source": "import * as mod from 'node:module'; const holder=()=>mod; const load=holder().createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "namespace-assignment",
+    "source": "import * as mod from 'node:module'; let holder; holder=mod; const load=holder.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "namespace-dynamic-assignment",
+    "source": "let holder; holder=await import('node:module'); const load=holder.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "namespace-conditional",
+    "source": "import * as mod from 'node:module'; const holder=true ? mod : mod; const load=holder.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "namespace-comma",
+    "source": "import * as mod from 'node:module'; const holder=(0,mod); const load=holder.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "ordinary-direct-node-member",
+    "source": "(await import('node:module')).isBuiltin('node:fs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "ordinary-local-loader-property",
+    "source": "const value={createRequire:()=>()=>1}; const load=value.createRequire(); load();",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "node-module-named-export",
+    "source": "import {Module as ctor} from 'node:module'; const load=ctor.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "node-module-namespace-export",
+    "source": "import * as mod from 'node:module'; const load=mod.Module.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "node-module-default-member",
+    "source": "import * as mod from 'node:module'; const load=mod.default.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "node-module-default-import-alias",
+    "source": "import {default as ctor} from 'node:module'; const load=ctor.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "node-module-destructured-dynamic-export",
+    "source": "const {Module:ctor}=await import('node:module'); const load=ctor.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "node-module-destructured-namespace-export",
+    "source": "import * as mod from 'node:module'; const {Module:ctor}=mod; const load=ctor.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "node-module-destructured-commonjs-export",
+    "source": "const {Module:ctor}=require('node:module'); const load=ctor.createRequire(__filename); load('./hidden.cjs');",
+    "manifest": {},
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "ordinary-node-module-named-member",
+    "source": "import {Module as ctor} from 'node:module'; ctor.isBuiltin('node:fs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "ordinary-node-module-default-member",
+    "source": "import * as mod from 'node:module'; mod.default.isBuiltin('node:fs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "ordinary-node-module-destructured-member",
+    "source": "const {Module:ctor}=await import('node:module'); ctor.isBuiltin('node:fs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "namespace-rest-binding",
+    "source": "import * as mod from 'node:module'; const {...rest}=mod; const load=rest.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "ordinary-node-member-binding",
+    "source": "import * as mod from 'node:module'; const {isBuiltin}=mod; isBuiltin('node:fs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "ordinary-type-only-factory-query",
+    "source": "import type {createRequire} from 'node:module'; type Factory=typeof createRequire;",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "ordinary-type-only-factory-specifier-query",
+    "source": "import {type createRequire} from 'node:module'; type Factory=typeof createRequire;",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "ordinary-type-only-namespace-query",
+    "source": "import type * as mod from 'node:module'; type Factory=typeof mod.createRequire;",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "ordinary-type-only-module-query",
+    "source": "import type {Module} from 'node:module'; type Factory=typeof Module.createRequire;",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "ordinary-type-only-module-reference",
+    "source": "import type {Module} from 'node:module'; type X=Module;",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "namespace-binding-default-initializer",
+    "source": "import * as mod from 'node:module'; const {holder=mod}={}; holder.createRequire(import.meta.url)('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "namespace-module-nested-binding",
+    "source": "import * as mod from 'node:module'; const {Module:{createRequire:load}}=mod; load(import.meta.url)('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
   }
 ]

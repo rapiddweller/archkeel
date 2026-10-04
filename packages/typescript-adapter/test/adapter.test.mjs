@@ -696,12 +696,12 @@ test("resolution input and source digests bind exact source bytes", async t => {
 
 const hiddenLoaders = JSON.parse(readFileSync(join(repository, "fixtures/typescript-hidden-loaders.json"), "utf8"));
 for (const example of hiddenLoaders) test(`hidden loader coverage: ${example.name}`, t => {
-  const root = fixture(t, { "package.json": JSON.stringify(example.manifest ?? {}), "src/main.ts": example.source, "src/hidden.cjs": "require('./main.js');" }, { files: ["src/main.ts"], include: [] });
+  const root = fixture(t, { "package.json": JSON.stringify(example.manifest ?? {}), "src/main.ts": example.source, "src/main.js": "require('./hidden.cjs');", "src/hidden.cjs": "require('./main.js');" }, { files: ["src/main.ts"], include: [] });
   const facts = collect(request(root)).facts;
   assert.equal(facts.coverage.full_scope, example.complete);
-  assert.equal(facts.files.length, example.cycle ? 2 : 1);
+  assert.equal(facts.files.length, example.cycle ? 3 : 1);
   if (!example.complete) assert.ok(facts.coverage.gaps.length > 0);
-  if (example.cycle) assert.equal(facts.imports.filter(item => item.kind === "local").length, 2);
+  if (example.cycle) assert.equal(facts.imports.filter(item => item.kind === "local").length, 3);
 });
 
 const runtimeAliases = JSON.parse(readFileSync(join(repository, "fixtures/typescript-runtime-aliases.json"), "utf8"));
@@ -719,8 +719,8 @@ for (const example of runtimeAliases) test(`explicit runtime alias closure: ${ex
   if (example.runtime) assert.ok(!first.inputs.some(input => input.path === `src/${example.runtime}`));
   writeFileSync(join(root, runtimePath), "throw Error('still must not execute');");
   const changed = collect(request(root)).facts;
-  assert.equal(changed.coverage.full_scope, complete);
-  if (observedFiles.includes(runtimePath)) assert.notEqual(first.source.source_digest, changed.source.source_digest);
+  assert.equal(changed.coverage.full_scope, example.runtime_missing ?? complete);
+  if (observedFiles.includes(runtimePath) || example.runtime_missing) assert.notEqual(first.source.source_digest, changed.source.source_digest);
   else assert.equal(first.source.source_digest, changed.source.source_digest);
   writeFileSync(join(root, runtimePath), example.files ? "require('./missing.cjs');" : "import './missing.js';");
   const hidden = collect(request(root)).facts;

@@ -32,10 +32,16 @@ out-of-scope local dependencies, project references, and preserved symlink looku
 contexts produce UNKNOWN gaps.
 Indirect `module.require` bindings and Node loader factories remain UNKNOWN,
 including erased TypeScript wrappers. Known Node module namespaces used through
-`.then` or passed as call/constructor arguments also retain a coverage gap.
+`.then` or unproved value escapes also retain a gap, including calls, literal
+containers, returns and reassignment. Direct member use and proven aliases remain
+supported, including known `Module` and `default` exports. Namespace rest, nested
+export bindings and default initializer escapes stay UNKNOWN; type-only references
+create no value gap.
 Local value aliases and non-explicit CommonJS targets remain UNKNOWN, including
 extensionless, dotted-stem and directory specifiers. Compiler resolution alone
 cannot prove the runtime target; runtime_file stays null.
+Direct CommonJS loads of explicit JavaScript need the physical runtime file;
+missing files stay UNKNOWN. Static TypeScript imports keep compiler semantics.
 Resolved external package identities require digested resolver inputs inside the
 supplied snapshot. Missing or outside-snapshot inputs remain UNKNOWN. Resolver
 files are digested separately from selected graph files. Function calls, symbol-level

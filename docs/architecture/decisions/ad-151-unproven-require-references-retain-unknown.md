@@ -7,8 +7,12 @@ coverage.
 
 Mark unproven property and element references as coverage gaps at the reference
 site. Erased TypeScript assertions, non-null and satisfies expressions retain the
-known Node namespace. Its `.then` use and escape through call or constructor
-arguments stay UNKNOWN. Keep supported direct literal calls resolved. Resolving
+known Node namespace. Its `.then` use and unproved value escapes stay UNKNOWN,
+including calls, containers, returns and reassignment. Direct members and proven
+aliases stay supported, including the known `Module` and `default` exports.
+Namespace rest, nested export bindings and default initializer escapes stay UNKNOWN.
+Type-only references create no value gap.
+Keep supported direct literal calls resolved. Resolving
 arbitrary loader aliases would require further binding and flow proof; this phase
 does not claim it.
 
