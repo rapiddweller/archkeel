@@ -314,6 +314,8 @@ def architecture_document(
     contract: ArchitectureContract,
     edges: frozenset[tuple[str, str]],
     sizes: tuple[StructureMetric, ...],
+    *,
+    namespace_file: str | None = None,
 ) -> str:
     """Write the provenance page whose marked graph validate compares with observed imports.
 
@@ -342,7 +344,16 @@ def architecture_document(
             else "| Component | Package | Modules | Inner edges | Responsibility |\n"
         )
         + "|---|---|---|---|---|\n"
-        f"{rows}\n\n{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n{mermaid_edges(edges)}```\n"
+        + f"{rows}\n\n"
+        + (
+            f"Review namespace module `{namespace}` (`{namespace_file}`). If it contains any\n"
+            "statement, assign it to one existing component using "
+            f'`exact_modules: ["{namespace}"]`.\n'
+            "Only an AST-empty Python `__init__.py` is exempt from boundary ownership proof.\n\n"
+            if namespace_file is not None
+            else ""
+        )
+        + f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n{mermaid_edges(edges)}```\n"
     )
 
 
@@ -423,7 +434,17 @@ def run_init(
     contract, edges, sizes = draft_contract(
         observed.observation, namespace, roots=roots, language=language
     )
-    # Absent means Python, so a Python draft keeps the exact bytes it always had.
+    namespace_file = next(
+        (
+            file
+            for record in observed.observation.records("modules") or ()
+            if language == "python"
+            and record.data.get("qualified_name") == namespace
+            and isinstance((file := record.data.get("file")), str)
+        ),
+        None,
+    )
+    # Absent means Python, so a Python draft keeps the exact config bytes it always had.
     language_line = "" if language == "python" else f"language = {json.dumps(language)}\n"
     tsconfig_line = "" if tsconfig is None else f"tsconfig = {json.dumps(tsconfig)}\n"
     collector_line = (
@@ -437,7 +458,9 @@ def run_init(
                 f"{language_line}{tsconfig_line}{collector_line}"
             ).encode(),
             CONTRACT_PATH: contract_bytes(contract),
-            DOCUMENT_PATH: architecture_document(namespace, contract, edges, sizes).encode(),
+            DOCUMENT_PATH: architecture_document(
+                namespace, contract, edges, sizes, namespace_file=namespace_file
+            ).encode(),
         }
     )
     # AD-15: init declares no dependency rule, so every ordered pair among the drafted

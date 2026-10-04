@@ -214,8 +214,11 @@ example violation.
 
 `complete_assignment` has the field `source`. Every scanned module below `source` must belong to
 exactly one component; a module matched by two different components counts as unowned, while
-one component may list nested packages. The `source` module itself
-and blank files are exempt because they hold no code a component could own. A complete scan
+one component may list nested packages. AST-empty files are exempt; a non-empty `source`
+module needs an owner, including a docstring, version assignment or re-export initializer.
+For compatibility, assignment exempts blank ordinary modules too. Boundary scope proof
+(`complete_requires` and `interface_boundary`) exempts only unowned AST-empty Python
+`__init__.py` files: ordinary module identities must still have exactly one owner. A complete scan
 makes the result deterministic. A module fact cites its file: line 1 when that line holds text,
 otherwise the file itself as line 0, so a module whose first line is blank is still a traceable
 violation (AD-107). Adding `archkeel/extra.py` without a component package is an example

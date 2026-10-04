@@ -1196,3 +1196,211 @@ def test_complete_and_incomplete_nested_scopes_preserve_outer_violation_in_cli_r
         for rule_id in item.rule_ids
     } >= {"core:INTERFACE", "core:REQUIRES"}
     assert "OUTER-BLOCK" in (tmp_path / "architecture.report.html").read_text()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        '"""Package API."""\n',
+        '__version__ = "1"\n',
+        "from .api import VALUE\n",
+        'print("loaded")\n',
+    ],
+)
+def test_nonempty_namespace_has_actionable_persisted_ownership_blocker(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], source: str
+) -> None:
+    from archkeel.ir.decisions import rule_assessments
+
+    _, payload, artifact, html = _inside_rule_report(
+        tmp_path,
+        [_component("app", packages=["sample.api"], public=[])],
+        capsys,
+        modules={"__init__.py": source, "api.py": "VALUE = 1\n"},
+    )
+    reasons = {row["reason"] for row in payload["rule_assessments"]}
+    assert len(reasons) == 1
+    reason = reasons.pop()
+    assert "sample/__init__.py" in reason
+    assert 'exact_modules: ["sample"]' in reason
+    assert "app" in reason
+    assert "sample" in html and "exact_modules" in html
+    facts = [
+        r
+        for r in artifact.records("scope_observations") or ()
+        if r.kind == "rule_ownership_blocker"
+    ]
+    assert len(facts) == 2
+    assert all(r.evidence_class.value == "FACT" and r.fact_ids and r.evidence_ids for r in facts)
+    assert not [
+        r for r in artifact.records("scope_observations") or () if r.kind == "rule_evaluation"
+    ]
+    assert {r.reason for r in rule_assessments(artifact, undecided_by_rule={})} == {reason}
+    from rich.console import Console
+
+    from archkeel.ir.model import RunResult
+    from archkeel.render.html import render_html
+    from archkeel.render.summary import report_summary
+    from archkeel.render.terminal import print_result
+
+    saved_result = RunResult(
+        "report",
+        0,
+        "PASS",
+        "UNKNOWN",
+        "n/a",
+        rule_assessments=rule_assessments(artifact, undecided_by_rule={}),
+    )
+    rendered = render_html(
+        saved_result, artifact, repository="saved", architecture_href=None
+    ).decode()
+    assert "sample/__init__.py" in rendered and "exact_modules" in rendered
+    console = Console(record=True, width=300, color_system=None)
+    print_result(saved_result, report_summary(saved_result), artifacts=(), console=console)
+    assert reason in console.export_text()
+    capsys.readouterr()
+    document = tmp_path / "docs/architecture/sample.md"
+    document.parent.mkdir(parents=True, exist_ok=True)
+    document.write_text(
+        "Ownership decision.\n<!-- archkeel-component-graph -->\n```mermaid\ngraph TD\n```\n"
+    )
+    main(["validate", "--root", str(tmp_path), "--json"])
+    validated = json.loads(capsys.readouterr().out)
+    assert {r["reason"] for r in validated["rule_assessments"]} == {reason}
+
+
+def test_overlap_reason_names_owners_without_exact_assignment_remedy(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _, payload, _, _ = _inside_rule_report(
+        tmp_path,
+        [
+            _component("left", packages=["sample"], public=[]),
+            _component("right", public=[]) | {"packages": [], "exact_modules": ["sample.api"]},
+        ],
+        capsys,
+    )
+    for row in payload["rule_assessments"]:
+        assert row["status"] == "UNKNOWN" and not row["evaluation_proven"]
+        assert "sample.api" in row["reason"]
+        assert "left, right" in row["reason"]
+        assert "Remove overlapping claims" in row["reason"]
+        assert "exact_modules:" not in row["reason"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "",
+        "# package\n",
+        " \n\n",
+        '"""API."""\n',
+        '__version__ = "1"\n',
+        "from .api import VALUE\n",
+        "print('loaded')\n",
+    ],
+)
+def test_exact_owned_namespace_completes_boundary_scope(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], source: str
+) -> None:
+    _, payload, _, _ = _inside_rule_report(
+        tmp_path,
+        [_component("app", packages=["sample.api"], public=[]) | {"exact_modules": ["sample"]}],
+        capsys,
+        modules={"__init__.py": source, "api.py": "VALUE = 1\n"},
+    )
+    assert payload["declared_rules"] == "PASS"
+    assert all(row["evaluation_proven"] for row in payload["rule_assessments"])
+
+
+def test_old_artifact_uses_generic_unknown_without_ownership_facts(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from dataclasses import replace
+
+    from archkeel.ir.decisions import rule_assessments
+
+    _, _, artifact, _ = _inside_rule_report(
+        tmp_path,
+        [_component("app", packages=["sample.api"], public=[])],
+        capsys,
+        modules={"__init__.py": '__version__ = "1"\n', "api.py": "VALUE = 1\n"},
+    )
+    old = replace(
+        artifact,
+        sections=tuple(
+            replace(
+                section,
+                records=tuple(r for r in section.records if r.kind != "rule_ownership_blocker"),
+            )
+            for section in artifact.sections
+        ),
+    )
+    rows = rule_assessments(old, undecided_by_rule={})
+    assert all(row.status == "UNKNOWN" and not row.evaluation_proven for row in rows)
+    assert {row.reason for row in rows} == {
+        "No complete evaluator receipt exists for this rule and scope."
+    }
+
+
+def test_known_failure_precedes_ownership_blocker_and_blockers_are_sorted(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _, payload, artifact, _ = _inside_rule_report(
+        tmp_path,
+        [
+            _component("a", packages=["sample.a"], public=[]),
+            _component("b", packages=["sample.b"], public=["sample.b"]),
+        ],
+        capsys,
+        modules={
+            "__init__.py": '__version__ = "1"\n',
+            "a.py": "import sample.b\n",
+            "b.py": "VALUE = 1\n",
+            "z.py": "VALUE = 2\n",
+        },
+    )
+    rows = {r["id"]: r for r in payload["rule_assessments"]}
+    assert rows["app:REQUIRES"]["status"] == "FAIL"
+    assert rows["app:REQUIRES"]["reason"] == "The evaluator recorded one or more violations."
+    reason = rows["app:INTERFACE"]["reason"]
+    assert reason.index("sample (sample/__init__.py)") < reason.index("sample.z (sample/z.py)")
+    assert not [
+        r for r in artifact.records("scope_observations") or () if r.kind == "rule_evaluation"
+    ]
+
+
+def test_blank_ordinary_module_is_not_boundary_initializer_exception(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _, payload, _, _ = _inside_rule_report(
+        tmp_path,
+        [_component("app", packages=["sample.api"], public=[])],
+        capsys,
+        modules={"__init__.py": "# empty package\n", "api.py": "VALUE = 1\n", "blank.py": " \n"},
+    )
+    assert payload["declared_rules"] == "UNKNOWN"
+    assert all(
+        'exact_modules: ["sample.blank"]' in row["reason"] for row in payload["rule_assessments"]
+    )
+
+
+def test_python_initializer_exception_does_not_exempt_empty_dart_library(tmp_path: Path) -> None:
+    from test_dart_profile import _component as dart_component
+    from test_dart_profile import _observe as observe_dart
+    from test_dart_profile import _rule as dart_rule
+
+    from archkeel.ir.decisions import rule_assessments
+
+    observed = observe_dart(
+        tmp_path,
+        {"lib/api.dart": "class Api {}\n", "lib/__init__.dart": ""},
+        {
+            "components": [dart_component("api", "app.api")],
+            "rules": [dart_rule("REQUIRES", "complete_requires")],
+        },
+    )
+    assert observed.observation is not None
+    rows = rule_assessments(observed.observation, undecided_by_rule={})
+    assert len(rows) == 1 and rows[0].status == "UNKNOWN"
+    assert "app.__init__" in rows[0].reason and "exact_modules" in rows[0].reason

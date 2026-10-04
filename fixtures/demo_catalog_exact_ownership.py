@@ -35,6 +35,7 @@ VARIANTS = (
         files={"shop/store/architecture-contract.json": _repository_initializer_overlay()},
         expected_violations=(),
         expected_codes=(),
+        expected_declared_rules="PASS",
     ),
     Variant(
         id="ownership-exact-module-not-recursive",

@@ -7,7 +7,8 @@
       "label": "support",
       "role": "component",
       "packages": ["tests.support"],
-      "responsibilities": ["Builders every shop test may share."],
+      "exact_modules": ["tests"],
+      "responsibilities": ["Shared builders and test package metadata."],
       "forbidden_responsibilities": ["Test cases, and importing any of them."],
       "provenance": ["docs/architecture/tests.md"],
       "decided_by": "architect"

@@ -2934,3 +2934,36 @@ def test_resolved_position_types_does_not_itself_walk_collection_parameters() ->
 def test_all_is_one_literal_only_when_nothing_else_touches_it(source: str, literal: bool) -> None:
     """AD-99: `literal_all_exports` skips extensions, so only this proves a whole `__all__`."""
     assert all_is_one_literal(ast.parse(source)) is literal
+
+
+@pytest.mark.parametrize(
+    "source",
+    ['"""Package API."""\n', '__version__ = "1"\n', "import sample.core\n", 'print("loaded")\n'],
+)
+def test_complete_assignment_rejects_live_unowned_namespace(tmp_path: Path, source: str) -> None:
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [_component("core")],
+                "rules": [
+                    {
+                        "id": "ASSIGN",
+                        "kind": "complete_assignment",
+                        "source": "sample",
+                        "rationale": "Every live module has an owner.",
+                        "provenance": ["docs/architecture/sample.md"],
+                        "decided_by": "architect",
+                    }
+                ],
+            }
+        )
+    )
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/__init__.py").write_text(source)
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert any(
+        r.kind == "complete_assignment" and r.subjects == ("sample",)
+        for r in result.observation.records("violations") or ()
+    )
