@@ -695,6 +695,17 @@ test("resolution input and source digests bind exact source bytes", async t => {
 });
 
 const hiddenLoaders = JSON.parse(readFileSync(join(repository, "fixtures/typescript-hidden-loaders.json"), "utf8"));
+test("compiler erases local exports of explicit type-only imports", async t => {
+  const ts = (await import("typescript")).default;
+  for (const example of hiddenLoaders.filter(example => example.erased_export)) {
+    const root = fixture(t, { "package.json": JSON.stringify(example.manifest), "src/main.ts": example.source, ...example.files,
+      "node-module.d.ts": "declare module 'node:module' { export class Module {} export default Module; export function createRequire(url:string):unknown; }" });
+    const program = ts.createProgram([join(root, "src/main.ts"), ...Object.keys(example.files ?? {}).map(path => join(root, path)), join(root, "node-module.d.ts")], { module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext, types: [], outDir: join(root, "emitted"), noEmitOnError: true });
+    assert.deepEqual(ts.getPreEmitDiagnostics(program).map(problem => ts.flattenDiagnosticMessageText(problem.messageText, " ")), [], example.name);
+    assert.equal(program.emit().emitSkipped, false, example.name);
+    for (const path of ["src/main.ts", ...Object.keys(example.files ?? {})]) assert.equal(readFileSync(join(root, "emitted", `${posix.basename(path, ".ts")}.js`), "utf8").trim(), "export {};", example.name);
+  }
+});
 for (const example of hiddenLoaders) test(`hidden loader coverage: ${example.name}`, t => {
   const root = fixture(t, { "package.json": JSON.stringify(example.manifest ?? {}), "src/main.ts": example.source, "src/main.js": "require('./hidden.cjs');", "src/hidden.cjs": "require('./main.js');", ...example.files }, { files: ["src/main.ts"], include: [] });
   const facts = collect(request(root)).facts;
