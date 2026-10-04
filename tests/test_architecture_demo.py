@@ -703,6 +703,8 @@ def _sample_run(tmp_path_factory: pytest.TempPathFactory, variant: Variant) -> _
             sorted(item.kind for item in validate_result.diagnostics if item.code is None)
         )
         actual_violations, actual_unknowns, declared_rules = _report_findings(root, config)
+        if validate_result.observation_complete == "PASS":
+            assert validate_result.declared_rules == declared_rules
         _SAMPLE_RUN_CACHE[variant.id] = (
             actual_codes,
             actual_kinds,

@@ -225,9 +225,18 @@ semantics. The diagram remains first; the rule and finding tables support search
 Without JavaScript, the tables remain readable and inactive filter controls are hidden.
 
 JSON results separate `observation_complete`, `declared_rules` and
-`expectation_fulfilled`. `report` uses `n/a` for expectations. Exit codes: 0 for
-complete report/successful check, 1 for a rejected check or a `validate --baseline` run whose
-baseline no longer matches the code, 2 for unverifiable inputs.
+`expectation_fulfilled`. `report` uses `n/a` for expectations.
+
+### Exit codes
+
+| Command | 0 | 1 | 2 |
+| --- | --- | --- | --- |
+| `check` | Accepted | Rejected | Input or evidence unverifiable |
+| `validate` | Validation accepted | Baseline, budget or widening rejected | Validation diagnostics; inspected verdicts remain available |
+| `report` | Observation complete; read rule verdict | — | Input or evidence unverifiable |
+| `init` | Draft written | — | Draft unavailable; read diagnostic |
+| `skill install` | Instructions written | — | Target file could not be updated |
+
 Every exit 2 includes a Diagnostic with `kind`, `subject`, `unknown_claim` and a
 one-line `remedy`. Partial analyzer observations retain their typed coverage and
 are persisted by `report`. Invalid locks are never replaced with empty state.
@@ -235,7 +244,7 @@ IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen d
 
 [`command-result.schema.json`](../schema/command-result.schema.json) describes the JSON
 stdout of `check`, `validate` and `report` (AD-138). It is included under `archkeel/schema`
-in installed packages. Its version is the `$id` suffix, currently `2.0.0`; command output
+in installed packages. Its version is the `$id` suffix, currently `3.0.0`; command output
 gains no version field. Pin the CLI and schema together. Register the bundled
 `architecture-ir-common.schema.json`, `architecture-ir-decoded.schema.json`,
 `architecture-ir-python-decoded.schema.json` and
@@ -243,7 +252,9 @@ gains no version field. Pin the CLI and schema together. Register the bundled
 their `$id` for offline Draft 2020-12 validation. This schema excludes argument-parser,
 `init` and `skill` results, and the separate canonical `architecture.json` artifact.
 `null` means unavailable or inapplicable; `[]` means a measured empty list. Missing required
-fields are invalid. Exit 2 requires diagnostic evidence and UNKNOWN verdicts. A report may
+fields are invalid. Exit 2 requires diagnostics. Completed `validate` inspections retain their verdicts and
+measurements; incomplete results retain UNKNOWN verdicts and null measurements.
+A validation diagnostic rejects the contract even when inspected rules PASS. A report may
 exit 0 with FAIL or UNKNOWN declared rules; consumers must read the verdicts.
 [The small consumer fixture](../fixtures/consume_result.py) preserves that distinction.
 

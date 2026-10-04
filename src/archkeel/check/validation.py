@@ -2018,8 +2018,8 @@ def _observed_result(
 ) -> RunResult:
     """The validate result once a complete observation has produced its diagnostics.
 
-    AD-52: a baseline's own findings arrive as `failures` and exit 1, which keeps a
-    diagnostic and exit 2 meaning what they always meant - nothing could be judged.
+    AD-52: baseline findings arrive as `failures` and exit 1. Diagnostics reject
+    validation at exit 2 without discarding successfully inspected evidence.
     """
     try:
         measurements, declared = inspect_observation(observation)
@@ -2034,32 +2034,18 @@ def _observed_result(
             )
         )
         measurements = None
-        declared = "FAIL"
+        declared = "UNKNOWN"
     decisions = open_decisions(observation)
     counts = agent_decisions(observation)
     # AD-51: a rejected run is where the breakdown is read, so it carries it too.
     counted = violation_counts(observation)
-    if diagnostics:
-        return RunResult(
-            "validate",
-            2,
-            diagnostics=_sorted(diagnostics),
-            coverage=observation.coverage,
-            python_version=observation.python_version,
-            open_decisions=decisions,
-            agent_decisions=counts,
-            violations_by_rule=counted.by_rule,
-            violations_by_component_pair=counted.by_component_pair,
-            baseline_new=baseline_new,
-            baseline_resolved=baseline_resolved,
-            interface_budgets=interface_budgets,
-        )
     return RunResult(
         "validate",
-        1 if failures else 0,
-        observation_complete="PASS",
+        2 if diagnostics else 1 if failures else 0,
+        observation_complete="PASS" if measurements is not None else "UNKNOWN",
         declared_rules=declared,
-        expectation_fulfilled="n/a",
+        expectation_fulfilled="n/a" if measurements is not None else "UNKNOWN",
+        diagnostics=_sorted(diagnostics),
         coverage=observation.coverage,
         python_version=observation.python_version,
         measurements=measurements,
@@ -2068,7 +2054,7 @@ def _observed_result(
         baseline_resolved=baseline_resolved,
         open_decisions=decisions,
         agent_decisions=counts,
-        claims=review_claims(observation),
+        claims=review_claims(observation) if measurements is not None else None,
         violations_by_rule=counted.by_rule,
         violations_by_component_pair=counted.by_component_pair,
         interface_budgets=interface_budgets,

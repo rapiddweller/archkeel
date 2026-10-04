@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:archkeel:command-result:2.0.0",
+  "$id": "urn:archkeel:command-result:3.0.0",
   "title": "Archkeel check, validate and report JSON results",
-  "$comment": "AD-138. Describes codec.result_payload; version 2 preserves null unmeasured call totals and accepts legacy zero sentinels. Register the bundled IR common, Python decoded and architecture contract schemas by their $id for offline validation. Shape validation does not prove source authenticity, arithmetic consistency or contract conformance.",
+  "$comment": "AD-138. Describes codec.result_payload; Version 3 preserves inspected validate verdicts and measurements at diagnostic exit 2; incomplete results remain UNKNOWN/null. Version 2 null call totals and legacy zero sentinels remain readable. Register the bundled IR common, Python decoded and architecture contract schemas by their $id for offline validation. Shape validation does not prove source authenticity, arithmetic consistency or contract conformance.",
   "type": "object",
   "required": [
     "command",
@@ -163,13 +163,24 @@
     {
       "if": {"properties": {"exit_code": {"const": 2}}},
       "then": {
-        "properties": {
-          "diagnostics": {"minItems": 1},
-          "observation_complete": {"const": "UNKNOWN"},
-          "declared_rules": {"const": "UNKNOWN"},
-          "expectation_fulfilled": {"const": "UNKNOWN"},
-          "measurements": {"type": "null"},
-          "claims": {"type": "null"}
+        "properties": {"diagnostics": {"minItems": 1}},
+        "if": {"properties": {"command": {"const": "validate"}, "observation_complete": {"const": "PASS"}}},
+        "then": {
+          "properties": {
+            "expectation_fulfilled": {"const": "n/a"},
+            "coverage": {"not": {"type": "null"}},
+            "measurements": {"not": {"type": "null"}},
+            "claims": {"not": {"type": "null"}}
+          }
+        },
+        "else": {
+          "properties": {
+            "observation_complete": {"const": "UNKNOWN"},
+            "declared_rules": {"const": "UNKNOWN"},
+            "expectation_fulfilled": {"const": "UNKNOWN"},
+            "measurements": {"type": "null"},
+            "claims": {"type": "null"}
+          }
         }
       },
       "else": {"properties": {"diagnostics": {"maxItems": 0}, "observation_complete": {"const": "PASS"}}}
@@ -248,7 +259,6 @@
           "report_filter": {"type": "null"},
           "filtered_violations": {"type": "null"},
           "filtered_calls": {"type": "null"},
-          "rule_assessments": {"type": "null"},
           "baseline_path": {"type": "null"},
           "baseline_comparisons": {"type": "null"},
           "observation": {"type": "null"},

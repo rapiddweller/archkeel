@@ -11,7 +11,7 @@ import pytest
 from test_analyzer import _component
 from test_architecture_demo import CONFIG as SHOP_CONFIG
 from test_architecture_demo import _prepare_repo
-from test_delta import _model, _record
+from test_delta import _model, _record, _violation
 
 from archkeel.check.onboarding import architecture_document
 from archkeel.check.ports import ScanConfig
@@ -20,6 +20,7 @@ from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
     TARGET_GRAPH_MARKER,
     _imports_by_target,
+    _observed_result,
     _resolved_public_entries,
     graph_diagnostics,
     inside_diagnostics,
@@ -49,6 +50,7 @@ from archkeel.ir.model import (
 )
 from fixtures.architecture_demo import CATALOG
 from fixtures.demo_catalog_support import FIXTURE_DIR
+from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
 
 ROOT = Path(__file__).parents[1]
 CONFIG = ScanConfig(("sample",), "sample", "contract.json", "0" * 64)
@@ -1543,3 +1545,67 @@ def test_names_outside_the_namespace_validate_where_the_namespace_never_held_the
     result, _ = run_validate(root, SHOP_CONFIG, observe)
 
     assert (result.exit_code, result.diagnostics) == (0, ())
+
+
+@pytest.mark.parametrize(
+    "variant_id",
+    [
+        "validation-graph-drift-write-graph",
+        "public-api-inherited-unknown",
+        "class-a-symbol-placement",
+    ],
+)
+def test_validation_diagnostics_preserve_inspected_evidence(
+    tmp_path: Path, variant_id: str
+) -> None:
+    from archkeel.check.report import run_report
+    from archkeel.render.summary import report_summary
+
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    overlay = dict(variant.files)
+    if variant_id == "public-api-inherited-unknown":
+        overlay["docs/architecture/shop.md"] = "# Stale graph\n"
+    root = _prepare_repo(tmp_path, overlay, variant.fixture)
+    config = load_config(root, variant.config)
+    result, files = run_validate(root, config, observe)
+    report, _ = run_report(root, config=config, analyzer=observe)
+    assert result.exit_code == 2 and result.diagnostics
+    assert result.observation_complete == "PASS"
+    assert result.declared_rules == report.declared_rules
+    assert result.measurements == report.measurements
+    assert result.expectation_fulfilled == "n/a"
+    assert not files
+    assert "Nothing was checked" not in report_summary(result).sentence
+
+
+def test_failed_validation_inspection_keeps_unknown_verdicts() -> None:
+    observation = parse_observation(
+        _model(git_head="a" * 40, violations=[_violation("VIO-broken", "EVD-missing")])
+    )
+    result = _observed_result(observation, [])
+    assert result.exit_code == 2
+    assert (result.observation_complete, result.declared_rules, result.expectation_fulfilled) == (
+        "UNKNOWN",
+        "UNKNOWN",
+        "UNKNOWN",
+    )
+    assert result.measurements is None and result.claims is None
+    assert result.diagnostics[0].code == "observation.incomplete"
+
+
+def test_closed_world_diagnostic_preserves_typescript_violation(tmp_path: Path) -> None:
+    from fixtures.reproduce_typescript import run_variant
+
+    variant = next(
+        item for item in TYPESCRIPT_VARIANTS if item.id == "typescript-forbidden-type-import"
+    )
+    outcome = run_variant(tmp_path, variant)
+    result = outcome.validation
+    assert result.exit_code == 2
+    assert any(item.code == "closed_world.observed_forbidden" for item in result.diagnostics)
+    assert (result.observation_complete, result.declared_rules, result.expectation_fulfilled) == (
+        "PASS",
+        "FAIL",
+        "n/a",
+    )
+    assert result.measurements == outcome.report.measurements

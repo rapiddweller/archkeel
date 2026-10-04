@@ -330,3 +330,23 @@ def test_report_names_bounded_fail_and_unknown_rules_without_a_second_verdict() 
     assert "archkeel validate --baseline architecture-baseline.json" in summary.sentence
     assert "--accept-new" not in summary.sentence
     assert report_summary(replace(result, declared_rules="PASS")).decision.label == "PASS"
+
+
+@pytest.mark.parametrize(
+    "declared, label", [("FAIL", "FAIL"), ("PASS", "REJECT"), ("UNKNOWN", "REJECT")]
+)
+def test_completed_validation_diagnostics_do_not_claim_nothing_checked(declared, label) -> None:
+    result = replace(
+        _REPORT_FAIL,
+        command="validate",
+        exit_code=2,
+        declared_rules=declared,
+        diagnostics=(_DIAGNOSTIC,),
+    )
+    summary = report_summary(result)
+    assert summary.decision.label == label
+    rendered = _render(result, summary, 80)
+    assert "Nothing was checked" not in rendered
+    if declared != "UNKNOWN":
+        assert "NOT CHECKED" not in rendered
+    assert "Scan complete" in rendered and "PASS" in rendered
