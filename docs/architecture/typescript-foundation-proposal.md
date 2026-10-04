@@ -42,9 +42,12 @@ and budgets refuse unavailable signals. See
 [the measurement contract](../reference.md#regression-checks).
 Local value aliases and directory package metadata retain compiler evidence,
 but their unproved runtime target stays null and coverage UNKNOWN. Non-explicit
-CommonJS targets also stay UNKNOWN. Explicit JavaScript runtime files are observed
-even when the compiler substitutes TypeScript. Node namespace assertions preserve loader
-identity; callback use and call/constructor argument escapes stay UNKNOWN.
+CommonJS targets also stay UNKNOWN; direct CommonJS loads need a physical runtime
+file. Static TypeScript imports keep compiler semantics. Existing explicit
+JavaScript closure is observed even when the compiler substitutes TypeScript.
+Node namespace assertions preserve loader identity; callback use and unproved
+value escapes and rest bindings stay UNKNOWN. Known `Module` and `default`
+exports use the same boundary; type-only references create no value gap.
 Full Dart type and construct analysis is also outside this decision.
 
 The npm package is locked and does not install dependencies during `report` or

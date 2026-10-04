@@ -7,6 +7,7 @@ import { digest, id, moduleIdentity, nodeRequirement, type Evidence, type Reques
 
 const sourceExtensions = /\.(?:[cm]?ts|tsx|[cm]?js|jsx)$/;
 const declarationExtension = /\.d\.(?:[cm]?ts)$/;
+const nodeModuleExports = new Set(["Module", "default"]);
 export function collect(request: Request) {
   if (ts.version !== "5.9.3") throw Error("TypeScript compiler version must be 5.9.3");
   const manifest = readFileSync(new URL("../package.json", import.meta.url), "utf8");
@@ -36,7 +37,7 @@ export function collect(request: Request) {
     else if (content !== undefined) gap(`Local dependency outside selected source scope: ${project.pathOf(path)}`);
     return content;
   }
-  function targetFor(specifier: string, source: ts.SourceFile, importId: string, typeOnly: boolean, mode: ts.ResolutionMode): Target {
+  function targetFor(specifier: string, source: ts.SourceFile, importId: string, typeOnly: boolean, mode: ts.ResolutionMode, directCommonJS: boolean): Target {
     if (!typeOnly && specifier.startsWith("node:") && isBuiltin(specifier)) return { kind: "builtin", import_id: importId, name: specifier };
     const resolutionInputs = new Set<string>();
     const resolution = ts.resolveModuleName(specifier, source.fileName, project.options, {
@@ -72,7 +73,7 @@ export function collect(request: Request) {
     const declaration = declarationExtension.test(path) ? rel : null;
     let runtime = declaration ? null : rel;
     const explicitRuntime = relativeSpecifier && /\.(?:cjs|mjs|js)$/.test(specifier);
-    const commonJSLookup = relativeSpecifier && mode === ts.ModuleKind.CommonJS && !explicitRuntime;
+    const commonJSLookup = relativeSpecifier && directCommonJS && !explicitRuntime;
     if (!typeOnly) {
       // Compiler substitution does not prove the file Node loads.
       const runtimePath = explicitRuntime ? lookup : undefined;
@@ -80,7 +81,10 @@ export function collect(request: Request) {
         const realRuntime = project.host.realpath?.(runtimePath) ?? runtimePath;
         if (project.options.preserveSymlinks && realRuntime !== runtimePath) return unresolved(`preserveSymlinks lookup context is not observed: ${specifier}`);
         if (observe(realRuntime) !== undefined) runtime = project.pathOf(realRuntime) ?? null;
-      } else if (declaration) gap(`Runtime implementation unavailable for declaration: ${rel}`);
+      } else if (declaration || (runtimePath && directCommonJS)) {
+        runtime = null;
+        gap(declaration ? `Runtime implementation unavailable for declaration: ${rel}` : `CommonJS runtime file is unavailable: ${specifier}`);
+      }
     }
     observe(path);
     if (!typeOnly && (!relativeSpecifier || directoryPackage || commonJSLookup)) {
@@ -133,7 +137,7 @@ export function collect(request: Request) {
       if (!expression || !ts.isStringLiteralLike(expression)) { gap(`Computed ${form} cannot be resolved`, [evidenceId], module); return; }
       const specifier = expression.text;
       const importId = id("import", module, node.getStart(source), form);
-      const target = targetFor(specifier, source, importId, typeOnly, resolutionMode ?? program.getModeForUsageLocation(source, expression));
+      const target = targetFor(specifier, source, importId, typeOnly, resolutionMode ?? program.getModeForUsageLocation(source, expression), resolutionMode === ts.ModuleKind.CommonJS);
       targets.push(target);
       const targetModule = target.kind === "local" ? target.module : target.kind === "builtin" ? target.name : target.kind === "external" ? target.package : specifier;
       imports.push(record(form, `${module} imports ${specifier}`, [module, targetModule], [evidenceId], {
@@ -157,15 +161,26 @@ export function collect(request: Request) {
       seen.add(node);
       if (ts.isParenthesizedExpression(node) || ts.isAwaitExpression(node) || ts.isAsExpression(node)
         || ts.isTypeAssertionExpression(node) || ts.isNonNullExpression(node) || ts.isSatisfiesExpression(node)) return nodeModuleReference(node.expression, seen);
+      if ((ts.isPropertyAccessExpression(node) && nodeModuleExports.has(node.name.text))
+        || (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression) && nodeModuleExports.has(node.argumentExpression.text))) return nodeModuleReference(node.expression, seen);
       if (ts.isCallExpression(node)) {
         const argument = node.arguments[0];
         return (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === "require"))
           && argument !== undefined && ts.isStringLiteralLike(argument) && ["module", "node:module"].includes(argument.text);
       }
       if (!ts.isIdentifier(node)) return false;
-      if (commonJS && node.text === "module" && !checker.getSymbolAtLocation(node)?.declarations?.length) return true;
-      return checker.getSymbolAtLocation(node)?.declarations?.some(declaration => {
+      const symbol = ts.isShorthandPropertyAssignment(node.parent)
+        ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node);
+      if (commonJS && node.text === "module" && !symbol?.declarations?.length) return true;
+      return symbol?.declarations?.some(declaration => {
         if (ts.isNamespaceImport(declaration) || ts.isImportClause(declaration)) return nodeModuleImport(declaration);
+        if (ts.isImportSpecifier(declaration) && nodeModuleExports.has((declaration.propertyName ?? declaration.name).text)) return nodeModuleImport(declaration);
+        if (ts.isBindingElement(declaration) && ts.isObjectBindingPattern(declaration.parent) && ts.isVariableDeclaration(declaration.parent.parent)) {
+          let name: ts.Node = declaration.propertyName ?? declaration.name;
+          while (ts.isComputedPropertyName(name) || ts.isParenthesizedExpression(name)) name = name.expression;
+          return (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) && nodeModuleExports.has(name.text)
+            && nodeModuleReference(declaration.parent.parent.initializer, seen);
+        }
         if (ts.isVariableDeclaration(declaration)) return nodeModuleReference(declaration.initializer, seen);
         if (ts.isImportEqualsDeclaration(declaration) && ts.isExternalModuleReference(declaration.moduleReference)) {
           const expression = declaration.moduleReference.expression;
@@ -173,6 +188,10 @@ export function collect(request: Request) {
         }
         return false;
       }) ?? false;
+    }
+    function isValueUse(node: ts.Node): boolean {
+      for (let parent = node.parent; parent; parent = parent.parent) if (ts.isTypeNode(parent)) return false;
+      return true;
     }
     function createRequireReference(node: ts.Node): boolean {
       if (ts.isBindingElement(node) && ts.isObjectBindingPattern(node.parent) && ts.isVariableDeclaration(node.parent.parent)) {
@@ -195,15 +214,27 @@ export function collect(request: Request) {
     function visit(node: ts.Node): void {
       if (visited.has(node)) return;
       visited.add(node);
-      if (createRequireReference(node)) gap("Node createRequire loader is not observed", [location(node)], module);
+      if (createRequireReference(node) && isValueUse(node)) gap("Node createRequire loader is not observed", [location(node)], module);
       if (((ts.isPropertyAccessExpression(node) && node.name.text === "then")
         || (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression) && node.argumentExpression.text === "then"))
-        && nodeModuleReference(node.expression)) gap("Node module callback namespace is not observed", [location(node)], module);
-      if ((ts.isCallExpression(node) || ts.isNewExpression(node))
-        && node.arguments?.some(argument => nodeModuleReference(argument))) gap("Node module namespace argument is not observed", [location(node)], module);
+        && nodeModuleReference(node.expression) && isValueUse(node)) gap("Node module callback namespace is not observed", [location(node)], module);
+      if (ts.isExpression(node) && nodeModuleReference(node) && isValueUse(node)) {
+        const parent = node.parent;
+        if (!nodeModuleReference(parent)
+          && !((ts.isPropertyAccessExpression(parent) || ts.isElementAccessExpression(parent)) && parent.expression === node)
+          && !ts.isVariableDeclaration(parent) && !(ts.isBindingElement(parent) && parent.name === node) && !ts.isNamespaceImport(parent) && !ts.isImportClause(parent) && !ts.isImportSpecifier(parent) && !ts.isImportEqualsDeclaration(parent)
+          && !ts.isTypeQueryNode(parent) && !ts.isQualifiedName(parent) && !ts.isExpressionStatement(parent) && !ts.isTypeOfExpression(parent)) {
+          gap("Node module namespace escape is not observed", [location(node)], module);
+        }
+      }
       if (ts.isBindingElement(node) && ts.isObjectBindingPattern(node.parent)) {
+        if (node.dotDotDotToken && ts.isVariableDeclaration(node.parent.parent)
+          && nodeModuleReference(node.parent.parent.initializer) && isValueUse(node)) gap("Node module rest binding is not observed", [location(node)], module);
         let name: ts.Node = node.propertyName ?? node.name;
         while (ts.isComputedPropertyName(name) || ts.isParenthesizedExpression(name)) name = name.expression;
+        if ((ts.isIdentifier(name) || ts.isStringLiteralLike(name)) && nodeModuleExports.has(name.text)
+          && !ts.isIdentifier(node.name) && ts.isVariableDeclaration(node.parent.parent)
+          && nodeModuleReference(node.parent.parent.initializer) && isValueUse(node)) gap("Node module complex binding is not observed", [location(node)], module);
         if (((ts.isIdentifier(name) || ts.isStringLiteralLike(name)) && name.text === "require")
           || (node.propertyName && ts.isComputedPropertyName(node.propertyName) && !ts.isStringLiteralLike(name)
             && ts.isVariableDeclaration(node.parent.parent) && nodeModuleReference(node.parent.parent.initializer))) gap("Indirect require binding is not resolved", [location(node)], module);

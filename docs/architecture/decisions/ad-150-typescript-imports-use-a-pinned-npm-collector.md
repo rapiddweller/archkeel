@@ -9,6 +9,8 @@ Selected source and resolver inputs bind exact bytes to the revision. Explicit
 JavaScript runtime closure remains distinct from TypeScript and declarations.
 Non-explicit CommonJS targets, including extensionless, dotted-stem and directory
 specifiers, stay UNKNOWN. Compiler resolution does not prove Node runtime lookup.
+Direct CommonJS loads of explicit JavaScript also stay UNKNOWN when that physical
+file is absent. Static TypeScript imports keep compiler source semantics.
 Computed, indirect and incomplete imports stay UNKNOWN. Local value aliases and
 unproved runtime targets keep compiler evidence, null runtime_file and UNKNOWN
 coverage; unread runtime bytes are not claimed in the digest. Type-only aliases

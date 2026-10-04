@@ -101,7 +101,8 @@
     "files": {
       "src/pkg/package.json": "{\"types\": \"types.ts\", \"main\": \"runtime.cjs\"}",
       "src/pkg/types.ts": "export interface Value {value: string};",
-      "src/pkg/runtime.cjs": "throw Error('must not execute');"
+      "src/pkg/runtime.cjs": "throw Error('must not execute');",
+      "src/main.js": "require('./pkg/runtime.cjs');"
     },
     "runtime_path": "src/pkg/runtime.cjs",
     "observed_files": [
@@ -419,5 +420,27 @@
     "cycle_source": "require('./main.cjs');",
     "manifest": {},
     "complete": false
+  },
+  {
+    "name": "commonjs-explicit-js-missing-runtime",
+    "specifier": "./leaf.worker.js",
+    "source": "require('./leaf.worker.js');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/leaf.worker.ts": "export const value=1;",
+      "src/main.cjs": "require('./leaf.worker.js');"
+    },
+    "runtime_path": "src/leaf.worker.js",
+    "observed_files": [
+      "src/leaf.worker.ts",
+      "src/main.cts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false,
+    "runtime_missing": true
   }
 ]

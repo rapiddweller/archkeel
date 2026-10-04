@@ -387,6 +387,7 @@ def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
     root = _repository(tmp_path / "project")
     (root / "src").mkdir()
     (root / "src/main.ts").write_text(example["source"])
+    (root / "src/main.js").write_text("require('./hidden.cjs');")
     (root / "package.json").write_text(json.dumps(example.get("manifest", {})))
     (root / "src/hidden.cjs").write_text("require('./main.js');")
     (root / "tsconfig.json").write_text(
@@ -443,7 +444,7 @@ def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
     assert payload["declared_rules"] == (
         "FAIL" if example["cycle"] else "PASS" if example["complete"] else "UNKNOWN"
     )
-    assert payload["coverage"]["files_parsed"] == (2 if example["cycle"] else 1)
+    assert payload["coverage"]["files_parsed"] == (3 if example["cycle"] else 1)
     if example["cycle"]:
         assert payload["violations_by_rule"] == [["no-cycles", 1]]
     validation = _invoke(root, "validate")
@@ -532,6 +533,13 @@ def test_package_aliases_preserve_explicit_runtime_and_reject_hidden_imports(
         assert result["observation_complete"] == result["declared_rules"] == "UNKNOWN"
         return
     complete = example.get("complete", example["name"] == "relative")
+    if example.get("runtime_missing"):
+        result = _invoke(root, "validate")
+        assert result.returncode == 2, result.stdout + result.stderr
+        payload = json.loads(result.stdout)
+        assert payload["observation_complete"] == payload["declared_rules"] == "UNKNOWN"
+        runtime.write_text("throw Error('must not execute');")
+        complete = True
     if not complete:
         for runtime_source in (
             "throw Error('must not execute');",
@@ -548,7 +556,9 @@ def test_package_aliases_preserve_explicit_runtime_and_reject_hidden_imports(
     positive = _invoke(root, "report", "--output", str(artifact))
     assert positive.returncode == 0, positive.stdout + positive.stderr
     first = parse_observation(decode_canonical_model(json.loads(artifact.read_bytes())))
-    assert first.coverage.files_parsed == len(example.get("observed_files", [1, 2, 3]))
+    assert first.coverage.files_parsed == len(example.get("observed_files", [1, 2, 3])) + bool(
+        example.get("runtime_missing")
+    )
     assert json.loads(positive.stdout)["declared_rules"] == "PASS"
     if example.get("type_only"):
         runtime.write_text("require('./missing.cjs');")
