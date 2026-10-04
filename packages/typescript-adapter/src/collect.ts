@@ -201,7 +201,9 @@ export function collect(request: Request) {
           || (node.propertyName && ts.isComputedPropertyName(node.propertyName) && !ts.isStringLiteralLike(name))) return nodeModuleReference(node.parent.parent.initializer);
       }
       if (ts.isIdentifier(node) && !ts.isImportSpecifier(node.parent)) {
-        return checker.getSymbolAtLocation(node)?.declarations?.some(declaration =>
+        const symbol = ts.isShorthandPropertyAssignment(node.parent)
+          ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node);
+        return symbol?.declarations?.some(declaration =>
           ts.isImportSpecifier(declaration) && (declaration.propertyName ?? declaration.name).text === "createRequire" && nodeModuleImport(declaration)) ?? false;
       }
       if ((ts.isPropertyAccessExpression(node) && node.name.text === "createRequire")
