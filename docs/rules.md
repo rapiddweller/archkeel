@@ -2,6 +2,12 @@
 
 Contract 2.0 separates deterministic rules, regression checks, declarations and review claims.
 
+Contract 2.2 adds independent UML intent under `declarations.uml`. It uses the shared entity,
+signature, visibility and relationship dataclasses. Components keep their existing owners and
+permissions. Contract 2.1 remains readable with unchanged encoding. Core evaluates nested UML
+intent against recorded facts; incomplete coverage retains UNKNOWN.
+See [the model and current limits](architecture/uml-model-target.md).
+
 `declarations.compat` records old module paths kept as typed compatibility shims. Each entry has
 distinct `module` and `target` values and a `lifetime` (`permanent` or `migration`). A shim must
 contain only imports and one literal `__all__`; every exported name must resolve only to the

@@ -7,13 +7,17 @@
 [![PyPI](https://img.shields.io/pypi/v/archkeel)](https://pypi.org/project/archkeel/)
 [![MIT](https://img.shields.io/badge/license-MIT-C5F82A?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/LICENSE)
 
-Archkeel checks code against your architecture rules. It shows forbidden imports,
-misplaced types, and gaps in the analysis, with source evidence you can review.
-It runs locally and in CI. The checks are deterministic; they do not call an LLM.
+Archkeel checks code against declared boundaries. It reports forbidden imports,
+misplaced types and gaps in static analysis, with source evidence for review.
 
-In a coding-agent harness, Archkeel supplies architecture feedback before submission.
-Tests check behavior. Archkeel checks declared boundaries and whether a change made
-static analysis less complete. Both still need human review.
+Use it in your coding-agent harness or CI. Checks run locally and deterministically,
+without an LLM. They complement tests of runtime behavior.
+
+<p>
+  <img src="docs/assets/archkeel-shop-store-inside.png" alt="Architecture explorer showing observed dependencies and declared responsibilities" width="1000">
+</p>
+
+Explore observed code, declared architecture and their differences in one offline report.
 
 ## Start here
 
@@ -63,7 +67,7 @@ archkeel report --only violations --component store
 archkeel report --only calls --component store
 ```
 
-The explorer shows **Actual** (observed code), **Target** (declared architecture),
+The explorer shows **As-Is** (observed code), **Target** (declared architecture),
 and **Diff** (their differences). These are views of one snapshot, not two revisions.
 Folders help navigation; they do not establish ownership or runtime behavior.
 

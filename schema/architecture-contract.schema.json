@@ -1,132 +1,928 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:archkeel:architecture-contract:2.1.0",
-  "title": "Archkeel architecture contract", "description": "Contract 2.1 structure. Rule semantics are cataloged in docs/rules.md.",
+  "$id": "urn:archkeel:architecture-contract:2.2.0",
+  "title": "Archkeel architecture contract",
+  "description": "Contract 2.1.0 / 2.2.0 structure. Rule semantics are cataloged in docs/rules.md.",
   "type": "object",
-  "required": ["schema_version", "components", "rules"],
+  "required": [
+    "schema_version",
+    "components",
+    "rules"
+  ],
   "additionalProperties": false,
   "properties": {
-    "$schema": {"$ref": "#/$defs/nonEmpty"},
-    "schema_version": {"const": "2.1.0"},
-    "components": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/component"}},
-    "rules": {"type": "array", "uniqueItems": true, "items": {"oneOf": [
-      {"$ref": "#/$defs/forbiddenDependency"}, {"$ref": "#/$defs/allowedDependency"},
-      {"$ref": "#/$defs/forbiddenConstruct"},
-      {"$ref": "#/$defs/externalDependencyScope"}, {"$ref": "#/$defs/completeAssignment"},
-      {"$ref": "#/$defs/rootLayout"},
-      {"$ref": "#/$defs/completeExternalScope"}, {"$ref": "#/$defs/completeRequires"},
-      {"$ref": "#/$defs/noComponentCycles"}, {"$ref": "#/$defs/interfaceBoundary"},
-      {"$ref": "#/$defs/siblingIsolation"}, {"$ref": "#/$defs/symbolPlacement"},
-      {"$ref": "#/$defs/boundaryTypes"}
-    ]}},
-    "declarations": {"$ref": "#/$defs/declarations"}
+    "$schema": {
+      "$ref": "#/$defs/nonEmpty"
+    },
+    "schema_version": {
+      "enum": [
+        "2.1.0",
+        "2.2.0"
+      ]
+    },
+    "components": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/component"
+      }
+    },
+    "rules": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/forbiddenDependency"
+          },
+          {
+            "$ref": "#/$defs/allowedDependency"
+          },
+          {
+            "$ref": "#/$defs/forbiddenConstruct"
+          },
+          {
+            "$ref": "#/$defs/externalDependencyScope"
+          },
+          {
+            "$ref": "#/$defs/completeAssignment"
+          },
+          {
+            "$ref": "#/$defs/rootLayout"
+          },
+          {
+            "$ref": "#/$defs/completeExternalScope"
+          },
+          {
+            "$ref": "#/$defs/completeRequires"
+          },
+          {
+            "$ref": "#/$defs/noComponentCycles"
+          },
+          {
+            "$ref": "#/$defs/interfaceBoundary"
+          },
+          {
+            "$ref": "#/$defs/siblingIsolation"
+          },
+          {
+            "$ref": "#/$defs/symbolPlacement"
+          },
+          {
+            "$ref": "#/$defs/boundaryTypes"
+          }
+        ]
+      }
+    },
+    "declarations": {
+      "$ref": "#/$defs/declarations"
+    }
   },
   "$defs": {
-    "nonEmpty": {"type": "string", "pattern": "\\S"},
-    "strings": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
-    "provenance": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
+    "uml": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "urn:archkeel:architecture-target:1.0.0",
+      "title": "Independent UML declarations",
+      "$comment": "Generated from archkeel.ir.architecture_graph. Reference, identity, evidence and containment checks also require the graph/comparison validators. This graph does not change the Observation wire format.",
+      "$ref": "#/$defs/TargetDefinition",
+      "$defs": {
+        "TargetDefinition": {
+          "type": "object",
+          "properties": {
+            "entities": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Entity"
+              }
+            },
+            "relationships": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Relationship"
+              }
+            },
+            "scopes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TargetScope"
+              }
+            },
+            "schema_version": {
+              "enum": [
+                "1.0.0"
+              ]
+            }
+          },
+          "required": [
+            "schema_version"
+          ],
+          "additionalProperties": false
+        },
+        "Entity": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "component",
+                "package",
+                "module",
+                "class",
+                "interface",
+                "enum",
+                "method",
+                "function",
+                "attribute",
+                "type_alias",
+                "constant",
+                "binding",
+                "symbol"
+              ]
+            },
+            "qualified_name": {
+              "type": "string"
+            },
+            "language": {
+              "type": "string"
+            },
+            "parent_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "visibility": {
+              "$ref": "#/$defs/Visibility"
+            },
+            "signature": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Signature"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "annotation": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "modifiers": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "abstract",
+                  "static",
+                  "class",
+                  "async",
+                  "frozen"
+                ]
+              }
+            },
+            "presence": {
+              "enum": [
+                "defined",
+                "referenced",
+                "planned",
+                "unspecified"
+              ]
+            },
+            "responsibilities": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "record_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "definition_contexts": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DefinitionContext"
+              }
+            },
+            "initializer": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "file_path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "qualified_name",
+            "language"
+          ],
+          "additionalProperties": false
+        },
+        "Visibility": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "public",
+                "private",
+                "protected",
+                "package",
+                "unknown"
+              ]
+            },
+            "basis": {
+              "enum": [
+                "language",
+                "convention",
+                "declared",
+                "unknown"
+              ]
+            },
+            "spelling": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "Signature": {
+          "type": "object",
+          "properties": {
+            "parameters": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Parameter"
+              }
+            },
+            "returns": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "Parameter": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "annotation": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "enum": [
+                "positional_only",
+                "positional",
+                "keyword_only",
+                "varargs",
+                "kwargs",
+                "unknown"
+              ]
+            },
+            "default": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "default_known": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "DefinitionContext": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "if",
+                "for",
+                "async_for",
+                "while",
+                "try",
+                "try_star",
+                "with",
+                "async_with",
+                "match"
+              ]
+            },
+            "branch": {
+              "enum": [
+                "body",
+                "else",
+                "handler",
+                "finally",
+                "case"
+              ]
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "branch",
+            "evidence_ids"
+          ],
+          "additionalProperties": false
+        },
+        "Relationship": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "imports",
+                "calls",
+                "references",
+                "inherits",
+                "realizes",
+                "creates",
+                "instance_of",
+                "owns",
+                "requires",
+                "publishes"
+              ]
+            },
+            "source_id": {
+              "type": "string"
+            },
+            "target_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "resolution": {
+              "enum": [
+                "resolved",
+                "partial",
+                "unresolved",
+                "not_applicable"
+              ]
+            },
+            "candidate_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "expression": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "record_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "candidate_count": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "candidates_truncated": {
+              "type": "boolean"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "through": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "decided_by": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "architect",
+                    "agent"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "source_id"
+          ],
+          "additionalProperties": false
+        },
+        "TargetScope": {
+          "type": "object",
+          "properties": {
+            "scope_id": {
+              "type": "string"
+            },
+            "mode": {
+              "enum": [
+                "open",
+                "closed"
+              ]
+            },
+            "rationale": {
+              "type": "string"
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "entity_kinds": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "component",
+                  "package",
+                  "module",
+                  "class",
+                  "interface",
+                  "enum",
+                  "method",
+                  "function",
+                  "attribute",
+                  "type_alias",
+                  "constant",
+                  "binding",
+                  "symbol"
+                ]
+              }
+            },
+            "relationship_kinds": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "imports",
+                  "calls",
+                  "references",
+                  "inherits",
+                  "realizes",
+                  "creates",
+                  "instance_of",
+                  "owns",
+                  "requires",
+                  "publishes"
+                ]
+              }
+            }
+          },
+          "required": [
+            "scope_id",
+            "mode",
+            "rationale",
+            "provenance"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "nonEmpty": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/nonEmpty"
+      }
+    },
+    "provenance": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/nonEmpty"
+      }
+    },
     "requiredComponent": {
       "type": "object",
-      "required": ["component", "rationale"],
+      "required": [
+        "component",
+        "rationale"
+      ],
       "additionalProperties": false,
       "properties": {
-        "component": {"$ref": "#/$defs/nonEmpty"},
-        "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "through": {"$ref": "#/$defs/strings"},
-        "decided_by": {"$ref": "#/$defs/decidedBy"}
+        "component": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "through": {
+          "$ref": "#/$defs/strings"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        }
       }
     },
     "component": {
       "type": "object",
-      "required": ["id", "label", "role", "packages", "responsibilities", "forbidden_responsibilities", "provenance"],
+      "required": [
+        "id",
+        "label",
+        "role",
+        "packages",
+        "responsibilities",
+        "forbidden_responsibilities",
+        "provenance"
+      ],
       "anyOf": [
-        {"properties": {"packages": {"minItems": 1}}},
-        {"required": ["exact_modules"], "properties": {"exact_modules": {"minItems": 1}}}
+        {
+          "properties": {
+            "packages": {
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "required": [
+            "exact_modules"
+          ],
+          "properties": {
+            "exact_modules": {
+              "minItems": 1
+            }
+          }
+        }
       ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"},
-        "label": {"$ref": "#/$defs/nonEmpty"},
-        "role": {"enum": ["component", "interface", "contract", "projection", "foundation"]},
-        "packages": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
-        "exact_modules": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"}},
-        "namespace": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"},
-        "responsibilities": {"$ref": "#/$defs/strings"},
-        "forbidden_responsibilities": {"$ref": "#/$defs/strings"},
-        "provenance": {"$ref": "#/$defs/provenance"},
-        "capability_id": {"$ref": "#/$defs/nonEmpty"},
-        "requires": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/requiredComponent"}},
-        "inside": {"$ref": "#/$defs/nonEmpty"},
-        "public": {"type": "array", "uniqueItems": true, "items": {
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "label": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "role": {
+          "enum": [
+            "component",
+            "interface",
+            "contract",
+            "projection",
+            "foundation"
+          ]
+        },
+        "packages": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmpty"
+          }
+        },
+        "exact_modules": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+          }
+        },
+        "namespace": {
           "type": "string",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*(:[A-Za-z_][A-Za-z0-9_]*)?$"
-        }},
-        "planned": {"type": "array", "uniqueItems": true, "items": {
-          "type": "string",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*(:[A-Za-z_][A-Za-z0-9_]*)?$"
-        }},
-        "decided_by": {"$ref": "#/$defs/decidedBy"}
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+        },
+        "responsibilities": {
+          "$ref": "#/$defs/strings"
+        },
+        "forbidden_responsibilities": {
+          "$ref": "#/$defs/strings"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "capability_id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "requires": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/requiredComponent"
+          }
+        },
+        "inside": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "public": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*(:[A-Za-z_][A-Za-z0-9_]*)?$"
+          }
+        },
+        "planned": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*(:[A-Za-z_][A-Za-z0-9_]*)?$"
+          }
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        }
       }
     },
-    "decidedBy": {"enum": ["architect", "agent"]},
+    "decidedBy": {
+      "enum": [
+        "architect",
+        "agent"
+      ]
+    },
     "forbiddenDependency": {
       "type": "object",
-      "required": ["id", "kind", "source", "target", "include_type_checking", "rationale", "provenance", "decided_by"],
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "target",
+        "include_type_checking",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"},
-        "kind": {"enum": ["forbidden_dependency"]},
-        "source": {"$ref": "#/$defs/nonEmpty"},
-        "target": {"$ref": "#/$defs/nonEmpty"},
-        "include_type_checking": {"type": "boolean"},
-        "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "provenance": {"$ref": "#/$defs/provenance"},
-        "decided_by": {"$ref": "#/$defs/decidedBy"},
-        "target_symbol": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
-        "allowed_sources": {"$ref": "#/$defs/strings"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "enum": [
+            "forbidden_dependency"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "target": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "include_type_checking": {
+          "type": "boolean"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        },
+        "target_symbol": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "allowed_sources": {
+          "$ref": "#/$defs/strings"
+        }
       }
     },
     "allowedDependency": {
       "type": "object",
-      "required": ["id", "kind", "source", "target", "rationale", "provenance", "decided_by"],
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "target",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"},
-        "kind": {"const": "allowed_dependency"},
-        "source": {"$ref": "#/$defs/nonEmpty"},
-        "target": {"$ref": "#/$defs/nonEmpty"},
-        "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "provenance": {"$ref": "#/$defs/provenance"},
-        "decided_by": {"$ref": "#/$defs/decidedBy"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "allowed_dependency"
+        },
+        "source": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "target": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        }
       }
     },
     "forbiddenConstruct": {
       "type": "object",
-      "required": ["id", "kind", "source", "constructs", "rationale", "provenance", "decided_by"],
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "constructs",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"},
-        "kind": {"const": "forbidden_construct"},
-        "source": {"$ref": "#/$defs/nonEmpty"},
-        "constructs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {
-          "enum": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore", "any_annotation", "placeholder_body", "assert", "broad_except", "setattr", "delattr", "vars", "dunder_dict", "string_literal_compare"]
-        }},
-        "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "provenance": {"$ref": "#/$defs/provenance"},
-        "decided_by": {"$ref": "#/$defs/decidedBy"},
-        "allowed_sources": {"$ref": "#/$defs/strings"},
-        "exact_sources": {"$ref": "#/$defs/strings"},
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "forbidden_construct"
+        },
+        "source": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "constructs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "getattr",
+              "hasattr",
+              "cast",
+              "eval",
+              "exec",
+              "dynamic_import",
+              "type_ignore",
+              "any_annotation",
+              "placeholder_body",
+              "assert",
+              "broad_except",
+              "setattr",
+              "delattr",
+              "vars",
+              "dunder_dict",
+              "string_literal_compare"
+            ]
+          }
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        },
+        "allowed_sources": {
+          "$ref": "#/$defs/strings"
+        },
+        "exact_sources": {
+          "$ref": "#/$defs/strings"
+        },
         "allowed_type_ignores": {
-          "type": "array", "uniqueItems": true,
+          "type": "array",
+          "uniqueItems": true,
           "items": {
             "type": "object",
-            "required": ["qualified_name", "line", "statement", "tag"],
+            "required": [
+              "qualified_name",
+              "line",
+              "statement",
+              "tag"
+            ],
             "additionalProperties": false,
             "properties": {
-              "qualified_name": {"$ref": "#/$defs/nonEmpty"},
-              "line": {"type": "integer", "minimum": 1},
-              "statement": {"$ref": "#/$defs/nonEmpty"},
-              "tag": {"$ref": "#/$defs/nonEmpty"}
+              "qualified_name": {
+                "$ref": "#/$defs/nonEmpty"
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "statement": {
+                "$ref": "#/$defs/nonEmpty"
+              },
+              "tag": {
+                "$ref": "#/$defs/nonEmpty"
+              }
             }
           }
         }
@@ -134,177 +930,501 @@
     },
     "completeRequires": {
       "type": "object",
-      "required": ["id", "kind", "rationale", "provenance", "decided_by"],
+      "required": [
+        "id",
+        "kind",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"},
-        "kind": {"const": "complete_requires"},
-        "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "provenance": {"$ref": "#/$defs/provenance"},
-        "decided_by": {"$ref": "#/$defs/decidedBy"},
-        "include_type_checking": {"type": "boolean"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "complete_requires"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        },
+        "include_type_checking": {
+          "type": "boolean"
+        }
       }
     },
     "completeExternalScope": {
       "type": "object",
-      "required": ["id", "kind", "source", "rationale", "provenance", "decided_by"],
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"},
-        "kind": {"const": "complete_external_scope"},
-        "source": {"$ref": "#/$defs/nonEmpty"},
-        "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "provenance": {"$ref": "#/$defs/provenance"},
-        "decided_by": {"$ref": "#/$defs/decidedBy"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "complete_external_scope"
+        },
+        "source": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        }
       }
     },
     "externalDependencyScope": {
       "type": "object",
-      "required": ["id", "kind", "dependency", "rationale", "provenance", "decided_by"],
+      "required": [
+        "id",
+        "kind",
+        "dependency",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
       "anyOf": [
-        {"required": ["allowed_sources"], "properties": {"allowed_sources": {"minItems": 1}}},
-        {"required": ["exact_sources"], "properties": {"exact_sources": {"minItems": 1}}}
+        {
+          "required": [
+            "allowed_sources"
+          ],
+          "properties": {
+            "allowed_sources": {
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "required": [
+            "exact_sources"
+          ],
+          "properties": {
+            "exact_sources": {
+              "minItems": 1
+            }
+          }
+        }
       ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"},
-        "kind": {"const": "external_dependency_scope"},
-        "dependency": {"type": "string", "pattern": "^(?:[A-Za-z_][A-Za-z0-9_]*|(?:@[a-z0-9_-]+/)?[a-z0-9][a-z0-9._-]*)$"},
-        "allowed_sources": {"$ref": "#/$defs/strings"},
-        "exact_sources": {"$ref": "#/$defs/strings"},
-        "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "provenance": {"$ref": "#/$defs/provenance"},
-        "decided_by": {"$ref": "#/$defs/decidedBy"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "external_dependency_scope"
+        },
+        "dependency": {
+          "type": "string",
+          "pattern": "^(?:[A-Za-z_][A-Za-z0-9_]*|(?:@[a-z0-9_-]+/)?[a-z0-9][a-z0-9._-]*)$"
+        },
+        "allowed_sources": {
+          "$ref": "#/$defs/strings"
+        },
+        "exact_sources": {
+          "$ref": "#/$defs/strings"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        }
       }
     },
     "completeAssignment": {
       "type": "object",
-      "required": ["id", "kind", "source", "rationale", "provenance", "decided_by"],
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"},
-        "kind": {"const": "complete_assignment"},
-        "source": {"$ref": "#/$defs/nonEmpty"},
-        "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "provenance": {"$ref": "#/$defs/provenance"},
-        "decided_by": {"$ref": "#/$defs/decidedBy"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "complete_assignment"
+        },
+        "source": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        }
       }
     },
     "rootLayout": {
       "type": "object",
-      "required": ["id", "kind", "root", "allowed_children", "rationale", "provenance", "decided_by"],
+      "required": [
+        "id",
+        "kind",
+        "root",
+        "allowed_children",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"},
-        "kind": {"const": "root_layout"},
-        "root": {"$ref": "#/$defs/nonEmpty", "description": "Package or module root whose immediate children are constrained."},
-        "allowed_children": {"type": "array", "uniqueItems": true, "description": "Exact names of immediate children of root; each entry must add exactly one name segment.", "items": {"$ref": "#/$defs/nonEmpty"}},
-        "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "provenance": {"$ref": "#/$defs/provenance"},
-        "decided_by": {"$ref": "#/$defs/decidedBy"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "root_layout"
+        },
+        "root": {
+          "$ref": "#/$defs/nonEmpty",
+          "description": "Package or module root whose immediate children are constrained."
+        },
+        "allowed_children": {
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Exact names of immediate children of root; each entry must add exactly one name segment.",
+          "items": {
+            "$ref": "#/$defs/nonEmpty"
+          }
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        }
       }
     },
     "noComponentCycles": {
       "type": "object",
-      "required": ["id", "kind", "rationale", "provenance", "decided_by"],
+      "required": [
+        "id",
+        "kind",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"},
-        "kind": {"const": "no_component_cycles"},
-        "level": {"enum": ["component", "module"], "description": "Graph judged for cycles; absent means component."},
-        "components": {"type": "array", "minItems": 1, "uniqueItems": true, "description": "Declared component labels; only a cycle touching one of them is reported. Absent means every cycle.", "items": {"$ref": "#/$defs/nonEmpty"}},
-        "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "provenance": {"$ref": "#/$defs/provenance"},
-        "decided_by": {"$ref": "#/$defs/decidedBy"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "no_component_cycles"
+        },
+        "level": {
+          "enum": [
+            "component",
+            "module"
+          ],
+          "description": "Graph judged for cycles; absent means component."
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Declared component labels; only a cycle touching one of them is reported. Absent means every cycle.",
+          "items": {
+            "$ref": "#/$defs/nonEmpty"
+          }
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        }
       }
     },
     "interfaceBoundary": {
       "type": "object",
-      "required": ["id", "kind", "rationale", "provenance", "decided_by"],
+      "required": [
+        "id",
+        "kind",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"},
-        "kind": {"const": "interface_boundary"},
-        "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "provenance": {"$ref": "#/$defs/provenance"},
-        "decided_by": {"$ref": "#/$defs/decidedBy"},
-        "include_type_checking": {"type": "boolean"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "interface_boundary"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        },
+        "include_type_checking": {
+          "type": "boolean"
+        }
       }
     },
     "siblingIsolation": {
       "type": "object",
-      "required": ["id", "kind", "members", "rationale", "provenance", "decided_by"],
+      "required": [
+        "id",
+        "kind",
+        "members",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"},
-        "kind": {"const": "sibling_isolation"},
-        "members": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
-        "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "provenance": {"$ref": "#/$defs/provenance"},
-        "decided_by": {"$ref": "#/$defs/decidedBy"},
-        "include_type_checking": {"type": "boolean"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "sibling_isolation"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmpty"
+          }
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        },
+        "include_type_checking": {
+          "type": "boolean"
+        }
       }
     },
     "symbolPlacement": {
       "type": "object",
-      "required": ["id", "kind", "source", "class_kinds", "rationale", "provenance", "decided_by"],
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "class_kinds",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
       "anyOf": [
-        {"required": ["allowed_sources"], "properties": {"allowed_sources": {"minItems": 1}}},
-        {"required": ["exact_sources"], "properties": {"exact_sources": {"minItems": 1}}}
+        {
+          "required": [
+            "allowed_sources"
+          ],
+          "properties": {
+            "allowed_sources": {
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "required": [
+            "exact_sources"
+          ],
+          "properties": {
+            "exact_sources": {
+              "minItems": 1
+            }
+          }
+        }
       ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"},
-        "kind": {"const": "symbol_placement"},
-        "source": {"$ref": "#/$defs/nonEmpty"},
-        "class_kinds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {
-          "enum": ["protocol", "enum", "pydantic_model", "dataclass", "class"]
-        }},
-        "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "provenance": {"$ref": "#/$defs/provenance"},
-        "decided_by": {"$ref": "#/$defs/decidedBy"},
-        "allowed_sources": {"$ref": "#/$defs/strings"},
-        "exact_sources": {"$ref": "#/$defs/strings"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "symbol_placement"
+        },
+        "source": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "class_kinds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "protocol",
+              "enum",
+              "pydantic_model",
+              "dataclass",
+              "class"
+            ]
+          }
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        },
+        "allowed_sources": {
+          "$ref": "#/$defs/strings"
+        },
+        "exact_sources": {
+          "$ref": "#/$defs/strings"
+        }
       }
     },
     "boundaryTypes": {
       "type": "object",
-      "required": ["id", "kind", "source", "rationale", "provenance", "decided_by"],
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"},
-        "kind": {"const": "boundary_types"},
-        "source": {"$ref": "#/$defs/nonEmpty"},
-        "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "provenance": {"$ref": "#/$defs/provenance"},
-        "decided_by": {"$ref": "#/$defs/decidedBy"},
-        "allowed_sources": {"$ref": "#/$defs/strings"},
-        "exact_sources": {"$ref": "#/$defs/strings"},
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "boundary_types"
+        },
+        "source": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        },
+        "allowed_sources": {
+          "$ref": "#/$defs/strings"
+        },
+        "exact_sources": {
+          "$ref": "#/$defs/strings"
+        },
         "allowed_positions": {
           "type": "array",
           "uniqueItems": true,
           "items": {
             "type": "object",
-            "required": ["qualified_name", "position", "annotation"],
+            "required": [
+              "qualified_name",
+              "position",
+              "annotation"
+            ],
             "additionalProperties": false,
             "properties": {
-              "qualified_name": {"$ref": "#/$defs/nonEmpty"},
-              "position": {"$ref": "#/$defs/nonEmpty"},
-              "field_path": {"anyOf": [{"const": ""}, {"$ref": "#/$defs/nonEmpty"}]},
-              "container_depth": {"type": "integer", "minimum": 1},
+              "qualified_name": {
+                "$ref": "#/$defs/nonEmpty"
+              },
+              "position": {
+                "$ref": "#/$defs/nonEmpty"
+              },
+              "field_path": {
+                "anyOf": [
+                  {
+                    "const": ""
+                  },
+                  {
+                    "$ref": "#/$defs/nonEmpty"
+                  }
+                ]
+              },
+              "container_depth": {
+                "type": "integer",
+                "minimum": 1
+              },
               "annotation": {
                 "$ref": "#/$defs/nonEmpty",
-                "not": {"const": "dict"}
+                "not": {
+                  "const": "dict"
+                }
               }
             },
-            "allOf": [{
-              "if": {"required": ["container_depth"]},
-              "then": {"properties": {"field_path": {"const": ""}}}
-            }],
-            "if": {"properties": {"field_path": {"const": ""}}},
+            "allOf": [
+              {
+                "if": {
+                  "required": [
+                    "container_depth"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "field_path": {
+                      "const": ""
+                    }
+                  }
+                }
+              }
+            ],
+            "if": {
+              "properties": {
+                "field_path": {
+                  "const": ""
+                }
+              }
+            },
             "then": {
               "properties": {
-                "annotation": {"not": {"enum": ["Dict", "Mapping", "MutableMapping"]}}
+                "annotation": {
+                  "not": {
+                    "enum": [
+                      "Dict",
+                      "Mapping",
+                      "MutableMapping"
+                    ]
+                  }
+                }
               }
             }
           }
@@ -316,144 +1436,386 @@
       "description": "Declarations are documented, public_api is checked for existence (AD-66), compat is checked for logic-free lifetime-bounded shims (AD-87), and facade and coupling budgets are checked against the declared facade measurements (AD-99). See docs/rules.md.",
       "additionalProperties": false,
       "properties": {
-        "capabilities": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/capability"}},
-        "review_scopes": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/reviewScope"}},
-        "public_api": {"$ref": "#/$defs/strings"},
-        "public_api_provenance": {"$ref": "#/$defs/strings"},
-        "public_commands": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/command"}},
-        "context_roots": {"$ref": "#/$defs/strings"},
-        "context_roots_provenance": {"$ref": "#/$defs/strings"},
-        "paths": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/path"}},
-        "spot_owners": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/owner"}},
-        "compat": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/compatibilityShim"}},
+        "capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/capability"
+          }
+        },
+        "review_scopes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/reviewScope"
+          }
+        },
+        "public_api": {
+          "$ref": "#/$defs/strings"
+        },
+        "public_api_provenance": {
+          "$ref": "#/$defs/strings"
+        },
+        "public_commands": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/command"
+          }
+        },
+        "context_roots": {
+          "$ref": "#/$defs/strings"
+        },
+        "context_roots_provenance": {
+          "$ref": "#/$defs/strings"
+        },
+        "paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/path"
+          }
+        },
+        "spot_owners": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/owner"
+          }
+        },
+        "compat": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/compatibilityShim"
+          }
+        },
         "measurement_budgets": {
           "type": "array",
           "uniqueItems": true,
-          "items": {"$ref": "#/$defs/measurementBudget"},
+          "items": {
+            "$ref": "#/$defs/measurementBudget"
+          },
           "description": "Deterministic measurement scalars whose accepted values live in the validate baseline."
         },
         "facade_budgets": {
           "type": "array",
           "uniqueItems": true,
-          "items": {"$ref": "#/$defs/facadeBudget"},
+          "items": {
+            "$ref": "#/$defs/facadeBudget"
+          },
           "description": "At most max_names names in one component's declared public facade (AD-99). Raising or removing one is a widening."
         },
         "coupling_budgets": {
           "type": "array",
           "uniqueItems": true,
-          "items": {"$ref": "#/$defs/couplingBudget"},
+          "items": {
+            "$ref": "#/$defs/couplingBudget"
+          },
           "description": "At most max_names facade names the source component imports from the target component (AD-99). Raising or removing one is a widening."
         },
         "modules": {
           "type": "array",
           "uniqueItems": true,
-          "items": {"$ref": "#/$defs/moduleTarget"},
+          "items": {
+            "$ref": "#/$defs/moduleTarget"
+          },
           "description": "Exact source files and their intended responsibilities in this contract level."
+        },
+        "uml": {
+          "$ref": "#/$defs/uml"
         }
       }
     },
     "moduleTarget": {
       "type": "object",
-      "required": ["path", "responsibility"],
+      "required": [
+        "path",
+        "responsibility"
+      ],
       "additionalProperties": false,
       "properties": {
         "path": {
           "type": "string",
           "pattern": "^(?!/)(?![A-Za-z]:)(?![^\\u0000]*\\\\)(?![^\\u0000]*(?:^|/)\\.\\.?/)(?:[^/\\u0000]+/)*[^/\\u0000]+\\.(?:py|dart|ts|tsx|mts|cts|js|jsx|mjs|cjs)(?![\\s\\S])"
         },
-        "responsibility": {"type": "string", "pattern": "^.*\\S.*$", "not": {"pattern": "[\\r\\n]"}}
+        "responsibility": {
+          "type": "string",
+          "pattern": "^.*\\S.*$",
+          "not": {
+            "pattern": "[\\r\\n]"
+          }
+        }
       }
     },
     "compatibilityShim": {
       "type": "object",
-      "required": ["module", "target", "lifetime"],
+      "required": [
+        "module",
+        "target",
+        "lifetime"
+      ],
       "additionalProperties": false,
       "properties": {
-        "module": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"},
-        "target": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"},
-        "lifetime": {"enum": ["permanent", "migration"]}
+        "module": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+        },
+        "target": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+        },
+        "lifetime": {
+          "enum": [
+            "permanent",
+            "migration"
+          ]
+        }
       }
     },
     "capability": {
       "type": "object",
-      "required": ["id", "name", "label", "review_order", "provenance"],
+      "required": [
+        "id",
+        "name",
+        "label",
+        "review_order",
+        "provenance"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"}, "name": {"$ref": "#/$defs/nonEmpty"},
-        "label": {"$ref": "#/$defs/nonEmpty"}, "review_order": {"type": "integer", "minimum": 1},
-        "provenance": {"$ref": "#/$defs/provenance"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "name": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "label": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "review_order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
       }
     },
     "reviewScope": {
       "type": "object",
-      "required": ["id", "label", "parent_id", "subjects", "provenance"],
+      "required": [
+        "id",
+        "label",
+        "parent_id",
+        "subjects",
+        "provenance"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"}, "label": {"$ref": "#/$defs/nonEmpty"},
-        "parent_id": {"$ref": "#/$defs/nonEmpty"},
-        "subjects": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
-        "provenance": {"$ref": "#/$defs/provenance"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "label": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "parent_id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "subjects": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmpty"
+          }
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
       }
     },
     "command": {
       "type": "object",
-      "required": ["id", "command", "description", "provenance"],
+      "required": [
+        "id",
+        "command",
+        "description",
+        "provenance"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"}, "command": {"$ref": "#/$defs/nonEmpty"},
-        "description": {"$ref": "#/$defs/nonEmpty"}, "provenance": {"$ref": "#/$defs/provenance"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "command": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "description": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
       }
     },
     "path": {
       "type": "object",
-      "required": ["id", "label", "kind", "steps", "provenance"],
+      "required": [
+        "id",
+        "label",
+        "kind",
+        "steps",
+        "provenance"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"}, "label": {"$ref": "#/$defs/nonEmpty"},
-        "kind": {"enum": ["read", "write"]},
-        "steps": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
-        "provenance": {"$ref": "#/$defs/provenance"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "label": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "enum": [
+            "read",
+            "write"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmpty"
+          }
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
       }
     },
     "owner": {
       "type": "object",
-      "required": ["id", "label", "owner", "responsibility", "provenance"],
+      "required": [
+        "id",
+        "label",
+        "owner",
+        "responsibility",
+        "provenance"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/nonEmpty"}, "label": {"$ref": "#/$defs/nonEmpty"},
-        "owner": {"$ref": "#/$defs/nonEmpty"}, "responsibility": {"$ref": "#/$defs/nonEmpty"},
-        "provenance": {"$ref": "#/$defs/provenance"}
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "label": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "owner": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "responsibility": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
       }
     },
     "measurementBudget": {
       "type": "object",
-      "required": ["name", "provenance"],
+      "required": [
+        "name",
+        "provenance"
+      ],
       "additionalProperties": false,
       "properties": {
-        "name": {"enum": ["cycle_edges", "private_crossings", "typing_positions", "calls_unresolved", "untyped_private_accesses", "unknown_positions"]},
-        "provenance": {"$ref": "#/$defs/provenance"}
+        "name": {
+          "enum": [
+            "cycle_edges",
+            "private_crossings",
+            "typing_positions",
+            "calls_unresolved",
+            "untyped_private_accesses",
+            "unknown_positions"
+          ]
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
       }
     },
     "facadeBudget": {
       "type": "object",
-      "required": ["component", "max_names", "provenance"],
+      "required": [
+        "component",
+        "max_names",
+        "provenance"
+      ],
       "additionalProperties": false,
       "properties": {
-        "component": {"$ref": "#/$defs/nonEmpty", "description": "A component label with a public list."},
-        "max_names": {"type": "integer", "minimum": 0},
-        "provenance": {"$ref": "#/$defs/provenance"}
+        "component": {
+          "$ref": "#/$defs/nonEmpty",
+          "description": "A component label with a public list."
+        },
+        "max_names": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
       }
     },
     "couplingBudget": {
       "type": "object",
-      "required": ["source", "target", "max_names", "provenance"],
+      "required": [
+        "source",
+        "target",
+        "max_names",
+        "provenance"
+      ],
       "additionalProperties": false,
       "properties": {
-        "source": {"$ref": "#/$defs/nonEmpty", "description": "The importing component label."},
-        "target": {"$ref": "#/$defs/nonEmpty", "description": "Another component label with a public list."},
-        "max_names": {"type": "integer", "minimum": 0},
-        "provenance": {"$ref": "#/$defs/provenance"}
+        "source": {
+          "$ref": "#/$defs/nonEmpty",
+          "description": "The importing component label."
+        },
+        "target": {
+          "$ref": "#/$defs/nonEmpty",
+          "description": "Another component label with a public list."
+        },
+        "max_names": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "2.1.0"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "declarations": {
+            "not": {
+              "required": [
+                "uml"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
 }

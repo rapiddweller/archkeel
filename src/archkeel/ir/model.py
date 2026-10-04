@@ -5,12 +5,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import hashlib
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import PurePosixPath
 from typing import Final, Literal, TypeAlias, get_args, get_type_hints
 
+from .architecture_graph import AssessmentStatus, TargetDefinition
+from .architecture_graph import ComponentRole as ComponentRole
+from .architecture_graph import ContractModuleTarget as ContractModuleTarget
+from .architecture_graph import ExternalDependencyScopeRule as ExternalDependencyScopeRule
+from .architecture_graph import RootLayoutRule as RootLayoutRule
+from .architecture_graph import contract_relative_path as contract_relative_path
 from .facts import (
     EVIDENCE_FIELDS as EVIDENCE_FIELDS,
 )
@@ -53,6 +59,13 @@ from .facts import (
 from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName, Measurements, NameBudgetKind
 
+RawJson: TypeAlias = str | int | float | bool | None | Sequence["RawJson"] | Mapping[str, "RawJson"]
+
+
+def public_api_id(selector: str) -> str:
+    return f"API-{hashlib.sha256(selector.encode()).hexdigest()[:16]}"
+
+
 SCHEMA_VERSION = "1.3.0"
 DELTA_SCHEMA_VERSION = "1.4.0"
 Verdict: TypeAlias = Literal["PASS", "FAIL"]
@@ -60,7 +73,7 @@ ComponentOwnership: TypeAlias = tuple[str, tuple[str, ...], tuple[str, ...]]
 PackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]
 ComponentOwnershipInput: TypeAlias = ComponentOwnership | PackageComponentOwnership
 # AD-26's full vocabulary, for the one verdict that can also fail to decide (AD-67).
-RuleVerdict: TypeAlias = Literal["PASS", "FAIL", "UNKNOWN"]
+RuleVerdict: TypeAlias = AssessmentStatus
 ComparisonStatus: TypeAlias = Literal["SUPPORTED", "UNKNOWN"]
 CLASSIFIED_SECTIONS = (
     "metrics",
@@ -96,14 +109,6 @@ class ContractInfo:
     schema_version: str
     digest: str
     path: str
-
-
-class ComponentRole(StrEnum):
-    COMPONENT = "component"
-    INTERFACE = "interface"
-    CONTRACT = "contract"
-    PROJECTION = "projection"
-    FOUNDATION = "foundation"
 
 
 class ContractPathKind(StrEnum):
@@ -182,20 +187,6 @@ class RequiredComponent:
     decided_by: Literal["architect", "agent"] | None = None
 
 
-def contract_relative_path(value: str) -> PurePosixPath | None:
-    """Return a contract-declared repository path, or None when it leaves the repository.
-
-    Every path a contract names is attacker-adjacent input: it may escape with `..`, with an
-    absolute path or with a Windows separator. The judgement stays pure so the analyzer and
-    `check` can share it while neither may import the other (AD-34); each caller adds its own
-    filesystem check, which keeps `ir` free of I/O (AD-17).
-    """
-    relative = PurePosixPath(value)
-    if relative.is_absolute() or ".." in relative.parts or "\\" in value:
-        return None
-    return relative
-
-
 @dataclass(frozen=True, slots=True)
 class ContractReviewScope:
     id: str
@@ -220,14 +211,6 @@ class ContractPath:
     kind: ContractPathKind
     steps: tuple[str, ...]
     provenance: tuple[str, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class ContractModuleTarget:
-    """One exact Python file and its intended responsibility in the target architecture."""
-
-    path: str
-    responsibility: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -348,37 +331,10 @@ class ForbiddenConstructRule:
 
 
 @dataclass(frozen=True, slots=True)
-class ExternalDependencyScopeRule:
-    """`allowed_sources` match by module prefix, `exact_sources` only the module named (AD-49)."""
-
-    id: str
-    kind: Literal["external_dependency_scope"]
-    dependency: str
-    allowed_sources: tuple[str, ...]
-    rationale: str
-    provenance: tuple[str, ...]
-    decided_by: Literal["architect", "agent"]
-    exact_sources: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
 class CompleteAssignmentRule:
     id: str
     kind: Literal["complete_assignment"]
     source: str
-    rationale: str
-    provenance: tuple[str, ...]
-    decided_by: Literal["architect", "agent"]
-
-
-@dataclass(frozen=True, slots=True)
-class RootLayoutRule:
-    """The immediate packages or modules below a root are an exact allow-list."""
-
-    id: str
-    kind: Literal["root_layout"]
-    root: str
-    allowed_children: tuple[str, ...]
     rationale: str
     provenance: tuple[str, ...]
     decided_by: Literal["architect", "agent"]
@@ -515,14 +471,16 @@ ArchitectureRule: TypeAlias = (
     | BoundaryTypesRule
 )
 
-# Every rule kind the ArchitectureRule union names, read by reflection so a new rule kind is
-# recognized without a second hand-written list (AD-16). `ir.decisions` and `ir.baseline` both
-# read this one set instead of each keeping their own (AD-60).
+# Typed authoring kinds come from ArchitectureRule. Record consumers also assess UML intent.
+UML_TARGET_KIND: Final = "uml_target"
+ARCHITECTURE_TARGET_KIND: Final = "architecture_target"
+TARGET_GRAPH_RECORD_KINDS: Final = frozenset({UML_TARGET_KIND, ARCHITECTURE_TARGET_KIND})
 RULE_KINDS: Final[frozenset[str]] = frozenset(
     kind
     for rule_type in get_args(ArchitectureRule)
     for kind in get_args(get_type_hints(rule_type)["kind"])
 )
+RULE_RECORD_KINDS: Final = RULE_KINDS | {UML_TARGET_KIND}
 
 
 # The symbol kinds that carry a signature. One set, because a record's `kind` and its
@@ -606,11 +564,12 @@ class ContractDeclarations:
     coupling_budgets: tuple[CouplingBudget, ...] | None = None
     # Optional so contracts without module targets retain their canonical bytes and digest.
     modules: tuple[ContractModuleTarget, ...] | None = None
+    uml: TargetDefinition | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class ArchitectureContract:
-    schema_version: Literal["2.1.0"]
+    schema_version: Literal["2.1.0", "2.2.0"]
     components: tuple[ContractComponent, ...]
     rules: tuple[ArchitectureRule, ...]
     schema: str | None = None
@@ -622,6 +581,56 @@ class ArchitectureContract:
             component for component in self.components if component_owns_module(component, module)
         ]
         return owners[0] if len(owners) == 1 else None
+
+
+class ContractInputError(ValueError):
+    """A contract declaration fails a semantic check and has a source location."""
+
+    def __init__(self, pointer: str, subject: str, message: str) -> None:
+        self.pointer = pointer
+        self.subject = subject
+        super().__init__(message)
+
+
+@dataclass(frozen=True)
+class InsideContractMount:
+    """One explicitly mounted contract, scoped by the component that names it."""
+
+    parent: ContractComponent
+    parent_contract: ArchitectureContract
+    owner_id: str
+    parent_id: str
+    pointer: str
+    path: str
+    identity: str
+    contract: ArchitectureContract
+    digest: str
+    canonical_digest: str
+
+
+@dataclass(frozen=True)
+class InsideContractIssue:
+    """A declared inside reference that cannot be safely mounted."""
+
+    parent: ContractComponent
+    parent_id: str
+    pointer: str
+    path: str
+    reason: str
+    input_error: ContractInputError | None = None
+
+
+@dataclass(frozen=True)
+class InsideContractTree:
+    """One deterministic depth-first view of a root contract and all explicit insides."""
+
+    root: ArchitectureContract
+    mounts: tuple[InsideContractMount, ...]
+    issues: tuple[InsideContractIssue, ...]
+    paths: tuple[str, ...]
+    digest: str
+    comparison_digest: str
+    comparison_contract: ArchitectureContract
 
 
 def last_name(name: str) -> str:
@@ -783,6 +792,15 @@ def module_references(
         references += [
             ModuleReference(f"/declarations/compat/{index}/module", shim.module, False),
             ModuleReference(f"/declarations/compat/{index}/target", shim.target, False),
+        ]
+    if declarations.uml is not None:
+        references += [
+            ModuleReference(
+                f"/declarations/uml/entities/{index}/qualified_name",
+                entity.qualified_name,
+                entity.presence != "referenced",
+            )
+            for index, entity in enumerate(declarations.uml.entities)
         ]
     return tuple(references)
 

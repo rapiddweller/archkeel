@@ -292,6 +292,7 @@ the conforming case.
 | class_c | ContractDeclarations.spot_owners | class-c-spot-owners | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.compat | class-c-compat | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.modules | class-c-modules | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class_c | ContractDeclarations.uml | class-c-uml | tested only | - | - | tests/test_target_graph.py |
 | class_d | review_claims | class-d-review-claims | tested only | - | - | docs/rules.md |
 | class_d | unreferenced_symbols:enum-member-reference | class-d-enum-member-reference | tested only | - | - | tests/test_references.py |
 | class_d | oversized_inside | class-d-oversized-inside | tested only | - | - | docs/rules.md |

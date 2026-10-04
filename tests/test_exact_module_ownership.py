@@ -14,11 +14,12 @@ from test_dart_profile import _component as _dart_component
 from test_dart_profile import _observe as _observe_dart
 from test_dart_profile import _rule as _dart_rule
 from test_declared_module_targets import _contract as _target_contract
-from test_declared_module_targets import _report, _walk
+from test_declared_module_targets import _report
 
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import contract_bytes, contract_digest, parse_contract
 from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.graph_codec import parse_report
 from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.renames import rename_candidates, renamed_contract
 from archkeel.ir.trace import trace_valid_violations
@@ -166,7 +167,7 @@ def test_two_level_exact_child_stays_on_initializer_and_target_actual_diff_agree
         ],
         [_rule("complete_requires")],
     )
-    result, _, payload, actual = _report(
+    result, _, payload, _actual = _report(
         tmp_path,
         contract,
         extra_files={
@@ -180,42 +181,26 @@ def test_two_level_exact_child_stays_on_initializer_and_target_actual_diff_agree
 
     assert result.exit_code == 0, result.diagnostics
     assert result.declared_rules == "PASS"
-    core = payload["components"][0]["inside"]["components"][0]
-    flow = {item["label"]: item for item in core["inside"]["components"]}
-    assert flow["registry"]["modules"] == ["sample.core"]
-    assert flow["api"]["modules"] == ["sample.core.api"]
-    assert flow["private"]["modules"] == ["sample.core.private"]
-    assert set(flow["authoring"]["modules"]) == {
+    report = parse_report(payload)
+    names = {item.id: item.qualified_name for item in report.observed.entities}
+    intents = {item.label: item for item in report.target.component_intents}
+    memberships = {
+        item.component_id: {names[identity] for identity in item.module_ids}
+        for item in report.memberships
+    }
+    assert memberships[intents["registry"].component_id] == {"sample.core"}
+    assert memberships[intents["api"].component_id] == {"sample.core.api"}
+    assert memberships[intents["private"].component_id] == {"sample.core.private"}
+    assert memberships[intents["authoring"].component_id] == {
         "sample.core.authoring",
         "sample.core.authoring.scaffold",
     }
-    assert {
-        "sample.core",
-        "sample.core.api",
-        "sample.core.private",
-        "sample.core.authoring",
-        "sample.core.authoring.scaffold",
-    } <= actual
-
-    target_nodes = list(_walk(payload["explorers"]["target"]))
-    registry = next(
-        node for node in target_nodes if node["kind"] == "component" and node["label"] == "registry"
-    )
-    assert {detail["label"]: detail["value"] for detail in registry["details"]}[
-        "Exact modules"
-    ] == "sample.core"
-    actual_nodes = list(_walk(payload["explorers"]["actual"]))
-    assert any(
-        node["id"] == "sample.core"
-        and {detail["value"] for detail in node["details"]} == {"sample/core/__init__.py"}
-        for node in actual_nodes
-    )
-    unmapped = next(node for node in payload["explorers"]["diff"] if node["id"] == "diff:unmapped")
-    assert not {
-        "sample.core",
-        "sample.core.authoring",
-        "sample.core.authoring.scaffold",
-    } & {node["id"].removeprefix("unmapped:") for node in unmapped["children"]}
+    assert intents["registry"].exact_modules == ("sample.core",)
+    assert next(
+        item
+        for item in report.observed.entities
+        if item.qualified_name == "sample.core" and item.kind == "module"
+    ).file_path == ("sample/core/__init__.py")
 
 
 def test_exact_parent_does_not_admit_child_claim_outside_exact_scope_at_second_mount(
@@ -315,19 +300,13 @@ def test_source_free_target_shows_exact_claim_without_inventing_a_file(tmp_path:
     _, _, payload, actual = _report(tmp_path, contract, source_paths=[])
 
     assert actual == set()
-    target = payload["explorers"]["target"]
-    registry = next(
-        node
-        for node in _walk(target)
-        if node["kind"] == "component" and node["label"] == "registry"
-    )
-    details = {detail["label"]: detail["value"] for detail in registry["details"]}
-    assert details["Exact modules"] == "sample.core"
-    assert details["Packages"] == ""
+    report = parse_report(payload)
+    registry = next(item for item in report.target.component_intents if item.label == "registry")
+    assert registry.exact_modules == ("sample.core",) and registry.packages == ()
     assert not any(
-        detail["label"] == "File" for node in _walk([registry]) for detail in node["details"]
+        item.kind == "module" and item.presence == "defined" for item in report.observed.entities
     )
-    assert "sample.core" in json.dumps(payload["explorers"]["diff"])
+    assert not report.target.module_inventories
 
 
 @pytest.mark.parametrize(

@@ -17,13 +17,17 @@ from archkeel.ir.facts import EvidenceClass, stable_id
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
+from .resolve import dotted_expression
 from .source import (
     DATACLASS_DECORATORS,
+    DefinitionContexts,
     ParsedModule,
     add_evidence,
     annotation_text,
     class_header_static,
     decorator_names,
+    definition_id,
+    definition_sites,
     is_static_type_alias_value,
     location,
     module_scope_bindings,
@@ -46,28 +50,35 @@ from .source import (
 )
 
 _BUILTIN_NAMES = frozenset(dir(builtins))
+_KNOWN_CLASS_KINDS = {
+    "typing.Protocol": "protocol",
+    "typing_extensions.Protocol": "protocol",
+    "enum.Enum": "enum",
+    "enum.IntEnum": "enum",
+    "enum.StrEnum": "enum",
+    "pydantic.BaseModel": "pydantic_model",
+}
 
 
 def _function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> RecordData:
     positional = [*node.args.posonlyargs, *node.args.args]
+    defaults = [None] * (len(positional) - len(node.args.defaults)) + node.args.defaults
     parameters = [
-        {"name": argument.arg, "annotation": annotation_text(argument.annotation)}
-        for argument in [*positional, *node.args.kwonlyargs]
+        _parameter(
+            argument,
+            "positional_only" if index < len(node.args.posonlyargs) else "positional",
+            defaults[index],
+        )
+        for index, argument in enumerate(positional)
     ]
     if node.args.vararg:
-        parameters.append(
-            {
-                "name": f"*{node.args.vararg.arg}",
-                "annotation": annotation_text(node.args.vararg.annotation),
-            }
-        )
+        parameters.append(_parameter(node.args.vararg, "varargs", None, "*"))
+    parameters.extend(
+        _parameter(argument, "keyword_only", default)
+        for argument, default in zip(node.args.kwonlyargs, node.args.kw_defaults, strict=True)
+    )
     if node.args.kwarg:
-        parameters.append(
-            {
-                "name": f"**{node.args.kwarg.arg}",
-                "annotation": annotation_text(node.args.kwarg.annotation),
-            }
-        )
+        parameters.append(_parameter(node.args.kwarg, "kwargs", None, "**"))
     return {
         "parameters": parameters,
         "receiver_parameter": positional[0].arg if positional else None,
@@ -76,24 +87,41 @@ def _function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> RecordD
     }
 
 
-def _class_field_annotations(node: ast.ClassDef) -> list[RecordData]:
-    """A class's own public attribute annotations: `check.validation` (AD-70) needs the type
-    a declared class hands out through each attribute, the same way it already needs a
-    declared function's parameter and return annotations.
+def _parameter(
+    argument: ast.arg, kind: str, default: ast.expr | None, prefix: str = ""
+) -> RecordData:
+    return {
+        "name": prefix + argument.arg,
+        "annotation": annotation_text(argument.annotation),
+        "kind": kind,
+        "default": annotation_text(default),
+        "default_known": True,
+    }
 
-    Only a class-body `AnnAssign` counts: that is the shape a dataclass or Pydantic field
-    always has, and the one AD-70's own example (`ViolationRow.fingerprint`) is. This is
-    narrower than `contexts._class_fields`, which also infers a field from `self.x` inside a
-    method for context/state tracking; a public API promise is about what the class declares
-    on its own, not what some method happens to assign. A private name is never part of that
-    promise either.
-    """
+
+def _python_visibility(name: str) -> RecordData:
+    special = name.startswith("__") and name.endswith("__") and len(name) > 4
+    return {
+        "kind": "private" if name.startswith("_") and not special else "public",
+        "basis": "convention",
+        "spelling": name,
+    }
+
+
+def _class_attribute_declarations(
+    node: ast.ClassDef, module: ParsedModule, evidence: dict[str, RawEvidence]
+) -> list[RecordData]:
+    """Keep private annotations for UML without widening AD-70's public API inventory."""
     return [
-        {"name": child.target.id, "annotation": annotation_text(child.annotation)}
+        {
+            "name": child.target.id,
+            "annotation": annotation_text(child.annotation),
+            "visibility": _python_visibility(child.target.id),
+            "definition_id": stable_id("ATTR", module.rel_path, *location(child), child.target.id),
+            "evidence_ids": [add_evidence(evidence, module, child)],
+        }
         for child in node.body
-        if isinstance(child, ast.AnnAssign)
-        and isinstance(child.target, ast.Name)
-        and not child.target.id.startswith("_")
+        if isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name)
     ]
 
 
@@ -185,6 +213,8 @@ def _symbol_data(
     qualname: str,
     parent: str | None,
     parent_node: ast.ClassDef | None = None,
+    *,
+    evidence: dict[str, RawEvidence],
 ) -> RecordData:
     data: RecordData = {
         "qualified_name": qualname,
@@ -192,37 +222,20 @@ def _symbol_data(
         "package": module.package,
         "name": node.name,
         "visibility": "private" if node.name.startswith("_") else "public_name",
+        "visibility_detail": _python_visibility(node.name),
         "declared_in_all": node.name in module.all_exports,
         "parent": parent,
         "decorators": decorator_names(node),
     }
     if isinstance(node, ast.ClassDef):
-        generic_parameters = _generic_parameters(module, node)
-        generic_bases = _generic_bases(node)
-        data.update(
-            {
-                "bases": sorted(filter(None, (annotation_text(base) for base in node.bases))),
-                "base_roots": _class_bases(module, node),
-                "frozen_object": _class_is_frozen(node, module),
-                "symbol_category": "class",
-                "fields": _class_field_annotations(node),
-                "class_members": _class_member_names(node),
-                "source_binding_unique": node in module.tree.body
-                and node.name in stable_direct_module_bindings(module),
-                "source_member_binding_static": node.name not in unproven_member_bindings(module),
-                "class_header_static": class_header_static(node),
-                "class_body_control_flow": unproven_class_body(module, node),
-                **({"generic_parameters": generic_parameters} if generic_parameters else {}),
-                **({"generic_bases": generic_bases} if generic_bases else {}),
-            }
-        )
+        data.update(_class_symbol_data(module, node, evidence))
         if data["source_binding_unique"] is True and (
             properties := property_bindings(module, node)
         ):
             data["property_members"] = sorted({method.name for method in properties})
     else:
         data.update(_function_signature(node))
-        data["symbol_category"] = "method" if parent else "function"
+        data["symbol_category"] = "method" if parent_node else "function"
         data["overload_signature"] = any(
             _is_proven_decorator(
                 module,
@@ -233,12 +246,57 @@ def _symbol_data(
             )
             for decorator in node.decorator_list
         )
-        if parent:
+        if parent_node:
             data.update(_method_decorator_data(module, node, parent_node))
         shape, shape_nodes = _shape(node)
         data["shape"] = shape
         data["shape_nodes"] = shape_nodes
     return data
+
+
+def _class_symbol_data(
+    module: ParsedModule, node: ast.ClassDef, evidence: dict[str, RawEvidence]
+) -> RecordData:
+    attributes = _class_attribute_declarations(node, module, evidence)
+    generic_parameters = _generic_parameters(module, node)
+    generic_bases = _generic_bases(node)
+    return {
+        "bases": sorted(filter(None, (annotation_text(base) for base in node.bases))),
+        "base_roots": _class_bases(module, node),
+        "frozen_object": _class_is_frozen(node, module),
+        "symbol_category": "class",
+        "fields": [
+            {"name": item["name"], "annotation": item["annotation"]}
+            for item in attributes
+            if not item["name"].startswith("_")
+        ],
+        "attribute_declarations": attributes,
+        "source_binding_unique": node in module.tree.body
+        and node.name in stable_direct_module_bindings(module),
+        "source_member_binding_static": node.name not in unproven_member_bindings(module),
+        "class_header_static": class_header_static(node),
+        "class_members": _class_member_names(node),
+        "class_body_control_flow": any(
+            isinstance(
+                child,
+                (
+                    ast.If,
+                    ast.For,
+                    ast.AsyncFor,
+                    ast.While,
+                    ast.With,
+                    ast.AsyncWith,
+                    ast.Try,
+                    ast.TryStar,
+                    ast.Match,
+                ),
+            )
+            for child in node.body
+        )
+        or unproven_class_body(module, node),
+        **({"generic_parameters": generic_parameters} if generic_parameters else {}),
+        **({"generic_bases": generic_bases} if generic_bases else {}),
+    }
 
 
 def _annotation_binding_uncertainties(
@@ -468,36 +526,36 @@ def _class_bases(module: ParsedModule, node: ast.ClassDef) -> list[str]:
 def _resolve_class_kinds(
     classes: dict[str, ast.ClassDef],
     owners: dict[str, ParsedModule],
-    symbol_by_name: dict[str, RawRecord],
+    symbols: Sequence[RawRecord],
 ) -> None:
-    known_categories = {
-        "typing.Protocol": "protocol",
-        "typing_extensions.Protocol": "protocol",
-        "enum.Enum": "enum",
-        "enum.IntEnum": "enum",
-        "enum.StrEnum": "enum",
-        "pydantic.BaseModel": "pydantic_model",
-    }
+    symbol_by_id = {item["id"]: item for item in symbols}
+    by_name: dict[str, list[RawRecord]] = {}
+    for item in symbols:
+        data = item["data"]
+        if data.get("definition_contexts"):
+            continue
+        definitions: list[RawRecord] = by_name.setdefault(data["qualified_name"], [])
+        definitions.append(item)
     changed = True
     while changed:
         changed = False
-        for qualname, node in classes.items():
-            item = symbol_by_name[qualname]
+        for identity, node in classes.items():
+            item = symbol_by_id[identity]
+            qualname = item["data"]["qualified_name"]
             current = item["data"].get("class_kind")
+            data = item["data"]
+            if data.get("definition_contexts"):
+                continue
             candidates: set[str] = set()
-            for base in node.bases:
-                base_text = annotation_text(base) or ""
-                tail = base_text.rsplit(".", 1)[-1]
-                resolved_base = _resolve_static_name(owners[qualname], base)
-                if resolved_base in known_categories:
-                    candidates.add(known_categories[resolved_base])
+            for resolved_base in item["data"]["base_roots"]:
+                tail = resolved_base.rsplit(".", 1)[-1]
+                if resolved_base in _KNOWN_CLASS_KINDS:
+                    candidates.add(_KNOWN_CLASS_KINDS[resolved_base])
                 local_target = f"{owners[qualname].module}.{tail}"
-                resolved_symbol = symbol_by_name.get(resolved_base)
-                local_symbol = symbol_by_name.get(local_target)
-                inherited = (
-                    resolved_symbol["data"].get("class_kind") if resolved_symbol else None
-                ) or (local_symbol["data"].get("class_kind") if local_symbol else None)
-                if inherited:
+                bases = by_name.get(resolved_base) or by_name.get(local_target) or []
+                inherited = bases[0]["data"].get("class_kind") if len(bases) == 1 else None
+                # A Protocol subclass is a normal class unless Protocol is an explicit base.
+                if inherited and inherited not in {"class", "protocol"}:
                     candidates.add(inherited)
             if any(
                 _resolve_static_name(
@@ -514,14 +572,176 @@ def _resolve_class_kinds(
                 changed = True
             if class_kind == "enum":
                 item["data"]["enum_members"] = _static_enum_members(node)
-    for qualname, node in classes.items():
-        item = symbol_by_name[qualname]
+    for identity, node in classes.items():
+        item = symbol_by_id[identity]
+        qualname = item["data"]["qualified_name"]
         # frozen_object depends on class_kind, which is final only after the fixpoint.
         item["data"]["frozen_object"] = _class_is_frozen(
             node,
             owners[qualname],
             allow_pydantic=item["data"].get("class_kind") == "pydantic_model",
         )
+
+
+def _base_binding(
+    module: ParsedModule,
+    node: ast.ClassDef,
+    owner: RawRecord,
+    base: ast.expr,
+    by_name: dict[str, list[RawRecord]],
+    stable_bindings: frozenset[str],
+) -> tuple[str, list[str], str]:
+    classifier = base.value if isinstance(base, ast.Subscript) else base
+    dotted: str = dotted_expression(classifier) or ""
+    targets: list[str] = []
+    status, reason = "unresolved", "dynamic base expression has no proven classifier binding"
+    if dotted:
+        root, _, tail = dotted.partition(".")
+        alias = module.aliases.get(root)
+        target = (
+            ".".join([alias.target, tail])
+            if alias and tail
+            else alias.target
+            if alias
+            else f"{module.module}.{dotted}"
+        )
+        known = by_name.get(target, [])
+        proven = (
+            owner["data"]["lexical_parent_id"] is None
+            and root in stable_bindings
+            and _bound_once_before(module.tree.body, node, root)
+        )
+        if alias or known:
+            targets = [target]
+            status, reason = (
+                "partially_resolved",
+                "base name has candidates without a proven binding",
+            )
+            if proven and (alias or (len(known) == 1 and known[0]["kind"] == "class")):
+                status, reason = "resolved", "explicit base with a stable direct module binding"
+                if len(known) > 1 or (known and known[0]["kind"] != "class"):
+                    status, reason = (
+                        "partially_resolved",
+                        "imported classifier identity is ambiguous or unavailable",
+                    )
+                elif _base_namespace_uncertain(target, by_name):
+                    status, reason = "partially_resolved", "classifier or qualifier may be replaced"
+                elif not known and target not in _KNOWN_CLASS_KINDS and target != "builtins.object":
+                    status, reason = "partially_resolved", "external classifier kind is unavailable"
+        elif (
+            dotted == "object"
+            and owner["data"]["lexical_parent_id"] is None
+            and not _binding_may_exist_before(module.tree.body, node, root)
+        ):
+            targets = ["builtins.object"]
+            status, reason = "resolved", "unshadowed builtin object base"
+        if (
+            isinstance(base, ast.Subscript)
+            and status == "resolved"
+            and target not in {"typing.Protocol", "typing_extensions.Protocol"}
+        ):
+            status, reason = (
+                "partially_resolved",
+                "generic base may replace its classifier through __class_getitem__",
+            )
+    return status, targets, reason
+
+
+def _base_declaration(
+    module: ParsedModule,
+    node: ast.ClassDef,
+    owner: RawRecord,
+    base: ast.expr,
+    by_name: dict[str, list[RawRecord]],
+    stable_bindings: frozenset[str],
+    evidence: dict[str, RawEvidence],
+) -> RecordData:
+    status, targets, reason = _base_binding(module, node, owner, base, by_name, stable_bindings)
+    expression = annotation_text(base) or "<unparseable>"
+    known = by_name.get(targets[0], []) if targets else []
+    kind = "inherits"
+    if (
+        status == "resolved"
+        and len(known) == 1
+        and known[0]["data"]["class_kind"] == "protocol"
+        and owner["data"]["class_kind"] != "protocol"
+    ):
+        kind = "realizes"
+    line, _, column = location(base)
+    return {
+        "id": stable_id("BASE", owner["id"], line, column, expression),
+        "relationship_kind": kind,
+        "expression": expression,
+        "status": status,
+        "targets": targets,
+        "candidate_count": len(targets),
+        "reason": reason,
+        "evidence_ids": [add_evidence(evidence, module, base)],
+    }
+
+
+def _base_namespace_uncertain(
+    target: str, by_name: dict[str, list[RawRecord]], ancestors: frozenset[str] = frozenset()
+) -> bool:
+    if target in ancestors:
+        return True
+    ancestors = ancestors | {target}
+    parts = target.split(".")
+    for end in range(1, len(parts) + 1):
+        definitions = by_name.get(".".join(parts[:end]), [])
+        if len(definitions) > 1:
+            return True
+        for item in definitions:
+            data = item["data"]
+            if (
+                data.get("definition_contexts")
+                or item["kind"] == "class"
+                and (
+                    data["class_header_static"] is not True
+                    or data["class_body_control_flow"]
+                    or any(
+                        base["status"] != "resolved"
+                        or any(
+                            _base_namespace_uncertain(parent, by_name, ancestors)
+                            for parent in base["targets"]
+                        )
+                        for base in data.get("base_declarations", [])
+                    )
+                )
+            ):
+                return True
+    return False
+
+
+def _record_class_bases(
+    classes: dict[str, ast.ClassDef],
+    owners: dict[str, ParsedModule],
+    symbols: Sequence[RawRecord],
+    evidence: dict[str, RawEvidence],
+) -> None:
+    by_name: dict[str, list[RawRecord]] = {}
+    by_id = {item["id"]: item for item in symbols}
+    for item in symbols:
+        definitions: list[RawRecord] = by_name.setdefault(item["data"]["qualified_name"], [])
+        definitions.append(item)
+    for identity, node in classes.items():
+        item = by_id[identity]
+        module = owners[item["data"]["qualified_name"]]
+        stable_bindings = stable_direct_module_bindings(module)
+        item["data"]["base_declarations"] = [
+            _base_declaration(module, node, item, base, by_name, stable_bindings, evidence)
+            for base in node.bases
+        ]
+    # All ancestry declarations must exist before their uncertainty can reach descendants.
+    for item in symbols:
+        if item["kind"] != "class":
+            continue
+        for base in item["data"]["base_declarations"]:
+            if base["status"] == "resolved" and any(
+                _base_namespace_uncertain(target, by_name) for target in base["targets"]
+            ):
+                base["status"] = "partially_resolved"
+                base["reason"] = "classifier or qualifier may be replaced"
 
 
 def _static_enum_members(node: ast.ClassDef) -> list[str]:
@@ -716,6 +936,83 @@ def _module_assignment_symbols(
     return symbols
 
 
+def _definition_symbol(
+    module: ParsedModule,
+    node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+    qualname: str,
+    parent: str | None,
+    parent_node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef | None,
+    evidence: dict[str, RawEvidence],
+    namespace_bound: bool,
+    contexts: DefinitionContexts,
+) -> RawRecord:
+    classifier = parent_node if isinstance(parent_node, ast.ClassDef) else None
+    data = _symbol_data(module, node, qualname, parent, classifier, evidence=evidence)
+    data["namespace_bound"] = namespace_bound
+    if isinstance(node, ast.ClassDef):
+        data["default_instance_result"] = (
+            parent_node is None
+            and node.name in stable_direct_module_bindings(module)
+            and not contexts
+            and not node.bases
+            and not node.keywords
+            and not node.decorator_list
+            and not data["class_body_control_flow"]
+            and _default_constructor_body(node)
+            and "__new__" not in data["class_members"]
+            and "__init__" not in data["class_members"]
+        )
+    data["definition_contexts"] = [
+        {
+            "kind": kind,
+            "branch": branch,
+            "evidence_ids": [add_evidence(evidence, module, statement)],
+        }
+        for statement, kind, branch in contexts
+    ]
+    data["lexical_parent_id"] = (
+        definition_id(module, parent_node, parent) if parent_node and parent else None
+    )
+    uncertainties = _annotation_binding_uncertainties(module, node, classifier)
+    if uncertainties:
+        data["annotation_binding_uncertainties"] = uncertainties
+        data["annotation_scope"] = (
+            qualname if isinstance(node, ast.ClassDef) else parent or qualname
+        )
+    return classified(
+        item_id=definition_id(module, node, qualname),
+        evidence_class=EvidenceClass.FACT,
+        area="repository_topology",
+        kind="class" if isinstance(node, ast.ClassDef) else "method" if classifier else "function",
+        title=node.name,
+        subjects=[qualname, module.module],
+        evidence_ids=[add_evidence(evidence, module, node)],
+        data=data,
+    )
+
+
+def _default_constructor_body(node: ast.ClassDef) -> bool:
+    """Class-body execution can replace allocation; only inert declarations prove it here."""
+    for child in node.body:
+        if isinstance(child, ast.Pass):
+            continue
+        if isinstance(child, ast.Expr) and isinstance(child.value, ast.Constant):
+            continue
+        if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+            args = child.args
+            arguments = (*args.posonlyargs, *args.args, *args.kwonlyargs, args.vararg, args.kwarg)
+            if (
+                not child.decorator_list
+                and not args.defaults
+                and not any(args.kw_defaults)
+                and child.returns is None
+                and all(arg is None or arg.annotation is None for arg in arguments)
+            ):
+                continue
+        return False
+    return True
+
+
 def collect_symbols(
     modules: Sequence[ParsedModule], evidence: dict[str, RawEvidence]
 ) -> tuple[list[RawRecord], dict[str, ast.AST], dict[str, ParsedModule]]:
@@ -724,75 +1021,35 @@ def collect_symbols(
     owners: dict[str, ParsedModule] = {}
     classes: dict[str, ast.ClassDef] = {}
 
-    def add_symbol(
-        module: ParsedModule,
-        node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
-        *,
-        qualname: str,
-        kind: str,
-        parent: str | None = None,
-        parent_node: ast.ClassDef | None = None,
-    ) -> None:
-        evidence_id = add_evidence(evidence, module, node)
-        data = _symbol_data(module, node, qualname, parent, parent_node)
-        uncertainties = _annotation_binding_uncertainties(module, node, parent_node)
-        if uncertainties:
-            data["annotation_binding_uncertainties"] = uncertainties
-            data["annotation_scope"] = (
-                qualname if isinstance(node, ast.ClassDef) else parent or qualname
-            )
-        if isinstance(node, ast.ClassDef):
-            classes[qualname] = node
-        line, _, column = location(node)
-        symbols.append(
-            classified(
-                item_id=stable_id(
-                    "SYM",
-                    qualname,
-                    module.rel_path,
-                    line,
-                    column,
-                ),
-                evidence_class=EvidenceClass.FACT,
-                area="repository_topology",
-                kind=kind,
-                title=node.name,
-                subjects=[qualname, module.module],
-                evidence_ids=[evidence_id],
-                data=data,
-            )
-        )
-        nodes[qualname] = node
-        owners[qualname] = module
-
-    def walk_class(module: ParsedModule, node: ast.ClassDef, parent: str | None = None) -> None:
-        qualname = f"{module.module}.{node.name}" if parent is None else f"{parent}.{node.name}"
-        add_symbol(module, node, qualname=qualname, kind="class", parent=parent)
-        for child in node.body:
-            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                add_symbol(
-                    module,
-                    child,
-                    qualname=f"{qualname}.{child.name}",
-                    kind="method",
-                    parent=qualname,
-                    parent_node=node,
-                )
-            elif isinstance(child, ast.ClassDef):
-                walk_class(module, child, parent=qualname)
-
     for module in modules:
-        for node in module.tree.body:
+        names: dict[ast.AST, str] = {}
+        namespace_bindings: dict[ast.AST, bool] = {}
+        for node, parent_node, contexts in definition_sites(module.tree):
+            parent = names.get(parent_node) if parent_node else None
+            qualname = f"{parent or module.module}.{node.name}"
+            names[node] = qualname
+            bound = parent_node is None or (
+                isinstance(parent_node, ast.ClassDef) and namespace_bindings[parent_node]
+            )
+            namespace_bindings[node] = bound
+            symbol = _definition_symbol(
+                module, node, qualname, parent, parent_node, evidence, bound, contexts
+            )
+            symbols.append(symbol)
+            if not contexts:
+                nodes[qualname] = node
+            owners[qualname] = module
             if isinstance(node, ast.ClassDef):
-                walk_class(module, node)
-            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                add_symbol(module, node, qualname=f"{module.module}.{node.name}", kind="function")
-        symbols.extend(_module_assignment_symbols(module, evidence))
+                classes[symbol["id"]] = node
+        definition_ids = {item["id"] for item in symbols}
+        symbols.extend(
+            item
+            for item in _module_assignment_symbols(module, evidence)
+            if item["id"] not in definition_ids
+        )
 
-    symbol_by_name: dict[str, RawRecord] = {
-        item["data"]["qualified_name"]: item for item in symbols if "qualified_name" in item["data"]
-    }
-    _resolve_class_kinds(classes, owners, symbol_by_name)
+    _resolve_class_kinds(classes, owners, symbols)
+    _record_class_bases(classes, owners, symbols, evidence)
     symbols = _mark_overloaded_symbols(symbols)
     return sorted(symbols, key=lambda item: item["id"]), nodes, owners
 

@@ -41,7 +41,7 @@ from archkeel.check.ratchets import unknown_positions_by_rule
 from archkeel.cli.observe import analyze_snapshot
 from archkeel.ir.codec import canonical_json_bytes, decode_json, parse_observation
 from archkeel.ir.decisions import rule_assessments
-from archkeel.ir.model import RULE_KINDS, stable_id
+from archkeel.ir.model import RULE_RECORD_KINDS, stable_id
 
 
 def _captured_analysis(root: Path, arguments: dict[str, Any]) -> tuple[dict, list]:
@@ -281,7 +281,7 @@ def _scope_ledgers(model: dict, calls: list) -> dict[str, dict]:
     ledgers = {}
     modules = {row["id"]: row for row in model["modules"]}
     for rule in model["declarations"]:
-        if rule["kind"] not in RULE_KINDS or rule["kind"] in {
+        if rule["kind"] not in RULE_RECORD_KINDS or rule["kind"] in {
             "allowed_dependency",
             "complete_requires",
             "boundary_types",
@@ -556,7 +556,7 @@ def _rule_measures(
         )
     }
     for rule in model["declarations"]:
-        if rule["kind"] not in RULE_KINDS:
+        if rule["kind"] not in RULE_RECORD_KINDS:
             continue
         identifier = rule["id"]
         unknowns = [row for row in model["unknowns"] if identifier in row["rule_ids"]]

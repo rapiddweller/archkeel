@@ -589,8 +589,8 @@
           "type": "object",
           "required": [],
           "properties": {
-            "allowed_dependency": {"$ref": "urn:archkeel:architecture-contract:2.1.0#/$defs/allowedDependency"},
-            "forbidden_dependency": {"$ref": "urn:archkeel:architecture-contract:2.1.0#/$defs/forbiddenDependency"}
+            "allowed_dependency": {"$ref": "urn:archkeel:architecture-contract:2.2.0#/$defs/allowedDependency"},
+            "forbidden_dependency": {"$ref": "urn:archkeel:architecture-contract:2.2.0#/$defs/forbiddenDependency"}
           }
         }
       },

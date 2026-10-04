@@ -602,6 +602,10 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "source_definition_id": {
+                    "type": ["string", "null"],
+                    "minLength": 1
+                  },
                   "source_module": {
                     "type": "string",
                     "minLength": 1
@@ -639,6 +643,59 @@
                       "type": "string",
                       "minLength": 1
                     }
+                  },
+                  "result_bindings": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["id", "name", "target_kind", "annotation", "initializer", "evidence_ids", "definition_contexts"],
+                      "properties": {
+                        "id": {"type": "string", "minLength": 1},
+                        "name": {"type": "string", "minLength": 1},
+                        "target_kind": {"enum": ["name", "attribute", "subscript"]},
+                        "annotation": {"type": ["string", "null"]},
+                        "initializer": {"type": "string", "minLength": 1},
+                        "evidence_ids": {
+                          "type": "array",
+                          "minItems": 1,
+                          "items": {"type": "string", "minLength": 1}
+                        },
+                        "definition_contexts": {
+                          "$comment": "Graph validation checks context vocabulary and cited evidence.",
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["kind", "branch", "evidence_ids"],
+                            "properties": {
+                              "kind": {"type": "string", "minLength": 1},
+                              "branch": {"type": "string", "minLength": 1},
+                              "evidence_ids": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": {"type": "string", "minLength": 1}
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "construction": {
+                    "type": ["object", "null"],
+                    "required": ["status", "targets", "candidates_truncated", "reason"],
+                    "properties": {
+                      "status": {"enum": ["resolved", "partially_resolved"]},
+                      "targets": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {"type": "string", "minLength": 1}
+                      },
+                      "candidates_truncated": {"type": "boolean"},
+                      "reason": {"type": "string", "minLength": 1}
+                    },
+                    "additionalProperties": false
                   }
                 },
                 "additionalProperties": false
@@ -888,6 +945,10 @@
                 "properties": {
                   "source_scope": {
                     "type": "string",
+                    "minLength": 1
+                  },
+                  "source_definition_id": {
+                    "type": ["string", "null"],
                     "minLength": 1
                   },
                   "source_module": {

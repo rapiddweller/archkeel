@@ -24,7 +24,7 @@ from .receiver_types import (
     method_return_type,
     receiver_call_target,
 )
-from .source import ParsedModule
+from .scopes import LexicalScopes, NameBinding
 
 _BUILTINS = frozenset(dir(builtins))
 _NO_RECEIVERS: Mapping[str, ReceiverType] = {}
@@ -59,16 +59,44 @@ class SymbolIndex:
     by_tail: dict[str, list[str]]
     evidence: dict[str, list[str]]
     enum_members: dict[str, frozenset[str]]
+    definition_ids: frozenset[str]
+    conditional_names: frozenset[str]
+    constructor_results: dict[str, bool]
+    binding_ids: frozenset[str]
+    declaration_names: frozenset[str]
 
 
 def build_symbol_index(symbols: Sequence[RawRecord]) -> SymbolIndex:
-    names: set[str] = {item["data"]["qualified_name"] for item in symbols}
+    definition_ids = frozenset(
+        item["id"] for item in symbols if item["kind"] in {"class", "function", "method"}
+    )
+    declarations = frozenset(
+        item["data"]["qualified_name"]
+        for item in symbols
+        if item["kind"] in {"class", "function", "method"}
+    )
+    # Lexical declarations are visible by name, never as attributes of a function.
+    names: set[str] = {
+        item["data"]["qualified_name"]
+        for item in symbols
+        if item["data"].get("namespace_bound") is not False
+    }
     by_tail: dict[str, list[str]] = defaultdict(list)
     for name in sorted(names):
         by_tail[name.rsplit(".", 1)[-1]].append(name)
-    evidence: dict[str, list[str]] = {
-        item["data"]["qualified_name"]: item["evidence_ids"] for item in symbols
-    }
+    evidence: dict[str, list[str]] = {}
+    conditional_names: set[str] = set()
+    constructor_results: dict[str, bool] = {}
+    for item in symbols:
+        data = item["data"]
+        name = data["qualified_name"]
+        evidence[name] = sorted(set(evidence.get(name, [])).union(item["evidence_ids"]))
+        if data.get("definition_contexts"):
+            conditional_names.add(name)
+        if item["kind"] == "class":
+            constructor_results[name] = (
+                name not in constructor_results and data.get("default_instance_result") is True
+            )
     enum_members: dict[str, frozenset[str]] = {}
     for item in symbols:
         data = item["data"]
@@ -76,23 +104,51 @@ def build_symbol_index(symbols: Sequence[RawRecord]) -> SymbolIndex:
             members = data["enum_members"]
             if isinstance(members, list):
                 enum_members[data["qualified_name"]] = frozenset(members)
-    return SymbolIndex(frozenset(names), dict(by_tail), evidence, enum_members)
+    return SymbolIndex(
+        frozenset(names),
+        dict(by_tail),
+        evidence,
+        enum_members,
+        definition_ids,
+        frozenset(conditional_names),
+        constructor_results,
+        frozenset(item["id"] for item in symbols if item["kind"] == "dynamic_binding"),
+        declarations,
+    )
+
+
+def _named_binding(target: str, index: SymbolIndex, reason: str) -> tuple[str, list[str], str, int]:
+    parts = target.split(".")
+    if any(".".join(parts[:end]) in index.conditional_names for end in range(1, len(parts) + 1)):
+        return (
+            "partially_resolved",
+            [target],
+            "conditional definition has no proven runtime binding",
+            1,
+        )
+    return "resolved", [target], reason, 1
 
 
 def _static_receiver_type(
-    node: ast.expr, *, module: ParsedModule, receiver_types: Mapping[str, ReceiverType | None]
+    node: ast.expr,
+    *,
+    receiver_types: Mapping[str, ReceiverType | None],
+    scopes: LexicalScopes,
 ) -> str | None:
     """Name the type of an expression used as a receiver, from what is already known."""
     if isinstance(node, ast.Name):
         receiver = receiver_types.get(node.id)
         return receiver.type_name if receiver else None
     if isinstance(node, ast.Call):
-        return call_result_type(node, module=module, receiver_types=receiver_types)
+        return call_result_type(node, receiver_types=receiver_types, scopes=scopes)
     return literal_receiver_type(node)
 
 
 def call_result_type(
-    call: ast.Call, *, module: ParsedModule, receiver_types: Mapping[str, ReceiverType | None]
+    call: ast.Call,
+    *,
+    receiver_types: Mapping[str, ReceiverType | None],
+    scopes: LexicalScopes,
 ) -> str | None:
     """Name the documented type a call evaluates to, or None (AD-40).
 
@@ -101,7 +157,7 @@ def call_result_type(
     """
     if isinstance(call.func, ast.Attribute):
         receiver = _static_receiver_type(
-            call.func.value, module=module, receiver_types=receiver_types
+            call.func.value, receiver_types=receiver_types, scopes=scopes
         )
         if receiver is not None:
             return method_return_type(receiver, call.func.attr)
@@ -109,14 +165,17 @@ def call_result_type(
     if dotted is None:
         return None
     parts = dotted.split(".")
-    binding = module.aliases.get(parts[0])
-    if binding is None:
+    binding = scopes.lookup(call.func, parts[0])
+    if binding.kind not in {"module", "symbol"} or binding.uncertain or len(binding.targets) != 1:
         return None
-    return constructor_receiver_type(".".join([binding.target, *parts[1:]]))
+    return constructor_receiver_type(".".join([binding.targets[0], *parts[1:]]))
 
 
 def _resolve_expression_receiver(
-    node: ast.Attribute, *, module: ParsedModule, receiver_types: Mapping[str, ReceiverType]
+    node: ast.Attribute,
+    *,
+    receiver_types: Mapping[str, ReceiverType],
+    scopes: LexicalScopes,
 ) -> tuple[str, list[str], str, int] | None:
     """Resolve a call on a literal or on a call result written at the call site.
 
@@ -128,7 +187,7 @@ def _resolve_expression_receiver(
         literal_type = literal_receiver_type(node.value)
         status, reason = "resolved", "literal receiver of known type"
     elif isinstance(node.value, ast.Call):
-        literal_type = call_result_type(node.value, module=module, receiver_types=receiver_types)
+        literal_type = call_result_type(node.value, receiver_types=receiver_types, scopes=scopes)
         status, reason = "partially_resolved", "call result of documented type, unproven at runtime"
     else:
         return None
@@ -141,14 +200,26 @@ def _resolve_expression_receiver(
 
 
 def _resolve_name_node(
-    node: ast.Name, *, module: ParsedModule, index: SymbolIndex
+    node: ast.Name,
+    *,
+    index: SymbolIndex,
+    scopes: LexicalScopes,
+    value_reference: bool,
 ) -> tuple[str, list[str], str, int]:
-    local = f"{module.module}.{node.id}"
-    if local in index.names:
-        return "resolved", [local], "module-local symbol", 1
-    binding = module.aliases.get(node.id)
-    if binding:
-        return "resolved", [binding.target], f"imported {binding.kind} binding", 1
+    binding = scopes.lookup(node, node.id)
+    if binding.targets:
+        reason = (
+            ("module-local symbol" if binding.owner is scopes.root else "lexical declaration")
+            if binding.kind == "declaration"
+            else (f"imported {binding.kind} binding")
+        )
+        return _scoped_binding(binding, binding.targets, index, reason)
+    if value_reference and binding.kind == "local" and binding.owner is scopes.root:
+        target = f"{binding.owner.qualified_name}.{node.id}"
+        if target in index.names:
+            return _scoped_binding(binding, (target,), index, "namespace value binding")
+    if binding.kind != "unbound":
+        return "unresolved", [], "lexical binding has no proven callable value", 0
     if node.id in _BUILTINS:
         return "resolved", [f"builtins.{node.id}"], "Python builtin", 1
     candidates = index.by_tail.get(node.id, [])
@@ -160,6 +231,23 @@ def _resolve_name_node(
             len(candidates),
         )
     return "unresolved", [], "name has no statically indexed binding", 0
+
+
+def _scoped_binding(
+    binding: NameBinding, targets: tuple[str, ...], index: SymbolIndex, reason: str
+) -> tuple[str, list[str], str, int]:
+    if len(targets) == 1:
+        result = _named_binding(targets[0], index, reason)
+        if result[0] == "partially_resolved":
+            return result
+    if binding.uncertain or len(targets) != 1:
+        return (
+            "partially_resolved",
+            list(targets[:5]),
+            "competing lexical binding sites",
+            len(targets),
+        )
+    return _named_binding(targets[0], index, reason)
 
 
 def _resolve_receiver_bound_call(
@@ -181,33 +269,40 @@ def _resolve_receiver_bound_call(
 def _resolve_dotted(
     dotted: str,
     *,
-    module: ParsedModule,
     index: SymbolIndex,
-    class_stack: Sequence[str],
+    scopes: LexicalScopes,
+    node: ast.AST,
     receiver_types: Mapping[str, ReceiverType],
 ) -> tuple[str, list[str], str, int]:
     parts = dotted.split(".")
-    binding = module.aliases.get(parts[0])
-    if binding:
-        target = ".".join([binding.target, *parts[1:]])
-        return "resolved", [target], f"attribute of imported {binding.kind} binding", 1
+    binding = scopes.lookup(node, parts[0])
+    if binding.kind in {"module", "symbol"} and binding.targets:
+        targets = tuple(".".join([target, *parts[1:]]) for target in binding.targets)
+        return _scoped_binding(
+            binding, targets, index, f"attribute of imported {binding.kind} binding"
+        )
     receiver_result = _resolve_receiver_bound_call(parts, receiver_types)
     if receiver_result:
         return receiver_result
-    if parts[0] == "self" and class_stack:
-        target = f"{class_stack[-1]}.{'.'.join(parts[1:])}"
-        if target in index.names:
-            return "resolved", [target], "method on current class", 1
+    receiver_class = scopes.receiver_class(binding, parts[0])
+    if receiver_class:
+        target = f"{receiver_class}.{'.'.join(parts[1:])}"
+        if target in index.declaration_names:
+            return _named_binding(target, index, "method on current class")
         return (
             "partially_resolved",
             [target],
             "current-class attribute without indexed method target",
             1,
         )
-    local_class = f"{module.module}.{parts[0]}"
-    target = f"{local_class}.{'.'.join(parts[1:])}"
-    if target in index.names:
-        return "resolved", [target], "class-qualified local method", 1
+    targets = tuple(
+        target
+        for root in binding.targets
+        if (target := f"{root}.{'.'.join(parts[1:])}") in index.names
+        or (root in index.constructor_results and target in index.declaration_names)
+    )
+    if targets:
+        return _scoped_binding(binding, targets, index, "class-qualified local method")
     candidates = index.by_tail.get(parts[-1], [])
     if candidates:
         return (
@@ -222,32 +317,31 @@ def _resolve_dotted(
 def resolve_name(
     node: ast.AST,
     *,
-    module: ParsedModule,
     index: SymbolIndex,
-    class_stack: Sequence[str],
+    scopes: LexicalScopes,
     receiver_types: Mapping[str, ReceiverType] = _NO_RECEIVERS,
+    value_reference: bool = False,
 ) -> tuple[str, list[str], str, int]:
     """Name the symbols one expression can mean, with why the resolution holds.
 
-    `receiver_types` names, for the enclosing function only, the locals and parameters whose
-    type a literal or an annotation makes statically obvious (AD-37); every other collector
-    that shares this resolver passes none, and gets the exact result it had before AD-37.
+    `receiver_types` contains only bindings visible at this expression. Lexical ownership
+    is shared with references; neither collector can fall back past a local binder.
     """
     if isinstance(node, ast.Attribute):
         expression_result = _resolve_expression_receiver(
-            node, module=module, receiver_types=receiver_types
+            node, receiver_types=receiver_types, scopes=scopes
         )
         if expression_result:
             return expression_result
     if isinstance(node, ast.Name):
-        return _resolve_name_node(node, module=module, index=index)
+        return _resolve_name_node(node, index=index, scopes=scopes, value_reference=value_reference)
     dotted = dotted_expression(node)
     if dotted:
         return _resolve_dotted(
             dotted,
-            module=module,
             index=index,
-            class_stack=class_stack,
+            scopes=scopes,
+            node=node,
             receiver_types=receiver_types,
         )
     return "unresolved", [], "expression is dynamic", 0

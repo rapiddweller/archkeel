@@ -33,8 +33,12 @@ WINDOWS_DRIVE_ROOT = b"C:" + bytes([92])
 CONFLICT_MARKERS = (b"<<<" + b"<<<<", b">>>" + b">>>>")
 TRACKED = tuple(
     ROOT / name
-    for name in subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT, text=True).split("\0")
-    if name
+    for name in subprocess.check_output(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "--deduplicate", "-z"],
+        cwd=ROOT,
+        text=True,
+    ).split("\0")
+    if name and (ROOT / name).is_file()
 )
 SOURCES = tuple(
     path for path in TRACKED if path.suffix == ".py" and path.is_relative_to(ROOT / "src")

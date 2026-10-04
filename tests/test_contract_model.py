@@ -5,7 +5,7 @@
 
 import json
 from collections.abc import Iterator
-from dataclasses import fields, is_dataclass
+from dataclasses import asdict, fields, is_dataclass
 from pathlib import Path
 from types import NoneType, UnionType
 from typing import get_args, get_origin, get_type_hints
@@ -13,6 +13,15 @@ from typing import get_args, get_origin, get_type_hints
 import pytest
 from jsonschema import Draft202012Validator
 
+from archkeel.ir.architecture_graph import (
+    Entity,
+    Parameter,
+    Relationship,
+    Signature,
+    TargetDefinition,
+    TargetScope,
+    Visibility,
+)
 from archkeel.ir.codec import contract_bytes, parse_contract
 from archkeel.ir.model import ArchitectureContract, module_references
 
@@ -282,6 +291,84 @@ def _maximal_contract() -> dict[str, object]:
             "responsibility": "Keep order orchestration in the app layer.",
         }
     ]
+    raw["schema_version"] = "2.2.0"
+    declarations["uml"] = asdict(
+        TargetDefinition(
+            entities=(
+                Entity(
+                    "UML-CLASS",
+                    "class",
+                    "shop.model.Service",
+                    "python",
+                    "COMP-MODEL",
+                    Visibility("public", "declared", "Service"),
+                    annotation="Service",
+                    modifiers=("abstract",),
+                    presence="planned",
+                    responsibilities=("Serve requests.",),
+                    provenance=tuple(_PROVENANCE),
+                ),
+                Entity(
+                    "UML-METHOD",
+                    "method",
+                    "shop.model.Service.run",
+                    "python",
+                    "UML-CLASS",
+                    Visibility("public", "declared", "run"),
+                    Signature(
+                        (Parameter("request", "Request", "positional", "None", True),), "Result"
+                    ),
+                    annotation="Callable",
+                    modifiers=("async",),
+                    presence="planned",
+                    responsibilities=("Serve one request.",),
+                    provenance=tuple(_PROVENANCE),
+                ),
+                Entity(
+                    "UML-PORT",
+                    "interface",
+                    "shop.model.Port",
+                    "python",
+                    "COMP-MODEL",
+                    presence="planned",
+                    responsibilities=("Define the boundary.",),
+                    provenance=tuple(_PROVENANCE),
+                ),
+                Entity(
+                    "UML-BINDING",
+                    "binding",
+                    "shop.model.Service.run.request_copy",
+                    "python",
+                    "UML-METHOD",
+                    initializer="Request()",
+                    presence="planned",
+                    responsibilities=("Hold the request value at this source site.",),
+                    provenance=tuple(_PROVENANCE),
+                ),
+            ),
+            relationships=(
+                Relationship(
+                    "UML-REALIZATION",
+                    "realizes",
+                    "UML-CLASS",
+                    "UML-PORT",
+                    expression="implements",
+                    reason="Use the declared port.",
+                    provenance=tuple(_PROVENANCE),
+                ),
+            ),
+            scopes=(
+                TargetScope(
+                    "COMP-MODEL",
+                    "closed",
+                    "Declare the boundary.",
+                    tuple(_PROVENANCE),
+                    ("class", "interface", "method"),
+                    ("realizes",),
+                ),
+            ),
+        )
+    )
     return raw
 
 
@@ -301,6 +388,10 @@ def _unfilled(cls: type, entries: list[dict[str, object]], path: str) -> list[st
     for field in fields(cls):
         key = "$schema" if field.name == "schema" else field.name
         present = [entry[key] for entry in entries if key in entry]
+        if cls is Entity and field.name == "definition_contexts":
+            # Independent Target cannot carry observed source contexts.
+            assert present and all(value == [] for value in present)
+            continue
         if not present:
             unfilled.append(f"{path}.{field.name}")
             continue
@@ -346,6 +437,54 @@ def _string_pointers(node: object, pointer: str = "") -> Iterator[str]:
 # path or a component label. A new string field must join this set or `module_references`.
 _NAMES_NO_MODULE = frozenset(
     {
+        "/declarations/uml/schema_version",
+        *(
+            f"/declarations/uml/entities/*/{field}"
+            for field in (
+                "id",
+                "kind",
+                "language",
+                "parent_id",
+                "annotation",
+                "initializer",
+                "modifiers/*",
+                "presence",
+                "responsibilities/*",
+                "provenance/*",
+                "visibility/kind",
+                "visibility/basis",
+                "visibility/spelling",
+                "signature/returns",
+                "signature/parameters/*/name",
+                "signature/parameters/*/annotation",
+                "signature/parameters/*/kind",
+                "signature/parameters/*/default",
+            )
+        ),
+        *(
+            f"/declarations/uml/relationships/*/{field}"
+            for field in (
+                "id",
+                "kind",
+                "source_id",
+                "target_id",
+                "resolution",
+                "expression",
+                "provenance/*",
+                "reason",
+            )
+        ),
+        *(
+            f"/declarations/uml/scopes/*/{field}"
+            for field in (
+                "scope_id",
+                "mode",
+                "rationale",
+                "provenance/*",
+                "entity_kinds/*",
+                "relationship_kinds/*",
+            )
+        ),
         "/$schema",
         "/schema_version",
         *(

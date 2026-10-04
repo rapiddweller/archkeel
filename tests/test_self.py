@@ -333,7 +333,7 @@ def test_self_public_guard_rejects_unsupported_surface(
 def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) -> None:
     """AD-148: the process host and each language adapter own the modules they observe."""
     levels = {level.parent: level for level in inside_levels(self_observation)}
-    assert set(levels) == {"analyzer", "analyzer:dart", "analyzer:python", "check", "ir"}
+    assert set(levels) == {"analyzer", "analyzer:dart", "analyzer:python", "check", "ir", "render"}
     analyzer = levels["analyzer"]
     modules_by_component = {item.label: set(item.modules) for item in analyzer.components}
     assert set(modules_by_component) == {"dart", "process", "python"}
@@ -355,6 +355,7 @@ def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) 
         "archkeel.analyzer.python.receiver_types",
         "archkeel.analyzer.python.references",
         "archkeel.analyzer.python.resolve",
+        "archkeel.analyzer.python.scopes",
         "archkeel.analyzer.python.source",
         "archkeel.analyzer.python.state",
         "archkeel.analyzer.python.symbols",

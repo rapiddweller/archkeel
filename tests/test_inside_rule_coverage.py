@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from graph_report_support import findings_for, import_sites
 from test_analyzer import _component, _inside_component, _observe
 from test_architecture_demo import FIXTURE_DIR, _prepare_repo
 
@@ -16,9 +17,10 @@ from archkeel.check.validation import inside_diagnostics
 from archkeel.cli import main
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
+from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import Observation
+from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
-from archkeel.render.flow import build_flow
 
 
 def _write_inside_case(
@@ -60,12 +62,10 @@ def _write_inside_case(
 def _inside_edge(root: Path):
     result = _observe(root)
     assert result.observation is not None
-    flow = build_flow(result.observation)
-    core = next(item for item in flow.components if item.label == "core")
-    assert core.inside is not None
-    return result, next(
-        edge for edge in core.inside.edges if (edge.source, edge.target) == ("b", "a")
-    )
+    report = architecture_report(result.observation)
+    sites = import_sites(report, "sample.core.b", "sample.core.a")
+    assert sites
+    return result, sites, findings_for(report, sites)
 
 
 def _scan_config(
@@ -346,10 +346,9 @@ def test_inner_edge_without_complete_requires_is_observed_not_conforming(
 ) -> None:
     _write_inside_case(tmp_path, rules=[])
 
-    _result, edge = _inside_edge(tmp_path)
+    _result, _sites, findings = _inside_edge(tmp_path)
 
-    assert edge.state in {"observed", "undecided"}
-    assert edge.rule_ids == ()
+    assert not findings
 
 
 def test_inner_type_checking_edge_excluded_by_rule_is_not_called_checked(tmp_path: Path) -> None:
@@ -369,10 +368,10 @@ def test_inner_type_checking_edge_excluded_by_rule_is_not_called_checked(tmp_pat
     (tmp_path / "sample/core/b.py").write_text(
         "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import sample.core.a\n"
     )
-    result, edge = _inside_edge(tmp_path)
+    result, _sites, findings = _inside_edge(tmp_path)
     assert result.observation is not None
     assert not result.observation.records("violations")
-    assert edge.state in {"observed", "undecided"}
+    assert not findings
 
 
 def test_runtime_requirement_does_not_cover_excluded_type_checking_site(
@@ -398,7 +397,7 @@ def test_runtime_requirement_does_not_cover_excluded_type_checking_site(
         "if TYPE_CHECKING:\n    import sample.core.a\n"
     )
 
-    result, edge = _inside_edge(tmp_path)
+    result, _sites, findings = _inside_edge(tmp_path)
     assert result.observation is not None, result.diagnostics
     imports = [
         item
@@ -407,8 +406,8 @@ def test_runtime_requirement_does_not_cover_excluded_type_checking_site(
         and item.data.get("target_module") == "sample.core.a"
     ]
     assert sorted(item.data.get("under_type_checking") for item in imports) == [False, True]
-    assert edge.import_sites == 2
-    assert edge.state in {"observed", "undecided"}
+    assert len(_sites) == 2
+    assert not findings
 
 
 def test_runtime_finding_does_not_attribute_excluded_type_checking_import(
@@ -472,9 +471,9 @@ def test_inner_unknown_keeps_another_proven_violation(tmp_path: Path) -> None:
             {**metadata, "id": "TYPES", "kind": "boundary_types", "source": "sample.core.a"},
         ],
     )
-    result, edge = _inside_edge(tmp_path)
+    result, _sites, findings = _inside_edge(tmp_path)
     assert result.observation is not None
-    assert edge.state == "violation"
+    assert any(item.status == "FAIL" for item in findings)
     assert any(
         record.rule_ids == ("core:REQUIRES-COMPLETE",)
         for record in result.observation.records("violations") or ()
@@ -632,13 +631,13 @@ def test_inside_complete_requires_violation_control(tmp_path: Path) -> None:
         ],
     )
 
-    result, edge = _inside_edge(tmp_path)
+    result, _sites, findings = _inside_edge(tmp_path)
 
     assert result.observation is not None
-    assert edge.state == "violation"
-    assert edge.rule_ids == ("core:REQUIRES-COMPLETE",)
+    assert any(item.status == "FAIL" for item in findings)
+    assert {rule for item in findings for rule in item.rule_ids} == {"core:REQUIRES-COMPLETE"}
     assert any(
-        item.kind == "complete_requires" and item.rule_ids == edge.rule_ids
+        item.kind == "complete_requires" and item.rule_ids == ("core:REQUIRES-COMPLETE",)
         for item in result.observation.records("violations") or ()
     )
 
@@ -658,14 +657,19 @@ def test_inside_complete_requires_satisfied_control(tmp_path: Path) -> None:
         ],
     )
 
-    result, edge = _inside_edge(tmp_path)
+    result, _sites, findings = _inside_edge(tmp_path)
 
     assert result.observation is not None
     assert not any(
         item.kind == "complete_requires" for item in result.observation.records("violations") or ()
     )
-    assert edge.state == "conforms"
-    assert edge.rule_ids == ()
+    assert not findings
+    assessment = next(
+        item
+        for item in rule_assessments(result.observation, undecided_by_rule={})
+        if item.id == "core:REQUIRES-COMPLETE"
+    )
+    assert assessment.status == "PASS" and assessment.evaluation_proven
 
 
 def test_same_label_sibling_inside_levels_keep_findings_scoped(tmp_path: Path) -> None:
@@ -705,28 +709,14 @@ def test_same_label_sibling_inside_levels_keep_findings_scoped(tmp_path: Path) -
 
     result = _observe(tmp_path)
     assert result.observation is not None
-    flow = build_flow(result.observation)
-    inside_by_parent = {
-        component.label: component.inside
-        for component in flow.components
-        if component.label in {"core", "service"}
+    report = architecture_report(result.observation)
+    core_sites = import_sites(report, "sample.core.b", "sample.core.a")
+    service_sites = import_sites(report, "sample.service.b", "sample.service.a")
+    assert core_sites and service_sites
+    assert {rule for item in findings_for(report, core_sites) for rule in item.rule_ids} == {
+        "core:REQUIRES-COMPLETE"
     }
-    core_edge = next(
-        edge for edge in inside_by_parent["core"].edges if (edge.source, edge.target) == ("b", "a")
-    )
-    service_edge = next(
-        edge
-        for edge in inside_by_parent["service"].edges
-        if (edge.source, edge.target) == ("b", "a")
-    )
-
-    assert core_edge.state == "violation"
-    assert core_edge.rule_ids == ("core:REQUIRES-COMPLETE",)
-    assert service_edge.state == "conforms", (
-        service_edge,
-        [item for item in result.observation.records("violations") or ()],
-    )
-    assert service_edge.rule_ids == ()
+    assert not findings_for(report, service_sites)
     assert [
         item.rule_ids
         for item in result.observation.records("violations") or ()

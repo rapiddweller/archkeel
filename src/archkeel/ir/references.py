@@ -59,6 +59,8 @@ def _referenced(observation: Observation) -> set[str]:
 def _is_exempt(symbol: Record, classes: dict[str, Record]) -> bool:
     """Runtime dispatch and declared interfaces are used without naming the symbol."""
     name = text_value(symbol.data.get("qualified_name"))
+    if symbol.data.get("namespace_bound") is False or symbol.data.get("definition_contexts"):
+        return True
     leaf = name.rsplit(".", 1)[-1]
     if leaf.startswith("__") and leaf.endswith("__"):
         return True

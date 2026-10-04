@@ -17,6 +17,7 @@ from archkeel.ir.facts import EvidenceClass, in_scope, stable_id
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
 from .resolve import SymbolIndex, dotted_expression, resolve_name
+from .scopes import LexicalScopes
 from .source import (
     ParsedModule,
     add_evidence,
@@ -84,29 +85,9 @@ class ReferenceCollector(ast.NodeVisitor):
         self.index = index
         self.evidence = evidence
         self.items: list[RawRecord] = []
-        self.class_stack: list[str] = []
-        self.scope_stack: list[str] = [module.module]
+        self.scopes = LexicalScopes(module)
         self.enum_member_roots = enum_member_roots
         self.enum_member_classes = enum_member_classes
-
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        qualname = f"{self.scope_stack[-1]}.{node.name}"
-        self.class_stack.append(qualname)
-        self.scope_stack.append(qualname)
-        self.generic_visit(node)
-        self.scope_stack.pop()
-        self.class_stack.pop()
-
-    def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        self.scope_stack.append(f"{self.scope_stack[-1]}.{node.name}")
-        self.generic_visit(node)
-        self.scope_stack.pop()
-
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        self._visit_function(node)
-
-    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        self._visit_function(node)
 
     def visit_Call(self, node: ast.Call) -> None:
         # The callee belongs to the call collector; its arguments are ordinary uses.
@@ -127,14 +108,19 @@ class ReferenceCollector(ast.NodeVisitor):
         self._record(node, dotted, "attribute")
 
     def _record(self, node: ast.expr, expression: str, use: str) -> None:
+        scope = self.scopes.by_node[node]
         enum_member = self._enum_member_class(node)
         if enum_member is None:
             status, targets, _, _ = resolve_name(
-                node, module=self.module, index=self.index, class_stack=self.class_stack
+                node, index=self.index, scopes=self.scopes, value_reference=True
             )
         else:
             status, targets = "resolved", [enum_member]
-        internal = [target for target in targets if target in self.index.names]
+        internal = [
+            target
+            for target in targets
+            if target in self.index.names or target in self.index.declaration_names
+        ]
         if status == "unresolved" or not internal:
             return
         evidence_id = add_evidence(self.evidence, self.module, node)
@@ -147,10 +133,13 @@ class ReferenceCollector(ast.NodeVisitor):
                 area="call_hierarchy",
                 kind=f"{use}_reference",
                 title=f"Reference {text}",
-                subjects=[self.scope_stack[-1], *internal],
+                subjects=[scope.qualified_name, *internal],
                 evidence_ids=[evidence_id],
                 data={
-                    "source_scope": self.scope_stack[-1],
+                    "source_scope": scope.qualified_name,
+                    "source_definition_id": scope.definition_id
+                    if scope is self.scopes.root or scope.definition_id in self.index.definition_ids
+                    else None,
                     "source_module": self.module.module,
                     "expression": text,
                     "status": status,
@@ -169,9 +158,7 @@ class ReferenceCollector(ast.NodeVisitor):
             root = root.value
         if not isinstance(root, ast.Name) or root.id not in self.enum_member_roots:
             return None
-        status, targets, _, _ = resolve_name(
-            node.value, module=self.module, index=self.index, class_stack=self.class_stack
-        )
+        status, targets, _, _ = resolve_name(node.value, index=self.index, scopes=self.scopes)
         if status != "resolved" or len(targets) != 1:
             return None
         enum_name = targets[0]

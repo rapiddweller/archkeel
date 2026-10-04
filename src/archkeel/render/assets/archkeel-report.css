@@ -9,6 +9,12 @@
   --ck-border: #2a2a28;
   --ck-text: #e8e8e2;
   --ck-muted: #8a8a84;
+  --ck-declared: #a9b7ff;
+  --uml-calls: #8ac6ff;
+  --uml-imports: #b7a9ff;
+  --uml-references: #b3becb;
+  --uml-creates: #76d8c6;
+  --uml-instance_of: #8fd8ef;
   /* Functional status colors. Never use these as decoration. */
   --ck-pass: #5eead4;
   --ck-fail: #ff6b6b;
@@ -29,6 +35,12 @@
 }
 * {
   box-sizing: border-box;
+}
+html {
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar {
+  display: none;
 }
 body {
   margin: 0;
@@ -132,12 +144,15 @@ a {
 }
 .report-filters label {
   display: grid;
+  min-width: 0;
   gap: var(--ck-space-1);
   color: var(--ck-muted);
 }
 .report-filters input,
 .report-filters select,
 .report-filters button {
+  min-width: 0;
+  max-width: 100%;
   min-height: 40px;
   padding: 8px 10px;
   border: 1px solid var(--ck-border);
@@ -535,18 +550,18 @@ code {
   border-bottom-color: var(--ck-lime);
   color: var(--ck-text);
 }
-.flow[data-view]:not([data-view="diagram"]):not([data-view="target"]) .flow-canvas {
+.flow[data-view]:not([data-view="diagram"]):not([data-view="target"]):not([data-uml-graph="true"]) .flow-canvas {
   display: none;
 }
-.flow[data-view]:not([data-view="diagram"]):not([data-view="target"]) .flow-legend {
+.flow[data-view]:not([data-view="diagram"]):not([data-view="target"]):not([data-uml-graph="true"]) .flow-legend-panel {
   visibility: hidden;
 }
-.flow[data-view]:not([data-view="diagram"]):not([data-view="target"]) .flow-diagram-control,
-.flow[data-view]:not([data-view="diagram"]):not([data-view="target"]) .flow-violation-focus {
+.flow[data-view]:not([data-view="diagram"]):not([data-view="target"]):not([data-uml-graph="true"]) .flow-diagram-control,
+.flow[data-view]:not([data-view="diagram"]):not([data-view="target"]):not([data-uml-graph="true"]) .flow-violation-focus {
   visibility: hidden;
   pointer-events: none;
 }
-.flow[data-view="target"] .flow-diagram-filter {
+.flow[data-view="target"]:not([data-uml-graph="true"]) .flow-diagram-filter {
   visibility: hidden;
   pointer-events: none;
 }
@@ -567,13 +582,12 @@ code {
 .flow-breadcrumb {
   display: flex;
   flex: 1 0 100%;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 4px;
   align-items: center;
   order: 21;
   min-height: 1.5em;
-  overflow-x: auto;
-  white-space: nowrap;
+  white-space: normal;
 }
 .flow-breadcrumb button {
   border: 0;
@@ -664,7 +678,8 @@ code {
   font-size: 12px;
   cursor: pointer;
 }
-.flow-fit:hover {
+.flow-fit:hover,
+.flow-fit[aria-pressed="true"] {
   border-color: var(--ck-teal);
 }
 .flow-zoom-controls {
@@ -700,6 +715,75 @@ code {
   min-height: 76px;
   align-content: start;
 }
+.flow-filters,
+.flow-filter-controls,
+.flow-legend-panel {
+  display: contents;
+}
+.flow-filters > summary,
+.flow-legend-panel > summary {
+  display: none;
+}
+.flow-filters:not([open]) .flow-filter-controls {
+  display: none;
+}
+.flow-legend-panel:not([open]) .flow-legend {
+  display: none;
+}
+@media (max-width: 900px) {
+  .flow,
+  .flow-toolbar {
+    gap: 8px;
+  }
+  .flow-filters,
+  .flow-legend-panel {
+    display: block;
+    position: relative;
+  }
+  .flow-filters > summary,
+  .flow-legend-panel > summary {
+    display: list-item;
+    padding: 6px 12px;
+    border: 1px solid var(--ck-border);
+    border-radius: 999px;
+    color: var(--ck-text);
+    cursor: pointer;
+  }
+  .flow-filter-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    position: absolute;
+    z-index: 10;
+    top: 100%;
+    left: 0;
+    width: min(320px, calc(100vw - 48px));
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid var(--ck-border);
+    border-radius: var(--ck-radius);
+    background: var(--ck-surface);
+  }
+  .flow-filter-controls > * {
+    max-width: 100%;
+  }
+  .flow-legend-panel .flow-legend {
+    position: absolute;
+    z-index: 10;
+    bottom: 100%;
+    left: 0;
+    width: min(320px, calc(100vw - 48px));
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid var(--ck-border);
+    border-radius: var(--ck-radius);
+    background: var(--ck-surface);
+  }
+  .flow[data-expanded] .flow-toolbar > .flow-breadcrumb {
+    flex-basis: 100%;
+  }
+}
 .flow-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -723,6 +807,12 @@ code {
 @media (max-width: 900px) {
   .flow[data-details-open="true"] .flow-layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .flow[data-expanded] .flow-layout {
+    grid-template-rows: minmax(220px, 2fr) minmax(0, 1fr);
+  }
+  .flow[data-expanded] .flow-how-to-read {
+    display: none;
   }
   .flow-inspector {
     height: 40dvh;
@@ -857,20 +947,28 @@ code {
   min-height: 0;
 }
 .flow[data-expanded] .flow-toolbar {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   min-height: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
 }
 .flow[data-expanded] .flow-toolbar > * {
   flex: 0 0 auto;
+  max-width: 100%;
 }
-.flow[data-expanded] .flow-legend {
-  flex-wrap: nowrap;
-  min-height: 18px;
-  max-height: 18px;
-  overflow-x: auto;
-  overflow-y: hidden;
+.flow-canvas,
+.flow-inspector,
+.flow-alternative {
+  scrollbar-width: none;
+}
+.flow-canvas::-webkit-scrollbar,
+.flow-inspector::-webkit-scrollbar,
+.flow-alternative::-webkit-scrollbar {
+  display: none;
+}
+.flow-graph {
+  cursor: grab;
+}
+.flow-graph.panning {
+  cursor: grabbing;
 }
 .flow[data-expanded="native"] {
   display: grid;
@@ -957,6 +1055,14 @@ code {
 .flow-item-list small {
   flex: none;
   color: var(--ck-muted);
+}
+.flow-inspector .flow-item-list button {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.flow-inspector .flow-item-list small {
+  overflow-wrap: anywhere;
 }
 .flow-alternative details,
 .flow-names {
@@ -1143,21 +1249,20 @@ code {
 }
 .flow-legend {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--ck-space-4);
   min-height: 18px;
-  max-height: 18px;
-  overflow-x: auto;
-  overflow-y: hidden;
   margin-top: var(--ck-space-3);
   color: var(--ck-muted);
   font-family: var(--ck-font-mono);
   font-size: 11px;
 }
 .flow-legend > * {
-  flex: 0 0 auto;
-  white-space: nowrap;
+  flex: 0 1 auto;
+  max-width: 100%;
+  min-width: 0;
+  white-space: normal;
 }
 .flow-legend-item {
   display: inline-flex;
@@ -1165,6 +1270,7 @@ code {
   gap: var(--ck-space-2);
 }
 .flow-legend-swatch {
+  flex: 0 0 28px;
   width: 28px;
   height: 10px;
   overflow: visible;
@@ -1177,17 +1283,85 @@ code {
   stroke: var(--ck-border);
 }
 .node.target-node.module .card {
-  stroke: var(--ck-teal);
+  stroke: var(--ck-declared);
+}
+.node.target-node.component .card {
+  fill: #192029;
+  stroke: #64748b;
+  stroke-width: 1.5px;
+}
+.target-node.component .stereotype {
+  fill: var(--ck-declared);
+}
+.node.target-node .uml-icon rect {
+  fill: var(--ck-surface);
+  stroke: var(--ck-declared);
+}
+.uml-package {
+  fill: none;
+  stroke: var(--ck-declared);
+  stroke-width: 1.5px;
+}
+.flow[data-view="target"] .target-frame {
+  fill: #10151c;
+  fill-opacity: 0.5;
+  stroke: #475569;
+}
+.node.target-node.component.selected .card,
+.node.target-node.component.preview .card {
+  stroke: var(--ck-declared);
+  stroke-width: 2px;
+}
+.node.target-node.dim .label,
+.node.target-node.dim .target-meta {
+  fill-opacity: 1;
 }
 .node.target-node.folder .card {
   stroke-dasharray: 4 3;
 }
-.node.selected .card {
+.node.selected .card,
+.node.preview .card {
   stroke: var(--ck-teal);
+}
+.node.related .card {
+  fill: #1d2730;
+  stroke: #b0c9d5;
+  stroke-width: 2px;
+}
+.node.selected.related .card,
+.node.preview.related .card {
+  stroke: var(--ck-teal);
+  stroke-width: 2.5px;
+}
+.node.target-node.related .card {
+  fill: #243242;
+  stroke: #d6e0ff;
+  stroke-width: 2px;
+}
+.node.target-node.selected.related .card,
+.node.target-node.preview.related .card {
+  stroke: var(--ck-declared);
+  stroke-width: 2.5px;
+}
+.node.target-node.dim .label {
+  fill: #919aa8;
+}
+.node.target-node.dim .uml-icon,
+.node.target-node.dim .stereotype {
+  opacity: 0.35;
 }
 .node.dim .card {
   fill-opacity: 0.35;
   stroke-opacity: 0.55;
+}
+.node.dim .label {
+  fill: #919aa8;
+}
+.node.dim .uml-icon {
+  opacity: 0.35;
+}
+.node[data-outside="true"] .card {
+  stroke-dasharray: 5 3;
 }
 .node .tick {
   fill: var(--ck-border);
@@ -1213,9 +1387,6 @@ code {
   fill: var(--ck-text);
   font: 13px var(--ck-font-sans);
 }
-.node.target-node .target-label {
-  font-size: 15px;
-}
 .target-frame {
   fill: var(--ck-surface-raised);
   fill-opacity: 0.3;
@@ -1238,6 +1409,10 @@ code {
 .diagram-frame.selected .target-frame {
   stroke: var(--ck-lime);
   stroke-width: 2px;
+}
+.flow .package-overview .target-frame {
+  fill: none;
+  stroke: none;
 }
 .target-frame-title {
   fill: var(--ck-text);
@@ -1266,40 +1441,103 @@ code {
   fill: var(--ck-muted);
   font: 11px var(--ck-font-mono);
 }
+.uml-card { --uml-kind-color: var(--uml-imports); }
+.uml-card.class { --uml-kind-color: #c5b8ff; }
+.uml-card.interface { --uml-kind-color: var(--uml-instance_of); }
+.uml-card.enum { --uml-kind-color: #efa9df; }
+.uml-card.method { --uml-kind-color: var(--uml-calls); }
+.uml-card.function { --uml-kind-color: var(--uml-creates); }
+.uml-card.attribute,
+.uml-card.binding { --uml-kind-color: var(--uml-references); }
+.node.uml-card .stereotype,
+.node.uml-card .uml-icon text {
+  fill: var(--uml-kind-color);
+}
+.node.uml-card .uml-icon text {
+  font: 600 16px var(--ck-font-mono);
+}
+.node.uml-card .uml-icon rect,
+.node.uml-card .uml-icon circle,
+.node.uml-card .uml-icon path {
+  stroke: var(--uml-kind-color);
+}
+.node.uml-card .uml-icon circle {
+  fill: none;
+  stroke-width: 1.5px;
+}
+.flow[data-uml-graph="true"] .flow-diagram-filter:not(.flow-graph-filter) {
+  display: none;
+}
+.uml-divider {
+  stroke: var(--ck-border);
+  stroke-width: 1;
+  pointer-events: none;
+}
+.uml-card.binding .label {
+  text-decoration: underline;
+}
+.uml-member,
+.uml-compartment-title {
+  fill: var(--ck-text);
+  font: 11px var(--ck-font-mono);
+  pointer-events: none;
+}
+.uml-compartment-title {
+  fill: var(--ck-muted);
+}
+#uml-triangle path {
+  fill: var(--ck-surface);
+  stroke: var(--ck-text);
+  stroke-width: 1.5;
+}
+.architecture-edge.declared .line {
+  stroke: var(--ck-declared);
+}
+.node.interface .card {
+  stroke: var(--ck-teal);
+}
+.node.dim .uml-member,
+.node.dim .uml-compartment-title,
+.node.dim .meta,
+.node.dim .stereotype {
+  opacity: 0.22;
+}
 .node .uml-icon rect {
   fill: var(--ck-surface);
   stroke: var(--ck-text);
   stroke-width: 1.3;
 }
-.node .uml-provided line,
-.node .uml-provided circle,
-.node .uml-required line,
-.node .uml-required path {
-  fill: var(--ck-surface);
-  stroke: var(--ck-teal);
-  stroke-width: 2;
+.node .uml-icon path {
+  fill: none;
+  stroke: var(--ck-text);
+  stroke-width: 1.3px;
 }
-.edge .uml-assembly circle,
-.edge .uml-assembly path {
-  fill: var(--ck-surface);
-  stroke: var(--ck-teal);
-  stroke-width: 2;
+.node.target-node .uml-icon path {
+  stroke: var(--ck-declared);
 }
 .edge.library-use.conforms .line {
   stroke-dasharray: 5 3;
 }
 /* A marker does not inherit its line's stroke, so each state names its own colour. */
 .flow-arrow.conforms path {
-  fill: var(--ck-teal);
+  fill: none;
+  stroke: var(--ck-teal);
+  stroke-width: 1.5px;
 }
 .flow-arrow.violation path {
-  fill: var(--ck-fail);
+  fill: none;
+  stroke: var(--ck-fail);
+  stroke-width: 1.5px;
 }
 .flow-arrow.undecided path {
-  fill: var(--ck-unknown);
+  fill: none;
+  stroke: var(--ck-unknown);
+  stroke-width: 1.5px;
 }
 .flow-arrow.observed path {
-  fill: var(--ck-muted);
+  fill: none;
+  stroke: var(--ck-muted);
+  stroke-width: 1.5px;
 }
 .edge .line {
   fill: none;
@@ -1313,10 +1551,16 @@ code {
   marker-end: none;
 }
 .edge.target-edge.requires .line {
-  stroke: var(--ck-muted);
+  stroke: var(--ck-declared);
   stroke-width: 1.8;
-  opacity: 0.72;
-  marker-end: url(#flow-arrow-observed);
+  stroke-dasharray: 6 4;
+  opacity: 1;
+  marker-end: url(#flow-arrow-declared);
+}
+.flow-arrow.declared path {
+  fill: none;
+  stroke: var(--ck-declared);
+  stroke-width: 1.5px;
 }
 .edge.target-edge.selected .line,
 .edge.target-edge.requires.selected .line {
@@ -1345,7 +1589,8 @@ code {
   border-top: 2px solid var(--ck-muted);
 }
 .target-legend-swatch.requires {
-  border-color: var(--ck-text);
+  border-color: var(--ck-declared);
+  border-top-style: dashed;
 }
 .target-legend-swatch.owns_package {
   border-color: var(--ck-teal);
@@ -1438,8 +1683,43 @@ code {
   stroke-width: 8px;
 }
 .edge.dim .line,
+.edge.target-edge.dim .line,
 .edge.dim .pulse {
-  opacity: 0.15;
+  opacity: 0.08;
+}
+.edge.dim {
+  pointer-events: none;
+}
+.edge.related .line {
+  opacity: 1;
+  stroke-width: 3px;
+}
+.edge.target-edge.related .line {
+  stroke: #d6e0ff;
+  stroke-width: 3px;
+}
+.edge.target-edge.selected .line {
+  stroke: var(--ck-teal);
+}
+.architecture-edge[data-relationship-kind="calls"],
+.flow-legend-item[data-relationship-kind="calls"] { --uml-relationship-color: var(--uml-calls); }
+.architecture-edge[data-relationship-kind="imports"],
+.flow-legend-item[data-relationship-kind="imports"] { --uml-relationship-color: var(--uml-imports); }
+.architecture-edge[data-relationship-kind="references"],
+.flow-legend-item[data-relationship-kind="references"] { --uml-relationship-color: var(--uml-references); }
+.architecture-edge[data-relationship-kind="creates"],
+.flow-legend-item[data-relationship-kind="creates"] { --uml-relationship-color: var(--uml-creates); }
+.architecture-edge[data-relationship-kind="instance_of"],
+.flow-legend-item[data-relationship-kind="instance_of"] { --uml-relationship-color: var(--uml-instance_of); }
+.architecture-edge:not(.violation):not(.undecided) .line {
+  stroke: var(--uml-relationship-color, var(--ck-declared));
+}
+.flow-legend-item[data-relationship-kind] {
+  color: var(--uml-relationship-color, var(--ck-declared));
+}
+.flow-legend button[aria-pressed="true"] {
+  background: var(--ck-surface-raised);
+  border-color: currentColor;
 }
 .chip rect {
   fill: var(--ck-surface);
@@ -1454,6 +1734,7 @@ code {
 }
 .chip.dim {
   opacity: 0.15;
+  pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .flow-viewport {
@@ -1582,4 +1863,40 @@ code {
 .flow-inspector [data-target-detail]:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
+}
+.flow-inspector [data-uml-detail] {
+  border: 0;
+  background: transparent;
+  color: var(--ck-teal);
+  font: inherit;
+  cursor: pointer;
+}
+
+.uml-card[data-assessment-status="FAIL"] .card {
+  stroke: var(--ck-fail);
+}
+.uml-card[data-assessment-status="UNKNOWN"] .card {
+  stroke: var(--ck-unknown);
+}
+.uml-card[data-assessment-status="PASS"] .card {
+  stroke: var(--ck-teal);
+}
+.architecture-edge[data-assessment-status="FAIL"] .line {
+  stroke: var(--ck-fail);
+}
+.architecture-edge[data-assessment-status="UNKNOWN"] .line {
+  stroke: var(--ck-unknown);
+}
+.uml-assessment {
+  font: 11px var(--ck-font-mono);
+  pointer-events: none;
+}
+[data-assessment-status="FAIL"] .uml-assessment {
+  fill: var(--ck-fail);
+}
+[data-assessment-status="UNKNOWN"] .uml-assessment {
+  fill: var(--ck-unknown);
+}
+[data-assessment-status="PASS"] .uml-assessment {
+  fill: var(--ck-pass);
 }

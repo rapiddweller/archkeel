@@ -20,6 +20,7 @@ from test_git_lock import _lock
 
 from archkeel.check.git import GitError
 from archkeel.check.ports import ScanConfig
+from archkeel.check.report import run_report
 from archkeel.check.run import _authenticate_inputs, materialize_declarations
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
@@ -40,9 +41,10 @@ from archkeel.ir.codec import (
     parse_contract,
     parse_observation,
 )
+from archkeel.ir.graph_codec import parse_report
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.lock import LOCK_PATH, LockError
-from archkeel.ir.model import ArchitectureContract, RunResult
+from archkeel.ir.model import ArchitectureContract
 from archkeel.ir.widening import Amendment
 from archkeel.render.html import render_html
 
@@ -356,16 +358,14 @@ def test_deep_inside_violation_is_reachable_in_rendered_flow_data(tmp_path: Path
         deep_rules=[_forbidden_edge()],
         source_import="from sample.layer.target.api import VALUE\n",
     )
-    observation = _observe(tmp_path).observation
-    assert observation is not None
-    result = RunResult(
-        "report",
-        0,
-        observation_complete="PASS",
-        declared_rules="FAIL",
-        expectation_fulfilled="n/a",
-        coverage=observation.coverage,
+    _commit_tree(tmp_path)
+    result, encoded = run_report(
+        tmp_path,
+        config=ScanConfig(("sample",), "sample", "contract.json", "b" * 64),
+        analyzer=observe,
     )
+    assert encoded is not None
+    observation = parse_observation(decode_canonical_model(json.loads(encoded)))
     page = render_html(
         result,
         observation,
@@ -375,20 +375,24 @@ def test_deep_inside_violation_is_reachable_in_rendered_flow_data(tmp_path: Path
     data_start = page.index('id="flow-data"')
     data_start = page.index(">", data_start) + 1
     data_end = page.index("</script>", data_start)
-    flow = json.loads(page[data_start:data_end])
-    app = next(item for item in flow["components"] if item["label"] == "app")
-    first_level_app = next(item for item in app["inside"]["components"] if item["label"] == "app")
-
-    assert first_level_app.get("inside") is not None
-    deep_inside = first_level_app["inside"]
-    assert {item["label"] for item in deep_inside["components"]} == {"source", "target"}
+    report = parse_report(json.loads(page[data_start:data_end]))
+    assert report.target is not None and report.observed is not None
+    deep_components = {
+        item.component_id: item
+        for item in report.target.component_intents
+        if item.label in {"source", "target"}
+    }
+    assert len(deep_components) == 2
+    assert len({item.parent_id for item in deep_components.values()}) == 1
+    finding = next(item for item in report.findings if "app:app:DEEP-NO-EDGE" in item.rule_ids)
+    assert finding.status == "FAIL"
+    sites = {item.id: item for item in report.observed.relationships}
     assert any(
-        edge["source"] == "source"
-        and edge["target"] == "target"
-        and edge["state"] == "violation"
-        and "app:app:DEEP-NO-EDGE" in edge["rule_ids"]
-        for edge in deep_inside["edges"]
+        sites[identity].kind == "imports"
+        for identity in finding.graph_subject_ids
+        if identity in sites
     )
+    assert {item.component_id for item in report.memberships} >= deep_components.keys()
 
 
 def test_colon_labels_cannot_alias_recursive_parent_and_component_ids(tmp_path: Path) -> None:

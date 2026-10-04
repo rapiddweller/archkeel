@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from .interfaces import component_owners, owner_of
 from .measurements import MeasurementBudget
 from .model import (
-    RULE_KINDS,
+    RULE_RECORD_KINDS,
     Diagnostic,
     DiagnosticError,
     Observation,
@@ -217,7 +217,7 @@ def declared_rule_ids(observation: Observation) -> frozenset[str]:
     return frozenset(
         record.id
         for record in observation.records("declarations") or ()
-        if record.kind in RULE_KINDS
+        if record.kind in RULE_RECORD_KINDS
     )
 
 

@@ -17,6 +17,7 @@ from archkeel.check.declarations import _requires_entries
 from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_delta, parse_observation
+from archkeel.ir.graph_codec import parse_report
 from archkeel.ir.measurements import Measurements, RatchetScalars
 from archkeel.ir.model import (
     ComponentRole,
@@ -368,6 +369,11 @@ def _shop_sample_report(tmp_path: Path, variant_id: str) -> str:
     ).decode()
 
 
+def _standard_report(page: str):
+    start = page.index(">", page.index('id="flow-data"')) + 1
+    return parse_report(json.loads(page[start : page.index("</script>", start)]))
+
+
 # Every rule id AD-10's flow view must attach to an edge in the "tour" sample (see
 # tests/test_flow.py, which derives this set from the same fixture's violations directly).
 _TOUR_FLOW_RULE_IDS = (
@@ -384,53 +390,42 @@ _TOUR_FLOW_RULE_IDS = (
 
 def test_html_report_flow_view_marks_every_violated_edge_with_its_rule_id(tmp_path: Path) -> None:
     page = _shop_sample_report(tmp_path, "tour")
-
-    assert 'id="flow"' in page
-    assert 'id="flow-data"' in page
-    focus_label = next(
+    report = _standard_report(page)
+    assert report.observed is not None
+    finding_rules = {
+        rule for item in report.findings if item.status == "FAIL" for rule in item.rule_ids
+    }
+    assert set(_TOUR_FLOW_RULE_IDS) <= finding_rules
+    sites = {item.id for item in report.observed.relationships}
+    marked_rules = {
+        rule
+        for item in report.findings
+        if sites.intersection(item.graph_subject_ids)
+        for rule in item.rule_ids
+    }
+    assert set(_TOUR_FLOW_RULE_IDS) <= marked_rules
+    control = next(
         attrs for attrs in _start_tags(page, "label") if attrs.get("for") == "flow-violations-only"
     )
-    assert {"flow-violation-focus", "flow-diagram-filter"} <= set(
-        (focus_label.get("class") or "").split()
-    )
-    assert "hidden" in focus_label
-    violation_control = next(
-        attrs for attrs in _start_tags(page, "input") if attrs.get("id") == "flow-violations-only"
-    )
-    assert "flow-violations-only" in (violation_control.get("class") or "").split()
-    data_start = page.index('id="flow-data"')
-    payload = json.loads(
-        page[page.index(">", data_start) + 1 : page.index("</script>", data_start)]
-    )
-
-    violated = {
-        tuple(edge["rule_ids"]) for edge in payload["edges"] if edge["state"] == "violation"
-    }
-    assert set().union(*violated) == set(_TOUR_FLOW_RULE_IDS)
-    # An unowned-target rule has a library card only when it declares an external scope.
-    assert "ASSIGNMENT-COMPLETE" not in set().union(*violated)
-    assert "EXTERNAL-JSON-STORE" in set().union(*violated)
-    assert all(edge["state"] in ("conforms", "violation") for edge in payload["edges"])
+    assert "flow-graph-filter" in page
+    assert "hidden" in control
 
 
 def test_html_report_explorer_uses_one_observation_for_three_views(tmp_path: Path) -> None:
     page = _shop_sample_report(tmp_path, "tour")
-
     assert page.count('id="flow-data"') == 1
     assert '<nav class="flow-views" aria-label="Architecture views" hidden>' in page
-    assert 'data-flow-view="diagram"' in page
-    assert 'data-flow-view="structure"' in page
-    assert 'data-flow-view="review"' in page
-    assert 'class="flow-alternative" hidden' in page
-    assert "Connections to inspect" in page
-    assert "Physical structure" in page
-    assert "Cross-component imports" in page  # no-JavaScript evidence fallback
-    assert "Dependency matrix" in page
+    for view in ("diagram", "target", "diff", "structure", "review"):
+        assert f'data-flow-view="{view}"' in page
+    report = _standard_report(page)
+    assert report.observed is not None and report.target is not None
+    assert "Recorded Core findings" in page
+    assert "Observed modules" in page
+    assert "Cross-component imports" in page
 
 
 def test_html_report_can_focus_an_open_report_on_violations(tmp_path: Path) -> None:
     page = _shop_sample_report(tmp_path, "tour")
-
     assert "data-violation-focus hidden" in page
     assert "data-report-violations-only" in page
     assert 'id="component-communication-detail" data-secondary-detail' in page
@@ -438,15 +433,12 @@ def test_html_report_can_focus_an_open_report_on_violations(tmp_path: Path) -> N
     assert 'classList.toggle("violations-only", control.checked)' in page
     assert "flowControl.checked = control.checked" in page
     assert 'flowControl.dispatchEvent(new Event("change"))' in page
-    # No JavaScript still gets the complete evidence: the rows and positive sections are in
-    # the document; only the initially hidden control can collapse them after explicit input.
     assert "DEP-STORE-NO-MONEY" in page
     assert "Cross-component imports" in page
     assert "Known unknowns" in page
     assert "Complete scan inventory" in page
-    assert "Broken rules on connections at this level" in page
-    assert "No violating edges at this level" in page
-    assert "violationFocus.hidden = false" in page
+    assert "violationsOnly.checked" in page
+    assert "Recorded Core findings" in page
 
 
 def test_html_report_locates_a_cited_file_without_a_line(tmp_path: Path) -> None:
@@ -458,48 +450,42 @@ def test_html_report_locates_a_cited_file_without_a_line(tmp_path: Path) -> None
 
 
 def test_html_report_flow_view_marks_an_undecided_edge(tmp_path: Path) -> None:
-    """AD-15: an observed pair whose allowed rule is removed shows as undecided in the payload."""
     variant = next(item for item in CATALOG if item.id == "tour")
-    files = {
-        **dict(variant.files),
-        "architecture-contract.json": contract_without_rule("DEP-APP-ALLOWS-MODEL"),
-    }
-    root = _prepare_repo(tmp_path, files)
-    result, architecture = run_report(root, config=CONFIG, analyzer=observe)
-    assert architecture is not None
-    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    root = _prepare_repo(
+        tmp_path,
+        {
+            **dict(variant.files),
+            "architecture-contract.json": contract_without_rule("DEP-APP-ALLOWS-MODEL"),
+        },
+    )
+    result, encoded = run_report(root, config=CONFIG, analyzer=observe)
+    assert encoded is not None
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
     page = render_html(
-        result, observation, repository="shop", architecture_href="architecture.json"
+        result, model, repository="shop", architecture_href="architecture.json"
     ).decode()
-
-    data_start = page.index('id="flow-data"')
-    payload = json.loads(
-        page[page.index(">", data_start) + 1 : page.index("</script>", data_start)]
+    report = _standard_report(page)
+    labels = {item.component_id: item.label for item in report.target.component_intents}
+    gap = next(
+        item
+        for item in report.decision_gaps
+        if labels[item.source_id] == "app" and labels[item.target_id] == "model"
     )
-    edge = next(
-        edge for edge in payload["edges"] if edge["source"] == "app" and edge["target"] == "model"
-    )
-    assert edge["state"] == "undecided"
+    assert gap.relationship_ids
+    assert "Open dependency decisions" in page
+    assert "This is not a Core UNKNOWN verdict" in page
 
 
 def test_html_report_flow_view_clean_sample_has_no_violated_edges(tmp_path: Path) -> None:
-    page = _shop_sample_report(tmp_path, "clean")
-
-    data_start = page.index('id="flow-data"')
-    payload = json.loads(
-        page[page.index(">", data_start) + 1 : page.index("</script>", data_start)]
-    )
-
-    assert payload["edges"]
-    assert all(edge["state"] == "conforms" for edge in payload["edges"])
-    assert all(edge["rule_ids"] == [] for edge in payload["edges"])
+    report = _standard_report(_shop_sample_report(tmp_path, "clean"))
+    assert report.observed.relationships
+    assert not any(item.status == "FAIL" for item in report.findings)
+    assert report.comparison is None
 
 
 def test_flow_report_keeps_interface_decisions_and_import_sites(tmp_path: Path) -> None:
     page = _shop_sample_report(tmp_path, "class-a-complete-requires")
-    start = page.index('id="flow-data"')
-    payload = json.loads(page[page.index(">", start) + 1 : page.index("</script>", start)])
-
+    report = _standard_report(page)
     assert "How to read this report" in page
     breadcrumb = next(
         attrs
@@ -509,17 +495,14 @@ def test_flow_report_keeps_interface_decisions_and_import_sites(tmp_path: Path) 
     assert {"flow-breadcrumb", "flow-navigation-control"} <= set(
         (breadcrumb.get("class") or "").split()
     )
-    assert "Observed module tree" in page
-    assert any(component["requires"] for component in payload["components"])
-    requirement = next(
-        entry
-        for component in payload["components"]
-        for entry in component["requires"]
-        if entry["rationale"]
+    permissions = [item for item in report.target.relationships if item.kind == "requires"]
+    assert permissions and all(item.reason and item.decided_by for item in permissions)
+    imports = [item for item in report.observed.relationships if item.kind == "imports"]
+    assert imports and all(item.evidence_ids for item in imports)
+    proof = {item.id: item for item in report.observed.evidence}
+    assert all(
+        proof[id].file and proof[id].line > 0 for item in imports for id in item.evidence_ids
     )
-    assert "decided_by" in requirement
-    assert any(edge["sites"] for edge in payload["edges"])
-    assert all(":" in site for edge in payload["edges"] for site in edge["sites"])
 
 
 def test_static_module_inventory_is_nested_without_duplicate_package_card() -> None:
@@ -536,11 +519,10 @@ def test_interactive_flow_controls_start_hidden_without_javascript(tmp_path: Pat
     assert '<div class="flow-toolbar" hidden>' in page
     assert '<nav class="flow-views" aria-label="Architecture views" hidden>' in page
     assert "Observed module tree" in page
-    assert 'for="flow-threshold-input">Minimum import locations</label>' in page
-    assert 'aria-describedby="flow-threshold-value"' in page
+    assert 'id="flow-threshold-input"' not in page
+    assert 'id="flow-responsibility-search"' not in page
     assert (
-        'role="region"\n               aria-label="Scrollable component dependencies diagram"'
-        in page
+        'role="region"\n               aria-label="Pannable component dependencies diagram"' in page
     )
 
 
@@ -567,27 +549,18 @@ def test_required_interface_projection_keeps_narrowing_and_decider() -> None:
     }
 
 
-def test_external_scope_is_a_library_with_a_red_observed_use(tmp_path: Path) -> None:
+def test_external_scope_keeps_independent_permission_and_recorded_failure(tmp_path: Path) -> None:
     page = _shop_sample_report(tmp_path, "class-a-external-dependency-scope")
-    start = page.index('id="flow-data"')
-    payload = json.loads(page[page.index(">", start) + 1 : page.index("</script>", start)])
-
-    library = next(item for item in payload["libraries"] if item["label"] == "library:json")
-    assert library["rule_id"] == "EXTERNAL-JSON-STORE"
-    edge = next(
-        item
-        for item in payload["edges"]
-        if item["source"] == "app" and item["target"] == "library:json"
-    )
-    assert edge["state"] == "violation"
-    assert edge["rule_ids"] == ["EXTERNAL-JSON-STORE"]
-    assert edge["sites"]
-    assert any(
-        item["source"] == "store"
-        and item["target"] == "library:json"
-        and item["state"] == "conforms"
-        for item in payload["edges"]
-    )
+    report = _standard_report(page)
+    scope = next(item for item in report.target.external_scopes if item.dependency == "json")
+    assert scope.id == "EXTERNAL-JSON-STORE"
+    assert scope.allowed_sources == ("shop.store",)
+    assert scope.rationale and scope.provenance and scope.decided_by
+    failures = [
+        item for item in report.findings if scope.id in item.rule_ids and item.status == "FAIL"
+    ]
+    assert failures and all(item.graph_subject_ids for item in failures)
+    assert "External dependency permissions" in page
 
 
 def test_html_report_never_styles_missing_evidence_as_pass() -> None:

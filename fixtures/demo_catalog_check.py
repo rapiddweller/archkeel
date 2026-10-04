@@ -26,6 +26,7 @@ from archkeel.check.delta import build_architecture_delta
 from archkeel.check.expectation import EXPECTATION_SCHEMA_VERSION, GUARDRAIL_KEYS, sha256_bytes
 from archkeel.check.ports import Analyzer, ScanConfig
 from archkeel.check.ratchets import measure_python_ratchets
+from archkeel.check.report import observe_repository
 from archkeel.check.run import run_check
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import canonical_report_bytes
@@ -87,15 +88,7 @@ def build_and_run_check(
     _git(root, "commit", "-q", "-m", "accepted code")
     accepted_commit = _git(root, "rev-parse", "HEAD")
 
-    accepted_result = analyzer(
-        root,
-        roots=CONFIG.roots,
-        namespace=CONFIG.namespace,
-        contract=CONFIG.contract,
-        git_head=accepted_commit,
-        dirty=False,
-        contract_root=root,
-    )
+    accepted_result = observe_repository(root, CONFIG, analyzer)
     assert accepted_result.observation is not None, accepted_result.diagnostics
     accepted = accepted_result.observation
 
@@ -117,18 +110,9 @@ def build_and_run_check(
 
     # Private planning only; the expectation, not the code, is committed and published first.
     preview = tmp_path / "preview"
-    shutil.copytree(root / "shop", preview / "shop")
-    shutil.copyfile(root / "pyproject.toml", preview / "pyproject.toml")
+    shutil.copytree(root, preview)
     apply_overlay(preview, files)
-    planned_result = analyzer(
-        preview,
-        roots=CONFIG.roots,
-        namespace=CONFIG.namespace,
-        contract=CONFIG.contract,
-        git_head="f" * 40,
-        dirty=False,
-        contract_root=root,
-    )
+    planned_result = observe_repository(preview, CONFIG, analyzer, contract_root=root)
     assert planned_result.observation is not None, planned_result.diagnostics
     planned = planned_result.observation
     delta = build_architecture_delta(

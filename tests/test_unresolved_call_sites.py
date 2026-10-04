@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """AD-100: a change in unresolved calls names the call sites behind the count (#131)."""
 
+import errno
 import json
 import os
 import shutil
@@ -361,7 +362,12 @@ def test_a_file_name_git_cannot_decode_never_decides_the_run(tmp_path: Path) -> 
     """A name that is not UTF-8 is a Git listing the comparison cannot read, not a crash; the
     listing covers the scan roots only, so one outside them costs nothing."""
     root, base, baseline = _budget_repo(tmp_path, {}, 7)
-    (root / os.fsdecode(b"docs-caf\xe9.txt")).write_text("notes\n")
+    try:
+        (root / os.fsdecode(b"docs-caf\xe9.txt")).write_text("notes\n")
+    except OSError as error:
+        if error.errno == errno.EILSEQ:
+            pytest.skip("Filesystem rejects non-UTF-8 filenames; this requires Linux.")
+        raise
     (root / _PROBE_PATH).write_text(_probe("_unbound_probe()"))
 
     outside = _against(root, base, baseline)

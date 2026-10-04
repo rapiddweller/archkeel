@@ -127,6 +127,7 @@ def public_top_level_names(symbols: Iterable[Record]) -> dict[str, set[str]]:
         name = symbol.data.get("name")
         if (
             symbol.data.get("parent") is None
+            and not symbol.data.get("definition_contexts")
             and symbol.data.get("visibility") == "public_name"
             and isinstance(module, str)
             and isinstance(name, str)

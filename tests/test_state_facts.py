@@ -96,8 +96,8 @@ def test_state_collection_replays_two_contracts_without_parsing_or_mutation(
         )
         assert contexts == expected_case["contexts"]
         assert details == expected_case["context_evidence"]
-        assert [asdict(item) for item in used if item.id not in initial] == expected_case[
-            "evidence"
+        assert [asdict(item) for item in used if item.id not in initial] == [
+            item for item in expected_case["evidence"] if item["id"] not in initial
         ]
     assert asdict(facts) == before
 
@@ -150,8 +150,8 @@ def test_duplicate_simple_names_and_nested_class_owners_keep_original_resolution
         contexts, details, used = evaluate_contexts(facts, symbols, [], [], roots, candidates)
         assert contexts == expected[case]["contexts"]
         assert details == expected[case]["context_evidence"]
-        assert [asdict(item) for item in used if item.id not in initial] == expected[case][
-            "evidence"
+        assert [asdict(item) for item in used if item.id not in initial] == [
+            item for item in expected[case]["evidence"] if item["id"] not in initial
         ]
 
 

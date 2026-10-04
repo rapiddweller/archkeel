@@ -1,0 +1,197 @@
+{
+  "$schema": "../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "RENDER-HTML",
+      "label": "html",
+      "role": "projection",
+      "exact_modules": [
+        "archkeel.render",
+        "archkeel.render.html"
+      ],
+      "public": [
+        "archkeel.render.html"
+      ],
+      "responsibilities": [
+        "Compose portable HTML from the standard architecture report and unchanged Core evidence."
+      ],
+      "forbidden_responsibilities": [
+        "Architecture policy, source parsing and persistence."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "summary",
+          "rationale": "Use the shared explanation of Core verdicts.",
+          "decided_by": "agent"
+        }
+      ],
+      "packages": []
+    },
+    {
+      "id": "RENDER-SUMMARY",
+      "label": "summary",
+      "role": "projection",
+      "exact_modules": [
+        "archkeel.render.summary"
+      ],
+      "public": [
+        "archkeel.render.summary"
+      ],
+      "responsibilities": [
+        "Explain Core results consistently for HTML and terminal output."
+      ],
+      "forbidden_responsibilities": [
+        "Architecture policy, source parsing and persistence."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "packages": []
+    },
+    {
+      "id": "RENDER-TERMINAL",
+      "label": "terminal",
+      "role": "projection",
+      "exact_modules": [
+        "archkeel.render.terminal"
+      ],
+      "public": [
+        "archkeel.render.terminal"
+      ],
+      "responsibilities": [
+        "Format the shared summary for terminal readers."
+      ],
+      "forbidden_responsibilities": [
+        "Architecture policy, source parsing and persistence."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "summary",
+          "rationale": "Terminal formatting consumes the shared result explanation.",
+          "decided_by": "agent"
+        }
+      ],
+      "packages": []
+    }
+  ],
+  "rules": [
+    {
+      "id": "RENDER-COMPLETE-REQUIRES",
+      "kind": "complete_requires",
+      "rationale": "Summary values flow to HTML and terminal output; summary has no output dependency.",
+      "provenance": [
+        "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "RENDER-COMPLETE-ASSIGNMENT",
+      "kind": "complete_assignment",
+      "source": "archkeel.render",
+      "rationale": "Every maintained render source module has one presentation responsibility.",
+      "provenance": [
+        "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "RENDER-NO-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "The presentation data flow stays acyclic.",
+      "provenance": [
+        "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "RENDER-INTERFACE",
+      "kind": "interface_boundary",
+      "rationale": "Presentation crossings use the explicitly published boundary.",
+      "provenance": [
+        "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.0.0",
+      "entities": [
+        {
+          "id": "RENDER-UML-html",
+          "kind": "module",
+          "qualified_name": "archkeel.render.html",
+          "language": "python",
+          "parent_id": "RENDER-HTML",
+          "presence": "planned",
+          "responsibilities": [
+            "Embed one validated ArchitectureReport and compose portable evidence HTML."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-flow-section",
+          "kind": "function",
+          "qualified_name": "archkeel.render.html._flow_section",
+          "language": "python",
+          "parent_id": "RENDER-UML-html",
+          "presence": "planned",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Serialize the shared report without rebuilding architecture trees."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "observation",
+                "kind": "positional",
+                "annotation": "Observation",
+                "default_known": true
+              }
+            ],
+            "returns": "str"
+          }
+        }
+      ],
+      "relationships": [],
+      "scopes": []
+    },
+    "modules": [
+      {
+        "path": "src/archkeel/render/__init__.py",
+        "responsibility": "Keep the render package initializer empty."
+      },
+      {
+        "path": "src/archkeel/render/html.py",
+        "responsibility": "Compose the portable HTML report and browser assets from evidence projections."
+      },
+      {
+        "path": "src/archkeel/render/summary.py",
+        "responsibility": "Explain Core verdicts consistently for every output."
+      },
+      {
+        "path": "src/archkeel/render/terminal.py",
+        "responsibility": "Format the shared summary for terminal readers."
+      }
+    ]
+  }
+}
