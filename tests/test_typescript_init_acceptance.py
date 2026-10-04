@@ -390,6 +390,9 @@ def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
     (root / "src/main.js").write_text("require('./hidden.cjs');")
     (root / "package.json").write_text(json.dumps(example.get("manifest", {})))
     (root / "src/hidden.cjs").write_text("require('./main.js');")
+    for path, content in example.get("files", {}).items():
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
+        (root / path).write_text(content)
     (root / "tsconfig.json").write_text(
         json.dumps(
             {
@@ -444,7 +447,9 @@ def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
     assert payload["declared_rules"] == (
         "FAIL" if example["cycle"] else "PASS" if example["complete"] else "UNKNOWN"
     )
-    assert payload["coverage"]["files_parsed"] == (3 if example["cycle"] else 1)
+    assert payload["coverage"]["files_parsed"] == len(
+        example.get("observed_files", [1, 2, 3] if example["cycle"] else [1])
+    )
     if example["cycle"]:
         assert payload["violations_by_rule"] == [["no-cycles", 1]]
     validation = _invoke(root, "validate")

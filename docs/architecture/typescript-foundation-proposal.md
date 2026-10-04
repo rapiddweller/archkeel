@@ -48,6 +48,8 @@ JavaScript closure is observed even when the compiler substitutes TypeScript.
 Node namespace assertions preserve loader identity; callback use and unproved
 value escapes and rest bindings stay UNKNOWN. Known `Module` and `default`
 exports use the same boundary; type-only references create no value gap.
+Known loader-bearing value exports retain UNKNOWN at the export site; explicit
+type-only exports remain supported.
 Full Dart type and construct analysis is also outside this decision.
 
 The npm package is locked and does not install dependencies during `report` or
