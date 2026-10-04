@@ -22,15 +22,22 @@ def _self_observation():
 
 def test_the_inside_of_check_carries_its_sub_components_and_their_edges() -> None:
     levels = {level.parent: level for level in inside_levels(_self_observation())}
-    assert sorted(levels) == ["analyzer", "analyzer:dart", "analyzer:python", "check", "ir"]
+    assert sorted(levels) == [
+        "analyzer",
+        "analyzer:dart",
+        "analyzer:python",
+        "check",
+        "ir",
+        "render",
+    ]
     level = levels["check"]
     assert [(item.label, len(item.modules)) for item in level.components] == [
         ("declarations", 1),
-        ("evaluation", 6),
+        ("evaluation", 8),
         ("inputs", 7),
         ("observation", 2),
         ("regression", 3),
-        ("workflows", 4),
+        ("workflows", 5),
     ]
     assert [(edge.source, edge.target, edge.import_sites) for edge in level.edges] == [
         ("declarations", "evaluation", 1),
@@ -38,6 +45,7 @@ def test_the_inside_of_check_carries_its_sub_components_and_their_edges() -> Non
         ("observation", "evaluation", 2),
         ("observation", "inputs", 3),
         ("regression", "inputs", 2),
+        ("workflows", "evaluation", 2),
         ("workflows", "inputs", 29),
         ("workflows", "regression", 15),
     ]

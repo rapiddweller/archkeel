@@ -20,7 +20,7 @@ from .bindings import unread_bindings
 from .duplication import repeated_logic
 from .interfaces import component_owners, owner_of
 from .model import (
-    RULE_KINDS,
+    RULE_RECORD_KINDS,
     AllowedDependencyRule,
     ComparisonStatus,
     ComponentOwnership,
@@ -273,7 +273,7 @@ def agent_decisions(observation: Observation) -> tuple[int, int]:
     """
     deciders: list[JsonValue] = []
     for record in observation.records("declarations") or ():
-        if record.kind in RULE_KINDS:
+        if record.kind in RULE_RECORD_KINDS:
             deciders.append(record.data.get("decided_by"))
         elif record.kind in _COMPONENT_KINDS:
             deciders.extend(_component_deciders(record))
@@ -373,6 +373,12 @@ def _ownership_blocker_reason(observation: Observation, rule_id: str) -> str | N
     return " ".join(reasons) if reasons else None
 
 
+def _rule_receipt_complete(declaration: Record, receipt: Record | None) -> bool:
+    if declaration.kind == "no_component_cycles":
+        return receipt is not None and receipt.data.get("cycle_scope_complete") is True
+    return receipt is not None and receipt.data.get("assessment_complete", True) is True
+
+
 def rule_assessments(
     observation: Observation,
     *,
@@ -384,7 +390,7 @@ def rule_assessments(
     declarations = [
         record
         for record in records.values()
-        if record.evidence_class.value == "DECLARED_RULE" and record.kind in RULE_KINDS
+        if record.evidence_class.value == "DECLARED_RULE" and record.kind in RULE_RECORD_KINDS
     ]
     violations: _Counter[str] = _Counter(
         rule_id for record in observation.records("violations") or () for rule_id in record.rule_ids
@@ -401,11 +407,7 @@ def rule_assessments(
         undecided = undecided_by_rule.get(identifier, 0)
         violation_count = violations[identifier]
         receipt = receipts.get(identifier)
-        receipt_complete = receipt is not None
-        if declaration.kind == "no_component_cycles":
-            receipt_complete = (
-                receipt is not None and receipt.data.get("cycle_scope_complete") is True
-            )
+        receipt_complete = _rule_receipt_complete(declaration, receipt)
         evaluation_proven = complete and receipt_complete
         declared_only = declaration.kind == "allowed_dependency"
         status, reason = _rule_status(

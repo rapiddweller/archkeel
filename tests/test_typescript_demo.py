@@ -21,6 +21,7 @@ from archkeel.ir.measurements import (
     compare_measurements,
 )
 from archkeel.ir.model import RULE_KINDS
+from archkeel.ir.source_graph import observed_graph
 from archkeel.ir.structure import StructureMetric, module_edges, structure_metrics
 from archkeel.ir.trace import trace_valid_violations
 from fixtures.demo_catalog_typescript import (
@@ -102,6 +103,11 @@ def test_clean_graph_has_independently_counted_modules_and_edges(
     assert observation is not None
     assert len(observation.records("modules") or ()) == 7
     assert len(module_edges(observation)) == 8
+    graph = observed_graph(observation)
+    assert {entity.language for entity in graph.entities} == {"typescript"}
+    assert sum(entity.kind == "module" for entity in graph.entities) == 7
+    assert not any(entity.kind in {"class", "interface", "method"} for entity in graph.entities)
+    assert not any(edge.kind == "calls" for edge in graph.relationships)
     metrics = {
         metric.scope: (metric.modules, metric.inner_edges, metric.fan_in, metric.fan_out)
         for metric in structure_metrics(observation)

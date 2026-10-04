@@ -10,10 +10,12 @@
         "archkeel.check.onboarding",
         "archkeel.check.run",
         "archkeel.check.report",
-        "archkeel.check.validation"
+        "archkeel.check.validation",
+        "archkeel.check.uml"
       ],
       "responsibilities": [
-        "Select immutable inputs, invoke the port and publish the result."
+        "Select immutable inputs, invoke the port and publish the result.",
+        "Authenticate independent UML contract inputs before publishing the graph."
       ],
       "forbidden_responsibilities": [
         "Parsing and duplicate policy thresholds."
@@ -36,6 +38,11 @@
         {
           "component": "regression",
           "rationale": "Compare observations and enforce selected ceilings.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "evaluation",
+          "rationale": "Evaluate the authenticated UML graph with Core policy.",
           "decided_by": "agent"
         }
       ],
@@ -107,7 +114,7 @@
       "requires": [
         {
           "component": "evaluation",
-          "rationale": "Use the evaluator’s public API type derivation when projecting declarations.",
+          "rationale": "Use the evaluator\u2019s public API type derivation when projecting declarations.",
           "decided_by": "agent"
         }
       ],
@@ -123,7 +130,9 @@
       "label": "evaluation",
       "role": "component",
       "packages": [
-        "archkeel.check.evaluation"
+        "archkeel.check.evaluation",
+        "archkeel.check.uml_compare",
+        "archkeel.check.uml_evaluation"
       ],
       "responsibilities": [
         "Own architecture rules and evidence sufficiency in Core."
@@ -138,7 +147,8 @@
       "public": [
         "archkeel.check.evaluation.evaluate:ScanResult",
         "archkeel.check.evaluation.evaluate:evaluate_source",
-        "archkeel.check.evaluation.rules:public_api_exposed_types"
+        "archkeel.check.evaluation.rules:public_api_exposed_types",
+        "archkeel.check.uml_evaluation:evaluate_uml"
       ]
     },
     {

@@ -88,6 +88,8 @@ def test_an_inside_may_not_grant_what_requires_never_named(tmp_path: Path) -> No
     evidence_paths = {
         "docs/architecture/archkeel.md",
         "docs/architecture/language-adapter-target.md",
+        "docs/architecture/decisions/ad-178-target-navigation-projects-the-standard-graph.md",
+        "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md",
     }
     for source in evidence_paths:
         target = root / source

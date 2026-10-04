@@ -1,316 +1,73 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Unit tests for the AD-10 component flow derivation."""
+"""The shared report retains every original import and Core judgement."""
 
 import json
 from pathlib import Path
 
-from test_analyzer import _component, _inside_component
-from test_analyzer import _observe as observe_case
+import pytest
 from test_architecture_demo import CONFIG, _prepare_repo
 
 from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.render.flow import FlowEdge, build_flow
+from archkeel.ir.report_graph import architecture_report
 from fixtures.architecture_demo import CATALOG
 from fixtures.demo_catalog_support import contract_without_rule
 
-_TOUR = next(variant for variant in CATALOG if variant.id == "tour")
-_CLEAN = next(variant for variant in CATALOG if variant.id == "clean")
 
-# Every ordered component pair with at least one observed import in the tour sample, and the
-# rule ids that pair's edge must carry (empty when the pair conforms). Derived by running the
-# tour fixture and reading its violations and dependency_edges directly (see AD-10 task notes):
-# EXTERNAL-JSON-STORE, ASSIGNMENT-COMPLETE and the CONSTRUCT-* rules name a single module or an
-# external dependency, never a component pair, so they never attach to an edge.
-_TOUR_EDGES = {
-    ("app", "model"): (3, ()),
-    ("app", "store"): (6, ("DEP-APP-NO-STORE-BACKEND", "DEP-APP-NO-STORE-SQLITE")),
-    ("cli", "app"): (1, ()),
-    ("cli", "render"): (2, ("INTERFACE-BOUNDARY",)),
-    ("model", "render"): (1, ("COMPONENT-NO-CYCLES", "DEP-MODEL-NO-RENDER")),
-    ("render", "model"): (1, ("COMPONENT-NO-CYCLES",)),
-    ("render", "store"): (1, ("COMPONENT-NO-CYCLES", "DEP-RENDER-NO-STORE")),
-    ("store", "model"): (4, ("COMPONENT-NO-CYCLES", "DEP-STORE-NO-MONEY")),
-}
-
-
-def _observation(tmp_path: Path, files: dict[str, str | None]):
-    root = _prepare_repo(tmp_path, files)
-    _, architecture = run_report(root, config=CONFIG, analyzer=observe)
-    assert architecture is not None
-    return parse_observation(decode_canonical_model(json.loads(architecture)))
-
-
-def test_flow_derives_components_and_weighted_edges(tmp_path: Path) -> None:
-    flow = build_flow(_observation(tmp_path, dict(_TOUR.files)))
-
-    assert [component.label for component in flow.components] == [
-        "app",
-        "cli",
-        "model",
-        "render",
-        "store",
-    ]
-    store = next(component for component in flow.components if component.label == "store")
-    assert "shop.store.repository" in store.modules
-    assert store.public is None or isinstance(store.public, tuple)
-
-    actual_edges = {
-        (edge.source, edge.target): (edge.import_sites, edge.rule_ids) for edge in flow.edges
+@pytest.mark.parametrize("variant", ["tour", "clean", "class-a-sibling-isolation"])
+def test_report_preserves_all_import_sites_and_original_findings(tmp_path: Path, variant):
+    case = next(item for item in CATALOG if item.id == variant)
+    root = _prepare_repo(tmp_path, dict(case.files))
+    _, encoded = run_report(root, config=CONFIG, analyzer=observe)
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    report = architecture_report(model)
+    assert report.observed is not None
+    imports = model.records("imports") or ()
+    sites = tuple(item for item in report.observed.relationships if item.kind == "imports")
+    assert {record_id for item in sites for record_id in item.record_ids} == {
+        item.id for item in imports
     }
-    assert actual_edges == _TOUR_EDGES
-    assert {edge.state for edge in flow.edges if edge.rule_ids} == {"violation"}
-    assert {edge.state for edge in flow.edges if not edge.rule_ids} == {"conforms"}
+    assert len(sites) == len(imports)
+    for section, status in (("violations", "FAIL"), ("unknowns", "UNKNOWN")):
+        originals = {item.id: item for item in model.records(section) or ()}
+        findings = {item.id: item for item in report.findings if item.status == status}
+        assert findings.keys() == originals.keys()
+        for identity, finding in findings.items():
+            assert finding.rule_ids == originals[identity].rule_ids
+            assert finding.evidence_ids == originals[identity].evidence_ids
+    if variant == "clean":
+        assert not any(item.status == "FAIL" for item in report.findings)
+    else:
+        assert any(item.status == "FAIL" for item in report.findings)
 
 
-def test_inside_crossing_without_a_deciding_rule_stays_observed(tmp_path: Path) -> None:
-    (tmp_path / "contract.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "2.1.0",
-                "components": [_component("core") | {"inside": "inner.json"}],
-                "rules": [],
-            }
+@pytest.mark.parametrize(
+    "rule,target", [("DEP-APP-ALLOWS-MODEL", "model"), ("DEP-APP-ALLOWS-STORE", "store")]
+)
+def test_open_dependency_decision_never_replaces_recorded_failure(tmp_path: Path, rule, target):
+    tour = next(item for item in CATALOG if item.id == "tour")
+    root = _prepare_repo(
+        tmp_path, {**dict(tour.files), "architecture-contract.json": contract_without_rule(rule)}
+    )
+    _, encoded = run_report(root, config=CONFIG, analyzer=observe)
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    report = architecture_report(model)
+    labels = {item.label: item.component_id for item in report.target.component_intents}
+    gap = next(
+        item
+        for item in report.decision_gaps
+        if (item.source_id, item.target_id) == (labels["app"], labels[target])
+    )
+    assert gap.relationship_ids
+    assert not any(
+        item.status == "UNKNOWN" and item.kind == "decision.open" for item in report.findings
+    )
+    if target == "store":
+        ids = set(gap.relationship_ids)
+        assert any(
+            item.status == "FAIL" and ids.intersection(item.graph_subject_ids)
+            for item in report.findings
         )
-    )
-    (tmp_path / "inner.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "2.1.0",
-                "components": [_inside_component("a", ["b"]), _inside_component("b", [])],
-                "rules": [],
-            }
-        )
-    )
-    package = tmp_path / "sample/core"
-    package.mkdir(parents=True)
-    (tmp_path / "sample/__init__.py").write_text("")
-    (package / "__init__.py").write_text("")
-    (package / "a.py").write_text("VALUE = 1\n")
-    (package / "b.py").write_text("import sample.core.a\n")
-
-    result = observe_case(tmp_path)
-    assert result.observation is not None
-    core = next(item for item in build_flow(result.observation).components if item.label == "core")
-    assert core.inside is not None
-    edge = next(edge for edge in core.inside.edges if (edge.source, edge.target) == ("b", "a"))
-    assert edge.state == "observed"
-    assert edge.rule_ids == ()
-
-
-def test_same_local_inside_labels_do_not_share_violation_state(tmp_path: Path) -> None:
-    rule = {
-        "id": "REQUIRES-COMPLETE",
-        "kind": "complete_requires",
-        "rationale": "Declare every inner dependency.",
-        "provenance": ["docs/architecture/sample.md"],
-        "decided_by": "architect",
-    }
-    components = []
-    for parent in ("core", "service"):
-        components.append(
-            _component(parent, packages=[f"sample.{parent}"]) | {"inside": f"{parent}-inner.json"}
-        )
-        inner_components = [
-            _inside_component("a", ["b"]) | {"packages": [f"sample.{parent}.a"]},
-            _inside_component("b", ["a"] if parent == "service" else [])
-            | {"packages": [f"sample.{parent}.b"]},
-        ]
-        (tmp_path / f"{parent}-inner.json").write_text(
-            json.dumps(
-                {
-                    "schema_version": "2.1.0",
-                    "components": inner_components,
-                    "rules": [rule],
-                }
-            )
-        )
-        package = tmp_path / "sample" / parent
-        package.mkdir(parents=True)
-        (package / "__init__.py").write_text("")
-        (package / "a.py").write_text("VALUE = 1\n")
-        (package / "b.py").write_text(f"import sample.{parent}.a\n")
-    (tmp_path / "contract.json").write_text(
-        json.dumps({"schema_version": "2.1.0", "components": components, "rules": []})
-    )
-    (tmp_path / "sample/__init__.py").write_text("")
-
-    result = observe_case(tmp_path)
-    assert result.observation is not None
-    by_parent = {
-        item.label: item.inside
-        for item in build_flow(result.observation).components
-        if item.label in {"core", "service"}
-    }
-    core = next(
-        edge for edge in by_parent["core"].edges if (edge.source, edge.target) == ("b", "a")
-    )
-    service = next(
-        edge for edge in by_parent["service"].edges if (edge.source, edge.target) == ("b", "a")
-    )
-
-    assert core.state == "violation"
-    assert core.rule_ids == ("core:REQUIRES-COMPLETE",)
-    assert service.state == "conforms"
-    assert service.rule_ids == ()
-
-
-def test_inside_violation_cannot_colour_unrelated_root_edge(tmp_path: Path) -> None:
-    package = tmp_path / "sample/core"
-    package.mkdir(parents=True)
-    (tmp_path / "sample/__init__.py").write_text("")
-    (tmp_path / "sample/a.py").write_text("import sample.b\n")
-    (tmp_path / "sample/b.py").write_text("VALUE = 1\n")
-    (package / "a.py").write_text("import sample.core.b\n")
-    (package / "b.py").write_text("VALUE = 1\n")
-    (tmp_path / "contract.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "2.1.0",
-                "components": [
-                    _component("a"),
-                    _component("b"),
-                    _component("core") | {"inside": "inner.json"},
-                ],
-                "rules": [],
-            }
-        )
-    )
-    (tmp_path / "inner.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "2.1.0",
-                "components": [_inside_component("a", []), _inside_component("b", [])],
-                "rules": [
-                    {
-                        "id": "INNER",
-                        "kind": "complete_requires",
-                        "rationale": "Declare inner dependencies.",
-                        "decided_by": "architect",
-                        "provenance": ["docs/architecture/sample.md"],
-                    }
-                ],
-            }
-        )
-    )
-
-    result = observe_case(tmp_path)
-    assert result.observation is not None, result.diagnostics
-    flow = build_flow(result.observation)
-    [root_edge] = [edge for edge in flow.edges if (edge.source, edge.target) == ("a", "b")]
-    assert root_edge.state != "violation"
-    assert root_edge.rule_ids == ()
-    core = next(component for component in flow.components if component.label == "core")
-    assert core.inside is not None
-    [inside_edge] = core.inside.edges
-    assert inside_edge.state == "violation"
-    assert inside_edge.rule_ids == ("core:INNER",)
-
-
-def test_flow_violated_edges_carry_only_pair_scoped_rule_ids(tmp_path: Path) -> None:
-    flow = build_flow(_observation(tmp_path, dict(_TOUR.files)))
-
-    violated_rule_ids = {rule_id for edge in flow.edges for rule_id in edge.rule_ids}
-    assert violated_rule_ids == {
-        "COMPONENT-NO-CYCLES",
-        "DEP-APP-NO-STORE-BACKEND",
-        "DEP-APP-NO-STORE-SQLITE",
-        "DEP-MODEL-NO-RENDER",
-        "DEP-RENDER-NO-STORE",
-        "DEP-STORE-NO-MONEY",
-        "INTERFACE-BOUNDARY",
-    }
-    # Single-subject and unowned-target rules never name a component pair.
-    assert "ASSIGNMENT-COMPLETE" not in violated_rule_ids
-    assert "EXTERNAL-JSON-STORE" not in violated_rule_ids
-    assert "CONSTRUCT-NO-ASSERT" not in violated_rule_ids
-
-
-def test_flow_clean_sample_has_no_violated_edges(tmp_path: Path) -> None:
-    flow = build_flow(_observation(tmp_path, dict(_CLEAN.files)))
-
-    assert flow.edges
-    assert all(edge.rule_ids == () for edge in flow.edges)
-
-
-def test_flow_marks_an_observed_edge_undecided_when_its_allowed_rule_is_removed(
-    tmp_path: Path,
-) -> None:
-    """AD-15: an observed pair with neither an allowed nor a forbidden rule is undecided,
-    from the same `open_decisions` derivation as validation's `decision.open` diagnostic."""
-    files = {
-        **dict(_TOUR.files),
-        "architecture-contract.json": contract_without_rule("DEP-APP-ALLOWS-MODEL"),
-    }
-    flow = build_flow(_observation(tmp_path, files))
-
-    edge = next(edge for edge in flow.edges if (edge.source, edge.target) == ("app", "model"))
-    assert edge.state == "undecided"
-    assert edge.rule_ids == ()
-
-
-def test_flow_keeps_violation_state_for_an_edge_that_is_also_undecided(tmp_path: Path) -> None:
-    """A rule violation always outranks an undecided pair on the same edge."""
-    files = {
-        **dict(_TOUR.files),
-        "architecture-contract.json": contract_without_rule("DEP-APP-ALLOWS-STORE"),
-    }
-    flow = build_flow(_observation(tmp_path, files))
-
-    edge = next(edge for edge in flow.edges if (edge.source, edge.target) == ("app", "store"))
-    assert edge.state == "violation"
-    assert edge.rule_ids == ("DEP-APP-NO-STORE-BACKEND", "DEP-APP-NO-STORE-SQLITE")
-
-
-def test_flow_edge_is_a_frozen_dataclass_value() -> None:
-    edge = FlowEdge("a", "b", 1, (), "conforms")
-    assert edge == FlowEdge("a", "b", 1, (), "conforms")
-
-
-def test_flow_carries_the_imports_inside_one_component(tmp_path: Path) -> None:
-    """AD-24: the inside of a component is observed, and undecided while no rule names it."""
-    flow = build_flow(_observation(tmp_path, dict(_TOUR.files)))
-    store = next(component for component in flow.components if component.label == "store")
-
-    inner = {(edge.source, edge.target) for edge in store.inner_edges}
-    assert ("shop.store", "shop.store.repository") in inner
-    # Every inner edge stays inside the component; a crossing edge belongs to flow.edges.
-    assert all(source in store.modules and target in store.modules for source, target in inner)
-    assert all(edge.import_sites > 0 for edge in store.inner_edges)
-    # AD-24b: observed and undecided, unless a rule scoped below the component names the pair
-    # (test_an_inner_edge_a_rule_names_carries_its_verdict); the tour's own sibling_isolation
-    # and complete_requires (inside) rows (AD-11, issue #47) each decide one inner pair here.
-    decided = {edge: edge.rule_ids for edge in store.inner_edges if edge.rule_ids}
-    assert {(edge.source, edge.target): rule_ids for edge, rule_ids in decided.items()} == {
-        ("shop.store.sqlite", "shop.store.repository"): ("STORE-PEERS-ISOLATED",),
-        ("shop.store.sqlite", "shop.store.codec"): ("store:STORE-REQUIRES-COMPLETE",),
-    }
-    assert all(edge.state == "violation" for edge in decided)
-    assert all(
-        edge.state == "observed" and edge.rule_ids == ()
-        for edge in store.inner_edges
-        if edge not in decided
-    )
-    crossing = {(edge.source, edge.target) for edge in flow.edges}
-    assert not inner & crossing
-
-
-def test_an_inner_edge_a_rule_names_carries_its_verdict(tmp_path: Path) -> None:
-    """A rule scoped below the component decides an inner pair, and the view must show it.
-
-    Reporting every inner edge as undecided hid `sibling_isolation` entirely: the peers it
-    forbids live inside one component, so its verdict appears nowhere else in the view.
-    """
-    variant = next(item for item in CATALOG if item.id == "class-a-sibling-isolation")
-    flow = build_flow(_observation(tmp_path, dict(variant.files)))
-    store = next(component for component in flow.components if component.label == "store")
-
-    violated = [edge for edge in store.inner_edges if edge.state == "violation"]
-    assert [(edge.source, edge.target, edge.rule_ids) for edge in violated] == [
-        ("shop.store.sqlite", "shop.store.repository", ("STORE-PEERS-ISOLATED",))
-    ]
-    # Everything the rule does not name stays undecided, exactly as before.
-    assert all(edge.rule_ids == () for edge in store.inner_edges if edge not in violated)

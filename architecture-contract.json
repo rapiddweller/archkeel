@@ -51,10 +51,32 @@
         "archkeel.ir.decisions",
         "archkeel.ir.digest",
         "archkeel.ir.duplication",
+        "archkeel.ir.architecture_graph:ArchitectureGraph",
+        "archkeel.ir.architecture_graph:AssessmentAspect",
+        "archkeel.ir.architecture_graph:AssessmentChange",
+        "archkeel.ir.architecture_graph:AssessmentStatus",
+        "archkeel.ir.architecture_graph:ComponentIntent",
+        "archkeel.ir.architecture_graph:ContractModuleTarget",
+        "archkeel.ir.architecture_graph:Coverage",
+        "archkeel.ir.architecture_graph:DefinitionContext",
+        "archkeel.ir.architecture_graph:Entity",
+        "archkeel.ir.architecture_graph:EntityKind",
+        "archkeel.ir.architecture_graph:GraphAssessment",
+        "archkeel.ir.architecture_graph:EntityCorrespondence",
+        "archkeel.ir.architecture_graph:GraphComparison",
+        "archkeel.ir.architecture_graph:ModuleInventory",
+        "archkeel.ir.architecture_graph:Parameter",
+        "archkeel.ir.architecture_graph:PublicAPIEntry",
+        "archkeel.ir.architecture_graph:Relationship",
+        "archkeel.ir.architecture_graph:RelationshipKind",
+        "archkeel.ir.architecture_graph:RootLayoutRule",
+        "archkeel.ir.architecture_graph:Signature",
+        "archkeel.ir.architecture_graph:TargetDefinition",
+        "archkeel.ir.architecture_graph:TargetScope",
+        "archkeel.ir.architecture_graph:Visibility",
         "archkeel.ir.host_records",
         "archkeel.ir.interfaces",
         "archkeel.ir.identity:module_identity",
-        "archkeel.ir.levels:inside_levels",
         "archkeel.ir.lock",
         "archkeel.ir.measurements",
         "archkeel.ir.model",
@@ -63,7 +85,11 @@
         "archkeel.ir.renames:module_layouts",
         "archkeel.ir.renames:observed_names",
         "archkeel.ir.renames:renames_since",
+        "archkeel.ir.source_graph",
         "archkeel.ir.structure",
+        "archkeel.ir.target_graph:component_permissions",
+        "archkeel.ir.target_graph:declared_tree_graph",
+        "archkeel.ir.target_records",
         "archkeel.ir.trace",
         "archkeel.ir.type_fanin",
         "archkeel.ir.widening",
@@ -86,7 +112,10 @@
         "archkeel.ir.source_records:RawEvidence",
         "archkeel.ir.profiles:delta_dimension_applicable",
         "archkeel.ir.source_records:FRAMEWORK_BASES",
-        "archkeel.ir.source_records:is_public_method_name"
+        "archkeel.ir.source_records:is_public_method_name",
+        "archkeel.ir.architecture_graph:ArchitectureReport",
+        "archkeel.ir.graph_codec:report_bytes",
+        "archkeel.ir.report_graph:architecture_report"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
@@ -283,7 +312,9 @@
       ],
       "responsibilities": [
         "Deterministic HTML and terminal projections of typed Archkeel evidence.",
-        "Quality goal: replaceable."
+        "Project As-Is and Target into one render scene and draw their UML notation with one renderer.",
+        "Quality goal: replaceable.",
+        "Publish the shared graph without reconstructing architecture intent from redundant records."
       ],
       "forbidden_responsibilities": [
         "Architecture decisions and persistence."
@@ -291,7 +322,8 @@
       "provenance": [
         "docs/architecture/archkeel.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "inside": "docs/architecture/contracts/render.json"
     }
   ],
   "declarations": {
@@ -665,9 +697,10 @@
       "exact_sources": [
         "archkeel.ir.model",
         "archkeel.ir.facts",
-        "archkeel.ir.type_shapes"
+        "archkeel.ir.type_shapes",
+        "archkeel.ir.architecture_graph"
       ],
-      "rationale": "Governance enums stay in ir.model; the source-fact vocabulary and source type-shape vocabulary own their respective enums.",
+      "rationale": "Governance enums stay in ir.model; source facts, type shapes and the shared UML graph own their respective vocabularies.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],

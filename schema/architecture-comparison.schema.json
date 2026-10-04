@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:architecture-comparison:1.0.0",
+  "title": "Evidence-backed UML comparison",
+  "$comment": "Generated from archkeel.ir.architecture_graph. Reference, identity, evidence and containment checks also require the graph/comparison validators. This graph does not change the Observation wire format.",
+  "$ref": "#/$defs/GraphComparison",
+  "$defs": {
+    "GraphComparison": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "assessments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GraphAssessment"
+          }
+        },
+        "schema_version": {
+          "enum": [
+            "1.0.0"
+          ]
+        },
+        "correspondences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EntityCorrespondence"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "schema_version"
+      ],
+      "additionalProperties": false
+    },
+    "GraphAssessment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "subject_id": {
+          "type": "string"
+        },
+        "aspect": {
+          "enum": [
+            "existence",
+            "kind",
+            "containment",
+            "signature",
+            "visibility",
+            "annotation",
+            "modifiers",
+            "initializer",
+            "relationship",
+            "completeness"
+          ]
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "change": {
+          "enum": [
+            "matched",
+            "missing",
+            "unexpected",
+            "changed",
+            "ambiguous",
+            "unavailable"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "observed_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "subject_id",
+        "aspect",
+        "status",
+        "change",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "EntityCorrespondence": {
+      "type": "object",
+      "properties": {
+        "target_id": {
+          "type": "string"
+        },
+        "observed_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "target_id",
+        "observed_ids"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

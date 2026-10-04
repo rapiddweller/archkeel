@@ -199,11 +199,11 @@ def api_surface_limits(
     may still be a constant or a type alias - so the analyzer records the gap as UNKNOWN rather
     than let a module's silence pass a typo (AD-72).
     """
-    top_level = {
-        (item["data"]["module"], item["data"]["name"])
-        for item in symbols
-        if item["data"]["parent"] is None
-    }
+    top_level: set[tuple[str, str]] = set()
+    for item in symbols:
+        data = item["data"]
+        if data["parent"] is None and not data.get("definition_contexts"):
+            top_level.add((data["module"], data["name"]))
     limits = []
     for entry in declarations.public_api:
         module, colon, name = entry.partition(":")
@@ -551,6 +551,19 @@ def _evaluate_inside_contract(
     return violations, unknowns, failures, allowance_facts
 
 
+def _unproven_binding_view(item: RawRecord) -> RawRecord:
+    """A conditional declaration cannot certify its runtime binding."""
+    return {
+        **item,
+        "kind": "dynamic_binding",
+        "data": {
+            **item["data"],
+            "record_kind": "dynamic_binding",
+            "symbol_category": "dynamic_binding",
+        },
+    }
+
+
 def evaluate_source(
     facts: SourceFacts,
     contract: ArchitectureContract,
@@ -638,6 +651,16 @@ def evaluate_source(
                 item["data"]["builtin_target"] = True
 
     symbols = sections.get("symbols", [])
+    inventory_symbols = symbols
+    conditional_symbols = [item for item in symbols if item["data"].get("definition_contexts")]
+    conditional_ids = {item["id"] for item in conditional_symbols}
+    # Existing rule proofs do not establish availability of conditional definitions.
+    symbols = [item for item in symbols if item["id"] not in conditional_ids]
+    symbols.extend(
+        _unproven_binding_view(item)
+        for item in conditional_symbols
+        if item["data"]["parent"] is None
+    )
     calls = sections.get("calls", [])
     references = sections.get("references", [])
     bindings = sections.get("bindings", [])
@@ -669,7 +692,9 @@ def evaluate_source(
 
     packages = sorted({module.package for module in parsed})
     package_facts = package_records(parsed, packages, package_edge_pairs)
-    module_facts = module_records(parsed, module_names, module_edge_pairs, symbols, module_evidence)
+    module_facts = module_records(
+        parsed, module_names, module_edge_pairs, inventory_symbols, module_evidence
+    )
     if "symbols" in profile.absent_sections:
         for module in module_facts:
             module["data"]["symbol_count"] = None
@@ -834,7 +859,13 @@ def evaluate_source(
         scope_observations=scope_observations,
         packages=sorted(package_facts, key=lambda item: item["id"]),
         modules=sorted(module_facts, key=lambda item: item["id"]),
-        symbols=symbols,
+        symbols=sorted(
+            [
+                *(item for item in symbols if item["id"] not in conditional_ids),
+                *conditional_symbols,
+            ],
+            key=lambda item: item["id"],
+        ),
         imports=sorted([*imports, *unresolved_imports], key=lambda item: item["id"]),
         dependency_edges=dependency_edges,
         transitive_paths=sorted(transitive_records, key=lambda item: item["id"]),

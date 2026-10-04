@@ -1,6 +1,6 @@
 {
   "$schema": "../../../schema/architecture-contract.schema.json",
-  "schema_version": "2.1.0",
+  "schema_version": "2.2.0",
   "components": [
     {
       "id": "TARGET-FACTS",
@@ -153,10 +153,16 @@
         "archkeel.ir.structure",
         "archkeel.ir.trace",
         "archkeel.ir.type_fanin",
-        "archkeel.ir.widening"
+        "archkeel.ir.widening",
+        "archkeel.ir.architecture_graph",
+        "archkeel.ir.graph_codec",
+        "archkeel.ir.source_graph",
+        "archkeel.ir.target_graph",
+        "archkeel.ir.target_records"
       ],
       "responsibilities": [
-        "Own governance models, codecs, policy metrics and pure derivations."
+        "Own governance models, codecs, policy metrics and pure derivations.",
+        "Own the shared UML graph, strict codecs and pure source/Target projections; no AST parsing or verdicts."
       ],
       "forbidden_responsibilities": [
         "Parsing, process I/O and workflow orchestration."
@@ -166,7 +172,8 @@
       ],
       "decided_by": "agent",
       "exact_modules": [
-        "archkeel.ir"
+        "archkeel.ir",
+        "archkeel.ir.report_graph"
       ],
       "requires": [
         {
@@ -204,7 +211,13 @@
         "archkeel.ir.structure",
         "archkeel.ir.trace",
         "archkeel.ir.type_fanin",
-        "archkeel.ir.widening"
+        "archkeel.ir.widening",
+        "archkeel.ir.architecture_graph",
+        "archkeel.ir.graph_codec",
+        "archkeel.ir.source_graph",
+        "archkeel.ir.target_graph",
+        "archkeel.ir.target_records",
+        "archkeel.ir.report_graph"
       ]
     }
   ],
@@ -269,6 +282,3610 @@
         "path": "src/archkeel/ir/graph.py",
         "responsibility": "Shared pure SCC, path and rank algorithms."
       }
-    ]
+    ],
+    "uml": {
+      "schema_version": "1.0.0",
+      "entities": [
+        {
+          "id": "IR-UML-architecture_graph",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.architecture_graph",
+          "language": "python",
+          "parent_id": "TARGET-GOVERNANCE",
+          "presence": "planned",
+          "responsibilities": [
+            "Define immutable architecture values and identity/reference invariants without parsing or policy."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-graph_codec",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.graph_codec",
+          "language": "python",
+          "parent_id": "TARGET-GOVERNANCE",
+          "presence": "planned",
+          "responsibilities": [
+            "Decode and encode the shared graph and comparison formats with strict validation."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-source_graph",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.source_graph",
+          "language": "python",
+          "parent_id": "TARGET-GOVERNANCE",
+          "presence": "planned",
+          "responsibilities": [
+            "Project recorded source facts and their limits into the shared graph without inventing intent."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-target_graph",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.target_graph",
+          "language": "python",
+          "parent_id": "TARGET-GOVERNANCE",
+          "presence": "planned",
+          "responsibilities": [
+            "Compile independent contract intent into the same graph without reading observations."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-target_records",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.target_records",
+          "language": "python",
+          "parent_id": "TARGET-GOVERNANCE",
+          "presence": "planned",
+          "responsibilities": [
+            "Project Core-authenticated Target records without authenticating contracts again."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.Visibility",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.Visibility",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Distinguish language access, naming convention and declared visibility."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.Visibility.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Visibility.kind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Visibility",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain kind in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "VisibilityKind"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Visibility.basis",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Visibility.basis",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Visibility",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain basis in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "VisibilityBasis"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Visibility.spelling",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Visibility.spelling",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Visibility",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain spelling in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Parameter",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.Parameter",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep operation parameter order, calling convention and unevaluated defaults."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.Parameter.name",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Parameter.name",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Parameter",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain name in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Parameter.annotation",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Parameter.annotation",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Parameter",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain annotation in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Parameter.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Parameter.kind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Parameter",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain kind in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "ParameterKind"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Parameter.default",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Parameter.default",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Parameter",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain default in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Parameter.default_known",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Parameter.default_known",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Parameter",
+          "presence": "planned",
+          "responsibilities": [
+            "Distinguish an absent default from unavailable information."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "bool"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Signature",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.Signature",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep ordered parameters and the declared return annotation."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.Signature.parameters",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Signature.parameters",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Signature",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain parameters in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[Parameter, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Signature.returns",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Signature.returns",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Signature",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain returns in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Identify one declaration or binding site without conflating display names with identity."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep identity stable when labels change."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.kind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain kind in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "EntityKind"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.qualified_name",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.qualified_name",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain qualified name in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.language",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.language",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain language in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.parent_id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.parent_id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep lexical ownership separate from dependency relationships."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.visibility",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.visibility",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain visibility in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Visibility"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.signature",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.signature",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain signature in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Signature | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.annotation",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.annotation",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain annotation in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.modifiers",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.modifiers",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain modifiers in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[ModifierKind, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.presence",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.presence",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain presence in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "PresenceKind"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.responsibilities",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.responsibilities",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain responsibilities in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.evidence_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.evidence_ids",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain source evidence for inspection."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.provenance",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.provenance",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep independent design provenance separate from source evidence."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.record_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.record_ids",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain canonical record identity without copying observations."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.definition_contexts",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.definition_contexts",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep syntax existence separate from conditional runtime binding."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[DefinitionContext, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.initializer",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.initializer",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain initializer in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain typed direction, endpoint uncertainty and source or declaration evidence."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep identity stable when labels change."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.kind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain kind in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "RelationshipKind"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.source_id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.source_id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain source id in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.target_id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.target_id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain target id in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.resolution",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.resolution",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Prevent candidates from becoming confirmed relationships."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "ResolutionKind"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.candidate_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.candidate_ids",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep every retained uncertain endpoint."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.expression",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.expression",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain expression in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.evidence_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.evidence_ids",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain source evidence for inspection."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.provenance",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.provenance",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep independent design provenance separate from source evidence."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.record_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.record_ids",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain canonical record identity without copying observations."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.candidate_count",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.candidate_count",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Distinguish truncated candidates from a complete target set."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.candidates_truncated",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.candidates_truncated",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose omitted candidates instead of implying completeness."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "bool"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.reason",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.reason",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain reason in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.through",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.through",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain through in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Relationship.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Relationship.decided_by",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Relationship",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain decided by in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Literal['architect', 'agent'] | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Coverage",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.Coverage",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "State which element and relationship kinds are complete or limited in an observed scope."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.Coverage.scope_id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Coverage.scope_id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Coverage",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain scope id in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Coverage.entity_kinds",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Coverage.entity_kinds",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Coverage",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain entity kinds in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[EntityKind, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Coverage.relationship_kinds",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Coverage.relationship_kinds",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Coverage",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain relationship kinds in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[RelationshipKind, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Coverage.status",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Coverage.status",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Coverage",
+          "presence": "planned",
+          "responsibilities": [
+            "Preserve partial knowledge and Core conclusions."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "CoverageStatus"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Coverage.reason",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Coverage.reason",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Coverage",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain reason in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.TargetScope",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.TargetScope",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Separate intended completeness from observed collection coverage."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.TargetScope.scope_id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.TargetScope.scope_id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.TargetScope",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain scope id in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.TargetScope.mode",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.TargetScope.mode",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.TargetScope",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain mode in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "CompletenessMode"
+        },
+        {
+          "id": "IR-UML-architecture_graph.TargetScope.rationale",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.TargetScope.rationale",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.TargetScope",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain rationale in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.TargetScope.provenance",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.TargetScope.provenance",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.TargetScope",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep independent design provenance separate from source evidence."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.TargetScope.entity_kinds",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.TargetScope.entity_kinds",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.TargetScope",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain entity kinds in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[EntityKind, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.TargetScope.relationship_kinds",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.TargetScope.relationship_kinds",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.TargetScope",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain relationship kinds in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[RelationshipKind, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.TargetDefinition",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.TargetDefinition",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Declare required inner elements and relationships independently of observations."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.TargetDefinition.entities",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.TargetDefinition.entities",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.TargetDefinition",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain entities in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[Entity, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.TargetDefinition.relationships",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.TargetDefinition.relationships",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.TargetDefinition",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain relationships in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[Relationship, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.TargetDefinition.scopes",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.TargetDefinition.scopes",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.TargetDefinition",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain scopes in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[TargetScope, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.TargetDefinition.schema_version",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.TargetDefinition.schema_version",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.TargetDefinition",
+          "presence": "planned",
+          "responsibilities": [
+            "Reject incompatible wire formats."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Literal['1.0.0']"
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphAssessment",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphAssessment",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain one Core conclusion, its reason and the exact compared facts."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphAssessment.id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphAssessment.id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphAssessment",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep identity stable when labels change."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphAssessment.subject_id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphAssessment.subject_id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphAssessment",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain subject id in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphAssessment.aspect",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphAssessment.aspect",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphAssessment",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain aspect in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "AssessmentAspect"
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphAssessment.status",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphAssessment.status",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphAssessment",
+          "presence": "planned",
+          "responsibilities": [
+            "Preserve partial knowledge and Core conclusions."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "AssessmentStatus"
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphAssessment.change",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphAssessment.change",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphAssessment",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain change in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "AssessmentChange"
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphAssessment.reason",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphAssessment.reason",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphAssessment",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain reason in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphAssessment.observed_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphAssessment.observed_ids",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphAssessment",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain observed ids in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphAssessment.evidence_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphAssessment.evidence_ids",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphAssessment",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain source evidence for inspection."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphAssessment.fact_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphAssessment.fact_ids",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphAssessment",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain fact ids in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.EntityCorrespondence",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.EntityCorrespondence",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Link a Target identity to all matching observed definition sites."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.EntityCorrespondence.target_id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.EntityCorrespondence.target_id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.EntityCorrespondence",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain target id in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.EntityCorrespondence.observed_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.EntityCorrespondence.observed_ids",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.EntityCorrespondence",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain observed ids in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphComparison",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphComparison",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Hold Core assessments and their aggregate status without deciding architecture policy."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphComparison.status",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphComparison.status",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphComparison",
+          "presence": "planned",
+          "responsibilities": [
+            "Preserve partial knowledge and Core conclusions."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "AssessmentStatus"
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphComparison.assessments",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphComparison.assessments",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphComparison",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain assessments in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[GraphAssessment, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphComparison.schema_version",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphComparison.schema_version",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphComparison",
+          "presence": "planned",
+          "responsibilities": [
+            "Reject incompatible wire formats."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Literal['1.0.0']"
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphComparison.correspondences",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphComparison.correspondences",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphComparison",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain correspondences in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[EntityCorrespondence, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Use one immutable format for observed facts and independent Target intent."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph.origin",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph.origin",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Separate observed facts from independent declarations."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "OriginKind"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph.entities",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph.entities",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain entities in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[Entity, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph.relationships",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph.relationships",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain relationships in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[Relationship, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph.coverage",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph.coverage",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain coverage in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[Coverage, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph.evidence",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph.evidence",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain evidence in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[Evidence, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph.schema_version",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph.schema_version",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Reject incompatible wire formats."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Literal['1.0.0']"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph.target_scopes",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph.target_scopes",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain target scopes in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[TargetScope, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph.component_intents",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph.component_intents",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain component intents in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[ComponentIntent, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph.module_inventories",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph.module_inventories",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain module inventories in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[ModuleInventory, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph.layout_rules",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph.layout_rules",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain layout rules in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[RootLayoutRule, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph.public_api",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph.public_api",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain public api in the typed boundary."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[PublicAPIEntry, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph.validate",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph.validate",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Reject invalid identities, references or inconsistent values before use."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphComparison.validate",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphComparison.validate",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphComparison",
+          "presence": "planned",
+          "responsibilities": [
+            "Reject invalid identities, references or inconsistent values before use."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph._validate_public_api",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph._validate_public_api",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Check graph invariants without source parsing or rule evaluation."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph._validate_physical_intent",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph._validate_physical_intent",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Check graph invariants without source parsing or rule evaluation."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "entities",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "dict[str, Entity]"
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph._validate_entities",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph._validate_entities",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Check graph invariants without source parsing or rule evaluation."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "entities",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "dict[str, Entity]"
+              },
+              {
+                "name": "evidence_ids",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "set[str]"
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph._validate_relationships",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph._validate_relationships",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Check graph invariants without source parsing or rule evaluation."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "entities",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "dict[str, Entity]"
+              },
+              {
+                "name": "evidence_ids",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "set[str]"
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph._validate_scopes",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph._validate_scopes",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Check graph invariants without source parsing or rule evaluation."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "entities",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "dict[str, Entity]"
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph._validate_evidence",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph._validate_evidence",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Check graph invariants without source parsing or rule evaluation."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "references",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "tuple[str, ...]"
+              },
+              {
+                "name": "provenance",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "tuple[str, ...]"
+              },
+              {
+                "name": "known",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "set[str]"
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphComparison.from_assessments",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphComparison.from_assessments",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.GraphComparison",
+          "presence": "planned",
+          "responsibilities": [
+            "Aggregate completed Core assessments while preserving UNKNOWN."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "assessments",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "tuple[GraphAssessment, ...]"
+              },
+              {
+                "name": "correspondences",
+                "kind": "keyword_only",
+                "default_known": true,
+                "annotation": "tuple[EntityCorrespondence, ...]",
+                "default": "()"
+              }
+            ],
+            "returns": "GraphComparison"
+          },
+          "modifiers": [
+            "static"
+          ]
+        },
+        {
+          "id": "IR-UML-source_graph.observed_graph",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.source_graph.observed_graph",
+          "language": "python",
+          "parent_id": "IR-UML-source_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Normalize canonical source records and their coverage without inferring Target intent."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "observation",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Observation"
+              }
+            ],
+            "returns": "ArchitectureGraph"
+          }
+        },
+        {
+          "id": "IR-UML-target_graph.declared_graph",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.target_graph.declared_graph",
+          "language": "python",
+          "parent_id": "IR-UML-target_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Compile an independent contract without reading observations."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "contract",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "ArchitectureContract"
+              },
+              {
+                "name": "contract_path",
+                "kind": "keyword_only",
+                "default_known": true,
+                "annotation": "str",
+                "default": "'architecture-contract.json'"
+              }
+            ],
+            "returns": "ArchitectureGraph"
+          }
+        },
+        {
+          "id": "IR-UML-target_records.recorded_target_graph",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.target_records.recorded_target_graph",
+          "language": "python",
+          "parent_id": "IR-UML-target_records",
+          "presence": "planned",
+          "responsibilities": [
+            "Project intent already authenticated by Core without adding decisions."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "model",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Observation"
+              },
+              {
+                "name": "declaration",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Record"
+              }
+            ],
+            "returns": "ArchitectureGraph"
+          }
+        },
+        {
+          "id": "IR-UML-graph_codec.parse_graph",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.graph_codec.parse_graph",
+          "language": "python",
+          "parent_id": "IR-UML-graph_codec",
+          "presence": "planned",
+          "responsibilities": [
+            "Reject malformed graph data and invalid references on input."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "RawJson"
+              }
+            ],
+            "returns": "ArchitectureGraph"
+          }
+        },
+        {
+          "id": "IR-UML-graph_codec.graph_bytes",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.graph_codec.graph_bytes",
+          "language": "python",
+          "parent_id": "IR-UML-graph_codec",
+          "presence": "planned",
+          "responsibilities": [
+            "Serialize a validated graph deterministically."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "graph",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "ArchitectureGraph"
+              }
+            ],
+            "returns": "bytes"
+          }
+        },
+        {
+          "id": "IR-UML-graph_codec.parse_comparison",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.graph_codec.parse_comparison",
+          "language": "python",
+          "parent_id": "IR-UML-graph_codec",
+          "presence": "planned",
+          "responsibilities": [
+            "Reject malformed or inconsistent comparison data on input."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "RawJson"
+              }
+            ],
+            "returns": "GraphComparison"
+          }
+        },
+        {
+          "id": "IR-UML-graph_codec.comparison_bytes",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.graph_codec.comparison_bytes",
+          "language": "python",
+          "parent_id": "IR-UML-graph_codec",
+          "presence": "planned",
+          "responsibilities": [
+            "Serialize a validated comparison deterministically."
+          ],
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "comparison",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "GraphComparison"
+              }
+            ],
+            "returns": "bytes"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureReport",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureReport",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry independent Source and Target graphs, Core receipts and navigation metadata in one versioned boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureReport.observed",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureReport.observed",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain observed in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "ArchitectureGraph | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureReport.target",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureReport.target",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain target in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "ArchitectureGraph | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureReport.comparison",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureReport.comparison",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain comparison in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "GraphComparison | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureReport.unavailable",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureReport.unavailable",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain unavailable in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureReport.schema_version",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureReport.schema_version",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain schema version in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Literal['1.0.0']"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureReport.findings",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureReport.findings",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain findings in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[ReportFinding, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureReport.memberships",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureReport.memberships",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain memberships in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[ComponentMembership, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureReport.decision_gaps",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureReport.decision_gaps",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain decision gaps in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[DependencyDecisionGap, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ReportFinding",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.ReportFinding",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain a recorded Core failure or UNKNOWN and its subjects without rendering judgement."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.ReportFinding.id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ReportFinding.id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ReportFinding",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain id in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ReportFinding.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ReportFinding.kind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ReportFinding",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain kind in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ReportFinding.title",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ReportFinding.title",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ReportFinding",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain title in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ReportFinding.status",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ReportFinding.status",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ReportFinding",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain status in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Literal['FAIL', 'UNKNOWN']"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ReportFinding.rule_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ReportFinding.rule_ids",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ReportFinding",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain rule ids in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ReportFinding.subjects",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ReportFinding.subjects",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ReportFinding",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain subjects in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ReportFinding.graph_subject_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ReportFinding.graph_subject_ids",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ReportFinding",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain graph subject ids in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ReportFinding.evidence_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ReportFinding.evidence_ids",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ReportFinding",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain evidence ids in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ReportFinding.provenance",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ReportFinding.provenance",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ReportFinding",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain provenance in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentMembership",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentMembership",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry recorded component-to-module ownership for navigation without altering Source facts."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentMembership.component_id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentMembership.component_id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ComponentMembership",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain component id in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentMembership.module_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentMembership.module_ids",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ComponentMembership",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain module ids in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.DependencyDecisionGap",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.DependencyDecisionGap",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry an existing undecided component pair without inventing a Core UNKNOWN verdict."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.DependencyDecisionGap.source_id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.DependencyDecisionGap.source_id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.DependencyDecisionGap",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain source id in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.DependencyDecisionGap.target_id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.DependencyDecisionGap.target_id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.DependencyDecisionGap",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain target id in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.DependencyDecisionGap.relationship_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.DependencyDecisionGap.relationship_ids",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.DependencyDecisionGap",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain relationship ids in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ExternalDependencyScopeRule",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.ExternalDependencyScopeRule",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Declare where an external dependency is permitted using prefixes and exact modules."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.ExternalDependencyScopeRule.id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ExternalDependencyScopeRule.id",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ExternalDependencyScopeRule",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain id in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ExternalDependencyScopeRule.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ExternalDependencyScopeRule.kind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ExternalDependencyScopeRule",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain kind in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Literal['external_dependency_scope']"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ExternalDependencyScopeRule.dependency",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ExternalDependencyScopeRule.dependency",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ExternalDependencyScopeRule",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain dependency in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ExternalDependencyScopeRule.allowed_sources",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ExternalDependencyScopeRule.allowed_sources",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ExternalDependencyScopeRule",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain allowed sources in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ExternalDependencyScopeRule.rationale",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ExternalDependencyScopeRule.rationale",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ExternalDependencyScopeRule",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain rationale in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ExternalDependencyScopeRule.provenance",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ExternalDependencyScopeRule.provenance",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ExternalDependencyScopeRule",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain provenance in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ExternalDependencyScopeRule.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ExternalDependencyScopeRule.decided_by",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ExternalDependencyScopeRule",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain decided by in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Literal['architect', 'agent']"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ExternalDependencyScopeRule.exact_sources",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ExternalDependencyScopeRule.exact_sources",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ExternalDependencyScopeRule",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain exact sources in the report boundary."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.Entity.file_path",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.Entity.file_path",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.Entity",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep a normalized source module path without inventing paths for referenced symbols."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureGraph.external_scopes",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureGraph.external_scopes",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain independent external dependency permissions."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[ExternalDependencyScopeRule, ...]"
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureReport.validate",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureReport.validate",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "presence": "planned",
+          "responsibilities": [
+            "Reject mismatched graph origins, invalid memberships and dangling comparison or decision references."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "IR-UML-report_graph",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.report_graph",
+          "language": "python",
+          "parent_id": "TARGET-GOVERNANCE",
+          "presence": "planned",
+          "responsibilities": [
+            "Compose the report boundary from authenticated Core evidence without parsing source or evaluating policy."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ]
+        },
+        {
+          "id": "IR-UML-report_graph.architecture_report",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.report_graph.architecture_report",
+          "language": "python",
+          "parent_id": "IR-UML-report_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Read authenticated graphs and recorded Core receipts once."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "model",
+                "annotation": "Observation",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "ArchitectureReport"
+          }
+        },
+        {
+          "id": "IR-UML-graph_codec.parse_report",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.graph_codec.parse_report",
+          "language": "python",
+          "parent_id": "IR-UML-graph_codec",
+          "presence": "planned",
+          "responsibilities": [
+            "Reject malformed report JSON before rendering."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "annotation": "RawJson",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "ArchitectureReport"
+          }
+        },
+        {
+          "id": "IR-UML-graph_codec.report_bytes",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.graph_codec.report_bytes",
+          "language": "python",
+          "parent_id": "IR-UML-graph_codec",
+          "presence": "planned",
+          "responsibilities": [
+            "Serialize the validated report boundary deterministically."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "report",
+                "annotation": "ArchitectureReport",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "bytes"
+          }
+        },
+        {
+          "id": "IR-UML-graph_codec.parse_external_scope",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.graph_codec.parse_external_scope",
+          "language": "python",
+          "parent_id": "IR-UML-graph_codec",
+          "presence": "planned",
+          "responsibilities": [
+            "Decode independent external permission metadata without evaluating it."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "annotation": "RawJson",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "ExternalDependencyScopeRule"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ArchitectureReport._validate_comparison",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureReport._validate_comparison",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "presence": "planned",
+          "responsibilities": [
+            "Reject comparison references that do not belong to the recorded source and Target graphs."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          }
+        }
+      ],
+      "relationships": [
+        {
+          "id": "IR-UML-IMPORTS-graph_codec-architecture_graph",
+          "kind": "imports",
+          "source_id": "IR-UML-graph_codec",
+          "target_id": "IR-UML-architecture_graph",
+          "reason": "Each producer and codec imports the shared value module; return signatures require the graph type.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-IMPORTS-source_graph-architecture_graph",
+          "kind": "imports",
+          "source_id": "IR-UML-source_graph",
+          "target_id": "IR-UML-architecture_graph",
+          "reason": "Each producer and codec imports the shared value module; return signatures require the graph type.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-IMPORTS-target_graph-architecture_graph",
+          "kind": "imports",
+          "source_id": "IR-UML-target_graph",
+          "target_id": "IR-UML-architecture_graph",
+          "reason": "Each producer and codec imports the shared value module; return signatures require the graph type.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-IMPORTS-target_records-architecture_graph",
+          "kind": "imports",
+          "source_id": "IR-UML-target_records",
+          "target_id": "IR-UML-architecture_graph",
+          "reason": "Each producer and codec imports the shared value module; return signatures require the graph type.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-CALLS-architecture_graph.ArchitectureGraph.validate-architecture_graph.ArchitectureGraph._validate_public_api",
+          "kind": "calls",
+          "source_id": "IR-UML-architecture_graph.ArchitectureGraph.validate",
+          "target_id": "IR-UML-architecture_graph.ArchitectureGraph._validate_public_api",
+          "reason": "One entry point checks each graph invariant before the graph is consumed.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-CALLS-architecture_graph.ArchitectureGraph.validate-architecture_graph.ArchitectureGraph._validate_physical_intent",
+          "kind": "calls",
+          "source_id": "IR-UML-architecture_graph.ArchitectureGraph.validate",
+          "target_id": "IR-UML-architecture_graph.ArchitectureGraph._validate_physical_intent",
+          "reason": "One entry point checks each graph invariant before the graph is consumed.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-CALLS-architecture_graph.ArchitectureGraph.validate-architecture_graph.ArchitectureGraph._validate_entities",
+          "kind": "calls",
+          "source_id": "IR-UML-architecture_graph.ArchitectureGraph.validate",
+          "target_id": "IR-UML-architecture_graph.ArchitectureGraph._validate_entities",
+          "reason": "One entry point checks each graph invariant before the graph is consumed.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-CALLS-architecture_graph.ArchitectureGraph.validate-architecture_graph.ArchitectureGraph._validate_relationships",
+          "kind": "calls",
+          "source_id": "IR-UML-architecture_graph.ArchitectureGraph.validate",
+          "target_id": "IR-UML-architecture_graph.ArchitectureGraph._validate_relationships",
+          "reason": "One entry point checks each graph invariant before the graph is consumed.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-CALLS-architecture_graph.ArchitectureGraph.validate-architecture_graph.ArchitectureGraph._validate_scopes",
+          "kind": "calls",
+          "source_id": "IR-UML-architecture_graph.ArchitectureGraph.validate",
+          "target_id": "IR-UML-architecture_graph.ArchitectureGraph._validate_scopes",
+          "reason": "One entry point checks each graph invariant before the graph is consumed.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-CALLS-architecture_graph.GraphComparison.validate-architecture_graph.GraphComparison.from_assessments",
+          "kind": "calls",
+          "source_id": "IR-UML-architecture_graph.GraphComparison.validate",
+          "target_id": "IR-UML-architecture_graph.GraphComparison.from_assessments",
+          "reason": "Validation checks stored status against the same assessment aggregation.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REFERENCES-architecture_graph.Signature-architecture_graph.Parameter",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.Signature",
+          "target_id": "IR-UML-architecture_graph.Parameter",
+          "reason": "An operation signature retains ordered parameter values.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REFERENCES-architecture_graph.Entity-architecture_graph.Visibility",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.Entity",
+          "target_id": "IR-UML-architecture_graph.Visibility",
+          "reason": "Entity visibility retains its language rule or naming convention.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REFERENCES-architecture_graph.Entity-architecture_graph.Signature",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.Entity",
+          "target_id": "IR-UML-architecture_graph.Signature",
+          "reason": "Operations retain their typed signature in the shared entity value.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REFERENCES-architecture_graph.TargetDefinition-architecture_graph.Entity",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.TargetDefinition",
+          "target_id": "IR-UML-architecture_graph.Entity",
+          "reason": "Independent Target intent uses the shared entity value.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REFERENCES-architecture_graph.TargetDefinition-architecture_graph.Relationship",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.TargetDefinition",
+          "target_id": "IR-UML-architecture_graph.Relationship",
+          "reason": "Independent Target intent declares directed typed relationships.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REFERENCES-architecture_graph.TargetDefinition-architecture_graph.TargetScope",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.TargetDefinition",
+          "target_id": "IR-UML-architecture_graph.TargetScope",
+          "reason": "Target scopes retain explicit open or closed inventory intent.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REFERENCES-architecture_graph.GraphComparison-architecture_graph.GraphAssessment",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.GraphComparison",
+          "target_id": "IR-UML-architecture_graph.GraphAssessment",
+          "reason": "A comparison retains Core assessments and their evidence identities.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REFERENCES-architecture_graph.GraphComparison-architecture_graph.EntityCorrespondence",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.GraphComparison",
+          "target_id": "IR-UML-architecture_graph.EntityCorrespondence",
+          "reason": "A comparison retains explicit Target-to-source correspondences.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REFERENCES-architecture_graph.ArchitectureGraph-architecture_graph.Entity",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "target_id": "IR-UML-architecture_graph.Entity",
+          "reason": "One immutable graph retains its typed entity inventory.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REFERENCES-architecture_graph.ArchitectureGraph-architecture_graph.Relationship",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "target_id": "IR-UML-architecture_graph.Relationship",
+          "reason": "One immutable graph retains directed relationships and resolution limits.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REFERENCES-architecture_graph.ArchitectureGraph-architecture_graph.Coverage",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "target_id": "IR-UML-architecture_graph.Coverage",
+          "reason": "The graph carries the capabilities needed to distinguish absence from unknown.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REFERENCES-architecture_graph.ArchitectureGraph-architecture_graph.TargetScope",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "target_id": "IR-UML-architecture_graph.TargetScope",
+          "reason": "Declared graphs retain independent scope completeness intent.",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REF-ArchitectureReport-ArchitectureGraph",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "target_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REF-ArchitectureReport-GraphComparison",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "target_id": "IR-UML-architecture_graph.GraphComparison",
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REF-ArchitectureReport-ReportFinding",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "target_id": "IR-UML-architecture_graph.ReportFinding",
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REF-ArchitectureReport-ComponentMembership",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "target_id": "IR-UML-architecture_graph.ComponentMembership",
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REF-ArchitectureReport-DependencyDecisionGap",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.ArchitectureReport",
+          "target_id": "IR-UML-architecture_graph.DependencyDecisionGap",
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REF-ArchitectureGraph-ExternalDependencyScopeRule",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "target_id": "IR-UML-architecture_graph.ExternalDependencyScopeRule",
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ]
+        },
+        {
+          "id": "IR-UML-CALLS-ArchitectureReport.validate-_validate_comparison",
+          "kind": "calls",
+          "source_id": "IR-UML-architecture_graph.ArchitectureReport.validate",
+          "target_id": "IR-UML-architecture_graph.ArchitectureReport._validate_comparison",
+          "reason": "Report validation owns cross-graph comparison references.",
+          "provenance": [
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+          ]
+        }
+      ],
+      "scopes": []
+    }
   }
 }

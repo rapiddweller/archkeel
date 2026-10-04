@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "36e84743d38812faa943286818a1a3c46e47a22c41abbe67fdb5b8cdf52fc1be",
+  "after_digest": "ae5e4a37a63b512cb939945484ee9b386e3d527ca48e729ce21b8ffb6eea9795",
+  "before_baseline_digest": "af7a4a97c74b4f58426659094db53cc2fb68b8103f417175c680935a9fc2337d",
+  "before_digest": "5d76fff0d110c490021df6b9c41d1ab245354eabfdb662046ebc0623525ce465",
+  "decided_by": "Codex (agent)",
+  "rationale": "Replace duplicated report projections with one authenticated IR report; add graph facades and local render boundaries while tightening measured ceilings. Keep Core verdict and uncertainty ownership.",
+  "schema_version": "2.0.0"
+}

@@ -6,6 +6,7 @@
 import json
 from pathlib import Path
 
+from graph_report_support import findings_for, import_sites
 from test_analyzer import _component, _observe
 from test_boundary_types_nested_dtos import _write_app
 from test_inside_rule_coverage import _commit_test_root, _scan_config, _write_inside_case
@@ -14,8 +15,8 @@ from archkeel.check.run import inspect_observation
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER
 from archkeel.cli import main
 from archkeel.ir.model import Observation
+from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
-from archkeel.render.flow import build_flow
 
 
 def _foreign_type_case(root: Path, *, api: str, origin: str, nested: bool) -> Observation:
@@ -209,14 +210,13 @@ def test_inner_module_cycle_overrides_positive_requires_receipts(tmp_path: Path)
     observation = result.observation
     findings = trace_valid_violations(observation)
     assert [(item.kind, item.rule_ids) for item in findings] == [("module_cycle", ("core:CYCLE",))]
-    inside = next(
-        item.inside for item in build_flow(observation).components if item.label == "core"
-    )
-    assert inside is not None
-    assert {(edge.source, edge.target) for edge in inside.edges} == {("a", "b"), ("b", "a")}
-    assert all(
-        edge.state == "violation" and edge.rule_ids == ("core:CYCLE",) for edge in inside.edges
-    )
+    report = architecture_report(observation)
+    for source, target in (("a", "b"), ("b", "a")):
+        sites = import_sites(report, f"sample.core.{source}", f"sample.core.{target}")
+        assert len(sites) == 1
+        assert [(item.status, item.rule_ids) for item in findings_for(report, sites)] == [
+            ("FAIL", ("core:CYCLE",))
+        ]
 
 
 def test_inside_forbidden_construct_matches_function_and_method_owners(tmp_path: Path) -> None:

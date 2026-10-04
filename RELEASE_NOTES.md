@@ -1,5 +1,10 @@
-# Archkeel 0.9.0 — Language facts with explicit limits
+# Archkeel 0.9.0 — Explore architecture, keep the evidence
 
+- One offline explorer shows observed code, declared Target and Diff, with source
+  locations, class members, relationship filters and local navigation. Filters retain
+  the full verdict and evidence.
+- Observed and Target graphs use one validated report format. Target stays declaration-derived;
+  missing or ambiguous evidence remains visible.
 - Python, Dart and TypeScript collectors use the source-facts process port; Core validates
   evidence and owns architecture verdicts.
 - TypeScript checks import-graph boundaries, cycles, ownership and external packages.
@@ -8,10 +13,16 @@
 - Unmeasured call totals are null; measured Python zero remains zero. Reports retain n/a.
 - Proven inherited Python getter/setter signatures are checked in their defining scopes.
   Missing proof, custom descriptors and mutations remain UNKNOWN (#290).
+- Unproven owned-property signatures retain individual source evidence and UNKNOWN (#306).
+- Validation retains observed verdicts when diagnostics reject a contract. Reports show
+  the same declared-rule verdict; incomplete ownership names the module and remedy.
+- The main PR gate compares contracts and baseline policy with its pinned base before its tests.
+  Amendment v2 binds the policy actually written; stale records fail closed.
 - Construct rules use validated identities; report scope text describes selected roots.
 
-Command-result and accepted-lock schemas use 2.0.0; fresh Delta uses 1.4.0. Pin CLI and schema
-together: older consumers cannot read fresh null totals. New readers retain legacy
+Architecture contracts add UML intent in 2.2.0; graph, comparison and report formats use 1.0.0.
+Command-result uses 3.0.0, accepted-lock uses 2.0.0 and fresh Delta uses 1.4.0. Pin CLI
+and schema together: older consumers cannot read fresh null totals. New readers retain legacy
 formats; re-observe evidence when its analyzer profile is incomparable
 ([compatibility](docs/reference.md)).
 

@@ -1,29 +1,10 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""`boundary_type_indexes` (`archkeel/analyzer/embedded/violations.py`) builds
-`imports_by_binding` and `classes_by_location` as last-write-wins dict comprehensions over
-`imports`/`symbols` in the order the scan hands them over -- sorted by content-hash id, not
-source order. A module with distinct definitions for one name makes that order decide which
-candidate record the index keeps, and Python's own binding rule (whichever one is textually
-last) is not what decides it. An identical import repeated is still one target and must not be
-turned into ambiguity merely because the scanner records both statements.
+"""Index order must never decide API ownership for an ambiguous binding.
 
-Two consequences, pinned below:
-
-  1. A crash that destroys the whole scan. `symbols.py::_resolve_class_kinds` keys its
-     fixpoint by qualified name, so of two same-named top-level classes only the record
-     `symbol_by_name` happens to keep gets a `class_kind` at all; the other keeps none.
-     `_boundary_type_verdict` then does `origin_symbol["class_kind"]` -- a bare subscript --
-     and raises `KeyError` if the index happens to keep the record missing it.
-
-  2. A wrong PASS or a wrong VIOLATION. Two imports bound to the same local name, one
-     declared by its component and one not: whichever the index keeps decides the verdict,
-     with no relation to which import is actually live in the module.
-
-The intended fix: distinct bindings for one name are something the analyzer cannot resolve from
-what it records, whether they sit in one index or across imports, classes and functions. The
-honest answer is undecidable, not a coin flip -- never a crash, never a guessed verdict.
+Every class definition keeps its kind. A repeated identical import stays one target;
+distinct bindings stay undecidable across imports, classes and functions.
 """
 
 from __future__ import annotations
@@ -98,44 +79,19 @@ def test_builtin_named_functions_are_undecidable_through_observe(tmp_path: Path)
     assert limit.data.get("ambiguous_binding") == 2
 
 
-def test_two_same_named_top_level_classes_leave_one_symbol_record_without_a_class_kind() -> None:
-    """Pins the precondition for the crash directly on `collect_symbols`, independent of
-    whatever order `boundary_type_indexes` later receives the records in (AD-30's fixpoint
-    keys by qualified name, so of two same-named classes only one -- whichever
-    `symbol_by_name` happens to keep -- is ever visited by `_resolve_class_kinds`). This
-    holds regardless of the content-hash order `collect_symbols` returns records in, so it
-    proves the ingredient for the crash exists without depending on that order's luck.
-    """
+def test_two_same_named_top_level_classes_each_keep_their_class_kind() -> None:
+    """Definition-site identities prevent one classification from overwriting another."""
     source = "class Order:\n    pass\n\n\nclass Order:\n    pass\n"
     symbols, _nodes, _owners = collect_symbols([_parsed_module(source)], {})
     order_records = [item for item in symbols if item["data"]["name"] == "Order"]
     assert len(order_records) == 2
-    with_class_kind = [item for item in order_records if "class_kind" in item["data"]]
-    without_class_kind = [item for item in order_records if "class_kind" not in item["data"]]
-    assert len(with_class_kind) == 1
-    assert len(without_class_kind) == 1
+    assert all(item["data"].get("class_kind") == "class" for item in order_records)
 
 
-def test_two_same_named_top_level_classes_crash_boundary_types_through_observe(
+def test_redefined_top_level_classes_keep_the_scan_and_binding_uncertainty(
     tmp_path: Path,
 ) -> None:
-    """The real analyzer entry point, run end to end: today this crashes with `KeyError:
-    'class_kind'` inside the bundled analyzer subprocess, which `archkeel.analyzer.observe`
-    can only report as an opaque `parse_error` -- the whole scan is lost, not just this one
-    rule's verdict.
-
-    Made deterministic rather than order-lucky: `stable_id` derives every record's id from a
-    sha256 of its own content (`archkeel/ir/model.py::stable_id`), never from `id()` or a
-    per-run seed, so for this exact, fixed source text the content-hash order
-    `boundary_type_indexes` receives the two `Order` records in is itself fixed and
-    reproduces the same outcome on every run and on every machine. This was confirmed by
-    actually running the scenario (see the module docstring's own description of the bug)
-    rather than assumed from reading the code; it is pinned here as today's actually
-    observed behaviour, not as a claim that a `KeyError` is inherent to any such module (a
-    module with the unlucky opposite hash order would silently misjudge the position
-    instead, which is exactly why the fix must remove the order-dependence itself, not just
-    patch around this one crash).
-    """
+    """A classifier fix must not turn an ambiguous binding into a proven API type."""
     contract = _boundary_types_contract(_component("app", public=["sample.app.facade:snapshot"]))
     (tmp_path / "contract.json").write_text(json.dumps(contract))
     (tmp_path / "sample/app").mkdir(parents=True)
@@ -149,12 +105,13 @@ def test_two_same_named_top_level_classes_crash_boundary_types_through_observe(
         "    return str(order)\n"
     )
     result = _observe(tmp_path)
-    # Today: exit_code == 2, one parse_error diagnostic whose claim carries a
-    # "KeyError: 'class_kind'" traceback from inside the analyzer subprocess. Fixed: the scan
-    # completes and this now-unresolvable position is reported the same way any other
-    # unresolved name is, never as a crash that discards the whole observation.
     assert result.exit_code == 0
     assert result.diagnostics == ()
+    assert result.observation is not None
+    assert any(
+        item.kind == "boundary_type_limit" and item.data.get("ambiguous_binding") == 1
+        for item in result.observation.records("unknowns") or ()
+    )
 
 
 def test_ambiguous_import_binding_reports_the_position_as_undecidable_not_a_guess(

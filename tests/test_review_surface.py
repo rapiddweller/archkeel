@@ -13,11 +13,12 @@ from archkeel.ir.model import Diagnostic, RunResult
 from archkeel.render.html import render_check_html, render_html
 
 
-def test_findings_and_limits_precede_exploration_with_record_links(tmp_path: Path) -> None:
+def test_explorer_follows_verdicts_and_preserves_finding_links(tmp_path: Path) -> None:
     _, observation, page = _report(tmp_path)
     body = page.split("</style>", 1)[1]
-    assert body.index('id="violations-heading"') < body.index('id="flow"')
-    assert body.index('id="known-unknowns"') < body.index('id="flow"')
+    assert body.index('id="verdicts-heading"') < body.index('id="flow"')
+    assert body.index('id="flow"') < body.index('id="violations-heading"')
+    assert body.index('id="flow"') < body.index('id="known-unknowns"')
     records = (*observation.records("violations"), *observation.records("unknowns"))
     rows = {
         row["data-finding-id"]: row for row in _start_tags(page, "tr") if "data-finding-id" in row

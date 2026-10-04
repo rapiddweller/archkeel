@@ -11,6 +11,7 @@ matching is not visual or accessibility proof.
 """
 
 import json
+from html import unescape
 from pathlib import Path
 
 from test_baseline import GETATTR_RULE, PROBE, _repo
@@ -165,6 +166,7 @@ def test_rule_filter_keeps_construct_and_cycle_violations_without_import_pairs(
 
 def test_report_lists_every_declared_rule_and_its_provenance(tmp_path: Path) -> None:
     _, observation, page = _report(tmp_path)
+    page = unescape(page)
     rules = [
         item
         for item in observation.records("declarations") or ()

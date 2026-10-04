@@ -48,6 +48,8 @@ from .ports import Analyzer, ScanConfig
 from .ratchets import call_rows, calls_measured, unknown_positions_by_rule
 from .run import inspect_observation
 from .snapshot import resolve_commit
+from .uml import assemble_uml
+from .uml_evaluation import evaluate_uml
 
 
 def _baseline_report(
@@ -190,7 +192,7 @@ def observe_repository(
     root: Path, config: ScanConfig, analyzer: Analyzer, *, contract_root: Path | None = None
 ) -> ObservationResult:
     """Observe the configured working tree through an injected analyzer."""
-    return analyzer(
+    result = analyzer(
         root,
         roots=config.roots,
         namespace=config.namespace,
@@ -200,6 +202,7 @@ def observe_repository(
         contract_root=contract_root or root,
         language=config.language,
     )
+    return evaluate_uml(assemble_uml(result, contract_root or root, config.contract))
 
 
 def _selected_calls(model: Observation, report_filter: ReportFilter) -> tuple[CallRow, ...]:

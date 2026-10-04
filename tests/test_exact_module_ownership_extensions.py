@@ -16,7 +16,6 @@ from test_exact_module_ownership import (
     _report,
     _rule,
     _target_contract,
-    _walk,
 )
 
 from archkeel.check.validation import (
@@ -33,6 +32,7 @@ from archkeel.ir.codec import (
     result_payload,
 )
 from archkeel.ir.decisions import open_decisions, rule_assessments
+from archkeel.ir.graph_codec import parse_report
 from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import Observation, RuleAssessment, RunResult
@@ -83,23 +83,17 @@ def test_source_free_exact_target_remains_a_leaf_beside_recursive_sibling(
     _, _, payload, actual = _report(tmp_path, contract, source_paths=[])
 
     assert actual == set()
-    target = payload["explorers"]["target"]
-    registry = next(
-        node
-        for node in _walk(target)
-        if node["kind"] == "component" and node["label"] == "registry"
-    )
-    api = next(
-        node for node in _walk(target) if node["kind"] == "component" and node["label"] == "api"
-    )
-    registry_details = {detail["label"]: detail["value"] for detail in registry["details"]}
-    api_details = {detail["label"]: detail["value"] for detail in api["details"]}
-    assert registry_details["Exact modules"] == "sample.core"
-    assert registry_details["Packages"] == ""
-    assert api_details["Packages"] == "sample.core.api"
-    assert not any(
-        node["kind"] == "component" and node["label"] == "api" for node in _walk([registry])
-    )
+    report = parse_report(payload)
+    intents = {item.label: item for item in report.target.component_intents}
+    names = {item.id: item.qualified_name for item in report.observed.entities}
+    assigned = {
+        item.component_id: {names[identity] for identity in item.module_ids}
+        for item in report.memberships
+    }
+    assert intents["registry"].exact_modules == ("sample.core",)
+    assert intents["registry"].packages == ()
+    assert intents["api"].packages == ("sample.core.api",)
+    assert intents["api"].parent_id is None and not assigned[intents["registry"].component_id]
 
 
 def test_exact_initializer_public_boundary_is_not_omitted_from_type_checks(
@@ -296,10 +290,19 @@ def test_diff_keeps_ambiguous_exact_initializer_visible(tmp_path: Path) -> None:
     )
 
     assert payload is not None
-    unmapped = next(
-        group for group in payload["explorers"]["diff"] if group["id"] == "diff:unmapped"
+    report = parse_report(payload)
+    names = {item.id: item.qualified_name for item in report.observed.entities}
+    assigned = {
+        item.component_id: {names[identity] for identity in item.module_ids}
+        for item in report.memberships
+    }
+    module = next(
+        item
+        for item in report.observed.entities
+        if item.kind == "module" and item.qualified_name == "sample.core"
     )
-    assert "unmapped:sample.core" in {item["id"] for item in unmapped["children"]}
+    assert module.file_path == "sample/core/__init__.py"
+    assert not any("sample.core" in values for values in assigned.values())
 
 
 def test_partly_present_exact_component_reports_only_missing_leaf(tmp_path: Path) -> None:
@@ -307,10 +310,16 @@ def test_partly_present_exact_component_reports_only_missing_leaf(tmp_path: Path
     _, _, payload, _ = _report(tmp_path, contract)
 
     assert payload is not None
-    absent = next(group for group in payload["explorers"]["diff"] if group["id"] == "diff:absent")
-    ids = {item["id"] for item in absent["children"]}
-    assert "absent:COMP-ONE:exact:sample.missing" in ids
-    assert "absent:COMP-ONE" not in ids
+    report = parse_report(payload)
+    intents = {item.label: item for item in report.target.component_intents}
+    names = {item.id: item.qualified_name for item in report.observed.entities}
+    assigned = {
+        item.component_id: {names[identity] for identity in item.module_ids}
+        for item in report.memberships
+    }
+    assert intents["one"].exact_modules == ("sample.core", "sample.missing")
+    assert "sample.core" in assigned[intents["one"].component_id]
+    assert "sample.missing" not in names.values()
 
 
 def test_partly_present_mixed_component_is_not_wholly_absent(tmp_path: Path) -> None:
@@ -319,8 +328,16 @@ def test_partly_present_mixed_component_is_not_wholly_absent(tmp_path: Path) -> 
 
     assert payload is not None
     assert "sample.core" in actual
-    absent = next(group for group in payload["explorers"]["diff"] if group["id"] == "diff:absent")
-    assert "absent:COMP-ONE" not in {item["id"] for item in absent["children"]}
+    report = parse_report(payload)
+    intents = {item.label: item for item in report.target.component_intents}
+    names = {item.id: item.qualified_name for item in report.observed.entities}
+    assigned = {
+        item.component_id: {names[identity] for identity in item.module_ids}
+        for item in report.memberships
+    }
+    assert intents["one"].packages == ("sample.missing",)
+    assert intents["one"].exact_modules == ("sample.core",)
+    assert "sample.core" in assigned[intents["one"].component_id]
 
 
 def test_package_and_exact_scope_counts_keep_selector_kind(tmp_path: Path) -> None:
@@ -793,44 +810,30 @@ def test_inventory_does_not_hide_same_level_component_ambiguity(
     assert owner_of(module_name, component_owners(saved_observation)) is None
     assert module_name in actual
 
-    actual_nodes = list(_walk(payload["explorers"]["actual"]))
-    assert any(
-        node["id"] == module_name
-        and any(
-            detail["label"] == "File" and detail["value"] == module_file
-            for detail in node["details"]
-        )
-        for node in actual_nodes
-    )
-    target_nodes = list(_walk(payload["explorers"]["target"]))
-    target_file_nodes = [
-        node
-        for node in target_nodes
-        if node["kind"] == "module_target"
-        and any(
-            detail["label"] == "File" and detail["value"] == module_file
-            for detail in node["details"]
-        )
-    ]
-    assert target_file_nodes
-    target_components = {
-        node["label"]: {item["label"]: item["value"] for item in node["details"]}
-        for node in target_nodes
-        if node["kind"] == "component"
+    report = parse_report(payload)
+    intents = {item.label: item for item in report.target.component_intents}
+    names = {item.id: item.qualified_name for item in report.observed.entities}
+    assigned = {
+        item.component_id: {names[identity] for identity in item.module_ids}
+        for item in report.memberships
     }
-    component_labels = set(target_components)
-    assert {"exact", "other" if ownership == "exact_exact" else "recursive"} <= component_labels
-    assert target_components["exact"]["Exact modules"] == module_name
+    module = next(
+        item
+        for item in report.observed.entities
+        if item.kind == "module" and item.qualified_name == module_name
+    )
+    assert module.file_path == module_file
+    assert any(
+        item.path == module_file
+        for inventory in report.target.module_inventories
+        for item in inventory.modules
+    )
+    assert intents["exact"].exact_modules == (module_name,)
     if ownership == "exact_exact":
-        assert target_components["other"]["Exact modules"] == module_name
+        assert intents["other"].exact_modules == (module_name,)
     else:
-        assert target_components["recursive"]["Packages"] == "sample.core"
-
-    diff_nodes = list(_walk(payload["explorers"]["diff"]))
-    diff_ids = {node["id"] for node in diff_nodes}
-    assert f"unmapped:{module_name}" in diff_ids
-    assert f"absent:COMP-EXACT:exact:{module_name}" not in diff_ids
-    assert f"observed-only-target:{module_name}" not in diff_ids
+        assert intents["recursive"].packages == ("sample.core",)
+    assert not any(module_name in values for values in assigned.values())
 
 
 def test_nested_sibling_conflict_stays_visible_with_unique_ancestor_owner(
@@ -868,22 +871,23 @@ def test_nested_sibling_conflict_stays_visible_with_unique_ancestor_owner(
     assert owner_of("sample.core", local_components) is None
     assert owner_of("sample.core", component_owners(root_observation)) == "app"
     assert "sample.core" in actual
-    target_components = {
-        node["label"]: {item["label"]: item["value"] for item in node["details"]}
-        for node in _walk(payload["explorers"]["target"])
-        if node["kind"] == "component"
+    report = parse_report(payload)
+    intents = {item.label: item for item in report.target.component_intents}
+    names = {item.id: item.qualified_name for item in report.observed.entities}
+    assigned = {
+        item.component_id: {names[identity] for identity in item.module_ids}
+        for item in report.memberships
     }
-    assert target_components["exact"]["Exact modules"] == "sample.core"
-    assert target_components["recursive"]["Packages"] == "sample.core"
+    assert intents["exact"].exact_modules == ("sample.core",)
+    assert intents["recursive"].packages == ("sample.core",)
+    assert "sample.core" in assigned[intents["app"].component_id]
+    assert not assigned[intents["exact"].component_id]
+    assert "sample.core" not in assigned[intents["recursive"].component_id]
     assert any(
-        node["kind"] == "module_target"
-        and any(
-            detail["label"] == "File" and detail["value"] == "sample/core/__init__.py"
-            for detail in node["details"]
-        )
-        for node in _walk(payload["explorers"]["target"])
+        item.path == "sample/core/__init__.py"
+        for inventory in report.target.module_inventories
+        for item in inventory.modules
     )
-    assert "unmapped:sample.core" in {node["id"] for node in _walk(payload["explorers"]["diff"])}
 
 
 def test_valid_exact_child_under_package_ancestor_is_not_ambiguous(
@@ -915,17 +919,15 @@ def test_valid_exact_child_under_package_ancestor_is_not_ambiguous(
     assert owner_of("sample.core", local_components) == "registry"
     assert owner_of("sample.core", component_owners(saved_observation)) == "app"
     assert "sample.core" in actual
-    target_registry = next(
-        node
-        for node in _walk(payload["explorers"]["target"])
-        if node["kind"] == "component" and node["label"] == "registry"
-    )
-    assert {item["label"]: item["value"] for item in target_registry["details"]}[
-        "Exact modules"
-    ] == "sample.core"
-    assert "unmapped:sample.core" not in {
-        node["id"] for node in _walk(payload["explorers"]["diff"])
+    report = parse_report(payload)
+    intents = {item.label: item for item in report.target.component_intents}
+    names = {item.id: item.qualified_name for item in report.observed.entities}
+    assigned = {
+        item.component_id: {names[identity] for identity in item.module_ids}
+        for item in report.memberships
     }
+    assert intents["registry"].exact_modules == ("sample.core",)
+    assert "sample.core" in assigned[intents["registry"].component_id]
 
 
 def test_same_component_package_and_exact_overlap_is_one_inventory_owner(
@@ -943,17 +945,13 @@ def test_same_component_package_and_exact_overlap_is_one_inventory_owner(
     assert owner_of("sample.core", component_owners(root_observation)) == "registry"
     assert owner_of("sample.core", component_owners(saved_observation)) == "registry"
     assert "sample.core" in actual
-    registry = next(
-        node
-        for node in _walk(payload["explorers"]["target"])
-        if node["kind"] == "component" and node["label"] == "registry"
-    )
-    assert {item["label"]: item["value"] for item in registry["details"]}[
-        "Exact modules"
-    ] == "sample.core"
-    assert {item["label"]: item["value"] for item in registry["details"]}["Packages"] == (
-        "sample.core"
-    )
-    assert "unmapped:sample.core" not in {
-        node["id"] for node in _walk(payload["explorers"]["diff"])
+    report = parse_report(payload)
+    intents = {item.label: item for item in report.target.component_intents}
+    names = {item.id: item.qualified_name for item in report.observed.entities}
+    assigned = {
+        item.component_id: {names[identity] for identity in item.module_ids}
+        for item in report.memberships
     }
+    assert intents["registry"].exact_modules == ("sample.core",)
+    assert intents["registry"].packages == ("sample.core",)
+    assert "sample.core" in assigned[intents["registry"].component_id]

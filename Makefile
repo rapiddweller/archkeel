@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: against gate check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield
+.PHONY: against gate check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema
 check: lint typecheck test
 
 gate: release-check self-validate
@@ -35,14 +35,18 @@ LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/r
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/reproduce_typescript.py \
-	fixtures/architecture_demo.py fixtures/demo_catalog_*.py
+	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
+	tools/architecture_graph_schema.py
+
+architecture-graph-schema:
+	$(UV) run --locked python -m tools.architecture_graph_schema schema/architecture-graph.schema.json --contract schema/architecture-contract.schema.json --comparison schema/architecture-comparison.schema.json --report schema/architecture-report.schema.json
 
 lint:
 	$(UV) run --locked ruff format --check $(LINT_PATHS)
 	$(UV) run --locked ruff check $(LINT_PATHS)
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/github_pr_report.py tools/against.py
+	$(UV) run --locked mypy src/archkeel tools/github_pr_report.py tools/against.py tools/architecture_graph_schema.py
 
 fixtures:
 	$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)")
@@ -121,7 +125,7 @@ plugin-directory:
 		cp -R "$$stage/archkeel/." plugins/archkeel/
 
 report-browser:
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q tests/test_actual_target_diff_acceptance.py tests/test_diff_scope_acceptance.py tests/test_target_diagram_acceptance.py tests/test_target_readability.py tests/test_target_hierarchy_independent_acceptance.py tests/test_consistent_explorer_acceptance.py tests/test_compact_report_headers.py tests/test_frame_edge_semantics.py tests/test_exact_module_target_leaf.py tests/test_secondary_table_acceptance.py
+	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q tests/test_report_interactions.py tests/test_report_migration_negatives.py tests/test_secondary_table_acceptance.py tests/test_uml_rendering.py tests/test_legacy_graph_rendering.py tests/test_own_uml_target.py tests/test_uml_visual_acceptance.py
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m tools.report_browser $(if $(OUTPUT),--output "$(OUTPUT)")
 
 # Twine validates PyPI metadata; it is a build-only tool.

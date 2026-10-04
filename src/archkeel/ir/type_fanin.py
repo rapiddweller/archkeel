@@ -71,6 +71,7 @@ def type_fanin(observation: Observation) -> TypeFanin:
         name: record
         for record in observation.records("symbols") or ()
         if (name := text_value(record.data.get("qualified_name")))
+        and not record.data.get("definition_contexts")
     }
     # One (source, target, function) triple per crossing function, however many call sites
     # import it: a function imported five times by one component crosses one pair, not five.

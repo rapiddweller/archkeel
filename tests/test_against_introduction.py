@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
@@ -79,7 +80,12 @@ def test_a_scope_directory_that_is_not_utf8_reads_and_names_its_blobs(tmp_path: 
     """Only a message needs the directory's name, and a name no reader decodes cannot stop it."""
     root = _prepare_repo(tmp_path, {})
     scope = root / os.fsdecode(b"app\xff")
-    shutil.copytree(DART_FIXTURE_DIR, scope)
+    try:
+        shutil.copytree(DART_FIXTURE_DIR, scope)
+    except OSError as error:
+        if error.errno == errno.EILSEQ:
+            pytest.skip("Filesystem rejects non-UTF-8 directory names; this requires Linux.")
+        raise
     _git(root, "add", "-A")
     _git(root, "commit", "-q", "-m", "app")
     base = _base(root)

@@ -9,7 +9,7 @@ import ast
 import hashlib
 import sys
 from collections import Counter
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -42,6 +42,28 @@ class _PropertyBinding(TypedDict):
 
 
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
+DefinitionNode = ast.ClassDef | FunctionNode
+DefinitionContexts = tuple[tuple[ast.AST, str, str], ...]
+
+_CONTROL_FLOW_KINDS = {
+    ast.If: "if",
+    ast.For: "for",
+    ast.AsyncFor: "async_for",
+    ast.While: "while",
+    ast.Try: "try",
+    ast.TryStar: "try_star",
+    ast.With: "with",
+    ast.AsyncWith: "async_with",
+    ast.Match: "match",
+}
+_DEFINITION_BRANCHES = {
+    "body": "body",
+    "orelse": "else",
+    "handlers": "handler",
+    "finalbody": "finally",
+    "cases": "case",
+}
+
 NATIVE_DATACLASS_DECORATOR: Final = "dataclasses.dataclass"
 NATIVE_TYPED_DICT_BASE: Final = "typing.TypedDict"
 DATACLASS_DECORATORS: Final = frozenset(
@@ -70,6 +92,72 @@ def location(node: ast.AST) -> tuple[int, int, int]:
         return 1, 1, 0
     line = max(node.lineno, 1)
     return line, node.end_lineno or line, node.col_offset
+
+
+def definition_id(module: ParsedModule, node: ast.AST, qualified_name: str) -> str:
+    """Collectors must agree on a definition site, even when its name is reused."""
+    line, _, column = location(node)
+    return stable_id("SYM", qualified_name, module.rel_path, line, column)
+
+
+def definition_sites(
+    node: ast.AST,
+    parent: DefinitionNode | None = None,
+    contexts: DefinitionContexts = (),
+) -> Iterator[tuple[DefinitionNode, DefinitionNode | None, DefinitionContexts]]:
+    if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+        yield node, parent, contexts
+        parent = node
+    for field_name, children in ast.iter_fields(node):
+        if field_name not in _DEFINITION_BRANCHES or not isinstance(children, list):
+            continue
+        for child in children:
+            if isinstance(child, ast.AST):
+                nested = contexts
+                if type(node) in _CONTROL_FLOW_KINDS:
+                    nested = (*contexts, _branch_context(node, child, field_name))
+                yield from definition_sites(child, parent, nested)
+
+
+def _branch_context(node: ast.AST, child: ast.AST, field_name: str) -> tuple[ast.AST, str, str]:
+    site = (
+        child
+        if isinstance(child, ast.ExceptHandler)
+        else child.pattern
+        if isinstance(child, ast.match_case)
+        else node
+    )
+    return site, _CONTROL_FLOW_KINDS[type(node)], _DEFINITION_BRANCHES[field_name]
+
+
+def control_flow_contexts(node: ast.AST, parents: Mapping[ast.AST, ast.AST]) -> DefinitionContexts:
+    contexts: list[tuple[ast.AST, str, str]] = []
+    while node in parents:
+        parent = parents[node]
+        if type(parent) in _CONTROL_FLOW_KINDS:
+            for field_name, children in ast.iter_fields(parent):
+                if (
+                    field_name in _DEFINITION_BRANCHES
+                    and isinstance(children, list)
+                    and node in children
+                ):
+                    contexts.append(_branch_context(parent, node, field_name))
+                    break
+        node = parent
+    return tuple(reversed(contexts))
+
+
+def lexical_binding_names(node: DefinitionNode) -> frozenset[str]:
+    """Visible binders invalidate a module lookup; this does not prove local values."""
+    names = set(_bound_names(own_scope(node)))
+    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+        args = node.args
+        names.update(arg.arg for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs))
+        if args.vararg:
+            names.add(args.vararg.arg)
+        if args.kwarg:
+            names.add(args.kwarg.arg)
+    return frozenset(names)
 
 
 def attribute_path(node: ast.Attribute) -> tuple[str, list[str]] | None:
@@ -115,7 +203,7 @@ def function_class_owners(tree: ast.Module, module_name: str) -> dict[int, str]:
     return owners
 
 
-def own_scope(node: FunctionNode) -> Iterator[ast.AST]:
+def own_scope(node: DefinitionNode) -> Iterator[ast.AST]:
     """Walk a function's body, stopping at a nested function, lambda or class of its own.
 
     The unused-binding collector and the call collector both need this exact boundary: a
@@ -136,7 +224,7 @@ def own_scope(node: FunctionNode) -> Iterator[ast.AST]:
 @dataclass(frozen=True)
 class AliasBinding:
     target: str
-    kind: str
+    kind: Literal["module", "symbol"]
     imported_name: str | None = None
 
 
@@ -179,6 +267,7 @@ class ParsedModule:
     lines: list[str]
     tree: ast.Module
     aliases: dict[str, AliasBinding] = field(default_factory=dict)
+    import_aliases: dict[ast.AST, dict[str, AliasBinding]] = field(default_factory=dict)
     all_exports: set[str] = field(default_factory=set)
     # AD-99: `all_exports` is the module's whole `__all__`, bound once to a literal.
     all_literal: bool = False

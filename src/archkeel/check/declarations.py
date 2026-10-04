@@ -38,6 +38,7 @@ from archkeel.ir.model import (
     RootLayoutRule,
     SiblingIsolationRule,
     SymbolPlacementRule,
+    public_api_id,
     stable_id,
 )
 from archkeel.ir.type_shapes import TypeShapeIndex
@@ -369,6 +370,8 @@ def project_inside_declarations(
                 **({"namespace": component.namespace} if component.namespace else {}),
                 **({"public": sorted(component.public)} if component.public is not None else {}),
                 **({"planned": sorted(component.planned)} if component.planned is not None else {}),
+                "role": component.role.value,
+                "forbidden_responsibilities": sorted(component.forbidden_responsibilities),
                 **(
                     {"decided_by": component.decided_by} if component.decided_by is not None else {}
                 ),
@@ -511,7 +514,7 @@ def project_declarations(
     for api in sorted(declarations.public_api):
         items.append(
             classified(
-                item_id=f"API-{hashlib.sha256(api.encode()).hexdigest()[:16]}",
+                item_id=public_api_id(api),
                 evidence_class=EvidenceClass.DECLARED_RULE,
                 area="api_surface",
                 kind="declared_public_api",

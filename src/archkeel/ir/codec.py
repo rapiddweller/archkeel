@@ -10,11 +10,12 @@ import json
 import re
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, replace
 from math import isfinite
 from pathlib import PurePosixPath
-from typing import Any, Final, Literal, TypeAlias, TypeGuard, get_args
+from typing import Any, Final, Literal, TypeGuard, get_args
 
+from archkeel.ir.architecture_graph import validate_layout_rule, validate_module_target
 from archkeel.ir.baseline import (
     BASELINE_SCHEMA_VERSION,
     LEGACY_BASELINE_SCHEMA_VERSION,
@@ -26,6 +27,7 @@ from archkeel.ir.baseline import (
     canonical_fingerprint,
     violation_name,
 )
+from archkeel.ir.graph_codec import parse_target
 from archkeel.ir.lock import LOCK_SCHEMA_VERSION, AcceptedLock, LockError
 from archkeel.ir.measurements import (
     SCALARS,
@@ -103,7 +105,23 @@ from archkeel.ir.model import (
     contract_relative_path,
     identity_is_known,
 )
+from archkeel.ir.model import (
+    ContractInputError as ContractInputError,
+)
+from archkeel.ir.model import (
+    InsideContractIssue as InsideContractIssue,
+)
+from archkeel.ir.model import (
+    InsideContractMount as InsideContractMount,
+)
+from archkeel.ir.model import (
+    InsideContractTree as InsideContractTree,
+)
+from archkeel.ir.model import (
+    RawJson as RawJson,
+)
 from archkeel.ir.profiles import Profile, profile_for
+from archkeel.ir.target_graph import declared_graph, scoped_target
 from archkeel.ir.widening import AMENDMENT_SCHEMA_VERSION, Amendment
 
 from .facts_codec import (
@@ -122,7 +140,6 @@ _PUBLIC_ENTRY = re.compile(
     r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*(?::[A-Za-z_][A-Za-z0-9_]*)?$"
 )
 _PACKAGE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$")
-RawJson: TypeAlias = str | int | float | bool | None | Sequence["RawJson"] | Mapping[str, "RawJson"]
 
 _MISSING_VALUE = object()
 _TOP_LEVEL = {
@@ -160,15 +177,6 @@ class ContractVersionError(ValueError):
     def __init__(self, actual: str) -> None:
         self.actual = actual
         super().__init__(f"contract.schema_version {actual!r} is not {CONTRACT_SCHEMA_VERSION}")
-
-
-class ContractInputError(ValueError):
-    """A contract declaration fails a semantic check and has a source location."""
-
-    def __init__(self, pointer: str, subject: str, message: str) -> None:
-        self.pointer = pointer
-        self.subject = subject
-        super().__init__(message)
 
 
 def _object(raw: object, label: str) -> dict[str, RawJson]:
@@ -670,9 +678,12 @@ def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
     return result
 
 
-def decode_json(payload: bytes | str) -> object:
+def decode_json(payload: bytes | str) -> RawJson:
     try:
-        return json.loads(payload.decode("utf-8") if isinstance(payload, bytes) else payload)
+        value: RawJson = json.loads(
+            payload.decode("utf-8") if isinstance(payload, bytes) else payload
+        )
+        return value
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"invalid JSON: {exc}") from exc
 
@@ -735,7 +746,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
         {"$schema", "declarations"},
         "contract",
     )
-    if root["schema_version"] != CONTRACT_SCHEMA_VERSION:
+    if root["schema_version"] == "2.1.0":
+        version: Literal["2.1.0", "2.2.0"] = "2.1.0"
+    elif root["schema_version"] == "2.2.0":
+        version = "2.2.0"
+    else:
         raise ContractVersionError(str(root["schema_version"]))
     components_raw = root["components"]
     rules_raw = root["rules"]
@@ -762,6 +777,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
                 "facade_budgets",
                 "coupling_budgets",
                 "modules",
+                "uml",
             },
             "contract.declarations",
         )
@@ -844,6 +860,9 @@ def parse_contract(raw: object) -> ArchitectureContract:
     )
     if modules is not None and len({item.path for item in modules}) != len(modules):
         raise ValueError("contract.declarations.modules repeats a path")
+    if "uml" in declarations and version != "2.2.0":
+        raise ValueError("UML declarations require contract schema_version 2.2.0")
+    uml = parse_target(declarations["uml"]) if "uml" in declarations else None
     rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     labels = {component.label for component in components}
     seen_labels: set[str] = set()
@@ -875,11 +894,14 @@ def parse_contract(raw: object) -> ArchitectureContract:
         for group in (capabilities, components, scopes, commands, paths, owners, rules)
         for item in group
     ]
+    if uml is not None:
+        ids.extend(entity.id for entity in uml.entities)
+        ids.extend(edge.id for edge in uml.relationships)
     if len(ids) != len(set(ids)):
         raise ValueError("duplicate contract ID")
     schema = root.get("$schema")
-    return ArchitectureContract(
-        CONTRACT_SCHEMA_VERSION,
+    contract = ArchitectureContract(
+        version,
         components,
         rules,
         _nonempty(schema, "contract.$schema") if schema is not None else None,
@@ -908,10 +930,14 @@ def parse_contract(raw: object) -> ArchitectureContract:
             facade_budgets,
             coupling_budgets,
             modules,
+            uml,
         )
         if declarations_raw is not None
         else None,
     )
+    if uml is not None:
+        declared_graph(contract)
+    return contract
 
 
 def contract_bytes(contract: ArchitectureContract) -> bytes:
@@ -924,7 +950,12 @@ def contract_bytes(contract: ArchitectureContract) -> bytes:
             encoded_rule.pop("allowed_type_ignores")
     schema = fields.pop("schema")
     document = {**({"$schema": schema} if schema is not None else {}), **fields}
-    return (json.dumps(_without_none(document), indent=2, ensure_ascii=False) + "\n").encode()
+    encoded = _object(_without_none(document), "contract")
+    if contract.declarations is not None and contract.declarations.uml is not None:
+        declarations = _object(encoded["declarations"], "declarations")
+        declarations["uml"] = asdict(contract.declarations.uml)
+    text: str = json.dumps(encoded, indent=2, ensure_ascii=False) + "\n"
+    return text.encode()
 
 
 def contract_digest(contract: ArchitectureContract) -> str:
@@ -991,9 +1022,12 @@ def _parse_module_target(raw: RawJson, label: str) -> ContractModuleTarget:
     ):
         raise ValueError(f"{label}.path must be a repository-relative source path")
     responsibility = _nonempty(item["responsibility"], f"{label}.responsibility")
-    if "\n" in responsibility or "\r" in responsibility:
-        raise ValueError(f"{label}.responsibility must be one sentence on one line")
-    return ContractModuleTarget(path, responsibility)
+    target = ContractModuleTarget(path, responsibility)
+    try:
+        validate_module_target(target)
+    except ValueError as error:
+        raise ValueError(f"{label}.{error}") from error
+    return target
 
 
 def _public_entry(value: str, label: str) -> str:
@@ -1002,7 +1036,7 @@ def _public_entry(value: str, label: str) -> str:
     return value
 
 
-def _required_component(raw: RawJson, label: str) -> RequiredComponent:
+def parse_required_component(raw: RawJson, label: str = "requires") -> RequiredComponent:
     item = _contract_fields(raw, {"component", "rationale"}, {"through", "decided_by"}, label)
     decided_by = item.get("decided_by")
     return RequiredComponent(
@@ -1073,7 +1107,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
         raise ValueError(f"{label}.requires must be a list")
     requires = (
         tuple(
-            _required_component(value, f"{label}.requires[{index}]")
+            parse_required_component(value, f"{label}.requires[{index}]")
             for index, value in enumerate(requires_raw)
         )
         if requires_raw is not None
@@ -1371,19 +1405,7 @@ def _parse_root_layout(raw: RawJson, label: str) -> RootLayoutRule:
     )
     root = _nonempty(item["root"], f"{label}.root")
     allowed_children = _contract_strings(item["allowed_children"], f"{label}.allowed_children")
-    root_length = len(root)
-    for index, child in enumerate(allowed_children):
-        if (
-            len(child) <= root_length + 1
-            or child[:root_length] != root
-            or child[root_length] != "."
-            or any(part == "." for part in child[root_length + 1 :])
-        ):
-            raise ValueError(
-                f"{label}.allowed_children[{index}] must be exactly one immediate child "
-                f"of {label}.root"
-            )
-    return RootLayoutRule(
+    rule = RootLayoutRule(
         item_id,
         "root_layout",
         root,
@@ -1392,6 +1414,11 @@ def _parse_root_layout(raw: RawJson, label: str) -> RootLayoutRule:
         provenance,
         _decided_by(item["decided_by"], f"{label}.decided_by"),
     )
+    try:
+        validate_layout_rule(rule)
+    except ValueError as error:
+        raise ValueError(f"{label}.{error}") from error
+    return rule
 
 
 def _parse_complete_external_scope(raw: RawJson, label: str) -> CompleteExternalScopeRule:
@@ -2017,7 +2044,7 @@ def parse_lock(payload: bytes) -> AcceptedLock:
 def contract_provenance_paths(contract: ArchitectureContract) -> tuple[str, ...]:
     """Return every repository path cited as contract provenance."""
     declarations = contract.declarations or ContractDeclarations()
-    paths = {
+    paths: set[str] = {
         *declarations.public_api_provenance,
         *declarations.context_roots_provenance,
     }
@@ -2035,48 +2062,14 @@ def contract_provenance_paths(contract: ArchitectureContract) -> tuple[str, ...]
     ):
         for record in records:
             paths.update(record.provenance)
+    if declarations.uml is not None:
+        for entity in declarations.uml.entities:
+            paths.update(entity.provenance)
+        for edge in declarations.uml.relationships:
+            paths.update(edge.provenance)
+        for scope in declarations.uml.scopes:
+            paths.update(scope.provenance)
     return tuple(sorted(paths))
-
-
-@dataclass(frozen=True)
-class InsideContractMount:
-    """One explicitly mounted contract, scoped by the component that names it."""
-
-    parent: ContractComponent
-    parent_contract: ArchitectureContract
-    owner_id: str
-    parent_id: str
-    pointer: str
-    path: str
-    identity: str
-    contract: ArchitectureContract
-    digest: str
-    canonical_digest: str
-
-
-@dataclass(frozen=True)
-class InsideContractIssue:
-    """A declared inside reference that cannot be safely mounted."""
-
-    parent: ContractComponent
-    parent_id: str
-    pointer: str
-    path: str
-    reason: str
-    input_error: ContractInputError | None = None
-
-
-@dataclass(frozen=True)
-class InsideContractTree:
-    """One deterministic depth-first view of a root contract and all explicit insides."""
-
-    root: ArchitectureContract
-    mounts: tuple[InsideContractMount, ...]
-    issues: tuple[InsideContractIssue, ...]
-    paths: tuple[str, ...]
-    digest: str
-    comparison_digest: str
-    comparison_contract: ArchitectureContract
 
 
 def _scoped_inside_contract(parent_id: str, contract: ArchitectureContract) -> ArchitectureContract:
@@ -2086,6 +2079,11 @@ def _scoped_inside_contract(parent_id: str, contract: ArchitectureContract) -> A
             replace(item, id=f"{parent_id}:{item.id}") for item in contract.components
         ),
         rules=tuple(replace(item, id=f"{parent_id}:{item.id}") for item in contract.rules),
+        declarations=replace(
+            contract.declarations, uml=scoped_target(contract.declarations.uml, parent_id)
+        )
+        if contract.declarations is not None
+        else None,
     )
 
 
@@ -2236,7 +2234,7 @@ def _read_inside_mount(
     seen.add(identity)
     _record_inside_policy(parent, parent_id, location, reference, contract, paths, issues)
     scoped = _scoped_inside_contract(parent_id, contract)
-    scoped_ids = {item.id for item in (*scoped.components, *scoped.rules)}
+    scoped_ids = _contract_record_ids(scoped)
     collision = next((item for item in sorted(scoped_ids) if item in record_ids), None)
     if collision is not None:
         issues.append(
@@ -2319,6 +2317,8 @@ def _contract_record_ids(contract: ArchitectureContract) -> set[str]:
             declarations.public_commands,
             declarations.paths,
             declarations.spot_owners,
+            declarations.uml.entities if declarations.uml is not None else (),
+            declarations.uml.relationships if declarations.uml is not None else (),
         )
         for item in items
     }

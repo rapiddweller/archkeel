@@ -22,6 +22,7 @@ from archkeel.cli import main
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.graph_codec import parse_report
 from archkeel.ir.measurements import SCALARS, compare_measurements
 from archkeel.ir.model import (
     ArchitectureRule,
@@ -95,82 +96,38 @@ def test_target_hierarchy_demo_reports_declared_targets(
     html = output.with_name(f"{variant_id}.report.html").read_text()
     marker = html.index('id="flow-data"')
     payload = json.loads(html[html.index(">", marker) + 1 : html.index("</script>", marker)])
-    diagrams = payload["explorers"]["target_diagrams"]
-    root = diagrams["root"]
-    root_nodes = {node["id"]: node for node in root["nodes"]}
-    target_nodes: dict[str, dict[str, object]] = {}
-    pending = list(payload["explorers"]["target"])
-    while pending:
-        node = pending.pop()
-        target_nodes[node["id"]] = node
-        pending.extend(node["children"])
-
+    graph = parse_report(payload).target
+    assert graph is not None
+    intents = {item.component_id: item for item in graph.component_intents}
+    assert {"COMP-APP", "COMP-CLI", "COMP-STORE"} <= intents.keys()
     if variant_id == "target-hierarchy-positive":
-        root_layout = next(
-            assessment
-            for assessment in report["rule_assessments"]
-            if assessment["id"] == "ROOT-LAYOUT"
+        layout = next(item for item in report["rule_assessments"] if item["id"] == "ROOT-LAYOUT")
+        assert (layout["status"], layout["provenance"]) == ("PASS", ["docs/architecture/shop.md"])
+        assert intents["COMP-APP"].public == ("shop.app.orders:place_order",)
+        assert any(
+            item.source_id == "COMP-APP"
+            and item.target_id == "COMP-STORE"
+            and item.through == ("shop.store.repository:OrderRepository",)
+            for item in graph.relationships
+            if item.kind == "requires"
         )
-        assert (root_layout["status"], root_layout["provenance"]) == (
-            "PASS",
-            ["docs/architecture/shop.md"],
-        )
-        assert [
-            detail["value"]
-            for detail in root_nodes["COMP-APP"]["details"]
-            if detail["label"] == "Public interface"
-        ] == ["shop.app.orders:place_order"]
-        assert {
-            detail["label"]: detail["value"]
-            for detail in target_nodes["requires:COMP-APP:store"]["details"]
-        }["Through"] == "shop.store.repository:OrderRepository"
-        assert root["containers"]["layout:ROOT-LAYOUT"]["members"] == [
-            "COMP-APP",
-            "COMP-CLI",
-            "COMP-MODEL",
-            "COMP-RENDER",
-            "COMP-STORE",
-        ]
-        assert "COMP-STORE" in root_nodes
-        assert diagrams["nested"]["COMP-STORE"]["containers"]["layout:store:STORE-ROOT-LAYOUT"][
-            "members"
-        ] == [
-            "store:COMP-STORE-API",
-            "store:COMP-STORE-BACKEND",
-            "store:COMP-STORE-CODEC",
-            "store:COMP-STORE-REPOSITORY",
-        ]
+        assert any(item.parent_id == "COMP-STORE" for item in graph.component_intents)
     elif variant_id == "target-hierarchy-ambiguous":
-        assert root_nodes["COMP-APP"]["placement"] == {
-            "status": "ambiguous",
-            "scopes": ["shop.app"],
-            "container": None,
-        }
+        assert sum("shop.app" in item.allowed_children for item in graph.layout_rules) == 2
     elif variant_id == "target-hierarchy-missing":
-        layout = diagrams["nested"]["layout:ROOT-LAYOUT"]
-        assert "physical:shop.missing" in {node["id"] for node in layout["nodes"]}
+        assert any("shop.missing" in item.allowed_children for item in graph.layout_rules)
     else:
-        assert {node["id"] for node in root["nodes"]} >= {
-            "COMP-APP",
-            "COMP-CLI",
-            "COMP-STORE",
-        }
-        assert root_nodes["COMP-APP"]["dependency_rank"] is None
-        assert root_nodes["COMP-CLI"]["dependency_rank"] is None
-        assert root_nodes["COMP-STORE"]["dependency_rank"] is None
+        assert {
+            (item.source_id, item.target_id)
+            for item in graph.relationships
+            if item.kind == "requires"
+        } >= {("COMP-APP", "COMP-STORE"), ("COMP-CLI", "COMP-APP"), ("COMP-STORE", "COMP-APP")}
         assert (
             next(
-                assessment
-                for assessment in report["rule_assessments"]
-                if assessment["id"] == "COMPONENT-NO-CYCLES"
+                item for item in report["rule_assessments"] if item["id"] == "COMPONENT-NO-CYCLES"
             )["status"]
             == "PASS"
         )
-        assert {edge["declaration"] for edge in root["edges"]} >= {
-            "requires:COMP-APP:store",
-            "requires:COMP-CLI:app",
-            "requires:COMP-STORE:app",
-        }
 
 
 def test_recursive_wide_package_root_executes(tmp_path: Path) -> None:
@@ -457,12 +414,22 @@ def test_recursive_wide_report_includes_catalog_isolated_module_and_package_root
     begin = html.index(">", begin) + 1
     end = html.index("</script>", begin)
     flow = json.loads(html[begin:end])
-    store = next(item for item in flow["components"] if item["label"] == "store")
-    backend = next(item for item in store["inside"]["components"] if item["label"] == "backend")
-    tasks = next(item for item in backend["inside"]["components"] if item["label"] == "tasks")
-    assert set(flow["modules"]) == expected
-    assert "shop.store.backend.tasks.isolated" in tasks["inside"]["unassigned"]
-    assert "shop.store.backend.tasks" in tasks["inside"]["unassigned"]
+    graph_report = parse_report(flow)
+    assert {
+        item.qualified_name
+        for item in graph_report.observed.entities
+        if item.kind == "module" and item.presence == "defined"
+    } == expected
+    tasks = next(
+        item.component_id for item in graph_report.target.component_intents if item.label == "tasks"
+    )
+    names = {item.id: item.qualified_name for item in graph_report.observed.entities}
+    assert {"shop.store.backend.tasks.isolated", "shop.store.backend.tasks"} <= {
+        names[item]
+        for membership in graph_report.memberships
+        if membership.component_id == tasks
+        for item in membership.module_ids
+    }
 
 
 def test_class_a_covers_every_rule_kind() -> None:

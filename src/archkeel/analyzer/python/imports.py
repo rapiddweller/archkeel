@@ -191,7 +191,7 @@ class ImportCollector(ast.NodeVisitor):
             binding = alias.asname or alias.name.split(".")[0]
             # ``import a.b`` binds ``a``; ``import a.b as b`` binds the full module.
             binding_target = alias.name if alias.asname else alias.name.split(".")[0]
-            self.module.aliases[binding] = AliasBinding(target=binding_target, kind="module")
+            self._bind(node, binding, AliasBinding(target=binding_target, kind="module"))
             self._record(node, target=alias.name, symbol=None, binding=binding, relative_level=0)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
@@ -213,10 +213,14 @@ class ImportCollector(ast.NodeVisitor):
             symbol = None if target == submodule else alias.name
             binding = alias.asname or alias.name
             binding_target = target if symbol is None else f"{target}.{symbol}"
-            self.module.aliases[binding] = AliasBinding(
-                target=binding_target,
-                kind="module" if symbol is None else "symbol",
-                imported_name=alias.name,
+            self._bind(
+                node,
+                binding,
+                AliasBinding(
+                    target=binding_target,
+                    kind="module" if symbol is None else "symbol",
+                    imported_name=alias.name,
+                ),
             )
             self._record(
                 node,
@@ -225,6 +229,12 @@ class ImportCollector(ast.NodeVisitor):
                 binding=binding,
                 relative_level=node.level,
             )
+
+    def _bind(self, node: ast.AST, name: str, binding: AliasBinding) -> None:
+        # A function or class import cannot change the module's namespace.
+        self.module.import_aliases.setdefault(node, {})[name] = binding
+        if id(node) in self.module_level_imports:
+            self.module.aliases[name] = binding
 
     def _record(
         self,

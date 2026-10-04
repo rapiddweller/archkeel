@@ -15,6 +15,7 @@ from test_architecture_demo import _prepare_repo
 from archkeel.check.observation import _declared_module_name
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
+from archkeel.check.uml import assemble_uml
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     contract_bytes,
@@ -22,6 +23,8 @@ from archkeel.ir.codec import (
     parse_contract,
     parse_observation,
 )
+from archkeel.ir.graph_codec import parse_report
+from archkeel.ir.model import Diagnostic, ObservationResult
 from archkeel.render.html import render_html
 
 ROOT = Path(__file__).parents[1]
@@ -183,6 +186,14 @@ def _report(
         )
         assert observation.coverage.status == "FAIL"
         assert observation.coverage.failures
+        incomplete = ObservationResult(
+            observation,
+            observation.coverage,
+            (Diagnostic("parse_error", "sample", "Source was excluded.", "Repeat with source."),),
+        )
+        compiled = assemble_uml(incomplete, root, config.contract)
+        assert compiled.diagnostics == incomplete.diagnostics and compiled.observation is not None
+        observation = compiled.observation
     page = render_html(
         result, observation, repository="sample", architecture_href="architecture.json"
     ).decode()
@@ -222,27 +233,16 @@ def test_explicit_empty_module_inventory_differs_from_omission(tmp_path: Path) -
     omitted.pop("declarations", None)
     _, _, legacy, legacy_actual = _report(tmp_path / "legacy", omitted)
     assert legacy is not None
-    legacy_explorers = legacy["explorers"]
-    assert not any(node["id"] == "module-targets" for node in legacy_explorers["target"])
-    assert not any(
-        node["kind"] == "observed_only_module_target" for node in _walk(legacy_explorers["diff"])
-    )
+    legacy_report = parse_report(legacy)
+    assert legacy_report.target.module_inventories == ()
 
     (tmp_path / "empty").mkdir()
     empty = _contract()
     empty["declarations"] = {"modules": []}
     _, _, inventory, actual = _report(tmp_path / "empty", empty)
-    assert inventory is not None
-    explorers = inventory["explorers"]
-    module_inventory = next(
-        node for node in explorers["target"] if node["label"] == "Declared module inventory"
-    )
-    assert module_inventory["label"] == "Declared module inventory"
-    assert module_inventory["children"] == []
-    observed_only = [
-        node for node in _walk(explorers["diff"]) if node["kind"] == "observed_only_module_target"
-    ]
-    assert _observed_files(observed_only) == _observed_files(explorers["actual"])
+    empty_report = parse_report(inventory)
+    assert len(empty_report.target.module_inventories) == 1
+    assert empty_report.target.module_inventories[0].modules == ()
     assert actual == legacy_actual
 
 
@@ -317,17 +317,15 @@ def test_nested_module_targets_are_repo_local_and_reachable_at_depth(tmp_path: P
         nested_modules=[_module("sample/core/api.py", "Expose the supported core API.")],
     )
     assert payload is not None
-    explorers = payload["explorers"]
-    target = list(_walk(explorers["target"]))
-    module = next(node for node in target if _declared_file(node) == "sample/core/api.py")
-    assert module["kind"] == "module_target"
-    assert {item["value"] for item in module["details"]} >= {
-        "sample/core/api.py",
-        "Expose the supported core API.",
-        "contracts/two.json",
-    }
-    assert "sample.core.api" in actual
-    assert "sample.core.private" in actual
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    inventory = next(item for item in inventories if "contracts/two.json" in item.provenance)
+    assert [(item.path, item.responsibility) for item in inventory.modules] == [
+        ("sample/core/api.py", "Expose the supported core API.")
+    ]
+    assert inventory.component_id is not None
+    assert {"sample.core.api", "sample.core.private"} <= actual
 
 
 def test_target_and_diff_keep_declared_and_observed_modules_independent(tmp_path: Path) -> None:
@@ -340,32 +338,20 @@ def test_target_and_diff_keep_declared_and_observed_modules_independent(tmp_path
     }
     _, _, payload, actual = _report(tmp_path, raw)
     assert payload is not None
-    explorers = payload["explorers"]
-    target = list(_walk(explorers["target"]))
-    diff = list(_walk(explorers["diff"]))
-
-    assert {_declared_file(node) for node in target if node["kind"] == "module_target"} == {
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    assert {item.path for inventory in inventories for item in inventory.modules} == {
         "sample/core/api.py",
         "sample/core/missing.py",
     }
-    assert "sample.core.api" in actual
-    assert "sample.core.missing" not in actual
-    core = next(node for node in _walk(explorers["target"]) if node["label"] == "core")
-    missing = next(
-        node for node in _walk([core]) if _declared_file(node) == "sample/core/missing.py"
-    )
-    assert "Navigation" in {detail["label"] for detail in missing["details"]}
-    assert any(
-        node["label"] == "sample/core/missing.py"
-        or _declared_file(node) == "sample/core/missing.py"
-        for node in diff
-    )
-
-    # This observed file has no exact declaration. Keep it in Diff as observed-only even though
-    # the broad component package owns its semantic import boundary.
+    assert "sample.core.api" in actual and "sample.core.missing" not in actual
     assert "sample.core.private" in actual
-    assert not any(_declared_file(node) == "sample/core/private.py" for node in target)
-    assert any(_declared_file(node) == "sample/core/private.py" for node in diff)
+    assert not any(
+        item.path == "sample/core/private.py"
+        for inventory in inventories
+        for item in inventory.modules
+    )
 
 
 def test_duplicate_exact_path_across_nested_contract_mounts_is_rejected(tmp_path: Path) -> None:
@@ -393,17 +379,18 @@ def test_root_declaration_provenance_survives_nested_component_navigation(tmp_pa
     )
     assert result.exit_code == 0
     assert payload is not None
-    target = payload["explorers"]["target"]
-    core = next(node for node in _walk(target) if node["label"] == "core")
-    module = next(node for node in _walk([core]) if _declared_file(node) == "sample/core/api.py")
-    assert {detail["label"]: detail["value"] for detail in module["details"]} == {
-        "File": "sample/core/api.py",
-        "Responsibility": "Own this module.",
-        "Declared in": "architecture-contract.json",
-        "Navigation": "Grouped by declared package scope sample.core.",
-    }
-    assert not any(node["kind"] == "folder" for node in _walk(target))
-    assert sum(_declared_file(node) == "sample/core/api.py" for node in _walk(target)) == 1
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    root_inventory = next(
+        item for item in inventories if item.provenance == ("architecture-contract.json",)
+    )
+    assert [(item.path, item.responsibility) for item in root_inventory.modules] == [
+        ("sample/core/api.py", "Own this module.")
+    ]
+    nested_inventory = next(item for item in inventories if "contracts/two.json" in item.provenance)
+    assert nested_inventory.modules[0].path == "sample/core/private.py"
+    assert root_inventory.component_id is None
 
 
 @pytest.mark.parametrize(
@@ -413,7 +400,7 @@ def test_root_declaration_provenance_survives_nested_component_navigation(tmp_pa
         ("sample/core/authoring/scaffold.py", "core", "architecture-contract.json"),
     ],
 )
-def test_declared_target_navigates_to_deepest_component_without_folders(
+def test_declared_file_intent_keeps_its_independent_scope(
     tmp_path: Path, path: str, component_label: str, declaration_source: str
 ) -> None:
     contract = _contract()
@@ -423,18 +410,15 @@ def test_declared_target_navigates_to_deepest_component_without_folders(
     result, _, payload, _ = _report(tmp_path, contract)
     assert result.exit_code == 0
     assert payload is not None
-    target = payload["explorers"]["target"]
-    component = next(node for node in _walk(target) if node["label"] == component_label)
-    module = next(node for node in _walk([component]) if _declared_file(node) == path)
-    assert module["kind"] == "module_target"
-    navigation_scope = "sample" if component_label == "app" else "sample.core"
-    assert {detail["label"]: detail["value"] for detail in module["details"]} == {
-        "File": path,
-        "Responsibility": "Navigate by declared package.",
-        "Declared in": declaration_source,
-        "Navigation": f"Grouped by declared package scope {navigation_scope}.",
-    }
-    assert sum(_declared_file(node) == path for node in _walk(target)) == 1
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    inventory = next(
+        item for item in inventories if any(module.path == path for module in item.modules)
+    )
+    assert inventory.provenance == (declaration_source,)
+    assert inventory.component_id is None
+    assert inventory.modules[0].responsibility == "Navigate by declared package."
 
 
 @pytest.mark.parametrize("roots", [("src",), ("src/sample",)])
@@ -456,11 +440,11 @@ def test_target_name_uses_configured_src_or_narrowed_root(
     )
     assert result.exit_code == 0
     assert payload is not None
-    core = next(node for node in _walk(payload["explorers"]["target"]) if node["label"] == "core")
-    module = next(node for node in _walk([core]) if _declared_file(node) == path)
-    assert "Grouped by declared package scope sample.core." in {
-        detail["value"] for detail in module["details"]
-    }
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    assert any(module.path == path for inventory in inventories for module in inventory.modules)
+    assert _declared_module_name(path, roots, "sample") == "sample.core.api"
 
 
 def test_init_module_target_maps_to_its_package(tmp_path: Path) -> None:
@@ -468,8 +452,15 @@ def test_init_module_target_maps_to_its_package(tmp_path: Path) -> None:
     contract["declarations"] = {"modules": [_module("sample/__init__.py")]}
     _, _, payload, _ = _report(tmp_path, contract)
     assert payload is not None
-    app = next(node for node in _walk(payload["explorers"]["target"]) if node["label"] == "app")
-    assert any(_declared_file(node) == "sample/__init__.py" for node in _walk([app]))
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    assert any(
+        module.path == "sample/__init__.py"
+        for inventory in inventories
+        for module in inventory.modules
+    )
+    assert _declared_module_name("sample/__init__.py", ("sample",), "sample") == "sample"
 
 
 @pytest.mark.parametrize(
@@ -490,13 +481,11 @@ def test_component_navigation_does_not_depend_on_source_state(
         source_paths=source_paths,
     )
     assert payload is not None
-    core = next(node for node in _walk(payload["explorers"]["target"]) if node["label"] == "core")
-    module = next(node for node in _walk([core]) if _declared_file(node) == path)
-    assert "Grouped by declared package scope sample.core." in {
-        detail["value"] for detail in module["details"]
-    }
-    if source_state != "present":
-        assert "sample.core.stateful" not in actual
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    assert any(module.path == path for inventory in inventories for module in inventory.modules)
+    assert ("sample.core.stateful" in actual) == (source_state == "present")
 
 
 def test_repeated_namespace_segment_does_not_falsely_match_nested_scope(tmp_path: Path) -> None:
@@ -505,13 +494,12 @@ def test_repeated_namespace_segment_does_not_falsely_match_nested_scope(tmp_path
     result, _, payload, _ = _report(tmp_path, contract)
     assert result.exit_code == 0
     assert payload is not None
-    target = payload["explorers"]["target"]
-    app = next(node for node in _walk(target) if node["label"] == "app")
-    core = next(node for node in _walk(target) if node["label"] == "core")
-    assert any(_declared_file(node) == "sample/vendor/sample/core/api.py" for node in _walk([app]))
-    assert not any(
-        _declared_file(node) == "sample/vendor/sample/core/api.py" for node in _walk([core])
-    )
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    path = "sample/vendor/sample/core/api.py"
+    assert any(module.path == path for inventory in inventories for module in inventory.modules)
+    assert _declared_module_name(path, ("sample",), "sample") == "sample.vendor.sample.core.api"
 
 
 @pytest.mark.parametrize("root", [("sample/vendor/sample",), ("sample/vendor",)])
@@ -527,10 +515,11 @@ def test_namespace_anchor_with_earlier_conflicting_segment_is_unresolved(
         config=ScanConfig(root, "sample", "architecture-contract.json", "0" * 64),
     )
     assert payload is not None
-    unresolved = next(
-        node for node in payload["explorers"]["target"] if node["id"] == "module-targets"
-    )
-    assert [_declared_file(node) for node in unresolved["children"]] == [path]
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    assert any(module.path == path for inventory in inventories for module in inventory.modules)
+    assert _declared_module_name(path, root, "sample") is None
 
 
 @pytest.mark.parametrize(
@@ -598,8 +587,15 @@ def test_dart_target_renders_under_its_owning_component(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert payload is not None
-    app = next(node for node in _walk(payload["explorers"]["target"]) if node["label"] == "app")
-    assert any(_declared_file(node) == "lib/planned.dart" for node in _walk([app]))
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    assert any(
+        module.path == "lib/planned.dart"
+        for inventory in inventories
+        for module in inventory.modules
+    )
+    assert _declared_module_name("lib/planned.dart", ("lib",), "sample", "dart") == "sample.planned"
 
 
 @pytest.mark.parametrize("observed", [False, True])
@@ -624,9 +620,16 @@ def test_dart_target_collision_cannot_associate_different_file_spellings(
     )
     assert payload is not None
     assert ("sample.a_b" in actual) is observed
-    target = payload["explorers"]["target"]
-    unresolved = next(node for node in target if node["id"] == "module-targets")
-    assert {_declared_file(node) for node in unresolved["children"]} == set(paths)
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    assert {module.path for inventory in inventories for module in inventory.modules} == set(paths)
+    observed_paths = {
+        item.file_path
+        for item in report.observed.entities
+        if item.kind == "module" and item.presence == "defined"
+    }
+    assert "lib/a-b.dart" not in observed_paths
     assert "different source paths share Dart module identity sample.a_b" in html
 
 
@@ -639,13 +642,12 @@ def test_empty_inventory_ids_are_unique_across_root_and_component_named_root(
     contract["declarations"] = {"modules": []}
     _, _, payload, _ = _report(tmp_path, contract, inside_modules=[])
     assert payload is not None
-    inventories = [
-        node
-        for node in _walk(payload["explorers"]["target"])
-        if node["label"] == "Declared module inventory"
-    ]
-    assert len(inventories) == 2
-    assert len({node["id"] for node in inventories}) == 2
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    assert len(inventories) == 2 and len({item.id for item in inventories}) == 2
+    assert all(not item.modules for item in inventories)
+    assert {item.component_id is None for item in inventories} == {True, False}
 
 
 def test_nested_unresolved_target_stays_in_its_declaring_scope(tmp_path: Path) -> None:
@@ -657,17 +659,14 @@ def test_nested_unresolved_target_stays_in_its_declaring_scope(tmp_path: Path) -
         inside_modules=[_module("elsewhere/api.py", "Retain unresolved scope.")],
     )
     assert payload is not None
-    app = next(node for node in _walk(payload["explorers"]["target"]) if node["label"] == "app")
-    unresolved = next(
-        node for node in app["children"] if node["label"] == "Modules outside components"
-    )
-    leaf = unresolved["children"][0]
-    assert _declared_file(leaf) == "elsewhere/api.py"
-    assert {detail["label"]: detail["value"] for detail in leaf["details"]} == {
-        "File": "elsewhere/api.py",
-        "Responsibility": "Retain unresolved scope.",
-        "Declared in": "contracts/inside.json",
-    }
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    inventory = next(item for item in inventories if "contracts/inside.json" in item.provenance)
+    assert inventory.component_id == "COMP-APP"
+    assert [(item.path, item.responsibility) for item in inventory.modules] == [
+        ("elsewhere/api.py", "Retain unresolved scope.")
+    ]
 
 
 def test_ambiguous_nested_siblings_keep_target_unresolved_at_parent_scope(tmp_path: Path) -> None:
@@ -697,11 +696,12 @@ def test_ambiguous_nested_siblings_keep_target_unresolved_at_parent_scope(tmp_pa
         extra_files=extra_files,
     )
     assert payload is not None
-    app = next(node for node in _walk(payload["explorers"]["target"]) if node["label"] == "app")
-    unresolved = next(
-        node for node in app["children"] if node["label"] == "Modules outside components"
-    )
-    assert [_declared_file(node) for node in unresolved["children"]] == ["sample/core/api.py"]
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    inventory = next(item for item in inventories if "contracts/inside.json" in item.provenance)
+    assert inventory.component_id == "COMP-APP"
+    assert [item.path for item in inventory.modules] == ["sample/core/api.py"]
 
 
 def test_nested_empty_inventory_stays_at_its_declaring_scope(tmp_path: Path) -> None:
@@ -709,13 +709,11 @@ def test_nested_empty_inventory_stays_at_its_declaring_scope(tmp_path: Path) -> 
     contract["components"][0]["inside"] = "contracts/inside.json"
     _, _, payload, _ = _report(tmp_path, contract, inside_modules=[])
     assert payload is not None
-    app = next(node for node in _walk(payload["explorers"]["target"]) if node["label"] == "app")
-    inventory = next(
-        node for node in app["children"] if node["label"] == "Declared module inventory"
-    )
-    assert {detail["label"]: detail["value"] for detail in inventory["details"]} == {
-        "Status": "Explicitly empty"
-    }
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    inventory = next(item for item in inventories if "contracts/inside.json" in item.provenance)
+    assert inventory.component_id == "COMP-APP" and inventory.modules == ()
 
 
 @pytest.mark.parametrize("path", ["sample/core/api.py", "elsewhere/api.py"])
@@ -738,11 +736,11 @@ def test_ambiguous_or_unmatched_target_uses_unresolved_group(tmp_path: Path, pat
     result, _, payload, _ = _report(tmp_path, contract)
     assert result.exit_code == 0
     assert payload is not None
-    target = payload["explorers"]["target"]
-    unresolved = next(node for node in target if node["id"] == "module-targets")
-    assert unresolved["label"] == "Modules outside components"
-    assert [_declared_file(node) for node in _walk(unresolved["children"])] == [path]
-    assert sum(_declared_file(node) == path for node in _walk(target)) == 1
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    assert len(inventories) == 1 and inventories[0].component_id is None
+    assert [item.path for item in inventories[0].modules] == [path]
 
 
 def test_root_ambiguity_is_not_resolved_by_a_deeper_child(tmp_path: Path) -> None:
@@ -762,8 +760,8 @@ def test_root_ambiguity_is_not_resolved_by_a_deeper_child(tmp_path: Path) -> Non
     result, _, payload, _ = _report(tmp_path, contract)
     assert result.exit_code == 0
     assert payload is not None
-    target = payload["explorers"]["target"]
-    unresolved = next(node for node in target if node["id"] == "module-targets")
-    assert [_declared_file(node) for node in _walk(unresolved["children"])] == [
-        "sample/core/api.py"
-    ]
+    report = parse_report(payload)
+    assert report.target is not None
+    inventories = report.target.module_inventories
+    assert len(inventories) == 1 and inventories[0].component_id is None
+    assert [item.path for item in inventories[0].modules] == ["sample/core/api.py"]

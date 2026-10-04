@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from graph_report_support import findings_for, import_sites
 from test_analyzer import _component, _observe
 from test_delta import _model
 from test_expectation import _expectation_payload
@@ -35,8 +36,8 @@ from archkeel.ir.codec import parse_contract
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.lock import LOCK_PATH, LockError
 from archkeel.ir.model import ObservationResult, Record
+from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
-from archkeel.render.flow import build_flow
 
 
 def _component_at(
@@ -270,24 +271,10 @@ def test_nested_scope_escape_stays_unknown_while_valid_sibling_is_evaluated(
     }
     assert [(edge.source, edge.target) for edge in good_level.edges] == [("source", "target")]
 
-    flow = build_flow(result.observation)
-    app = next(item for item in flow.components if item.label == "app")
-    assert app.inside is not None
-    middle_app = next(item for item in app.inside.components if item.label == "app")
-    assert middle_app.inside is not None
-    foreign = next(item for item in middle_app.inside.components if item.label == "foreign")
-    assert foreign.inside is not None
-    assert {item.label: item.modules for item in foreign.inside.components} == {
-        "source": (),
-        "target": (),
-    }
-    assert foreign.inside.edges == ()
-    good = next(item for item in middle_app.inside.components if item.label == "good")
-    assert good.inside is not None
-    assert any(
-        edge.source == "source" and edge.target == "target" and edge.state == "violation"
-        for edge in good.inside.edges
-    )
+    report = architecture_report(result.observation)
+    assert report.target is None  # The raw collector result has no authenticated Target descriptor.
+    sites = import_sites(report, "sample.layer.good.source.api", "sample.layer.good.target.api")
+    assert sites and any(item.status == "FAIL" for item in findings_for(report, sites))
 
 
 def _write_deep_boundary_type_case(

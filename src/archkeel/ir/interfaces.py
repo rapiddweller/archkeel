@@ -139,7 +139,7 @@ def _symbols_by_name(observation: Observation) -> dict[str, Record]:
     result: dict[str, Record] = {}
     for record in observation.records("symbols") or ():
         name = record.data.get("qualified_name")
-        if isinstance(name, str):
+        if isinstance(name, str) and not record.data.get("definition_contexts"):
             result[name] = record
     return result
 
@@ -244,6 +244,7 @@ def _public_symbol_names(observation: Observation) -> dict[str, frozenset[str]]:
         name = record.data.get("name")
         if (
             record.data.get("parent") is None
+            and not record.data.get("definition_contexts")
             and record.data.get("visibility") == "public_name"
             and isinstance(module, str)
             and isinstance(name, str)

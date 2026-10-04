@@ -44,7 +44,8 @@
       "packages": [
         "archkeel.analyzer.python.source",
         "archkeel.analyzer.python.resolve",
-        "archkeel.analyzer.python.receiver_types"
+        "archkeel.analyzer.python.receiver_types",
+        "archkeel.analyzer.python.scopes"
       ],
       "responsibilities": [
         "Own Python AST/local IR and resolution helpers."
@@ -61,7 +62,8 @@
         "archkeel.analyzer.python.source:attribute_path",
         "archkeel.analyzer.python.source:function_class_owners",
         "archkeel.analyzer.python.resolve",
-        "archkeel.analyzer.python.receiver_types"
+        "archkeel.analyzer.python.receiver_types",
+        "archkeel.analyzer.python.scopes"
       ]
     },
     {

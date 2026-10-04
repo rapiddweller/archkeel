@@ -1,0 +1,1265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:architecture-report:1.0.0",
+  "title": "Shared architecture report boundary",
+  "$comment": "Generated from archkeel.ir.architecture_graph. Reference, identity, evidence and containment checks also require the graph/comparison validators. This graph does not change the Observation wire format.",
+  "$ref": "#/$defs/ArchitectureReport",
+  "$defs": {
+    "ArchitectureReport": {
+      "type": "object",
+      "properties": {
+        "observed": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArchitectureGraph"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArchitectureGraph"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "comparison": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GraphComparison"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unavailable": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schema_version": {
+          "enum": [
+            "1.0.0"
+          ]
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReportFinding"
+          }
+        },
+        "memberships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ComponentMembership"
+          }
+        },
+        "decision_gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DependencyDecisionGap"
+          }
+        }
+      },
+      "required": [
+        "observed",
+        "target",
+        "schema_version"
+      ],
+      "additionalProperties": false
+    },
+    "ArchitectureGraph": {
+      "type": "object",
+      "properties": {
+        "origin": {
+          "enum": [
+            "observed",
+            "declared"
+          ]
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Entity"
+          }
+        },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Relationship"
+          }
+        },
+        "coverage": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Coverage"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          }
+        },
+        "schema_version": {
+          "enum": [
+            "1.0.0"
+          ]
+        },
+        "target_scopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TargetScope"
+          }
+        },
+        "component_intents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ComponentIntent"
+          }
+        },
+        "module_inventories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModuleInventory"
+          }
+        },
+        "layout_rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RootLayoutRule"
+          }
+        },
+        "public_api": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PublicAPIEntry"
+          }
+        },
+        "external_scopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExternalDependencyScopeRule"
+          }
+        }
+      },
+      "required": [
+        "origin",
+        "schema_version"
+      ],
+      "additionalProperties": false
+    },
+    "Entity": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "component",
+            "package",
+            "module",
+            "class",
+            "interface",
+            "enum",
+            "method",
+            "function",
+            "attribute",
+            "type_alias",
+            "constant",
+            "binding",
+            "symbol"
+          ]
+        },
+        "qualified_name": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "visibility": {
+          "$ref": "#/$defs/Visibility"
+        },
+        "signature": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Signature"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "annotation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modifiers": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "abstract",
+              "static",
+              "class",
+              "async",
+              "frozen"
+            ]
+          }
+        },
+        "presence": {
+          "enum": [
+            "defined",
+            "referenced",
+            "planned",
+            "unspecified"
+          ]
+        },
+        "responsibilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "record_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "definition_contexts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DefinitionContext"
+          }
+        },
+        "initializer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "file_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "qualified_name",
+        "language"
+      ],
+      "additionalProperties": false
+    },
+    "Visibility": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "public",
+            "private",
+            "protected",
+            "package",
+            "unknown"
+          ]
+        },
+        "basis": {
+          "enum": [
+            "language",
+            "convention",
+            "declared",
+            "unknown"
+          ]
+        },
+        "spelling": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "Signature": {
+      "type": "object",
+      "properties": {
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Parameter"
+          }
+        },
+        "returns": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "Parameter": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "annotation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "enum": [
+            "positional_only",
+            "positional",
+            "keyword_only",
+            "varargs",
+            "kwargs",
+            "unknown"
+          ]
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "default_known": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "DefinitionContext": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "if",
+            "for",
+            "async_for",
+            "while",
+            "try",
+            "try_star",
+            "with",
+            "async_with",
+            "match"
+          ]
+        },
+        "branch": {
+          "enum": [
+            "body",
+            "else",
+            "handler",
+            "finally",
+            "case"
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "branch",
+        "evidence_ids"
+      ],
+      "additionalProperties": false
+    },
+    "Relationship": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "imports",
+            "calls",
+            "references",
+            "inherits",
+            "realizes",
+            "creates",
+            "instance_of",
+            "owns",
+            "requires",
+            "publishes"
+          ]
+        },
+        "source_id": {
+          "type": "string"
+        },
+        "target_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resolution": {
+          "enum": [
+            "resolved",
+            "partial",
+            "unresolved",
+            "not_applicable"
+          ]
+        },
+        "candidate_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "expression": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "record_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidate_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "candidates_truncated": {
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "through": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "decided_by": {
+          "anyOf": [
+            {
+              "enum": [
+                "architect",
+                "agent"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "source_id"
+      ],
+      "additionalProperties": false
+    },
+    "Coverage": {
+      "type": "object",
+      "properties": {
+        "scope_id": {
+          "type": "string"
+        },
+        "entity_kinds": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "component",
+              "package",
+              "module",
+              "class",
+              "interface",
+              "enum",
+              "method",
+              "function",
+              "attribute",
+              "type_alias",
+              "constant",
+              "binding",
+              "symbol"
+            ]
+          }
+        },
+        "relationship_kinds": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "imports",
+              "calls",
+              "references",
+              "inherits",
+              "realizes",
+              "creates",
+              "instance_of",
+              "owns",
+              "requires",
+              "publishes"
+            ]
+          }
+        },
+        "status": {
+          "enum": [
+            "complete",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "scope_id"
+      ],
+      "additionalProperties": false
+    },
+    "Evidence": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "end_line": {
+          "type": "integer"
+        },
+        "column": {
+          "type": "integer"
+        },
+        "excerpt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "file",
+        "line",
+        "end_line",
+        "column",
+        "excerpt"
+      ],
+      "additionalProperties": false
+    },
+    "TargetScope": {
+      "type": "object",
+      "properties": {
+        "scope_id": {
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "open",
+            "closed"
+          ]
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "entity_kinds": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "component",
+              "package",
+              "module",
+              "class",
+              "interface",
+              "enum",
+              "method",
+              "function",
+              "attribute",
+              "type_alias",
+              "constant",
+              "binding",
+              "symbol"
+            ]
+          }
+        },
+        "relationship_kinds": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "imports",
+              "calls",
+              "references",
+              "inherits",
+              "realizes",
+              "creates",
+              "instance_of",
+              "owns",
+              "requires",
+              "publishes"
+            ]
+          }
+        }
+      },
+      "required": [
+        "scope_id",
+        "mode",
+        "rationale",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "ComponentIntent": {
+      "type": "object",
+      "properties": {
+        "component_id": {
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "component",
+            "interface",
+            "contract",
+            "projection",
+            "foundation"
+          ]
+        },
+        "packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exact_modules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "namespace": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "public": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "planned": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "forbidden_responsibilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "decided_by": {
+          "anyOf": [
+            {
+              "enum": [
+                "architect",
+                "agent"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inside": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "layout_rule_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "component_id",
+        "role"
+      ],
+      "additionalProperties": false
+    },
+    "ModuleInventory": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ContractModuleTarget"
+          }
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "component_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "modules",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "ContractModuleTarget": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "responsibility": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "responsibility"
+      ],
+      "additionalProperties": false
+    },
+    "RootLayoutRule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "root_layout"
+          ]
+        },
+        "root": {
+          "type": "string"
+        },
+        "allowed_children": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "decided_by": {
+          "enum": [
+            "architect",
+            "agent"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "root",
+        "allowed_children",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
+      "additionalProperties": false
+    },
+    "PublicAPIEntry": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "selector",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "ExternalDependencyScopeRule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "external_dependency_scope"
+          ]
+        },
+        "dependency": {
+          "type": "string"
+        },
+        "allowed_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "decided_by": {
+          "enum": [
+            "architect",
+            "agent"
+          ]
+        },
+        "exact_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dependency",
+        "allowed_sources",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
+      "additionalProperties": false
+    },
+    "GraphComparison": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "assessments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GraphAssessment"
+          }
+        },
+        "schema_version": {
+          "enum": [
+            "1.0.0"
+          ]
+        },
+        "correspondences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EntityCorrespondence"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "schema_version"
+      ],
+      "additionalProperties": false
+    },
+    "GraphAssessment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "subject_id": {
+          "type": "string"
+        },
+        "aspect": {
+          "enum": [
+            "existence",
+            "kind",
+            "containment",
+            "signature",
+            "visibility",
+            "annotation",
+            "modifiers",
+            "initializer",
+            "relationship",
+            "completeness"
+          ]
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "change": {
+          "enum": [
+            "matched",
+            "missing",
+            "unexpected",
+            "changed",
+            "ambiguous",
+            "unavailable"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "observed_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "subject_id",
+        "aspect",
+        "status",
+        "change",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "EntityCorrespondence": {
+      "type": "object",
+      "properties": {
+        "target_id": {
+          "type": "string"
+        },
+        "observed_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "target_id",
+        "observed_ids"
+      ],
+      "additionalProperties": false
+    },
+    "ReportFinding": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "rule_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "graph_subject_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "title",
+        "status",
+        "rule_ids",
+        "subjects",
+        "graph_subject_ids",
+        "evidence_ids",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "ComponentMembership": {
+      "type": "object",
+      "properties": {
+        "component_id": {
+          "type": "string"
+        },
+        "module_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "component_id",
+        "module_ids"
+      ],
+      "additionalProperties": false
+    },
+    "DependencyDecisionGap": {
+      "type": "object",
+      "properties": {
+        "source_id": {
+          "type": "string"
+        },
+        "target_id": {
+          "type": "string"
+        },
+        "relationship_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "source_id",
+        "target_id",
+        "relationship_ids"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

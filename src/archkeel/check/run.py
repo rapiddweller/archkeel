@@ -58,6 +58,8 @@ from .ratchets import (
     unresolved_call_changes,
 )
 from .snapshot import SnapshotError, materialize_git_snapshot
+from .uml import assemble_uml
+from .uml_evaluation import evaluate_uml
 
 
 def inspect_observation(model: Observation) -> tuple[Measurements, RuleVerdict]:
@@ -200,7 +202,7 @@ def observe_revision(
             language=config.language,
             tsconfig=config.tsconfig,
         ) as snapshot:
-            return analyzer(
+            result = analyzer(
                 snapshot.root,
                 roots=config.roots,
                 namespace=config.namespace,
@@ -210,6 +212,7 @@ def observe_revision(
                 contract_root=declarations,
                 language=config.language,
             )
+            return evaluate_uml(assemble_uml(result, declarations, config.contract))
 
 
 def _incomplete(result: ObservationResult) -> RunResult:
