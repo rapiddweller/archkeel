@@ -358,6 +358,21 @@ def _rule_status(
     return "PASS", "The evaluator completed this rule's observed scope without violations."
 
 
+def _ownership_blocker_reason(observation: Observation, rule_id: str) -> str | None:
+    blockers = sorted(
+        (
+            record
+            for record in observation.records("scope_observations") or ()
+            if record.kind == "rule_ownership_blocker" and rule_id in record.rule_ids
+        ),
+        key=lambda record: record.subjects,
+    )
+    reasons = [
+        value for record in blockers if isinstance((value := record.data.get("reason")), str)
+    ]
+    return " ".join(reasons) if reasons else None
+
+
 def rule_assessments(
     observation: Observation,
     *,
@@ -401,21 +416,9 @@ def rule_assessments(
             undecided=undecided,
         )
         if status == "UNKNOWN" and complete and not receipt_complete:
-            blockers = sorted(
-                (
-                    record
-                    for record in observation.records("scope_observations") or ()
-                    if record.kind == "rule_ownership_blocker" and identifier in record.rule_ids
-                ),
-                key=lambda record: record.subjects,
-            )
-            reasons = [
-                value
-                for record in blockers
-                if isinstance((value := record.data.get("reason")), str)
-            ]
-            if reasons:
-                reason = " ".join(reasons)
+            ownership_reason = _ownership_blocker_reason(observation, identifier)
+            if ownership_reason is not None:
+                reason = ownership_reason
         parent_id = declaration.data.get("parent_id")
         scope = str(parent_id) if isinstance(parent_id, str) else "root"
         parent = records.get(scope)

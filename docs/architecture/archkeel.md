@@ -210,6 +210,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-151 | [Unproven require references retain UNKNOWN](decisions/ad-151-unproven-require-references-retain-unknown.md) |
 | AD-152 | [Validated construct identity controls rules](decisions/ad-152-validated-construct-identity-controls-rules.md) |
 | AD-153 | [Unproven chains retain declared signatures](decisions/ad-153-unproven-chains-retain-declared-signatures.md) |
+| AD-154 | [Incomplete ownership names its module](decisions/ad-154-incomplete-ownership-names-its-module.md) |
 
 ## Allowed dependencies
 

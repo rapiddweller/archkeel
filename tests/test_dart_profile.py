@@ -15,6 +15,7 @@ import pytest
 
 from archkeel.analyzer.dart.directives import read_header
 from archkeel.analyzer.dart.lexer import DirectiveError
+from archkeel.check.observation import OBSERVATION_VERSION
 from archkeel.check.ports import ScanConfig
 from archkeel.check.ratchets import measure_python_ratchets
 from archkeel.check.run import inspect_observation
@@ -100,7 +101,7 @@ def test_dart_observation_identifies_its_actual_python_parser_runtime(tmp_path: 
     assert model.producer is not None
     assert model.producer != model.analyzer
     assert model.producer.name == "archkeel-dart-directives"
-    assert model.analyzer.version == "0.69.0"
+    assert model.analyzer.version == OBSERVATION_VERSION
     assert len(model.producer.code_digest) == 64
 
 

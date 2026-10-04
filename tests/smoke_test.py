@@ -105,8 +105,16 @@ def main() -> None:
         init = cli("init", "--root", str(root), "--force", "--json")
         assert init.returncode == 0, (init.stdout, init.stderr)
         drafted = cli("validate", "--root", str(root), "--json")
-        pointers = {item["pointer"] for item in json.loads(drafted.stdout)["diagnostics"]}
-        assert drafted.returncode == 2 and pointers == {"/rules/0/rationale", "/rules/1/rationale"}
+        assert drafted.returncode == 2, (drafted.stdout, drafted.stderr)
+        diagnostics = [
+            (item["code"], item["subject"], item["pointer"])
+            for item in json.loads(drafted.stdout)["diagnostics"]
+        ]
+        assert diagnostics == [
+            ("rule.violated", "ASSIGNMENT-COMPLETE", "/rules/0"),
+            ("rationale.placeholder", "ASSIGNMENT-COMPLETE", "/rules/0/rationale"),
+            ("rationale.placeholder", "COMPONENT-NO-CYCLES", "/rules/1/rationale"),
+        ], diagnostics
 
 
 if __name__ == "__main__":
