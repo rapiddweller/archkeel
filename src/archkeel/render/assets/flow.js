@@ -435,6 +435,8 @@
   function umlRoutes(scene) {
     const frames = Object.fromEntries(scene.frames.map((frame) => [frame.id, frame.bounds]));
     const edges = scene.edges;
+    const callFan = edges.length > 0 && edges.every((edge) =>
+      edge.relationshipKind === "calls" && edge.source === edges[0].source);
     // Both directions share a card side; separate degree tables would reuse its ports.
     const endpoints = edges.flatMap((edge) => {
       const upward = positions[edge.target].y < positions[edge.source].y;
@@ -447,8 +449,15 @@
       ];
     });
     const ports = groupBy(endpoints, (port) => `${port.node}:${port.side}`);
-    ports.forEach((ports) => ports.sort((a, b) => positions[a.other].x - positions[b.other].x
-      || a.edge.id.localeCompare(b.edge.id) || a.end.localeCompare(b.end)));
+    ports.forEach((ports) => ports.sort((a, b) => {
+      const ax = positions[a.other].x - positions[a.node].x;
+      const bx = positions[b.other].x - positions[b.node].x;
+      // Deeper callees need the outer ports to pass around the nearer row.
+      const depth = callFan && a.end === "source" && b.end === "source" && ax * bx > 0
+        ? Math.sign(ax) * (Math.abs(positions[a.other].y - positions[a.node].y)
+          - Math.abs(positions[b.other].y - positions[b.node].y)) : 0;
+      return depth || ax - bx || a.edge.id.localeCompare(b.edge.id) || a.end.localeCompare(b.end);
+    }));
     const lanes = groupBy(edges, laneKey);
     // Outer targets first reduces crossings between one caller's outgoing lines.
     lanes.forEach((edges) => edges.sort((a, b) => positions[a.source].x - positions[b.source].x
@@ -456,7 +465,7 @@
         - Math.abs(positions[a.target].x - positions[a.source].x)
       || positions[a.target].x - positions[b.target].x));
     const routes = [];
-    const occupied = { vertical: new Map(), horizontal: new Map(), clearance: new Map() };
+    const occupied = { vertical: new Map(), horizontal: new Map(), clearance: new Map(), callFan };
     edges.forEach((edge, index) => {
       const source = endpoints[index * 2], target = endpoints[index * 2 + 1];
       const out = ports.get(`${source.node}:${source.side}`);
@@ -640,7 +649,7 @@
     return routeAroundHeaders(direct, points, sx, startY, tx, end, headers, edge, frames, occupied, laneIndex);
   }
 
-  function sharedRouteLength(points, occupied, limit = Infinity, clearance = LANE_GAP) {
+  function sharedRouteLength(points, occupied, limit = Infinity, clearance = LANE_GAP, avoidCrossings = false) {
     let total = 0;
     for (let i = 1; i < points.length; i += 1) {
       const [ax, ay] = points[i - 1], [bx, by] = points[i];
@@ -650,6 +659,17 @@
       const at = vertical ? ax : ay;
       const start = Math.min(vertical ? ay : ax, vertical ? by : bx);
       const end = Math.max(vertical ? ay : ax, vertical ? by : bx);
+      if (avoidCrossings) {
+        const perpendicular = vertical ? occupied.horizontal : occupied.vertical;
+        for (const segments of perpendicular.values()) {
+          for (const segment of segments) {
+            if (segment.at >= start && segment.at <= end && at >= segment.start && at <= segment.end) {
+              total += LANE_GAP;
+            }
+            if (total > limit) return total;
+          }
+        }
+      }
       const key = Math.floor(at / LANE_GAP);
       // Only nearby parallel segments can share a stretch.
       for (const bucket of [key - 1, key, key + 1]) {
@@ -657,7 +677,8 @@
           if (Math.abs(at - segment.at) >= clearance) continue;
           const overlap = Math.min(end, segment.end) - Math.max(start, segment.start);
           if (overlap > LANE_GAP / 2) total += overlap;
-          if (total >= limit) return total;
+          // Equality must finish scoring before the caller can compare tied candidates.
+          if (total > limit) return total;
         }
       }
     }
@@ -665,6 +686,7 @@
   }
 
   function routeAroundHeaders(direct, points, sx, sy, tx, end, headers, edge, frames, occupied, laneIndex) {
+    const avoidCrossings = occupied.callFan;
     const cards = Object.entries(positions).filter(([id, position]) =>
       !frames[id] && Number.isFinite(position.x) && Number.isFinite(position.y));
     const cardBounds = cards.map(([id, position]) => ({
@@ -673,7 +695,7 @@
     }));
     if (routePointsClear(points, headers, 10)
         && routePointsClear(points, cardBounds, 0)
-        && sharedRouteLength(points, occupied, 1) === 0) return { ...direct, points };
+        && sharedRouteLength(points, occupied, 1, LANE_GAP, avoidCrossings) === 0) return { ...direct, points };
     const allLeft = Math.min(...[
       ...headers.map((header) => header.left),
       ...cards.map(([, position]) => position.x),
@@ -725,7 +747,7 @@
     const clearSegments = (points) => {
       for (let index = 1; index < points.length; index += 1) {
         const pair = [points[index - 1], points[index]];
-        const key = pair.flat().join(":");
+        const key = `${pair[0][0]}:${pair[0][1]}:${pair[1][0]}:${pair[1][1]}`;
         if (!clearance.has(key)) clearance.set(key,
           routePointsClear(pair, headers, 2) && routePointsClear(pair, cardBounds, 0));
         if (!clearance.get(key)) return false;
@@ -779,11 +801,12 @@
                 source.point, source.lead, [source.lead[0], laneY], [gutterX, laneY],
                 [gutterX, target.lead[1]], target.lead, target.point,
               ];
-              if (!clearSegments(points)) continue;
-              const shared = sharedRouteLength(points, occupied, Math.max(1, leastShared), LANE_GAP / 2);
+              // Exits and arrivals already checked the first and last two segments.
+              if (!clearSegments(points.slice(2, 5))) continue;
+              const shared = sharedRouteLength(points, occupied, Math.max(1, leastShared), LANE_GAP / 2, avoidCrossings);
               if (shared > leastShared) continue;
               const nearby = sharedRouteLength(points, occupied,
-                shared === leastShared ? Math.max(1, leastNearby) : Infinity);
+                shared === leastShared ? Math.max(1, leastNearby) : Infinity, LANE_GAP, avoidCrossings);
               const length = points.slice(1).reduce((total, point, index) => total
                 + Math.abs(point[0] - points[index][0]) + Math.abs(point[1] - points[index][1]), 0);
               if (shared < leastShared || nearby < leastNearby
