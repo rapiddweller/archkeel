@@ -22,12 +22,14 @@
     "before_digest": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 of the --against revision's contract, in the canonical form archkeel.ir.codec.contract_bytes writes. When that revision holds no contract at the configured path, archkeel.ir.codec.absent_contract_digest: the SHA-256 of a NUL byte, \"no contract at \" and the contract's repository path, which no canonical contract can have (AD-104)."
+      "description": "The --against revision's InsideContractTree.comparison_digest, binding the root and recursively mounted inside contracts. Without inside contracts this equals archkeel.ir.codec.contract_digest, SHA-256 of canonical contract_bytes. When the revision lacks the configured contract, archkeel.ir.codec.absent_contract_digest binds its repository path (AD-104).",
+      "maxLength": 64
     },
     "after_digest": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 of the contract being validated, in the same canonical form."
+      "description": "InsideContractTree.comparison_digest of the contract being validated, binding the root and recursively mounted inside contracts. Without inside contracts this equals archkeel.ir.codec.contract_digest, SHA-256 of canonical contract_bytes.",
+      "maxLength": 64
     },
     "decided_by": {
       "type": "string",
@@ -44,14 +46,16 @@
         "string",
         "null"
       ],
-      "pattern": "^[0-9a-f]{64}$"
+      "pattern": "^[0-9a-f]{64}$",
+      "maxLength": 64
     },
     "after_baseline_digest": {
       "type": [
         "string",
         "null"
       ],
-      "pattern": "^[0-9a-f]{64}$"
+      "pattern": "^[0-9a-f]{64}$",
+      "maxLength": 64
     }
   },
   "allOf": [

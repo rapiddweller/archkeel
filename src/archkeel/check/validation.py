@@ -2872,10 +2872,8 @@ def run_validate(
     if baseline is not None:
         if write_baseline and not refused:
             after_policy_digest = baseline_digest(violations, observed_budgets)
-        elif baseline_exists:
-            after_policy_digest = baseline_digest(known, known_budgets)
         else:
-            after_policy_digest = absent_baseline_digest(baseline.relative_to(root).as_posix())
+            after_policy_digest = baseline_digest(known, known_budgets)
     widening_failures = _widening_failures(
         against_ctx,
         comparison_contract,
