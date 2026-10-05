@@ -242,18 +242,19 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md.
   --component <id-or-scope> --json`. Omit `--component` to discover its exact ids and scopes.
   This reads recorded source identity and evidence; it does not verify the current working
   tree or write files. Read `architecture_projection.required_relationships` and
-  `filtered_violations` for Target findings; the older violations component facet only matches
-  crossing endpoints.
+  `filtered_violations` for Target findings. For only violations, query the same packet with
+  `--only violations --component <id-or-scope> --json`; add `--rule <id>` to intersect.
 - Revisit the physical structure review for changed packages and their parent boundaries;
   recheck related findings rather than repeating a whole-repository review for every edit.
 - Run `archkeel report --json` before submitting any change. A rule violation does not
   change the exit code; read the `declared_rules` verdict. Exit 2 means the evidence is
   incomplete; fix the diagnostic before trusting any verdict.
-- On a large repository, `report --only violations --rule <id> --component <label> --json`
+- On a large repository, `report --only violations --rule <id> --component <id-or-scope> --json`
   narrows the review surface to a slice you can actually read: `--only violations` drops
   component flow, communication, claims and structure from the HTML page; `--rule` and
   `--component` narrow the violations table further and combine as an intersection.
-  `--component` matches either side of a crossing, source or target. This changes only what is
+  This includes local Target findings and descendants, plus crossings touching either side.
+  Top-level labels take precedence over identical nested labels. This changes only what is
   shown - `declared_rules`, the violation counts and the exit code stay computed from every
   violation - and a filtered `--json` result says so in its own `report_filter` field, so never
   read a filtered `filtered_violations` count as the repository's total; read the unfiltered

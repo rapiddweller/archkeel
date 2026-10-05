@@ -37,3 +37,7 @@ limits with 160 KiB/80 KiB guards to retain complete governing records, assessme
 UNKNOWNs, locations and remedy. The regression reuses the shared native Self run and
 encodes every envelope twice; the tiny fixture's size check is separate evidence.
 This budget proof does not accept outstanding baseline changes or the release gates.
+
+Native violation filters use the same authenticated component IDs/scopes and finding subjects;
+legacy top-level labels keep crossing behavior. Live architecture output preserves existing
+baseline comparison receipts. Neither change adds analysis or narrows the global verdict.

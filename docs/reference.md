@@ -475,6 +475,38 @@ six guardrail dimensions (`violations`, `cycles`, `private_crossings`, `typing_s
 only on an added entry `selected_changes` never named, since a declared new edge is ordinary
 architecture growth, not a regression (AD-44).
 
+## Focused agent reports
+
+`archkeel report --only architecture --json` returns the shared Core projection:
+
+- `architecture_projection.components`: ownership, responsibilities, public API, required
+  permissions and observed use. Use each component's `id` or `scope` with `--component`.
+- The projection's `permission_rules` and `policy_context`: governing rules and peer boundaries.
+  Permission is conditional; observed imports do not establish permission.
+- `filtered_violations`: finding ids and source locations. The shared remedy is
+  `architecture_projection.violation_remedy`. Global verdicts, coverage and UNKNOWN reasons
+  remain visible when a component is selected.
+
+When a live report uses `--baseline`, the focused JSON keeps `baseline_path` and
+`baseline_comparisons`, including known, new and resolved fingerprint counts. These
+comparisons remain global when findings are filtered.
+
+The [command schema](../schema/architecture-command.schema.json) defines abbreviated
+selectors, reason indices and grouped UNKNOWN counts. The HTML fact sheets use the same
+Core projection.
+
+After one scan, query the saved packet without collecting source again:
+
+```bash
+archkeel report --input test-artifacts/architecture/architecture.json --only architecture --json
+archkeel report --input test-artifacts/architecture/architecture.json --only violations --json
+```
+
+Add `--component` to focus on an exact native id or scope. `--rule` further narrows
+violations as an intersection. Unknown or ambiguous selectors exit 2 with a diagnostic.
+Saved queries read recorded evidence; they do not verify current files or write artifacts.
+`--input` cannot be combined with `--root`, `--config`, `--baseline` or `--output`.
+
 ## Narrowing a report
 
 `report --only violations` shows only the declared-rule violations table, hiding component
@@ -495,12 +527,12 @@ code all keep reading every violation, filtered or not. A filtered result still 
 itself: the HTML decision banner carries `data-report-filter="true"` and a `Filtered (...): N of
 TOTAL violation(s) shown.` sentence, and the terminal prints the same sentence in its own panel.
 `--rule` matches a fingerprint's rule id exactly, top-level or the `<component>:<rule id>` an
-inside declares (AD-36); `--component` matches only a top-level component, since
-`ViolationRow.source_component`/`target_component` always come from the top level
-(AD-34, AD-54). A `--rule` or `--component` naming nothing the contract declares is
-`filter_unknown`, exit 2, not a silently empty page: `--rule` validates against every declared
-rule id, `--component` against every top-level component label, whether or not either has a
-violation today.
+inside declares (AD-36). With `--only violations`, `--component` also accepts native ids
+and nested scopes, selecting findings associated with their authenticated Core subjects.
+Top-level labels retain source-or-target crossing behavior (AD-34, AD-54). Component
+facets without `--only violations` and call filters retain their existing top-level scope.
+An unknown rule/component or an ambiguous native selector is `filter_unknown`, exit 2;
+a declared scope with no selected findings is valid and empty.
 
 `report --only calls` lists every unresolved and partially resolved call instead: `--json`
 carries them as `filtered_calls`, one row each with `status`, `caller`, `path`, `line`,
