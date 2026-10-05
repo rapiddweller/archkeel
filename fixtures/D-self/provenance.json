@@ -1,12 +1,4 @@
 {
-    "analyzer_digest": "344b3293bd6dc7190bfd25e2ddd79571e5280c4ed718150b96de0c1461138a70",
-    "checker_digest": "c1b27dd8f7cd20bfc5e200b45871902d07c8f8c73aa52fe64cc378d213a67451",
-    "source_digest": "b4fc9519aba2305907334b2b85ffe17369248d97a49d4f5401a78a4f294dcbfb",
-    "contract_digest": "d484f7dd3ff60b6022c1a0454e2095bf9bea86be342ab5d85c9eae1f3e3f8ba7",
-    "artifact_digest": "d0beb9458410c779b2ab488a847b584c10f9975e137ad409f00e345950a8f7e2",
-    "command": "archkeel report --root . --output fixtures/D-self/architecture.json",
-    "exit_code": 0,
-    "python_version": "3.11.12",
-    "git_head": "926ae37233577280b6c104ee019093fc55b38311",
-    "dirty": true
+    "checker_digest": "344d2fe4e40c863368ce14104be816e79ecf3436d80f60befd09c7077b375246",
+    "observation_digest": "25ce2769851d6fb23b5a92dc31bdb46f3a374bdde672db55f963f74ff2002b76"
 }
