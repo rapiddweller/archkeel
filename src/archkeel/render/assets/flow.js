@@ -773,7 +773,7 @@
     const sidePorts = (card, height, x) => ["left", "right"].map((side) => {
       const at = side === "left" ? card.x : card.x + CARD.w;
       const y = card.y + 14 + (height - 28) * (x - card.x) / CARD.w;
-      return { point: [at, y], lead: [at + (side === "left" ? -14 : 14), y], axis: "horizontal" };
+      return { point: [at, y], lead: [at + (side === "left" ? -GAP / 2 : GAP / 2), y], axis: "horizontal" };
     });
     const sourcePorts = sourceBlocked && sourceCard
       ? sidePorts(sourceCard, sourceHeight, sx) : [normalSource];
