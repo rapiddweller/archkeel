@@ -43,6 +43,7 @@ from archkeel.ir.model import (
     declared_package_pair,
     facade_covers,
     in_scope,
+    interface_covers_import,
     module_in_ownership,
     package_owners,
     stable_id,
@@ -725,16 +726,9 @@ def _interface_allows(
     """Decide whether one cross-component import reaches the target's declared interface."""
     if target.public is None:
         return True
-    symbol = data["symbol"]
-    if symbol is None:
-        return data["target_module"] in target.public
-    if symbol.startswith("_"):
-        return False
-    for entry in data["reexport_chain"]:
-        module, _, name = entry.rpartition(".")
-        if facade_covers(module, name, target, exports_by_module):
-            return True
-    return False
+    return interface_covers_import(
+        data["target_module"], data["symbol"], data["reexport_chain"], target, exports_by_module
+    )
 
 
 def _interface_verdict(

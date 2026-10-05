@@ -281,6 +281,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-195 | [Overviews separate boundaries from file intent](decisions/ad-195-overviews-separate-boundaries-from-file-intent.md) |
 | AD-196 | [Closed demo intent retains observation limits](decisions/ad-196-closed-demo-intent-retains-observation-limits.md) |
 | AD-197 | [Expanded Target records eight UNKNOWN inventories](decisions/ad-197-expanded-target-records-eight-unknown-inventories.md) |
+| AD-185 | [Provider use survives initializer ownership](decisions/ad-185-provider-use-survives-initializer-ownership.md) |
 
 ## Allowed dependencies
 
