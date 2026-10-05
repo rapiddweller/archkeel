@@ -1144,12 +1144,12 @@ def test_file_intent_distinguishes_observed_inventory_from_core_verdict(tmp_path
         assert (
             "Observed module: sample.core"
             in details.locator('[data-file-intent="sample/core.py"]').inner_text()
-        )
-        assert "separate from a Core verdict" in details.inner_text()
+        ) == (view == "diff")
+        assert ("separate from a Core verdict" in details.inner_text()) == (view == "diff")
         assert (
             "Not in the observed file inventory"
             in details.locator('[data-file-intent="src/sample/future.py"]').inner_text()
-        )
+        ) == (view == "diff")
         assert "does not define classes, methods, imports or calls" in details.inner_text()
         assert page.locator('.flow-nodes [data-uml-kind="file"]').count() == 0
         assert not errors

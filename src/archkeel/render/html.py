@@ -11,6 +11,7 @@ import json
 import re
 from dataclasses import replace
 from importlib.resources import files
+from pathlib import PurePosixPath
 from typing import TypeAlias
 
 from archkeel.ir.bindings import BindingReads, unread_bindings
@@ -48,6 +49,7 @@ from archkeel.ir.structure import (
 )
 from archkeel.ir.type_fanin import MINIMUM_CROSSINGS, TypeFanin, type_fanin
 
+from .atlas import atlas_payload, detail_name, detail_report
 from .summary import (
     Comparison,
     VerdictRow,
@@ -660,6 +662,127 @@ def _flow_section(observation: Observation) -> str:
     return (
         _FLOW_SECTION_HEAD + payload + _FLOW_SECTION_BETWEEN_SCRIPTS + script + _FLOW_SECTION_TAIL
     )
+
+
+def _atlas_section(payload: dict[str, object]) -> str:
+    head = re.sub(
+        r'<div class="flow-view-group" role="group" aria-label="Evidence views">.*?</div>',
+        "",
+        _FLOW_SECTION_HEAD,
+        flags=re.S,
+    )
+    head = head.replace(
+        'class="report-section flow-section"', 'class="report-section flow-section atlas-section"'
+    )
+    head = head.replace('id="flow" class="flow"', 'id="flow" class="flow" data-atlas="true"')
+    head = head.replace(
+        '<div class="flow-layout">',
+        '<div class="atlas-summary" role="status"></div><div class="flow-layout">',
+    )
+    head = head.replace(
+        '<div class="flow-canvas"', '<div class="flow-map-column"><div class="flow-canvas"'
+    )
+    head = head.replace(
+        '<aside class="flow-inspector"',
+        '<section class="flow-explore" aria-label="Module exploration">'
+        '<h3>Worth a look</h3></section></div><aside class="flow-inspector"',
+    )
+    encoded = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).replace("<", "\\u003c")
+    return (
+        head
+        + encoded
+        + _FLOW_SECTION_BETWEEN_SCRIPTS
+        + _asset("flow.js").decode()
+        + _FLOW_SECTION_TAIL
+    )
+
+
+def _atlas_document(
+    result: RunResult,
+    observation: Observation,
+    *,
+    repository: str,
+    architecture_href: str,
+) -> bytes:
+    report = architecture_report(observation)
+    projection = result.architecture_projection
+    if projection is None or projection.source != observation.source:
+        raise ValueError("Atlas requires its matching authenticated Core projection")
+    data: dict[str, object] = {"schema_version": report.schema_version}
+    data["atlas"] = atlas_payload(
+        observation, report, projection, repository=repository, architecture_href=architecture_href
+    )
+    content = f"""<section class="report-heading atlas-heading">
+      <div><span class="eyebrow">Architecture Atlas</span><h1>{_text(repository)}</h1>
+      <p><code>{_text(observation.source.git_head)}</code>
+      · {observation.coverage.files_parsed} observed files
+      · {len(projection.components)} components</p></div>
+      <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
+      </section><p class="atlas-status">Scan: {_text(result.observation_complete)}
+      · Declared rules: {_text(result.declared_rules)}</p>
+      {_atlas_section(data)}
+      <details class="atlas-source"><summary>Snapshot and audit</summary>
+      <p>Source digest <code>{_text(observation.source.source_digest)}</code>
+      · Dirty {_text(observation.source.dirty)}.</p>
+      <p>Scope: {_text(", ".join(observation.source.scope))}</p>
+      <p>Contract <code>{_text(observation.contract.path)}</code>
+      · {_text(observation.contract.digest)}</p>
+      <p><a href="{_text(architecture_href)}">Complete architecture JSON and recorded evidence
+      </a></p>
+      </details>"""
+    return _document(
+        repository=repository,
+        kind="Architecture report",
+        title="Architecture Atlas",
+        content=content,
+    )
+
+
+def render_architecture_details(
+    result: RunResult,
+    architecture_json: bytes,
+    *,
+    repository: str,
+    architecture_href: str,
+) -> dict[str, bytes]:
+    """Return adjacent offline component pages; publication belongs to the CLI."""
+    if result.report_filter is not None or result.architecture_projection is None:
+        return {}
+    observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
+    report = architecture_report(observation)
+    identities = (
+        [item.component_id for item in report.target.component_intents] if report.target else []
+    )
+    pages = {}
+    for identity in (*identities, None):
+        scoped = detail_report(report, identity)
+        data = json.loads(report_bytes(scoped))
+        data["initial_scope"] = identity
+        data["initial_view"] = "diagram"
+        payload = json.dumps(
+            data, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).replace("<", "\\u003c")
+        flow = (
+            _FLOW_SECTION_HEAD
+            + payload
+            + _FLOW_SECTION_BETWEEN_SCRIPTS
+            + _asset("flow.js").decode()
+            + _FLOW_SECTION_TAIL
+        )
+        content = (
+            f"<h1>{_text(repository)} · {_text(identity or 'Unassigned code')}</h1>"
+            f"<p>Snapshot <code>{_text(observation.source.git_head)}</code>"
+            f" · Scan {_text(result.observation_complete)}"
+            f' · <a href="{_text(PurePosixPath(architecture_href).stem)}.report.html">'
+            "Back to architecture map</a>"
+            f' · <a href="{_text(architecture_href)}">Complete audit JSON</a></p>{flow}'
+        )
+        pages[detail_name(architecture_href, identity)] = _document(
+            repository=repository, kind="Source details", title="UML and evidence", content=content
+        )
+    return pages
 
 
 def _measurements(measurements: Measurements | None) -> str:
@@ -1446,6 +1569,10 @@ def render_architecture_html(
     (AD-16, AD-23).
     """
     observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
+    if result.report_filter is None and result.architecture_projection is not None:
+        return _atlas_document(
+            result, observation, repository=repository, architecture_href=architecture_href
+        )
     return render_html(
         replace(
             result,
