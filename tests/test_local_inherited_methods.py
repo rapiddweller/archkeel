@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import pytest
 from test_boundary_types_non_init_facades import _write_app
+from test_html_report import _native_details
 
 from archkeel.check.ports import ScanConfig
 from archkeel.check.ratchets import unknown_positions, unknown_positions_by_rule
@@ -605,20 +606,38 @@ def test_cli_and_report_agree_on_the_inherited_boundary(
     assert report["measurements"]["scalars"]["unknown_positions"] == count
     observation = parse_observation(decode_canonical_model(json.loads(output.read_text())))
     assert unknown_positions(observation) == count
-    html = output.with_suffix(".report.html").read_text()
+    details = _native_details(output, observation)
     if status == "FAIL":
         [finding] = trace_valid_violations(observation)
         assert finding.subjects[1] == "shop.app.service.Child.convert"
-        assert finding.title in html
+        assert any(
+            item.id == finding.id and item.title == finding.title and item.status == "FAIL"
+            for detail in details
+            for item in detail.findings
+        )
         method = next(
             row
             for row in observation.records("symbols") or ()
             if row.data.get("qualified_name") == "shop.app.base.impl.Base.convert"
         )
         assert method.id in finding.fact_ids
-        assert "def convert(self, value: str)" in html
+        assert any(
+            "def convert(self, value: str)" in proof.excerpt
+            for detail in details
+            for proof in detail.observed.evidence
+            if proof.id in finding.evidence_ids
+        )
     elif status == "UNKNOWN":
-        assert "Child.__inherited_methods__ inherited methods: inherited_surface" in html
+        unknown = next(
+            item
+            for item in observation.records("unknowns") or ()
+            if "Child.__inherited_methods__ inherited methods: inherited_surface" in item.title
+        )
+        assert any(
+            item.id == unknown.id and item.title == unknown.title and item.status == "UNKNOWN"
+            for detail in details
+            for item in detail.findings
+        )
 
 
 def test_unproven_child_override_does_not_clear_inherited_surface(tmp_path: Path) -> None:

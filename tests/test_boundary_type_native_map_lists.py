@@ -12,6 +12,7 @@ import pytest
 from test_analyzer import _observe
 from test_boundary_type_opaque_map_values import _app, _opacity_facts
 from test_boundary_types_contained_mapping import _commit_report_fixture
+from test_html_report import _native_audit
 
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.trace import trace_valid_violations
@@ -118,8 +119,9 @@ def test_native_list_leaf_survives_the_ordinary_cli_and_report(
     ]
     assert fact.data.get("container_depth") == 2 and fact.provenance
     html = output.with_suffix(".report.html").read_text()
-    assert "accepted opacity" in html and "type closure remains unproven" in html
-    assert "container depth 2" in html
+    _native_audit(html, observation, output.name)
+    assert "accepted opacity" in fact.title and "type closure remains unproven" in fact.title
+    assert "container depth 2" in fact.title
 
 
 @pytest.mark.parametrize(

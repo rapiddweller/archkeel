@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from test_analyzer import _component
 from test_cycle_levels import _component as _cycle_component
+from test_html_report import _native_audit
 from test_inside_rule_coverage import _inside_rule_report
 
 from archkeel.cli import main
@@ -63,9 +64,8 @@ def test_unowned_package_initializer_is_exempt_only_when_it_has_no_statements(
         if item.data.get("file") == "sample/__init__.py"
     )
     assert initializer_record.data.get("file") == "sample/__init__.py"
-    row = html[html.index('data-search="app:INTERFACE ') :]
-    row = row[: row.index("</tr>")]
-    assert f'data-status="{expected[0].lower()}"' in row
+    _native_audit(html, observation, "architecture.json")
+    assert f"Declared rules: {expected[0]}" in html
 
 
 def _cycle_report(
@@ -136,15 +136,14 @@ def test_dotted_python_stem_does_not_make_a_complete_module_cycle_scan_unknown(
         item.data.get("file") == "sample/resources/demos/demo/script/generator.scr.py"
         for item in observation.records("modules") or ()
     )
-    row = html[html.index('data-search="MODULE-CYCLES ') :]
-    row = row[: row.index("</tr>")]
-    assert 'data-status="pass"' in row and ">PASS</strong>" in row
+    _native_audit(html, observation, "architecture.json")
+    assert "Declared rules: PASS" in html
 
 
 def test_partial_nested_scan_with_dotted_python_stem_stays_unknown(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    payload, _, html = _cycle_report(
+    payload, observation, html = _cycle_report(
         tmp_path,
         capsys,
         roots=("sample/resources/demos/demo/script",),
@@ -152,9 +151,8 @@ def test_partial_nested_scan_with_dotted_python_stem_stays_unknown(
 
     assert payload["declared_rules"] == "UNKNOWN"
     assert payload["rule_assessments"][0]["status"] == "UNKNOWN"
-    row = html[html.index('data-search="MODULE-CYCLES ') :]
-    row = row[: row.index("</tr>")]
-    assert 'data-status="unknown"' in row and ">UNKNOWN</strong>" in row
+    _native_audit(html, observation, "architecture.json")
+    assert "Declared rules: UNKNOWN" in html
 
 
 def test_real_module_cycle_remains_fail_with_a_dotted_python_stem(
@@ -164,9 +162,8 @@ def test_real_module_cycle_remains_fail_with_a_dotted_python_stem(
 
     assert payload["declared_rules"] == "FAIL"
     assert any(item.kind == "module_cycle" for item in observation.records("violations") or ())
-    row = html[html.index('data-search="MODULE-CYCLES ') :]
-    row = row[: row.index("</tr>")]
-    assert 'data-status="fail"' in row and ">FAIL</strong>" in row
+    _native_audit(html, observation, "architecture.json")
+    assert "Declared rules: FAIL" in html
 
 
 def test_partial_scan_cannot_prove_cycle_scope_across_a_dotted_directory(

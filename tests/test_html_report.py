@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
-from dataclasses import replace
+from dataclasses import asdict, replace
 from html.parser import HTMLParser
 from pathlib import Path
 from xml.etree import ElementTree
@@ -17,12 +17,15 @@ from archkeel.check.declarations import _requires_entries
 from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_delta, parse_observation
+from archkeel.ir.decisions import agent_decisions
+from archkeel.ir.facts import EvidenceClass
 from archkeel.ir.graph_codec import parse_report
 from archkeel.ir.measurements import Measurements, RatchetScalars
 from archkeel.ir.model import (
     ComponentRole,
     ContractComponent,
     Diagnostic,
+    Observation,
     RatchetObservations,
     RequiredComponent,
     RuleAssessment,
@@ -56,6 +59,59 @@ def _start_tags(page: str, tag: str) -> list[dict[str, str | None]]:
     parser = _StartTags()
     parser.feed(page)
     return [attrs for name, attrs in parser.tags if name == tag]
+
+
+def _native_audit(page: str, observation: Observation, architecture_href: str):
+    start = page.index(">", page.index('id="flow-data"')) + 1
+    atlas = json.loads(page[start : page.index("</script>", start)])["atlas"]
+    assert atlas["source"] == json.loads(json.dumps(asdict(observation.source)))
+    assert atlas["coverage"] == json.loads(json.dumps(asdict(observation.coverage)))
+    assert atlas["contract_digest"] == observation.contract.digest
+    assert atlas["analyzer_digest"] == observation.analyzer.code_digest
+    assert atlas["architecture_href"] == architecture_href
+    assert "Snapshot and audit" in page
+    assert observation.source.source_digest in page
+    assert observation.contract.digest in page
+    assert f'href="{architecture_href}"' in page
+    return atlas
+
+
+def _native_details(output: Path, observation: Observation):
+    atlas = _native_audit(output.with_suffix(".report.html").read_text(), observation, output.name)
+    links = [item["detail_href"] for item in atlas["components"]]
+    links.append(atlas["unassigned_detail_href"])
+    reports = tuple(_standard_report((output.parent / link).read_text()) for link in links)
+    evidence = {item.id: item for item in observation.evidence}
+    records = {
+        item.id: item
+        for section in ("violations", "unknowns")
+        for item in observation.records(section) or ()
+    }
+    for report in reports:
+        assert report.observed is not None
+        assert all(item == evidence[item.id] for item in report.observed.evidence)
+        for finding in report.findings:
+            record = records[finding.id]
+            assert (
+                finding.kind,
+                finding.title,
+                finding.rule_ids,
+                finding.subjects,
+                finding.evidence_ids,
+                finding.provenance,
+            ) == (
+                record.kind,
+                record.title,
+                record.rule_ids,
+                record.subjects,
+                record.evidence_ids,
+                record.provenance,
+            )
+            assert finding.status == (
+                "FAIL" if record.evidence_class == EvidenceClass.VIOLATION else "UNKNOWN"
+            )
+            assert set(finding.evidence_ids) <= {item.id for item in report.observed.evidence}
+    return reports
 
 
 def test_html_report_preserves_verdicts_evidence_and_visual_contract() -> None:
@@ -331,7 +387,7 @@ def test_html_report_reports_no_cross_component_imports() -> None:
     assert "No cross-component imports were observed." in page
 
 
-def test_html_report_rendered_from_architecture_json_alone_shows_agent_decisions(
+def test_native_html_audit_keeps_agent_decisions_in_the_recorded_packet(
     tmp_path: Path,
 ) -> None:
     """AD-16: the count comes from architecture.json bytes, never a `RunResult` field, and
@@ -356,7 +412,15 @@ def test_html_report_rendered_from_architecture_json_alone_shows_agent_decisions
         stripped, architecture, repository="shop", architecture_href="architecture.json"
     ).decode()
 
-    assert "1 of 51 decisions made by the agent, awaiting the architect." in page
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    assert agent_decisions(observation) == (1, 51)
+    decision = next(
+        item
+        for item in observation.records("declarations") or ()
+        if item.id == "DEP-MODEL-NO-STORE"
+    )
+    assert decision.data.get("decided_by") == "agent"
+    _native_audit(page, observation, "architecture.json")
 
 
 def _shop_sample_report(tmp_path: Path, variant_id: str) -> str:
@@ -372,7 +436,14 @@ def _shop_sample_report(tmp_path: Path, variant_id: str) -> str:
 
 def _standard_report(page: str):
     start = page.index(">", page.index('id="flow-data"')) + 1
-    return parse_report(json.loads(page[start : page.index("</script>", start)]))
+    data = json.loads(page[start : page.index("</script>", start)])
+    return parse_report(
+        {
+            key: value
+            for key, value in data.items()
+            if key not in {"initial_scope", "initial_view", "navigation"}
+        }
+    )
 
 
 # Every rule id AD-10's flow view must attach to an edge in the "tour" sample (see

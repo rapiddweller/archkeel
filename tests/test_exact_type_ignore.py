@@ -10,6 +10,7 @@ import pytest
 from jsonschema import Draft202012Validator
 from test_analyzer import _observe_one_rule
 from test_architecture_demo import _prepare_repo
+from test_html_report import _native_audit
 
 from archkeel.cli import main
 from archkeel.ir.codec import (
@@ -186,10 +187,9 @@ def test_real_git_demo_cli_reports_matched_exception(
     assert len(matches) == 1
     assert matches[0].rule_ids == ("CONSTRUCT-NO-DYNAMIC",)
     html = output.with_suffix(".report.html").read_text()
-    assert "type_ignore_allowance" in html
-    assert "Applied type allowances" in html
-    assert "[attr-defined]" in html
-    assert "docs/architecture/shop.md" in html
+    _native_audit(html, observation, output.name)
+    assert matches[0].data.get("tag") == "[attr-defined]"
+    assert matches[0].provenance == ("docs/architecture/shop.md",)
 
 
 @pytest.mark.parametrize(

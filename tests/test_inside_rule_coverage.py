@@ -11,6 +11,7 @@ import pytest
 from graph_report_support import findings_for, import_sites
 from test_analyzer import _component, _inside_component, _observe
 from test_architecture_demo import FIXTURE_DIR, _prepare_repo
+from test_html_report import _native_audit, _native_details
 
 from archkeel.check.ports import ScanConfig
 from archkeel.check.validation import inside_diagnostics
@@ -866,10 +867,8 @@ def test_single_owner_inside_rules_have_cli_receipts_and_render_as_pass(
         "app:INTERFACE": ("PASS", True),
         "app:REQUIRES": ("PASS", True),
     }
-    for rule_id in ("app:INTERFACE", "app:REQUIRES"):
-        row_start = html.index(f'data-search="{rule_id} ')
-        row = html[row_start : html.index("</tr>", row_start)]
-        assert 'data-status="pass"' in row and ">PASS</strong>" in row
+    _native_audit(html, artifact, "architecture.json")
+    assert "Declared rules: PASS" in html
 
 
 @pytest.mark.parametrize(
@@ -1102,10 +1101,8 @@ def test_inside_cli_receipts_require_every_physical_package_domain(
         }
     else:
         assert not trace_valid_violations(artifact)
-    for rule_id in ("app:INTERFACE", "app:REQUIRES"):
-        row_start = html.index(f'data-search="{rule_id} ')
-        row = html[row_start : html.index("</tr>", row_start)]
-        assert f'data-status="{status.lower()}"' in row and f">{status}</strong>" in row
+    _native_audit(html, artifact, "architecture.json")
+    assert f"Declared rules: {status}" in html
 
 
 def test_complete_and_incomplete_nested_scopes_preserve_outer_violation_in_cli_report(
@@ -1185,7 +1182,12 @@ def test_complete_and_incomplete_nested_scopes_preserve_outer_violation_in_cli_r
         if item.kind == "rule_evaluation"
         for rule_id in item.rule_ids
     } >= {"core:INTERFACE", "core:REQUIRES"}
-    assert "OUTER-BLOCK" in (tmp_path / "architecture.report.html").read_text()
+    details = _native_details(output, artifact)
+    assert any(
+        "OUTER-BLOCK" in item.rule_ids and item.status == "FAIL"
+        for detail in details
+        for item in detail.findings
+    )
 
 
 @pytest.mark.parametrize(

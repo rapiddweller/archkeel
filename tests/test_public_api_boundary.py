@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 from test_analyzer import _component, _observe
+from test_html_report import _native_details
 
 from archkeel.analyzer.python.type_shapes import collect_type_shapes, symbol_type_expressions
 from archkeel.check.evaluation.rules import _public_api_symbol
@@ -600,7 +601,16 @@ def test_public_api_inheritance_cli_and_report(
         if item.kind == "declared_public_api" and item.subjects == (entries[0],)
     )
     assert api.data.get("types") == (("sample.facade:Nested",) if exit_code == 2 else ())
-    html = output.with_name("report.report.html").read_text()
+    details = _native_details(output, observation)
     if "Missing" in source:
-        assert "unresolved_name" in html
-        assert "Public API fields cannot be fully resolved" in html
+        unknown = next(
+            item
+            for item in observation.records("unknowns") or ()
+            if "Public API fields cannot be fully resolved" in item.title
+        )
+        assert "unresolved_name" in unknown.title
+        assert any(
+            item.id == unknown.id and item.title == unknown.title and item.status == "UNKNOWN"
+            for detail in details
+            for item in detail.findings
+        )

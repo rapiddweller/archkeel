@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from test_analyzer import _component, _observe
+from test_html_report import _native_details
 from test_inside_publication import _rule, _write_project
 
 from archkeel.ir.baseline import ViolationFingerprint, violation_fingerprint
@@ -121,4 +122,9 @@ def test_cli_and_html_report_keep_the_inherited_concrete_origin(
     assert finding.data.get("annotation") == annotation
     assert finding.data.get("resolved_types") == ("shop.app.payloads:Payload",)
     assert "shop.app.payloads:Noise" not in finding.title
-    assert finding.title in output.with_name(f"{variant_id}.report.html").read_text()
+    details = _native_details(output, observation)
+    assert any(
+        item.id == finding.id and item.title == finding.title and item.status == "FAIL"
+        for detail in details
+        for item in detail.findings
+    )
