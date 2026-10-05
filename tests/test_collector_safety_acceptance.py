@@ -82,12 +82,17 @@ def _wait_for_stop(pid: int) -> bool:
     ],
 )
 def test_collection_stops_owned_descendant_for_every_completion(
-    tmp_path: Path, case: str, expected_kind: str | None
+    tmp_path: Path,
+    case: str,
+    expected_kind: str | None,
+    monkeypatch: pytest.MonkeyPatch,
+    child_start_delay: float = 0,
 ) -> None:
     pid_file = tmp_path / "child.pid"
     heartbeat = tmp_path / "heartbeat"
     child_code = (
         "import time\n"
+        f"time.sleep({child_start_delay})\n"
         f"path = {str(heartbeat)!r}\n"
         "open(path, 'w').write('started')\n"
         "while True:\n"
@@ -121,6 +126,18 @@ def test_collection_stops_owned_descendant_for_every_completion(
     limits: dict[str, float | int] = {}
     if case == "timeout":
         limits["timeout_seconds"] = 0.12
+        original_exchange = ProcessCollector._exchange
+
+        def exchange_after_descendant_start(self, process, payload, workers):
+            deadline = time.monotonic() + 2
+            # Fixture startup must finish before the real collector timeout begins.
+            while not heartbeat.is_file() or not heartbeat.read_text().startswith("started"):
+                if time.monotonic() >= deadline:
+                    pytest.fail("collector fixture did not publish heartbeat within 2 seconds")
+                time.sleep(0.01)
+            return original_exchange(self, process, payload, workers)
+
+        monkeypatch.setattr(ProcessCollector, "_exchange", exchange_after_descendant_start)
     if case == "output_limit":
         limits["output_limit_bytes"] = 256
 
