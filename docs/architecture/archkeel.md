@@ -284,6 +284,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-198 | [Provider use survives initializer ownership](decisions/ad-198-provider-use-survives-initializer-ownership.md) |
 | AD-199 | [Nested permissions pin the complete field](decisions/ad-199-nested-permissions-pin-the-complete-field.md) |
 | AD-200 | [Diff projects recorded imports](decisions/ad-200-diff-projects-recorded-imports.md) |
+| AD-205 | [Class binding proofs use their AST owner](decisions/ad-205-class-binding-proofs-use-their-ast-owner.md) |
 
 ## Allowed dependencies
 

@@ -16,3 +16,6 @@ rendering together; fact validation remains at every existing boundary.
 
 Proof: `tests/test_definition_source_owners.py`, `tests/test_binding_proof_reuse.py`,
 `tests/test_report_timing.py`.
+
+`make report-timing` records a full Self report with a provisional 90 s wall budget.
+CI uploads the timing receipt. The first Ubuntu run calibrates it; Mac timings do not.

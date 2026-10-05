@@ -16,6 +16,7 @@ GATE_STEPS = ["self-validate", "check", "build", "smoke"]
 CI_CHECK_STEPS = [
     *GATE_STEPS,
     "ci-artifacts-clean",
+    "report-timing",
     "demo-typescript",
     "browser-install",
     "report-browser",
@@ -95,7 +96,15 @@ def test_gate_uses_pinned_base_instead_of_duplicate_self_validation(
 @pytest.mark.parametrize("jobs", [1, 2])
 @pytest.mark.parametrize(
     "failed",
-    [None, "self-validate", "ci-artifacts-clean", "demo-typescript", "browser-install", "mermaid"],
+    [
+        None,
+        "self-validate",
+        "ci-artifacts-clean",
+        "report-timing",
+        "demo-typescript",
+        "browser-install",
+        "mermaid",
+    ],
 )
 def test_ci_runs_acceptance_only_after_a_successful_gate(
     tmp_path: Path, jobs: int, failed: str | None
@@ -141,6 +150,7 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     assert "timeout-minutes: 60" in check
     assert "Observe Archkeel" not in check
     assert "archkeel-self-observation" not in check
+    assert "path: test-artifacts/report-timing/architecture.timing.json" in check
     assert "path: test-artifacts/pytest/results.xml" in check
     assert "path: test-artifacts/report-browser/" in check
     assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in workflow
