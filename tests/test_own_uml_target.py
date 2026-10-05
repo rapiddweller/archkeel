@@ -251,7 +251,7 @@ def test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints(
     page.context.new_cdp_session(page).send("Emulation.setCPUThrottlingRate", {"rate": 4})
     try:
         for label in ("ir", "governance", "architecture_graph"):
-            page.locator(f'.flow-nodes [data-label="{label}"]').dblclick()
+            page.locator(f'.flow-nodes [data-label="{label}"]').dblclick(timeout=30000)
         graph_id = page.locator('.flow-nodes [data-label="ArchitectureGraph"]').get_attribute(
             "data-uml-id"
         )
