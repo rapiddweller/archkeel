@@ -391,10 +391,11 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 for entry in facts.capabilities.constructs
             ):
                 raise ValueError("source construct disagrees with declared capabilities")
+    fact_ids = record_ids | file_ids
     for record in records:
         if not set(record.evidence_ids).issubset(evidence_ids):
             raise ValueError("dangling source evidence reference")
-        if not set(record.fact_ids).issubset(record_ids | file_ids):
+        if not set(record.fact_ids).issubset(fact_ids):
             raise ValueError("dangling source fact reference")
     record_by_id = {record.id: record for record in records}
     _property_bindings(records, base_by_id)
