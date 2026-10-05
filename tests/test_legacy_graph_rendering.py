@@ -160,12 +160,21 @@ def test_target_graph_is_decoded_once_for_both_rendering_payloads(tmp_path, monk
 
     decoded = []
     original = producer.recorded_target_graph
+    original_render = render_html
 
     def record_decode(observation, declaration):
         decoded.append(declaration.id)
         return original(observation, declaration)
 
+    def measured_render(*args, **kwargs):
+        assert len(decoded) == 1
+        decoded.clear()
+        page = original_render(*args, **kwargs)
+        assert len(decoded) == 1
+        return page
+
     monkeypatch.setattr(producer, "recorded_target_graph", record_decode)
+    monkeypatch.setattr(f"{__name__}.render_html", measured_render)
     _, payload, graph = _legacy_report(tmp_path, nested=True)
     assert len(decoded) == 1
     assert parse_graph(payload["target"]) == graph
