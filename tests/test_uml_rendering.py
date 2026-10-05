@@ -409,7 +409,7 @@ def test_shared_permission_edges_retain_approval_and_connected_focus(tmp_path, n
             ):
                 assert expected in text
             assert all(item.reason not in text for item in permissions if item.id != permission.id)
-            assert "Core assessments" not in text
+            assert "Target checks" not in text
             assert "Component intent" not in text
             assert (
                 page.locator(".flow-inspector-content h2").inner_text()

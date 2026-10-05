@@ -327,3 +327,63 @@ def test_blocked_route_keeps_accessible_warning_endpoints_and_evidence(tmp_path,
     finally:
         browser.close()
         playwright.stop()
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_mobile_check_wraps_long_failure_identity_without_changing_result(scheme):
+    from dataclasses import replace
+
+    from test_html_report import FAILED_CHECK
+
+    from archkeel.render.html import render_check_html
+
+    api = pytest.importorskip("playwright.sync_api")
+    identity = "8ef830a60aba1c9fee50741b004956eafcfe09cf614f86c77ddf48971c36505b"
+    result = replace(FAILED_CHECK, failures=(f"guardrail changed unknowns fingerprint {identity}",))
+    html = render_check_html(result, repository="sample", result_href="result.json").decode()
+    playwright, browser, page = _browser_page(api, html, width=375, height=844)
+    try:
+        page.emulate_media(color_scheme=scheme)
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        assert page.locator(".failure-list code").inner_text().endswith(identity)
+        assert (
+            page.locator(".verdict-card")
+            .filter(has=page.locator(".verdict-key", has_text="expectation_fulfilled"))
+            .get_attribute("data-verdict")
+            == "fail"
+        )
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_native_theme_keeps_target_cards_readable_and_evidence_unchanged(tmp_path, scheme):
+    api = pytest.importorskip("playwright.sync_api")
+    html, _ = _uml_report(tmp_path)
+    errors = []
+    playwright, browser, page = _browser_page(api, html, width=375, height=844, errors=errors)
+    try:
+        page.emulate_media(color_scheme=scheme)
+        before = page.locator("#flow-data").text_content()
+        assert page.evaluate("getComputedStyle(document.documentElement).colorScheme") == scheme
+        _open_module(page, "Target")
+        page.locator('.flow-nodes [data-label="Client"]').click()
+        colors = page.locator(".flow-nodes .node").evaluate_all(r"""nodes => {
+          const rgb = s => s.match(/[\d.]+/g).slice(0,3).map(Number);
+          const luminance = c => c.map(v => {v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4})
+            .reduce((s,v,i)=>s+v*[.2126,.7152,.0722][i],0);
+          const contrast = (a,b) => (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+          return nodes.filter(n => n.getBoundingClientRect().width).map(n => {
+            const label=n.querySelector('.label'), card=n.querySelector('.card');
+            return contrast(luminance(rgb(getComputedStyle(label).fill)),
+              luminance(rgb(getComputedStyle(card).fill)));
+          });
+        }""")
+        assert colors and min(colors) >= 4.5
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        assert page.locator("#flow-data").text_content() == before
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()

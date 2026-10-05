@@ -163,12 +163,12 @@ def test_direct_failed_edge_selection_keeps_core_rule_and_source_evidence(tmp_pa
         assert edge.get_attribute("aria-pressed") == "true"
         _open_details(page)
         details = page.locator(".flow-inspector-content")
-        assert details.get_by_role("heading", name="Recorded Core findings").count() == 1
+        assert details.get_by_role("heading", name="Recorded findings").count() == 1
         assert "INTERFACE-BOUNDARY" in details.inner_text()
         assert "Source sites" in details.inner_text()
         assert "shop/" in details.inner_text()
         page.get_by_role("button", name="Fit overview").click()
-        assert details.get_by_role("heading", name="Recorded Core findings").count() == 1
+        assert details.get_by_role("heading", name="Recorded findings").count() == 1
         assert "INTERFACE-BOUNDARY" in details.inner_text()
         assert page.locator("#flow-data").text_content() == data
         assert page.locator(".verdict-grid").inner_text() == verdicts

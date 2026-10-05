@@ -42,6 +42,24 @@ def _path(value: object, *, field: str, allow_dot: bool = True) -> str:
     return value
 
 
+def project_name(root: Path, config: ScanConfig) -> str:
+    """Use valid Python project metadata for display, otherwise the configured namespace."""
+    if config.language == "python":
+        try:
+            path = _contained(root, "pyproject.toml", field="project metadata")
+            with open(path, "rb") as stream:
+                metadata = tomllib.load(stream)
+        except (ConfigError, OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+            return config.namespace
+        project = metadata.get("project")
+        name = project.get("name") if isinstance(project, dict) else None
+        if isinstance(name, str) and re.fullmatch(
+            r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?", name
+        ):
+            return name
+    return config.namespace
+
+
 def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
     """Parse and validate config syntax without touching the filesystem; `name` is the file."""
     try:

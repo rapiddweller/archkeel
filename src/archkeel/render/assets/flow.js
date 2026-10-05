@@ -1460,7 +1460,7 @@
         <p>This file inventory does not define classes, methods, imports or calls.</p>
         <p>${DATA.observed ? observedFile ? `Observed module: ${esc(observedFile.qualified_name)}` : "Not in the observed file inventory." : "Source facts are unavailable."} This is separate from a Core verdict.</p>
         <h3>Provenance</h3><p>${node.inventory.provenance.map(esc).join(" · ")}</p>
-        <h3>Recorded Core findings</h3>${findingMarkup(node.findings || [])}`;
+        <h3>Recorded findings</h3>${findingMarkup(node.findings || [])}`;
       return;
     }
     const entity = node?.entity || (!umlSelection
@@ -1553,8 +1553,8 @@
           : context.scope === null ? "<h3>Permitted package layout</h3><p>Not declared</p>" : ""}` : ""}
       ${children.length ? `<h3>Inner elements</h3><ul class="plain">${children.map((child) =>
         `<li><code>${esc(umlMember(child))}</code>${architectureHasInterior(child, entityGraph) ? ` <button type="button" data-uml-detail="${esc(child.id)}">Open</button>` : ""}</li>`).join("")}</ul>` : ""}
-      ${assessments.length ? `<h3>Core assessments</h3>${problems.length ? `<ul class="plain">${assessmentDetails(problems)}</ul>` : ""}${matches.length ? `<details><summary>${matches.length} matched assessments</summary><ul class="plain">${assessmentDetails(matches)}</ul></details>` : ""}`
-        : context.comparison && entityGraph.origin === "observed" ? "<h3>Core assessments</h3><p>No Core assessment for this observed scope.</p>" : ""}
+      ${assessments.length ? `<h3>Target checks</h3>${problems.length ? `<ul class="plain">${assessmentDetails(problems)}</ul>` : ""}${matches.length ? `<details><summary>${matches.length} matched assessments</summary><ul class="plain">${assessmentDetails(matches)}</ul></details>` : ""}`
+        : context.comparison && entityGraph.origin === "observed" ? "<h3>Target checks</h3><p>No recorded check for this observed scope.</p>" : ""}
       ${sites.length ? `<h3>Relationship sites</h3><ul class="plain">${siteEntries.map(({ site, sourceGraph }) =>
         `<li><code>${esc(site.kind)}</code> · ${esc(site.resolution === "not_applicable" ? "declared" : site.resolution)}<p><code>${esc(sourceGraph.entities.find((item) => item.id === site.source_id)?.qualified_name)} → ${esc(sourceGraph.entities.find((item) => item.id === site.target_id)?.qualified_name || (site.candidate_ids.length ? "candidates" : "unresolved"))}</code></p>${site.kind === "requires" ? `<p>Allowed component import. This does not require an import or call.</p><p>${site.through.length ? `Through: <code>${site.through.map(esc).join(", ")}</code>` : "Published interface not narrowed"}${site.decided_by ? ` · Decided by: ${esc(site.decided_by)}` : ""}</p>` : ""}${site.expression ? `<code>${esc(site.expression)}</code>` : ""}${site.reason ? `<p>${esc(site.reason)}</p>` : ""}</li>`).join("")}</ul>` : ""}
       ${coverage.length ? `<h3>Coverage</h3><ul class="plain">${coverage.map((item) =>
@@ -1567,7 +1567,7 @@
       const ids = new Set(edge ? edge.sites.map((site) => site.id) : entity ? [entity.id] : []);
       const findings = (DATA.findings || []).filter((item) => !umlSelection
         || item.graph_subject_ids.some((id) => ids.has(id)));
-      inspectorContent.insertAdjacentHTML("beforeend", `<h3>Recorded Core findings</h3>${findingMarkup(findings)}`);
+      inspectorContent.insertAdjacentHTML("beforeend", `<h3>Recorded findings</h3>${findingMarkup(findings)}`);
     }
     inspectorContent.querySelectorAll("[data-uml-detail]").forEach((button) =>
       button.addEventListener("click", () => openArchitectureEntity(button.dataset.umlDetail, entityGraph)));
@@ -1956,7 +1956,7 @@
     if (!tableView) return;
     const rows = viewMode === "actual" ? context.graph.entities.filter((item) => item.kind === "module" && item.presence === "defined")
       : scene.nodes.map((node) => node.entity).filter(Boolean);
-    alternative.innerHTML = viewMode === "review" ? `<h2>Recorded Core findings</h2>${findingMarkup(DATA.findings || [])}`
+    alternative.innerHTML = viewMode === "review" ? `<h2>Recorded findings</h2>${findingMarkup(DATA.findings || [])}`
       : `<h2>${viewMode === "actual" ? "Observed modules" : "Architecture structure"}</h2><table><thead><tr><th>Kind</th><th>Name</th><th>Visibility</th><th>Source</th></tr></thead><tbody>${rows.map((entity) => `<tr><td>${esc(entity.kind)}</td><td><button type="button" data-uml-table="${esc(entity.id)}">${esc(entity.qualified_name)}</button></td><td>${esc(entity.visibility.kind)}</td><td>${esc(entity.file_path || "")}</td></tr>`).join("")}</tbody></table>`;
     alternative.querySelectorAll("[data-uml-table]").forEach((button) => button.addEventListener("click", () => {
       openArchitectureEntity(button.dataset.umlTable, context.graph);

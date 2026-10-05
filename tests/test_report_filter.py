@@ -332,3 +332,15 @@ def test_cli_report_help_documents_the_filters() -> None:
     assert "--only" in result.stdout
     assert "--rule" in result.stdout
     assert "--component" in result.stdout
+
+
+def test_unknown_rule_remedy_lists_rules_even_when_no_rule_is_violated(tmp_path: Path) -> None:
+    root = _prepare_repo(tmp_path, {})
+    clean, _ = run_report(root, config=CONFIG, analyzer=observe)
+    assert clean.violations_by_rule == ()
+    assert clean.rule_assessments
+    refused, _ = run_report(root, config=CONFIG, analyzer=observe, rule="NO-SUCH-RULE")
+    assert refused.exit_code == 2
+    assert refused.diagnostics[0].kind == "filter_unknown"
+    assert "rule_assessments[].id" in refused.diagnostics[0].remedy
+    assert "violations_by_rule" not in refused.diagnostics[0].remedy

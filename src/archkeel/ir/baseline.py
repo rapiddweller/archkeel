@@ -244,7 +244,7 @@ def require_declared_filter(observation: Observation, report_filter: ReportFilte
                 "filter_unknown",
                 f"--rule {report_filter.rule}",
                 f"{report_filter.rule!r} is not a rule id this contract declares.",
-                "Read violations_by_rule from archkeel report --json for the declared rule "
+                "Read rule_assessments[].id from archkeel report --json for the declared rule "
                 "ids, an inside rule included as <component>:<rule id>.",
             )
         )
