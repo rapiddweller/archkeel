@@ -1773,8 +1773,9 @@
 
     const kinds = [...new Set(complete.edges.map((edge) => edge.relationshipKind))].sort();
     if (!kinds.includes(relationshipKind)) relationshipKind = null;
-    const directOverview = ["module", "class", "interface", "enum"].includes(
-      architectureEntity(context.scope, context.graph)?.kind) && !focusLabel && !relationshipKind
+    const directScope = ["module", "class", "interface", "enum"].includes(
+      architectureEntity(context.scope, context.graph)?.kind);
+    const directOverview = directScope && !focusLabel && !relationshipKind
       && !violationsOnly.checked;
     const scopeElements = complete.nodes.filter((node) => !directOverview
       || !node.outside && node.entity?.id !== context.scope);
@@ -1791,7 +1792,8 @@
       `<option value="${esc(node.id)}">${esc(node.label)} · ${esc(node.kind)}${node.outside ? " · outside" : ""}</option>`).join("");
     focusInput.value = focusLabel || "";
     focusInput.disabled = !elements.length;
-    const connections = directOverview ? projectArchitectureScene(context, true).edges : complete.edges;
+    const localConnections = directScope ? projectArchitectureScene(context, true).edges : complete.edges;
+    const connections = directOverview ? localConnections : complete.edges;
     const edges = connections.filter((edge) => (!violationsOnly.checked || edge.state === "violation")
       && (!relationshipKind || edge.relationshipKind === relationshipKind)
       && elementIds.has(edge.source) && elementIds.has(edge.target)
@@ -1916,11 +1918,14 @@
       item.className = "flow-legend-item flow-fit";
       item.dataset.relationshipKind = kind || "";
       item.setAttribute("aria-pressed", String(relationshipKind === kind));
-      const count = kind ? complete.edges.filter((edge) => edge.relationshipKind === kind).length : complete.edges.length;
+      const localReset = directScope && !focusLabel && !violationsOnly.checked;
+      const count = kind ? complete.edges.filter((edge) => edge.relationshipKind === kind).length
+        : localReset ? localConnections.length : complete.edges.length;
       item.textContent = kind
-        ? `${kind === "inherits" ? "△" : kind === "realizes" ? "┄△" : "⇢"} ${kind === "requires" ? "Allowed component import" : kind} · ${count}`
-        : `All relationships · ${count}`;
-      item.title = `Show ${kind || "all"} relationships at this level · ${count} connections`;
+        ? `${kind === "inherits" ? "△" : kind === "realizes" ? "┄△" : "⇢"} ${kind === "requires" ? "Allowed component import" : kind} in context · ${count}`
+        : `${localReset ? "Local relationships" : "All relationships in context"} · ${count}`;
+      const scopeLabel = kind || !localReset ? "in context" : "at this level";
+      item.title = `Show ${kind || (localReset ? "local" : "all")} relationships ${scopeLabel} · ${count} connections`;
       legend.appendChild(item);
     }
     if (complete.edges.some((edge) => edge.assessments.some((item) => item.change === "unexpected"))) {

@@ -355,6 +355,9 @@ def test_module_and_classifier_defaults_show_only_direct_native_children(tmp_pat
         groups = {(edge.kind, edge.source_id, target, edge.resolution) for edge, target in sites}
         assert groups
         assert page.locator(".flow-edges .hit").count() == len(groups)
+        reset = page.locator('.flow-legend [data-relationship-kind=""]')
+        assert reset.inner_text() == f"Local relationships · {len(groups)}"
+        assert f"local relationships at this level · {len(groups)}" in reset.get_attribute("title")
         for kind, source, target, resolution in groups:
             hit = page.locator(
                 f'.flow-edges [data-uml-id="{kind}:{source}>{target}:{resolution}"] .hit'
@@ -386,6 +389,10 @@ def test_module_and_classifier_defaults_show_only_direct_native_children(tmp_pat
         }
         page.get_by_label("Element kind", exact=True).select_option("")
         page.locator('.flow-legend [data-relationship-kind="inherits"]').click()
+        assert (
+            "in context"
+            in page.locator('.flow-legend [data-relationship-kind="inherits"]').inner_text()
+        )
         assert page.locator('.flow-nodes [data-label="Base"]').count() == 1
         assert page.locator(".flow-edges .hit").count() > 0
         page.locator('.flow-legend [data-relationship-kind=""]').click()
