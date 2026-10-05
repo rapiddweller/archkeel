@@ -133,7 +133,7 @@ ALLOWED_LONG_FUNCTIONS = {
         "Sequences authentication, git and host order, both snapshots and "
         "evaluation; one with-block owns the snapshot lifetimes."
     ),
-    ("src/archkeel/check/validation.py::run_validate"): (
+    ("src/archkeel/check/validation/__init__.py::run_validate"): (
         "Sequences baseline, contract, observation and artifact decisions; the "
         "branches are the validation protocol."
     ),
