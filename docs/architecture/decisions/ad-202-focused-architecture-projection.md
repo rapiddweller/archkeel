@@ -30,3 +30,10 @@ permissions against the recorded contract. This feature widens the contract.
 
 Evidence: `tests/test_architecture_projection.py`. Own-repository byte budgets and integrated
 gates are separate acceptance checks; no record is truncated to satisfy a size budget.
+
+Fresh native Self measured 99,057 bytes for the whole command envelope and 56,556 bytes
+for the largest of 29 component ID slices. The owner superseded the proposed 50 KB/5 KB
+limits with 160 KiB/80 KiB guards to retain complete governing records, assessments,
+UNKNOWNs, locations and remedy. The regression reuses the shared native Self run and
+encodes every envelope twice; the tiny fixture's size check is separate evidence.
+This budget proof does not accept outstanding baseline changes or the release gates.

@@ -11,19 +11,30 @@ from dataclasses import asdict, replace
 from pathlib import Path
 
 import pytest
+from conftest import SelfRun
 from test_result_schema import validator as validator
 from test_target_graph import _nested_repository
 
 from archkeel.check.ports import ScanConfig
-from archkeel.check.report import run_report
+from archkeel.check.ratchets import unknown_positions_by_rule
+from archkeel.check.report import VIOLATION_REMEDY, run_report
 from archkeel.cli import main
 from archkeel.cli.observe import observe
 from archkeel.ir.architecture_graph import RuleAssessment as GraphRuleAssessment
 from archkeel.ir.architecture_graph import RuleAssessmentStatus as GraphRuleAssessmentStatus
 from archkeel.ir.codec import decode_canonical_model, parse_observation, parse_record, result_bytes
-from archkeel.ir.model import RuleAssessment, RuleAssessmentStatus
+from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.model import (
+    FilteredViolation,
+    ReportFilter,
+    ReportLocation,
+    RuleAssessment,
+    RuleAssessmentStatus,
+    RunResult,
+)
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.report_projection import (
+    _selected_projection,
     architecture_command_envelope,
     architecture_projection,
     short_selector,
@@ -350,7 +361,7 @@ def test_missing_target_and_partial_coverage_never_project_pass(tmp_path):
     assert partial.architecture_projection.levels[0].used is None
 
 
-def test_two_same_commit_cli_results_are_identical_including_whole_envelope(tmp_path, capsys):
+def test_two_same_commit_tiny_fixture_cli_envelopes_are_identical(tmp_path, capsys):
     root, _ = _repository(tmp_path)
     outputs = []
     for name in ("first", "second"):
@@ -372,6 +383,141 @@ def test_two_same_commit_cli_results_are_identical_including_whole_envelope(tmp_
         outputs.append(capsys.readouterr().out.encode())
     assert outputs[0] == outputs[1]
     assert len(outputs[0]) < 50_000
+
+
+def test_native_self_architecture_envelopes_preserve_context_within_measured_budgets(
+    self_run: SelfRun,
+):
+    model = self_run.observation
+    native = json.loads(self_run.result)
+    report = architecture_report(model)
+    assessments = rule_assessments(model, undecided_by_rule=unknown_positions_by_rule(model))
+    assert (
+        json.loads(json.dumps([asdict(item) for item in assessments])) == native["rule_assessments"]
+    )
+    full = architecture_projection(model, report, assessments, violation_remedy=VIOLATION_REMEDY)
+    assert report.target is not None and full.components
+    assert any(
+        module.name == "archkeel.cli" for owner in full.components for module in owner.modules
+    )
+    assert {item.id for item in model.records("unknowns") or ()} <= {
+        item.id for item in full.unknowns
+    }
+    unknowns = Counter((item.kind, item.reason, item.scopes) for item in full.unknowns)
+    violations = tuple(
+        FilteredViolation(
+            record,
+            tuple(
+                ReportLocation(entry.file, entry.line)
+                for entry in model.evidence
+                if entry.id in record.evidence_ids
+            ),
+        )
+        for record in model.records("violations") or ()
+    )
+    views = [(None, full)] + [
+        (
+            owner.id,
+            _selected_projection(
+                model,
+                report,
+                report.target,
+                full.components,
+                full.levels,
+                full.permission_rules,
+                full.required_relationships,
+                full.ownership_gaps,
+                full.unknowns,
+                owner.id,
+                full.violation_remedy,
+            ),
+        )
+        for owner in full.components
+    ]
+    sizes = {}
+    for identity, view in views:
+        finding_ids = {item for owner in view.components for item in owner.finding_ids}
+        result = RunResult(
+            "report",
+            native["exit_code"],
+            observation_complete=native["observation_complete"],
+            declared_rules=native["declared_rules"],
+            coverage=model.coverage,
+            report_filter=ReportFilter(False, None, identity, False, True),
+            architecture_projection=view,
+            filtered_violations=tuple(
+                item for item in violations if identity is None or item.record.id in finding_ids
+            ),
+        )
+        encoded = result_bytes(result)
+        assert encoded == result_bytes(result)
+        payload = json.loads(encoded)
+        wire = payload["architecture_projection"]
+        assert payload["coverage"] == native["coverage"]
+        assert payload["declared_rules"] == native["declared_rules"]
+        assert wire["source"] == json.loads(json.dumps(asdict(model.source)))
+        assert wire["violation_remedy"] == VIOLATION_REMEDY
+        assert {
+            (kind, reason, tuple(scopes)): count
+            for kind, reasons in wire["unknowns"].items()
+            for reason, groups in reasons.items()
+            for scopes, count in groups
+        } == unknowns
+        assert tuple(
+            parse_record(item["declaration"]) for item in wire["permission_rules"]
+        ) == tuple(item.declaration for item in view.permission_rules)
+        assert [item["assessment"] for item in wire["permission_rules"]] == json.loads(
+            json.dumps(
+                [
+                    asdict(item.assessment) if item.assessment else None
+                    for item in view.permission_rules
+                ]
+            )
+        )
+        required = Counter(
+            (item["kind"], item["status"], tuple(item["reasons"]))
+            for item in wire["required_relationships"]
+        )
+        for item in wire["required_summaries"]:
+            required[item["kind"], item["status"], tuple(item["reasons"])] += item["count"]
+        assert required == Counter(
+            (item.kind, item.status, item.reasons) for item in view.required_relationships
+        )
+        assert tuple(
+            parse_record({key: value for key, value in item.items() if key != "locations"})
+            for item in payload["filtered_violations"]
+        ) == tuple(item.record for item in result.filtered_violations)
+        assert [item["locations"] for item in payload["filtered_violations"]] == json.loads(
+            json.dumps(
+                [
+                    [asdict(location) for location in item.locations]
+                    for item in result.filtered_violations
+                ]
+            )
+        )
+        sizes[identity] = len(encoded)
+    assert sizes[None] <= 160 * 1024, sizes
+    largest_id, largest_size = max(
+        ((identity, size) for identity, size in sizes.items() if identity is not None),
+        key=lambda item: item[1],
+    )
+    assert largest_size <= 80 * 1024, (largest_id, largest_size, sizes)
+    assert dict(views)[largest_id] == architecture_projection(
+        model, report, assessments, violation_remedy=VIOLATION_REMEDY, component=largest_id
+    )
+    print(
+        json.dumps(
+            {
+                "whole_bytes": sizes[None],
+                "component_bytes": {
+                    identity: size for identity, size in sizes.items() if identity is not None
+                },
+                "largest_component_id": largest_id,
+                "largest_component_bytes": largest_size,
+            },
+            sort_keys=True,
+        )
+    )
 
 
 def test_ordinary_report_exposes_the_same_authenticated_projection_without_changing_json(tmp_path):
