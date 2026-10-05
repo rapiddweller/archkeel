@@ -1830,6 +1830,8 @@
           && entry.sourceGraph === connection.sourceGraph)) siteEntries.push({ site, sourceGraph: connection.sourceGraph });
     }
     const sites = siteEntries.map((entry) => entry.site);
+    const siteNames = new Map([...new Set(siteEntries.map((entry) => entry.sourceGraph))].map((sourceGraph) =>
+      [sourceGraph, new Map(sourceGraph.entities.map((item) => [item.id, item.qualified_name]))]));
     const assessments = edge?.assessments || node?.assessments || architectureAssessments(context, context.scope);
     const problems = assessments.filter((item) => item.status !== "PASS");
     const matches = assessments.filter((item) => item.status === "PASS");
@@ -1937,7 +1939,7 @@
       ${assessments.length ? `<h3>Target checks</h3>${problems.length ? `<ul class="plain">${assessmentDetails(problems)}</ul>` : ""}${matches.length ? `<details><summary>${matches.length} matched assessments</summary><ul class="plain">${assessmentDetails(matches)}</ul></details>` : ""}`
         : context.comparison && entityGraph.origin === "observed" ? "<h3>Target checks</h3><p>No recorded check for this observed scope.</p>" : ""}
       ${sites.length ? `<h3>Relationship sites</h3><ul class="plain">${siteEntries.map(({ site, sourceGraph }) =>
-        `<li><code>${esc(site.kind)}</code> · ${esc(site.resolution === "not_applicable" ? "declared" : site.resolution)}<p><code>${esc(sourceGraph.entities.find((item) => item.id === site.source_id)?.qualified_name)} → ${esc(sourceGraph.entities.find((item) => item.id === site.target_id)?.qualified_name || (site.candidate_ids.length ? "candidates" : "unresolved"))}</code></p>${site.kind === "requires" ? `<p>Allowed component import. This does not require an import or call.</p><p>${site.through.length ? `Through: <code>${site.through.map(esc).join(", ")}</code>` : "Published interface not narrowed"}${site.decided_by ? ` · Decided by: ${esc(site.decided_by)}` : ""}</p>` : ""}${site.expression ? `<code>${esc(site.expression)}</code>` : ""}${site.reason ? `<p>${esc(site.reason)}</p>` : ""}</li>`).join("")}</ul>` : ""}
+        `<li><code>${esc(site.kind)}</code> · ${esc(site.resolution === "not_applicable" ? "declared" : site.resolution)}<p><code>${esc(siteNames.get(sourceGraph).get(site.source_id))} → ${esc(siteNames.get(sourceGraph).get(site.target_id) || (site.candidate_ids.length ? "candidates" : "unresolved"))}</code></p>${site.kind === "requires" ? `<p>Allowed component import. This does not require an import or call.</p><p>${site.through.length ? `Through: <code>${site.through.map(esc).join(", ")}</code>` : "Published interface not narrowed"}${site.decided_by ? ` · Decided by: ${esc(site.decided_by)}` : ""}</p>` : ""}${site.expression ? `<code>${esc(site.expression)}</code>` : ""}${site.reason ? `<p>${esc(site.reason)}</p>` : ""}</li>`).join("")}</ul>` : ""}
       ${coverage.length ? `<h3>Coverage</h3><ul class="plain">${coverage.map((item) =>
         `<li>${esc([...item.entity_kinds, ...item.relationship_kinds].join(", "))}: ${esc(item.status)}${item.reason ? ` · ${esc(item.reason)}` : ""}</li>`).join("")}</ul>` : ""}
       ${proof.length ? `<h3>Source sites</h3><ul class="plain">${proof.map((item) =>
