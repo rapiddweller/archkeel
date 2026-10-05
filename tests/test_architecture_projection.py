@@ -3,10 +3,12 @@
 # SPDX-License-Identifier: MIT
 """The focused architecture view retains ownership, decisions and global evidence."""
 
+import ast
 import json
 import subprocess
 from collections import Counter
 from dataclasses import asdict, replace
+from pathlib import Path
 
 import pytest
 from test_result_schema import validator as validator
@@ -28,6 +30,52 @@ from archkeel.ir.report_projection import (
     unknown_groups,
 )
 from archkeel.render.summary import report_summary
+
+
+def test_native_reexported_assessment_requires_its_physical_public_owner(tmp_path):
+    root, config = _repository(tmp_path)
+    (root / "sample/core.py").write_text(
+        "from .other import RuleAssessment\n\n"
+        "def run(value: RuleAssessment) -> RuleAssessment:\n    return value\n"
+    )
+    (root / "sample/other.py").write_text(
+        'from .store import RuleAssessment as RuleAssessment\n__all__ = ["RuleAssessment"]\n'
+    )
+    source = Path(__file__).resolve().parents[1] / "src/archkeel/ir/architecture_graph.py"
+    shared = source.read_text()
+    definition = next(
+        item
+        for item in ast.parse(shared).body
+        if isinstance(item, ast.ClassDef) and item.name == "RuleAssessment"
+    )
+    first_line = min(definition.lineno, *(item.lineno for item in definition.decorator_list))
+    declaration = "\n".join(shared.splitlines()[first_line - 1 : definition.end_lineno])
+    (root / "sample/store.py").write_text(
+        "from dataclasses import dataclass\nfrom typing import Literal, TypeAlias\n"
+        'RuleAssessmentStatus: TypeAlias = Literal["PASS", "FAIL", "UNKNOWN", "DECLARATION"]\n'
+        + declaration
+        + "\n"
+    )
+    path = root / config.contract
+    contract = json.loads(path.read_bytes())
+    contract["components"][1]["public"] = []
+    contract["rules"] = [
+        {
+            "id": "TYPES",
+            "kind": "boundary_types",
+            "source": "sample.core",
+            "rationale": "Declare the shared assessment's physical owner.",
+            "provenance": ["docs/target.md"],
+            "decided_by": "architect",
+        }
+    ]
+    for public, expected in (([], "FAIL"), (["sample.store:RuleAssessment"], "PASS")):
+        contract["components"][1]["public"] = public
+        path.write_text(json.dumps(contract))
+        result, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+        (assessment,) = result.rule_assessments
+        assert assessment.status == expected
+        assert assessment.evaluation_proven
 
 
 def test_public_rule_assessment_import_preserves_identity_constructor_and_fields():

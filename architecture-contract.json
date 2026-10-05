@@ -115,6 +115,7 @@
         "archkeel.ir.source_records:FRAMEWORK_BASES",
         "archkeel.ir.source_records:is_public_method_name",
         "archkeel.ir.architecture_graph:ArchitectureReport",
+        "archkeel.ir.architecture_graph:RuleAssessment",
         "archkeel.ir.graph_codec:report_bytes",
         "archkeel.ir.report_graph:architecture_report",
         "archkeel.ir.architecture_projection:ArchitectureProjection",

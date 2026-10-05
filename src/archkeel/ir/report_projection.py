@@ -29,7 +29,7 @@ from archkeel.ir.architecture_projection import (
     UnknownProjection,
     UsageProjection,
 )
-from archkeel.ir.facts import SourceInfo
+from archkeel.ir.facts import Record, SourceInfo
 from archkeel.ir.model import (
     RULE_KINDS,
     Coverage,
@@ -119,7 +119,8 @@ def _scope_subjects(report: ArchitectureReport, module_ids: set[str]) -> set[str
 def _permission_rules(
     model: Observation, target: ArchitectureGraph, assessments: tuple[RuleAssessment, ...]
 ) -> tuple[PermissionRuleProjection, ...]:
-    scope_ids = {scope: identity for identity, scope in _scope_names(target).items()}
+    names: dict[str, str] = _scope_names(target)
+    scope_ids = {scope: identity for identity, scope in names.items()}
     core = {item.id: item for item in assessments}
     return tuple(
         PermissionRuleProjection(
@@ -224,16 +225,18 @@ def architecture_projection(
     report.validate()
     target, observed = report.target, report.observed
     original_unknowns = {item.id: item for item in model.records("unknowns") or ()}
-    unknowns = [
-        UnknownProjection(
-            item.id,
-            text_value(original_unknowns[item.id].data.get("reason")) or item.title,
-            item.rule_ids,
-            original_unknowns[item.id].kind,
-        )
-        for item in report.findings
-        if item.status == "UNKNOWN"
-    ]
+    unknowns: list[UnknownProjection] = []
+    for item in report.findings:
+        if item.status == "UNKNOWN":
+            original_unknown: Record = original_unknowns[item.id]
+            unknowns.append(
+                UnknownProjection(
+                    item.id,
+                    text_value(original_unknown.data.get("reason")) or item.title,
+                    item.rule_ids,
+                    original_unknown.kind,
+                )
+            )
     if target is None:
         unknowns.append(
             UnknownProjection("target.unavailable", "Authenticated Target intent is unavailable.")
@@ -480,17 +483,21 @@ def architecture_projection(
             if set(item.graph_subject_ids) & subject_ids
             or intent.component_id in item.graph_subject_ids
         )
-        scoped = tuple(
-            item
-            for item in assessments
-            if declarations.get(item.id) is not None
-            and (text_value(declarations[item.id].data.get("parent_id")) or None)
-            == (names[intent.parent_id] if intent.parent_id else None)
-            and (not item.components or intent.label in item.components)
-        )
+        scoped_rows: list[RuleAssessment] = []
+        for assessment in assessments:
+            declaration: Record | None = declarations.get(assessment.id)
+            if (
+                declaration is not None
+                and (text_value(declaration.data.get("parent_id")) or None)
+                == (names[intent.parent_id] if intent.parent_id else None)
+                and (not assessment.components or intent.label in assessment.components)
+            ):
+                scoped_rows.append(assessment)
+        scoped = tuple(scoped_rows)
         for assessment in scoped:
             if assessment.status == "UNKNOWN":
-                assessment_scopes.setdefault(assessment.id, set()).add(intent.component_id)
+                scopes: set[str] = assessment_scopes.setdefault(assessment.id, set())
+                scopes.add(intent.component_id)
         selector_prefix = intent.namespace
         ancestor = intent.parent_id
         while selector_prefix is None and ancestor is not None:
@@ -580,7 +587,7 @@ def architecture_projection(
                 item.component_id for item in target.component_intents if item.parent_id == parent
             )
         )
-        declared = {
+        declared: set[tuple[str, str]] = {
             (edge.source_id, edge.target_id)
             for edge in target.relationships
             if edge.kind == "requires" and edge.source_id in ids and edge.target_id is not None
@@ -815,8 +822,10 @@ def grouped_selectors(
         return None
     modules: dict[str, list[str]] = {}
     for selector in selectors:
-        module, separator, symbol = selector.partition(":")
-        modules.setdefault(short_selector(module, prefix), []).append(symbol if separator else "")
+        value: str = selector
+        module, separator, symbol = value.partition(":")
+        symbols: list[str] = modules.setdefault(short_selector(module, prefix), [])
+        symbols.append(symbol if separator else "")
     return {module: tuple(symbols) for module, symbols in modules.items()}
 
 
@@ -853,9 +862,10 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
                 for identity in permission.rule_ids
                 if permission.status != "allowed" or identity not in requires_ids
             )
-            groups.setdefault((permission.status, rule_ids, permission.reason), []).append(
-                permission.target_id
+            targets: list[str] = groups.setdefault(
+                (permission.status, rule_ids, permission.reason), []
             )
+            targets.append(permission.target_id)
         return tuple(
             PermissionGroup(status, reason_ref(reason), tuple(targets), rule_ids)
             for (status, rule_ids, reason), targets in sorted(groups.items())
@@ -866,7 +876,7 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
         prefix = component.selector_prefix
         modules = {}
         for module in component.modules:
-            path = module.path
+            path: str | None = module.path
             if path is not None and component.path is not None:
                 if path == component.path:
                     path = ""
