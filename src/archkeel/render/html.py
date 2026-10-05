@@ -681,6 +681,11 @@ def _atlas_section(payload: dict[str, object]) -> str:
         '<div class="atlas-summary" role="status"></div><div class="flow-layout">',
     )
     head = head.replace(
+        '<div class="flow-toolbar" hidden>',
+        '<div class="flow-toolbar" hidden><div class="atlas-content-choice" role="group" '
+        'aria-label="Content" hidden></div>',
+    )
+    head = head.replace(
         '<div class="flow-canvas"', '<div class="flow-map-column"><div class="flow-canvas"'
     )
     head = head.replace(

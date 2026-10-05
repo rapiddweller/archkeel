@@ -2320,3 +2320,15 @@ body:has(.atlas-heading) .report-logo {
 .flow[data-atlas] .uml-kind-accent {
   stroke: var(--ck-teal);
 }
+
+.flow[data-atlas][data-content="modules"] .flow-alternative {
+  height: auto;
+  padding: 16px;
+}
+.atlas-content-choice {
+  display: flex;
+  gap: 8px;
+}
+.atlas-content-choice[hidden] {
+  display: none;
+}

@@ -159,7 +159,6 @@ def _components_payload(
             observed_symbols=sum(entry.symbols or 0 for entry in statistics)
             if all(entry.symbols is not None for entry in statistics)
             else None,
-            symbols_known=sum(entry.symbols is not None for entry in statistics),
             symbols_complete=bool(statistics)
             and all(
                 entry.symbols is not None
@@ -170,6 +169,31 @@ def _components_payload(
         )
         components.append(item)
     return components
+
+
+def _declared_modules(report: ArchitectureReport) -> list[dict[str, object]]:
+    if report.target is None:
+        return []
+    entities = {item.id: item for item in report.target.entities}
+    children = Counter(item.parent_id for item in report.target.entities)
+    modules: list[dict[str, object]] = []
+    for entity in report.target.entities:
+        if entity.kind != "module":
+            continue
+        parent = entities.get(entity.parent_id or "")
+        while parent is not None and parent.kind != "component":
+            parent = entities.get(parent.parent_id or "")
+        if parent is not None:
+            modules.append(
+                dict(
+                    id=entity.id,
+                    name=entity.qualified_name,
+                    path=entity.file_path,
+                    component_id=parent.id,
+                    declarations=children[entity.id],
+                )
+            )
+    return modules
 
 
 def atlas_payload(
@@ -217,7 +241,6 @@ def atlas_payload(
         for field in ("component_id", "candidate_ids", "ownership_status", "ownership_reason"):
             item.pop(field)
         modules.append(_reference_fields(item, references))
-    components = _components_payload(report, projection, root.modules, architecture_href)
     return {
         "repository": repository,
         "source": asdict(projection.source),
@@ -226,8 +249,9 @@ def atlas_payload(
         "coverage": asdict(model.coverage),
         "status": projection.status,
         "reason": projection.reason,
-        "components": components,
+        "components": _components_payload(report, projection, root.modules, architecture_href),
         "modules": modules,
+        "declared_modules": _declared_modules(report),
         "symbol_coverages": [[asdict(entry) for entry in coverage] for coverage in coverages],
         "assignments": [
             [
