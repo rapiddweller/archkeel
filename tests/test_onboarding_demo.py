@@ -60,7 +60,7 @@ def test_validate_refuses_a_drafted_contract(steps: tuple[Step, ...]) -> None:
 
 
 def test_the_decided_contract_passes(steps: tuple[Step, ...]) -> None:
-    assert steps[2].outcome == "exit 0, no diagnostics"
+    assert steps[2].outcome == "exit 0, declared_rules PASS, 6 requires entries"
 
 
 def test_the_report_names_one_component_larger_than_its_level(steps: tuple[Step, ...]) -> None:
@@ -73,7 +73,7 @@ def test_nested_draft_is_separate_from_architect_decision(steps: tuple[Step, ...
     assert "api" not in steps[4].detail[0]
     assert "--force" in steps[4].command
     assert steps[5].actor == "architect"
-    assert steps[5].outcome == "exit 0, 3 requires entries"
+    assert steps[5].outcome == "exit 0, declared_rules PASS, 3 requires entries"
     decision = " ".join(steps[5].detail).lower()
     assert "api" in decision and "shop.store.sqlite" in decision
     assert all(

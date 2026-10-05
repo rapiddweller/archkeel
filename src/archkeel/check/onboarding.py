@@ -38,7 +38,9 @@ from archkeel.ir.profiles import Language
 from archkeel.ir.structure import StructureMetric, scope_metrics
 
 from .ports import Analyzer, FilesToWrite, ScanConfig
+from .ratchets import measure_python_ratchets
 from .report import observe_repository
+from .snapshot import SnapshotError
 from .validation import COMPONENT_GRAPH_MARKER, mermaid_edges, observed_component_edges
 
 CONFIG_PATH: Final = "archkeel.toml"
@@ -427,7 +429,18 @@ def run_init(
         (scaffold / CONTRACT_PATH).write_bytes(
             contract_bytes(ArchitectureContract(CONTRACT_SCHEMA_VERSION, (), ()))
         )
-        observed = observe_repository(root, config, analyzer, contract_root=scaffold)
+        try:
+            observed = observe_repository(root, config, analyzer, contract_root=scaffold)
+        except SnapshotError as error:
+            raise DiagnosticError(
+                Diagnostic(
+                    "parse_error",
+                    str(root),
+                    f"Initialization requires a resolvable Git HEAD: {error}",
+                    "Use an existing Git repository with a resolvable HEAD; for a new repository, "
+                    "run git init and create a commit, then retry archkeel init.",
+                )
+            ) from error
     if observed.diagnostics or observed.observation is None:
         return RunResult(
             "init", 2, diagnostics=observed.diagnostics, coverage=observed.coverage
@@ -480,5 +493,6 @@ def run_init(
         artifact=CONTRACT_PATH,
         open_decisions=decisions,
         draft_sizes=_draft_sizes(sizes),
+        measurements=measure_python_ratchets(observed.observation),
     )
     return result, files

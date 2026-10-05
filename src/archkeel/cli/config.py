@@ -26,6 +26,10 @@ _REQUIRED_SCAN = {"roots", "namespace", "contract"}
 _GLOB_SYNTAX = frozenset("*?[]{}!")
 
 
+class ConfigFileMissingError(ConfigError):
+    """A contained config path is absent; malformed and unsafe inputs are separate failures."""
+
+
 def _path(value: object, *, field: str, allow_dot: bool = True) -> str:
     if not isinstance(value, str) or not value:
         raise ConfigError(f"{field} must be a non-empty string")
@@ -142,6 +146,8 @@ def load_config(root: Path, path: str = CONFIG_PATH) -> ScanConfig:
         payload = config_path.read_bytes()
     except ValueError as exc:
         raise ConfigError(f"{path} escapes repository root") from exc
+    except FileNotFoundError as exc:
+        raise ConfigFileMissingError(f"cannot read {path}: {exc}") from exc
     except OSError as exc:
         raise ConfigError(f"cannot read {path}: {exc}") from exc
     config = parse_config(payload, path)
