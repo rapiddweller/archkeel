@@ -67,6 +67,16 @@ archkeel report --only violations --component store
 archkeel report --only calls --component store
 ```
 
+Agents start with a focused architecture summary, then query the recorded snapshot:
+
+```bash
+archkeel report --only architecture --json
+archkeel report --input test-artifacts/architecture/architecture.json --only architecture --json
+```
+
+Use `--component` with an id or scope from the summary, and `--only violations` for findings.
+Saved queries do not rescan or change the repository. See [focused agent reports](docs/reference.md#focused-agent-reports).
+
 The explorer shows **As-Is** (observed code), **Target** (declared architecture),
 and **Diff** (their differences). These are views of one snapshot, not two revisions.
 Folders help navigation; they do not establish ownership or runtime behavior.

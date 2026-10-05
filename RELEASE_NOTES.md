@@ -1,5 +1,9 @@
 # Unreleased
 
+- Agents can query the shared architecture projection with `report --only architecture`
+  and reuse a recorded snapshot with `--input`. Focused queries retain global verdicts,
+  coverage and UNKNOWNs. Native component ids/scopes select local Target findings;
+  architecture JSON preserves requested baseline comparisons (#358).
 - Exact initializer ownership preserves provider use through proven ancestor-published
   re-exports. Ambiguous routes remain UNKNOWN (#338, AD-198).
 - The total report metric is named **Contract violations**; counts and evidence are unchanged
