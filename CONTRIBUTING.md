@@ -18,8 +18,14 @@ Flow browser tests require Node.js 22; CI and release builds install that pinned
 ## Before you push
 
 ```bash
-make gate                               # locked checks and Archkeel's own contract validation
+make ci BASE=origin/main                 # policy, release checks, TypeScript, browser and Mermaid
 ```
+
+Policy validation runs first. `BASE` also checks widenings and amendments; CI pins the PR base SHA.
+Without `BASE`, `make gate` validates only the checked-out policy before release checks.
+CI splits this command into `make ci-check` and the parallel `make mermaid` job.
+The Windows/Python/Node matrices remain separate CI checks. Obsolete PR runs cancel automatically;
+main runs stay independent. The main check has a 60-minute cap, not a performance guarantee.
 
 ## Regenerate the self-observation
 
@@ -59,4 +65,4 @@ Only regenerate when the test says so.
   make a check pass.
 - **Commit messages** start with an imperative sentence and explain why in the body.
 
-Contract or baseline budget widenings require a reviewed v2 amendment binding both policies. Run `make against BASE=<base-commit>` before the full gate. A changed amendment must match exactly; multiple changed records fail. `decided_by` and `rationale` are free text, not authenticated approval.
+Contract or baseline budget widenings require a reviewed v2 amendment binding both policies. Use `make ci BASE=<base-commit>` to check them before the full gate. A changed amendment must match exactly; multiple changed records fail. `decided_by` and `rationale` are free text, not authenticated approval.
