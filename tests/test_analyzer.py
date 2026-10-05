@@ -30,6 +30,7 @@ from archkeel.cli.observe import observe
 from archkeel.ir.baseline import observed_violations
 from archkeel.ir.codec import (
     canonical_report_bytes,
+    decode_canonical_model,
     decode_json,
     delta_payload,
     observation_payload,
@@ -1570,6 +1571,47 @@ def _boundary_types_contract(*components: dict[str, object]) -> dict[str, object
             }
         ],
     }
+
+
+def test_report_total_labels_type_and_layout_failures_as_contract_violations(
+    tmp_path: Path,
+) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:snapshot"]))
+    contract["rules"].append(
+        {
+            "id": "ALL-OWNED",
+            "kind": "complete_assignment",
+            "source": "sample",
+            "rationale": "Every module has an owner.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+        }
+    )
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "def snapshot(context: dict) -> str:\n    return str(context)\n"
+    )
+    (tmp_path / "sample/unowned.py").write_text("VALUE = 1\n")
+
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    report = decode_canonical_model(json.loads(canonical_report_bytes(result.observation)))
+    assert sorted(item["kind"] for item in report["violations"]) == [
+        "boundary_types",
+        "complete_assignment",
+    ]
+    metrics = {item["kind"]: item for item in report["metrics"]}
+    total = metrics["violations"]
+    assert total["id"] == "METRIC-c6ba710e0c094515"
+    assert total["title"] == "Contract violations"
+    assert total["data"] == {"value": 2, "tab": "violations"}
+    assert total["fact_ids"] == sorted(
+        {fact_id for item in report["violations"] for fact_id in item["fact_ids"]}
+    )
+    assert metrics["private_crossings"]["data"]["value"] == 0
+    assert metrics["violating_import_sites"]["data"]["value"] == 0
 
 
 def test_boundary_types_checks_only_the_declared_facade(tmp_path: Path) -> None:

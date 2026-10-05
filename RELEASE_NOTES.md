@@ -1,3 +1,8 @@
+# Unreleased
+
+- The total report metric is named **Contract violations**; counts and evidence are unchanged
+  (#349, Core observation 0.72.0; AD-3).
+
 # Archkeel 0.9.0 — Explore architecture, keep the evidence
 
 - One offline explorer shows observed code, declared Target and Diff, with source
