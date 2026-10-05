@@ -153,7 +153,7 @@ def test_diff_scope_uses_owned_module_children_and_keeps_outside_connection(tmp_
         edge.locator(".hit").press("Enter")
         assert "sample/a.py:1:" in page.locator(".flow-inspector-content").inner_text()
         page.locator('.flow-nodes [data-uml-kind="module"][data-label="a"]').dblclick()
-        assert page.locator(".flow-breadcrumb").inner_text().endswith("a")
+        assert page.locator(".flow-breadcrumb").inner_text().endswith("Observed: a [module]")
         page.locator(".flow-back").click()
         assert edge.count() == 1
     finally:

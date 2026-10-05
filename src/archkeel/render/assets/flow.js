@@ -1155,8 +1155,7 @@
 
   function buildArchitectureEntities(graph) {
     if (graph.origin !== "observed" || !DATA.target?.component_intents.length) return graph.entities;
-    const owned = new Set((DATA.memberships || []).flatMap((item) => item.module_ids));
-    const unassigned = graph.entities.filter((item) => item.kind === "module" && item.presence === "defined" && !owned.has(item.id));
+    const unassigned = unassignedArchitectureModules();
     return [...graph.entities.filter((item) => item.kind !== "package" || unassigned.some((module) =>
       module.qualified_name === item.qualified_name || module.qualified_name.startsWith(item.qualified_name + "."))),
       ...DATA.target.entities.filter((item) => item.kind === "component")];
@@ -1330,14 +1329,19 @@
       ["package", "module"].includes(entity.kind) && entity.presence !== "referenced"
       && architectureParent(entity, observed) === scope).map((entity) => entity.id));
     for (const id of observedLocalIds) {
-      if (context.comparison && scope !== null) continue;
+      if (componentOverview || context.comparison && scope !== null) continue;
       const entry = observedRepresentative(id);
       if (entry.entity && entry.local) entries.set(entry.id, entry);
     }
     const groups = new Map();
+    const unassignedIds = new Set(componentOverview
+      ? unassignedArchitectureModules().map((entity) => entity.id) : []);
     const addSite = (site, source, target, sourceGraph, assessment = null) => {
       if (!source?.entity || !target?.entity || (!source.local && !target.local)) return;
-      if (componentOverview && [source, target].some((entry) => entry.entity.kind !== "component")) return;
+      if (componentOverview && [source, target].some((entry) => entry.entity.kind !== "component")
+          && !(sourceGraph.origin === "observed" && site.kind === "imports"
+            && [source, target].every((entry) => entry.entity.kind === "component"
+              || unassignedIds.has(entry.entity.id)))) return;
       if (source.id === target.id && site.source_id !== site.target_id) return;
       for (const entry of [source, target]) if (!entries.has(entry.id)) entries.set(entry.id, entry);
       const id = site.kind === "requires" ? site.id
@@ -1705,7 +1709,7 @@
       const findings = (DATA.findings || []).filter((item) => !globalFindings.includes(item)
         && (edge ? edge.findings.includes(item) : context.scope === null && !umlSelection
           || item.graph_subject_ids.some((id) => ids.has(id))));
-      inspectorContent.insertAdjacentHTML("beforeend", `<h3>Recorded Core findings</h3>${findingMarkup(findings)}${globalFindings.length ? `<details><summary>Global or unmapped findings · ${globalFindings.length}</summary>${findingMarkup(globalFindings)}</details>` : ""}`);
+      inspectorContent.insertAdjacentHTML("beforeend", `<h3>Recorded findings</h3>${findingMarkup(findings)}${globalFindings.length ? `<details><summary>Global or unmapped findings · ${globalFindings.length}</summary>${findingMarkup(globalFindings)}</details>` : ""}`);
     }
     inspectorContent.querySelectorAll("[data-uml-unassigned]").forEach((button) =>
       button.addEventListener("click", () => openArchitectureEntity(button.dataset.umlUnassigned, DATA.observed)));
@@ -1714,9 +1718,9 @@
   }
 
   function unassignedArchitectureModules() {
-    const owned = new Set((DATA.memberships || []).flatMap((item) => item.module_ids));
+    const components = new Set((DATA.target?.component_intents || []).map((item) => item.component_id));
     return (DATA.observed?.entities || []).filter((item) => item.kind === "module"
-      && item.presence === "defined" && !owned.has(item.id))
+      && item.presence === "defined" && !components.has(architectureParent(item, DATA.observed)))
       .sort((left, right) => (left.file_path || left.qualified_name).localeCompare(right.file_path || right.qualified_name));
   }
 
@@ -1955,8 +1959,9 @@
     const style = getComputedStyle(svg);
     const horizontalBorder = parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
     const verticalBorder = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
-    svg.style.width = `${viewWidth * transform.k + horizontalBorder}px`;
-    svg.style.height = `${viewHeight * transform.k + verticalBorder}px`;
+    // Round outward so CSS pixel quantization cannot shrink fitted text.
+    svg.style.width = `${Math.ceil(viewWidth * transform.k + horizontalBorder)}px`;
+    svg.style.height = `${Math.ceil(viewHeight * transform.k + verticalBorder)}px`;
     // Native scroll rounding must not accumulate across pointer moves.
     if (scrollX) {
       const nextScroll = canvas.scrollLeft + scrollX + scrollRemainderX;
@@ -1975,7 +1980,7 @@
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height || !canvas.clientWidth || !canvas.clientHeight) return;
     // Member compartments need readable text; oversized content stays pannable.
-    transform.k = Math.max(overview ? 0 : focusLabel || memberPreviews || umlSelection?.type === "node" ? 1 : 0.85, Math.min(
+    transform.k = Math.max(focusLabel || memberPreviews || !overview && umlSelection?.type === "node" ? 1 : 0.85, Math.min(
       1.4,
       canvas.clientWidth / (bounds.width + 48),
       canvas.clientHeight / (bounds.height + 48),
