@@ -322,10 +322,18 @@ def test_source_free_file_and_initializer_intents_keep_distinct_details(tmp_path
         for file in files:
             row = details.locator(f'[data-file-intent="{file["path"]}"]').inner_text()
             assert file["path"] in row and file["responsibility"] in row
-            assert "Not in the observed file inventory" in row
+            assert "Observed module:" not in row
+            assert "Not in the observed file inventory" not in row
         assert (
             "File intent does not define classes, methods, imports or calls" in details.inner_text()
         )
+        page.get_by_role("button", name="Diff", exact=True).click()
+        details.get_by_text("Module inventory · 2 planned files", exact=True).click()
+        for file in files:
+            assert (
+                "Not in the observed file inventory"
+                in details.locator(f'[data-file-intent="{file["path"]}"]').inner_text()
+            )
         assert page.locator('.flow-nodes [data-uml-kind="file"]').count() == 0
     finally:
         browser.close()

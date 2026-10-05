@@ -555,6 +555,7 @@ def test_diff_draws_core_unlisted_relationships_with_real_endpoints_and_sites(tm
     try:
         _open_module(page, "Diff")
         site = "sample.core.extra" if kind == "calls" else "sample.other"
+        page.locator(f'.flow-legend button[data-relationship-kind="{kind}"]').click()
         edge = page.locator(f'.flow-edges [data-relationship-kind="{kind}"]').filter(has_text=site)
         assert edge.count() == 1
         assert edge.get_attribute("data-assessment-status") == "FAIL"
@@ -1099,6 +1100,8 @@ def test_outside_callers_use_their_recorded_module_and_keep_every_site(tmp_path)
     playwright, browser, page = _browser_page(api, html)
     try:
         _open_module(page, "As-Is")
+        assert page.locator('.flow-nodes [data-label="other"]').count() == 0
+        page.locator('.flow-legend button[data-relationship-kind="calls"]').click()
         outside = page.locator('.flow-nodes [data-label="other"]')
         assert outside.get_attribute("data-uml-kind") == "module"
         assert (

@@ -136,16 +136,16 @@ def test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes(
         item.data.get("aspect") == "completeness" and item.data.get("status") == "UNKNOWN"
         for item in inventory
     )
-    # AD-207 audits one new RunResult forward reference without changing these member scopes.
+    # AD-207 retains saved-query facade limits without changing these member scopes.
     from archkeel.check.ratchets import unknown_positions_by_rule
 
     counts = dict(unknown_positions_by_rule(self_observation))
     assert {rule: count for rule, count in counts.items() if not rule.startswith("UML-TARGET")} == {
         "RENDER-TYPES-DECLARED": 25,
-        "CHECK-TYPES-DECLARED": 15,
+        "CHECK-TYPES-DECLARED": 19,
         "ANALYZER-TYPES-DECLARED": 1,
     }
-    assert sum(counts.values()) == 49
+    assert sum(counts.values()) == 53
     detail_positions = [
         item
         for item in unknowns
@@ -156,4 +156,4 @@ def test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes(
     assert detail_positions[0].data.get("annotation") == "RunResult"
     assert detail_positions[0].data.get("reason") == "forward_reference"
     baseline = json.loads((ROOT / "architecture-baseline.json").read_text())
-    assert baseline["budgets"]["unknown_positions"] == 49
+    assert baseline["budgets"]["unknown_positions"] == 53
