@@ -2572,7 +2572,7 @@
     const componentLevel = ATLAS.levels.find((item) => item.parent_id === component.id);
     const moduleCount = componentLevel ? atlasModules(componentLevel).length : 0;
     inspectorContent.innerHTML = `<div class="kicker">Component fact sheet · ${viewMode === "target" ? "Declared intent" : "Core facts"}</div>
-      <h2>${esc(component.label)}</h2><p><button type="button" data-browse-component>${moduleCount ? `Browse ${moduleCount} modules` : `Browse ${esc(component.label)}`}</button></p>${component.layer ? `<p>Declared layer: ${esc(component.layer)}</p>` : ""}${list("Responsibility", component.responsibilities)}
+      <h2>${esc(component.label)}</h2><p><button type="button" class="flow-fit" data-browse-component>${moduleCount ? `Browse ${moduleCount} modules` : `Browse ${esc(component.label)}`}</button></p>${component.layer ? `<p>Declared layer: ${esc(component.layer)}</p>` : ""}${list("Responsibility", component.responsibilities)}
       ${list("Not responsible for", component.not_responsible_for)}${list("Provides", component.public)}
       ${list("Planned interface", component.planned)}<h3>Requires · declared permission, not an obligation</h3>
       <ul class="plain">${component.requires.map((edge) => `<li><strong>${esc(atlasComponent(edge.target_id)?.label || edge.target_id)}</strong>
