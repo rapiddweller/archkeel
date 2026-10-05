@@ -18,27 +18,36 @@ Flow browser tests require Node.js 22; CI and release builds install that pinned
 ## Before you push
 
 ```bash
-make gate                               # locked checks and Archkeel's own contract validation
+make ci BASE=origin/main                 # policy, release checks, TypeScript, browser and Mermaid
 ```
+
+Policy validation runs first. `BASE` also checks widenings and amendments; CI pins the PR base SHA.
+Without `BASE`, `make gate` validates only the checked-out policy before release checks.
+CI splits this command into `make ci-check` and the parallel `make mermaid` job.
+The Windows/Python/Node matrices remain separate CI checks. Obsolete PR runs cancel automatically;
+main runs stay independent. The main check has a 60-minute cap, not a performance guarantee.
 
 ## Regenerate the self-observation
 
 `tests/test_self.py` runs `archkeel report` on this repository and compares the result with the
-saved run in `fixtures/D-self`. A change to Python code under `src/` or to an architecture contract
-(`architecture-contract.json` or an inside under `src/`) moves that run, and the test fails with
-`fixtures/D-self is stale`. Documentation does not. Regenerate it and commit it on its own:
+saved result and provenance in `fixtures/D-self`. The full JSON and HTML are generated once
+per test session and shared by local workers. A change to Python code under `src/`,
+`pyproject.toml`, or a contract (`architecture-contract.json` or an inside contract) moves
+that run, and the test fails with
+`fixtures/D-self is stale`. Documentation does not. Regenerate it and commit the compact evidence:
 
 ```bash
 make self-observation
-git add fixtures/D-self
+git add fixtures/D-self/result.json fixtures/D-self/provenance.json
 git commit -m "Regenerate the self-observation after <your change>"
 ```
 
 Two branches that both regenerate conflict in these files. Rebase and run `make self-observation`
 again instead of resolving the JSON by hand.
 
-Only regenerate when the test says so: every regeneration also records the current commit, so an
-unneeded one rewrites `architecture.json` and conflicts with other branches for nothing.
+`make self-observation` also writes the ignored full JSON and HTML locally. Provenance keeps
+only the checker and observation digests; tests normalize Git HEAD/dirty and check all other content.
+Only regenerate when the test says so.
 
 ## A behaviour change carries its decision
 
@@ -46,14 +55,17 @@ unneeded one rewrites `architecture.json` and conflicts with other branches for 
 - **Record the decision.** A change in behaviour gets an `AD-<n>` file under
   [docs/architecture/decisions/](docs/architecture/decisions/) with its reason, the rejected
   alternatives, its limit and the tests that check it, an index row in
-  [docs/architecture/archkeel.md](docs/architecture/archkeel.md), and a row in
-  [docs/roadmap.md](docs/roadmap.md). Update every document that describes the old behaviour.
-  Keep it under 70 lines, which is where a test draws the line and where three quarters of the
-  existing records already are: a table for the measurement, a short section per question, and
-  the code the decision is about instead of a description of it.
+  [docs/architecture/archkeel.md](docs/architecture/archkeel.md). Update documents that describe
+  the old behaviour. Keep the decision under the tested 70-line limit. The
+  [roadmap](docs/roadmap.md) lists open work only.
 - **Keep the contract true.** A new module needs a component in `architecture-contract.json`, and a
   new import between components needs a `requires` entry with its reason. Never widen a rule to
   make a check pass.
 - **Commit messages** start with an imperative sentence and explain why in the body.
 
-Contract or baseline budget widenings require a reviewed v2 amendment binding both policies. Run `make against BASE=<base-commit>` before the full gate. A changed amendment must match exactly; multiple changed records fail. `decided_by` and `rationale` are free text, not authenticated approval.
+Contract or baseline budget widenings require a reviewed v2 amendment binding both policies. Use `make ci BASE=<base-commit>` to check them before the full gate. A changed amendment must match exactly; multiple changed records fail. `decided_by` and `rationale` are free text, not authenticated approval.
+
+## Update the agent skill
+
+Edit [skills/archkeel/SKILL.md](skills/archkeel/SKILL.md). The CLI asset links to this source.
+Run `make plugin-directory` to refresh the committed compact plugin; do not edit its copy.

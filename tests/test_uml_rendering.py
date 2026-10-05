@@ -409,7 +409,7 @@ def test_shared_permission_edges_retain_approval_and_connected_focus(tmp_path, n
             ):
                 assert expected in text
             assert all(item.reason not in text for item in permissions if item.id != permission.id)
-            assert "Core assessments" not in text
+            assert "Target checks" not in text
             assert "Component intent" not in text
             assert (
                 page.locator(".flow-inspector-content h2").inner_text()
@@ -723,7 +723,7 @@ def test_diff_unresolved_operation_remains_inspectable_without_ghost_endpoints(t
         details = page.locator(".flow-inspector-content").inner_text()
         assert "sample.core.Pending.run" in details
         assert "missing()" in details and "unresolved" in details
-        assert "No Core assessment for this observed scope" in details and "PASS" not in details
+        assert "No recorded check for this observed scope" in details and "PASS" not in details
         assert "sample/core.py:" in details
         assert "No elements or resolved connections" in page.locator(".flow-empty").text_content()
         assert not errors

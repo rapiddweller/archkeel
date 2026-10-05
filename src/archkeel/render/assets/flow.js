@@ -691,7 +691,7 @@
         for (const segment of axis.get(bucket) || []) {
           if (Math.abs(at - segment.at) >= clearance) continue;
           const overlap = Math.min(end, segment.end) - Math.max(start, segment.start);
-          if (overlap > LANE_GAP / 2) total += overlap;
+          if (overlap > 0) total += overlap;
           // Equality must finish scoring before the caller can compare tied candidates.
           if (total > limit) return total;
         }
@@ -759,24 +759,26 @@
     const sourcePorts = sourceBlocked && sourceCard
       ? sidePorts(sourceCard, sourceHeight, sx) : [normalSource];
     const clearance = occupied.clearance;
+    const barriers = [...headers.map((header) => ({
+      left: header.left - 2, right: header.right + 2,
+      top: header.top - 2, bottom: header.bottom + 2,
+    })), ...cardBounds];
     const clearSegments = (points) => {
       for (let index = 1; index < points.length; index += 1) {
-        const pair = [points[index - 1], points[index]];
-        const vertical = pair[0][0] === pair[1][0];
-        const at = vertical ? pair[0][0] : pair[0][1];
-        const start = Math.min(pair[0][vertical ? 1 : 0], pair[1][vertical ? 1 : 0]);
-        const end = Math.max(pair[0][vertical ? 1 : 0], pair[1][vertical ? 1 : 0]);
-        const axis = clearance[vertical ? "vertical" : "horizontal"];
-        if (!axis.has(at)) axis.set(at, new Map());
-        const starts = axis.get(at);
-        if (!starts.has(start)) starts.set(start, new Map());
-        const ends = starts.get(start);
-        let clear = ends.get(end);
-        if (clear === undefined) {
-          clear = routePointsClear(pair, headers, 2) && routePointsClear(pair, cardBounds, 0);
-          ends.set(end, clear);
-        }
-        if (!clear) return false;
+        const [ax, ay] = points[index - 1], [bx, by] = points[index];
+        const vertical = ax === bx;
+        if (!vertical && ay !== by) continue;
+        const at = vertical ? ax : ay;
+        const axis = vertical ? clearance.vertical : clearance.horizontal;
+        // Fixed card/header bounds are shared by every route in this render.
+        if (!axis.has(at)) axis.set(at, barriers.filter((barrier) => vertical
+          ? at > barrier.left && at < barrier.right
+          : at > barrier.top && at < barrier.bottom));
+        const start = Math.min(vertical ? ay : ax, vertical ? by : bx);
+        const end = Math.max(vertical ? ay : ax, vertical ? by : bx);
+        if (axis.get(at).some((barrier) => vertical
+          ? end > barrier.top && start < barrier.bottom
+          : end > barrier.left && start < barrier.right)) return false;
       }
       return true;
     };
@@ -1153,8 +1155,7 @@
 
   function buildArchitectureEntities(graph) {
     if (graph.origin !== "observed" || !DATA.target?.component_intents.length) return graph.entities;
-    const owned = new Set((DATA.memberships || []).flatMap((item) => item.module_ids));
-    const unassigned = graph.entities.filter((item) => item.kind === "module" && item.presence === "defined" && !owned.has(item.id));
+    const unassigned = unassignedArchitectureModules();
     return [...graph.entities.filter((item) => item.kind !== "package" || unassigned.some((module) =>
       module.qualified_name === item.qualified_name || module.qualified_name.startsWith(item.qualified_name + "."))),
       ...DATA.target.entities.filter((item) => item.kind === "component")];
@@ -1172,6 +1173,8 @@
 
   function architectureHasInterior(entity, graph) {
     return architectureEntities(graph).some((child) => architectureParent(child, graph) === entity.id)
+      || viewMode === "diff" && graph.origin === "declared" && DATA.observed
+        && architectureEntities(DATA.observed).some((child) => architectureParent(child, DATA.observed) === entity.id)
       || graph.relationships.some((site) => site.source_id === entity.id && site.kind !== "owns");
   }
 
@@ -1181,7 +1184,9 @@
     if (graph.origin === "observed" && entity.kind === "module") {
       const memberships = (DATA.memberships || []).filter((item) => item.module_ids.includes(entity.id))
         .sort((left, right) => componentDepth(right.component_id) - componentDepth(left.component_id));
-      if (memberships.length) return memberships[0].component_id;
+      const deepest = memberships.filter((item) => componentDepth(item.component_id)
+        === componentDepth(memberships[0]?.component_id));
+      if (deepest.length === 1) return deepest[0].component_id;
     }
     if (graph.origin === "observed" && entity.kind === "package") {
       // Namespace nesting is navigation, not a new lexical containment claim.
@@ -1282,7 +1287,7 @@
       return component || classifier || module || id;
     };
     const observed = viewMode === "diff" && graph.origin === "declared" ? DATA.observed : null;
-    const observedById = new Map((observed?.entities || []).map((entity) => [entity.id, entity]));
+    const observedById = new Map((observed ? architectureEntities(observed) : []).map((entity) => [entity.id, entity]));
     const counterparts = new Map();
     for (const match of context.comparison?.correspondences || []) {
       if (match.observed_ids.length !== 1 || !byId.has(match.target_id)) continue;
@@ -1297,6 +1302,8 @@
     const observedRepresentative = (id) => {
       let current = id, child = id, classifier = null, module = null;
       while (observedById.has(current)) {
+        if (current === scope) return observedEntry(classifier || child, true);
+        if (byId.get(current)?.kind === "component") return targetEntry(representative(current));
         const mapped = [...new Set([...(counterparts.get(current) || [])]
           .map(representative).filter(Boolean))];
         const local = mapped.filter((id) => localIds.has(id));
@@ -1308,23 +1315,37 @@
           if (choices[0] === scope && current !== id) return observedEntry(classifier || child, true);
           return targetEntry(choices[0]);
         }
+        if (observedLocalIds.has(current)) return observedEntry(current, true);
         const entity = observedById.get(current);
         if (!classifier && ["class", "interface", "enum"].includes(entity.kind)) classifier = current;
         if (!module && entity.kind === "module") module = current;
         child = current;
         current = architectureParent(entity, observed);
       }
-      return observedEntry(operationScope ? id : classifier || module || id);
+      return observedEntry(operationScope ? id : classifier || module || id, scope === null);
     };
     const entries = new Map([...visible].map(([id]) => [id, targetEntry(id)]));
+    const observedLocalIds = new Set((observed ? architectureEntities(observed) : []).filter((entity) =>
+      ["package", "module"].includes(entity.kind) && entity.presence !== "referenced"
+      && architectureParent(entity, observed) === scope).map((entity) => entity.id));
+    for (const id of observedLocalIds) {
+      if (componentOverview || context.comparison && scope !== null) continue;
+      const entry = observedRepresentative(id);
+      if (entry.entity && entry.local) entries.set(entry.id, entry);
+    }
     const groups = new Map();
+    const unassignedIds = new Set(componentOverview
+      ? unassignedArchitectureModules().map((entity) => entity.id) : []);
     const addSite = (site, source, target, sourceGraph, assessment = null) => {
       if (!source?.entity || !target?.entity || (!source.local && !target.local)) return;
-      if (componentOverview && [source, target].some((entry) => entry.entity.kind !== "component")) return;
+      if (componentOverview && [source, target].some((entry) => entry.entity.kind !== "component")
+          && !(sourceGraph.origin === "observed" && site.kind === "imports"
+            && [source, target].every((entry) => entry.entity.kind === "component"
+              || unassignedIds.has(entry.entity.id)))) return;
       if (source.id === target.id && site.source_id !== site.target_id) return;
       for (const entry of [source, target]) if (!entries.has(entry.id)) entries.set(entry.id, entry);
       const id = site.kind === "requires" ? site.id
-        : `${assessment ? "observed:" : ""}${site.kind}:${source.id}>${target.id}:${site.resolution}`;
+        : `${sourceGraph !== graph ? "observed:" : ""}${site.kind}:${source.id}>${target.id}:${site.resolution}`;
       if (!groups.has(id)) groups.set(id, { id, source: source.id, target: target.id, kind: "dependency",
         relationshipKind: site.kind, sites: [], sourceGraph, assessments: [], resolution: site.resolution,
         state: assessment?.status === "FAIL" ? "violation" : assessment?.status === "UNKNOWN" ? "undecided"
@@ -1351,10 +1372,18 @@
     }
     const unexpected = (context.comparison?.assessments || []).filter((item) => item.change === "unexpected");
     const observedSites = new Map((observed?.relationships || []).map((site) => [site.id, site]));
+    const representedSites = new Set((context.comparison?.assessments || [])
+      .filter((match) => graph.relationships.some((site) => site.id === match.subject_id))
+      .flatMap((match) => match.observed_ids));
+    for (const site of observedSites.values()) {
+      const assessment = unexpected.find((item) => item.observed_ids.includes(site.id));
+      if (representedSites.has(site.id) || (!assessment && site.kind !== "imports")) continue;
+      if (coarse && site.kind !== "imports") continue;
+      for (const endpoint of new Set(site.target_id ? [site.target_id] : site.candidate_ids)) {
+        addSite(site, observedRepresentative(site.source_id), observedRepresentative(endpoint), observed, assessment);
+      }
+    }
     for (const assessment of unexpected) for (const id of assessment.observed_ids) {
-      const site = observedSites.get(id);
-      if (site?.target_id) addSite(site, observedRepresentative(site.source_id),
-        observedRepresentative(site.target_id), observed, assessment);
       const entity = observedById.get(id);
       if (entity && assessment.subject_id === scope) entries.set(`observed:${id}`, observedEntry(id, true));
     }
@@ -1395,16 +1424,20 @@
         edge.sites.some((site) => edge.sourceGraph.origin === "observed"
           ? item.observed_ids.includes(site.id) : site.id === item.subject_id)) || [])]
         .map((item) => [item.id, item])).values()];
-      const findings = (DATA.findings || []).filter((item) => edge.sites.some((site) => item.graph_subject_ids.includes(site.id)));
+      const observedSites = [...new Set((context.comparison?.assessments || [])
+        .filter((match) => edge.sites.some((site) => site.id === match.subject_id))
+        .flatMap((match) => match.observed_ids))].map((id) => DATA.observed?.relationships.find((site) => site.id === id)).filter(Boolean);
+      const findings = (DATA.findings || []).filter((item) => [...edge.sites, ...observedSites]
+        .some((site) => item.graph_subject_ids.includes(site.id)));
       const statuses = [...new Set([...assessments, ...findings].map((item) => item.status))];
       const decisionGaps = (DATA.decision_gaps || []).filter((gap) => edge.sourceGraph.origin === "observed"
         && edge.sites.some((site) => gap.relationship_ids.includes(site.id)));
-      return { ...edge, assessments, findings, decisionGaps,
+      return { ...edge, observedSites, assessments, findings, decisionGaps,
         state: statuses.includes("FAIL") ? "violation" : statuses.includes("UNKNOWN") || decisionGaps.length ? "undecided" : edge.state,
         tooltip: `${edge.relationshipKind === "requires" ? "Allowed component import" : edge.relationshipKind}${edge.resolution === "partial" ? " candidate; not confirmed" : ""}: ${
           edge.sourceGraph.entities.find((item) => item.id === edge.sites[0].source_id).qualified_name} → ${
           edge.sourceGraph.entities.find((item) => item.id === (edge.sites[0].target_id || edge.sites[0].candidate_ids[0])).qualified_name}; ${
-          edge.sites.length} source or declaration site${edge.sites.length === 1 ? "" : "s"}.${statuses.length ? ` Core ${statuses.join("/")}${assessments.some((item) => item.change === "unexpected") ? " · unlisted observed relationship" : ""}.` : ""}`,
+          edge.sites.length + observedSites.length} source or declaration site${edge.sites.length + observedSites.length === 1 ? "" : "s"}.${statuses.length ? ` Core ${statuses.join("/")}${assessments.some((item) => item.change === "unexpected") ? " · unlisted observed relationship" : ""}.` : ""}`,
       };
     });
     return { nodes, frames: [], edges, owner: scope, componentOverview };
@@ -1536,6 +1569,7 @@
       related.has(item.source_id) || entity && (related.has(item.target_id)
         || item.candidate_ids.some((id) => related.has(id)))))
       .map((site) => ({ site, sourceGraph: entityGraph }));
+    for (const site of edge?.observedSites || []) siteEntries.push({ site, sourceGraph: DATA.observed });
     if (node) for (const connection of scene.edges) {
       if (connection.sourceGraph === entityGraph || ![connection.source, connection.target].includes(node.id)) continue;
       for (const site of connection.sites) if (!siteEntries.some((entry) => entry.site.id === site.id
@@ -1645,8 +1679,8 @@
           : context.scope === null ? "<h3>Permitted package layout</h3><p>Not declared</p>" : ""}` : ""}
       ${children.length ? `<h3>Inner elements</h3><ul class="plain">${children.map((child) =>
         `<li><span>${esc(child.kind)}</span> · <code>${esc(umlMember(child))}</code>${architectureHasInterior(child, entityGraph) ? ` <button type="button" data-uml-detail="${esc(child.id)}">Open</button>` : ""}</li>`).join("")}</ul>` : ""}
-      ${assessments.length ? `<h3>Core assessments</h3>${problems.length ? `<ul class="plain">${assessmentDetails(problems)}</ul>` : ""}${matches.length ? `<details><summary>${matches.length} matched assessments</summary><ul class="plain">${assessmentDetails(matches)}</ul></details>` : ""}`
-        : context.comparison && entityGraph.origin === "observed" ? "<h3>Core assessments</h3><p>No Core assessment for this observed scope.</p>" : ""}
+      ${assessments.length ? `<h3>Target checks</h3>${problems.length ? `<ul class="plain">${assessmentDetails(problems)}</ul>` : ""}${matches.length ? `<details><summary>${matches.length} matched assessments</summary><ul class="plain">${assessmentDetails(matches)}</ul></details>` : ""}`
+        : context.comparison && entityGraph.origin === "observed" ? "<h3>Target checks</h3><p>No recorded check for this observed scope.</p>" : ""}
       ${sites.length ? `<h3>Relationship sites</h3><ul class="plain">${siteEntries.map(({ site, sourceGraph }) =>
         `<li><code>${esc(site.kind)}</code> · ${esc(site.resolution === "not_applicable" ? "declared" : site.resolution)}<p><code>${esc(sourceGraph.entities.find((item) => item.id === site.source_id)?.qualified_name)} → ${esc(sourceGraph.entities.find((item) => item.id === site.target_id)?.qualified_name || (site.candidate_ids.length ? "candidates" : "unresolved"))}</code></p>${site.kind === "requires" ? `<p>Allowed component import. This does not require an import or call.</p><p>${site.through.length ? `Through: <code>${site.through.map(esc).join(", ")}</code>` : "Published interface not narrowed"}${site.decided_by ? ` · Decided by: ${esc(site.decided_by)}` : ""}</p>` : ""}${site.expression ? `<code>${esc(site.expression)}</code>` : ""}${site.reason ? `<p>${esc(site.reason)}</p>` : ""}</li>`).join("")}</ul>` : ""}
       ${coverage.length ? `<h3>Coverage</h3><ul class="plain">${coverage.map((item) =>
@@ -1656,10 +1690,26 @@
       ${[...(entity?.provenance || []), ...sites.flatMap((item) => item.provenance)].length ? `<h3>Provenance</h3><ul class="plain">${[...new Set([...(entity?.provenance || []), ...sites.flatMap((item) => item.provenance)])].map((item) => `<li>${esc(item)}</li>`).join("")}</ul>` : ""}
       ${!entity && !edge ? "<p>Select a visible element or connection for its recorded details.</p>" : ""}`;
     if (viewMode === "diff" || umlSelection) {
-      const ids = new Set(edge ? edge.sites.map((site) => site.id) : entity ? [entity.id] : []);
-      const findings = (DATA.findings || []).filter((item) => !umlSelection
-        || item.graph_subject_ids.some((id) => ids.has(id)));
-      inspectorContent.insertAdjacentHTML("beforeend", `<h3>Recorded Core findings</h3>${findingMarkup(findings)}`);
+      const ids = new Set(edge ? edge.sites.map((site) => site.id) : related);
+      if (!edge) for (const sourceGraph of new Set([entityGraph, DATA.observed].filter(Boolean))) {
+        for (const item of architectureEntities(sourceGraph)) {
+          let current = item.id;
+          while (current) {
+            if (ids.has(current)) { ids.add(item.id); break; }
+            const owner = architectureEntity(current, sourceGraph);
+            current = owner ? architectureParent(owner, sourceGraph) : null;
+          }
+        }
+        for (const site of sourceGraph.relationships) if (ids.has(site.source_id)
+            || ids.has(site.target_id) || site.candidate_ids.some((id) => ids.has(id))) ids.add(site.id);
+      }
+      const known = new Set([DATA.observed, DATA.target].filter(Boolean)
+        .flatMap((sourceGraph) => [...sourceGraph.entities, ...sourceGraph.relationships].map((item) => item.id)));
+      const globalFindings = (DATA.findings || []).filter((item) => !item.graph_subject_ids.some((id) => known.has(id)));
+      const findings = (DATA.findings || []).filter((item) => !globalFindings.includes(item)
+        && (edge ? edge.findings.includes(item) : context.scope === null && !umlSelection
+          || item.graph_subject_ids.some((id) => ids.has(id))));
+      inspectorContent.insertAdjacentHTML("beforeend", `<h3>Recorded findings</h3>${findingMarkup(findings)}${globalFindings.length ? `<details><summary>Global or unmapped findings · ${globalFindings.length}</summary>${findingMarkup(globalFindings)}</details>` : ""}`);
     }
     inspectorContent.querySelectorAll("[data-uml-unassigned]").forEach((button) =>
       button.addEventListener("click", () => openArchitectureEntity(button.dataset.umlUnassigned, DATA.observed)));
@@ -1668,9 +1718,9 @@
   }
 
   function unassignedArchitectureModules() {
-    const owned = new Set((DATA.memberships || []).flatMap((item) => item.module_ids));
+    const components = new Set((DATA.target?.component_intents || []).map((item) => item.component_id));
     return (DATA.observed?.entities || []).filter((item) => item.kind === "module"
-      && item.presence === "defined" && !owned.has(item.id))
+      && item.presence === "defined" && !components.has(architectureParent(item, DATA.observed)))
       .sort((left, right) => (left.file_path || left.qualified_name).localeCompare(right.file_path || right.qualified_name));
   }
 
@@ -1835,10 +1885,10 @@
       item.title = `Show ${kind || "all"} relationships at this level · ${count} connections`;
       legend.appendChild(item);
     }
-    if (complete.edges.some((edge) => edge.sourceGraph !== context.graph)) {
+    if (complete.edges.some((edge) => edge.assessments.some((item) => item.change === "unexpected"))) {
       const item = document.createElement("span");
       item.className = "flow-legend-item";
-      item.textContent = `Core ${[...new Set(complete.edges.filter((edge) => edge.sourceGraph !== context.graph)
+      item.textContent = `Core ${[...new Set(complete.edges.filter((edge) => edge.assessments.some((item) => item.change === "unexpected"))
         .flatMap((edge) => edge.assessments.map((item) => item.status)))].join("/")} · unlisted observed relationships`;
       legend.appendChild(item);
     }
@@ -1856,7 +1906,7 @@
     hint.textContent = `${scene.nodes.length} visible elements · ${scene.edges.length} connections · ${unresolved} uncertain sites in graph`;
     if ((context.scope === null || architectureEntity(scene.owner, context.graph)?.kind === "component") && context.graph.origin === "observed")
       hint.textContent += " · Internal import overview; other source sites remain in Details and module drill-down";
-    if (viewMode === "diff") hint.textContent += ` · Core: ${context.comparison?.status || "unavailable"}`;
+    if (context.comparison) hint.textContent += ` · Core: ${context.comparison.status}`;
     legend.appendChild(hint);
     architectureInspector(context, scene);
     inspector.hidden = !targetDetailsOpen;
@@ -1909,8 +1959,9 @@
     const style = getComputedStyle(svg);
     const horizontalBorder = parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
     const verticalBorder = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
-    svg.style.width = `${viewWidth * transform.k + horizontalBorder}px`;
-    svg.style.height = `${viewHeight * transform.k + verticalBorder}px`;
+    // Round outward so CSS pixel quantization cannot shrink fitted text.
+    svg.style.width = `${Math.ceil(viewWidth * transform.k + horizontalBorder)}px`;
+    svg.style.height = `${Math.ceil(viewHeight * transform.k + verticalBorder)}px`;
     // Native scroll rounding must not accumulate across pointer moves.
     if (scrollX) {
       const nextScroll = canvas.scrollLeft + scrollX + scrollRemainderX;
@@ -1929,7 +1980,7 @@
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height || !canvas.clientWidth || !canvas.clientHeight) return;
     // Member compartments need readable text; oversized content stays pannable.
-    transform.k = Math.max(overview ? 0 : focusLabel || memberPreviews ? 1 : 0.85, Math.min(
+    transform.k = Math.max(focusLabel || memberPreviews || umlSelection?.type === "node" ? 1 : overview ? 0 : 0.85, Math.min(
       1.4,
       canvas.clientWidth / (bounds.width + 48),
       canvas.clientHeight / (bounds.height + 48),
@@ -2068,7 +2119,7 @@
     if (!tableView) return;
     const rows = viewMode === "actual" ? context.graph.entities.filter((item) => item.kind === "module" && item.presence === "defined")
       : scene.nodes.map((node) => node.entity).filter(Boolean);
-    alternative.innerHTML = viewMode === "review" ? `<h2>Recorded Core findings</h2>${findingMarkup(DATA.findings || [])}`
+    alternative.innerHTML = viewMode === "review" ? `<h2>Recorded findings</h2>${findingMarkup(DATA.findings || [])}`
       : `<h2>${viewMode === "actual" ? "Observed modules" : "Architecture structure"}</h2><table><thead><tr><th>Kind</th><th>Name</th><th>Visibility</th><th>Source</th></tr></thead><tbody>${rows.map((entity) => `<tr><td>${esc(entity.kind)}</td><td><button type="button" data-uml-table="${esc(entity.id)}">${esc(entity.qualified_name)}</button></td><td>${esc(entity.visibility.kind)}</td><td>${esc(entity.file_path || "")}</td></tr>`).join("")}</tbody></table>`;
     alternative.querySelectorAll("[data-uml-table]").forEach((button) => button.addEventListener("click", () => {
       openArchitectureEntity(button.dataset.umlTable, context.graph);

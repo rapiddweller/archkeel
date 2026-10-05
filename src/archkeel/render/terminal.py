@@ -52,13 +52,12 @@ def _diagnostic(item: Diagnostic) -> Panel:
         ("claim", item.unknown_claim),
         ("remedy", item.remedy),
         ("pointer", item.pointer),
-        ("code", item.code),
     ):
         if value:
             fields.add_row(name, Text(value))
     return Panel(
         fields,
-        title=Text(f"Diagnostic · {item.kind}"),
+        title=Text(f"Diagnostic · {item.code or item.kind}"),
         title_align="left",
         border_style=_COLORS["unknown"],
         box=box.ROUNDED,

@@ -26,6 +26,10 @@ _REQUIRED_SCAN = {"roots", "namespace", "contract"}
 _GLOB_SYNTAX = frozenset("*?[]{}!")
 
 
+class ConfigFileMissingError(ConfigError):
+    """A contained config path is absent; malformed and unsafe inputs are separate failures."""
+
+
 def _path(value: object, *, field: str, allow_dot: bool = True) -> str:
     if not isinstance(value, str) or not value:
         raise ConfigError(f"{field} must be a non-empty string")
@@ -40,6 +44,24 @@ def _path(value: object, *, field: str, allow_dot: bool = True) -> str:
     if parsed.is_absolute() or ".." in parsed.parts or (not allow_dot and value == "."):
         raise ConfigError(f"{field} must be a safe POSIX relative path")
     return value
+
+
+def project_name(root: Path, config: ScanConfig) -> str:
+    """Use valid Python project metadata for display, otherwise the configured namespace."""
+    if config.language == "python":
+        try:
+            path = _contained(root, "pyproject.toml", field="project metadata")
+            with open(path, "rb") as stream:
+                metadata = tomllib.load(stream)
+        except (ConfigError, OSError, RuntimeError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+            return config.namespace
+        project = metadata.get("project")
+        name = project.get("name") if isinstance(project, dict) else None
+        if isinstance(name, str) and re.fullmatch(
+            r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?", name
+        ):
+            return name
+    return config.namespace
 
 
 def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
@@ -142,6 +164,8 @@ def load_config(root: Path, path: str = CONFIG_PATH) -> ScanConfig:
         payload = config_path.read_bytes()
     except ValueError as exc:
         raise ConfigError(f"{path} escapes repository root") from exc
+    except FileNotFoundError as exc:
+        raise ConfigFileMissingError(f"cannot read {path}: {exc}") from exc
     except OSError as exc:
         raise ConfigError(f"cannot read {path}: {exc}") from exc
     config = parse_config(payload, path)

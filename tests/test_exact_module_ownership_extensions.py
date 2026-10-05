@@ -371,9 +371,15 @@ def _saved_open_decisions(result, contract: dict[str, object]):
     )
     decisions = open_decisions(saved_observation)
     diagnostics = closed_world_diagnostics(parse_contract(contract), saved_observation)
-    open_subjects = {item.subject for item in diagnostics if item.code == "decision.open"}
-    assert open_subjects == {f"{item.source} -> {item.target}" for item in decisions}
-    return decisions, open_subjects
+    open_diagnostics = [item for item in diagnostics if item.code == "decision.open"]
+    assert len(open_diagnostics) == (1 if decisions else 0)
+    if decisions:
+        assert (
+            open_diagnostics[0].subject
+            == f"{len(decisions)} open dependency decision{'s' if len(decisions) != 1 else ''}"
+        )
+        assert "complete_requires" in open_diagnostics[0].remedy
+    return decisions, {f"{item.source} -> {item.target}" for item in decisions}
 
 
 def test_declared_package_pair_rule_closes_mixed_exact_pair_after_save(

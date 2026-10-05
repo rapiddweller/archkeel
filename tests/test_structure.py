@@ -3,23 +3,14 @@
 # SPDX-License-Identifier: MIT
 """AD-21: structure measurements are derived from one observation and gate nothing."""
 
-import json
 from dataclasses import replace
-from pathlib import Path
 
-from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.model import Observation
 from archkeel.ir.structure import oversized_insides, structure_metrics
 
-ROOT = Path(__file__).resolve().parents[1]
 
-
-def _self_observation():
-    artifact = (ROOT / "fixtures/D-self/architecture.json").read_bytes()
-    return parse_observation(decode_canonical_model(json.loads(artifact)))
-
-
-def test_component_metrics_sum_to_the_observation_totals() -> None:
-    observation = _self_observation()
+def test_component_metrics_sum_to_the_observation_totals(self_observation: Observation) -> None:
+    observation = self_observation
     metrics = structure_metrics(observation)
     components = [metric for metric in metrics if metric.level == "component"]
     packages = [metric for metric in metrics if metric.level == "package"]
@@ -36,9 +27,9 @@ def test_component_metrics_sum_to_the_observation_totals() -> None:
     assert sum(metric.unresolved for metric in packages) == unresolved
 
 
-def test_inner_and_crossing_edges_split_every_module_edge() -> None:
+def test_inner_and_crossing_edges_split_every_module_edge(self_observation: Observation) -> None:
     """An edge between two modules of one scope is inside it; every other edge crosses once."""
-    observation = _self_observation()
+    observation = self_observation
     packages = [metric for metric in structure_metrics(observation) if metric.level == "package"]
     module_edges = [
         record
@@ -52,11 +43,11 @@ def test_inner_and_crossing_edges_split_every_module_edge() -> None:
     assert crossing == sum(metric.fan_in for metric in packages)
 
 
-def test_the_self_observation_names_its_densest_component() -> None:
+def test_the_self_observation_names_its_densest_component(self_observation: Observation) -> None:
     """The derivation is what a reader acts on, so it must separate dense from sparse scopes."""
     metrics = {
         metric.scope: metric
-        for metric in structure_metrics(_self_observation())
+        for metric in structure_metrics(self_observation)
         if metric.level == "component"
     }
 
@@ -67,9 +58,11 @@ def test_the_self_observation_names_its_densest_component() -> None:
     assert metrics["ir"].fan_in > 0
 
 
-def test_the_claim_names_exactly_the_components_larger_than_their_level() -> None:
+def test_the_claim_names_exactly_the_components_larger_than_their_level(
+    self_observation: Observation,
+) -> None:
     """AD-33: the threshold is the top level itself, so both directions must hold."""
-    observation = _self_observation()
+    observation = self_observation
     claim = oversized_insides(observation)
     named = {item.scope for item in claim.candidates}
 
@@ -83,9 +76,9 @@ def test_the_claim_names_exactly_the_components_larger_than_their_level() -> Non
     assert "check" in named
 
 
-def test_the_claim_is_unknown_without_the_edge_signal() -> None:
+def test_the_claim_is_unknown_without_the_edge_signal(self_observation: Observation) -> None:
     """Comparing against zero component edges would name every component that has one."""
-    observation = _self_observation()
+    observation = self_observation
     without_edges = replace(
         observation,
         sections=tuple(item for item in observation.sections if item.name != "dependency_edges"),

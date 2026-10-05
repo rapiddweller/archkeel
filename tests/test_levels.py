@@ -3,25 +3,19 @@
 # SPDX-License-Identifier: MIT
 """AD-34: a declared inside is derived from the same observation as the level above it."""
 
-import json
-from pathlib import Path
 from typing import Any
 
 from test_delta import _model
 
-from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.codec import parse_observation
 from archkeel.ir.levels import inside_levels
-
-ROOT = Path(__file__).resolve().parents[1]
-
-
-def _self_observation():
-    artifact = (ROOT / "fixtures/D-self/architecture.json").read_bytes()
-    return parse_observation(decode_canonical_model(json.loads(artifact)))
+from archkeel.ir.model import Observation
 
 
-def test_the_inside_of_check_carries_its_sub_components_and_their_edges() -> None:
-    levels = {level.parent: level for level in inside_levels(_self_observation())}
+def test_the_inside_of_check_carries_its_sub_components_and_their_edges(
+    self_observation: Observation,
+) -> None:
+    levels = {level.parent: level for level in inside_levels(self_observation)}
     assert sorted(levels) == [
         "analyzer",
         "analyzer:dart",
@@ -46,14 +40,16 @@ def test_the_inside_of_check_carries_its_sub_components_and_their_edges() -> Non
         ("observation", "inputs", 3),
         ("regression", "inputs", 2),
         ("workflows", "evaluation", 2),
-        ("workflows", "inputs", 29),
-        ("workflows", "regression", 15),
+        ("workflows", "inputs", 30),
+        ("workflows", "regression", 16),
     ]
 
 
-def test_a_module_no_sub_component_owns_is_carried_not_dropped() -> None:
+def test_a_module_no_sub_component_owns_is_carried_not_dropped(
+    self_observation: Observation,
+) -> None:
     """Every observed check module stays owned by one declared sub-component."""
-    level = next(item for item in inside_levels(_self_observation()) if item.parent == "check")
+    level = next(item for item in inside_levels(self_observation) if item.parent == "check")
     assert level.unassigned == ()
     modules_by_component = {item.label: item.modules for item in level.components}
     assert "archkeel.check" in modules_by_component["inputs"]

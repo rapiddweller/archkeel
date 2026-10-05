@@ -193,7 +193,8 @@ def _findings(title: str, items: tuple[Record, ...], observation: Observation) -
       <details class="report-evidence"><summary>Inspect all {len(items)} records</summary>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Fingerprint</th><th>Finding</th><th>Subjects</th><th>Evidence</th></tr></thead>
+          <thead><tr><th>Finding ID</th><th>Finding</th>
+          <th>Subjects</th><th>Evidence</th></tr></thead>
           <tbody>{rows}</tbody>
         </table>
       </div></details>
@@ -221,7 +222,7 @@ def _type_allowances(observation: Observation) -> str:
       <p>These facts document exceptions. Other violations and UNKNOWN remain
       independently reported.</p>
       <div class="table-wrap"><table class="boundary-type-allowances-table">
-        <thead><tr><th>Fingerprint</th><th>Applied allowance</th>
+        <thead><tr><th>Allowance ID</th><th>Applied allowance</th>
         <th>Subjects</th><th>Evidence</th></tr></thead>
         <tbody>{rows}</tbody>
       </table></div>
@@ -478,8 +479,8 @@ def _interface_profile_section(observation: Observation) -> str:
       <h2>Public API measurements</h2>
       <p>Observed from declared facades and imports: exported-name count, re-exports, names
       defined in the facade, unused re-exports, consumers per exported name and coupling width.
-      They do not claim a barrel is complete (AD-88); <code>validate</code> holds declared
-      facade and coupling budgets to them (AD-99).</p>
+      They do not claim a barrel is complete; <code>validate</code> holds declared
+      facade and coupling budgets to them.</p>
       <details class="report-evidence"><summary>Facades · {len(profile.facades)}</summary>
       <div class="table-wrap"><table><thead><tr><th>Component</th><th>Module</th>
       <th class="numeric">Exports</th><th class="numeric">Re-exports</th><th>Defined</th>
@@ -724,7 +725,7 @@ def _coverage(observation: Observation | None) -> str:
         for label, value in rows
     )
     return (
-        '<div class="table-wrap"><table><thead><tr><th>Coverage dimension</th>'
+        '<div class="table-wrap"><table><thead><tr><th>Area checked</th>'
         f'<th class="numeric">Evidence</th></tr></thead><tbody>{body}</tbody></table></div>'
     )
 
@@ -743,7 +744,8 @@ def _section_inventory(observation: Observation | None) -> str:
         if isinstance(name := item.data.get("qualified_name"), str)
     )
     module_tree = (
-        f"<details><summary>Observed module tree · {len(modules)} modules</summary>"
+        f"<details><summary>Observed module tree · {len(modules)} "
+        f"{'module' if len(modules) == 1 else 'modules'}</summary>"
         f"{_module_tree_html(modules)}</details>"
         if modules
         else ""
@@ -905,23 +907,24 @@ def render_html(
     diagnostics = "".join(_diagnostic(item) for item in result.diagnostics)
     if not diagnostics:
         diagnostics = "<p>None.</p>"
-    failures = "".join(f"<li><code>{_text(item)}</code></li>" for item in result.failures)
-    if not failures:
-        # AD-100: --only calls draws its call table where the violations table would be.
-        where = (
-            "--only calls hides the declared-rule violations"
-            if result.filtered_calls is not None
-            else "see declared-rule violations below"
-        )
-        failures = (
-            f"<li>Report mode does not evaluate an expectation; {where}.</li>"
-            if report_violates_rules(result)
-            else "<li>None.</li>"
-        )
+    failures = (
+        "".join(f"<li><code>{_text(item)}</code></li>" for item in result.failures)
+        or "<li>None.</li>"
+    )
+    where = (
+        "--only calls hides the declared-rule violations"
+        if result.filtered_calls is not None
+        else "see declared-rule violations below"
+    )
+    mode_note = (
+        f"<p>Report mode does not evaluate an expectation; {where}.</p>"
+        if report_violates_rules(result)
+        else ""
+    )
     # AD-60: a filtered run shows `filtered_violations`, the same records `ir.baseline
     # .select_violations` chose; an unfiltered one shows every violation, exactly as before.
     violations = (
-        result.filtered_violations
+        tuple(item.record for item in result.filtered_violations or ())
         if result.report_filter is not None
         else observation.records("violations")
         if observation is not None
@@ -989,9 +992,9 @@ def render_html(
     inventory_html = _section_inventory(observation)
     metadata_html = _metadata(result, observation)
     raw_link = (
-        f'<a href="{_text(architecture_href)}">Open canonical architecture.json</a>'
+        f'<a href="{_text(architecture_href)}">Open architecture JSON</a>'
         if architecture_href is not None
-        else "Canonical architecture.json is unavailable."
+        else "Architecture JSON is unavailable."
     )
     calls_note = (
         "Call resolution is not measured."
@@ -1033,7 +1036,7 @@ def render_html(
              data-report-filter="{"true" if result.report_filter is not None else "false"}"
              aria-label="Decision: {summary.decision.label}">
       <span class="decision-symbol" aria-hidden="true">{summary.decision.symbol}</span>
-      <div><h2>{summary.decision.label}</h2><p>{_text(summary.sentence)}</p></div>
+      <div><h2>{summary.decision.label}</h2><p>{_text(summary.sentence)}</p>{mode_note}</div>
     </section>
     <section aria-labelledby="verdicts-heading">
       <h2 id="verdicts-heading">Independent verdicts</h2>
@@ -1066,7 +1069,7 @@ def render_html(
       {inventory_html}
     </section>
     <section id="reproduction" class="report-section">
-      <h2>Reproduction metadata</h2>
+      <h2>Source snapshot</h2>
       {metadata_html}
     </section>
     <script>{_asset("report-filters.js").decode("utf-8")}</script>
@@ -1115,7 +1118,7 @@ def _semantic_changes(result: RunResult) -> str:
     return (
         '<div class="table-wrap"><table><thead><tr><th>Dimension</th>'
         '<th>Observed change</th><th class="numeric">Before → after</th>'
-        f"<th>Fingerprint</th></tr></thead><tbody>{rows}</tbody></table></div>"
+        f"<th>Change ID</th></tr></thead><tbody>{rows}</tbody></table></div>"
     )
 
 
@@ -1194,7 +1197,7 @@ def render_check_html(result: RunResult, *, repository: str, result_href: str) -
     </section>
     {_unavailable_dimensions(result)}
     <section class="report-section">
-      <h2>Publication order evidence</h2><p>Status:
+      <h2>Publication timing</h2><p>Status:
         <strong data-status="{badge(host_order).state}">
         {_text(host_order)}</strong></p>{initial_receipt}</section>
     <section id="check-failures" class="report-section"><h2>Failures</h2>
@@ -1207,7 +1210,7 @@ def render_check_html(result: RunResult, *, repository: str, result_href: str) -
     <section id="check-diagnostics" class="report-section"><h2>Diagnostics</h2>
     <div class="diagnostic-list">{diagnostics or "<p>None.</p>"}</div></section>
     <section class="report-section">
-      <h2>Canonical result</h2><p><a href="{_text(result_href)}">Open the check result JSON</a>.</p>
+      <h2>Result JSON</h2><p><a href="{_text(result_href)}">Open the check result JSON</a>.</p>
     </section>
 """
     return _document(

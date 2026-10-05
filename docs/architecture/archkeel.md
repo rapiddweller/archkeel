@@ -238,6 +238,11 @@ often explains an earlier one; the index below keeps that order.
 | AD-152 | [Validated construct identity controls rules](decisions/ad-152-validated-construct-identity-controls-rules.md) |
 | AD-153 | [Unproven chains retain declared signatures](decisions/ad-153-unproven-chains-retain-declared-signatures.md) |
 | AD-154 | [Incomplete ownership names its module](decisions/ad-154-incomplete-ownership-names-its-module.md) |
+| AD-156 | [Self evidence keeps compact provenance](decisions/ad-156-self-evidence-keeps-compact-provenance.md) |
+| AD-155 | [Open dependency decisions share one remedy](decisions/ad-155-open-dependency-decisions-share-one-remedy.md) |
+| AD-157 | [Filtered JSON carries source locations](decisions/ad-157-filtered-json-carries-source-locations.md) |
+| AD-158 | [Onboarding guidance keeps drafts neutral](decisions/ad-158-onboarding-guidance-keeps-drafts-neutral.md) |
+| AD-159 | [Reports use reader-facing copy and native colors](decisions/ad-159-reports-use-reader-facing-copy-and-native-colors.md) |
 | AD-160 | [Inner UML uses the standard graph](decisions/ad-160-inner-uml-uses-the-standard-graph.md) |
 | AD-161 | [Component intent retains boundary semantics](decisions/ad-161-component-intent-retains-boundary-semantics.md) |
 | AD-162 | [Physical intent does not invent UML](decisions/ad-162-physical-intent-does-not-invent-uml.md) |
@@ -276,6 +281,9 @@ often explains an earlier one; the index below keeps that order.
 | AD-195 | [Overviews separate boundaries from file intent](decisions/ad-195-overviews-separate-boundaries-from-file-intent.md) |
 | AD-196 | [Closed demo intent retains observation limits](decisions/ad-196-closed-demo-intent-retains-observation-limits.md) |
 | AD-197 | [Expanded Target records eight UNKNOWN inventories](decisions/ad-197-expanded-target-records-eight-unknown-inventories.md) |
+| AD-198 | [Provider use survives initializer ownership](decisions/ad-198-provider-use-survives-initializer-ownership.md) |
+| AD-199 | [Nested permissions pin the complete field](decisions/ad-199-nested-permissions-pin-the-complete-field.md) |
+| AD-200 | [Diff projects recorded imports](decisions/ad-200-diff-projects-recorded-imports.md) |
 
 ## Allowed dependencies
 

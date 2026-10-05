@@ -2,6 +2,10 @@
 
 Exact rules behind the [README](../README.md). Code is the source of truth; this file explains it.
 
+Report HTML follows the system light/dark theme. Python report/check headings use a valid
+`[project].name`; missing or invalid names and other languages use the configured namespace.
+The title does not change verdicts or repository evidence.
+
 ## Configuration
 
 [schema/archkeel.schema.json](../schema/archkeel.schema.json) defines `archkeel.toml`.
@@ -45,7 +49,8 @@ where an artifact goes, not an input, and stay relative to the working directory
 The Python analyzer is bundled under `archkeel.analyzer`. `report` and `check`
 need no source checkout or private package. The analyzer runs in an isolated
 subprocess and returns a typed observation at the analyzer boundary.
-D-self verifies the bundled analyzer digest recorded in `fixtures/D-self/provenance.json`.
+D-self verifies the checker and complete observation against two saved digests in
+`fixtures/D-self/provenance.json`; only Git HEAD/dirty are normalized.
 
 Optional [`make rule-yield`](rule-yield.md) measures pinned rule findings and warm
 evaluator replays. Missing pass evidence remains unavailable; timings are outside IR.
@@ -226,6 +231,8 @@ Without JavaScript, the tables remain readable and inactive filter controls are 
 
 JSON results separate `observation_complete`, `declared_rules` and
 `expectation_fulfilled`. `report` uses `n/a` for expectations.
+For a complete, valid observation, `declared_rules` is FAIL with violations; otherwise UNKNOWN
+with counted undecided positions or any UNKNOWN rule assessment; otherwise PASS ([AD-124](architecture/decisions/ad-124-rule-pass-requires-complete-scope-receipt.md)).
 
 ### Exit codes
 
@@ -244,7 +251,7 @@ IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen d
 
 [`command-result.schema.json`](../schema/command-result.schema.json) describes the JSON
 stdout of `check`, `validate` and `report` (AD-138). It is included under `archkeel/schema`
-in installed packages. Its version is the `$id` suffix, currently `3.0.0`; command output
+in installed packages. Its version is the `$id` suffix, currently `4.0.0`; command output
 gains no version field. Pin the CLI and schema together. Register the bundled
 `architecture-ir-common.schema.json`, `architecture-ir-decoded.schema.json`,
 `architecture-ir-python-decoded.schema.json` and
@@ -270,6 +277,10 @@ Schema validation checks shape, not source authenticity, count arithmetic or con
 The `report` headline follows `declared_rules`: FAIL and UNKNOWN stay visible even on exit 0.
 Open decisions remain context. Use `archkeel validate --baseline architecture-baseline.json`
 with your existing baseline to gate changes; see onboarding to create a baseline.
+Diff shows recorded imports through component ownership without requiring UML intent.
+Its inspector limits findings to the selected subject or opened scope. Expand
+**Global or unmapped findings** for evidence without a known graph subject (AD-200).
+
 The report's declared-facade section measures export counts, re-exports, names defined in each
 facade, unused re-exports, consumers per export and distinct exported names per component pair.
 They do not assert that a barrel is complete (AD-88). `validate` measures
@@ -472,9 +483,12 @@ page stays a small review surface; `--rule <id>` and `--component <label>` each 
 table further and combine as an intersection. `--component` matches a violation whose crossing
 touches it on either side, source or target, since an import violation crosses two components
 (AD-60). All three read the same on `--json`: `report_filter` names the flags that produced the
-run and `filtered_violations` carries the records they select, one `Record` per row exactly like
-every other JSON section; both read `null` on an unfiltered run, the same way every other
-optional `report` field reads `null` when it has nothing to carry.
+run and `filtered_violations` carries the selected records with `locations: [{path, line}]`
+from the same recorded evidence as the HTML handoff (AD-157). Line `0` means file-only evidence;
+`[]` means no source evidence is attached to that violation. Locations name the analyzed snapshot.
+Both fields read `null` on an unfiltered run. Under `--only violations`, `rule_assessments`
+keeps FAIL and UNKNOWN rows; PASS and DECLARATION rows are omitted. Rule/component facets alone
+retain every assessment.
 None of the three changes what was judged: `architecture.json`, `declared_rules`,
 `violations_by_rule`, `violations_by_component_pair`, the `violations` measurement and the exit
 code all keep reading every violation, filtered or not. A filtered result still announces
@@ -611,9 +625,8 @@ disclaimers count 0: `dynamic_call_limit` and `context_alias_limit` fire on ever
 `private_attribute_access_limit` has the scalar above. A record that is also a coverage failure
 counts 0, a `boundary_type_limit` counts its undecided positions except `external_type`
 (AD-67), and every other kind counts its `data.undecided` integer, or 1 without one. A kind a
-new analyzer profile adds therefore counts. The same value sets `declared_rules`: a
-violation-free observation with a count above 0 is `UNKNOWN`, not `PASS`; the exit code does
-not change. Older measurement payloads without the scalar read as zero (AD-92).
+new analyzer profile adds therefore counts. Its role in the aggregate verdict is described
+under [report results](#results). Older measurement payloads without the scalar read as zero (AD-92).
 
 `calls_total` follows the analyzer's call measurement: null when unavailable, otherwise zero or a positive
 integer. Decoding older measurements with total zero and null `calls_unresolved` normalizes
@@ -669,7 +682,7 @@ Runtime: `packaging` parses PEP 440 `requires-python` ranges; stdlib has no equi
 imports to exactly those modules through `exact_sources`, so no submodule of `archkeel.cli`
 inherits `rich-argparse` (AD-49); JSON results never depend on them.
 Build: Hatchling packages the root schemas; `hatch-vcs` derives versions from Git tags.
-`hatch-fancy-pypi-readme` rewrites the local hero path only in distribution metadata.
+`hatch-fancy-pypi-readme` resolves README asset and documentation links in distribution metadata.
 Development: Ruff (lint/format), MyPy (strict),
 Pytest. `make build` uses Twine only to validate distribution metadata.
 The runtime fixture in `make check` requires Python 3.11 and 3.12.
@@ -690,5 +703,5 @@ Versions come from Git tags. A clean checkout of `1.2.3` or `v1.2.3` builds
 version `1.2.3`; commits after the tag produce development versions. Release
 builds need the Git history and tags. No fixed fallback version is configured.
 
-The README keeps its relative hero path for local previews. PyPI metadata uses
-an absolute image URL; the build does not rewrite the source README.
+README asset paths and documentation links stay relative in source; PyPI metadata uses
+absolute URLs. The build does not rewrite the source README.

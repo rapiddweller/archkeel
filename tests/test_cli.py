@@ -432,3 +432,96 @@ def test_validate_configuration_error_has_pointer(
     diagnostic = json.loads(capsys.readouterr().out)["diagnostics"][0]
     assert diagnostic["kind"] == "contract_invalid"
     assert diagnostic["pointer"] == ""
+
+
+@pytest.fixture(scope="module")
+def heading_check_repository(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, list[str]]:
+    import shlex
+
+    from fixtures.reproduce_milestone1 import reproduce
+
+    output = tmp_path_factory.mktemp("heading-protocol")
+    reproduce(output)
+    command = next(
+        item["command"]
+        for item in json.loads((output / "commands.json").read_text())
+        if "C-host-records.json" in item["command"]
+    )
+    return output / "C", shlex.split(command)[1:]
+
+
+@pytest.mark.parametrize("command", ["report", "check"])
+@pytest.mark.parametrize(
+    "metadata,heading",
+    [
+        ('[project]\nname = "Declared-Project"\nrequires-python = ">=3.11"\n', "Declared-Project"),
+        ('[project]\nname = "<unsafe>"\n', "sample"),
+        ("[project]\nname = 42\n", "sample"),
+        ("[project] broken", "sample"),
+        (None, "sample"),
+    ],
+)
+def test_html_heading_uses_valid_project_name_with_namespace_fallback(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+    command: str,
+    metadata: str | None,
+    heading: str,
+    heading_check_repository: tuple[Path, list[str]],
+) -> None:
+    root, check_args = heading_check_repository
+    metadata_path = root / "pyproject.toml"
+    if metadata is not None:
+        metadata_path.write_text(metadata)
+    else:
+        metadata_path.unlink(missing_ok=True)
+    output = tmp_path / "result.json"
+    args = ["report", "--root", str(root)] if command == "report" else check_args
+    exit_code = main([*args, "--output", str(output), "--json"])
+    assert exit_code in (0, 2)
+    result = json.loads(capsys.readouterr().out)
+    assert result["command"] == command
+    html = (tmp_path / f"result.{command}.html").read_text()
+    assert f"<h1>{heading}</h1>" in html
+    assert "<unsafe>" not in html
+
+
+def test_report_heading_does_not_read_project_metadata_outside_the_repository(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    root = _prepare_repo(tmp_path, {})
+    external = tmp_path / "external.toml"
+    external.write_text('[project]\nname = "External-Project"\nrequires-python = ">=3.11"\n')
+    metadata = root / "pyproject.toml"
+    metadata.unlink()
+    metadata.symlink_to(external)
+    output = tmp_path / "report.json"
+    assert main(["report", "--root", str(root), "--output", str(output), "--json"]) in (0, 2)
+    capsys.readouterr()
+    assert "<h1>shop</h1>" in (tmp_path / "report.report.html").read_text()
+
+
+def test_check_heading_symlink_loop_preserves_saved_and_stdout_verdicts(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+    heading_check_repository: tuple[Path, list[str]],
+) -> None:
+    root, check_args = heading_check_repository
+    metadata = root / "pyproject.toml"
+    original = metadata.read_bytes() if metadata.exists() else None
+    metadata.unlink(missing_ok=True)
+    metadata.symlink_to("pyproject.toml")
+    output = tmp_path / "result.json"
+    try:
+        exit_code = main([*check_args, "--output", str(output), "--json"])
+    finally:
+        metadata.unlink()
+        if original is not None:
+            metadata.write_bytes(original)
+    saved = json.loads(output.read_text())
+    emitted = json.loads(capsys.readouterr().out)
+    assert saved["exit_code"] == emitted["exit_code"] == exit_code == 0
+    for key in ("observation_complete", "declared_rules", "expectation_fulfilled"):
+        assert saved[key] == emitted[key] == "PASS"
+    assert "<h1>sample</h1>" in (tmp_path / "result.check.html").read_text()

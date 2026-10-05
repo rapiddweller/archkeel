@@ -87,6 +87,22 @@ def test_terminal_view_shows_regressions_failures_and_diagnostics() -> None:
     assert "Diagnostic · missing_tool" in unverifiable and "Install Git and retry." in unverifiable
 
 
+@pytest.mark.parametrize("code", ["graph.drift", "rule.violated", "decision.open"])
+def test_terminal_panel_names_its_validation_code(code: str) -> None:
+    diagnostic = Diagnostic(
+        "contract_invalid",
+        "contract",
+        "The contract needs a decision.",
+        "Review the target.",
+        "/components",
+        code,
+    )
+    result = RunResult("report", 2, diagnostics=(diagnostic,))
+    rendered = _render(result, report_summary(result), 80)
+    assert f"Diagnostic · {code}" in rendered
+    assert "Diagnostic · contract_invalid" not in rendered
+
+
 def test_terminal_view_does_not_interpret_markup_in_evidence() -> None:
     diagnostic = replace(_DIAGNOSTIC, subject="[bold]src[/bold]")
     result = RunResult("report", 2, diagnostics=(diagnostic,))
@@ -103,8 +119,8 @@ def test_report_headline_fails_on_declared_rule_violations_even_though_exit_code
     assert "report records violations without gating" in summary.sentence
 
 
-def test_init_headline_is_unchanged_by_the_report_decision_fix() -> None:
-    """AD-14 only changes report; init keeps its onboarding sentence and pass badge."""
+def test_init_headline_distinguishes_a_draft_from_a_decided_target() -> None:
+    """The completed scan is PASS; the target still needs decisions."""
     result = RunResult(
         "init",
         0,
@@ -113,7 +129,8 @@ def test_init_headline_is_unchanged_by_the_report_decision_fix() -> None:
         artifact="architecture-contract.json",
     )
     summary = init_summary(result)
-    assert summary.decision.label == "PASS"
+    assert summary.decision.label == "DRAFT"
+    assert summary.decision.state == "info"
     assert summary.sentence == "Draft written. Run archkeel validate to list every decision left."
     assert len(summary.verdicts) == 1
 

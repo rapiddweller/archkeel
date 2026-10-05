@@ -171,6 +171,27 @@ def facade_covers(
     return module in public and (not exports or name in exports)
 
 
+def interface_covers_import(
+    target_module: str,
+    symbol: str | None,
+    reexport_chain: Iterable[str],
+    component: ContractComponent,
+    exports_by_module: dict[str, frozenset[str]],
+) -> bool:
+    """Match a concrete import route against a declared interface."""
+    if component.public is None:
+        return False
+    if symbol is None:
+        return target_module in component.public
+    if symbol.startswith("_"):
+        return False
+    for entry in reexport_chain:
+        module, _, name = entry.rpartition(".")
+        if facade_covers(module, name, component, exports_by_module):
+            return True
+    return False
+
+
 @dataclass(frozen=True, slots=True)
 class RequiredComponent:
     """One component its owner may import, carrying the architect's reason for the edge (AD-32).
@@ -1165,6 +1186,20 @@ class ReportFilter:
     only_calls: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class ReportLocation:
+    path: str
+    line: int
+
+
+@dataclass(frozen=True, slots=True)
+class FilteredViolation:
+    """Command projection; source locations never enter canonical violation records."""
+
+    record: Record
+    locations: tuple[ReportLocation, ...]
+
+
 RuleAssessmentStatus: TypeAlias = Literal["PASS", "FAIL", "UNKNOWN", "DECLARATION"]
 
 
@@ -1277,7 +1312,7 @@ class RunResult:
     report_filter: ReportFilter | None = None
     # AD-60: the violation records `report_filter` selects, the same ones the HTML table
     # shows; None whenever no filter was given, so an unfiltered result's shape is unchanged.
-    filtered_violations: tuple[Record, ...] | None = None
+    filtered_violations: tuple[FilteredViolation, ...] | None = None
     # AD-100: the call sites behind a calls_unresolved change; None when no two revisions'
     # calls were compared.
     unresolved_call_changes: tuple[UnresolvedCallChange, ...] | None = None

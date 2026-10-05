@@ -218,8 +218,9 @@ def test_html_report_shows_fail_headline_when_declared_rules_fail() -> None:
     assert "report records violations without gating (exit code stays 0)" in page
     assert "archkeel validate --baseline architecture-baseline.json" in page
     failures_section = page.split("<h3>Failures</h3>", 1)[1].split("<h3>Diagnostics</h3>", 1)[0]
-    assert "None." not in failures_section
-    assert "see declared-rule violations below" in failures_section
+    assert "<li>None.</li>" in failures_section
+    assert "Report mode does not evaluate an expectation" not in failures_section
+    assert "see declared-rule violations below" in page
 
 
 def test_html_report_clean_report_still_reports_no_failures() -> None:
@@ -419,7 +420,7 @@ def test_html_report_explorer_uses_one_observation_for_three_views(tmp_path: Pat
         assert f'data-flow-view="{view}"' in page
     report = _standard_report(page)
     assert report.observed is not None and report.target is not None
-    assert "Recorded Core findings" in page
+    assert "Recorded findings" in page
     assert "Observed modules" in page
     assert "Cross-component imports" in page
 
@@ -438,7 +439,7 @@ def test_html_report_can_focus_an_open_report_on_violations(tmp_path: Path) -> N
     assert "Known unknowns" in page
     assert "Complete scan inventory" in page
     assert "violationsOnly.checked" in page
-    assert "Recorded Core findings" in page
+    assert "Recorded findings" in page
 
 
 def test_html_report_locates_a_cited_file_without_a_line(tmp_path: Path) -> None:
@@ -730,3 +731,38 @@ def test_rule_rows_show_fail_then_unknown_without_reordering_the_result() -> Non
     )
     assert result.rule_assessments == assessments
     assert "FAIL&lt;ONE&gt;" in page.split('id="rule-assessments-heading"', 1)[0]
+
+
+def test_report_uses_plain_evidence_labels_and_singular_module() -> None:
+    observation = parse_observation(
+        _model(
+            git_head="a" * 40,
+            modules=[
+                {
+                    "id": "module:sample",
+                    "evidence_class": "FACT",
+                    "area": "source",
+                    "kind": "module",
+                    "title": "sample",
+                    "subjects": ["sample"],
+                    "evidence_ids": [],
+                    "rule_ids": [],
+                    "fact_ids": [],
+                    "provenance": [],
+                    "data": {"qualified_name": "sample"},
+                }
+            ],
+        )
+    )
+    report = render_html(
+        RunResult("report", 0, "PASS", "PASS", "n/a"),
+        observation,
+        repository="sample",
+        architecture_href="architecture.json",
+    ).decode()
+    check = render_check_html(FAILED_CHECK, repository="sample", result_href="check.json").decode()
+    assert "Observed module tree · 1 module</summary>" in report
+    assert "<h2>Source snapshot</h2>" in report
+    assert "<th>Area checked</th>" in report
+    assert "<h2>Publication timing</h2>" in check
+    assert "<h2>Result JSON</h2>" in check

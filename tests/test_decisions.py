@@ -164,17 +164,13 @@ def test_validation_and_open_decisions_agree_on_undecided_pairs(tmp_path: Path) 
 
     decisions = open_decisions(observation)
     diagnostics = closed_world_diagnostics(contract, observation)
-    open_subjects = {item.subject for item in diagnostics if item.code == "decision.open"}
-
-    assert open_subjects == {f"{item.source} -> {item.target}" for item in decisions}
-    assert open_subjects == {"store -> model"}
-
-    open_decision = next(item for item in diagnostics if item.code == "decision.open")
-    assert open_decision.unknown_claim == "3 import site(s) use this pair, and no rule decides it."
-    assert open_decision.remedy == (
-        "Allow or forbid the pair: add an allowed_dependency or forbidden_dependency rule "
-        "with a rationale."
-    )
+    open_diagnostics = [item for item in diagnostics if item.code == "decision.open"]
+    assert [(item.source, item.target) for item in decisions] == [("store", "model")]
+    assert len(open_diagnostics) == 1
+    assert open_diagnostics[0].subject == "1 open dependency decision"
+    assert open_diagnostics[0].pointer == "/components"
+    assert "requires" in open_diagnostics[0].remedy
+    assert "complete_requires" in open_diagnostics[0].remedy
 
 
 def test_agent_decisions_counts_one_flipped_rule_from_the_observation(tmp_path: Path) -> None:

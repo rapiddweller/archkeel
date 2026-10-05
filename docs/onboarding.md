@@ -38,13 +38,62 @@ Record my reasons. Show unresolved findings and the file diff when finished.
    archkeel init --language typescript --source src --namespace app --tsconfig tsconfig.json
    ```
 
+   For Dart, use `archkeel init --language dart --source lib --namespace app`.
    Repeat `--source` to scan more roots; TypeScript roots may be files or directories. Use
    `--collector-argv node path/to/collector.js` to override the collector command. On Windows,
    pass an executable and script path instead of a `.cmd` shim.
 2. Decide which directions are allowed. The agent records them as `requires` entries,
    with your rationale and `decided_by: "architect"`. `complete_requires` forbids all absent pairs.
-3. Run `archkeel validate --json`. Resolve `decision.open`, `rationale.placeholder`,
+3. Run `archkeel validate --json`. One `decision.open` diagnostic counts unresolved pairs;
+   `open_decisions` holds their evidence. Resolve `decision.open`, `rationale.placeholder`,
    and `rationale.repeated`. Then run `archkeel report` and review the generated files.
+
+For example, after approving `storage -> domain`, add this fragment to the existing
+`storage` component. Replace the example reason with the decision owner's actual reason;
+keep its existing ownership and public interface fields.
+
+```json
+{
+  "requires": [
+    {
+      "component": "domain",
+      "rationale": "Storage persists domain records.",
+      "decided_by": "architect"
+    }
+  ]
+}
+```
+
+Append this rule to the existing `rules` list. An empty or absent `requires` list then
+forbids all outbound component pairs; it does not grant observed imports.
+
+```json
+{
+  "id": "REQUIRES-COMPLETE",
+  "kind": "complete_requires",
+  "rationale": "Each source states its approved outbound dependencies.",
+  "provenance": ["docs/architecture/architecture.md"],
+  "decided_by": "architect"
+}
+```
+
+Review drafted `public` entries and replace each structural rule's TODO with its own real
+reason and decision author. A non-empty namespace initializer needs explicit ownership via
+`exact_modules`; inspect it before adding that ownership. Rule kinds and selectors are in
+the [rule catalog](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
+
+`init` shows DRAFT, even when its scan completed with PASS. Its `measurements.scalars.cycle_edges`
+counts observed cycle edge positions; cycles need review, and a cyclic component graph
+receives no drafted `no_component_cycles` rule. This advisory is not an error diagnostic.
+
+Read `declared_rules` in both validation and report results: exit 0 means the command
+completed, while declared rules can still be FAIL or UNKNOWN. A forbidden direction
+produces a FAIL report naming its rule. Add `/test-artifacts/` to your repository’s
+`.gitignore` for default report output, or select another location with `--output`.
+
+For a new repository without Git history, run `git init` and create a commit first.
+If configuration is missing in an existing setup, restore it or use `--config PATH`;
+initialization must not replace an approved contract.
 
 Existing imports do not justify allowing them. `rule.violated` means code crosses a boundary
 you chose; fix the code or explicitly reconsider the target. Do not keep changing the target

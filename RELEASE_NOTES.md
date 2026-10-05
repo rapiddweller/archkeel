@@ -1,3 +1,10 @@
+# Unreleased
+
+- Exact initializer ownership preserves provider use through proven ancestor-published
+  re-exports. Ambiguous routes remain UNKNOWN (#338, AD-198).
+- The total report metric is named **Contract violations**; counts and evidence are unchanged
+  (#349, Core observation 0.72.0; AD-3).
+
 # Archkeel 0.9.0 — Explore architecture, keep the evidence
 
 - One offline explorer shows observed code, declared Target and Diff, with source

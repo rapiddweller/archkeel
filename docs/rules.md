@@ -469,7 +469,11 @@ Mixed union or DTO findings likewise retain both known violations and UNKNOWNs.
 `allowed_positions` may exempt one finding by exact `qualified_name`, `position`,
 `field_path` and `annotation`. An omitted or empty `field_path` selects the parameter or return itself;
 its `annotation` must match the complete signature annotation. A nonempty `field_path`
-names a nested field relative to that position and matches the offending leaf type.
+names a nested field relative to that position and matches its complete declared annotation,
+including nullable unions. Matching uses the collector's annotation text; `Optional[T]` and
+`T | None` are distinct selectors. A member permission cannot exempt a nullable field.
+Multiple maps or ambiguous declarations at the same path remain unallowed. A compound-field
+permission selects one outer map; other bad members, nested map values and UNKNOWN remain visible.
 Neither selector hides an unresolved union or mapping member.
 A direct-map allowance applies only when the signature has one top-level broad-type
 finding; it never covers a nested map or an undeclared member. Multiple
@@ -782,7 +786,7 @@ claim removes that ambiguity without turning it into a verdict.
   `analyzer` (22 modules, 50 inner edges), `check` (13 and 24) and `ir` (18 and 32), while `cli`,
   `render` and `host` stayed below on both. Review the physical subtree before introducing an
   `inside` contract. Do not rerun root `init --source` to create it: that command targets the
-  standard onboarding files. Follow the [recursive review guidance](onboarding.md#review-the-physical-structure).
+  standard onboarding files. Follow the [boundary review guidance](onboarding.md#choose-the-boundaries).
 
 `cross-component type fan-in` is the fifth claim (issue #9, AD-59). Its signals are the `symbols`
 and `imports` sections: `imports` for which function or method a cross-component call reaches,

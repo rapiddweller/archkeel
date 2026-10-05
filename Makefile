@@ -1,12 +1,43 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: against gate check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema
+.PHONY: against gate ci ci-check ci-typescript ci-artifacts-clean mermaid check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema
+
 check: lint typecheck test
 
-gate: release-check self-validate
+# These stages consume the previous stage's success, even with make -j.
+.NOTPARALLEL: gate release-check ci ci-check
+
+gate: $(if $(strip $(BASE)),against,self-validate) release-check
 
 release-check: check build smoke
+
+ci: ci-check mermaid
+
+ci-check: gate ci-artifacts-clean ci-typescript browser-install report-browser
+
+ci-typescript: OUTPUT := test-artifacts/typescript-demo
+ci-typescript: demo-typescript
+
+ci-artifacts-clean:
+	rm -rf test-artifacts/typescript-demo test-artifacts/report-browser
+
+mermaid:
+	@set -eu; mermaid_dir=$$(mktemp -d); \
+		trap 'rm -rf "$$mermaid_dir"' 0; \
+		python3 tools/mermaid_blocks.py --write "$$mermaid_dir"; \
+		printf '{"args": ["--no-sandbox"]}\n' > "$$mermaid_dir/puppeteer-config.json"; \
+		fail=0; \
+		for mmd in "$$mermaid_dir"/*.mmd; do \
+			[ -f "$$mmd" ] || continue; \
+			number=$$(basename "$$mmd" .mmd); \
+			location=$$(awk -F'\t' -v n="$$number" '$$1 == n { print $$2 }' "$$mermaid_dir/index.txt"); \
+			if ! npx --yes @mermaid-js/mermaid-cli@11.17.0 -p "$$mermaid_dir/puppeteer-config.json" -i "$$mmd" -o "$$mmd.svg"; then \
+				echo "::error::$$location: mermaid-cli failed to render this block"; \
+				fail=1; \
+			fi; \
+		done; \
+		exit "$$fail"
 
 against: BASE ?= origin/main
 against:
@@ -31,7 +62,7 @@ typescript-adapter:
 	$(MAKE) -C packages/typescript-adapter install pack
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py \
-	tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
+	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/reproduce_typescript.py \
@@ -132,7 +163,7 @@ plugin-directory:
 		cp -R "$$stage/archkeel/." plugins/archkeel/
 
 report-browser:
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q tests/test_report_interactions.py tests/test_report_migration_negatives.py tests/test_secondary_table_acceptance.py tests/test_uml_rendering.py tests/test_legacy_graph_rendering.py tests/test_own_uml_target.py tests/test_uml_visual_acceptance.py tests/test_uml_demo.py
+	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q tests/test_report_interactions.py tests/test_report_migration_negatives.py tests/test_secondary_table_acceptance.py tests/test_uml_rendering.py tests/test_legacy_graph_rendering.py tests/test_diff_import_rendering.py tests/test_own_uml_target.py tests/test_uml_visual_acceptance.py tests/test_uml_demo.py
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m tools.report_browser $(if $(OUTPUT),--output "$(OUTPUT)")
 
 # Twine validates PyPI metadata; it is a build-only tool.

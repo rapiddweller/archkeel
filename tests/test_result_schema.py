@@ -396,7 +396,7 @@ def test_real_dart_delta_matches_the_published_schema(validator, tmp_path: Path)
             checker_digest="b" * 64,
         )
     )
-    schema = validator.evolve(schema={"$ref": "urn:archkeel:command-result:3.0.0#/$defs/delta"})
+    schema = validator.evolve(schema={"$ref": "urn:archkeel:command-result:4.0.0#/$defs/delta"})
     assert not list(schema.iter_errors(delta))
     delta["analyzer"]["name"] = "unknown-analyzer"
     assert not schema.is_valid(delta)

@@ -15,6 +15,17 @@
   --uml-references: #b3becb;
   --uml-creates: #76d8c6;
   --uml-instance_of: #8fd8ef;
+  --ck-target-surface: #192029;
+  --ck-target-border: #64748b;
+  --ck-target-frame: #10151c;
+  --ck-target-frame-border: #475569;
+  --ck-related-surface: #1d2730;
+  --ck-related-border: #b0c9d5;
+  --ck-target-related-surface: #243242;
+  --ck-target-related-border: #d6e0ff;
+  --ck-dim-text: #919aa8;
+  --uml-class: #c5b8ff;
+  --uml-enum: #efa9df;
   /* Functional status colors. Never use these as decoration. */
   --ck-pass: #5eead4;
   --ck-fail: #ff6b6b;
@@ -50,6 +61,9 @@ body {
   font-family: var(--ck-font-sans);
   font-size: 14px;
   line-height: 1.55;
+}
+code {
+  overflow-wrap: anywhere;
 }
 a {
   color: var(--ck-teal);
@@ -1311,8 +1325,8 @@ code {
   stroke: var(--ck-declared);
 }
 .node.target-node.component .card {
-  fill: #192029;
-  stroke: #64748b;
+  fill: var(--ck-target-surface);
+  stroke: var(--ck-target-border);
   stroke-width: 1.5px;
 }
 .target-node.component .stereotype {
@@ -1328,9 +1342,9 @@ code {
   stroke-width: 1.5px;
 }
 .flow[data-view="target"] .target-frame {
-  fill: #10151c;
+  fill: var(--ck-target-frame);
   fill-opacity: 0.5;
-  stroke: #475569;
+  stroke: var(--ck-target-frame-border);
 }
 .node.target-node.component.selected .card,
 .node.target-node.component.preview .card {
@@ -1349,8 +1363,8 @@ code {
   stroke: var(--ck-teal);
 }
 .node.related .card {
-  fill: #1d2730;
-  stroke: #b0c9d5;
+  fill: var(--ck-related-surface);
+  stroke: var(--ck-related-border);
   stroke-width: 2px;
 }
 .node.selected.related .card,
@@ -1359,8 +1373,8 @@ code {
   stroke-width: 2.5px;
 }
 .node.target-node.related .card {
-  fill: #243242;
-  stroke: #d6e0ff;
+  fill: var(--ck-target-related-surface);
+  stroke: var(--ck-target-related-border);
   stroke-width: 2px;
 }
 .node.target-node.selected.related .card,
@@ -1369,7 +1383,7 @@ code {
   stroke-width: 2.5px;
 }
 .node.target-node.dim .label {
-  fill: #919aa8;
+  fill: var(--ck-dim-text);
 }
 .node.target-node.dim .uml-icon,
 .node.target-node.dim .stereotype {
@@ -1380,7 +1394,7 @@ code {
   stroke-opacity: 0.55;
 }
 .node.dim .label {
-  fill: #919aa8;
+  fill: var(--ck-dim-text);
 }
 .node.dim .uml-icon {
   opacity: 0.35;
@@ -1477,10 +1491,10 @@ code {
   stroke-width: 3;
   pointer-events: none;
 }
-.uml-card.class { --uml-kind-color: #c5b8ff; }
+.uml-card.class { --uml-kind-color: var(--uml-class); }
 .uml-card.interface { --uml-kind-color: var(--uml-instance_of); }
 .uml-card.enum,
-.uml-card.enum_literal { --uml-kind-color: #efa9df; }
+.uml-card.enum_literal { --uml-kind-color: var(--uml-enum); }
 .uml-card.method { --uml-kind-color: var(--uml-calls); }
 .uml-card.function { --uml-kind-color: var(--uml-creates); }
 .uml-card.attribute,
@@ -1734,7 +1748,7 @@ code {
   stroke-width: 3px;
 }
 .edge.target-edge.related .line {
-  stroke: #d6e0ff;
+  stroke: var(--ck-target-related-border);
   stroke-width: 3px;
 }
 .edge.target-edge.selected .line {
@@ -1843,7 +1857,7 @@ code {
     gap: 4px;
   }
 }
-@media print {
+@media (prefers-color-scheme: light), print {
   :root {
     color-scheme: light;
     --ck-black: #ffffff;
@@ -1852,18 +1866,41 @@ code {
     --ck-border: #d8d8d2;
     --ck-text: #0d0d0d;
     --ck-muted: #4a4a44;
-    /* Screen teal fails contrast on white paper. */
     --ck-teal: #0f766e;
-  }
-  body {
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
+    --ck-declared: #4338ca;
+    --ck-pass: #0f766e;
+    --ck-fail: #b91c1c;
+    --ck-unknown: #854d0e;
+    --ck-info: #0f766e;
+    --ck-on-status: #ffffff;
+    --uml-calls: #1d4ed8;
+    --uml-imports: #6d28d9;
+    --uml-references: #475569;
+    --uml-creates: #0f766e;
+    --uml-instance_of: #0369a1;
+    --uml-class: #6d28d9;
+    --uml-enum: #a21caf;
+    --ck-target-surface: #eef2f8;
+    --ck-target-border: #64748b;
+    --ck-target-frame: #eef2f8;
+    --ck-target-frame-border: #64748b;
+    --ck-related-surface: #e7f1f3;
+    --ck-related-border: #466775;
+    --ck-target-related-surface: #e7ebf8;
+    --ck-target-related-border: #4338ca;
+    --ck-dim-text: #475569;
   }
   .report-logo-dark {
     display: none;
   }
   .report-logo-light {
     display: block;
+  }
+}
+@media print {
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
   .report-shell {
     width: auto;
@@ -1873,10 +1910,6 @@ code {
   .diagnostic,
   .table-wrap {
     break-inside: avoid;
-  }
-  /* Paper cannot scroll, so 64-hex fingerprints must wrap inside the page. */
-  td code {
-    overflow-wrap: anywhere;
   }
   h2,
   h3 {

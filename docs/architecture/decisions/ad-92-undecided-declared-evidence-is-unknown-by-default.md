@@ -1,5 +1,8 @@
 # AD-92 Undecided declared evidence is UNKNOWN by default and measured
 
+The aggregate verdict derivation below is superseded by [AD-124](ad-124-rule-pass-requires-complete-scope-receipt.md),
+which also retains UNKNOWN rule assessments. The measurement remains unchanged.
+
 ## Decision
 
 One function, `unknown_positions` in `src/archkeel/check/ratchets.py`, counts what the scan left
