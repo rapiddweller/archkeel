@@ -22,13 +22,22 @@ from archkeel.ir.architecture_graph import (
 )
 from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.facts import MemberInventory
-from archkeel.ir.model import ArchitectureContract
+from archkeel.ir.model import ArchitectureContract, Coverage, Diagnostic, FilteredViolation
+from archkeel.ir.report_projection import ArchitectureCommandEnvelope
 
 
 def _schema(root: type, name: str, title: str) -> dict[str, object]:
     definitions: dict[str, object] = {}
 
     def shape(annotation: object) -> dict[str, object]:
+        if annotation is Coverage:
+            return {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/coverage"}
+        if annotation is Diagnostic:
+            return {"$ref": "urn:archkeel:command-result:5.0.0#/$defs/diagnostic"}
+        if annotation is FilteredViolation:
+            return {"$ref": "urn:archkeel:command-result:5.0.0#/$defs/filteredViolation"}
+        if annotation is float:
+            return {"type": "number"}
         if annotation is str:
             return {"type": "string"}
         if annotation is bool:
@@ -44,8 +53,17 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
             return {"enum": list(arguments)}
         if origin in {types.UnionType, Union}:
             return {"anyOf": [shape(argument) for argument in arguments]}
+        if origin is dict and len(arguments) == 2 and arguments[0] is str:
+            return {"type": "object", "additionalProperties": shape(arguments[1])}
         if origin is tuple and len(arguments) == 2 and arguments[1] is Ellipsis:
             return {"type": "array", "items": shape(arguments[0])}
+        if origin is tuple:
+            return {
+                "type": "array",
+                "prefixItems": [shape(item) for item in arguments],
+                "minItems": len(arguments),
+                "maxItems": len(arguments),
+            }
         if isinstance(annotation, type) and is_dataclass(annotation):
             name = annotation.__name__
             if name not in definitions:
@@ -143,6 +161,27 @@ def projection_schema() -> dict[str, object]:
     return schema
 
 
+def command_schema() -> dict[str, object]:
+    schema = _schema(
+        ArchitectureCommandEnvelope, "architecture-command", "Focused architecture command"
+    )
+    schema["$comment"] = (
+        "Default fields may be omitted. Selector names starting with dot or colon (or empty) "
+        "are relative to selector_prefix, falling back to namespace. Public/planned group "
+        "selectors by module, with symbol names or empty for the whole module. Module paths "
+        "are relative to component.path; empty means that exact file. Required summaries group "
+        "only internal class/method/type relationships by authenticated scope, kind, Core status "
+        "and exact reasons; cross-component and interface relationships remain individual. "
+        "Permission rule_ids exclude requires IDs already carried by the same component: "
+        "allowed pairs restore those IDs by matching requires.target_id. Requires observed_imports "
+        "count component-pair sites, not narrower through compliance. Numeric reasons index "
+        "reasons. UNKNOWN rows [scopes, count] account for every uncertainty exactly once; "
+        "empty scopes are global or unattributed. "
+        "Coverage and Core verdicts remain global under component filters."
+    )
+    return schema
+
+
 def member_inventory_schema() -> dict[str, object]:
     schema = _schema(MemberInventory, "source-member-inventory", "Source member inventory")
     schema["$comment"] = (
@@ -236,6 +275,7 @@ def main() -> None:
     parser.add_argument("--comparison", type=Path)
     parser.add_argument("--report", type=Path)
     parser.add_argument("--projection", type=Path)
+    parser.add_argument("--command", type=Path)
     parser.add_argument("--source-inventory", type=Path)
     parser.add_argument("--source-profile", type=Path)
     args = parser.parse_args()
@@ -247,6 +287,8 @@ def main() -> None:
         args.comparison.write_text(
             json.dumps(comparison_schema(), indent=2) + "\n", encoding="utf-8"
         )
+    if args.command is not None:
+        args.command.write_text(json.dumps(command_schema(), indent=2) + "\n", encoding="utf-8")
     if args.projection is not None:
         args.projection.write_text(
             json.dumps(projection_schema(), indent=2) + "\n", encoding="utf-8"
@@ -258,7 +300,6 @@ def main() -> None:
         args.source_inventory.write_text(
             json.dumps(member_inventory_schema(), indent=2) + "\n", encoding="utf-8"
         )
-
     if args.source_profile is not None:
         _update_source_profile_schema(args.source_profile)
 

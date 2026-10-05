@@ -2,47 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:command-result:5.0.0",
   "title": "Archkeel check, validate and report JSON results",
-  "$comment": "Version 5 adds the typed architecture projection with unfiltered global verdicts, coverage, assessments and uncertainty. AD-138. Describes codec.result_payload; Version 4 requires filtered violation locations and retains only FAIL/UNKNOWN assessments under --only violations. Version 3 preserves inspected validate verdicts and measurements at diagnostic exit 2; incomplete results remain UNKNOWN/null. Version 2 null call totals and legacy zero sentinels remain readable. Register the bundled IR common, Python decoded and architecture contract schemas by their $id for offline validation. Shape validation does not prove source authenticity, arithmetic consistency or contract conformance.",
+  "$comment": "Version 5 accepts the separate typed architecture command with global Core verdicts, coverage and exact grouped uncertainty. AD-138. Describes codec.result_payload; Version 4 requires filtered violation locations and retains only FAIL/UNKNOWN assessments under --only violations. Version 3 preserves inspected validate verdicts and measurements at diagnostic exit 2; incomplete results remain UNKNOWN/null. Version 2 null call totals and legacy zero sentinels remain readable. Register the bundled IR common, Python decoded and architecture contract schemas by their $id for offline validation. Shape validation does not prove source authenticity, arithmetic consistency or contract conformance.",
   "type": "object",
-  "required": [
-    "command",
-    "exit_code",
-    "observation_complete",
-    "declared_rules",
-    "expectation_fulfilled",
-    "diagnostics",
-    "coverage",
-    "observation",
-    "python_version",
-    "measurements",
-    "artifact",
-    "git_predicate",
-    "host_order",
-    "host_source",
-    "failures",
-    "baseline_new",
-    "baseline_resolved",
-    "delta",
-    "provenance",
-    "open_decisions",
-    "agent_decisions",
-    "claims",
-    "violations_by_rule",
-    "violations_by_component_pair",
-    "draft_sizes",
-    "report_filter",
-    "filtered_violations",
-    "unresolved_call_changes",
-    "unresolved_call_note",
-    "filtered_calls",
-    "architecture_projection",
-    "rule_assessments",
-    "baseline_path",
-    "baseline_comparisons",
-    "interface_budgets",
-    "scan_roots",
-    "renames"
-  ],
+  "required": ["command", "exit_code", "observation_complete", "declared_rules", "expectation_fulfilled", "diagnostics", "coverage", "architecture_projection"],
   "properties": {
     "command": {"enum": ["check", "validate", "report"]},
     "exit_code": {"enum": [0, 1, 2]},
@@ -129,7 +91,7 @@
     "unresolved_call_changes": {"anyOf": [{"type": "array", "items": {"$ref": "#/$defs/callChange"}}, {"type": "null"}]},
     "unresolved_call_note": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
     "filtered_calls": {"anyOf": [{"type": "array", "items": {"$ref": "#/$defs/call"}}, {"type": "null"}]},
-    "architecture_projection": {"anyOf": [{"$ref": "urn:archkeel:architecture-projection:1.0.0"}, {"type": "null"}]},
+    "architecture_projection": {"anyOf": [{"$ref": "urn:archkeel:architecture-projection:1.0.0"}, {"$ref": "urn:archkeel:architecture-command:1.0.0#/$defs/ArchitectureCommandView"}, {"type": "null"}]},
     "rule_assessments": {"anyOf": [{"type": "array", "items": {"$ref": "#/$defs/assessment"}}, {"type": "null"}]},
     "baseline_path": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
     "baseline_comparisons": {"anyOf": [{"type": "array", "items": {"$ref": "#/$defs/baselineComparison"}}, {"type": "null"}]},
@@ -151,196 +113,679 @@
       ]
     }
   },
-  "allOf": [
-    {
-      "if": {"properties": {"host_source": {"const": "github_initial_pr_head"}}},
-      "then": {"properties": {"provenance": {"type": "object", "required": ["initial_pr"]}}},
-      "else": {"properties": {"provenance": {"not": {"type": "object", "required": ["initial_pr"]}}}}
-    },
-    {
-      "if": {"properties": {"exit_code": {"const": 2}}},
-      "then": {
-        "properties": {"diagnostics": {"minItems": 1}},
-        "if": {"properties": {"command": {"const": "validate"}, "observation_complete": {"const": "PASS"}}},
+  "if": {"required": ["schema_version"]},
+  "then": {"$ref": "urn:archkeel:architecture-command:1.0.0"},
+  "else": {
+    "required": [
+      "command",
+      "exit_code",
+      "observation_complete",
+      "declared_rules",
+      "expectation_fulfilled",
+      "diagnostics",
+      "coverage",
+      "observation",
+      "python_version",
+      "measurements",
+      "artifact",
+      "git_predicate",
+      "host_order",
+      "host_source",
+      "failures",
+      "baseline_new",
+      "baseline_resolved",
+      "delta",
+      "provenance",
+      "open_decisions",
+      "agent_decisions",
+      "claims",
+      "violations_by_rule",
+      "violations_by_component_pair",
+      "draft_sizes",
+      "report_filter",
+      "filtered_violations",
+      "unresolved_call_changes",
+      "unresolved_call_note",
+      "filtered_calls",
+      "architecture_projection",
+      "rule_assessments",
+      "baseline_path",
+      "baseline_comparisons",
+      "interface_budgets",
+      "scan_roots",
+      "renames"
+    ],
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "host_source": {
+              "const": "github_initial_pr_head"
+            }
+          }
+        },
         "then": {
           "properties": {
-            "expectation_fulfilled": {"const": "n/a"},
-            "coverage": {"not": {"type": "null"}},
-            "measurements": {"not": {"type": "null"}},
-            "claims": {"not": {"type": "null"}}
+            "provenance": {
+              "type": "object",
+              "required": [
+                "initial_pr"
+              ]
+            }
           }
         },
         "else": {
           "properties": {
-            "observation_complete": {"const": "UNKNOWN"},
-            "declared_rules": {"const": "UNKNOWN"},
-            "expectation_fulfilled": {"const": "UNKNOWN"},
-            "measurements": {"type": "null"},
-            "claims": {"type": "null"}
+            "provenance": {
+              "not": {
+                "type": "object",
+                "required": [
+                  "initial_pr"
+                ]
+              }
+            }
           }
         }
       },
-      "else": {"properties": {"diagnostics": {"maxItems": 0}, "observation_complete": {"const": "PASS"}}}
-    },
-    {
-      "if": {"properties": {"command": {"const": "check"}}},
-      "then": {
-        "properties": {
-          "report_filter": {"type": "null"},
-          "filtered_violations": {"type": "null"},
-          "filtered_calls": {"type": "null"},
-          "architecture_projection": {"type": "null"},
-          "rule_assessments": {"type": "null"},
-          "baseline_path": {"type": "null"},
-          "baseline_comparisons": {"type": "null"},
-          "baseline_new": {"type": "null"},
-          "baseline_resolved": {"type": "null"},
-          "interface_budgets": {"type": "null"},
-          "renames": {"type": "null"},
-          "agent_decisions": {"type": "null"},
-          "claims": {"type": "null"},
-          "violations_by_rule": {"type": "null"},
-          "violations_by_component_pair": {"type": "null"},
-          "artifact": {"type": "null"},
-          "open_decisions": {"maxItems": 0},
-          "expectation_fulfilled": {"enum": ["PASS", "FAIL", "UNKNOWN"]}
+      {
+        "if": {
+          "properties": {
+            "exit_code": {
+              "const": 2
+            }
+          }
         },
-        "allOf": [
-          {
-            "if": {"properties": {"exit_code": {"enum": [0, 1]}}},
-            "then": {
-              "properties": {
-                "git_predicate": {"not": {"type": "null"}},
-                "host_order": {"not": {"type": "null"}},
-                "host_source": {"not": {"type": "null"}},
-                "delta": {"not": {"type": "null"}},
-                "provenance": {"not": {"type": "null"}},
-                "coverage": {"not": {"type": "null"}},
-                "measurements": {"not": {"type": "null"}},
-                "observation": {"type": "null"}
+        "then": {
+          "properties": {
+            "diagnostics": {
+              "minItems": 1
+            }
+          },
+          "if": {
+            "properties": {
+              "command": {
+                "const": "validate"
+              },
+              "observation_complete": {
+                "const": "PASS"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "expectation_fulfilled": {
+                "const": "n/a"
+              },
+              "coverage": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "measurements": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "claims": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "observation_complete": {
+                "const": "UNKNOWN"
+              },
+              "declared_rules": {
+                "const": "UNKNOWN"
+              },
+              "expectation_fulfilled": {
+                "const": "UNKNOWN"
+              },
+              "measurements": {
+                "type": "null"
+              },
+              "claims": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "diagnostics": {
+              "maxItems": 0
+            },
+            "observation_complete": {
+              "const": "PASS"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "command": {
+              "const": "check"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "report_filter": {
+              "type": "null"
+            },
+            "filtered_violations": {
+              "type": "null"
+            },
+            "filtered_calls": {
+              "type": "null"
+            },
+            "architecture_projection": {
+              "type": "null"
+            },
+            "rule_assessments": {
+              "type": "null"
+            },
+            "baseline_path": {
+              "type": "null"
+            },
+            "baseline_comparisons": {
+              "type": "null"
+            },
+            "baseline_new": {
+              "type": "null"
+            },
+            "baseline_resolved": {
+              "type": "null"
+            },
+            "interface_budgets": {
+              "type": "null"
+            },
+            "renames": {
+              "type": "null"
+            },
+            "agent_decisions": {
+              "type": "null"
+            },
+            "claims": {
+              "type": "null"
+            },
+            "violations_by_rule": {
+              "type": "null"
+            },
+            "violations_by_component_pair": {
+              "type": "null"
+            },
+            "artifact": {
+              "type": "null"
+            },
+            "open_decisions": {
+              "maxItems": 0
+            },
+            "expectation_fulfilled": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNKNOWN"
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "exit_code": {
+                    "enum": [
+                      0,
+                      1
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "git_predicate": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "host_order": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "host_source": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "delta": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "provenance": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "coverage": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "measurements": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "observation": {
+                    "type": "null"
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "git_predicate": {
+                    "type": "null"
+                  },
+                  "host_order": {
+                    "type": "null"
+                  },
+                  "host_source": {
+                    "type": "null"
+                  },
+                  "delta": {
+                    "type": "null"
+                  },
+                  "provenance": {
+                    "type": "null"
+                  }
+                }
               }
             },
-            "else": {
-              "properties": {
-                "git_predicate": {"type": "null"},
-                "host_order": {"type": "null"},
-                "host_source": {"type": "null"},
-                "delta": {"type": "null"},
-                "provenance": {"type": "null"}
+            {
+              "if": {
+                "properties": {
+                  "exit_code": {
+                    "const": 0
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "expectation_fulfilled": {
+                    "const": "PASS"
+                  },
+                  "declared_rules": {
+                    "enum": [
+                      "PASS",
+                      "UNKNOWN"
+                    ]
+                  },
+                  "git_predicate": {
+                    "const": "PASS"
+                  },
+                  "host_order": {
+                    "const": "PASS"
+                  },
+                  "failures": {
+                    "maxItems": 0
+                  }
+                }
               }
             }
-          },
-          {
-            "if": {"properties": {"exit_code": {"const": 0}}},
-            "then": {
-              "properties": {
-                "expectation_fulfilled": {"const": "PASS"},
-                "declared_rules": {"enum": ["PASS", "UNKNOWN"]},
-                "git_predicate": {"const": "PASS"},
-                "host_order": {"const": "PASS"},
-                "failures": {"maxItems": 0}
-              }
+          ]
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "command": {
+              "const": "validate"
             }
           }
-        ]
-      }
-    },
-    {
-      "if": {"properties": {"command": {"const": "validate"}}},
-      "then": {
-        "properties": {
-          "git_predicate": {"type": "null"},
-          "host_order": {"type": "null"},
-          "host_source": {"type": "null"},
-          "delta": {"type": "null"},
-          "provenance": {"type": "null"},
-          "report_filter": {"type": "null"},
-          "filtered_violations": {"type": "null"},
-          "filtered_calls": {"type": "null"},
-          "architecture_projection": {"type": "null"},
-          "baseline_path": {"type": "null"},
-          "baseline_comparisons": {"type": "null"},
-          "observation": {"type": "null"},
-          "expectation_fulfilled": {"enum": ["n/a", "UNKNOWN"]}
         },
-        "allOf": [
-          {
-            "if": {"properties": {"observation_complete": {"const": "PASS"}}},
-            "then": {
-              "properties": {
-                "coverage": {"not": {"type": "null"}},
-                "measurements": {"not": {"type": "null"}},
-                "agent_decisions": {"not": {"type": "null"}},
-                "claims": {"not": {"type": "null"}},
-                "violations_by_rule": {"not": {"type": "null"}},
-                "violations_by_component_pair": {"not": {"type": "null"}},
-                "expectation_fulfilled": {"const": "n/a"}
+        "then": {
+          "properties": {
+            "git_predicate": {
+              "type": "null"
+            },
+            "host_order": {
+              "type": "null"
+            },
+            "host_source": {
+              "type": "null"
+            },
+            "delta": {
+              "type": "null"
+            },
+            "provenance": {
+              "type": "null"
+            },
+            "report_filter": {
+              "type": "null"
+            },
+            "filtered_violations": {
+              "type": "null"
+            },
+            "filtered_calls": {
+              "type": "null"
+            },
+            "architecture_projection": {
+              "type": "null"
+            },
+            "baseline_path": {
+              "type": "null"
+            },
+            "baseline_comparisons": {
+              "type": "null"
+            },
+            "observation": {
+              "type": "null"
+            },
+            "expectation_fulfilled": {
+              "enum": [
+                "n/a",
+                "UNKNOWN"
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "observation_complete": {
+                    "const": "PASS"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "coverage": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "measurements": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "agent_decisions": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "claims": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "violations_by_rule": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "violations_by_component_pair": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "expectation_fulfilled": {
+                    "const": "n/a"
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "rule_assessments": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "command": {
+              "const": "report"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "git_predicate": {
+              "type": "null"
+            },
+            "host_order": {
+              "type": "null"
+            },
+            "host_source": {
+              "type": "null"
+            },
+            "delta": {
+              "type": "null"
+            },
+            "provenance": {
+              "type": "null"
+            },
+            "baseline_new": {
+              "type": "null"
+            },
+            "baseline_resolved": {
+              "type": "null"
+            },
+            "interface_budgets": {
+              "type": "null"
+            },
+            "renames": {
+              "type": "null"
+            },
+            "observation": {
+              "type": "null"
+            },
+            "unresolved_call_changes": {
+              "type": "null"
+            },
+            "unresolved_call_note": {
+              "type": "null"
+            },
+            "exit_code": {
+              "enum": [
+                0,
+                2
+              ]
+            },
+            "expectation_fulfilled": {
+              "enum": [
+                "n/a",
+                "UNKNOWN"
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "exit_code": {
+                    "const": 0
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "coverage": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "measurements": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "agent_decisions": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "claims": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "violations_by_rule": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "violations_by_component_pair": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "expectation_fulfilled": {
+                    "const": "n/a"
+                  },
+                  "rule_assessments": {
+                    "type": "array"
+                  }
+                }
               }
             },
-            "else": {"properties": {"rule_assessments": {"type": "null"}}}
-          }
-        ]
-      }
-    },
-    {
-      "if": {"properties": {"command": {"const": "report"}}},
-      "then": {
-        "properties": {
-          "git_predicate": {"type": "null"},
-          "host_order": {"type": "null"},
-          "host_source": {"type": "null"},
-          "delta": {"type": "null"},
-          "provenance": {"type": "null"},
-          "baseline_new": {"type": "null"},
-          "baseline_resolved": {"type": "null"},
-          "interface_budgets": {"type": "null"},
-          "renames": {"type": "null"},
-          "observation": {"type": "null"},
-          "unresolved_call_changes": {"type": "null"},
-          "unresolved_call_note": {"type": "null"},
-          "exit_code": {"enum": [0, 2]},
-          "expectation_fulfilled": {"enum": ["n/a", "UNKNOWN"]}
-        },
-        "allOf": [
-          {
-            "if": {"properties": {"exit_code": {"const": 0}}},
-            "then": {
-              "properties": {
-                "coverage": {"not": {"type": "null"}},
-                "measurements": {"not": {"type": "null"}},
-                "agent_decisions": {"not": {"type": "null"}},
-                "claims": {"not": {"type": "null"}},
-                "violations_by_rule": {"not": {"type": "null"}},
-                "violations_by_component_pair": {"not": {"type": "null"}},
-                "expectation_fulfilled": {"const": "n/a"},
-                "rule_assessments": {"type": "array"}
+            {
+              "if": {
+                "properties": {
+                  "report_filter": {
+                    "type": "object",
+                    "properties": {
+                      "only_violations": {
+                        "const": true
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "rule_assessments": {
+                    "items": {
+                      "properties": {
+                        "status": {
+                          "enum": [
+                            "FAIL",
+                            "UNKNOWN"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "report_filter": {
+                    "type": "null"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "filtered_violations": {
+                    "type": "null"
+                  },
+                  "filtered_calls": {
+                    "type": "null"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "report_filter": {
+                    "type": "object",
+                    "properties": {
+                      "only_calls": {
+                        "const": true
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "filtered_violations": {
+                    "type": "null"
+                  },
+                  "filtered_calls": {
+                    "type": "array"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "exit_code": {
+                    "const": 0
+                  },
+                  "report_filter": {
+                    "type": "object",
+                    "properties": {
+                      "only_architecture": {
+                        "const": true
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "architecture_projection": {
+                    "type": "object"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "report_filter": {
+                    "type": "object",
+                    "properties": {
+                      "only_calls": {
+                        "const": false
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "filtered_calls": {
+                    "type": "null"
+                  },
+                  "filtered_violations": {
+                    "type": "array"
+                  }
+                }
               }
             }
-          },
-          {
-            "if": {"properties": {"report_filter": {"type": "object", "properties": {"only_violations": {"const": true}}}}},
-            "then": {"properties": {"rule_assessments": {"items": {"properties": {"status": {"enum": ["FAIL", "UNKNOWN"]}}}}}}
-          },
-          {
-            "if": {"properties": {"report_filter": {"type": "null"}}},
-            "then": {"properties": {"filtered_violations": {"type": "null"}, "filtered_calls": {"type": "null"}}}
-          },
-          {
-            "if": {"properties": {"report_filter": {"type": "object", "properties": {"only_calls": {"const": true}}}}},
-            "then": {"properties": {"filtered_violations": {"type": "null"}, "filtered_calls": {"type": "array"}}}
-          },
-          {
-            "if": {"properties": {"exit_code": {"const": 0}, "report_filter": {"type": "object", "properties": {"only_architecture": {"const": true}}}}},
-            "then": {"properties": {"architecture_projection": {"type": "object"}}}
-          },
-          {
-            "if": {"properties": {"report_filter": {"type": "object", "properties": {"only_calls": {"const": false}}}}},
-            "then": {"properties": {"filtered_calls": {"type": "null"}, "filtered_violations": {"type": "array"}}}
-          }
-        ]
+          ]
+        }
       }
-    }
-  ],
+    ]
+  },
   "$defs": {
     "diagnostic": {
       "type": "object",

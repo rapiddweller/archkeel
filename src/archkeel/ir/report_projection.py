@@ -3,9 +3,18 @@
 # SPDX-License-Identifier: MIT
 """Project the authenticated shared report for focused architecture consumers."""
 
+from collections import Counter
+from dataclasses import dataclass, field, replace
 from posixpath import commonpath
+from typing import Literal, TypeAlias
 
-from archkeel.ir.architecture_graph import ArchitectureGraph, ArchitectureReport, AssessmentStatus
+from archkeel.ir.architecture_graph import (
+    ArchitectureGraph,
+    ArchitectureReport,
+    AssessmentStatus,
+    ComponentRole,
+    RelationshipKind,
+)
 from archkeel.ir.architecture_projection import (
     ArchitectureProjection,
     ComponentProjection,
@@ -21,11 +30,17 @@ from archkeel.ir.architecture_projection import (
     UnknownProjection,
     UsageProjection,
 )
+from archkeel.ir.facts import SourceInfo
 from archkeel.ir.model import (
+    Coverage,
     Diagnostic,
     DiagnosticError,
+    FilteredViolation,
     Observation,
+    ReportFilter,
     RuleAssessment,
+    RuleVerdict,
+    RunResult,
     declared_package_pair,
     module_in_ownership,
     text_value,
@@ -219,8 +234,14 @@ def architecture_projection(
     """Project one authenticated report; filters retain global uncertainty and source identity."""
     report.validate()
     target, observed = report.target, report.observed
+    original_unknowns = {item.id: item for item in model.records("unknowns") or ()}
     unknowns = [
-        UnknownProjection(item.id, item.title, item.rule_ids)
+        UnknownProjection(
+            item.id,
+            text_value(original_unknowns[item.id].data.get("reason")) or item.title,
+            item.rule_ids,
+            original_unknowns[item.id].kind,
+        )
         for item in report.findings
         if item.status == "UNKNOWN"
     ]
@@ -300,7 +321,15 @@ def architecture_projection(
         for item in sorted(modules, key=lambda item: item.qualified_name)
         if len(ownership[item.id]) != 1
     )
-    unknowns.extend(UnknownProjection(f"ownership:{item.module}", item.reason) for item in gaps)
+    unknowns.extend(
+        UnknownProjection(
+            f"ownership:{item.module}",
+            item.reason,
+            kind="module_ownership",
+            scopes=tuple(names[identity] for identity in item.candidate_ids),
+        )
+        for item in gaps
+    )
     covered_imports = {
         item.scope_id
         for item in observed.coverage
@@ -330,7 +359,13 @@ def architecture_projection(
     rules = _permission_rules(model, target)
     permissions = _permissions(target, rules)
     unknowns.extend(
-        UnknownProjection(f"decision:{identity}:{item.target_id}", item.reason, item.rule_ids)
+        UnknownProjection(
+            f"decision:{identity}:{item.target_id}",
+            item.reason,
+            item.rule_ids,
+            "dependency_permission",
+            (names[identity], names[item.target_id]),
+        )
         for identity in sorted(permissions)
         for item in permissions[identity]
         if item.status == "undecided"
@@ -366,6 +401,33 @@ def architecture_projection(
         for pair in pairs:
             counts[pair] = counts.get(pair, 0) + 1
     target_entities = {item.id: item for item in target.entities}
+    intents = {item.component_id: item for item in target.component_intents}
+
+    def entity_component(identity: str) -> str | None:
+        entity = target_entities[identity]
+        while entity.id not in intents and entity.parent_id is not None:
+            entity = target_entities[entity.parent_id]
+        return entity.id if entity.id in intents else None
+
+    def internal_scope(source_id: str, target_id: str | None, kind: RelationshipKind) -> str | None:
+        if target_id is None or kind in {"realizes", "publishes"}:
+            return None
+        owner = entity_component(source_id)
+        if owner is None or entity_component(target_id) != owner:
+            return None
+        if intents[owner].role in {ComponentRole.INTERFACE, ComponentRole.CONTRACT}:
+            return None
+        detail_kinds = {"class", "method", "attribute", "type_alias", "enum"}
+        for identity in (source_id, target_id):
+            entity = target_entities[identity]
+            if entity.kind not in detail_kinds:
+                return None
+            while entity.parent_id is not None:
+                if entity.kind == "interface":
+                    return None
+                entity = target_entities[entity.parent_id]
+        return names[owner]
+
     relationships = []
     for edge in target.relationships:
         if edge.kind == "requires":
@@ -395,11 +457,30 @@ def architecture_projection(
                 target_entities[edge.target_id].qualified_name if edge.target_id else None,
                 status,
                 reasons,
+                tuple(
+                    sorted(
+                        {
+                            owner
+                            for identity in (edge.source_id, edge.target_id)
+                            if identity is not None
+                            and (owner := entity_component(identity)) is not None
+                        }
+                    )
+                ),
+                internal_scope(edge.source_id, edge.target_id, edge.kind),
             )
         )
         if status == "UNKNOWN":
-            unknowns.append(UnknownProjection(edge.id, " ".join(reasons)))
+            unknowns.append(
+                UnknownProjection(
+                    edge.id,
+                    " ".join(reasons),
+                    kind=edge.kind,
+                    scopes=tuple(names[identity] for identity in relationships[-1].component_ids),
+                )
+            )
     components = []
+    assessment_scopes: dict[str, set[str]] = {}
     declarations = {item.id: item for item in model.records("declarations") or ()}
     for intent in sorted(target.component_intents, key=lambda item: item.component_id):
         owned = tuple(
@@ -424,6 +505,14 @@ def architecture_projection(
             == (names[intent.parent_id] if intent.parent_id else None)
             and (not item.components or intent.label in item.components)
         )
+        for assessment in scoped:
+            if assessment.status == "UNKNOWN":
+                assessment_scopes.setdefault(assessment.id, set()).add(intent.component_id)
+        selector_prefix = intent.namespace
+        ancestor = intent.parent_id
+        while selector_prefix is None and ancestor is not None:
+            selector_prefix = intents[ancestor].namespace
+            ancestor = intents[ancestor].parent_id
         undecided = any(item.status == "undecided" for item in permissions[intent.component_id])
         if not imports_complete or not scoped_modules:
             status, reason = "UNKNOWN", "Complete owned module and import evidence is unavailable."
@@ -496,6 +585,7 @@ def architecture_projection(
                 status=status,
                 reason=reason,
                 decided_by=intent.decided_by,
+                selector_prefix=selector_prefix,
             )
         )
     levels = []
@@ -547,6 +637,41 @@ def architecture_projection(
                 unowned,
             )
         )
+    scoped_unknowns = []
+    for unknown in unknowns:
+        original = original_unknowns.get(unknown.id)
+        source_module = text_value(original.data.get("module")) if original else ""
+        source_scope = text_value(original.data.get("source")) if original else ""
+        module_identity = next(
+            (item.id for item in modules if item.qualified_name == source_module), None
+        )
+        scoped_ids = (
+            set(ownership[module_identity])
+            if module_identity is not None
+            else {
+                intent.component_id
+                for intent in target.component_intents
+                if source_scope and source_scope in intent.packages
+            }
+            if source_scope
+            else {owner.id for owner in components if unknown.id in owner.finding_ids}
+            | assessment_scopes.get(unknown.id, set())
+        )
+        inherited = set()
+        for identity in scoped_ids:
+            ancestor = intents[identity].parent_id
+            while ancestor is not None:
+                inherited.add(ancestor)
+                ancestor = intents[ancestor].parent_id
+        scoped_ids -= inherited
+        scoped_unknowns.append(
+            replace(
+                unknown,
+                kind=declarations[unknown.id].kind if unknown.id in declarations else unknown.kind,
+                scopes=unknown.scopes or tuple(sorted(names[identity] for identity in scoped_ids)),
+            )
+        )
+    unknowns = scoped_unknowns
     projection_status: AssessmentStatus = (
         "UNKNOWN"
         if unknowns
@@ -572,4 +697,266 @@ def architecture_projection(
         if projection_status == "UNKNOWN"
         else "Authenticated architecture evidence is complete.",
         violation_remedy,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class PermissionGroup:
+    status: PermissionStatus
+    reason: int
+    target_ids: tuple[str, ...]
+    rule_ids: tuple[str, ...] = ()
+
+
+ScopeCount: TypeAlias = tuple[tuple[str, ...], int]
+UnknownGroups: TypeAlias = dict[str, dict[str, tuple[ScopeCount, ...]]]
+
+
+@dataclass(frozen=True, slots=True)
+class ArchitectureComponentView:
+    id: str
+    scope: str
+    path: str | None
+    provenance: tuple[str, ...]
+    packages: tuple[str, ...]
+    responsibilities: tuple[str, ...]
+    not_responsible_for: tuple[str, ...]
+    status: AssessmentStatus
+    reason: int
+    decided_by: Literal["architect", "agent"] | None
+    parent_id: str | None = None
+    role: ComponentRole = ComponentRole.COMPONENT
+    namespace: str | None = None
+    selector_prefix: str | None = None
+    exact_modules: tuple[str, ...] = ()
+    public: dict[str, tuple[str, ...]] | None = None
+    planned: dict[str, tuple[str, ...]] | None = None
+    modules: dict[str, str | None] = field(default_factory=dict)
+    requires: tuple[RequiresProjection, ...] = ()
+    permissions: tuple[PermissionGroup, ...] = ()
+    used_by: dict[str, int] = field(default_factory=dict)
+    finding_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class RequiredRelationshipSummary:
+    scope: str
+    kind: RelationshipKind
+    status: AssessmentStatus
+    reasons: tuple[str, ...]
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class DependencyPermissionView:
+    id: str
+    kind: PermissionRuleKind
+    rationale: str
+    decided_by: str | None
+    parent_id: str | None = None
+    source: str | None = None
+    target: str | None = None
+    target_symbol: str | None = None
+    allowed_sources: tuple[str, ...] = ()
+    include_type_checking: bool | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ArchitectureCommandView:
+    source: SourceInfo
+    contract_digest: str
+    analyzer_digest: str
+    components: tuple[ArchitectureComponentView, ...]
+    levels: tuple[LevelProjection, ...]
+    permission_rules: tuple[DependencyPermissionView, ...]
+    required_relationships: tuple[RequiredRelationshipProjection, ...]
+    required_summaries: tuple[RequiredRelationshipSummary, ...]
+    ownership_gaps: tuple[OwnershipGap, ...]
+    unknowns: UnknownGroups
+    status: AssessmentStatus
+    reason: str
+    reasons: tuple[str, ...]
+    violation_remedy: str
+
+
+@dataclass(frozen=True, slots=True)
+class ArchitectureCommandEnvelope:
+    exit_code: Literal[0, 1, 2]
+    observation_complete: Literal["PASS", "UNKNOWN"]
+    declared_rules: RuleVerdict
+    coverage: Coverage | None
+    diagnostics: tuple[Diagnostic, ...]
+    report_filter: ReportFilter | None
+    architecture_projection: ArchitectureCommandView
+    filtered_violations: tuple[FilteredViolation, ...]
+    command: Literal["report"] = "report"
+    expectation_fulfilled: Literal["n/a"] = "n/a"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+
+
+def short_selector(value: str, prefix: str | None) -> str:
+    """Only authenticated namespaces may abbreviate a fully reconstructible selector."""
+    if prefix is not None and (
+        value == prefix or value.startswith(f"{prefix}.") or value.startswith(f"{prefix}:")
+    ):
+        return value[len(prefix) :]
+    return value
+
+
+def grouped_selectors(
+    selectors: tuple[str, ...] | None, prefix: str | None
+) -> dict[str, tuple[str, ...]] | None:
+    if selectors is None:
+        return None
+    modules: dict[str, list[str]] = {}
+    for selector in selectors:
+        module, separator, symbol = selector.partition(":")
+        modules.setdefault(short_selector(module, prefix), []).append(symbol if separator else "")
+    return {module: tuple(symbols) for module, symbols in modules.items()}
+
+
+def unknown_groups(unknowns: tuple[UnknownProjection, ...]) -> UnknownGroups:
+    groups: dict[tuple[str, str], Counter[tuple[str, ...]]] = {}
+    for unknown in unknowns:
+        groups.setdefault((unknown.kind, unknown.reason), Counter())[unknown.scopes] += 1
+    result: UnknownGroups = {}
+    for (kind, reason), counts in sorted(groups.items()):
+        result.setdefault(kind, {})[reason] = tuple(sorted(counts.items()))
+    return result
+
+
+def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvelope:
+    projection = result.architecture_projection
+    if projection is None:
+        raise ValueError("architecture command requires its authenticated projection")
+    reasons: list[str] = []
+
+    def reason_ref(reason: str) -> int:
+        if reason not in reasons:
+            reasons.append(reason)
+        return reasons.index(reason)
+
+    violations = result.filtered_violations or ()
+    violation_ids = {item.record.id for item in violations}
+    components = []
+    for component in projection.components:
+        prefix = component.selector_prefix
+        permissions: dict[tuple[PermissionStatus, tuple[str, ...], str], list[str]] = {}
+        requires_ids = {item.id for item in component.requires}
+        for permission in component.permissions:
+            rule_ids = tuple(
+                identity for identity in permission.rule_ids if identity not in requires_ids
+            )
+            permissions.setdefault((permission.status, rule_ids, permission.reason), []).append(
+                permission.target_id
+            )
+        modules = {}
+        for module in component.modules:
+            path = module.path
+            if path is not None and component.path is not None:
+                if path == component.path:
+                    path = ""
+                elif path.startswith(f"{component.path}/"):
+                    path = path[len(component.path) + 1 :]
+            modules[short_selector(module.name, prefix)] = path
+        components.append(
+            ArchitectureComponentView(
+                id=component.id,
+                scope=component.scope,
+                parent_id=component.parent_id,
+                role=component.role,
+                path=component.path,
+                provenance=component.provenance,
+                namespace=component.namespace,
+                selector_prefix=prefix if prefix != component.namespace else None,
+                packages=tuple(short_selector(item, prefix) for item in component.packages),
+                exact_modules=tuple(
+                    short_selector(item, prefix) for item in component.exact_modules
+                ),
+                responsibilities=component.responsibilities,
+                not_responsible_for=component.not_responsible_for,
+                public=grouped_selectors(component.public, prefix),
+                planned=grouped_selectors(component.planned, prefix),
+                modules=modules,
+                requires=component.requires,
+                permissions=tuple(
+                    PermissionGroup(status, reason_ref(reason), tuple(targets), rule_ids)
+                    for (status, rule_ids, reason), targets in sorted(permissions.items())
+                ),
+                used_by={item.component_id: item.import_sites for item in component.used_by},
+                finding_ids=tuple(
+                    identity for identity in component.finding_ids if identity in violation_ids
+                ),
+                status=component.status,
+                reason=reason_ref(component.reason),
+                decided_by=component.decided_by,
+            )
+        )
+    selected = (
+        projection.components[0]
+        if result.report_filter is not None
+        and result.report_filter.component is not None
+        and projection.components
+        else None
+    )
+    relationships = tuple(
+        relationship
+        for relationship in projection.required_relationships
+        if selected is None or selected.id in relationship.component_ids
+    )
+    detail_relationships = tuple(item for item in relationships if item.internal_scope is None)
+    summary_counts = Counter(
+        (item.internal_scope, item.kind, item.status, item.reasons)
+        for item in relationships
+        if item.internal_scope is not None
+    )
+    summaries = tuple(
+        RequiredRelationshipSummary(scope, kind, status, original_reasons, count)
+        for (scope, kind, status, original_reasons), count in sorted(summary_counts.items())
+        if scope is not None
+    )
+    view = ArchitectureCommandView(
+        projection.source,
+        projection.contract_digest,
+        projection.analyzer_digest,
+        tuple(components),
+        tuple(
+            level
+            for level in projection.levels
+            if selected is None or level.parent_id == selected.parent_id
+        ),
+        tuple(
+            DependencyPermissionView(
+                rule.id,
+                rule.kind,
+                rule.rationale,
+                rule.decided_by,
+                rule.parent_id,
+                rule.source,
+                rule.target,
+                rule.target_symbol,
+                rule.allowed_sources,
+                rule.include_type_checking,
+            )
+            for rule in projection.permission_rules
+            if selected is None or rule.parent_id == selected.parent_id
+        ),
+        detail_relationships,
+        summaries,
+        projection.ownership_gaps,
+        unknown_groups(projection.unknowns),
+        projection.status,
+        projection.reason,
+        tuple(reasons),
+        projection.violation_remedy,
+    )
+    return ArchitectureCommandEnvelope(
+        result.exit_code,
+        result.observation_complete,
+        result.declared_rules,
+        result.coverage,
+        result.diagnostics,
+        result.report_filter,
+        view,
+        violations,
     )

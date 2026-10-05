@@ -1,11 +1,134 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:archkeel:architecture-projection:1.0.0",
-  "title": "Focused architecture projection",
-  "$comment": "Generated from archkeel.ir.architecture_projection. Source authenticity and Core verdicts belong to the shared report boundary.",
-  "$ref": "#/$defs/ArchitectureProjection",
+  "$id": "urn:archkeel:architecture-command:1.0.0",
+  "title": "Focused architecture command",
+  "$comment": "Default fields may be omitted. Selector names starting with dot or colon (or empty) are relative to selector_prefix, falling back to namespace. Public/planned group selectors by module, with symbol names or empty for the whole module. Module paths are relative to component.path; empty means that exact file. Required summaries group only internal class/method/type relationships by authenticated scope, kind, Core status and exact reasons; cross-component and interface relationships remain individual. Permission rule_ids exclude requires IDs already carried by the same component: allowed pairs restore those IDs by matching requires.target_id. Requires observed_imports count component-pair sites, not narrower through compliance. Numeric reasons index reasons. UNKNOWN rows [scopes, count] account for every uncertainty exactly once; empty scopes are global or unattributed. Coverage and Core verdicts remain global under component filters.",
+  "$ref": "#/$defs/ArchitectureCommandEnvelope",
   "$defs": {
-    "ArchitectureProjection": {
+    "ArchitectureCommandEnvelope": {
+      "type": "object",
+      "properties": {
+        "exit_code": {
+          "enum": [
+            0,
+            1,
+            2
+          ]
+        },
+        "observation_complete": {
+          "enum": [
+            "PASS",
+            "UNKNOWN"
+          ]
+        },
+        "declared_rules": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "coverage": {
+          "anyOf": [
+            {
+              "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/coverage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:archkeel:command-result:5.0.0#/$defs/diagnostic"
+          }
+        },
+        "report_filter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReportFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "architecture_projection": {
+          "$ref": "#/$defs/ArchitectureCommandView"
+        },
+        "filtered_violations": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:archkeel:command-result:5.0.0#/$defs/filteredViolation"
+          }
+        },
+        "command": {
+          "enum": [
+            "report"
+          ]
+        },
+        "expectation_fulfilled": {
+          "enum": [
+            "n/a"
+          ]
+        },
+        "schema_version": {
+          "enum": [
+            "1.0.0"
+          ]
+        }
+      },
+      "required": [
+        "exit_code",
+        "observation_complete",
+        "declared_rules",
+        "coverage",
+        "diagnostics",
+        "report_filter",
+        "architecture_projection",
+        "filtered_violations",
+        "schema_version"
+      ],
+      "additionalProperties": false
+    },
+    "ReportFilter": {
+      "type": "object",
+      "properties": {
+        "only_violations": {
+          "type": "boolean"
+        },
+        "rule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "component": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "only_calls": {
+          "type": "boolean"
+        },
+        "only_architecture": {
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ArchitectureCommandView": {
       "type": "object",
       "properties": {
         "source": {
@@ -20,7 +143,7 @@
         "components": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ComponentProjection"
+            "$ref": "#/$defs/ArchitectureComponentView"
           }
         },
         "levels": {
@@ -32,13 +155,19 @@
         "permission_rules": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/PermissionRuleProjection"
+            "$ref": "#/$defs/DependencyPermissionView"
           }
         },
         "required_relationships": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/RequiredRelationshipProjection"
+          }
+        },
+        "required_summaries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RequiredRelationshipSummary"
           }
         },
         "ownership_gaps": {
@@ -48,9 +177,28 @@
           }
         },
         "unknowns": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/UnknownProjection"
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ],
+                "minItems": 2,
+                "maxItems": 2
+              }
+            }
           }
         },
         "status": {
@@ -63,13 +211,14 @@
         "reason": {
           "type": "string"
         },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "violation_remedy": {
           "type": "string"
-        },
-        "schema_version": {
-          "enum": [
-            "1.0.0"
-          ]
         }
       },
       "required": [
@@ -80,12 +229,13 @@
         "levels",
         "permission_rules",
         "required_relationships",
+        "required_summaries",
         "ownership_gaps",
         "unknowns",
         "status",
         "reason",
-        "violation_remedy",
-        "schema_version"
+        "reasons",
+        "violation_remedy"
       ],
       "additionalProperties": false
     },
@@ -125,7 +275,7 @@
       ],
       "additionalProperties": false
     },
-    "ComponentProjection": {
+    "ArchitectureComponentView": {
       "type": "object",
       "properties": {
         "id": {
@@ -134,8 +284,62 @@
         "scope": {
           "type": "string"
         },
-        "label": {
-          "type": "string"
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "responsibilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "not_responsible_for": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "reason": {
+          "type": "integer"
+        },
+        "decided_by": {
+          "anyOf": [
+            {
+              "enum": [
+                "architect",
+                "agent"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "parent_id": {
           "anyOf": [
@@ -156,129 +360,10 @@
             "foundation"
           ]
         },
-        "path": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "provenance": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
         "namespace": {
           "anyOf": [
             {
               "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "packages": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "exact_modules": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "responsibilities": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "not_responsible_for": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "public": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "planned": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "modules": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/ModuleProjection"
-          }
-        },
-        "requires": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/RequiresProjection"
-          }
-        },
-        "permissions": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/PermissionProjection"
-          }
-        },
-        "used_by": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/UsageProjection"
-          }
-        },
-        "finding_ids": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "status": {
-          "enum": [
-            "PASS",
-            "FAIL",
-            "UNKNOWN"
-          ]
-        },
-        "reason": {
-          "type": "string"
-        },
-        "decided_by": {
-          "anyOf": [
-            {
-              "enum": [
-                "architect",
-                "agent"
-              ]
             },
             {
               "type": "null"
@@ -294,54 +379,94 @@
               "type": "null"
             }
           ]
-        }
-      },
-      "required": [
-        "id",
-        "scope",
-        "label",
-        "parent_id",
-        "role",
-        "path",
-        "provenance",
-        "namespace",
-        "packages",
-        "exact_modules",
-        "responsibilities",
-        "not_responsible_for",
-        "public",
-        "planned",
-        "modules",
-        "requires",
-        "permissions",
-        "used_by",
-        "finding_ids",
-        "status",
-        "reason",
-        "decided_by"
-      ],
-      "additionalProperties": false
-    },
-    "ModuleProjection": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
         },
-        "path": {
+        "exact_modules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "public": {
           "anyOf": [
             {
-              "type": "string"
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
             },
             {
               "type": "null"
             }
           ]
+        },
+        "planned": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modules": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RequiresProjection"
+          }
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PermissionGroup"
+          }
+        },
+        "used_by": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "finding_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
-        "name",
-        "path"
+        "id",
+        "scope",
+        "path",
+        "provenance",
+        "packages",
+        "responsibilities",
+        "not_responsible_for",
+        "status",
+        "reason",
+        "decided_by"
       ],
       "additionalProperties": false
     },
@@ -397,12 +522,9 @@
       ],
       "additionalProperties": false
     },
-    "PermissionProjection": {
+    "PermissionGroup": {
       "type": "object",
       "properties": {
-        "target_id": {
-          "type": "string"
-        },
         "status": {
           "enum": [
             "allowed",
@@ -410,37 +532,26 @@
             "undecided"
           ]
         },
-        "rule_ids": {
+        "reason": {
+          "type": "integer"
+        },
+        "target_ids": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "reason": {
-          "type": "string"
+        "rule_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
-        "target_id",
         "status",
-        "rule_ids",
-        "reason"
-      ],
-      "additionalProperties": false
-    },
-    "UsageProjection": {
-      "type": "object",
-      "properties": {
-        "component_id": {
-          "type": "string"
-        },
-        "import_sites": {
-          "type": "integer"
-        }
-      },
-      "required": [
-        "component_id",
-        "import_sites"
+        "reason",
+        "target_ids"
       ],
       "additionalProperties": false
     },
@@ -518,7 +629,7 @@
       ],
       "additionalProperties": false
     },
-    "PermissionRuleProjection": {
+    "DependencyPermissionView": {
       "type": "object",
       "properties": {
         "id": {
@@ -529,6 +640,19 @@
             "allowed_dependency",
             "forbidden_dependency",
             "complete_requires"
+          ]
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "decided_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "parent_id": {
@@ -586,30 +710,11 @@
               "type": "null"
             }
           ]
-        },
-        "rationale": {
-          "type": "string"
-        },
-        "decided_by": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
         }
       },
       "required": [
         "id",
         "kind",
-        "parent_id",
-        "source",
-        "target",
-        "target_symbol",
-        "allowed_sources",
-        "include_type_checking",
         "rationale",
         "decided_by"
       ],
@@ -703,6 +808,52 @@
       ],
       "additionalProperties": false
     },
+    "RequiredRelationshipSummary": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "imports",
+            "calls",
+            "references",
+            "inherits",
+            "realizes",
+            "creates",
+            "instance_of",
+            "owns",
+            "requires",
+            "publishes"
+          ]
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "kind",
+        "status",
+        "reasons",
+        "count"
+      ],
+      "additionalProperties": false
+    },
     "OwnershipGap": {
       "type": "object",
       "properties": {
@@ -733,37 +884,6 @@
         "module",
         "path",
         "candidate_ids",
-        "reason"
-      ],
-      "additionalProperties": false
-    },
-    "UnknownProjection": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "reason": {
-          "type": "string"
-        },
-        "rule_ids": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "kind": {
-          "type": "string"
-        },
-        "scopes": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "required": [
-        "id",
         "reason"
       ],
       "additionalProperties": false

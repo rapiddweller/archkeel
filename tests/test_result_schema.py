@@ -396,7 +396,7 @@ def test_real_dart_delta_matches_the_published_schema(validator, tmp_path: Path)
             checker_digest="b" * 64,
         )
     )
-    schema = validator.evolve(schema={"$ref": "urn:archkeel:command-result:4.0.0#/$defs/delta"})
+    schema = validator.evolve(schema={"$ref": "urn:archkeel:command-result:5.0.0#/$defs/delta"})
     assert not list(schema.iter_errors(delta))
     delta["analyzer"]["name"] = "unknown-analyzer"
     assert not schema.is_valid(delta)
@@ -627,7 +627,7 @@ def test_diagnostic_validate_preserves_complete_evidence_only(validator, results
     incomplete["observation_complete"] = "UNKNOWN"
     assert not validator.is_valid(incomplete)
     legacy = copy.deepcopy(validator.schema)
-    legacy["allOf"][1]["then"] = legacy["allOf"][1]["then"]["else"]
+    legacy["else"]["allOf"][1]["then"] = legacy["else"]["allOf"][1]["then"]["else"]
     assert not validator.evolve(schema=legacy).is_valid(payload)
     assert validator.evolve(schema=legacy).is_valid(results["invalid-validate"])
 

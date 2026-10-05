@@ -91,6 +91,7 @@ class ComponentProjection:
     status: AssessmentStatus
     reason: str
     decided_by: Literal["architect", "agent"] | None
+    selector_prefix: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,6 +116,8 @@ class RequiredRelationshipProjection:
     target: str | None
     status: AssessmentStatus
     reasons: tuple[str, ...]
+    component_ids: tuple[str, ...] = ()
+    internal_scope: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +125,8 @@ class UnknownProjection:
     id: str
     reason: str
     rule_ids: tuple[str, ...] = ()
+    kind: str = "projection_uncertainty"
+    scopes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

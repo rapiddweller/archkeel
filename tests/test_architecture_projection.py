@@ -5,6 +5,7 @@
 
 import json
 import subprocess
+from collections import Counter
 from dataclasses import replace
 
 import pytest
@@ -15,9 +16,14 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.cli import main
 from archkeel.cli.observe import observe
-from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.codec import decode_canonical_model, parse_observation, result_bytes
 from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.report_projection import architecture_projection
+from archkeel.ir.report_projection import (
+    architecture_command_envelope,
+    architecture_projection,
+    short_selector,
+    unknown_groups,
+)
 from archkeel.render.summary import report_summary
 
 
@@ -125,19 +131,23 @@ def test_real_cli_answers_intent_permission_ownership_and_finding(tmp_path, caps
         == 0
     )
     payload = json.loads(capsys.readouterr().out)
+    assert payload["schema_version"] == "1.0.0"
     view = payload["architecture_projection"]
     core = next(item for item in view["components"] if item["id"] == "CORE")
     assert core["path"] == "sample/core.py"
     assert core["provenance"] == ["docs/target.md"]
     assert core["responsibilities"] == ["Own core."]
     assert core["not_responsible_for"] == ["Own another boundary."]
-    assert core["public"] == ["sample.core"]
+    assert core["namespace"] + next(iter(core["public"])) == "sample.core"
+    assert core["public"] == {"": [""]}
     assert core["decided_by"] == "architect"
-    assert core["modules"] == [{"name": "sample.core", "path": "sample/core.py"}]
+    assert core["modules"] == {"": ""}
     (requirement,) = core["requires"]
     assert requirement["target_id"] == "STORE" and requirement["observed_imports"] == 1
     assert requirement["rationale"] == "Persist through the store boundary."
-    permissions = {item["target_id"]: item["status"] for item in core["permissions"]}
+    permissions = {
+        target: item["status"] for item in core["permissions"] for target in item["target_ids"]
+    }
     assert permissions == {"IDLE": "forbidden", "OTHER": "forbidden", "STORE": "allowed"}
     assert view["levels"][0]["declared"] == 2
     assert view["levels"][0]["used"] == 2
@@ -447,3 +457,280 @@ def test_symbol_finding_is_attached_to_its_component_without_changing_id_or_loca
     assert component.status == "FAIL"
     assert violation.record.id in component.finding_ids
     assert [(item.path, item.line) for item in violation.locations] == [("sample/core.py", 2)]
+
+
+def test_every_unknown_enters_one_exact_cause_and_scope_group(tmp_path):
+    root, config = _repository(tmp_path, closed=False)
+    result, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    unknowns = result.architecture_projection.unknowns
+    expected = Counter((row.kind, row.reason, row.scopes) for row in unknowns)
+    groups = unknown_groups(unknowns)
+    actual = {
+        (kind, reason, scopes): count
+        for kind, reasons in groups.items()
+        for reason, counts in reasons.items()
+        for scopes, count in counts
+    }
+    assert actual == expected
+    assert sum(actual.values()) == len(unknowns)
+    assert any("other" in scopes for _, _, scopes in actual)
+    selected, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, component="store"
+    )
+    assert architecture_command_envelope(selected).architecture_projection.unknowns == groups
+    assert selected.declared_rules == result.declared_rules == "FAIL"
+
+
+@pytest.mark.parametrize(
+    "selector",
+    ["sample.core", "sample.core.child", "sample.core:API", "sample.other", "sample.core_extra"],
+)
+def test_namespace_abbreviation_reconstructs_the_exact_identity(selector):
+    prefix = "sample.core"
+    short = short_selector(selector, prefix)
+    restored = prefix + short if not short or short.startswith((".", ":")) else short
+    assert restored == selector
+
+
+def test_compact_required_relationships_restore_exact_ids_names_and_core_results(
+    tmp_path, validator
+):
+    root, config = _nested_repository(tmp_path)
+    result, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    payload = json.loads(result_bytes(result))
+    wire = payload["architecture_projection"]
+    expected = {
+        item.id: item
+        for item in result.architecture_projection.required_relationships
+        if item.internal_scope is None
+    }
+    restored = wire["required_relationships"]
+    assert {item["id"] for item in restored} == set(expected) and restored
+    for item in restored:
+        original = expected[item["id"]]
+        assert (
+            item["kind"],
+            item["source_id"],
+            item["source"],
+            item["target_id"],
+            item["target"],
+            item["status"],
+            tuple(item["reasons"]),
+        ) == (
+            original.kind,
+            original.source_id,
+            original.source,
+            original.target_id,
+            original.target,
+            original.status,
+            original.reasons,
+        )
+    assert not list(validator.iter_errors(payload))
+
+
+def test_compact_components_restore_api_modules_and_all_permission_deciders(tmp_path):
+    root, config = _repository(tmp_path)
+    contract_path = root / config.contract
+    contract = json.loads(contract_path.read_bytes())
+    contract["components"][0]["public"] = [
+        "sample.core",
+        "sample.core:API",
+        "sample.core:Secondary",
+        "sample.core.child:Nested",
+    ]
+    contract["components"][0]["planned"] = []
+    contract_path.write_text(json.dumps(contract))
+    result, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    wire = json.loads(result_bytes(result))["architecture_projection"]
+    canonical = {item.id: item for item in result.architecture_projection.components}
+    for item in wire["components"]:
+        original = canonical[item["id"]]
+        prefix = item.get("selector_prefix", item.get("namespace"))
+
+        def full_name(value, prefix=prefix):
+            return (
+                prefix + value
+                if prefix is not None and (not value or value.startswith((".", ":")))
+                else value
+            )
+
+        for key in ("public", "planned"):
+            groups = item.get(key)
+            restored = (
+                None
+                if groups is None
+                else tuple(
+                    full_name(module) + (":" + symbol if symbol else "")
+                    for module, symbols in groups.items()
+                    for symbol in symbols
+                )
+            )
+            expected = original.public if key == "public" else original.planned
+            assert (None if restored is None else tuple(sorted(restored))) == expected
+        assert {
+            full_name(name): None
+            if path is None
+            else item["path"]
+            if not path
+            else item["path"] + "/" + path
+            for name, path in item.get("modules", {}).items()
+        } == {module.name: module.path for module in original.modules}
+        restored_permissions = {}
+        for permission in item.get("permissions", []):
+            for target in permission["target_ids"]:
+                identifiers = permission.get("rule_ids", []) + [
+                    requirement["id"]
+                    for requirement in item.get("requires", [])
+                    if permission["status"] == "allowed" and requirement["target_id"] == target
+                ]
+                restored_permissions[target] = (
+                    permission["status"],
+                    tuple(sorted(identifiers)),
+                    wire["reasons"][permission["reason"]],
+                )
+        assert restored_permissions == {
+            row.target_id: (row.status, row.rule_ids, row.reason) for row in original.permissions
+        }
+
+
+def _target_boundary_repository(tmp_path):
+    root, config = _repository(tmp_path)
+    path = root / config.contract
+    contract = json.loads(path.read_bytes())
+    contract["schema_version"] = "2.2.0"
+    entities = [
+        ("CLASS-A", "class", "sample.core.A", "CORE"),
+        ("CLASS-B", "class", "sample.core.B", "CORE"),
+        ("METHOD-A", "method", "sample.core.A.run", "CLASS-A"),
+        ("METHOD-B", "method", "sample.core.B.run", "CLASS-B"),
+        ("PORT", "interface", "sample.core.Port", "CORE"),
+        ("PORT-METHOD", "method", "sample.core.Port.send", "PORT"),
+        ("PEER", "class", "sample.store.Peer", "STORE"),
+        ("OUTSIDE", "class", "sample.unowned.External", None),
+    ]
+    edges = [
+        ("INTERNAL-TYPE", "references", "CLASS-A", "CLASS-B"),
+        ("INTERNAL-METHOD", "calls", "METHOD-A", "METHOD-B"),
+        ("PORT-REQUIRED", "realizes", "CLASS-A", "PORT"),
+        ("PORT-METHOD-REQUIRED", "calls", "METHOD-A", "PORT-METHOD"),
+        ("CROSS-REQUIRED", "references", "CLASS-A", "PEER"),
+        ("COMPONENT-REQUIRED", "references", "CORE", "STORE"),
+        ("UNOWNED-REQUIRED", "references", "CLASS-A", "OUTSIDE"),
+        ("PUBLISHED-REQUIRED", "publishes", "CLASS-A", "CLASS-B"),
+    ]
+    contract["declarations"] = {
+        "uml": {
+            "schema_version": "1.0.0",
+            "entities": [
+                {
+                    "id": identity,
+                    "kind": kind,
+                    "qualified_name": name,
+                    "language": "python",
+                    "parent_id": parent,
+                    "presence": "planned",
+                    "responsibilities": ["Own this declared Target fact."],
+                    "provenance": ["docs/target.md"],
+                }
+                for identity, kind, name, parent in entities
+            ],
+            "relationships": [
+                {
+                    "id": identity,
+                    "kind": kind,
+                    "source_id": source,
+                    "target_id": target,
+                    "provenance": ["docs/target.md"],
+                }
+                for identity, kind, source, target in edges
+            ],
+        }
+    }
+    path.write_text(json.dumps(contract))
+    return root, config
+
+
+def test_required_partition_keeps_ports_cross_scope_components_and_unowned_details(tmp_path):
+    root, config = _target_boundary_repository(tmp_path)
+    result, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    assert result.architecture_projection is not None, result.diagnostics
+    view = result.architecture_projection
+    assert {row.id for row in view.required_relationships if row.internal_scope is not None} == {
+        "INTERNAL-TYPE",
+        "INTERNAL-METHOD",
+    }
+    envelope = architecture_command_envelope(result).architecture_projection
+    assert {row.id for row in envelope.required_relationships} == {
+        "PORT-REQUIRED",
+        "PORT-METHOD-REQUIRED",
+        "CROSS-REQUIRED",
+        "COMPONENT-REQUIRED",
+        "UNOWNED-REQUIRED",
+        "PUBLISHED-REQUIRED",
+    }
+    expected = Counter(
+        (row.internal_scope, row.kind, row.status, row.reasons)
+        for row in view.required_relationships
+        if row.internal_scope is not None
+    )
+    assert {
+        (row.scope, row.kind, row.status, row.reasons): row.count
+        for row in envelope.required_summaries
+    } == expected
+    assert len(envelope.required_relationships) + sum(
+        row.count for row in envelope.required_summaries
+    ) == len(view.required_relationships)
+    assert all(row.scope == "core" for row in envelope.required_summaries)
+    peer, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, component="store"
+    )
+    peer_wire = architecture_command_envelope(peer).architecture_projection
+    assert {row.id for row in peer_wire.required_relationships} == {
+        "CROSS-REQUIRED",
+        "COMPONENT-REQUIRED",
+    }
+    assert not peer_wire.required_summaries
+    assert peer_wire.unknowns == envelope.unknowns and peer.coverage == result.coverage
+
+
+@pytest.mark.parametrize("role", ["interface", "contract"])
+def test_interface_and_contract_component_roles_never_hide_required_details(tmp_path, role):
+    root, config = _target_boundary_repository(tmp_path)
+    path = root / config.contract
+    contract = json.loads(path.read_bytes())
+    contract["components"][0]["role"] = role
+    path.write_text(json.dumps(contract))
+    result, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    assert result.architecture_projection is not None, result.diagnostics
+    wire = architecture_command_envelope(result).architecture_projection
+    assert not wire.required_summaries
+    assert (
+        len(wire.required_relationships)
+        == len(result.architecture_projection.required_relationships)
+        == 8
+    )
+
+
+def test_required_summaries_preserve_missing_core_evidence_reasons_and_counts(tmp_path):
+    root, config = _target_boundary_repository(tmp_path)
+    result, encoded = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    report = replace(architecture_report(model), comparison=None)
+    projection = architecture_projection(
+        model, report, result.rule_assessments, violation_remedy="existing remedy"
+    )
+    unavailable = replace(result, architecture_projection=projection)
+    wire = architecture_command_envelope(unavailable).architecture_projection
+    assert len(wire.required_relationships) == 6
+    assert sum(row.count for row in wire.required_summaries) == 2
+    assert all(row.status == "UNKNOWN" for row in wire.required_summaries)
+    assert all(
+        row.reasons == ("No authenticated Core assessment exists for this required relationship.",)
+        for row in wire.required_summaries
+    )
+    assert sum(
+        count
+        for reasons in wire.unknowns.values()
+        for rows in reasons.values()
+        for scopes, count in rows
+    ) == len(projection.unknowns)
