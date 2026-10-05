@@ -8,6 +8,13 @@ Classes remain immutable. Public validation checks IDs, references and value
 invariants; private helpers own individual checks. Producers return the same graph
 type. Core still owns authentication, comparison and architecture verdicts.
 
+Planned fields need a classifier parent. Inheritance and realization reject known
+non-classifier endpoints; unclassified external references remain valid.
+Planned UML identity uses name, kind, language, lexical parent and signature. Another ID,
+responsibility or provenance does not create distinct intent. Different overload signatures
+and observed definition-site IDs remain valid. Component owners retain separate architectural
+containment. Python signatures cannot repeat parameter names.
+
 Twelve declared class dependencies connect the shared value types. A signature
 uses parameters; an entity uses visibility and signatures; Target and graph
 values use entities, relationships, coverage and scopes. Comparison uses
