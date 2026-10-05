@@ -32,6 +32,7 @@ from .config import (
     load_check_config,
     load_config,
     parse_config,
+    project_name,
 )
 from .observe import observer_for
 from .skill import install_skill
@@ -444,7 +445,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         render_architecture_html(
                             result,
                             architecture,
-                            repository=root.name,
+                            repository=project_name(root, config),
                             architecture_href=artifact.name,
                         )
                     )
@@ -530,7 +531,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     check_html.write_bytes(
                         render_check_html(
                             result,
-                            repository=root.name,
+                            repository=project_name(root, config),
                             result_href=args.output.name,
                         )
                     )

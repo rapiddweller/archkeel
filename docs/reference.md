@@ -2,6 +2,10 @@
 
 Exact rules behind the [README](../README.md). Code is the source of truth; this file explains it.
 
+Report HTML follows the system light/dark theme. Python report/check headings use a valid
+`[project].name`; missing or invalid names and other languages use the configured namespace.
+The title does not change verdicts or repository evidence.
+
 ## Configuration
 
 [schema/archkeel.schema.json](../schema/archkeel.schema.json) defines `archkeel.toml`.

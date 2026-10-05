@@ -242,6 +242,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-155 | [Open dependency decisions share one remedy](decisions/ad-155-open-dependency-decisions-share-one-remedy.md) |
 | AD-157 | [Filtered JSON carries source locations](decisions/ad-157-filtered-json-carries-source-locations.md) |
 | AD-158 | [Onboarding guidance keeps drafts neutral](decisions/ad-158-onboarding-guidance-keeps-drafts-neutral.md) |
+| AD-159 | [Reports use reader-facing copy and native colors](decisions/ad-159-reports-use-reader-facing-copy-and-native-colors.md) |
 | AD-160 | [Inner UML uses the standard graph](decisions/ad-160-inner-uml-uses-the-standard-graph.md) |
 | AD-161 | [Component intent retains boundary semantics](decisions/ad-161-component-intent-retains-boundary-semantics.md) |
 | AD-162 | [Physical intent does not invent UML](decisions/ad-162-physical-intent-does-not-invent-uml.md) |
