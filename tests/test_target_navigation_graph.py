@@ -47,6 +47,7 @@ def test_own_render_contract_enforces_output_direction(tmp_path, backward_import
         "pyproject.toml": '[project]\nrequires-python = ">=3.11"\n',
         "src/archkeel/__init__.py": "",
         "src/archkeel/render/__init__.py": "",
+        "src/archkeel/render/atlas.py": "",
         "src/archkeel/render/summary.py": "from . import html\n" if backward_import else "",
         "src/archkeel/render/terminal.py": "from . import summary\n",
         "src/archkeel/render/html.py": "from . import summary\n"
