@@ -8,6 +8,7 @@ remain separate. Nested ownership uses exact recorded scopes; ties remain UNKNOW
 Component slices retain global Core verdicts, coverage, source identity and UNKNOWNs,
 plus authentic Core rule declarations/assessments at governing ancestor levels and
 all levels mounted in the selected subtree, with peer ownership/public/planned context.
+Required wiring touching that same subtree is retained before detail/summary partitioning.
 The native rule catalogue owns membership;
 the projection has no separate policy catalogue. Allowed means a declared conditional
 component permission; each import must satisfy every applicable rule. ID/scope/label collisions

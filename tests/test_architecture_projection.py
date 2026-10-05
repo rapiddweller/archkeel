@@ -430,6 +430,126 @@ def test_required_target_relationships_are_distinct_from_permission_and_usage(tm
     assert unavailable.unknowns and unavailable.status == "UNKNOWN"
 
 
+@pytest.mark.parametrize("implemented", [False, True])
+def test_native_parent_slice_retains_descendant_wiring_and_summaries(
+    tmp_path, capsys, validator, implemented
+):
+    root, config = _nested_repository(tmp_path)
+    (root / "archkeel.toml").write_text(
+        '[scan]\nroots=["sample"]\nnamespace="sample"\ncontract="contract.json"\n'
+    )
+    for filename in ("inside.json", "leaf.json"):
+        path = root / filename
+        contract = json.loads(path.read_bytes())
+        uml = contract["declarations"]["uml"]
+        uml["entities"].append(
+            {**uml["entities"][0], "id": "base", "qualified_name": "sample.core.Base"}
+        )
+        uml["relationships"].append(
+            {
+                "id": "base-inheritance",
+                "kind": "inherits",
+                "source_id": "service",
+                "target_id": "base",
+                "provenance": ["docs/target.md"],
+            }
+        )
+        path.write_text(json.dumps(contract))
+    path = root / config.contract
+    outer = json.loads(path.read_bytes())
+    outer["components"].append(
+        {
+            **outer["components"][0],
+            "id": "PEER",
+            "label": "peer",
+            "packages": ["sample.peer"],
+            "namespace": "sample.peer",
+            "inside": "peer.json",
+        }
+    )
+    path.write_text(json.dumps(outer))
+    (root / "peer.json").write_text(
+        (root / "leaf.json").read_text().replace("sample.core", "sample.peer")
+    )
+    native_source = (
+        "from typing import Protocol\nclass Port(Protocol):\n"
+        "    def run(self, request: str) -> str: ...\nclass Base: pass\n"
+        "class Service" + ("(Port, Base)" if implemented else "") + ":\n"
+        "    def run(self, request: str) -> str:\n        return request\n"
+    )
+    for module in ("core", "peer"):
+        (root / "sample" / f"{module}.py").write_text(native_source)
+    full, canonical = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    whole = json.loads(result_bytes(full))["architecture_projection"]
+    whole_details = {row["id"]: row for row in whole["required_relationships"]}
+    whole_summaries = {row["scope"]: row for row in whole["required_summaries"]}
+    for selector, expected_details, expected_scopes in (
+        (
+            "ROOT",
+            {"core:implementation", "core:service:implementation"},
+            {"core:service", "core:service:operations"},
+        ),
+        (
+            "core:service",
+            {"core:implementation", "core:service:implementation"},
+            {"core:service", "core:service:operations"},
+        ),
+        ("core:service:operations", {"core:service:implementation"}, {"core:service:operations"}),
+    ):
+        selected, encoded = run_report(
+            root, config=config, analyzer=observe, only_architecture=True, component=selector
+        )
+        assert encoded == canonical
+        assert (
+            main(
+                [
+                    "report",
+                    "--root",
+                    str(root),
+                    "--only",
+                    "architecture",
+                    "--component",
+                    selector,
+                    "--output",
+                    str(tmp_path / "slice.json"),
+                    "--json",
+                ]
+            )
+            == 0
+        )
+        assert capsys.readouterr().out.encode() == result_bytes(selected)
+        wire = json.loads(result_bytes(selected))
+        view = wire["architecture_projection"]
+        assert {row["id"] for row in view["required_relationships"]} == expected_details
+        assert {row["scope"] for row in view["required_summaries"]} == expected_scopes
+        for row in view["required_relationships"]:
+            assert row == whole_details[row["id"]]
+            assert row["status"] == ("PASS" if implemented else "FAIL")
+        for row in view["required_summaries"]:
+            assert row == whole_summaries[row["scope"]]
+            assert row["count"] == 1 and row["kind"] == "inherits"
+            assert row["status"] == ("PASS" if implemented else "FAIL")
+        assert {row.id for row in selected.architecture_projection.required_relationships} == (
+            expected_details
+            | {
+                "core:base-inheritance"
+                if scope == "core:service"
+                else "core:service:base-inheritance"
+                for scope in expected_scopes
+            }
+        )
+        context = {row["id"] for row in view["policy_context"]}
+        assert "peer:core" not in context
+        assert "PEER" in context
+        if selector != "core:service:operations":
+            assert "core:service:core" in context
+        assert selected.architecture_projection.source == full.architecture_projection.source
+        assert selected.architecture_projection.unknowns == full.architecture_projection.unknowns
+        assert selected.declared_rules == full.declared_rules and selected.coverage == full.coverage
+        assert view["unknowns"] == whole["unknowns"]
+        assert not list(validator.iter_errors(wire))
+
+
 def test_symbol_finding_is_attached_to_its_component_without_changing_id_or_location(tmp_path):
     root, config = _repository(tmp_path)
     path = root / config.contract

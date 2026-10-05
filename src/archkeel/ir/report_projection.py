@@ -663,6 +663,7 @@ def architecture_projection(
         or any(item.status == "FAIL" for item in relationships)
         else "PASS"
     )
+    subtree_ids: set[str] = set()
     context_parents: set[str | None] = set()
     if selected is not None:
         for intent in target.component_intents:
@@ -670,7 +671,8 @@ def architecture_projection(
             while parent is not None and parent != selected:
                 parent = intents[parent].parent_id
             if parent == selected:
-                context_parents.add(intent.component_id)
+                subtree_ids.add(intent.component_id)
+        context_parents.update(subtree_ids)
         parent = intents[selected].parent_id
         context_parents.add(parent)
         while parent is not None:
@@ -683,7 +685,11 @@ def architecture_projection(
         tuple(item for item in components if selected is None or item.id == selected),
         tuple(level for level in levels if selected is None or level.parent_id in context_parents),
         tuple(rule for rule in rules if selected is None or rule.parent_id in context_parents),
-        tuple(relationships),
+        tuple(
+            item
+            for item in relationships
+            if selected is None or not subtree_ids.isdisjoint(item.component_ids)
+        ),
         gaps,
         tuple(sorted(unknowns, key=lambda item: item.id)),
         projection_status,
@@ -897,18 +903,7 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
                 decided_by=component.decided_by,
             )
         )
-    selected = (
-        projection.components[0]
-        if result.report_filter is not None
-        and result.report_filter.component is not None
-        and projection.components
-        else None
-    )
-    relationships = tuple(
-        relationship
-        for relationship in projection.required_relationships
-        if selected is None or selected.id in relationship.component_ids
-    )
+    relationships = projection.required_relationships
     detail_relationships = tuple(item for item in relationships if item.internal_scope is None)
     summary_counts = Counter(
         (item.internal_scope, item.kind, item.status, item.reasons)
