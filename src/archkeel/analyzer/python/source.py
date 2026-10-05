@@ -276,6 +276,8 @@ class ParsedModule:
     all_nodes: tuple[ast.AST, ...] = field(init=False, repr=False)
     scope_nodes: tuple[ast.AST, ...] = field(init=False, repr=False)
     bound_names: tuple[str, ...] = field(init=False, repr=False)
+    binding_names: frozenset[str] | None = field(init=False, repr=False)
+    global_names: frozenset[str] = field(init=False, repr=False)
     scope_bound_names: tuple[str, ...] = field(init=False, repr=False)
     unique_bindings: frozenset[str] = field(init=False, repr=False)
     stable_binding_cache: tuple[dict[str, AliasBinding], frozenset[str]] | None = field(
@@ -286,6 +288,17 @@ class ParsedModule:
         self.all_nodes = tuple(ast.walk(self.tree))
         self.scope_nodes = tuple(_module_scope_nodes(self.tree))
         self.bound_names = tuple(_bound_names(self.all_nodes))
+        self.binding_names = (
+            None
+            if any(
+                isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names)
+                for node in self.all_nodes
+            )
+            else frozenset(self.bound_names)
+        )
+        self.global_names = frozenset(
+            name for node in self.all_nodes if isinstance(node, ast.Global) for name in node.names
+        )
         self.scope_bound_names = tuple(_bound_names(self.scope_nodes))
         self.unique_bindings = _unique_direct_module_bindings(self)
 
@@ -365,19 +378,18 @@ def _stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     ):
         return frozenset()
     changed_members = _member_binding_roots(module, all_nodes, member_surface=False)
-    global_names = {
-        name for node in all_nodes if isinstance(node, ast.Global) for name in node.names
-    }
     return frozenset(
         name
         for name, count in direct.items()
-        if count == 1 and counts[name] == 1 and name not in global_names | changed_members
+        if count == 1 and counts[name] == 1 and name not in module.global_names | changed_members
     )
 
 
 def binding_may_exist_before(
-    statements: Sequence[ast.stmt], stop: ast.AST | None, name: str
+    module: ParsedModule, statements: Sequence[ast.stmt], stop: ast.AST | None, name: str
 ) -> bool:
+    if module.binding_names is not None and name not in module.binding_names:
+        return False
     for statement in statements:
         if statement is stop:
             return False
@@ -409,7 +421,7 @@ def binding_may_exist_before(
             if isinstance(current, ast.ClassDef):
                 if current.name == name:
                     return True
-                if any(
+                if name in module.global_names and any(
                     isinstance(child, ast.Global) and name in child.names
                     for child in ast.walk(current)
                 ):
@@ -477,17 +489,17 @@ def is_proven_decorator(
         return (
             isinstance(decorator, ast.Name)
             and resolved in {"staticmethod", "classmethod", "property"}
-            and not binding_may_exist_before(module.tree.body, None, root)
-            and (parent is None or not binding_may_exist_before(parent.body, method, root))
+            and not binding_may_exist_before(module, module.tree.body, None, root)
+            and (parent is None or not binding_may_exist_before(module, parent.body, method, root))
         )
     if (
         root is None
         or root not in module.aliases
         or root not in stable_direct_module_bindings(module)
-        or not binding_may_exist_before(module.tree.body, parent or method, root)
+        or not binding_may_exist_before(module, module.tree.body, parent or method, root)
     ):
         return False
-    return parent is None or not binding_may_exist_before(parent.body, method, root)
+    return parent is None or not binding_may_exist_before(module, parent.body, method, root)
 
 
 def class_definition_expressions(node: ast.ClassDef) -> list[ast.expr]:
@@ -718,7 +730,9 @@ def _property_operation(
         root = descriptor.value
         while isinstance(root, ast.Attribute):
             root = root.value
-        if isinstance(root, ast.Name) and not binding_may_exist_before(parent.body, node, root.id):
+        if isinstance(root, ast.Name) and not binding_may_exist_before(
+            module, parent.body, node, root.id
+        ):
             return {"operation": operation, "source": "base", "line": node.lineno, "source_line": 0}
     return None
 
@@ -776,8 +790,8 @@ def method_decorator_data(
         and parent is not None
         and parent in module.tree.body
         and parent.name in stable_direct_module_bindings(module)
-        and binding_may_exist_before(parent.body, node, node.name)
-        and not binding_may_exist_before(tuple(reversed(parent.body)), node, node.name),
+        and binding_may_exist_before(module, parent.body, node, node.name)
+        and not binding_may_exist_before(module, tuple(reversed(parent.body)), node, node.name),
         **({"property_binding": binding} if binding is not None else {}),
     }
 
