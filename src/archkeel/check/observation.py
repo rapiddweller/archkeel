@@ -566,7 +566,7 @@ def _layer_order_evidence(
         (mount.path, mount.digest, mount.contract.rules) for mount in mounts
     ]
     for path, digest, rules in levels:
-        identifiers = {rule.id for rule in rules if isinstance(rule, LayerOrderRule)}
+        identifiers: set[str] = {rule.id for rule in rules if isinstance(rule, LayerOrderRule)}
         if not identifiers:
             continue
         receipts = [
@@ -575,10 +575,12 @@ def _layer_order_evidence(
             if item["kind"] == "rule_evaluation" and identifiers.intersection(item["rule_ids"])
         ]
         try:
-            content = (root / path).read_bytes()
+            contract_file: Path = root / path
+            content = contract_file.read_bytes()
             if hashlib.sha256(content).hexdigest() != digest:
                 raise ValueError("Contract bytes changed after Core read them.")
-            evidence_id = file_evidence(evidence, path, content.decode("utf-8").splitlines())
+            text: str = str(content, "utf-8")
+            evidence_id = file_evidence(evidence, path, text.splitlines())
         except (OSError, UnicodeError, ValueError) as error:
             for receipt in receipts:
                 receipt["data"]["assessment_complete"] = False
@@ -603,7 +605,8 @@ def _layer_order_evidence(
             continue
         for receipt in receipts:
             receipt["evidence_ids"] = [evidence_id]
-            receipt["data"].update(contract_path=path, contract_digest=digest)
+            receipt["data"]["contract_path"] = path
+            receipt["data"]["contract_digest"] = digest
         for violation in scan.violations:
             if identifiers.intersection(violation["rule_ids"]):
                 violation["evidence_ids"] = [evidence_id]

@@ -442,7 +442,8 @@ class ArchitectureGraph:
         assigned_layouts: set[str] = set()
         for intent in self.component_intents:
             if intent.layer is not None:
-                if not isinstance(intent.layer, str) or not intent.layer.strip():
+                layer: str = intent.layer
+                if not isinstance(layer, str) or not layer.strip():
                     raise ValueError("component layer must be non-empty text")
                 if self.schema_version != "1.2.0":
                     raise ValueError("component layer requires graph schema_version 1.2.0")

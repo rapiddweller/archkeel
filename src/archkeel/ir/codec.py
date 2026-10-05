@@ -866,10 +866,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
     if "uml" in declarations and version == "2.1.0":
         raise ValueError("UML declarations require contract schema_version 2.2.0")
     uml = parse_target(declarations["uml"]) if "uml" in declarations else None
-    if version != "2.3.0" and any(
-        _object(raw, "rule").get("kind") == "layer_order" for raw in rules_raw
-    ):
-        raise ValueError("layer_order requires contract schema_version 2.3.0")
+    if version != "2.3.0":
+        for raw in rules_raw:
+            rule_data: dict[str, RawJson] = _object(raw, "rule")
+            if rule_data.get("kind") == "layer_order":
+                raise ValueError("layer_order requires contract schema_version 2.3.0")
     rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     labels = {component.label for component in components}
     seen_labels: set[str] = set()
