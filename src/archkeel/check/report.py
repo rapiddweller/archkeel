@@ -36,9 +36,11 @@ from archkeel.ir.model import (
     CallRow,
     Diagnostic,
     DiagnosticError,
+    FilteredViolation,
     Observation,
     ObservationResult,
     ReportFilter,
+    ReportLocation,
     RuleAssessment,
     RunResult,
 )
@@ -205,6 +207,22 @@ def observe_repository(
     return evaluate_uml(assemble_uml(result, contract_root or root, config.contract))
 
 
+def _selected_violations(
+    model: Observation, report_filter: ReportFilter
+) -> tuple[FilteredViolation, ...]:
+    return tuple(
+        FilteredViolation(
+            record,
+            tuple(
+                ReportLocation(entry.file, entry.line)
+                for entry in model.evidence
+                if entry.id in record.evidence_ids
+            ),
+        )
+        for record in select_violations(model, report_filter)
+    )
+
+
 def _selected_calls(model: Observation, report_filter: ReportFilter) -> tuple[CallRow, ...]:
     """AD-100: `--only calls`, narrowed by `--component` to the calls its modules make.
 
@@ -268,7 +286,7 @@ def run_report(
     only_calls: bool = False,
     baseline: Path | None = None,
 ) -> tuple[RunResult, bytes | None]:
-    """Observe once; report filters and baselines only change the human-readable projection."""
+    """Observe once; filters narrow report rows without changing verdicts or measurements."""
     report_filter = _report_filter(only_violations, rule, component, only_calls)
     result = observe_repository(root, config, analyzer)
     model = result.observation
@@ -279,7 +297,7 @@ def run_report(
         try:
             measurements, declared = inspect_observation(model)
             filtered_violations = (
-                select_violations(model, report_filter)
+                _selected_violations(model, report_filter)
                 if report_filter is not None and not only_calls
                 else None
             )
@@ -325,4 +343,13 @@ def run_report(
                 baseline_path=baseline_name,
                 baseline_comparisons=comparisons,
             )
+    if only_violations and command_result.rule_assessments is not None:
+        command_result = replace(
+            command_result,
+            rule_assessments=tuple(
+                item
+                for item in command_result.rule_assessments
+                if item.status in {"FAIL", "UNKNOWN"}
+            ),
+        )
     return command_result, architecture

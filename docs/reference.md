@@ -244,7 +244,7 @@ IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen d
 
 [`command-result.schema.json`](../schema/command-result.schema.json) describes the JSON
 stdout of `check`, `validate` and `report` (AD-138). It is included under `archkeel/schema`
-in installed packages. Its version is the `$id` suffix, currently `3.0.0`; command output
+in installed packages. Its version is the `$id` suffix, currently `4.0.0`; command output
 gains no version field. Pin the CLI and schema together. Register the bundled
 `architecture-ir-common.schema.json`, `architecture-ir-decoded.schema.json`,
 `architecture-ir-python-decoded.schema.json` and
@@ -472,9 +472,12 @@ page stays a small review surface; `--rule <id>` and `--component <label>` each 
 table further and combine as an intersection. `--component` matches a violation whose crossing
 touches it on either side, source or target, since an import violation crosses two components
 (AD-60). All three read the same on `--json`: `report_filter` names the flags that produced the
-run and `filtered_violations` carries the records they select, one `Record` per row exactly like
-every other JSON section; both read `null` on an unfiltered run, the same way every other
-optional `report` field reads `null` when it has nothing to carry.
+run and `filtered_violations` carries the selected records with `locations: [{path, line}]`
+from the same recorded evidence as the HTML handoff (AD-157). Line `0` means file-only evidence;
+`[]` means no source evidence is attached to that violation. Locations name the analyzed snapshot.
+Both fields read `null` on an unfiltered run. Under `--only violations`, `rule_assessments`
+keeps FAIL and UNKNOWN rows; PASS and DECLARATION rows are omitted. Rule/component facets alone
+retain every assessment.
 None of the three changes what was judged: `architecture.json`, `declared_rules`,
 `violations_by_rule`, `violations_by_component_pair`, the `violations` measurement and the exit
 code all keep reading every violation, filtered or not. A filtered result still announces
