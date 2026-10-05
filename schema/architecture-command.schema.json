@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:architecture-command:1.0.0",
   "title": "Focused architecture command",
-  "$comment": "Default fields may be omitted. Selector names starting with dot or colon (or empty) are relative to selector_prefix, falling back to namespace. Public/planned group selectors by module, with symbol names or empty for the whole module. Module paths are relative to component.path; empty means that exact file. Required summaries group only internal class/method/type relationships by authenticated scope, kind, Core status and exact reasons; cross-component and interface relationships remain individual. Permission rule_ids exclude requires IDs already carried by the same component: allowed pairs restore those IDs by matching requires.target_id. Requires observed_imports count component-pair sites, not narrower through compliance. Numeric reasons index reasons. UNKNOWN rows [scopes, count] account for every uncertainty exactly once; empty scopes are global or unattributed. Policy context retains ancestor levels/rules and peer ownership selectors. Coverage and Core verdicts remain global under component filters.",
+  "$comment": "Default fields may be omitted. Selector names starting with dot or colon (or empty) are relative to selector_prefix, falling back to namespace. Public/planned group selectors by module, with symbol names or empty for the whole module. Module paths are relative to component.path; empty means that exact file. Required summaries group only internal class/method/type relationships by authenticated scope, kind, Core status and exact reasons; cross-component and interface relationships remain individual. Permission rule_ids exclude requires IDs already carried by the same component: allowed pairs restore those IDs by matching requires.target_id. Requires observed_imports count component-pair sites, not narrower through compliance. Numeric reasons index reasons. UNKNOWN rows [scopes, count] account for every uncertainty exactly once; empty scopes are global or unattributed. Permission rules carry original authenticated Core declarations and assessments. Allowed is a declared conditional permission, not permission for each import. Policy context retains ancestor levels/rules and peer ownership/public/planned selectors. Coverage and Core verdicts remain global under component filters.",
   "$ref": "#/$defs/ArchitectureCommandEnvelope",
   "$defs": {
     "ArchitectureCommandEnvelope": {
@@ -161,7 +161,7 @@
         "permission_rules": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/DependencyPermissionView"
+            "$ref": "#/$defs/PermissionRuleProjection"
           }
         },
         "required_relationships": {
@@ -604,6 +604,32 @@
           "items": {
             "$ref": "#/$defs/PermissionGroup"
           }
+        },
+        "public": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "planned": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -613,7 +639,9 @@
         "packages",
         "exact_modules",
         "requires",
-        "permissions"
+        "permissions",
+        "public",
+        "planned"
       ],
       "additionalProperties": false
     },
@@ -691,26 +719,16 @@
       ],
       "additionalProperties": false
     },
-    "DependencyPermissionView": {
+    "PermissionRuleProjection": {
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string"
+        "declaration": {
+          "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
         },
-        "kind": {
-          "enum": [
-            "allowed_dependency",
-            "forbidden_dependency",
-            "complete_requires"
-          ]
-        },
-        "rationale": {
-          "type": "string"
-        },
-        "decided_by": {
+        "assessment": {
           "anyOf": [
             {
-              "type": "string"
+              "$ref": "#/$defs/RuleAssessment"
             },
             {
               "type": "null"
@@ -726,59 +744,78 @@
               "type": "null"
             }
           ]
+        }
+      },
+      "required": [
+        "declaration",
+        "assessment"
+      ],
+      "additionalProperties": false
+    },
+    "RuleAssessment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
         },
-        "source": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+        "kind": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN",
+            "DECLARATION"
           ]
         },
-        "target": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "evaluation_proven": {
+          "type": "boolean"
         },
-        "target_symbol": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "count": {
+          "type": "integer"
         },
-        "allowed_sources": {
+        "undecided": {
+          "type": "integer"
+        },
+        "decided_by": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "provenance": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "include_type_checking": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "reason": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
         "id",
         "kind",
+        "status",
+        "evaluation_proven",
+        "count",
+        "undecided",
+        "decided_by",
         "rationale",
-        "decided_by"
+        "provenance",
+        "reason",
+        "scope",
+        "components"
       ],
       "additionalProperties": false
     },

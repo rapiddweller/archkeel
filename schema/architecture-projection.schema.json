@@ -527,14 +527,17 @@
     "PermissionRuleProjection": {
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string"
+        "declaration": {
+          "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
         },
-        "kind": {
-          "enum": [
-            "allowed_dependency",
-            "forbidden_dependency",
-            "complete_requires"
+        "assessment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RuleAssessment"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "parent_id": {
@@ -546,78 +549,78 @@
               "type": "null"
             }
           ]
+        }
+      },
+      "required": [
+        "declaration",
+        "assessment"
+      ],
+      "additionalProperties": false
+    },
+    "RuleAssessment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
         },
-        "source": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+        "kind": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN",
+            "DECLARATION"
           ]
         },
-        "target": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "evaluation_proven": {
+          "type": "boolean"
         },
-        "target_symbol": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "count": {
+          "type": "integer"
         },
-        "allowed_sources": {
+        "undecided": {
+          "type": "integer"
+        },
+        "decided_by": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "provenance": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "include_type_checking": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "rationale": {
+        "reason": {
           "type": "string"
         },
-        "decided_by": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "scope": {
+          "type": "string"
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
         "id",
         "kind",
-        "parent_id",
-        "source",
-        "target",
-        "target_symbol",
-        "allowed_sources",
-        "include_type_checking",
+        "status",
+        "evaluation_proven",
+        "count",
+        "undecided",
+        "decided_by",
         "rationale",
-        "decided_by"
+        "provenance",
+        "reason",
+        "scope",
+        "components"
       ],
       "additionalProperties": false
     },

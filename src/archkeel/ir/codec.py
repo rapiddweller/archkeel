@@ -1987,16 +1987,16 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
                 row["permissions"] = permission_rows
             component_rows.append(row)
         projection["components"] = component_rows
-        rule_rows = []
-        for rule in envelope.architecture_projection.permission_rules:
-            row = _raw_object(asdict(rule))
-            for name in ("parent_id", "source", "target", "target_symbol", "include_type_checking"):
-                if row[name] is None:
-                    del row[name]
-            if row["allowed_sources"] == []:
-                del row["allowed_sources"]
-            rule_rows.append(row)
-        projection["permission_rules"] = rule_rows
+        projection["permission_rules"] = [
+            {
+                "declaration": _record_payload(rule.declaration),
+                "assessment": _raw_object(asdict(rule.assessment))
+                if rule.assessment is not None
+                else None,
+                **({"parent_id": rule.parent_id} if rule.parent_id is not None else {}),
+            }
+            for rule in envelope.architecture_projection.permission_rules
+        ]
         payload["architecture_projection"] = projection
         if result.coverage is not None:
             payload["coverage"] = _coverage_payload(result.coverage)

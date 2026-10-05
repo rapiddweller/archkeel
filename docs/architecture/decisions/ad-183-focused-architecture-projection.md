@@ -6,7 +6,10 @@ policy evaluator or inferred ports. Required Target relationships, permissions a
 remain separate. Nested ownership uses exact recorded scopes; ties remain UNKNOWN.
 
 Component slices retain global Core verdicts, coverage, source identity and UNKNOWNs,
-plus governing ancestor rules/levels and peer ownership context. ID/scope/label collisions
+plus all authentic Core rule declarations/assessments at governing ancestor levels
+and peer ownership/public/planned context. The native rule catalogue owns membership;
+the projection has no separate policy catalogue. Allowed means a declared conditional
+component permission; each import must satisfy every applicable rule. ID/scope/label collisions
 produce a named diagnostic. Core and projection share the existing requires predicate;
 Allow declarations do not bypass complete_requires or forbidden dependency constraints.
 The architecture command envelope groups every UNKNOWN by exact kind, reason and scope

@@ -22,6 +22,7 @@ from archkeel.ir.codec import (
 )
 from archkeel.ir.model import (
     ARCHITECTURE_TARGET_KIND,
+    RULE_KINDS,
     TARGET_GRAPH_RECORD_KINDS,
     UML_TARGET_KIND,
     ArchitectureContract,
@@ -238,15 +239,13 @@ def _unavailable_target_assessment(path: str, identity: str) -> Record:
     )
 
 
-def _authenticate_permission_rules(tree: InsideContractTree, known: dict[str, Record]) -> None:
+def _authenticate_rules(tree: InsideContractTree, known: dict[str, Record]) -> None:
     expected = []
     for contract, parent in (
         (tree.root, None),
         *((mount.contract, mount.parent_id) for mount in tree.mounts),
     ):
         for rule in contract.rules:
-            if rule.kind not in {"allowed_dependency", "forbidden_dependency", "complete_requires"}:
-                continue
             raw = project_rule_declaration(rule)
             if parent is not None:
                 raw = {**raw, "data": {**raw["data"], "parent_id": parent}}
@@ -254,19 +253,17 @@ def _authenticate_permission_rules(tree: InsideContractTree, known: dict[str, Re
     actual = tuple(
         item
         for item in known.values()
-        if item.kind in {"allowed_dependency", "forbidden_dependency", "complete_requires"}
-        and item.evidence_class.value == "DECLARED_RULE"
+        if item.kind in RULE_KINDS and item.evidence_class.value == "DECLARED_RULE"
     )
     if {item.id for item in expected} != {item.id for item in actual} or any(
         known.get(item.id) != item for item in expected
     ):
-        raise ValueError("dependency permissions differ from the authenticated contract")
+        raise ValueError("governing rules differ from the authenticated contract")
 
 
 def _target_records(
     tree: InsideContractTree, path: str, known: dict[str, Record]
 ) -> tuple[Record, Record | None] | None:
-    _authenticate_permission_rules(tree, known)
     contracts = (tree.root, *(mount.contract for mount in tree.mounts))
     targets = tuple(
         contract.declarations.uml
@@ -282,6 +279,7 @@ def _target_records(
         or graph.public_api
         or graph.external_scopes
     ):
+        _authenticate_rules(tree, known)
         return None
     owner_ids: list[str] = _owner_ids(tree.root, known)
     module_ids, layout_ids = _physical_ids(tree.root, path, known)
@@ -302,6 +300,7 @@ def _target_records(
                 "external_scope_ids": _external_scope_ids(mount.contract, known, mount.parent_id),
             }
         )
+    _authenticate_rules(tree, known)
     target = TargetDefinition(
         entities=tuple(entity for entity in graph.entities if entity.kind != "component"),
         relationships=tuple(edge for edge in graph.relationships if edge.kind != "requires"),

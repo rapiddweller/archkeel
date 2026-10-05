@@ -16,7 +16,7 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.cli import main
 from archkeel.cli.observe import observe
-from archkeel.ir.codec import decode_canonical_model, parse_observation, result_bytes
+from archkeel.ir.codec import decode_canonical_model, parse_observation, parse_record, result_bytes
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.report_projection import (
     architecture_command_envelope,
@@ -774,7 +774,10 @@ def test_native_allowed_declaration_cannot_bypass_complete_requires(tmp_path, ca
     permission = next(row for row in core["permissions"] if "STORE" in row["target_ids"])
     assert permission["status"] == "forbidden"
     assert set(permission["rule_ids"]) == {"COMPLETE", "ALLOW-STORE"}
-    assert {row["id"] for row in projection["permission_rules"]} >= {"COMPLETE", "ALLOW-STORE"}
+    assert {row["declaration"]["id"] for row in projection["permission_rules"]} >= {
+        "COMPLETE",
+        "ALLOW-STORE",
+    }
     assert any(
         "COMPLETE" in row["rule_ids"] and row["data"]["target_module"] == "sample.store"
         for row in wire["filtered_violations"]
@@ -804,7 +807,10 @@ def test_native_nested_slice_retains_governing_ancestor_policy_without_findings(
     )
     wire = json.loads(result_bytes(selected))
     view = wire["architecture_projection"]
-    assert {row["id"] for row in view["permission_rules"]} >= {"NO-OTHER", "COMPLETE"}
+    assert {row["declaration"]["id"] for row in view["permission_rules"]} >= {
+        "NO-OTHER",
+        "COMPLETE",
+    }
     assert {row["parent_id"] for row in view["levels"]} == {None, "CORE"}
     context = {row["id"]: row for row in view["policy_context"]}
     assert context["CORE"]["scope"] == "core"
@@ -958,3 +964,313 @@ def test_native_stable_id_and_nested_label_collision_is_diagnosed(tmp_path):
         root, config=config, analyzer=observe, only_architecture=True, component="core:CORE"
     )
     assert [row.id for row in selected.architecture_projection.components] == ["core:CHILD"]
+
+
+_POLICY_KINDS = (
+    "sibling_isolation",
+    "interface_boundary",
+    "external_dependency_scope",
+    "complete_external_scope",
+    "no_component_cycles",
+)
+
+
+def _policy_repository(tmp_path, kind, *, include_type_checking=True):
+    root, config = _repository(tmp_path)
+    path = root / "architecture-contract.json"
+    contract = json.loads(path.read_bytes())
+    rule = {
+        "id": "RESTRICT",
+        "kind": kind,
+        "rationale": "Preserve the explicitly governed boundary.",
+        "provenance": ["docs/target.md"],
+        "decided_by": "architect",
+    }
+    target = "sample.store"
+    if kind == "sibling_isolation":
+        rule.update(
+            members=["sample.core", "sample.store"], include_type_checking=include_type_checking
+        )
+    elif kind == "interface_boundary":
+        (root / "sample/store.py").unlink()
+        (root / "sample/store").mkdir()
+        for name in ("__init__", "public", "private"):
+            (root / "sample/store" / f"{name}.py").write_text("")
+        contract["components"][1]["public"] = ["sample.store.public"]
+        contract["components"][1]["planned"] = ["sample.store.future"]
+        rule["include_type_checking"] = include_type_checking
+        target = "sample.store.private"
+    elif kind == "external_dependency_scope":
+        (root / "sample/store.py").unlink()
+        (root / "sample/store").mkdir()
+        for name in ("__init__", "allowed", "denied"):
+            (root / "sample/store" / f"{name}.py").write_text("")
+        rule.update(
+            dependency="sqlite3",
+            allowed_sources=["sample.store.allowed"],
+            exact_sources=["sample.store"],
+        )
+        target = "sqlite3"
+    elif kind == "complete_external_scope":
+        rule["source"] = "sample.core"
+        contract["rules"].append(
+            {
+                "id": "EXTERNAL",
+                "kind": "external_dependency_scope",
+                "dependency": "sqlite3",
+                "allowed_sources": ["sample.store"],
+                "exact_sources": ["sample.core"],
+                "rationale": "Use a declared database driver.",
+                "provenance": ["docs/target.md"],
+                "decided_by": "architect",
+            }
+        )
+        target = "requests"
+    elif kind == "no_component_cycles":
+        rule["components"] = ["core"]
+        contract["components"][1]["requires"] = [
+            {
+                "component": "core",
+                "rationale": "Call the explicit core boundary.",
+            }
+        ]
+        (root / "sample/store.py").write_text("import sample.core\n")
+    contract["rules"].append(rule)
+    path.write_text(json.dumps(contract))
+    (root / "sample/core.py").write_text("")
+    return root, config, target
+
+
+def _policy_row(view, identity="RESTRICT"):
+    return next(item for item in view["permission_rules"] if item["declaration"]["id"] == identity)
+
+
+@pytest.mark.parametrize("kind", _POLICY_KINDS)
+@pytest.mark.parametrize("nested", [False, True])
+def test_native_governing_policy_survives_before_and_after_violation(
+    tmp_path, capsys, validator, kind, nested
+):
+    root, config, target = _policy_repository(tmp_path, kind)
+    selector = "core"
+    if nested:
+        path = root / "architecture-contract.json"
+        contract = json.loads(path.read_bytes())
+        child = {**contract["components"][0], "id": "CHILD", "label": "child", "requires": []}
+        child.pop("namespace")
+        contract["components"][0]["inside"] = "inside.json"
+        (root / "inside.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "2.1.0",
+                    "components": [child],
+                    "rules": [],
+                }
+            )
+        )
+        path.write_text(json.dumps(contract))
+        selector = "core:child"
+    for violated in (False, True):
+        if violated:
+            (root / "sample/core.py").write_text(f"import {target}\n")
+        full, canonical = run_report(root, config=config, analyzer=observe, only_architecture=True)
+        assert (
+            main(
+                [
+                    "report",
+                    "--root",
+                    str(root),
+                    "--only",
+                    "architecture",
+                    "--component",
+                    selector,
+                    "--output",
+                    str(tmp_path / "slice.json"),
+                    "--json",
+                ]
+            )
+            == 0
+        )
+        wire = json.loads(capsys.readouterr().out)
+        view = wire["architecture_projection"]
+        model = parse_observation(decode_canonical_model(json.loads(canonical)))
+        declaration = next(item for item in model.records("declarations") if item.id == "RESTRICT")
+        native = next(item for item in full.rule_assessments if item.id == "RESTRICT")
+        assert "RESTRICT" in {
+            item["declaration"]["id"] if "declaration" in item else item["id"]
+            for item in view["permission_rules"]
+        }
+        row = _policy_row(view)
+        assert parse_record(row["declaration"]) == declaration
+        assert row["declaration"]["kind"] == declaration.kind == kind
+        assert row["declaration"]["subjects"] == list(declaration.subjects)
+        assert row["declaration"]["data"]["rationale"] == declaration.data.get("rationale")
+        assert row["assessment"]["status"] == native.status == ("FAIL" if violated else "PASS")
+        assert row["assessment"]["count"] == native.count == int(violated)
+        assert row["assessment"]["evaluation_proven"] == native.evaluation_proven
+        assert row["assessment"]["reason"] == native.reason
+        rebuilt = architecture_projection(
+            model,
+            architecture_report(model),
+            full.rule_assessments,
+            violation_remedy=full.architecture_projection.violation_remedy,
+        )
+        assert rebuilt == full.architecture_projection
+        whole = json.loads(result_bytes(full))
+        assert wire["declared_rules"] == whole["declared_rules"]
+        assert wire["coverage"] == whole["coverage"]
+        assert view["unknowns"] == whole["architecture_projection"]["unknowns"]
+        assert view["source"] == whole["architecture_projection"]["source"]
+        assert _policy_row(whole["architecture_projection"]) == row
+        core = next(
+            item for item in (*view["components"], *view["policy_context"]) if item["id"] == "CORE"
+        )
+        permission = next(item for item in core["permissions"] if "STORE" in item["target_ids"])
+        assert permission["status"] == "allowed"
+        assert "Declared component permission" in view["reasons"][permission["reason"]]
+        assert "all governing rules" in view["reasons"][permission["reason"]]
+        if kind == "sibling_isolation":
+            assert row["declaration"]["subjects"] == ["sample.core", "sample.store"]
+            assert row["declaration"]["data"]["include_type_checking"] is True
+        elif kind == "interface_boundary":
+            store = next(item for item in view["policy_context"] if item["id"] == "STORE")
+            assert store["public"] == ["sample.store.public"]
+            assert store["planned"] == ["sample.store.future"]
+        elif kind == "external_dependency_scope":
+            assert row["declaration"]["data"]["dependency"] == "sqlite3"
+            assert row["declaration"]["data"]["allowed_sources"] == ["sample.store.allowed"]
+            assert row["declaration"]["data"]["exact_sources"] == ["sample.store"]
+        elif kind == "complete_external_scope":
+            external = _policy_row(view, "EXTERNAL")["declaration"]["data"]
+            assert external["dependency"] == "sqlite3"
+            assert external["allowed_sources"] == ["sample.store"]
+            assert external["exact_sources"] == ["sample.core"]
+        elif kind == "no_component_cycles":
+            assert row["declaration"]["data"]["components"] == ["core"]
+            assert row["assessment"]["scope"] == native.scope
+        assert not list(validator.iter_errors(wire))
+
+
+@pytest.mark.parametrize("kind", ["sibling_isolation", "interface_boundary"])
+@pytest.mark.parametrize("include_type_checking", [False, True])
+def test_native_policy_type_checking_exception_is_exact(tmp_path, kind, include_type_checking):
+    root, config, target = _policy_repository(
+        tmp_path, kind, include_type_checking=include_type_checking
+    )
+    (root / "sample/core.py").write_text(
+        f"from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import {target}\n"
+    )
+    result, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, component="core"
+    )
+    row = _policy_row(json.loads(result_bytes(result))["architecture_projection"])
+    assert row["declaration"]["data"]["include_type_checking"] is include_type_checking
+    assert row["assessment"]["count"] == int(include_type_checking)
+    assert row["assessment"]["status"] == ("FAIL" if include_type_checking else "PASS")
+
+
+def test_native_external_scope_prefix_and_exact_exceptions_retain_their_boundary(tmp_path):
+    root, config, _ = _policy_repository(tmp_path, "external_dependency_scope")
+    for name in ("__init__", "allowed", "denied"):
+        (root / "sample/store" / f"{name}.py").write_text("import sqlite3\n")
+    result, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, component="core"
+    )
+    row = _policy_row(json.loads(result_bytes(result))["architecture_projection"])
+    assert row["assessment"]["count"] == 1
+    assert row["declaration"]["data"]["allowed_sources"] == ["sample.store.allowed"]
+    assert row["declaration"]["data"]["exact_sources"] == ["sample.store"]
+    assert not result.filtered_violations
+    full, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    assert result.declared_rules == full.declared_rules == "FAIL"
+    assert result.coverage == full.coverage
+    assert result.architecture_projection.unknowns == full.architecture_projection.unknowns
+    violation = next(
+        item for item in full.filtered_violations if "RESTRICT" in item.record.rule_ids
+    )
+    assert violation.record.data.get("source_module") == "sample.store.denied"
+
+
+def test_native_module_cycle_selector_and_core_assessment_are_retained(tmp_path):
+    root, config, _ = _policy_repository(tmp_path, "no_component_cycles")
+    path = root / "architecture-contract.json"
+    contract = json.loads(path.read_bytes())
+    contract["rules"][-1]["level"] = "module"
+    path.write_text(json.dumps(contract))
+    (root / "sample/core.py").write_text("import sample.store\n")
+    result, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, component="core"
+    )
+    row = _policy_row(json.loads(result_bytes(result))["architecture_projection"])
+    assert row["declaration"]["data"]["level"] == "module"
+    assert row["declaration"]["data"]["components"] == ["core"]
+    native = next(item for item in result.rule_assessments if item.id == "RESTRICT")
+    assert row["assessment"]["status"] == native.status == "FAIL"
+    assert row["assessment"]["count"] == native.count == 1
+
+
+@pytest.mark.parametrize("kind", _POLICY_KINDS)
+def test_native_governing_policy_forged_metadata_is_rejected(tmp_path, kind):
+    root, config, _ = _policy_repository(tmp_path, kind)
+
+    def forged_analyzer(*args, **kwargs):
+        result = observe(*args, **kwargs)
+        sections = tuple(
+            replace(
+                section,
+                records=tuple(
+                    replace(record, subjects=("forged.selector",))
+                    if record.id == "RESTRICT"
+                    else record
+                    for record in section.records
+                ),
+            )
+            for section in result.observation.sections
+        )
+        return replace(result, observation=replace(result.observation, sections=sections))
+
+    result, _ = run_report(root, config=config, analyzer=forged_analyzer, only_architecture=True)
+    assert result.exit_code == 2 and result.diagnostics
+    assert (
+        result.architecture_projection is None
+        or not result.architecture_projection.permission_rules
+    )
+
+
+def test_native_projection_uses_the_complete_core_declaration_catalogue(tmp_path):
+    from archkeel.ir.model import RULE_KINDS
+
+    root, config = _repository(tmp_path)
+    path = root / "architecture-contract.json"
+    contract = json.loads(path.read_bytes())
+    contract["rules"].append(
+        {
+            "id": "OWNERSHIP",
+            "kind": "complete_assignment",
+            "source": "sample",
+            "rationale": "Keep ownership decisions explicit.",
+            "provenance": ["docs/target.md"],
+            "decided_by": "architect",
+        }
+    )
+    path.write_text(json.dumps(contract))
+    result, canonical = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    model = parse_observation(decode_canonical_model(json.loads(canonical)))
+    declarations = tuple(
+        sorted(
+            (item for item in model.records("declarations") if item.kind in RULE_KINDS),
+            key=lambda item: item.id,
+        )
+    )
+    rows = result.architecture_projection.permission_rules
+    assert tuple(item.declaration for item in rows) == declarations
+    assert tuple(item.assessment for item in rows) == tuple(
+        next(
+            assessment for assessment in result.rule_assessments if assessment.id == declaration.id
+        )
+        for declaration in declarations
+    )
+    projection = architecture_projection(
+        model, architecture_report(model), (), violation_remedy="existing remedy"
+    )
+    assert tuple(item.declaration for item in projection.permission_rules) == declarations
+    assert all(item.assessment is None for item in projection.permission_rules)

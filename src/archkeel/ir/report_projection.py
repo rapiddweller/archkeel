@@ -22,7 +22,6 @@ from archkeel.ir.architecture_projection import (
     ModuleProjection,
     OwnershipGap,
     PermissionProjection,
-    PermissionRuleKind,
     PermissionRuleProjection,
     PermissionStatus,
     RequiredRelationshipProjection,
@@ -32,6 +31,7 @@ from archkeel.ir.architecture_projection import (
 )
 from archkeel.ir.facts import SourceInfo
 from archkeel.ir.model import (
+    RULE_KINDS,
     Coverage,
     Diagnostic,
     DiagnosticError,
@@ -117,41 +117,19 @@ def _scope_subjects(report: ArchitectureReport, module_ids: set[str]) -> set[str
 
 
 def _permission_rules(
-    model: Observation, target: ArchitectureGraph
+    model: Observation, target: ArchitectureGraph, assessments: tuple[RuleAssessment, ...]
 ) -> tuple[PermissionRuleProjection, ...]:
-    rows = []
     scope_ids = {scope: identity for identity, scope in _scope_names(target).items()}
-    for item in model.records("declarations") or ():
-        if item.kind not in {"allowed_dependency", "forbidden_dependency", "complete_requires"}:
-            continue
-        kind: PermissionRuleKind = (
-            "allowed_dependency"
-            if item.kind == "allowed_dependency"
-            else "forbidden_dependency"
-            if item.kind == "forbidden_dependency"
-            else "complete_requires"
+    core = {item.id: item for item in assessments}
+    return tuple(
+        PermissionRuleProjection(
+            item,
+            core.get(item.id),
+            scope_ids.get(text_value(item.data.get("parent_id"))),
         )
-        allowed = item.data.get("allowed_sources", ())
-        if not isinstance(allowed, tuple) or any(not isinstance(value, str) for value in allowed):
-            raise ValueError("dependency rule selectors are malformed")
-        type_checking = item.data.get("include_type_checking")
-        if type_checking is not None and not isinstance(type_checking, bool):
-            raise ValueError("dependency rule type-checking selector is malformed")
-        rows.append(
-            PermissionRuleProjection(
-                item.id,
-                kind,
-                scope_ids.get(text_value(item.data.get("parent_id"))),
-                text_value(item.data.get("source")) or None,
-                text_value(item.data.get("target")) or None,
-                text_value(item.data.get("target_symbol")) or None,
-                tuple(value for value in allowed if isinstance(value, str)),
-                type_checking,
-                text_value(item.data.get("rationale")) or "",
-                text_value(item.data.get("decided_by")) or None,
-            )
-        )
-    return tuple(sorted(rows, key=lambda item: item.id))
+        for item in sorted(model.records("declarations") or (), key=lambda item: item.id)
+        if item.kind in RULE_KINDS and item.evidence_class.value == "DECLARED_RULE"
+    )
 
 
 def _permissions(
@@ -163,7 +141,9 @@ def _permissions(
             item for item in target.component_intents if item.parent_id == source.parent_id
         )
         owners = tuple((item.component_id, item.packages, item.exact_modules) for item in siblings)
-        level_rules = tuple(item for item in rules if item.parent_id == source.parent_id)
+        level_rules = tuple(
+            item.declaration for item in rules if item.parent_id == source.parent_id
+        )
         complete = tuple(item.id for item in level_rules if item.kind == "complete_requires")
         permissions = []
         for sibling in siblings:
@@ -178,15 +158,18 @@ def _permissions(
             deciding = tuple(
                 rule
                 for rule in level_rules
-                if rule.source is not None
-                and rule.target is not None
-                and declared_package_pair(rule.source, rule.target, rule.target_symbol, owners)
+                if declared_package_pair(
+                    text_value(rule.data.get("source")),
+                    text_value(rule.data.get("target")),
+                    text_value(rule.data.get("target_symbol")) or None,
+                    owners,
+                )
                 == pair
             )
             forbidden = tuple(
                 rule.id
                 for rule in deciding
-                if rule.kind == "forbidden_dependency" and not rule.allowed_sources
+                if rule.kind == "forbidden_dependency" and not rule.data.get("allowed_sources")
             )
             allowed = tuple(rule.id for rule in deciding if rule.kind == "allowed_dependency")
             required_entries = tuple(
@@ -213,8 +196,8 @@ def _permissions(
             elif has_requires or allowed:
                 status, reason = (
                     "allowed",
-                    "Declared permission subject to requires.through "
-                    "and applicable permission_rules.",
+                    "Declared component permission; each import must satisfy requires.through "
+                    "and all governing rules. Core assessments describe observed compliance.",
                 )
             else:
                 status, reason = (
@@ -356,7 +339,7 @@ def architecture_projection(
                 )
             )
             imports_complete = False
-    rules = _permission_rules(model, target)
+    rules = _permission_rules(model, target, assessments)
     permissions = _permissions(target, rules)
     unknowns.extend(
         UnknownProjection(
@@ -757,6 +740,8 @@ class PermissionContextView:
     exact_modules: tuple[str, ...]
     requires: tuple[RequiresProjection, ...]
     permissions: tuple[PermissionGroup, ...]
+    public: tuple[str, ...] | None
+    planned: tuple[str, ...] | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -769,20 +754,6 @@ class RequiredRelationshipSummary:
 
 
 @dataclass(frozen=True, slots=True)
-class DependencyPermissionView:
-    id: str
-    kind: PermissionRuleKind
-    rationale: str
-    decided_by: str | None
-    parent_id: str | None = None
-    source: str | None = None
-    target: str | None = None
-    target_symbol: str | None = None
-    allowed_sources: tuple[str, ...] = ()
-    include_type_checking: bool | None = None
-
-
-@dataclass(frozen=True, slots=True)
 class ArchitectureCommandView:
     source: SourceInfo
     contract_digest: str
@@ -790,7 +761,7 @@ class ArchitectureCommandView:
     components: tuple[ArchitectureComponentView, ...]
     policy_context: tuple[PermissionContextView, ...]
     levels: tuple[LevelProjection, ...]
-    permission_rules: tuple[DependencyPermissionView, ...]
+    permission_rules: tuple[PermissionRuleProjection, ...]
     required_relationships: tuple[RequiredRelationshipProjection, ...]
     required_summaries: tuple[RequiredRelationshipSummary, ...]
     ownership_gaps: tuple[OwnershipGap, ...]
@@ -960,6 +931,8 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
                 item.exact_modules,
                 item.requires,
                 permission_groups(item),
+                item.public,
+                item.planned,
             )
             for item in projection.policy_context
         ),
@@ -969,18 +942,7 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
             if selected is None or level.parent_id in context_parents
         ),
         tuple(
-            DependencyPermissionView(
-                rule.id,
-                rule.kind,
-                rule.rationale,
-                rule.decided_by,
-                rule.parent_id,
-                rule.source,
-                rule.target,
-                rule.target_symbol,
-                rule.allowed_sources,
-                rule.include_type_checking,
-            )
+            rule
             for rule in projection.permission_rules
             if selected is None or rule.parent_id in context_parents
         ),

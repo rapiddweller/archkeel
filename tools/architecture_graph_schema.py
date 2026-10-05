@@ -22,7 +22,7 @@ from archkeel.ir.architecture_graph import (
 )
 from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.facts import MemberInventory
-from archkeel.ir.model import ArchitectureContract, Coverage, Diagnostic, FilteredViolation
+from archkeel.ir.model import ArchitectureContract, Coverage, Diagnostic, FilteredViolation, Record
 from archkeel.ir.report_projection import ArchitectureCommandEnvelope
 
 
@@ -30,6 +30,8 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
     definitions: dict[str, object] = {}
 
     def shape(annotation: object) -> dict[str, object]:
+        if annotation is Record:
+            return {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"}
         if annotation is Coverage:
             return {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/coverage"}
         if annotation is Diagnostic:
@@ -177,7 +179,9 @@ def command_schema() -> dict[str, object]:
         "count component-pair sites, not narrower through compliance. Numeric reasons index "
         "reasons. UNKNOWN rows [scopes, count] account for every uncertainty exactly once; "
         "empty scopes are global or unattributed. "
-        "Policy context retains ancestor levels/rules and peer ownership selectors. "
+        "Permission rules carry original authenticated Core declarations and assessments. "
+        "Allowed is a declared conditional permission, not permission for each import. "
+        "Policy context retains ancestor levels/rules and peer ownership/public/planned selectors. "
         "Coverage and Core verdicts remain global under component filters."
     )
     return schema

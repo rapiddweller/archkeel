@@ -7,12 +7,10 @@ from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
 from .architecture_graph import AssessmentStatus, ComponentRole, RelationshipKind
-from .facts import SourceInfo
+from .facts import Record, SourceInfo
+from .model import RuleAssessment
 
 PermissionStatus: TypeAlias = Literal["allowed", "forbidden", "undecided"]
-PermissionRuleKind: TypeAlias = Literal[
-    "allowed_dependency", "forbidden_dependency", "complete_requires"
-]
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +29,8 @@ class OwnershipGap:
 
 @dataclass(frozen=True, slots=True)
 class PermissionProjection:
+    """Declared component-pair permission; governing rules still constrain each import."""
+
     target_id: str
     status: PermissionStatus
     rule_ids: tuple[str, ...]
@@ -39,16 +39,9 @@ class PermissionProjection:
 
 @dataclass(frozen=True, slots=True)
 class PermissionRuleProjection:
-    id: str
-    kind: PermissionRuleKind
-    parent_id: str | None
-    source: str | None
-    target: str | None
-    target_symbol: str | None
-    allowed_sources: tuple[str, ...]
-    include_type_checking: bool | None
-    rationale: str
-    decided_by: str | None
+    declaration: Record
+    assessment: RuleAssessment | None
+    parent_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

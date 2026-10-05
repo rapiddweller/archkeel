@@ -9,7 +9,7 @@ import hashlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final, Literal, TypeAlias, get_args, get_type_hints
+from typing import TYPE_CHECKING, Final, Literal, TypeAlias, get_args, get_type_hints
 
 from .architecture_graph import AssessmentStatus, TargetDefinition
 from .architecture_graph import ComponentRole as ComponentRole
@@ -17,7 +17,6 @@ from .architecture_graph import ContractModuleTarget as ContractModuleTarget
 from .architecture_graph import ExternalDependencyScopeRule as ExternalDependencyScopeRule
 from .architecture_graph import RootLayoutRule as RootLayoutRule
 from .architecture_graph import contract_relative_path as contract_relative_path
-from .architecture_projection import ArchitectureProjection
 from .facts import (
     EVIDENCE_FIELDS as EVIDENCE_FIELDS,
 )
@@ -59,6 +58,9 @@ from .facts import (
 )
 from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName, Measurements, NameBudgetKind
+
+if TYPE_CHECKING:
+    from .architecture_projection import ArchitectureProjection
 
 RawJson: TypeAlias = str | int | float | bool | None | Sequence["RawJson"] | Mapping[str, "RawJson"]
 
