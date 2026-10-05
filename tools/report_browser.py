@@ -263,9 +263,11 @@ def _open_uml_details(page: Page) -> None:
     payload = json.loads(page.locator("#flow-data").text_content() or "{}")
     if "atlas" not in payload:
         return
-    page.locator('.flow-nodes [data-label="demo"]').click()
-    page.get_by_role("link", name="Open UML and source evidence", exact=True).click()
+    module = next(item for item in payload["atlas"]["modules"] if Path(item["path"]).stem == "core")
+    page.locator('.flow-nodes [data-label="demo"]').press("Enter")
+    page.locator(".atlas-module-list").get_by_role("link", name=module["name"], exact=True).click()
     assert page.url.startswith("file:") and ".detail-component-" in page.url
+    assert "module=" in page.url
 
 
 def _show_details(page: Page) -> None:
@@ -276,6 +278,7 @@ def _show_details(page: Page) -> None:
 
 def _check_inner_uml(page: Page, name: str, output: Path) -> None:
     _open_uml_details(page)
+    module_url = page.url
     payload = page.locator("#flow-data").text_content()
     fields = json.loads(payload or "{}")
     # Navigation hints belong to the page transport, not the Core report schema.
@@ -283,7 +286,7 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
         {
             key: value
             for key, value in fields.items()
-            if key not in {"initial_scope", "initial_view"}
+            if key not in {"initial_scope", "initial_view", "navigation"}
         }
     )
     expected = {
@@ -299,24 +302,27 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
     annotation = {"python": "str", "dart": "String", "typescript": "string"}[language]
     returns = "None" if language == "python" else "void"
     for view in ("diagram", "target", "diff"):
-        page.reload(wait_until="load")
+        page.goto(module_url, wait_until="load")
         page.locator(f'[data-flow-view="{view}"]').click()
-        if language != "python" and view == "diagram":
+        assert page.locator(".atlas-heading").count() == 1
+        assert page.locator(".flow-views [data-flow-view]").count() == 3
+        assert page.locator('.flow-nodes [data-uml-kind="component"]').count() == 0
+        if language != "python" and view in {"diagram", "diff"}:
             assert not any(
                 e.kind in {"class", "method", "function"} for e in report.observed.entities
             )
-            page.locator('.flow-nodes [data-label="core"]').press("Space")
             _show_details(page)
-            details = page.locator(".flow-inspector-content").inner_text()
-            assert "Source file" in details and "Coverage" in details and "unavailable" in details
+            details = page.locator(".flow-inspector-content").inner_text().lower()
+            assert "source file" in details and "coverage" in details and "unavailable" in details
+            assert page.locator(".flow-nodes [data-uml-id]").count() == 0
             page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-modules.png"))
             assert page.locator("#flow-data").text_content() == payload
             continue
-        page.locator('.flow-nodes [data-label="core"]').dblclick()
         nodes = page.locator(".flow-nodes [data-uml-id]")
         assert {"class", "interface", "enum", "function", "constant"} <= set(
             nodes.evaluate_all("nodes => nodes.map(n => n.dataset.umlKind)")
         )
+        assert nodes.first.is_visible()
         edges = page.locator(".flow-edges .edge")
         assert edges.count() > 0
         assert nodes.evaluate_all("""nodes => {
@@ -367,7 +373,7 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
         page.locator(".flow-back").click()
         page.locator('.flow-nodes [data-label="State"]').dblclick()
         ready = page.locator('.flow-nodes [data-label="READY"][data-uml-kind="enum_literal"]')
-        if name == "uml-partial" and view == "diagram":
+        if name == "uml-partial" and view in {"diagram", "diff"}:
             assert ready.count() == 0
             for kind in ("attribute", "binding"):
                 assert (

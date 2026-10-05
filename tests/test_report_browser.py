@@ -6,6 +6,7 @@
 import contextlib
 import io
 import json
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -40,7 +41,7 @@ def test_native_atlas_acceptance_rejects_a_corrupted_core_status(tmp_path, varia
             browser.close()
 
 
-def test_native_component_sidecar_retains_constants_and_own_members(tmp_path):
+def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path):
     api = pytest.importorskip("playwright.sync_api")
     from tools.report_browser import _check_inner_uml
 
@@ -51,11 +52,58 @@ def test_native_component_sidecar_retains_constants_and_own_members(tmp_path):
         browser = playwright.chromium.launch(headless=True)
         try:
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
-            page.goto(architecture.with_suffix(".report.html").as_uri())
+            errors, external = [], []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.on(
+                "request",
+                lambda request: (
+                    external.append(request.url)
+                    if request.url.startswith(("http:", "https:"))
+                    else None
+                ),
+            )
+            main = architecture.with_suffix(".report.html").as_uri()
+            page.goto(main + "?theme=dark")
+            heading = page.locator(".atlas-heading").inner_text()
+            verdict = page.locator(".atlas-status").inner_text()
+            page.get_by_role("button", name="Diff", exact=True).click()
             _check_inner_uml(page, "uml-complete", tmp_path)
             assert "detail-component-" in page.url
-            assert "atlas" not in json.loads(page.locator("#flow-data").text_content())
-            page.get_by_role("link", name="Back to architecture map", exact=True).click()
+            data = json.loads(page.locator("#flow-data").text_content())
+            assert "atlas" not in data
+            assert page.locator(".atlas-heading").inner_text() == heading
+            assert page.locator(".atlas-status").inner_text() == verdict
+            assert page.locator("html").get_attribute("data-theme") == "dark"
+            assert page.locator(".theme-toggle").count() == 1
+            page.locator('[data-lexical-depth="1"]').click()
+            client = next(
+                item
+                for item in data["observed"]["entities"]
+                if item["qualified_name"] == "demo.core.Client"
+            )
+            page.locator(f'.flow-nodes [data-uml-id="{client["id"]}"]').press("Enter")
+            assert parse_qs(urlsplit(page.url).query)["scope"] == [client["id"]]
+            page.reload()
+            assert page.locator('.flow-nodes [data-label="reset"]').count() == 1
+            assert (
+                page.get_by_role("button", name="Diff", exact=True).get_attribute("aria-pressed")
+                == "true"
+            )
+            page.locator(".flow-back").click()
+            assert "scope" not in parse_qs(urlsplit(page.url).query)
+            page.go_back()
+            assert page.locator('.flow-nodes [data-label="reset"]').count() == 1
+            page.locator(".flow-back").click()
+            page.locator(".flow-back").click()
+            assert page.url.startswith(main + "?")
+            assert parse_qs(urlsplit(page.url).query) == {
+                "scope": [data["navigation"]["component_id"]],
+                "view": ["diff"],
+                "theme": ["dark"],
+            }
             assert page.locator('[data-atlas="true"]').is_visible()
+            assert page.locator(".atlas-heading").inner_text() == heading
+            assert page.locator(".atlas-status").inner_text() == verdict
+            assert not errors and not external
         finally:
             browser.close()
