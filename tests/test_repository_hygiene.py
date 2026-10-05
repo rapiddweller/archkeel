@@ -48,16 +48,16 @@ ALLOWED_LONG_FUNCTIONS = {
     "src/archkeel/check/delta.py::require_comparable_runtime": (
         "One profile boundary retains legacy Python provenance while checking explicit runtimes."
     ),
-    "src/archkeel/check/evaluation/rules.py::_direct_generic_candidate_types": (
+    "src/archkeel/check/evaluation/boundary_types.py::_direct_generic_candidate_types": (
         "The existing generic candidate walk retains uncertain usage without claiming closure."
     ),
-    "src/archkeel/check/evaluation/rules.py::_public_api_base": (
+    "src/archkeel/check/evaluation/boundary_types.py::_public_api_base": (
         "One base proof joins type, binding and member evidence before substitution."
     ),
     ("src/archkeel/analyzer/python/collect.py::collect"): (
         "One deterministic collector pass shares the parsed and resolved project."
     ),
-    ("src/archkeel/check/declarations.py::_rule_declaration"): (
+    ("src/archkeel/check/declarations.py::project_rule_declaration"): (
         "One output record is built per declared rule kind."
     ),
     ("src/archkeel/check/declarations.py::project_declarations"): (
@@ -72,22 +72,22 @@ ALLOWED_LONG_FUNCTIONS = {
     ("src/archkeel/check/evaluation/evaluate.py::evaluate_source"): (
         "One composition pass carries source facts through evaluation and coverage."
     ),
-    ("src/archkeel/check/evaluation/rules.py::_boundary_rule_positions"): (
+    ("src/archkeel/check/evaluation/boundary_types.py::_boundary_rule_positions"): (
         "One traversal retains direct, inherited and undecidable positions for the same rule."
     ),
-    ("src/archkeel/check/evaluation/rules.py::_boundary_type_verdict"): (
+    ("src/archkeel/check/evaluation/boundary_types.py::_boundary_type_verdict"): (
         "One decision path preserves proven, failed and unknown type outcomes."
     ),
-    ("src/archkeel/check/evaluation/rules.py::_boundary_types_violations"): (
+    ("src/archkeel/check/evaluation/boundary_types.py::_boundary_types_violations"): (
         "One position pass applies the same rule and allowance policy to every facade."
     ),
-    ("src/archkeel/check/evaluation/rules.py::_scoped_facade_signature_types"): (
+    ("src/archkeel/check/evaluation/boundary_types.py::_scoped_facade_signature_types"): (
         "One nested pass ties inherited types to their contract mount and publisher."
     ),
-    ("src/archkeel/check/evaluation/rules.py::facade_signature_types"): (
+    ("src/archkeel/check/evaluation/boundary_types.py::facade_signature_types"): (
         "One publication pass preserves resolved and uncertain types per facade."
     ),
-    ("src/archkeel/check/evaluation/rules.py::public_api_exposed_types"): (
+    ("src/archkeel/check/evaluation/boundary_types.py::public_api_exposed_types"): (
         "One type walk serves every declared public API entry."
     ),
     ("src/archkeel/check/evaluation/rules.py::requires_violations"): (
@@ -133,7 +133,7 @@ ALLOWED_LONG_FUNCTIONS = {
         "Sequences authentication, git and host order, both snapshots and "
         "evaluation; one with-block owns the snapshot lifetimes."
     ),
-    ("src/archkeel/check/validation.py::run_validate"): (
+    ("src/archkeel/check/validation/__init__.py::run_validate"): (
         "Sequences baseline, contract, observation and artifact decisions; the "
         "branches are the validation protocol."
     ),

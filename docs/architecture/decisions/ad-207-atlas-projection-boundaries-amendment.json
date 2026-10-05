@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "975d4691c10792af15f6eb2cbdb80ffa4e6d9e49e49c132f4d7cc8936102f630",
+  "after_digest": "6e67a47ce712df627e16b3d7e2e6c2802d751f2afbada05de2939e2781921acf",
+  "before_baseline_digest": "24da4c22a0b46338fa3eca544fee4f3a0a9cfed9f73b96a710364e1630eddeeb",
+  "before_digest": "9863477f69b970b8c2ee6d8482b8ca2e979581df433ccbedcfaa62d6706f26f5",
+  "decided_by": "Codex (agent; authorized issue owner)",
+  "rationale": "Publish only used Atlas and saved-query interfaces, workflow permissions and authored layers. Permit the exact offline filename-to-bytes return map. Bind 670 unresolved calls, 53 retained UNKNOWN positions and 15 CLI-to-check names to measured evidence, with no headroom or violation relaxation.",
+  "schema_version": "2.0.0"
+}

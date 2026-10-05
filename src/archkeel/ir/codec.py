@@ -82,6 +82,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     JsonValue,
+    LayerOrderRule,
     NoComponentCyclesRule,
     Observation,
     OpenDecision,
@@ -121,6 +122,7 @@ from archkeel.ir.model import (
     RawJson as RawJson,
 )
 from archkeel.ir.profiles import Profile, profile_for
+from archkeel.ir.report_projection import ArchitectureComponentView, architecture_command_envelope
 from archkeel.ir.target_graph import declared_graph, scoped_target
 from archkeel.ir.widening import AMENDMENT_SCHEMA_VERSION, Amendment
 
@@ -747,9 +749,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
         "contract",
     )
     if root["schema_version"] == "2.1.0":
-        version: Literal["2.1.0", "2.2.0"] = "2.1.0"
+        version: Literal["2.1.0", "2.2.0", "2.3.0"] = "2.1.0"
     elif root["schema_version"] == "2.2.0":
         version = "2.2.0"
+    elif root["schema_version"] == "2.3.0":
+        version = "2.3.0"
     else:
         raise ContractVersionError(str(root["schema_version"]))
     components_raw = root["components"]
@@ -796,7 +800,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
         for index, value in enumerate(records("capabilities"))
     )
     components = tuple(
-        _parse_component(value, f"components[{index}]")
+        _parse_component(value, f"components[{index}]", version=version)
         for index, value in enumerate(components_raw)
     )
     for component in components:
@@ -860,9 +864,14 @@ def parse_contract(raw: object) -> ArchitectureContract:
     )
     if modules is not None and len({item.path for item in modules}) != len(modules):
         raise ValueError("contract.declarations.modules repeats a path")
-    if "uml" in declarations and version != "2.2.0":
+    if "uml" in declarations and version == "2.1.0":
         raise ValueError("UML declarations require contract schema_version 2.2.0")
     uml = parse_target(declarations["uml"]) if "uml" in declarations else None
+    if version != "2.3.0":
+        for raw in rules_raw:
+            rule_data: dict[str, RawJson] = _object(raw, "rule")
+            if rule_data.get("kind") == "layer_order":
+                raise ValueError("layer_order requires contract schema_version 2.3.0")
     rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     labels = {component.label for component in components}
     seen_labels: set[str] = set()
@@ -882,7 +891,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
                     f"{entry.component!r} is not a component label in this contract",
                 )
     for index, rule in enumerate(rules):
-        if isinstance(rule, NoComponentCyclesRule) and rule.components is not None:
+        if isinstance(rule, NoComponentCyclesRule | LayerOrderRule) and rule.components is not None:
             unknown = sorted(set(rule.components) - labels)
             if unknown:
                 raise ValueError(
@@ -942,6 +951,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
 
 def contract_bytes(contract: ArchitectureContract) -> bytes:
     """Encode a contract in Contract 2.0 key order so parse_contract returns the same value."""
+    if contract.schema_version != "2.3.0" and (
+        any(component.layer is not None for component in contract.components)
+        or any(isinstance(rule, LayerOrderRule) for rule in contract.rules)
+    ):
+        raise ValueError("layer and layer_order require contract schema_version 2.3.0")
     fields = asdict(contract)
     # An absent permission must preserve existing amendment digests.
     for rule, encoded in zip(contract.rules, fields["rules"], strict=True):
@@ -1036,6 +1050,15 @@ def _public_entry(value: str, label: str) -> str:
     return value
 
 
+def _public_entries(raw: RawJson, label: str) -> tuple[str, ...] | None:
+    if raw is None:
+        return None
+    return tuple(
+        _public_entry(value, f"{label}[{index}]")
+        for index, value in enumerate(_contract_strings(raw, label))
+    )
+
+
 def parse_required_component(raw: RawJson, label: str = "requires") -> RequiredComponent:
     item = _contract_fields(raw, {"component", "rationale"}, {"through", "decided_by"}, label)
     decided_by = item.get("decided_by")
@@ -1063,7 +1086,9 @@ def _component_names(
     return packages, exact
 
 
-def _parse_component(raw: RawJson, label: str) -> ContractComponent:
+def _parse_component(raw: RawJson, label: str, *, version: str) -> ContractComponent:
+    if "layer" in _object(raw, label) and version != "2.3.0":
+        raise ValueError(f"{label}.layer requires contract schema_version 2.3.0")
     item, item_id, provenance = _contract_record(
         raw,
         {"label", "role", "packages", "responsibilities", "forbidden_responsibilities"},
@@ -1076,6 +1101,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
             "requires",
             "namespace",
             "exact_modules",
+            "layer",
         },
         label,
     )
@@ -1084,24 +1110,8 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
     except ValueError as exc:
         raise ValueError(f"{label}.role is invalid") from exc
     capability = item.get("capability_id")
-    public_raw = item.get("public")
-    public = (
-        tuple(
-            _public_entry(value, f"{label}.public[{index}]")
-            for index, value in enumerate(_contract_strings(public_raw, f"{label}.public"))
-        )
-        if public_raw is not None
-        else None
-    )
-    planned_raw = item.get("planned")
-    planned = (
-        tuple(
-            _public_entry(value, f"{label}.planned[{index}]")
-            for index, value in enumerate(_contract_strings(planned_raw, f"{label}.planned"))
-        )
-        if planned_raw is not None
-        else None
-    )
+    public = _public_entries(item.get("public"), f"{label}.public")
+    planned = _public_entries(item.get("planned"), f"{label}.planned")
     requires_raw = item.get("requires")
     if requires_raw is not None and not isinstance(requires_raw, list):
         raise ValueError(f"{label}.requires must be a list")
@@ -1142,6 +1152,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
         _decided_by(decided_by, f"{label}.decided_by") if decided_by is not None else None,
         namespace,
         exact_modules or None,
+        _nonempty(item["layer"], f"{label}.layer") if "layer" in item else None,
     )
 
 
@@ -1452,6 +1463,24 @@ def _parse_complete_requires(raw: RawJson, label: str) -> CompleteRequiresRule:
     )
 
 
+def _parse_layer_order(raw: RawJson, label: str) -> LayerOrderRule:
+    item, item_id, provenance = _contract_record(
+        raw, {"kind", "layers", "rationale", "decided_by"}, {"components"}, label
+    )
+    layers = _contract_strings(item["layers"], f"{label}.layers", required=True)
+    return LayerOrderRule(
+        item_id,
+        "layer_order",
+        layers,
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+        _contract_strings(item["components"], f"{label}.components", required=True)
+        if "components" in item
+        else None,
+    )
+
+
 def _cycle_level(raw: RawJson, label: str) -> Literal["module"] | None:
     """Narrow to the Literal by value; the default component level parses to absent (AD-98)."""
     value = _nonempty(raw, label)
@@ -1620,6 +1649,7 @@ _RULE_PARSERS: Final[dict[str, Callable[[RawJson, str], ArchitectureRule]]] = {
     "root_layout": _parse_root_layout,
     "complete_external_scope": _parse_complete_external_scope,
     "complete_requires": _parse_complete_requires,
+    "layer_order": _parse_layer_order,
     "no_component_cycles": _parse_no_component_cycles,
     "interface_boundary": _parse_interface_boundary,
     "sibling_isolation": _parse_sibling_isolation,
@@ -1912,8 +1942,84 @@ def _open_decision_payload(decision: OpenDecision) -> dict[str, RawJson]:
     return payload
 
 
+def _architecture_component_payload(
+    component: ArchitectureComponentView,
+) -> dict[str, RawJson]:
+    row = _raw_object(asdict(component))
+    for name in ("parent_id", "namespace", "selector_prefix", "layer", "public", "planned"):
+        if row[name] is None:
+            del row[name]
+    for name in (
+        "exact_modules",
+        "modules",
+        "requires",
+        "permissions",
+        "used_by",
+        "finding_ids",
+    ):
+        if row[name] == [] or row[name] == {}:
+            del row[name]
+    if row["role"] == "component":
+        del row["role"]
+    permission_rows = []
+    for permission in component.permissions:
+        item = _raw_object(asdict(permission))
+        if item["rule_ids"] == []:
+            del item["rule_ids"]
+        permission_rows.append(item)
+    if permission_rows:
+        row["permissions"] = permission_rows
+    return row
+
+
+def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
+    envelope = architecture_command_envelope(result)
+    payload = _raw_object(asdict(envelope))
+    projection = _raw_object(asdict(envelope.architecture_projection))
+    projection["components"] = [
+        _architecture_component_payload(component)
+        for component in envelope.architecture_projection.components
+    ]
+    projection["permission_rules"] = [
+        {
+            "declaration": _record_payload(rule.declaration),
+            "assessment": _raw_object(asdict(rule.assessment))
+            if rule.assessment is not None
+            else None,
+            **({"parent_id": rule.parent_id} if rule.parent_id is not None else {}),
+        }
+        for rule in envelope.architecture_projection.permission_rules
+    ]
+    payload["architecture_projection"] = projection
+    if result.coverage is not None:
+        payload["coverage"] = _coverage_payload(result.coverage)
+    payload["diagnostics"] = [
+        {
+            key: value
+            for key, value in _raw_object(asdict(item)).items()
+            if key not in {"pointer", "code"} or value is not None
+        }
+        for item in result.diagnostics
+    ]
+    payload["filtered_violations"] = [
+        {
+            **_record_payload(item.record),
+            "locations": [_raw_object(asdict(location)) for location in item.locations],
+        }
+        for item in envelope.filtered_violations
+    ]
+    return payload
+
+
 def result_payload(result: RunResult) -> dict[str, RawJson]:
-    payload = _raw_object(asdict(result))
+    if (
+        result.command == "report"
+        and result.report_filter is not None
+        and result.report_filter.only_architecture
+        and result.architecture_projection is not None
+    ):
+        return _architecture_result_payload(result)
+    payload = _raw_object(asdict(replace(result, architecture_projection=None)))
     if result.provenance is not None and result.provenance.initial_pr is None:
         provenance = _raw_object(asdict(result.provenance))
         del provenance["initial_pr"]

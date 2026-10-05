@@ -8,7 +8,8 @@
       "role": "projection",
       "exact_modules": [
         "archkeel.render",
-        "archkeel.render.html"
+        "archkeel.render.html",
+        "archkeel.render.atlas"
       ],
       "public": [
         "archkeel.render.html"
@@ -191,6 +192,10 @@
       {
         "path": "src/archkeel/render/terminal.py",
         "responsibility": "Format the shared summary for terminal readers."
+      },
+      {
+        "path": "src/archkeel/render/atlas.py",
+        "responsibility": "Prepare compact Atlas display payloads and scoped offline UML pages from authenticated Core values."
       }
     ]
   }

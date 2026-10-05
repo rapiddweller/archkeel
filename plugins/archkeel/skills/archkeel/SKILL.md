@@ -234,6 +234,16 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md.
 
 ## Daily loop
 
+- Start with `archkeel report --only architecture --json`. It projects authenticated intent,
+  ownership, dependency permissions, observed use and required Target relationships. Use
+  `--component <id-or-scope>` for a slice; global verdicts, coverage and uncertainty remain.
+  Missing evidence is UNKNOWN. Permissions never prove use or required execution.
+  After one scan, query that packet with `archkeel report --input architecture.json --only architecture
+  --component <id-or-scope> --json`. Omit `--component` to discover its exact ids and scopes.
+  This reads recorded source identity and evidence; it does not verify the current working
+  tree or write files. Read `architecture_projection.required_relationships` and
+  `filtered_violations` for Target findings; the older violations component facet only matches
+  crossing endpoints.
 - Revisit the physical structure review for changed packages and their parent boundaries;
   recheck related findings rather than repeating a whole-repository review for every edit.
 - Run `archkeel report --json` before submitting any change. A rule violation does not

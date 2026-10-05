@@ -6,7 +6,7 @@ Only open work belongs here. Completed decisions live in the
 | Issue | Remaining work |
 |---|---|
 | [#363](https://github.com/rapiddweller/archkeel/issues/363) | Measure and reduce report validation and repeated AST work. |
-| [#358](https://github.com/rapiddweller/archkeel/issues/358) | Provide a compact deterministic architecture projection. |
+| [#358](https://github.com/rapiddweller/archkeel/issues/358) | Accept the native architecture projection, output budgets and integrated gates (AD-202). |
 | [#357](https://github.com/rapiddweller/archkeel/issues/357) | Split check hotspots along proven seams. |
 | [#356](https://github.com/rapiddweller/archkeel/issues/356) | Authenticate layers, port realization and external components. |
 | [#355](https://github.com/rapiddweller/archkeel/issues/355) | Explore As-Is against Target through one shared projection. |

@@ -291,7 +291,7 @@ def _maximal_contract() -> dict[str, object]:
             "responsibility": "Keep order orchestration in the app layer.",
         }
     ]
-    raw["schema_version"] = "2.2.0"
+    raw["schema_version"] = "2.3.0"
     declarations["uml"] = asdict(
         TargetDefinition(
             entities=(
@@ -493,6 +493,7 @@ _NAMES_NO_MODULE = frozenset(
                 "id",
                 "label",
                 "role",
+                "layer",
                 "capability_id",
                 "inside",
                 "decided_by",
@@ -516,6 +517,7 @@ _NAMES_NO_MODULE = frozenset(
                 "forbidden_construct",
                 "forbidden_dependency",
                 "interface_boundary",
+                "layer_order",
                 "no_component_cycles",
                 "root_layout",
                 "sibling_isolation",
@@ -530,6 +532,8 @@ _NAMES_NO_MODULE = frozenset(
         "/rules/external_dependency_scope/dependency",
         "/rules/no_component_cycles/level",
         "/rules/no_component_cycles/components/*",
+        "/rules/layer_order/layers/*",
+        "/rules/layer_order/components/*",
         "/rules/symbol_placement/class_kinds/*",
         "/rules/boundary_types/allowed_positions/*/position",
         "/rules/boundary_types/allowed_positions/*/field_path",

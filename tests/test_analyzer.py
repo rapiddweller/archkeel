@@ -51,7 +51,7 @@ from archkeel.ir.model import (
 from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
-RULES = ROOT / "src/archkeel/check/evaluation/rules.py"
+BOUNDARY_TYPES = ROOT / "src/archkeel/check/evaluation/boundary_types.py"
 
 
 def test_collector_digest_tracks_only_its_language_and_shared_source() -> None:
@@ -2887,8 +2887,8 @@ def test_boundary_types_and_facade_types_agree_across_annotation_shapes(tmp_path
     )
 
 
-def _violations_source_ast() -> ast.Module:
-    return ast.parse(RULES.read_bytes())
+def _boundary_types_source_ast() -> ast.Module:
+    return ast.parse(BOUNDARY_TYPES.read_bytes())
 
 
 def _top_level_callers(tree: ast.Module, called_name: str) -> set[str]:
@@ -2918,7 +2918,7 @@ def test_only_one_function_resolves_an_annotations_named_type() -> None:
     a separate, narrower lookup because its inputs are proven bare base and argument names,
     not signature annotations to expand recursively.
     """
-    callers = _top_level_callers(_violations_source_ast(), "resolve_named_type")
+    callers = _top_level_callers(_boundary_types_source_ast(), "resolve_named_type")
     assert callers == {"_named_type_verdict", "_direct_generic_candidate_types"}, (
         f"resolve_named_type is called directly from {sorted(callers)}: annotation walkers "
         "must share `_named_type_verdict`; `_direct_generic_candidate_types` is the separate "
@@ -2934,7 +2934,7 @@ def test_resolved_position_types_does_not_itself_walk_collection_parameters() ->
     `list[Type]`; a new collection shape taught only to the rule would again go silent on this
     side, the same way `list[Type]` once did.
     """
-    tree = _violations_source_ast()
+    tree = _boundary_types_source_ast()
     [target] = [
         node
         for node in ast.iter_child_nodes(tree)

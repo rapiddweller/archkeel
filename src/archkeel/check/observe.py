@@ -147,9 +147,10 @@ _SOURCE_REMEDY: Final[dict[Language, str]] = {
 }
 
 
-def _diagnostics(
+def observation_diagnostics(
     model: Observation, runtime: Diagnostic | None, language: Language
 ) -> tuple[Diagnostic, ...]:
+    """Read completeness from the recorded coverage, runtime and analyzer profile."""
     diagnostics: list[Diagnostic] = []
     for failure in model.coverage.failures:
         rule_failure = _RULE_FAILURES.get(failure.kind)
@@ -272,7 +273,9 @@ def _observe(
             language=language,
         )
         runtime = runtime_diagnostic(facts.runtime)
-        return ObservationResult(model, model.coverage, _diagnostics(model, runtime, language))
+        return ObservationResult(
+            model, model.coverage, observation_diagnostics(model, runtime, language)
+        )
     except OSError as error:
         return _failure(
             "parse_error",

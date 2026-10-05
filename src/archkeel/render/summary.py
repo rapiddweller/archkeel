@@ -133,6 +133,8 @@ def _report_filter_line(result: RunResult) -> str:
         facets.append("only violations")
     if report_filter.only_calls:
         facets.append("only calls")
+    if report_filter.only_architecture:
+        facets.append("only architecture")
     if report_filter.rule is not None:
         facets.append(f"rule {report_filter.rule}")
     if report_filter.component is not None:

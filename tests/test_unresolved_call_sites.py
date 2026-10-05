@@ -574,6 +574,7 @@ def test_report_only_calls_lists_every_unresolved_and_partially_resolved_call(
         "rule": None,
         "component": None,
         "only_calls": True,
+        "only_architecture": False,
     }
     assert result["filtered_violations"] is None
 
@@ -598,7 +599,7 @@ def test_report_only_calls_honours_component_and_rejects_rule(
     code, result = _cli(capsys, *only_calls, "--rule", "DEP-STORE-NO-MONEY", "--json")
     assert code == 2
     assert result["diagnostics"][0]["unknown_claim"].endswith(  # type: ignore[index]
-        "--rule narrows violations; --only calls lists calls, which cite no rule"
+        "--rule narrows violations; --only calls or architecture cannot select a rule"
     )
 
 

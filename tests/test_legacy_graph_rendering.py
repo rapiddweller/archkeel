@@ -18,6 +18,30 @@ from archkeel.ir.target_records import recorded_target_graph
 from archkeel.render.html import render_html
 
 
+def test_layer_report_initializes_target_and_shows_layer_intent(tmp_path):
+    from test_layers import _layer_contract
+    from test_target_graph import _repository as _target_repository
+
+    api = pytest.importorskip("playwright.sync_api")
+    root, config = _target_repository(tmp_path)
+    (root / config.contract).write_text(json.dumps(_layer_contract()))
+    result, encoded = run_report(root, config=config, analyzer=observe)
+    assert encoded is not None and not result.diagnostics
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    html = render_html(result, model, repository="sample", architecture_href=None).decode()
+    errors = []
+    playwright, browser, page = _browser_page(api, html, errors=errors)
+    try:
+        page.locator('[data-flow-view="target"]').click()
+        page.locator('.flow-nodes [data-uml-id="core"]').click()
+        details = page.locator(".flow-inspector-content").inner_text()
+        assert "Layer" in details and "Core" in details
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 def _legacy_report(tmp_path, *, nested=False, version="2.2.0", explicit_uml=False):
     root, config = _nested_repository(tmp_path) if nested else _repository(tmp_path)
     paths = (config.contract, "inside.json", "leaf.json") if nested else (config.contract,)
@@ -136,12 +160,21 @@ def test_target_graph_is_decoded_once_for_both_rendering_payloads(tmp_path, monk
 
     decoded = []
     original = producer.recorded_target_graph
+    original_render = render_html
 
     def record_decode(observation, declaration):
         decoded.append(declaration.id)
         return original(observation, declaration)
 
+    def measured_render(*args, **kwargs):
+        assert len(decoded) == 1
+        decoded.clear()
+        page = original_render(*args, **kwargs)
+        assert len(decoded) == 1
+        return page
+
     monkeypatch.setattr(producer, "recorded_target_graph", record_decode)
+    monkeypatch.setattr(f"{__name__}.render_html", measured_render)
     _, payload, graph = _legacy_report(tmp_path, nested=True)
     assert len(decoded) == 1
     assert parse_graph(payload["target"]) == graph

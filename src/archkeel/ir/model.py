@@ -9,13 +9,15 @@ import hashlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final, Literal, TypeAlias, get_args, get_type_hints
+from typing import TYPE_CHECKING, Final, Literal, TypeAlias, get_args, get_type_hints
 
 from .architecture_graph import AssessmentStatus, TargetDefinition
 from .architecture_graph import ComponentRole as ComponentRole
 from .architecture_graph import ContractModuleTarget as ContractModuleTarget
 from .architecture_graph import ExternalDependencyScopeRule as ExternalDependencyScopeRule
 from .architecture_graph import RootLayoutRule as RootLayoutRule
+from .architecture_graph import RuleAssessment as RuleAssessment
+from .architecture_graph import RuleAssessmentStatus as RuleAssessmentStatus
 from .architecture_graph import contract_relative_path as contract_relative_path
 from .facts import (
     EVIDENCE_FIELDS as EVIDENCE_FIELDS,
@@ -58,6 +60,9 @@ from .facts import (
 )
 from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName, Measurements, NameBudgetKind
+
+if TYPE_CHECKING:
+    from .architecture_projection import ArchitectureProjection
 
 RawJson: TypeAlias = str | int | float | bool | None | Sequence["RawJson"] | Mapping[str, "RawJson"]
 
@@ -153,6 +158,7 @@ class ContractComponent:
     # Exact module ownership is separate from recursive package ownership. None preserves
     # canonical bytes for contracts that do not declare exact modules.
     exact_modules: tuple[str, ...] | None = None
+    layer: str | None = None
 
 
 def facade_covers(
@@ -206,6 +212,24 @@ class RequiredComponent:
     rationale: str
     through: tuple[str, ...] = ()
     decided_by: Literal["architect", "agent"] | None = None
+
+
+def requires_covers(
+    source: ContractComponent | tuple[RequiredComponent, ...],
+    target_label: str,
+    target_module: str | None = None,
+) -> bool:
+    """Apply AD-42; without a module, ask only whether the target is declared."""
+    entries = (source.requires or ()) if isinstance(source, ContractComponent) else source
+    return any(
+        entry.component == target_label
+        and (
+            target_module is None
+            or not entry.through
+            or any(in_scope(target_module, module) for module in entry.through)
+        )
+        for entry in entries
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -374,6 +398,19 @@ class CompleteRequiresRule:
 
 
 @dataclass(frozen=True, slots=True)
+class LayerOrderRule:
+    """Declared requires permissions run from outer to inner layers, or stay in one layer."""
+
+    id: str
+    kind: Literal["layer_order"]
+    layers: tuple[str, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
+    components: tuple[str, ...] | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class CompleteExternalScopeRule:
     id: str
     kind: Literal["complete_external_scope"]
@@ -485,6 +522,7 @@ ArchitectureRule: TypeAlias = (
     | RootLayoutRule
     | CompleteExternalScopeRule
     | CompleteRequiresRule
+    | LayerOrderRule
     | NoComponentCyclesRule
     | InterfaceBoundaryRule
     | SiblingIsolationRule
@@ -590,7 +628,7 @@ class ContractDeclarations:
 
 @dataclass(frozen=True, slots=True)
 class ArchitectureContract:
-    schema_version: Literal["2.1.0", "2.2.0"]
+    schema_version: Literal["2.1.0", "2.2.0", "2.3.0"]
     components: tuple[ContractComponent, ...]
     rules: tuple[ArchitectureRule, ...]
     schema: str | None = None
@@ -1184,6 +1222,7 @@ class ReportFilter:
     component: str | None = None
     # AD-100: list the unresolved and partially resolved calls instead of the violations.
     only_calls: bool = False
+    only_architecture: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -1198,27 +1237,6 @@ class FilteredViolation:
 
     record: Record
     locations: tuple[ReportLocation, ...]
-
-
-RuleAssessmentStatus: TypeAlias = Literal["PASS", "FAIL", "UNKNOWN", "DECLARATION"]
-
-
-@dataclass(frozen=True, slots=True)
-class RuleAssessment:
-    """One rule's evaluator-backed state for the current observation."""
-
-    id: str
-    kind: str
-    status: RuleAssessmentStatus
-    evaluation_proven: bool
-    count: int
-    undecided: int
-    decided_by: str
-    rationale: str
-    provenance: tuple[str, ...]
-    reason: str
-    scope: str
-    components: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1321,6 +1339,7 @@ class RunResult:
     unresolved_call_note: str | None = None
     # AD-100: `report --only calls`, every unresolved and partially resolved call it selects.
     filtered_calls: tuple[CallRow, ...] | None = None
+    architecture_projection: ArchitectureProjection | None = None
     rule_assessments: tuple[RuleAssessment, ...] | None = None
     baseline_path: str | None = None
     baseline_comparisons: tuple[BaselineViolationComparison, ...] | None = None

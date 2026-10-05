@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Cross-reference and source-payload invariants of the collection protocol."""
 
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable, Mapping
 from pathlib import PurePosixPath
 
 from .facts import (
@@ -318,6 +318,49 @@ def _member_inventory_bindings(records: list[Record]) -> None:
                 raise ValueError("member inventory identities disagree with their owner")
 
 
+def validate_source_bindings(
+    records: Iterable[Record],
+    module_paths: Mapping[str, str],
+    module_packages: Mapping[str, str],
+    evidence: Mapping[str, Evidence],
+    *,
+    import_ids: Collection[str],
+) -> None:
+    """Bind source records and their evidence to the same observed module."""
+    _unique(module_paths.values(), "module path")
+    modules_by_path = {path: module for module, path in module_paths.items()}
+    for record in records:
+        source_module = (
+            record.data.get("qualified_name")
+            if record.kind == "module"
+            else record.data.get("source_module", record.data.get("module"))
+        )
+        owner = record.data.get("owner")
+        if source_module is None and isinstance(owner, str) and record.evidence_ids:
+            source_module = modules_by_path.get(evidence[record.evidence_ids[0]].file)
+        if not isinstance(source_module, str):
+            raise ValueError("source record needs an observed module or owner")
+        source_path = module_paths.get(source_module)
+        if source_path is None:
+            raise ValueError("source record names an unobserved module")
+        if (
+            record.id in import_ids
+            and record.data.get("source_package") != module_packages[source_module]
+        ):
+            raise ValueError("import source package disagrees with its module")
+        for field in ("owner", "source_scope", "qualified_name", "declaration_scope"):
+            identity = record.data.get(field)
+            if identity is not None and (
+                not isinstance(identity, str)
+                or not in_scope(identity.split(":", 1)[0], source_module)
+            ):
+                raise ValueError(f"source record {field} disagrees with its module")
+        if not record.evidence_ids or any(
+            evidence[item].file != source_path for item in record.evidence_ids
+        ):
+            raise ValueError("source record evidence disagrees with its module")
+
+
 def validate_source_facts(facts: SourceFacts) -> None:
     """Reject claims that cannot be replayed by Core against a separate contract."""
     selected = _unique(facts.coverage.selected_files, "selected file")
@@ -337,7 +380,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         raise ValueError("selected input is outside selected coverage")
     file_ids = _unique((item.id for item in facts.files), "file id")
     _unique((item.module for item in facts.files), "module identity")
-    paths = _unique((item.rel_path for item in facts.files), "module path")
+    paths = {item.rel_path for item in facts.files}
     if not paths.issubset(selected_inputs):
         raise ValueError("observed module needs a selected input")
     if len(facts.files) > facts.coverage.files_parsed:
@@ -416,34 +459,18 @@ def validate_source_facts(facts: SourceFacts) -> None:
     if target_ids != imports:
         raise ValueError("each import needs exactly one typed target")
     file_by_module = {item.module: item for item in facts.files}
-    file_by_path = {item.rel_path: item for item in facts.files}
-    for section in facts.sections:
-        if section.name == "unknowns":
-            continue
-        for record in section.records:
-            source_module = record.data.get("source_module", record.data.get("module"))
-            owner = record.data.get("owner")
-            if source_module is None and isinstance(owner, str) and record.evidence_ids:
-                source = file_by_path.get(base_by_id[record.evidence_ids[0]].file)
-                source_module = source.module if source is not None else None
-            if not isinstance(source_module, str):
-                raise ValueError("source record needs an observed module or owner")
-            source = file_by_module.get(source_module)
-            if source is None:
-                raise ValueError("source record names an unobserved module")
-            for field in ("owner", "source_scope", "qualified_name", "declaration_scope"):
-                identity = record.data.get(field)
-                if identity is not None and (
-                    not isinstance(identity, str)
-                    or not in_scope(identity.split(":", 1)[0], source.module)
-                ):
-                    raise ValueError(f"source record {field} disagrees with its module")
-            if not record.evidence_ids or any(
-                base_by_id[item].file != source.rel_path for item in record.evidence_ids
-            ):
-                raise ValueError("source record evidence disagrees with its module")
-            if section.name == "imports" and record.data.get("source_package") != source.package:
-                raise ValueError("import source package disagrees with its module")
+    validate_source_bindings(
+        (
+            record
+            for section in facts.sections
+            if section.name != "unknowns"
+            for record in section.records
+        ),
+        {item.module: item.rel_path for item in facts.files},
+        {item.module: item.package for item in facts.files},
+        base_by_id,
+        import_ids=imports,
+    )
     for target in facts.imports:
         data = record_by_id[target.import_id].data
         if isinstance(target, LocalTarget):

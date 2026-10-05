@@ -8,7 +8,9 @@ from collections import Counter as _Counter
 from dataclasses import replace
 from pathlib import Path
 from typing import Literal as _Literal
+from typing import get_args
 
+from archkeel.ir.architecture_graph import RuleAssessment
 from archkeel.ir.baseline import (
     ViolationFingerprint,
     cycle_contractions,
@@ -18,7 +20,9 @@ from archkeel.ir.baseline import (
 )
 from archkeel.ir.codec import (
     canonical_report_bytes,
+    decode_canonical_model,
     decode_json,
+    parse_observation,
     parse_validation_baseline,
     result_bytes,
 )
@@ -31,27 +35,37 @@ from archkeel.ir.decisions import (
     rule_assessments,
     violation_counts,
 )
+from archkeel.ir.facts import SourceSectionName
+from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.model import (
     BaselineViolationComparison,
     CallRow,
     Diagnostic,
     DiagnosticError,
+    EvidenceClass,
     FilteredViolation,
     Observation,
     ObservationResult,
     ReportFilter,
     ReportLocation,
-    RuleAssessment,
     RunResult,
 )
+from archkeel.ir.profiles import PROFILES
+from archkeel.ir.report_graph import architecture_report
+from archkeel.ir.report_projection import architecture_projection
+from archkeel.ir.trace import validate_evidence_classes
 
 from .git import git_bytes
+from .observe import observation_diagnostics
 from .ports import Analyzer, ScanConfig
 from .ratchets import call_rows, calls_measured, unknown_positions_by_rule
 from .run import inspect_observation
+from .runtime import runtime_diagnostic
 from .snapshot import resolve_commit
 from .uml import assemble_uml
 from .uml_evaluation import evaluate_uml
+
+VIOLATION_REMEDY = "Change the code or amend the contract with owner approval."
 
 
 def _baseline_report(
@@ -248,10 +262,20 @@ def _selected_calls(model: Observation, report_filter: ReportFilter) -> tuple[Ca
 
 
 def _report_filter(
-    only_violations: bool, rule: str | None, component: str | None, only_calls: bool
+    only_violations: bool,
+    rule: str | None,
+    component: str | None,
+    only_calls: bool,
+    only_architecture: bool = False,
 ) -> ReportFilter | None:
-    if only_violations or only_calls or rule is not None or component is not None:
-        return ReportFilter(only_violations, rule, component, only_calls)
+    if (
+        only_violations
+        or only_calls
+        or only_architecture
+        or rule is not None
+        or component is not None
+    ):
+        return ReportFilter(only_violations, rule, component, only_calls, only_architecture)
     return None
 
 
@@ -275,22 +299,84 @@ def _incomplete_report_result(result: ObservationResult) -> RunResult:
     )
 
 
-def run_report(
-    root: Path,
+def _architecture_result(
+    model: Observation,
+    command_result: RunResult,
+    report_filter: ReportFilter | None,
+    component: str | None,
+    only_architecture: bool,
     *,
-    config: ScanConfig,
-    analyzer: Analyzer,
-    only_violations: bool = False,
-    rule: str | None = None,
-    component: str | None = None,
-    only_calls: bool = False,
+    require_source_graph: bool = False,
+) -> RunResult:
+    try:
+        report = architecture_report(model)
+        if require_source_graph and report.unavailable is not None:
+            raise ValueError(f"Recorded source graph is invalid: {report.unavailable}")
+        projection = architecture_projection(
+            model,
+            report,
+            command_result.rule_assessments or (),
+            violation_remedy=VIOLATION_REMEDY,
+            component=component if only_architecture else None,
+        )
+        finding_ids = (
+            {identity for owner in projection.components for identity in owner.finding_ids}
+            if component is not None
+            else {item.id for item in report.findings}
+        )
+        command_result = replace(
+            command_result,
+            report_filter=report_filter,
+            architecture_projection=projection,
+            filtered_violations=tuple(
+                FilteredViolation(
+                    record,
+                    tuple(
+                        ReportLocation(entry.file, entry.line)
+                        for entry in model.evidence
+                        if entry.id in record.evidence_ids
+                    ),
+                )
+                for record in model.records("violations") or ()
+                if record.id in finding_ids
+            )
+            if only_architecture
+            else command_result.filtered_violations,
+        )
+    except ValueError as error:
+        command_result = replace(
+            unknown_result("report", "architecture projection", error),
+            coverage=model.coverage,
+            python_version=model.python_version,
+        )
+    if (
+        report_filter is not None
+        and report_filter.only_violations
+        and command_result.rule_assessments is not None
+    ):
+        command_result = replace(
+            command_result,
+            rule_assessments=tuple(
+                item
+                for item in command_result.rule_assessments
+                if item.status in {"FAIL", "UNKNOWN"}
+            ),
+        )
+    return command_result
+
+
+def _report_result(
+    result: ObservationResult,
+    report_filter: ReportFilter | None,
+    *,
+    baseline_root: Path | None = None,
     baseline: Path | None = None,
-) -> tuple[RunResult, bytes | None]:
-    """Observe once; filters narrow report rows without changing verdicts or measurements."""
-    report_filter = _report_filter(only_violations, rule, component, only_calls)
-    result = observe_repository(root, config, analyzer)
+    require_source_graph: bool = False,
+) -> RunResult:
+    only_calls = report_filter is not None and report_filter.only_calls
+    only_architecture = report_filter is not None and report_filter.only_architecture
+    component = report_filter.component if report_filter is not None else None
     model = result.observation
-    architecture = canonical_report_bytes(model) if model is not None else None
     if result.diagnostics or model is None:
         command_result = _incomplete_report_result(result)
     else:
@@ -298,7 +384,7 @@ def run_report(
             measurements, declared = inspect_observation(model)
             filtered_violations = (
                 _selected_violations(model, report_filter)
-                if report_filter is not None and not only_calls
+                if report_filter is not None and not only_calls and not only_architecture
                 else None
             )
             filtered_calls = (
@@ -321,7 +407,11 @@ def run_report(
             comparisons: tuple[BaselineViolationComparison, ...] | None = None
             baseline_name: str | None = None
             if baseline is not None:
-                baseline_name, comparisons = _baseline_report(root, baseline, model, current_rules)
+                if baseline_root is None:
+                    raise ValueError("a baseline needs a repository root")
+                baseline_name, comparisons = _baseline_report(
+                    baseline_root, baseline, model, current_rules
+                )
             command_result = RunResult(
                 "report",
                 0,
@@ -343,13 +433,112 @@ def run_report(
                 baseline_path=baseline_name,
                 baseline_comparisons=comparisons,
             )
-    if only_violations and command_result.rule_assessments is not None:
-        command_result = replace(
+    if model is not None:
+        command_result = _architecture_result(
+            model,
             command_result,
-            rule_assessments=tuple(
-                item
-                for item in command_result.rule_assessments
-                if item.status in {"FAIL", "UNKNOWN"}
+            report_filter,
+            component,
+            only_architecture,
+            require_source_graph=require_source_graph,
+        )
+    return command_result
+
+
+def run_report(
+    root: Path,
+    *,
+    config: ScanConfig,
+    analyzer: Analyzer,
+    only_violations: bool = False,
+    rule: str | None = None,
+    component: str | None = None,
+    only_calls: bool = False,
+    only_architecture: bool = False,
+    baseline: Path | None = None,
+) -> tuple[RunResult, bytes | None]:
+    """Observe once; filters narrow report rows without changing verdicts or measurements."""
+    report_filter = _report_filter(only_violations, rule, component, only_calls, only_architecture)
+    result = observe_repository(root, config, analyzer)
+    architecture = (
+        canonical_report_bytes(result.observation) if result.observation is not None else None
+    )
+    return _report_result(
+        result, report_filter, baseline_root=root, baseline=baseline
+    ), architecture
+
+
+def run_saved_report(
+    path: Path,
+    *,
+    only_violations: bool = False,
+    rule: str | None = None,
+    component: str | None = None,
+    only_calls: bool = False,
+    only_architecture: bool = False,
+) -> RunResult:
+    """Query recorded evidence without collecting, evaluating or writing a working tree."""
+    report_filter = _report_filter(only_violations, rule, component, only_calls, only_architecture)
+    try:
+        raw = decode_json(path.read_bytes())
+        if not isinstance(raw, dict):
+            raise ValueError("architecture.json must be an object")
+        model = parse_observation(decode_canonical_model(raw))
+        validate_evidence_classes(model)
+        module_paths: dict[str, str] = {}
+        module_packages: dict[str, str] = {}
+        for module in model.records("modules") or ():
+            name, source_path, package = (
+                module.data.get("qualified_name"),
+                module.data.get("file"),
+                module.data.get("package"),
+            )
+            if (
+                not isinstance(name, str)
+                or not isinstance(source_path, str)
+                or not isinstance(package, str)
+                or name in module_paths
+            ):
+                raise ValueError("recorded modules need source paths, packages and unique names")
+            module_paths[name] = source_path
+            module_packages[name] = package
+        # Core allowance receipts retain trace checks but have no collector source payload.
+        validate_source_bindings(
+            (
+                record
+                for section in model.sections
+                if section.name == "modules"
+                or (section.name in get_args(SourceSectionName) and section.name != "unknowns")
+                for record in section.records
+                if not (
+                    section.name == "typing_signals"
+                    and record.kind in {"boundary_type_allowance", "type_ignore_allowance"}
+                    and record.evidence_class == EvidenceClass.FACT
+                )
+            ),
+            module_paths,
+            module_packages,
+            {item.id: item for item in model.evidence},
+            import_ids={item.id for item in model.records("imports") or ()},
+        )
+        runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
+        language = next(
+            language
+            for language, profile in PROFILES.items()
+            if profile.analyzer == model.analyzer.name
+        )
+        diagnostics = observation_diagnostics(model, runtime, language)
+        return _report_result(
+            ObservationResult(model, model.coverage, diagnostics),
+            report_filter,
+            require_source_graph=True,
+        )
+    except (OSError, ValueError, TypeError, KeyError, IndexError) as error:
+        result = unknown_result("report", str(path), error)
+        return replace(
+            result,
+            diagnostics=tuple(
+                replace(item, remedy="Restore a complete recorded architecture.json and retry.")
+                for item in result.diagnostics
             ),
         )
-    return command_result, architecture

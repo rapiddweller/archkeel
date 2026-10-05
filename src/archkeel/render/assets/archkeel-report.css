@@ -1858,7 +1858,7 @@ code {
   }
 }
 @media (prefers-color-scheme: light), print {
-  :root {
+  :root:not([data-theme="dark"]) {
     color-scheme: light;
     --ck-black: #ffffff;
     --ck-surface: #ffffff;
@@ -1890,10 +1890,10 @@ code {
     --ck-target-related-border: #4338ca;
     --ck-dim-text: #475569;
   }
-  .report-logo-dark {
+  :root:not([data-theme="dark"]) .report-logo-dark {
     display: none;
   }
-  .report-logo-light {
+  :root:not([data-theme="dark"]) .report-logo-light {
     display: block;
   }
 }
@@ -1971,4 +1971,364 @@ code {
 }
 [data-assessment-status="PASS"] .uml-assessment {
   fill: var(--ck-pass);
+}
+
+/* Atlas uses the report palette and the shared UML drawing surface. */
+:root[data-theme="light"] {
+    color-scheme: light;
+    --ck-black: #ffffff;
+    --ck-surface: #ffffff;
+    --ck-surface-raised: #f4f4f0;
+    --ck-border: #d8d8d2;
+    --ck-text: #0d0d0d;
+    --ck-muted: #4a4a44;
+    --ck-teal: #0f766e;
+    --ck-declared: #4338ca;
+    --ck-pass: #0f766e;
+    --ck-fail: #b91c1c;
+    --ck-unknown: #854d0e;
+    --ck-info: #0f766e;
+    --ck-on-status: #ffffff;
+    --uml-calls: #1d4ed8;
+    --uml-imports: #6d28d9;
+    --uml-references: #475569;
+    --uml-creates: #0f766e;
+    --uml-instance_of: #0369a1;
+    --uml-class: #6d28d9;
+    --uml-enum: #a21caf;
+    --ck-target-surface: #eef2f8;
+    --ck-target-border: #64748b;
+    --ck-target-frame: #eef2f8;
+    --ck-target-frame-border: #64748b;
+    --ck-related-surface: #e7f1f3;
+    --ck-related-border: #466775;
+    --ck-target-related-surface: #e7ebf8;
+    --ck-target-related-border: #4338ca;
+    --ck-dim-text: #475569;
+}
+:root[data-theme="light"] .report-logo-dark,
+:root[data-theme="dark"] .report-logo-light {
+  display: none;
+}
+:root[data-theme="light"] .report-logo-light,
+:root[data-theme="dark"] .report-logo-dark {
+  display: block;
+}
+.report-shell:has(.atlas-heading) {
+  width:min(1600px,calc(100% - 40px));
+  padding-top:12px
+}
+.atlas-heading {
+  margin-bottom: 8px;
+  display:flex;
+  gap:20px;
+  align-items:center;
+  justify-content:space-between
+}
+.atlas-heading h1 {
+  font-size:30px
+}
+.atlas-heading p {
+  margin:6px 0;
+  overflow-wrap:anywhere
+}
+.theme-toggle {
+  background:var(--ck-surface);
+  border:1px solid var(--ck-border);
+  color:var(--ck-text);
+  border-radius:50%;
+  width:40px;
+  height:40px;
+  font-size:24px;
+  cursor:pointer;
+  flex-shrink:0
+}
+.atlas-status {
+  color:var(--ck-muted);
+  margin:8px 0 12px
+}
+.flow[data-atlas] .flow-layout {
+  display:grid;
+  grid-template-columns:minmax(0,7fr) minmax(260px,3fr);
+  gap:20px;
+  align-items:start
+}
+.flow[data-atlas] .flow-map-column {
+  min-width:0
+}
+.flow[data-atlas] .flow-canvas {
+  height:620px;
+  min-height:300px;
+  background:var(--ck-black);
+  border:1px solid var(--ck-border);
+  border-radius:8px
+}
+.flow[data-atlas] .flow-inspector {
+  height: auto;
+  position:sticky;
+  top:20px;
+  max-height:calc(100vh - 40px);
+  overflow:auto;
+  width:auto;
+  max-width:none;
+  min-width:0;
+  background:var(--ck-surface);
+  border:1px solid var(--ck-border);
+  border-radius:8px;
+  padding:20px
+}
+.flow[data-atlas] .flow-inspector h2 {
+  font-size:20px
+}
+.flow[data-atlas] .flow-inspector h3 {
+  font-size:13px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  margin:24px 0 8px;
+  color:var(--ck-muted)
+}
+.flow[data-atlas] .flow-inspector p {
+  overflow-wrap:anywhere
+}
+.flow[data-atlas] .flow-inspector ul {
+  padding-left:18px
+}
+.flow[data-atlas] .flow-inspector li {
+  margin:8px 0
+}
+.flow[data-atlas] .flow-toolbar {
+  min-height: 0;
+  gap:8px
+}
+.flow[data-atlas] .flow-how-to-read {
+  display:none
+}
+.atlas-summary {
+  padding:4px 0;
+  color:var(--ck-muted)
+}
+.flow[data-atlas] .flow-graph .card {
+  fill:var(--ck-surface);
+  stroke:var(--ck-border)
+}
+.flow[data-atlas] .flow-graph .selected .card {
+  stroke:var(--ck-lime);
+  stroke-width:2
+}
+.flow[data-atlas] .flow-graph [data-assessment-status="FAIL"] .card {
+  stroke:var(--ck-fail)
+}
+.flow[data-atlas] .flow-graph [data-assessment-status="UNKNOWN"] .card {
+  stroke:var(--ck-unknown)
+}
+.flow[data-atlas] .flow-graph .meta {
+  font-family:var(--ck-font-sans);
+  font-size:12px
+}
+.flow[data-atlas] .flow-graph .dim {
+  opacity:.25
+}
+.atlas-weight {
+  fill:var(--ck-muted);
+  font:11px var(--ck-font-mono)
+}
+.atlas-edge-label {
+  fill:var(--ck-muted);
+  font:11px var(--ck-font-sans);
+  paint-order:stroke;
+  stroke:var(--ck-black);
+  stroke-width:4px;
+  stroke-linejoin:round
+}
+.flow[data-atlas] .flow-graph .violation .atlas-edge-label {
+  fill:var(--ck-fail)
+}
+.flow-explore {
+  margin-top:24px;
+  padding:20px;
+  border:1px solid var(--ck-border);
+  border-radius:8px;
+  background:var(--ck-surface);
+  min-width:0
+}
+.flow-explore h3 {
+  margin:0 0 8px
+}
+.flow-explore p {
+  margin:8px 0;
+  color:var(--ck-muted)
+}
+.atlas-explore-heading {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 20px;
+  justify-content:space-between
+}
+.atlas-explore-heading span {
+  color:var(--ck-muted)
+}
+.atlas-questions {
+  list-style:none;
+  padding:0;
+  margin:16px 0
+}
+.atlas-questions>li {
+  padding:4px 0;
+  border-bottom:1px solid var(--ck-border)
+}
+.atlas-chip {
+  display:inline-block;
+  background:var(--ck-surface-raised);
+  border:1px solid var(--ck-border);
+  border-radius:4px;
+  padding:2px 6px;
+  font-size:11px
+}
+.flow-explore button {
+  background:transparent;
+  border:0;
+  color:var(--ck-teal);
+  cursor:pointer;
+  padding:4px
+}
+.flow-explore textarea {
+  width:100%;
+  min-height:150px;
+  color:var(--ck-text);
+  background:var(--ck-surface-raised);
+  border:1px solid var(--ck-border)
+}
+.flow[data-atlas] .flow-matrix {
+  overflow:auto;
+  min-width:0;
+  width:100%;
+  max-width:100%;
+  margin-top:12px;
+  border:1px solid var(--ck-border);
+  padding:12px
+}
+.flow-matrix svg {
+  display:block;
+  max-width:none
+}
+.matrix-block {
+  fill:var(--ck-surface-raised);
+  stroke:var(--ck-border);
+  stroke-width:1
+}
+.matrix-label {
+  fill:var(--ck-muted);
+  font:10px var(--ck-font-mono);
+  cursor:pointer
+}
+.matrix-cell {
+  cursor:pointer;
+  fill:var(--ck-muted)
+}
+.matrix-cell.fail {
+  fill:var(--ck-fail)
+}
+.matrix-cell.unknown {
+  fill:var(--ck-unknown)
+}
+.matrix-cell.quiet {
+  opacity:.3
+}
+.matrix-cell.highlighted {
+  stroke:var(--ck-lime);
+  stroke-width:2;
+  opacity:1
+}
+.atlas-coverage {
+  font-size:12px
+}
+.atlas-source {
+  margin-top:24px;
+  overflow-wrap:anywhere
+}
+@media(max-width:900px) {
+  .flow[data-atlas] .flow-layout {
+    grid-template-columns:minmax(0,1fr)
+  }
+  .flow[data-atlas] .flow-inspector {
+    position:static;
+    max-height:none
+  }
+  .flow[data-atlas] .flow-canvas {
+    height:460px
+  }
+  .report-shell:has(.atlas-heading) {
+    width:calc(100% - 24px)
+  }
+  .flow-explore {
+    padding:12px
+  }
+  .flow[data-atlas] .flow-toolbar {
+    padding:8px 0
+  }
+  .flow[data-atlas] .flow-inspector-content {
+    max-height:none
+  }
+  .flow[data-atlas] .flow-zoom-controls {
+    flex-wrap:wrap
+  }
+  .flow[data-atlas] .flow-view-group {
+    max-width:100%
+  }
+  .atlas-heading h1 {
+    font-size:24px
+  }
+}
+
+.atlas-section {
+  margin-top: 16px;
+}
+.flow[data-atlas] {
+  grid-template-rows: auto;
+  gap: 8px;
+}
+.flow[data-atlas] h2 {
+  margin-bottom: 0;
+}
+.flow[data-atlas] [hidden] {
+  display: none !important;
+}
+
+body:has(.atlas-heading) .report-header {
+  min-height: 64px;
+  padding-block: 10px;
+}
+body:has(.atlas-heading) .report-logo {
+  width: 170px;
+}
+.flow[data-atlas] .flow-views,
+.flow[data-atlas] .flow-toolbar {
+  margin-bottom: 0;
+}
+.flow[data-atlas] .flow-views button {
+  padding-block: 6px;
+}
+.flow[data-atlas] .flow-breadcrumb {
+  flex: 1 1 180px;
+  order: 0;
+}
+
+.flow[data-atlas] .node.uml-card .stereotype,
+.flow[data-atlas] .node.uml-card .uml-icon text {
+  fill: var(--ck-muted);
+}
+.flow[data-atlas] .uml-kind-accent {
+  stroke: var(--ck-teal);
+}
+
+.flow[data-atlas][data-content="modules"] .flow-alternative {
+  height: auto;
+  padding: 16px;
+}
+.atlas-content-choice {
+  display: flex;
+  gap: 8px;
+}
+.atlas-content-choice[hidden] {
+  display: none;
 }

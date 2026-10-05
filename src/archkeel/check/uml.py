@@ -10,7 +10,7 @@ import json
 from dataclasses import asdict, replace
 from pathlib import Path
 
-from archkeel.ir.architecture_graph import TargetDefinition
+from archkeel.ir.architecture_graph import ArchitectureGraph, TargetDefinition
 from archkeel.ir.codec import (
     InsideContractTree,
     decode_json,
@@ -22,6 +22,7 @@ from archkeel.ir.codec import (
 )
 from archkeel.ir.model import (
     ARCHITECTURE_TARGET_KIND,
+    RULE_KINDS,
     TARGET_GRAPH_RECORD_KINDS,
     UML_TARGET_KIND,
     ArchitectureContract,
@@ -37,6 +38,8 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.target_graph import component_permissions, declared_tree_graph
+
+from .declarations import project_rule_declaration
 
 
 def _read_contract(root: Path, relative: str) -> tuple[bytes, str]:
@@ -169,6 +172,7 @@ def _owner_ids(
             or owner.data.get("responsibilities") != tuple(sorted(component.responsibilities))
             or owner.subjects != tuple(sorted(component.packages))
             or owner.data.get("role") != component.role.value
+            or owner.data.get("layer") != component.layer
             or owner.data.get("public")
             != (None if component.public is None else tuple(sorted(component.public)))
             or owner.data.get("planned")
@@ -235,6 +239,37 @@ def _unavailable_target_assessment(path: str, identity: str) -> Record:
     )
 
 
+def _authenticate_rules(tree: InsideContractTree, known: dict[str, Record]) -> None:
+    expected = []
+    for contract, parent in (
+        (tree.root, None),
+        *((mount.contract, mount.parent_id) for mount in tree.mounts),
+    ):
+        for rule in contract.rules:
+            raw = project_rule_declaration(rule)
+            if parent is not None:
+                raw = {**raw, "data": {**raw["data"], "parent_id": parent}}
+            expected.append(parse_record(raw))
+    actual = tuple(
+        item
+        for item in known.values()
+        if item.kind in RULE_KINDS and item.evidence_class.value == "DECLARED_RULE"
+    )
+    if {item.id for item in expected} != {item.id for item in actual} or any(
+        known.get(item.id) != item for item in expected
+    ):
+        raise ValueError("governing rules differ from the authenticated contract")
+
+
+def _target_definition(graph: ArchitectureGraph) -> TargetDefinition:
+    return TargetDefinition(
+        entities=tuple(entity for entity in graph.entities if entity.kind != "component"),
+        relationships=tuple(edge for edge in graph.relationships if edge.kind != "requires"),
+        scopes=graph.target_scopes,
+        schema_version=graph.schema_version,
+    )
+
+
 def _target_records(
     tree: InsideContractTree, path: str, known: dict[str, Record]
 ) -> tuple[Record, Record | None] | None:
@@ -253,6 +288,7 @@ def _target_records(
         or graph.public_api
         or graph.external_scopes
     ):
+        _authenticate_rules(tree, known)
         return None
     owner_ids: list[str] = _owner_ids(tree.root, known)
     module_ids, layout_ids = _physical_ids(tree.root, path, known)
@@ -273,12 +309,8 @@ def _target_records(
                 "external_scope_ids": _external_scope_ids(mount.contract, known, mount.parent_id),
             }
         )
-    target = TargetDefinition(
-        entities=tuple(entity for entity in graph.entities if entity.kind != "component"),
-        relationships=tuple(edge for edge in graph.relationships if edge.kind != "requires"),
-        scopes=graph.target_scopes,
-        schema_version=graph.schema_version,
-    )
+    _authenticate_rules(tree, known)
+    target = _target_definition(graph)
     identity = stable_id("UML-TARGET" if targets else "ARCHITECTURE-TARGET", path)
     declaration = parse_record(
         {
@@ -359,7 +391,7 @@ def assemble_uml(result: ObservationResult, contract_root: Path, path: str) -> O
         record for record in known.values() if record.kind in TARGET_GRAPH_RECORD_KINDS
     )
     if (
-        model.contract.schema_version != "2.2.0"
+        model.contract.schema_version not in {"2.2.0", "2.3.0"}
         and not recorded_targets
         and not any(
             record.kind

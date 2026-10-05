@@ -6,6 +6,7 @@
 import json
 import re
 from dataclasses import replace
+from pathlib import Path
 from typing import get_args
 
 import pytest
@@ -13,6 +14,29 @@ import pytest
 from archkeel.ir.architecture_graph import EntityKind
 from archkeel.ir.graph_codec import parse_report
 from fixtures.architecture_demo import CATALOG, replay
+
+
+def _demo_report(output):
+    main = output.with_suffix(".report.html")
+    payload = re.search(r'<script[^>]*id="flow-data"[^>]*>(.*?)</script>', main.read_text(), re.S)
+    assert payload
+    atlas = json.loads(payload.group(1))["atlas"]
+    href = next(item["detail_href"] for item in atlas["components"] if item["label"] == "demo")
+    assert Path(href).name == href
+    sidecar = main.with_name(href)
+    payload = re.search(
+        r'<script[^>]*id="flow-data"[^>]*>(.*?)</script>', sidecar.read_text(), re.S
+    )
+    assert payload
+    data = json.loads(payload.group(1))
+    assert data["navigation"]["main_href"] == main.name
+    return parse_report(
+        {
+            key: value
+            for key, value in data.items()
+            if key not in {"initial_scope", "initial_view", "navigation"}
+        }
+    )
 
 
 def test_complete_uml_demo_rejects_an_unlisted_definition(tmp_path, capsys, monkeypatch):
@@ -30,12 +54,7 @@ def test_complete_uml_demo_rejects_an_unlisted_definition(tmp_path, capsys, monk
     output = tmp_path / "architecture.json"
     assert replay("uml-complete", output) == 2
     capsys.readouterr()
-    payload = re.search(
-        r'<script[^>]*id="flow-data"[^>]*>(.*?)</script>',
-        output.with_suffix(".report.html").read_text(),
-        re.S,
-    )
-    report = parse_report(json.loads(payload.group(1)))
+    report = _demo_report(output)
     extra = next(e for e in report.observed.entities if e.qualified_name == "demo.core.extra")
     assert any(
         a.status == "FAIL" and a.aspect == "completeness" and extra.id in a.observed_ids
@@ -51,9 +70,7 @@ def test_complete_uml_demo_declares_closed_intent_without_claiming_full_observat
     assert replay("uml-complete", output) == 0
     result = json.loads(capsys.readouterr().out.splitlines()[-1])
     assert result["declared_rules"] == "UNKNOWN"
-    html = output.with_suffix(".report.html").read_text()
-    payload = re.search(r'<script[^>]*id="flow-data"[^>]*>(.*?)</script>', html, re.S)
-    report = parse_report(json.loads(payload.group(1)))
+    report = _demo_report(output)
     assert {e.kind for e in report.target.entities} == set(get_args(EntityKind))
     assert report.target.target_scopes and all(
         s.mode == "closed" for s in report.target.target_scopes
@@ -95,10 +112,7 @@ def test_uml_demo_uses_independent_target_and_recorded_core_comparison(
     assert replay(variant, output) == exit_code
     result = json.loads(capsys.readouterr().out.splitlines()[-1])
     assert result["declared_rules"] == status
-    html = output.with_suffix(".report.html").read_text()
-    payload = re.search(r'<script[^>]*id="flow-data"[^>]*>(.*?)</script>', html, re.S)
-    assert payload
-    report = parse_report(json.loads(payload.group(1)))
+    report = _demo_report(output)
     assert report.observed.origin == "observed" and report.target.origin == "declared"
     assert report.observed.schema_version == report.target.schema_version == "1.1.0"
     assert report.comparison and report.comparison.assessments
@@ -160,10 +174,7 @@ def test_language_uml_demo_keeps_unsupported_inner_observation_unknown(
     assert replay(variant, output) == 0
     result = json.loads(capsys.readouterr().out.splitlines()[-1])
     assert result["declared_rules"] == "UNKNOWN"
-    html = output.with_suffix(".report.html").read_text()
-    payload = re.search(r'<script[^>]*id="flow-data"[^>]*>(.*?)</script>', html, re.S)
-    assert payload
-    report = parse_report(json.loads(payload.group(1)))
+    report = _demo_report(output)
     assert {e.language for e in report.target.entities if e.kind != "component"} == {language}
     assert {e.kind for e in report.target.entities} >= {
         "module",
@@ -193,13 +204,23 @@ def test_language_uml_demo_keeps_unsupported_inner_observation_unknown(
     assert any(r.kind == "imports" for r in report.observed.relationships)
 
 
-@pytest.mark.parametrize("variant", ["uml-match", "uml-complete", "uml-dart", "uml-typescript"])
-def test_language_uml_demo_uses_shared_browser_acceptance(tmp_path, capsys, variant):
+@pytest.mark.parametrize(
+    "variant,exit_code",
+    [
+        ("uml-match", 0),
+        ("uml-complete", 0),
+        ("uml-mismatch", 2),
+        ("uml-partial", 0),
+        ("uml-dart", 0),
+        ("uml-typescript", 0),
+    ],
+)
+def test_language_uml_demo_uses_shared_browser_acceptance(tmp_path, capsys, variant, exit_code):
     api = pytest.importorskip("playwright.sync_api")
     from tools.report_browser import _check_inner_uml
 
     output = tmp_path / "architecture.json"
-    assert replay(variant, output) == 0
+    assert replay(variant, output) == exit_code
     capsys.readouterr()
     with api.sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)

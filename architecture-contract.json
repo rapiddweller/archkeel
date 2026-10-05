@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
-  "schema_version": "2.1.0",
+  "schema_version": "2.3.0",
   "components": [
     {
       "id": "COMP-API",
@@ -33,7 +33,8 @@
         "docs/architecture/archkeel.md"
       ],
       "decided_by": "architect",
-      "public": []
+      "public": [],
+      "layer": "External"
     },
     {
       "id": "COMP-IR",
@@ -107,6 +108,7 @@
         "archkeel.ir.profiles:PROFILES",
         "archkeel.ir.profiles:UnmeasurableScalar",
         "archkeel.ir.facts_validation:validate_source_facts",
+        "archkeel.ir.facts_validation:validate_source_bindings",
         "archkeel.ir.source_records:RawData",
         "archkeel.ir.source_records:RawRecord",
         "archkeel.ir.source_records:RawEvidence",
@@ -114,8 +116,26 @@
         "archkeel.ir.source_records:FRAMEWORK_BASES",
         "archkeel.ir.source_records:is_public_method_name",
         "archkeel.ir.architecture_graph:ArchitectureReport",
+        "archkeel.ir.architecture_graph:RuleAssessment",
         "archkeel.ir.graph_codec:report_bytes",
-        "archkeel.ir.report_graph:architecture_report"
+        "archkeel.ir.report_graph:architecture_report",
+        "archkeel.ir.architecture_projection:ArchitectureProjection",
+        "archkeel.ir.architecture_projection:ModuleProjection",
+        "archkeel.ir.architecture_projection:RequiresProjection",
+        "archkeel.ir.architecture_projection:PermissionProjection",
+        "archkeel.ir.architecture_projection:UsageProjection",
+        "archkeel.ir.architecture_projection:ComponentProjection",
+        "archkeel.ir.architecture_projection:LevelProjection",
+        "archkeel.ir.architecture_projection:PermissionRuleProjection",
+        "archkeel.ir.architecture_projection:RequiredRelationshipProjection",
+        "archkeel.ir.architecture_projection:OwnershipGap",
+        "archkeel.ir.architecture_projection:UnknownProjection",
+        "archkeel.ir.report_projection:architecture_projection",
+        "archkeel.ir.module_explore:ModuleStatistic",
+        "archkeel.ir.module_explore:ModuleImportCell",
+        "archkeel.ir.module_explore:HintCandidate",
+        "archkeel.ir.module_explore:ModuleExploreLevel",
+        "archkeel.ir.module_explore:module_exploration"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
@@ -127,7 +147,8 @@
         "docs/architecture/archkeel.md"
       ],
       "decided_by": "architect",
-      "inside": "docs/architecture/contracts/ir.json"
+      "inside": "docs/architecture/contracts/ir.json",
+      "layer": "Core"
     },
     {
       "id": "COMP-CHECK",
@@ -172,7 +193,8 @@
       "provenance": [
         "docs/architecture/archkeel.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "layer": "Core"
     },
     {
       "id": "COMP-CLI",
@@ -216,7 +238,8 @@
         "docs/architecture/archkeel.md"
       ],
       "decided_by": "architect",
-      "public": []
+      "public": [],
+      "layer": "Edge"
     },
     {
       "id": "COMP-HOST",
@@ -244,7 +267,8 @@
       "provenance": [
         "docs/architecture/archkeel.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "layer": "Adapters"
     },
     {
       "id": "COMP-ANALYZER",
@@ -283,7 +307,8 @@
       "provenance": [
         "docs/architecture/archkeel.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "layer": "Adapters"
     },
     {
       "id": "COMP-RENDER",
@@ -323,7 +348,8 @@
         "docs/architecture/archkeel.md"
       ],
       "decided_by": "architect",
-      "inside": "docs/architecture/contracts/render.json"
+      "inside": "docs/architecture/contracts/render.json",
+      "layer": "Edge"
     }
   ],
   "declarations": {
@@ -423,10 +449,11 @@
       {
         "source": "cli",
         "target": "check",
-        "max_names": 14,
+        "max_names": 15,
         "provenance": [
           "docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md",
-          "docs/architecture/decisions/ad-148-source-facts-and-core-evaluation-have-separate-owners.md"
+          "docs/architecture/decisions/ad-148-source-facts-and-core-evaluation-have-separate-owners.md",
+          "docs/architecture/decisions/ad-207-atlas-projection-boundaries.md"
         ]
       },
       {
@@ -751,11 +778,19 @@
       "id": "RENDER-TYPES-DECLARED",
       "kind": "boundary_types",
       "source": "archkeel.render",
-      "rationale": "render's three summary functions return the projection the composition root prints; a caller cannot use the value without the type, so Summary belongs to the facade (AD-68).",
+      "rationale": "render's three summary functions return the projection the composition root prints; a caller cannot use the value without the type, so Summary belongs to the facade (AD-68). Offline detail output maps generated filenames to bytes; only that exact return position permits an open map.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "allowed_positions": [
+        {
+          "qualified_name": "archkeel.render.html.render_architecture_details",
+          "position": "return",
+          "field_path": "",
+          "annotation": "dict[str, bytes]"
+        }
+      ]
     }
   ]
 }

@@ -1,0 +1,1001 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:architecture-command:1.0.0",
+  "title": "Focused architecture command",
+  "$comment": "Default fields may be omitted. Selector names starting with dot or colon (or empty) are relative to selector_prefix, falling back to namespace. Public/planned group selectors by module, with symbol names or empty for the whole module. Module paths are relative to component.path; empty means that exact file. Required summaries group only internal class/method/type relationships by authenticated scope, kind, Core status and exact reasons; cross-component and interface relationships remain individual. Permission rule_ids exclude requires IDs already carried by the same component: allowed pairs restore those IDs by matching requires.target_id. Requires observed_imports count component-pair sites, not narrower through compliance. Numeric reasons index reasons. UNKNOWN rows [scopes, count] account for every uncertainty exactly once; empty scopes are global or unattributed. Permission rules carry original authenticated Core declarations and assessments. Allowed is a declared conditional permission, not permission for each import. Policy context retains ancestor levels/rules and peer ownership/public/planned selectors. Coverage and Core verdicts remain global under component filters.",
+  "$ref": "#/$defs/ArchitectureCommandEnvelope",
+  "$defs": {
+    "ArchitectureCommandEnvelope": {
+      "type": "object",
+      "properties": {
+        "exit_code": {
+          "enum": [
+            0,
+            1,
+            2
+          ]
+        },
+        "observation_complete": {
+          "enum": [
+            "PASS",
+            "UNKNOWN"
+          ]
+        },
+        "declared_rules": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "coverage": {
+          "anyOf": [
+            {
+              "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/coverage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:archkeel:command-result:5.0.0#/$defs/diagnostic"
+          }
+        },
+        "report_filter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReportFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "architecture_projection": {
+          "$ref": "#/$defs/ArchitectureCommandView"
+        },
+        "filtered_violations": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:archkeel:command-result:5.0.0#/$defs/filteredViolation"
+          }
+        },
+        "command": {
+          "enum": [
+            "report"
+          ]
+        },
+        "expectation_fulfilled": {
+          "enum": [
+            "n/a"
+          ]
+        },
+        "schema_version": {
+          "enum": [
+            "1.0.0"
+          ]
+        }
+      },
+      "required": [
+        "exit_code",
+        "observation_complete",
+        "declared_rules",
+        "coverage",
+        "diagnostics",
+        "report_filter",
+        "architecture_projection",
+        "filtered_violations",
+        "schema_version"
+      ],
+      "additionalProperties": false
+    },
+    "ReportFilter": {
+      "type": "object",
+      "properties": {
+        "only_violations": {
+          "type": "boolean"
+        },
+        "rule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "component": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "only_calls": {
+          "type": "boolean"
+        },
+        "only_architecture": {
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ArchitectureCommandView": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/SourceInfo"
+        },
+        "contract_digest": {
+          "type": "string"
+        },
+        "analyzer_digest": {
+          "type": "string"
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArchitectureComponentView"
+          }
+        },
+        "policy_context": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PermissionContextView"
+          }
+        },
+        "levels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LevelProjection"
+          }
+        },
+        "permission_rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PermissionRuleProjection"
+          }
+        },
+        "required_relationships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RequiredRelationshipProjection"
+          }
+        },
+        "required_summaries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RequiredRelationshipSummary"
+          }
+        },
+        "ownership_gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OwnershipGap"
+          }
+        },
+        "unknowns": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ],
+                "minItems": 2,
+                "maxItems": 2
+              }
+            }
+          }
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "violation_remedy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "contract_digest",
+        "analyzer_digest",
+        "components",
+        "policy_context",
+        "levels",
+        "permission_rules",
+        "required_relationships",
+        "required_summaries",
+        "ownership_gaps",
+        "unknowns",
+        "status",
+        "reason",
+        "reasons",
+        "violation_remedy"
+      ],
+      "additionalProperties": false
+    },
+    "SourceInfo": {
+      "type": "object",
+      "properties": {
+        "git_head": {
+          "type": "string"
+        },
+        "dirty": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "unknown"
+              ]
+            }
+          ]
+        },
+        "source_digest": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "git_head",
+        "dirty",
+        "source_digest",
+        "scope"
+      ],
+      "additionalProperties": false
+    },
+    "ArchitectureComponentView": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "responsibilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "not_responsible_for": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "reason": {
+          "type": "integer"
+        },
+        "decided_by": {
+          "anyOf": [
+            {
+              "enum": [
+                "architect",
+                "agent"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "role": {
+          "enum": [
+            "component",
+            "interface",
+            "contract",
+            "projection",
+            "foundation"
+          ]
+        },
+        "namespace": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "selector_prefix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "layer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exact_modules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "public": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "planned": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modules": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RequiresProjection"
+          }
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PermissionGroup"
+          }
+        },
+        "used_by": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "finding_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "path",
+        "provenance",
+        "packages",
+        "responsibilities",
+        "not_responsible_for",
+        "status",
+        "reason",
+        "decided_by"
+      ],
+      "additionalProperties": false
+    },
+    "RequiresProjection": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "target_id": {
+          "type": "string"
+        },
+        "through": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "decided_by": {
+          "anyOf": [
+            {
+              "enum": [
+                "architect",
+                "agent"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observed_imports": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "target_id",
+        "through",
+        "rationale",
+        "decided_by",
+        "observed_imports"
+      ],
+      "additionalProperties": false
+    },
+    "PermissionGroup": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "allowed",
+            "forbidden",
+            "undecided"
+          ]
+        },
+        "reason": {
+          "type": "integer"
+        },
+        "target_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rule_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "reason",
+        "target_ids"
+      ],
+      "additionalProperties": false
+    },
+    "PermissionContextView": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exact_modules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RequiresProjection"
+          }
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PermissionGroup"
+          }
+        },
+        "public": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "planned": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "parent_id",
+        "packages",
+        "exact_modules",
+        "requires",
+        "permissions",
+        "public",
+        "planned"
+      ],
+      "additionalProperties": false
+    },
+    "LevelProjection": {
+      "type": "object",
+      "properties": {
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "component_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "declared": {
+          "type": "integer"
+        },
+        "used": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unused": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "undeclared": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "undecided": {
+          "type": "integer"
+        },
+        "unowned_modules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "parent_id",
+        "component_ids",
+        "declared",
+        "used",
+        "unused",
+        "undeclared",
+        "undecided",
+        "unowned_modules"
+      ],
+      "additionalProperties": false
+    },
+    "PermissionRuleProjection": {
+      "type": "object",
+      "properties": {
+        "declaration": {
+          "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+        },
+        "assessment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RuleAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "declaration",
+        "assessment"
+      ],
+      "additionalProperties": false
+    },
+    "RuleAssessment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN",
+            "DECLARATION"
+          ]
+        },
+        "evaluation_proven": {
+          "type": "boolean"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "undecided": {
+          "type": "integer"
+        },
+        "decided_by": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "status",
+        "evaluation_proven",
+        "count",
+        "undecided",
+        "decided_by",
+        "rationale",
+        "provenance",
+        "reason",
+        "scope",
+        "components"
+      ],
+      "additionalProperties": false
+    },
+    "RequiredRelationshipProjection": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "imports",
+            "calls",
+            "references",
+            "inherits",
+            "realizes",
+            "creates",
+            "instance_of",
+            "owns",
+            "requires",
+            "publishes"
+          ]
+        },
+        "source_id": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "target_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "component_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "internal_scope": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "source_id",
+        "source",
+        "target_id",
+        "target",
+        "status",
+        "reasons"
+      ],
+      "additionalProperties": false
+    },
+    "RequiredRelationshipSummary": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "imports",
+            "calls",
+            "references",
+            "inherits",
+            "realizes",
+            "creates",
+            "instance_of",
+            "owns",
+            "requires",
+            "publishes"
+          ]
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "kind",
+        "status",
+        "reasons",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "OwnershipGap": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "candidate_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "module",
+        "path",
+        "candidate_ids",
+        "reason"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

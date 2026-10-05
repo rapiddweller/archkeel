@@ -29,7 +29,8 @@ EntityKind: TypeAlias = Literal[
     "binding",
     "symbol",
 ]
-GraphSchemaVersion: TypeAlias = Literal["1.1.0", "1.0.0"]
+GraphSchemaVersion: TypeAlias = Literal["1.2.0", "1.1.0", "1.0.0"]
+_CLASSIFIER_KINDS: frozenset[EntityKind] = frozenset({"class", "interface", "enum"})
 RelationshipKind: TypeAlias = Literal[
     "imports",
     "calls",
@@ -58,6 +59,7 @@ PresenceKind: TypeAlias = Literal["defined", "referenced", "planned", "unspecifi
 ResolutionKind: TypeAlias = Literal["resolved", "partial", "unresolved", "not_applicable"]
 CompletenessMode: TypeAlias = Literal["open", "closed"]
 AssessmentStatus: TypeAlias = Literal["PASS", "FAIL", "UNKNOWN"]
+RuleAssessmentStatus: TypeAlias = Literal["PASS", "FAIL", "UNKNOWN", "DECLARATION"]
 AssessmentAspect: TypeAlias = Literal[
     "existence",
     "kind",
@@ -89,6 +91,24 @@ class ComponentRole(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class RuleAssessment:
+    """One rule's evaluator-backed state for the current observation."""
+
+    id: str
+    kind: str
+    status: RuleAssessmentStatus
+    evaluation_proven: bool
+    count: int
+    undecided: int
+    decided_by: str
+    rationale: str
+    provenance: tuple[str, ...]
+    reason: str
+    scope: str
+    components: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class ComponentIntent:
     """Declared ownership and API selectors, independent of language visibility."""
 
@@ -105,6 +125,7 @@ class ComponentIntent:
     parent_id: str | None = None
     label: str | None = None
     layout_rule_ids: tuple[str, ...] = ()
+    layer: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -440,6 +461,12 @@ class ArchitectureGraph:
         layouts = {rule.id for rule in self.layout_rules}
         assigned_layouts: set[str] = set()
         for intent in self.component_intents:
+            if intent.layer is not None:
+                layer: str = intent.layer
+                if not isinstance(layer, str) or not layer.strip():
+                    raise ValueError("component layer must be non-empty text")
+                if self.schema_version != "1.2.0":
+                    raise ValueError("component layer requires graph schema_version 1.2.0")
             owner = entities.get(intent.component_id)
             if self.origin != "declared" or owner is None or owner.kind != "component":
                 raise ValueError("component intent needs a declared component")
@@ -543,6 +570,7 @@ class ArchitectureGraph:
                 raise ValueError("invalid external permission decider")
 
     def _validate_entities(self, entities: dict[str, Entity], evidence_ids: set[str]) -> None:
+        planned_identities: set[tuple[str, EntityKind, str, str | None, Signature | None]] = set()
         for entity in self.entities:
             if not entity.id or not entity.qualified_name or not entity.language:
                 raise ValueError("empty entity identity")
@@ -564,13 +592,33 @@ class ArchitectureGraph:
                 parent = entities[parent].parent_id
             if entity.signature is not None and entity.kind not in {"method", "function"}:
                 raise ValueError("signature on a non-operation")
+            if self.origin == "declared":
+                if entity.presence == "planned" and entity.kind != "component":
+                    identity = (
+                        entity.qualified_name,
+                        entity.kind,
+                        entity.language,
+                        entity.parent_id,
+                        entity.signature,
+                    )
+                    if identity in planned_identities:
+                        raise ValueError("duplicate planned entity")
+                    planned_identities.add(identity)
+                    if entity.kind == "attribute" and (
+                        entity.parent_id is None
+                        or entities[entity.parent_id].kind not in _CLASSIFIER_KINDS
+                    ):
+                        raise ValueError("planned attribute without a classifier")
+                if entity.language == "python" and entity.signature is not None:
+                    names = [parameter.name for parameter in entity.signature.parameters]
+                    if len(set(names)) != len(names):
+                        raise ValueError("duplicate Python parameter name")
             if entity.initializer is not None:
                 initializer: str = entity.initializer
                 if entity.kind != "binding" or not initializer.strip():
                     raise ValueError("initializer needs a binding and non-empty source syntax")
             if entity.kind == "method" and (
-                entity.parent_id is None
-                or entities[entity.parent_id].kind not in {"class", "interface", "enum"}
+                entity.parent_id is None or entities[entity.parent_id].kind not in _CLASSIFIER_KINDS
             ):
                 raise ValueError("method without a classifier")
             if entity.kind == "enum_literal" and (
@@ -591,6 +639,15 @@ class ArchitectureGraph:
                 raise ValueError("unknown relationship source")
             if edge.target_id is not None and edge.target_id not in entities:
                 raise ValueError("unknown relationship target")
+            if self.origin == "declared" and edge.kind in {"inherits", "realizes"}:
+                for identity in (edge.source_id, edge.target_id):
+                    if identity is None:
+                        continue
+                    endpoint = entities[identity]
+                    if endpoint.kind not in _CLASSIFIER_KINDS and not (
+                        endpoint.kind == "symbol" and endpoint.presence == "referenced"
+                    ):
+                        raise ValueError("classifier relationship needs classifier endpoints")
             if edge.kind == "requires":
                 rationale: str = edge.reason or ""
                 if (
@@ -728,7 +785,7 @@ class ArchitectureReport:
     target: ArchitectureGraph | None
     comparison: GraphComparison | None = None
     unavailable: str | None = None
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.2.0", "1.0.0"] = "1.0.0"
     findings: tuple[ReportFinding, ...] = ()
     memberships: tuple[ComponentMembership, ...] = ()
     decision_gaps: tuple[DependencyDecisionGap, ...] = ()
@@ -736,6 +793,11 @@ class ArchitectureReport:
     def validate(self) -> None:
         if self.observed is None and not self.unavailable:
             raise ValueError("missing observed graph needs an unavailable reason")
+        if self.schema_version == "1.0.0" and any(
+            graph is not None and graph.schema_version == "1.2.0"
+            for graph in (self.observed, self.target)
+        ):
+            raise ValueError("graph layer vocabulary requires report schema_version 1.2.0")
         for graph, origin in ((self.observed, "observed"), (self.target, "declared")):
             if graph is not None:
                 if graph.origin != origin:

@@ -165,6 +165,7 @@ def parse_component_intent(value: RawJson) -> ComponentIntent:
             "parent_id",
             "label",
             "layout_rule_ids",
+            "layer",
         },
         "component_intent",
     )
@@ -189,6 +190,7 @@ def parse_component_intent(value: RawJson) -> ComponentIntent:
         parent_id=_nullable(item.get("parent_id"), "component_intent.parent_id"),
         label=_nullable(item.get("label"), "component_intent.label"),
         layout_rule_ids=_texts(item.get("layout_rule_ids", ()), "component_intent.layout_rule_ids"),
+        layer=_text(item["layer"], "component_intent.layer") if "layer" in item else None,
     )
 
 
@@ -443,6 +445,12 @@ def parse_graph(value: RawJson) -> ArchitectureGraph:
         },
         "graph",
     )
+    version = _choice(item["schema_version"], get_args(GraphSchemaVersion), "graph.schema_version")
+    if version != "1.2.0" and any(
+        _object(entry) and "layer" in entry
+        for entry in _array(item.get("component_intents", ()), "component_intents")
+    ):
+        raise ValueError("layer requires graph schema_version 1.2.0")
     graph = ArchitectureGraph(
         _choice(item["origin"], get_args(OriginKind), "graph.origin"),
         tuple(parse_entity(entry) for entry in _array(item.get("entities", ()), "entities")),
@@ -452,9 +460,7 @@ def parse_graph(value: RawJson) -> ArchitectureGraph:
         ),
         tuple(_coverage(entry) for entry in _array(item.get("coverage", ()), "coverage")),
         tuple(_evidence(entry) for entry in _array(item.get("evidence", ()), "evidence")),
-        schema_version=_choice(
-            item["schema_version"], get_args(GraphSchemaVersion), "graph.schema_version"
-        ),
+        schema_version=version,
         target_scopes=tuple(
             _target_scope(entry) for entry in _array(item.get("target_scopes", ()), "target_scopes")
         ),
@@ -498,9 +504,17 @@ def parse_target(value: RawJson) -> TargetDefinition:
     )
 
 
+def _graph_payload(graph: ArchitectureGraph) -> dict[str, object]:
+    encoded = asdict(graph)
+    for intent in encoded["component_intents"]:
+        if intent["layer"] is None:
+            del intent["layer"]
+    return encoded
+
+
 def graph_bytes(graph: ArchitectureGraph) -> bytes:
     graph.validate()
-    text: str = json.dumps(asdict(graph), sort_keys=True, ensure_ascii=False) + "\n"
+    text: str = json.dumps(_graph_payload(graph), sort_keys=True, ensure_ascii=False) + "\n"
     return text.encode()
 
 
@@ -563,7 +577,12 @@ def parse_report(value: RawJson) -> ArchitectureReport:
         {"comparison", "unavailable", "findings", "memberships", "decision_gaps"},
         "report",
     )
-    if item["schema_version"] != "1.0.0":
+    version: Literal["1.0.0", "1.2.0"]
+    if item["schema_version"] == "1.0.0":
+        version = "1.0.0"
+    elif item["schema_version"] == "1.2.0":
+        version = "1.2.0"
+    else:
         raise ValueError("unsupported report schema_version")
     observed, target, comparison = item["observed"], item["target"], item.get("comparison")
     report = ArchitectureReport(
@@ -571,6 +590,7 @@ def parse_report(value: RawJson) -> ArchitectureReport:
         None if target is None else parse_graph(target),
         None if comparison is None else parse_comparison(comparison),
         _nullable(item.get("unavailable"), "report.unavailable"),
+        schema_version=version,
         findings=tuple(
             _report_finding(entry) for entry in _array(item.get("findings", ()), "findings")
         ),
@@ -640,5 +660,9 @@ def _report_finding(value: RawJson) -> ReportFinding:
 
 def report_bytes(report: ArchitectureReport) -> bytes:
     report.validate()
-    encoded: str = json.dumps(asdict(report), sort_keys=True, ensure_ascii=False) + "\n"
+    payload = asdict(report)
+    for field, graph in (("observed", report.observed), ("target", report.target)):
+        if graph is not None:
+            payload[field] = _graph_payload(graph)
+    encoded: str = json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n"
     return encoded.encode("utf-8")

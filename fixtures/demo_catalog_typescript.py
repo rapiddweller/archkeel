@@ -101,6 +101,7 @@ RULE_EXAMPLES = {
     "no_component_cycles": ("clean", "component-cycle", "module-cycle"),
     "sibling_isolation": ("clean", "sibling"),
     "interface_boundary": ("module-interface", "private-module"),
+    "layer_order": ("layer-order-positive", "layer-order-forbidden-permission"),
     **{kind: (f"unsupported-{kind}",) for kind in UNSUPPORTED_RULES},
 }
 
@@ -146,6 +147,18 @@ def _interfaces() -> dict:
         component["public"] = public[component["label"]]
     value["rules"].append(json.loads(with_rule("interface_boundary"))["rules"][-1])
     return value
+
+
+def _layer_order(*, outer_permission: bool) -> str:
+    value = json.loads(with_rule("layer_order", layers=["Core", "Edge"]))
+    value["schema_version"] = "2.3.0"
+    for component in value["components"]:
+        component["layer"] = "Core" if component["label"] == "domain" else "Edge"
+        if component["label"] == "domain" and outer_permission:
+            component["requires"] = [
+                {"component": "presentation", "rationale": "Probe an outer layer permission."}
+            ]
+    return json.dumps(value, indent=2) + "\n"
 
 
 def _external_names() -> str:
@@ -218,6 +231,19 @@ def _budget(name: str) -> dict[str, str]:
 
 VARIANTS: tuple[Variant, ...] = (
     example("clean", "clean", "Seven modules and a complete acyclic import graph.", {}),
+    example(
+        "layer-order-positive",
+        "layer_order",
+        "Edge components require only their own layer or Core.",
+        {"architecture-contract.json": _layer_order(outer_permission=False)},
+    ),
+    example(
+        "layer-order-forbidden-permission",
+        "layer_order",
+        "Core declares an Edge permission without importing it; the layer rule rejects it.",
+        {"architecture-contract.json": _layer_order(outer_permission=True)},
+        ("PROBE",),
+    ),
     example(
         "forbidden-type-import",
         "forbidden_dependency",

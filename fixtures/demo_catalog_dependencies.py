@@ -22,6 +22,7 @@ from fixtures.demo_catalog_support import (
     HEADER,
     AgainstExpectation,
     Variant,
+    contract_component_field_set,
     contract_rule_field,
     contract_rule_replaced,
     contract_with_requires,
@@ -1090,7 +1091,32 @@ _COMPLETE_REQUIRES_TYPE_CHECKING = Variant(
     expected_violations=("REQUIRES-COMPLETE",) * 4,
     expected_codes=("rule.violated",) * 4,
 )
+LAYER_ORDER_FORBIDDEN_CONTRACT = contract_component_field_set(
+    "model", "requires", [{"component": "render", "rationale": "Probe an outer layer permission."}]
+)
+_LAYER_ORDER_TARGET_MARKER = "<!-- archkeel-target-graph -->"
+_before_target, _target_body = CLEAN_SHOP_MD.split(_LAYER_ORDER_TARGET_MARKER)
+LAYER_ORDER_TARGET_MD = (
+    _before_target
+    + _LAYER_ORDER_TARGET_MARKER
+    + _target_body.replace("    render --> model", "    model --> render\n    render --> model")
+)
+_LAYER_ORDER = Variant(
+    id="class-a-layer-order",
+    section="class_a",
+    item="layer_order",
+    summary="model (Core) declares a requires permission to render (Edge), without importing it. "
+    "LAYERS-MODEL rejects the declared permission; existing rules still judge actual imports.",
+    files={
+        "architecture-contract.json": LAYER_ORDER_FORBIDDEN_CONTRACT,
+        "docs/architecture/shop.md": LAYER_ORDER_TARGET_MD,
+    },
+    expected_violations=("LAYERS-MODEL",),
+    expected_codes=("rule.violated",),
+)
+
 VARIANTS: tuple[Variant, ...] = (
+    _LAYER_ORDER,
     _COMPLETE_REQUIRES,
     _COMPLETE_REQUIRES_TYPE_CHECKING,
     _INSIDE_COMPLETE_REQUIRES,

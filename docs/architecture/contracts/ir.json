@@ -94,7 +94,8 @@
       ],
       "public": [
         "archkeel.ir.facts_codec",
-        "archkeel.ir.facts_validation:validate_source_facts"
+        "archkeel.ir.facts_validation:validate_source_facts",
+        "archkeel.ir.facts_validation:validate_source_bindings"
       ]
     },
     {
@@ -154,6 +155,8 @@
         "archkeel.ir.trace",
         "archkeel.ir.type_fanin",
         "archkeel.ir.widening",
+        "archkeel.ir.architecture_projection",
+        "archkeel.ir.report_projection",
         "archkeel.ir.architecture_graph",
         "archkeel.ir.graph_codec",
         "archkeel.ir.source_graph",
@@ -173,7 +176,8 @@
       "decided_by": "agent",
       "exact_modules": [
         "archkeel.ir",
-        "archkeel.ir.report_graph"
+        "archkeel.ir.report_graph",
+        "archkeel.ir.module_explore"
       ],
       "requires": [
         {
@@ -217,7 +221,24 @@
         "archkeel.ir.source_graph",
         "archkeel.ir.target_graph",
         "archkeel.ir.target_records",
-        "archkeel.ir.report_graph"
+        "archkeel.ir.report_graph",
+        "archkeel.ir.architecture_projection:ArchitectureProjection",
+        "archkeel.ir.architecture_projection:ModuleProjection",
+        "archkeel.ir.architecture_projection:RequiresProjection",
+        "archkeel.ir.architecture_projection:PermissionProjection",
+        "archkeel.ir.architecture_projection:UsageProjection",
+        "archkeel.ir.architecture_projection:ComponentProjection",
+        "archkeel.ir.architecture_projection:LevelProjection",
+        "archkeel.ir.architecture_projection:PermissionRuleProjection",
+        "archkeel.ir.architecture_projection:RequiredRelationshipProjection",
+        "archkeel.ir.architecture_projection:OwnershipGap",
+        "archkeel.ir.architecture_projection:UnknownProjection",
+        "archkeel.ir.report_projection:architecture_projection",
+        "archkeel.ir.module_explore:ModuleStatistic",
+        "archkeel.ir.module_explore:ModuleImportCell",
+        "archkeel.ir.module_explore:HintCandidate",
+        "archkeel.ir.module_explore:ModuleExploreLevel",
+        "archkeel.ir.module_explore:module_exploration"
       ]
     }
   ],
@@ -263,6 +284,14 @@
   "declarations": {
     "modules": [
       {
+        "path": "src/archkeel/ir/architecture_projection.py",
+        "responsibility": "Define the typed focused architecture view."
+      },
+      {
+        "path": "src/archkeel/ir/report_projection.py",
+        "responsibility": "Project authenticated architecture records without evaluating policy."
+      },
+      {
         "path": "src/archkeel/ir/facts.py",
         "responsibility": "Define shared source facts, identifiers, evidence, capabilities and coverage."
       },
@@ -281,6 +310,10 @@
       {
         "path": "src/archkeel/ir/graph.py",
         "responsibility": "Shared pure SCC, path and rank algorithms."
+      },
+      {
+        "path": "src/archkeel/ir/module_explore.py",
+        "responsibility": "Derive sparse module statistics and evidence-backed review questions from shared Core records."
       }
     ],
     "uml": {
@@ -2807,13 +2840,14 @@
             "Retain schema version in the report boundary."
           ],
           "provenance": [
-            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md",
+            "docs/architecture/decisions/ad-201-layers-assess-declared-permissions.md"
           ],
           "visibility": {
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "Literal['1.0.0']"
+          "annotation": "Literal['1.2.0', '1.0.0']"
         },
         {
           "id": "IR-UML-architecture_graph.ArchitectureReport.findings",
@@ -4951,6 +4985,25 @@
           "presence": "planned",
           "provenance": [
             "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.layer",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.layer",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "str | None",
+          "responsibilities": [
+            "Retain the authored component layer."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/decisions/ad-201-layers-assess-declared-permissions.md"
           ],
           "visibility": {
             "kind": "public",

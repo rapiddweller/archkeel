@@ -417,6 +417,8 @@ def rule_assessments(
             receipt=receipt_complete,
             undecided=undecided,
         )
+        if declaration.kind == "layer_order" and status == "PASS":
+            reason = "Declared requires permissions follow the selected layer order."
         if status == "UNKNOWN" and complete and not receipt_complete:
             ownership_reason = _ownership_blocker_reason(observation, identifier)
             if ownership_reason is not None:

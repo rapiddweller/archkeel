@@ -186,6 +186,25 @@ finding reads `store:STORE-REQUIRES-COMPLETE` rather than the bare id the inside
 (AD-36). The same prefix keeps the two levels apart: a `complete_requires` an inside declares
 decides that level's pairs, never the pairs above it.
 
+Contract 2.3 adds optional nonempty, case-sensitive component `layer` labels. They describe
+architect intent and appear in Details; they do not change ownership or infer permissions.
+Optional `layer_order` rules assess **declared `requires` permissions**, even without an import:
+
+```json
+{"id":"LAYERS", "kind":"layer_order", "layers":["Core","Adapters","Edge"],
+ "rationale":"Inner layers cannot require outer layers.",
+ "provenance":["docs/architecture.md"], "decided_by":"architect"}
+```
+
+`layers` runs inner to outer. Earlier→later FAILs; reverse and same-layer permissions are
+allowed. Optional `components` selects source component labels at this contract level;
+their required targets must also have a layer in the order. Missing or unlisted affected layers
+are UNKNOWN. The assessment cites the real contract file and its loaded digest, never a
+fabricated import. Actual imports remain governed by `complete_requires` and existing
+dependency rules. Older contract versions reject both new fields; absent layers retain old
+canonical bytes. Target graphs carrying layers and their report envelopes use 1.2;
+legacy 1.0/1.1 graphs remain readable in report 1.0.
+
 Inside contracts use the shared rule evaluators over the same scan (AD-110). Source modules
 are limited to the parent's packages; global targets and origin signatures remain available.
 Missing contracts and unsupported rules remain incomplete, never PASS. The report marks an
@@ -500,11 +519,13 @@ An allowance removes only its matching violation; member findings and UNKNOWNs r
 
 An explicit positive-integer `container_depth` selects a literal `object` map value (AD-142):
 `{"qualified_name": "sample.api.validate_raw", "position": "values", "annotation": "dict[str, object]", "container_depth": 1}`.
+For `dict[str, list[object]]`, depth 2 selects the value's literal builtin-list element (AD-189).
+Both `list` and `object` need proven builtin bindings; rebinding or ambiguous imports cannot grant permission.
 The outer map needs its own entry without that coordinate. The complete signature annotation,
 symbol and parameter/return must match; the field path must be empty. Each enclosing collection
 or mapping adds one depth; unions do not. Only one alias-free, pathless mapping and one matching
 opaque occurrence before finding deduplication can apply. Keys, duplicate siblings, alias-wrapped
-values, bare dictionaries, `Any`, other positions and UNKNOWNs stay checked. The FACT records
+values, deeper value collections, nullable list elements, bare dictionaries, `Any`, other positions and UNKNOWNs stay checked. The FACT records
 depth, `nested_annotation: object`, `accepted_opacity: true` and decision provenance. Accepted
 opacity does not prove type closure. Omitting depth preserves existing wire bytes and digests.
 

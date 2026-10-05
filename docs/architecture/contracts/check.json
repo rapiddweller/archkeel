@@ -26,6 +26,11 @@
       "decided_by": "agent",
       "requires": [
         {
+          "component": "declarations",
+          "rationale": "Authenticate dependency permissions against the recorded contract.",
+          "decided_by": "agent"
+        },
+        {
           "component": "inputs",
           "rationale": "Read immutable repository and runtime inputs.",
           "decided_by": "agent"
@@ -91,7 +96,8 @@
       ],
       "public": [
         "archkeel.check.observe:Observer",
-        "archkeel.check.observation:analyze_source_snapshot"
+        "archkeel.check.observation:analyze_source_snapshot",
+        "archkeel.check.observe:observation_diagnostics"
       ]
     },
     {
@@ -122,7 +128,8 @@
         "archkeel.check.declarations:ContractError",
         "archkeel.check.declarations:load_contract",
         "archkeel.check.declarations:project_declarations",
-        "archkeel.check.declarations:project_inside_declarations"
+        "archkeel.check.declarations:project_inside_declarations",
+        "archkeel.check.declarations:project_rule_declaration"
       ]
     },
     {

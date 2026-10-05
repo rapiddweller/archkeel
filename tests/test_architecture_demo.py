@@ -22,7 +22,6 @@ from archkeel.cli import main
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe, observer_for
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.graph_codec import parse_report
 from archkeel.ir.measurements import SCALARS, compare_measurements
 from archkeel.ir.model import (
     ArchitectureRule,
@@ -32,6 +31,7 @@ from archkeel.ir.model import (
     ForbiddenConstructKind,
     RuleVerdict,
 )
+from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
 from archkeel.render.html import render_architecture_html
 from archkeel.render.summary import badge, report_summary
@@ -93,11 +93,16 @@ def test_target_hierarchy_demo_reports_declared_targets(
         if assessment["status"] == "UNKNOWN"
     ] == ["store:STORE-REQUIRES-COMPLETE"]
 
-    html = output.with_name(f"{variant_id}.report.html").read_text()
-    marker = html.index('id="flow-data"')
-    payload = json.loads(html[html.index(">", marker) + 1 : html.index("</script>", marker)])
-    graph = parse_report(payload).target
+    model = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
+    graph = architecture_report(model).target
     assert graph is not None
+    html = output.with_suffix(".report.html").read_text()
+    marker = html.index('id="flow-data"')
+    atlas = json.loads(html[html.index(">", marker) + 1 : html.index("</script>", marker)])["atlas"]
+    assert {item["id"] for item in atlas["components"]} == {
+        item.component_id for item in graph.component_intents
+    }
+    assert all(output.with_name(item["detail_href"]).is_file() for item in atlas["components"])
     intents = {item.component_id: item for item in graph.component_intents}
     assert {"COMP-APP", "COMP-CLI", "COMP-STORE"} <= intents.keys()
     if variant_id == "target-hierarchy-positive":
@@ -409,12 +414,12 @@ def test_recursive_wide_report_includes_catalog_isolated_module_and_package_root
     assert package_root.get("file") == "shop/store/backend/tasks/__init__.py"
     assert package_root.get("fan_out", 0) > 0
 
+    graph_report = architecture_report(observation)
     html = output.with_name("architecture.report.html").read_text()
     begin = html.index('id="flow-data"')
     begin = html.index(">", begin) + 1
-    end = html.index("</script>", begin)
-    flow = json.loads(html[begin:end])
-    graph_report = parse_report(flow)
+    atlas = json.loads(html[begin : html.index("</script>", begin)])["atlas"]
+    assert {item["name"] for item in atlas["modules"]} == expected
     assert {
         item.qualified_name
         for item in graph_report.observed.entities

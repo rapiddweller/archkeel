@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -9,6 +10,7 @@ from pathlib import Path
 
 import pytest
 from test_architecture_demo import _prepare_repo
+from test_report_159_160 import _flow_data
 
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, TARGET_GRAPH_MARKER
 from archkeel.cli import main
@@ -500,6 +502,48 @@ def test_report_heading_does_not_read_project_metadata_outside_the_repository(
     assert main(["report", "--root", str(root), "--output", str(output), "--json"]) in (0, 2)
     capsys.readouterr()
     assert "<h1>shop</h1>" in (tmp_path / "report.report.html").read_text()
+
+
+@pytest.mark.parametrize("only", [None, "architecture"])
+def test_native_report_publishes_only_its_linked_offline_component_pages(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    only: str | None,
+) -> None:
+    root = _prepare_repo(tmp_path, {})
+    output = tmp_path / "published" / "architecture.json"
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    monkeypatch.setenv("COLUMNS", "400")
+    arguments = ["report", "--root", str(root), "--output", str(output)]
+    if only is not None:
+        arguments.extend(("--only", only))
+    assert main(arguments) == 0
+    receipt = capsys.readouterr().out
+    main_page = output.with_suffix(".report.html")
+    assert output.exists() and main_page.exists()
+    details = tuple(output.parent.glob("architecture.detail-*.html"))
+    if only is not None:
+        assert not details
+        return
+    page = main_page.read_text()
+    match = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', page, re.S)
+    assert match is not None
+    atlas = json.loads(match.group(1))["atlas"]
+    links = {item["detail_href"] for item in atlas["components"]}
+    links.add(atlas["unassigned_detail_href"])
+    assert links and {item.name for item in details} == links
+    for name in links:
+        assert Path(name).name == name
+        detail = (output.parent / name).read_text()
+        navigation = _flow_data(detail)["navigation"]
+        assert navigation["main_href"] == main_page.name
+        assert (output.parent / navigation["main_href"]).is_file()
+        if navigation["component_id"] is not None:
+            assert navigation["component_path"][-1]["id"] == navigation["component_id"]
+        assert f'href="{output.name}"' in detail
+        assert "default-src 'none'" in detail and "fetch(" not in detail
+        assert name in receipt
 
 
 def test_check_heading_symlink_loop_preserves_saved_and_stdout_verdicts(

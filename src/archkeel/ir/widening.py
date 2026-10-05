@@ -69,6 +69,7 @@ _RESTRICTION_RULE_KINDS: Final = frozenset(
         "root_layout",
         "complete_external_scope",
         "complete_requires",
+        "layer_order",
         "no_component_cycles",
         "interface_boundary",
         "sibling_isolation",

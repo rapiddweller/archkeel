@@ -34,6 +34,7 @@ from archkeel.ir.model import (
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
+    LayerOrderRule,
     NoComponentCyclesRule,
     RootLayoutRule,
     SiblingIsolationRule,
@@ -66,7 +67,7 @@ def load_contract(path: Path) -> tuple[ArchitectureContract, str]:
     return contract, hashlib.sha256(raw).hexdigest()
 
 
-def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
+def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
     subjects: list[str]
     data: RecordData
     if isinstance(rule, ForbiddenDependencyRule):
@@ -167,6 +168,17 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
         data = {
             "include_type_checking": rule.include_type_checking,
             "rationale": rule.rationale,
+        }
+    elif isinstance(rule, LayerOrderRule):
+        area, title, subjects = (
+            "components",
+            "Declared requires follow the inner-to-outer layer order",
+            [],
+        )
+        data = {
+            "layers": list(rule.layers),
+            "rationale": rule.rationale,
+            **({"components": list(rule.components)} if rule.components is not None else {}),
         }
     elif isinstance(rule, InterfaceBoundaryRule):
         area, title, subjects = (
@@ -342,7 +354,7 @@ def project_inside_declarations(
         # The parent id says which level a rule decides; a reader that split it back off the
         # rule id would decide behaviour from a name (AD-36).
         {**record, "data": {**record["data"], "parent_id": parent}}
-        for record in map(_rule_declaration, contract.rules)
+        for record in map(project_rule_declaration, contract.rules)
     ]
     declarations = contract.declarations or ContractDeclarations()
     module_targets = _module_target_records(
@@ -371,6 +383,7 @@ def project_inside_declarations(
                 **({"public": sorted(component.public)} if component.public is not None else {}),
                 **({"planned": sorted(component.planned)} if component.planned is not None else {}),
                 "role": component.role.value,
+                **({"layer": component.layer} if component.layer is not None else {}),
                 "forbidden_responsibilities": sorted(component.forbidden_responsibilities),
                 **(
                     {"decided_by": component.decided_by} if component.decided_by is not None else {}
@@ -464,6 +477,7 @@ def project_declarations(
                         else {}
                     ),
                     "role": component.role.value,
+                    **({"layer": component.layer} if component.layer is not None else {}),
                     **({"inside": component.inside} if component.inside else {}),
                     **({"namespace": component.namespace} if component.namespace else {}),
                     "responsibilities": sorted(component.responsibilities),
@@ -510,7 +524,7 @@ def project_declarations(
                 data={"measurement": budget.name},
             )
         )
-    items.extend(_rule_declaration(rule) for rule in contract.rules)
+    items.extend(project_rule_declaration(rule) for rule in contract.rules)
     for api in sorted(declarations.public_api):
         items.append(
             classified(

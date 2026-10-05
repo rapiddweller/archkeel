@@ -80,7 +80,9 @@ component only when responsibilities require it.
 | `check.observation` | `assemble_observation` / `analyze_source_snapshot` | ownership and evaluator receipts are Core-owned |
 | `check.evaluation.evaluate` | `ScanResult` / `evaluate_source(...)` | unsupported or incomplete evidence remains UNKNOWN |
 | `check.evaluation.rules` | `public_api_exposed_types(...)` | declaration projection uses the same Core type evidence |
-| `check.declarations` | `ContractError`, `load_contract`, `project_declarations`, `project_inside_declarations` | root and nested contracts share one validated projection |
+| `ir.report_projection` | `architecture_projection(...)` | one authenticated architecture view; filters retain global evidence |
+| `ir.architecture_projection` | `ArchitectureProjection` | typed compact ownership, intent, permission and usage view |
+| `check.declarations` | `ContractError`, `load_contract`, `project_declarations`, `project_inside_declarations`, `project_rule_declaration` | root and nested contracts share one validated projection |
 
 `CollectionError` is a local host/port result, not a wire message.
 

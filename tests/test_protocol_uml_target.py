@@ -136,11 +136,24 @@ def test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes(
         item.data.get("aspect") == "completeness" and item.data.get("status") == "UNKNOWN"
         for item in inventory
     )
-    # New closed intent must not conceal a regression in the existing boundary debt.
+    # AD-207 retains saved-query facade limits without changing these member scopes.
     from archkeel.check.ratchets import unknown_positions_by_rule
 
     counts = dict(unknown_positions_by_rule(self_observation))
-    assert sum(count for rule, count in counts.items() if not rule.startswith("UML-TARGET")) == 40
-    assert sum(counts.values()) == 48
+    assert {rule: count for rule, count in counts.items() if not rule.startswith("UML-TARGET")} == {
+        "RENDER-TYPES-DECLARED": 25,
+        "CHECK-TYPES-DECLARED": 19,
+        "ANALYZER-TYPES-DECLARED": 1,
+    }
+    assert sum(counts.values()) == 53
+    detail_positions = [
+        item
+        for item in unknowns
+        if item.kind == "boundary_type_position"
+        and item.data.get("qualified_name") == "archkeel.render.html.render_architecture_details"
+    ]
+    assert len(detail_positions) == 1
+    assert detail_positions[0].data.get("annotation") == "RunResult"
+    assert detail_positions[0].data.get("reason") == "forward_reference"
     baseline = json.loads((ROOT / "architecture-baseline.json").read_text())
-    assert baseline["budgets"]["unknown_positions"] == 48
+    assert baseline["budgets"]["unknown_positions"] == 53

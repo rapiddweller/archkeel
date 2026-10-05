@@ -256,3 +256,25 @@ def test_dangling_source_evidence_still_fails_closed(tmp_path, validator):
     assert filtered.filtered_violations is None
     assert filtered.declared_rules == "UNKNOWN"
     assert not list(validator.iter_errors(result_payload(filtered)))
+
+
+@pytest.mark.parametrize("facet", [{"only_violations": True}, {"only_calls": True}])
+@pytest.mark.parametrize("failure", ["parse", "dangling_evidence"])
+def test_failed_filtered_report_keeps_unmeasured_rows_null(tmp_path, validator, facet, failure):
+    root = _root(tmp_path, "class-a-forbidden-dependency-pair")
+    if failure == "parse":
+        (root / "shop/app/broken.py").write_text("def broken(:\n")
+
+    def analyzer(*args, **kwargs):
+        observed = observe(*args, **kwargs)
+        if failure == "parse":
+            return observed
+        model = observed.observation
+        assert model is not None
+        return replace(observed, observation=replace(model, evidence=()))
+
+    result, _ = run_report(root, config=CONFIG, analyzer=analyzer, **facet)
+    payload = result_payload(result)
+    assert result.exit_code == 2 and result.observation_complete == "UNKNOWN"
+    assert payload["filtered_calls"] is None and payload["filtered_violations"] is None
+    assert not list(validator.iter_errors(payload))

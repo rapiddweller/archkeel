@@ -41,7 +41,13 @@ def architecture_report(model: Observation) -> ArchitectureReport:
         observed = observed_graph(model)
     except ValueError as error:
         report = ArchitectureReport(
-            None, declared, unavailable=str(error), findings=_findings(model, None, declared)
+            None,
+            declared,
+            unavailable=str(error),
+            findings=_findings(model, None, declared),
+            schema_version="1.2.0"
+            if declared is not None and declared.schema_version == "1.2.0"
+            else "1.0.0",
         )
         report.validate()
         return report
@@ -66,6 +72,9 @@ def architecture_report(model: Observation) -> ArchitectureReport:
         observed,
         declared,
         comparison,
+        schema_version="1.2.0"
+        if declared is not None and declared.schema_version == "1.2.0"
+        else "1.0.0",
         findings=_findings(model, observed, declared),
         memberships=_memberships(model, observed, declared),
         decision_gaps=_decision_gaps(model, observed, declared),

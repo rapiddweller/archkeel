@@ -11,10 +11,10 @@ matching is not visual or accessibility proof.
 """
 
 import json
-from html import unescape
 from pathlib import Path
 
 from test_baseline import GETATTR_RULE, PROBE, _repo
+from test_html_report import _start_tags
 from test_report_filter import CONFIG, _tour_root
 
 from archkeel.check.report import run_report
@@ -33,7 +33,23 @@ from archkeel.ir.codec import (
     parse_observation,
 )
 from archkeel.ir.model import RULE_KINDS, EvidenceClass, ReportFilter
-from archkeel.render.html import render_architecture_html
+from archkeel.render.html import render_architecture_details, render_architecture_html
+
+
+def _flow_data(page: str):
+    start = page.index(">", page.index('id="flow-data"')) + 1
+    return json.loads(page[start : page.index("</script>", start)])
+
+
+def _linked_audit(page: str, directory: Path):
+    atlas = _flow_data(page)["atlas"]
+    href = atlas["architecture_href"]
+    assert Path(href).name == href
+    assert href in {link.get("href") for link in _start_tags(page, "a")}
+    model = parse_observation(decode_canonical_model(json.loads((directory / href).read_bytes())))
+    assert model.source.source_digest == atlas["source"]["source_digest"]
+    assert model.source.git_head == atlas["source"]["git_head"]
+    return model
 
 
 def _report(tmp_path: Path, *, only_violations: bool = False):
@@ -42,6 +58,11 @@ def _report(tmp_path: Path, *, only_violations: bool = False):
         root, config=CONFIG, analyzer=observe, only_violations=only_violations
     )
     assert architecture is not None
+    (tmp_path / "architecture.json").write_bytes(architecture)
+    for name, content in render_architecture_details(
+        result, architecture, repository="shop", architecture_href="architecture.json"
+    ).items():
+        (tmp_path / name).write_bytes(content)
     observation = parse_observation(decode_canonical_model(json.loads(architecture)))
     page = render_architecture_html(
         result, architecture, repository="shop", architecture_href="architecture.json"
@@ -91,6 +112,7 @@ def _renderer_only_mixed_report(tmp_path: Path, *, only_violations: bool = False
         }
     )
     observation = parse_observation(raw)
+    (tmp_path / "architecture.json").write_bytes(canonical_report_bytes(observation))
     page = render_architecture_html(
         result,
         canonical_report_bytes(observation),
@@ -166,21 +188,16 @@ def test_rule_filter_keeps_construct_and_cycle_violations_without_import_pairs(
 
 def test_report_lists_every_declared_rule_and_its_provenance(tmp_path: Path) -> None:
     _, observation, page = _report(tmp_path)
-    page = unescape(page)
+    audit = _linked_audit(page, tmp_path)
     rules = [
         item
         for item in observation.records("declarations") or ()
         if item.evidence_class.value == "DECLARED_RULE" and item.kind in RULE_KINDS
     ]
 
-    assert "Declared rules" in page
+    assert "Declared rules: FAIL" in page
     for rule in rules:
-        assert rule.id in page
-        assert rule.kind in page
-        data = dict(rule.data.entries)
-        for field in ("decided_by", "rationale"):
-            assert str(data[field]) in page
-        assert all(item in page for item in rule.provenance)
+        assert next(item for item in audit.records("declarations") if item.id == rule.id) == rule
 
     permission = next(rule for rule in rules if rule.id == "DEP-APP-ALLOWS-MODEL")
     assert permission.kind == "allowed_dependency"
@@ -209,9 +226,9 @@ def test_fail_and_unknown_evidence_coexist_without_downgrading_the_verdict(
     assert result.declared_rules == "FAIL"
     assert result.measurements is not None
     assert result.measurements.scalars.violations == observed_violations
-    assert "APP-TYPES-NOT-DICT" in page
-    assert "FAIL" in page and "UNKNOWN" in page
-    assert unknown.title in page
+    audit = _linked_audit(page, tmp_path)
+    assert violation in audit.records("violations") and unknown in audit.records("unknowns")
+    assert "Declared rules: FAIL" in page
 
 
 def test_report_is_deterministic_and_keeps_unknown_context_when_focusing_violations(

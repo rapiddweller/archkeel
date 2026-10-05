@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:archkeel:architecture-report:1.0.0",
+  "$id": "urn:archkeel:architecture-report:1.2.0",
   "title": "Shared architecture report boundary",
   "$comment": "Generated from archkeel.ir.architecture_graph. Reference, identity, evidence and containment checks also require the graph/comparison validators. This graph does not change the Observation wire format.",
   "$ref": "#/$defs/ArchitectureReport",
@@ -50,6 +50,7 @@
         },
         "schema_version": {
           "enum": [
+            "1.2.0",
             "1.0.0"
           ]
         },
@@ -77,7 +78,48 @@
         "target",
         "schema_version"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "schema_version": {
+                "const": "1.0.0"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "observed": {
+                "not": {
+                  "type": "object",
+                  "properties": {
+                    "schema_version": {
+                      "const": "1.2.0"
+                    }
+                  },
+                  "required": [
+                    "schema_version"
+                  ]
+                }
+              },
+              "target": {
+                "not": {
+                  "type": "object",
+                  "properties": {
+                    "schema_version": {
+                      "const": "1.2.0"
+                    }
+                  },
+                  "required": [
+                    "schema_version"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "ArchitectureGraph": {
       "type": "object",
@@ -114,6 +156,7 @@
         },
         "schema_version": {
           "enum": [
+            "1.2.0",
             "1.1.0",
             "1.0.0"
           ]
@@ -159,7 +202,34 @@
         "origin",
         "schema_version"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "schema_version": {
+                "enum": [
+                  "1.0.0",
+                  "1.1.0"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "component_intents": {
+                "items": {
+                  "not": {
+                    "required": [
+                      "layer"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "Entity": {
       "type": "object",
@@ -853,6 +923,10 @@
           "items": {
             "type": "string"
           }
+        },
+        "layer": {
+          "type": "string",
+          "pattern": "\\S"
         }
       },
       "required": [

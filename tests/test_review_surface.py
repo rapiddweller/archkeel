@@ -7,26 +7,35 @@ from dataclasses import replace
 from pathlib import Path
 
 from test_html_report import _start_tags
-from test_report_159_160 import _report
+from test_report_159_160 import _flow_data, _linked_audit, _report
 
 from archkeel.ir.model import Diagnostic, RunResult
+from archkeel.ir.report_graph import architecture_report
 from archkeel.render.html import render_check_html, render_html
 
 
 def test_explorer_follows_verdicts_and_preserves_finding_links(tmp_path: Path) -> None:
     _, observation, page = _report(tmp_path)
     body = page.split("</style>", 1)[1]
-    assert body.index('id="verdicts-heading"') < body.index('id="flow"')
-    assert body.index('id="flow"') < body.index('id="violations-heading"')
-    assert body.index('id="flow"') < body.index('id="known-unknowns"')
-    records = (*observation.records("violations"), *observation.records("unknowns"))
-    rows = {
-        row["data-finding-id"]: row for row in _start_tags(page, "tr") if "data-finding-id" in row
-    }
-    assert rows.keys() >= {item.id for item in records}
-    assert len({rows[item.id]["id"] for item in records}) == len(records)
-    hrefs = {link.get("href") for link in _start_tags(page, "a")}
-    assert all(f"#{rows[item.id]['id']}" in hrefs for item in records)
+    assert body.index('class="atlas-status"') < body.index('id="flow"')
+    assert body.index('id="flow"') < body.index('class="atlas-source"')
+    audit = _linked_audit(page, tmp_path)
+    assert audit == observation
+    data = _flow_data(page)["atlas"]
+    hrefs = {item["detail_href"] for item in data["components"]}
+    hrefs.add(data["unassigned_detail_href"])
+    findings = {}
+    for href in hrefs:
+        assert Path(href).name == href
+        sidecar = (tmp_path / href).read_text()
+        assert "architecture.json" in {link.get("href") for link in _start_tags(sidecar, "a")}
+        findings.update((item["id"], item) for item in _flow_data(sidecar)["findings"])
+    native = architecture_report(observation)
+    assert findings.keys() >= {item.id for item in native.findings if item.graph_subject_ids}
+    for item in native.findings:
+        if item.id in findings:
+            assert findings[item.id]["status"] == item.status
+            assert findings[item.id]["evidence_ids"] == list(item.evidence_ids)
 
 
 def test_handoff_preserves_all_evidence_and_dirty_source_binding(tmp_path: Path) -> None:

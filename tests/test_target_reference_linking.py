@@ -103,10 +103,12 @@ def test_an_external_reference_remains_a_reference_without_a_definition():
 
 def test_ambiguous_target_definitions_do_not_choose_a_reference_destination():
     dto = _definition("dto", "class", "sample.DTO")
-    other = replace(dto, id="other")
+    owner = _definition("outer", "class", "sample.Container")
+    other = replace(dto, id="other", parent_id=owner.id)
     with pytest.raises(ValueError, match="ambiguous Target reference"):
         _contract(
-            definitions=(dto, other), references=(_reference("ref", "class", dto.qualified_name),)
+            definitions=(owner, dto, other),
+            references=(_reference("ref", "class", dto.qualified_name),),
         )
 
 

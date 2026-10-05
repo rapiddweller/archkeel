@@ -33,12 +33,9 @@ components nor modules import in a cycle (AD-98).
 
 ## Layers
 
-| Layer | Components | Responsibility | Quality goal (AD-17) |
-|---|---|---|---|
-| Core | `ir`, `check` | Stable evidence values and deterministic policy evaluation | Deterministic and stable |
-| Adapters | `analyzer`, `host` | Python source observations and GitLab host records | `analyzer` isolated behind its digest; `host` replaceable |
-| Edge | `cli`, `render` | Composition and presentation | `cli` a thin composition root; `render` replaceable |
-| External | `api` | The declared external read contract for a consumer outside this repository (AD-64) | Stable across every internal `ir` refactor |
+Layer names live on components in `architecture-contract.json` and appear in report Details.
+Responsibilities and quality goals stay with those components (AD-17). Layer metadata does
+not change ownership or infer dependency permissions.
 
 The CLI is the composition root. It selects concrete analyzer and host adapters, invokes the
 core, writes artifacts and delegates HTML and terminal projection to `render`. Core modules
@@ -284,7 +281,13 @@ often explains an earlier one; the index below keeps that order.
 | AD-198 | [Provider use survives initializer ownership](decisions/ad-198-provider-use-survives-initializer-ownership.md) |
 | AD-199 | [Nested permissions pin the complete field](decisions/ad-199-nested-permissions-pin-the-complete-field.md) |
 | AD-200 | [Diff projects recorded imports](decisions/ad-200-diff-projects-recorded-imports.md) |
+| AD-201 | [Layers assess declared permissions](decisions/ad-201-layers-assess-declared-permissions.md) |
+| AD-203 | [Native map list values use proven coordinates](decisions/ad-203-native-map-list-values-use-proven-coordinates.md) |
 | AD-205 | [Class binding proofs use their AST owner](decisions/ad-205-class-binding-proofs-use-their-ast-owner.md) |
+| AD-206 | [Check families keep existing behavior](decisions/ad-206-check-families-keep-existing-behavior.md) |
+| AD-202 | [Focused architecture projection](decisions/ad-202-focused-architecture-projection.md) |
+| AD-204 | [Report Atlas and offline details](decisions/ad-204-report-atlas-and-offline-details.md) |
+| AD-207 | [Atlas projection boundaries](decisions/ad-207-atlas-projection-boundaries.md) |
 
 ## Allowed dependencies
 

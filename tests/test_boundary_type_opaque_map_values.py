@@ -379,8 +379,17 @@ def test_omitted_depth_keeps_the_pre_selector_canonical_digest() -> None:
     assert b"container_depth" not in contract_bytes(contract)
 
 
-def test_value_fact_roundtrips_and_report_retains_source_packet(tmp_path: Path) -> None:
-    _app(tmp_path, allowances=(_OUTER, _VALUE))
+@pytest.mark.parametrize(
+    ("annotation", "depth"), [("dict[str, object]", 1), ("dict[str, list[object]]", 2)]
+)
+def test_value_fact_roundtrips_and_report_retains_source_packet(
+    tmp_path: Path, annotation: str, depth: int
+) -> None:
+    outer = {**_OUTER, "annotation": annotation}
+    value = {**outer, "container_depth": depth}
+    _app(
+        tmp_path, source=_SOURCE.replace("dict[str, object]", annotation), allowances=(outer, value)
+    )
     _observe(tmp_path)
     _commit_report_fixture(tmp_path)
     report, artifact = run_report(
@@ -395,11 +404,13 @@ def test_value_fact_roundtrips_and_report_retains_source_packet(tmp_path: Path) 
         for item in payload["typing_signals"]
         if item["kind"] == "boundary_type_allowance" and item["data"].get("accepted_opacity")
     ]
-    assert fact["data"]["container_depth"] == 1 and fact["data"]["nested_annotation"] == "object"
+    assert (
+        fact["data"]["container_depth"] == depth and fact["data"]["nested_annotation"] == "object"
+    )
     [declaration] = [item for item in payload["declarations"] if item["id"] == "APP-TYPES-NOT-DICT"]
     assert declaration["data"]["allowed_positions"] == [
-        {**_OUTER, "field_path": ""},
-        {**_VALUE, "field_path": ""},
+        {**outer, "field_path": ""},
+        {**value, "field_path": ""},
     ]
     html = render_html(
         report, observation, repository="sample", architecture_href="architecture.json"
@@ -408,7 +419,7 @@ def test_value_fact_roundtrips_and_report_retains_source_packet(tmp_path: Path) 
     text.feed(html)
     visible = " ".join(text.parts)
     assert "opaque mapping value" in visible and "accepted opacity" in visible
-    assert "type closure remains unproven" in visible and "container depth 1" in visible
+    assert "type closure remains unproven" in visible and f"container depth {depth}" in visible
     [finding] = [
         item
         for item in trace_valid_violations(observation)
@@ -416,19 +427,28 @@ def test_value_fact_roundtrips_and_report_retains_source_packet(tmp_path: Path) 
     ]
     assert f"Evidence for {finding.id}" in html
     decoded = unescape(html)
-    assert "returns dict[str, object] holding object" in decoded
+    assert f"returns {annotation} holding object" in decoded
     assert "Recorded evidence (repository content):" in decoded and "Source digest:" in decoded
 
 
-def test_adding_value_permission_against_git_requires_amendment(tmp_path: Path) -> None:
-    source = _SOURCE.replace("-> dict[str, object]", "-> str").replace(
-        "return values", "return str(values)"
+@pytest.mark.parametrize(
+    ("annotation", "depth"), [("dict[str, object]", 1), ("dict[str, list[object]]", 2)]
+)
+def test_adding_value_permission_against_git_requires_amendment(
+    tmp_path: Path, annotation: str, depth: int
+) -> None:
+    outer = {**_OUTER, "annotation": annotation}
+    value = {**outer, "container_depth": depth}
+    source = (
+        _SOURCE.replace("-> dict[str, object]", "-> str")
+        .replace("return values", "return str(values)")
+        .replace("dict[str, object]", annotation)
     )
-    _app(tmp_path, source=source, allowances=(_OUTER,))
+    _app(tmp_path, source=source, allowances=(outer,))
     _observe(tmp_path)
     _commit_report_fixture(tmp_path)
     base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True).strip()
-    _app(tmp_path, source=source, allowances=(_OUTER, _VALUE))
+    _app(tmp_path, source=source, allowances=(outer, value))
 
     result, _ = run_validate(
         tmp_path, ScanConfig((".",), "sample", "contract.json", "0" * 64), observe, against=base
@@ -436,7 +456,7 @@ def test_adding_value_permission_against_git_requires_amendment(tmp_path: Path) 
 
     assert result.exit_code == 1, result.diagnostics
     assert any(
-        "allowed_positions gained" in failure and "container_depth=1" in failure
+        "allowed_positions gained" in failure and f"container_depth={depth}" in failure
         for failure in result.failures
     )
     amendment = tmp_path / "amendment.json"

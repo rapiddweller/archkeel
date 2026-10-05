@@ -188,7 +188,6 @@ def test_relationship_filter_keeps_evidence_and_restores_scope_state(tmp_path, v
         edges = page.locator(".flow-edges [data-uml-id]")
         all_nodes = nodes.evaluate_all("nodes => nodes.map(node => node.dataset.umlId).sort()")
         all_edges = edges.evaluate_all("edges => edges.map(edge => edge.dataset.umlId).sort()")
-        inheritance_count = page.locator('.flow-edges [data-relationship-kind="inherits"]').count()
         client_id = page.locator('.flow-nodes [data-label="Client"]').get_attribute("data-uml-id")
         focus = page.locator("#flow-focus")
         focus.select_option(client_id)
@@ -229,7 +228,7 @@ def test_relationship_filter_keeps_evidence_and_restores_scope_state(tmp_path, v
         assert (
             page.locator('.flow-legend button[aria-pressed="true"]')
             .inner_text()
-            .startswith("All relationships")
+            .startswith("Local relationships")
         )
         page.locator(".flow-back").click()
         assert focus.input_value() == client_id
@@ -247,7 +246,7 @@ def test_relationship_filter_keeps_evidence_and_restores_scope_state(tmp_path, v
             edges.evaluate_all("edges => edges.map(edge => edge.dataset.umlId).sort()") == all_edges
         )
         page.locator('.flow-legend button[data-relationship-kind="inherits"]').click()
-        assert edges.count() == inheritance_count
+        assert edges.count() == (2 if view == "As-Is" else 1)
         assert nodes.evaluate_all("""nodes => nodes.every(node =>
           !node.querySelector('.stereotype').textContent.includes('outside')
           || [...document.querySelectorAll('.flow-edges [data-uml-id]')].some(edge =>

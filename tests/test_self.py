@@ -84,9 +84,13 @@ def _assert_cli_resolver_publication(inside: ArchitectureContract) -> None:
     baseline = json.loads((ROOT / "architecture-baseline.json").read_bytes())
 
     assert public in (check.public or ()) and public in (owners[0].public or ())
-    # AD-148 adds the typed observation seam and its two shared type names.
-    assert coupling.max_names == 14
+    # AD-207 adds the saved-query workflow to the existing typed CLI seam.
+    assert coupling.max_names == 15
     assert public in baseline["budgets"]["coupling_names"]["cli -> check"]
+    assert (
+        "archkeel.check.report:run_saved_report"
+        in baseline["budgets"]["coupling_names"]["cli -> check"]
+    )
 
 
 def _check_inside() -> ArchitectureContract:
@@ -130,7 +134,7 @@ def test_cli_check_measure_counts_named_shared_type_reexports(
         "archkeel.check.ports:Language",
         "archkeel.check.ports:ObservationResult",
     } <= set(width.names)
-    assert len(width.names) == 14
+    assert len(width.names) == 15
     assert width.uncounted == ()
     assert "archkeel.check.ports" not in (check.public or ())
     assert "archkeel.check.observe" not in (check.public or ())

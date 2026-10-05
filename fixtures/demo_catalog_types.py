@@ -149,19 +149,22 @@ _MAPPING_ALLOWED = Variant(
 )
 
 
-def _opaque_map_contract(*, values: bool) -> str:
+def _opaque_map_contract(*, values: bool, list_values: bool = False) -> str:
     contract = json.loads(_mapping_contract(allowed=False))
     rule = next(item for item in contract["rules"] if item["id"] == "APP-TYPES-NOT-DICT")
     rule["allowed_positions"] = [
         {
             "qualified_name": "shop.app.reports.snapshot",
             "position": position,
-            "annotation": "dict[str, object]",
-            **({"container_depth": 1} if value else {}),
+            "annotation": "dict[str, list[object]]" if list_values else "dict[str, object]",
+            **({"container_depth": 2 if list_values else 1} if value else {}),
         }
         for position in ("context", "return")
         for value in ((False, True) if values else (False,))
     ]
+    if list_values:
+        app = next(item for item in contract["components"] if item["label"] == "app")
+        app["public"].append("shop.app.reports:fixed_control")
     rule["rationale"] = "Validate this raw map before model construction; preserve its identity."
     return json.dumps(contract, indent=2) + "\n"
 
@@ -217,6 +220,41 @@ _OPAQUE_MAP_VALUES_UNKNOWN = Variant(
     expected_codes=(),
     expected_unknowns=(("boundary_type_limit", "shop.app"),),
     expected_declared_rules="UNKNOWN",
+)
+
+
+_NATIVE_MAP_LIST_VALUES = Variant(
+    id="class-a-boundary-types-native-map-list-values",
+    section="class_a",
+    item="boundary_types:exact_native_map_list_values",
+    summary="Exact depth-2 native list permissions retain the forbidden fixed-control map "
+    "and record accepted opacity with provenance (AD-189).",
+    files={
+        "shop/app/reports.py": _RAW_MAP_SOURCE.replace(
+            "dict[str, object]", "dict[str, list[object]]"
+        )
+        + "\ndef fixed_control(counts: dict[str, int]) -> int:\n    return len(counts)\n",
+        "shop/cli/main.py": _CLI_IMPORTS_REPORTS.replace(
+            "import snapshot", "import snapshot, fixed_control"
+        ),
+        "architecture-contract.json": _opaque_map_contract(values=True, list_values=True),
+    },
+    expected_violations=("APP-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+)
+
+_NATIVE_MAP_LIST_VALUES_MISSING = Variant(
+    id="class-a-boundary-types-native-map-list-values-missing",
+    section="class_a",
+    item="boundary_types:outer_map_keeps_native_list_values",
+    summary="Outer-map decisions leave both native list object leaves and the fixed control "
+    "forbidden (AD-189).",
+    files={
+        **_NATIVE_MAP_LIST_VALUES.files,
+        "architecture-contract.json": _opaque_map_contract(values=False, list_values=True),
+    },
+    expected_violations=("APP-TYPES-NOT-DICT",) * 3,
+    expected_codes=("rule.violated",) * 3,
 )
 
 
@@ -1195,6 +1233,8 @@ VARIANTS: tuple[Variant, ...] = (
     _OPAQUE_MAP_VALUES,
     _OPAQUE_MAP_VALUES_MISSING,
     _OPAQUE_MAP_VALUES_UNKNOWN,
+    _NATIVE_MAP_LIST_VALUES,
+    _NATIVE_MAP_LIST_VALUES_MISSING,
     _CONTAINED_MAPPING,
     _CONTAINED_MAPPING_SIBLINGS,
     _CONTAINED_MAPPING_UNKNOWN,

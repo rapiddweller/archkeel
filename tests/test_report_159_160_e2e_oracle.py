@@ -9,7 +9,6 @@ particular, status is not inferred from the absence of a violation in these help
 """
 
 import json
-from html.parser import HTMLParser
 from pathlib import Path
 
 from test_architecture_demo import _prepare_repo
@@ -21,6 +20,7 @@ from test_baseline import (
     _observe,
     _repo,
 )
+from test_html_report import _start_tags
 from test_recursive_inside_independent_contracts import (
     COMPONENT_GRAPH_MARKER,
     TARGET_GRAPH_MARKER,
@@ -28,6 +28,7 @@ from test_recursive_inside_independent_contracts import (
     _forbidden_edge,
     _write_three_levels,
 )
+from test_report_159_160 import _flow_data, _linked_audit
 from test_report_filter import _tour_root
 
 from archkeel.cli import main
@@ -117,47 +118,6 @@ def _assert_assessment(
     assert assessment["undecided"] == unknowns
     assert assessment["count"] == violations
     assert tuple(assessment["provenance"]) == provenance
-
-
-class _ReportFilterRows(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__()
-        self.filters_hidden = False
-        self._in_report_filters = False
-        self.rows: list[dict[str, object]] = []
-        self._row: dict[str, object] | None = None
-        self._labels: list[tuple[str | None, bool]] = []
-        self.filter_fields: list[tuple[str | None, bool]] = []
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        values = dict(attrs)
-        if tag == "form" and "data-report-filters" in values:
-            self.filters_hidden = "hidden" in values
-            self._in_report_filters = True
-        if tag == "label" and self._in_report_filters:
-            self._labels.append((values.get("for"), False))
-        if tag in {"input", "select"} and self._labels:
-            label_for, _ = self._labels[-1]
-            if label_for is None or label_for == values.get("id"):
-                self._labels[-1] = (label_for, True)
-        if tag == "tr" and "data-filter-row" in values:
-            self._row = values
-        if tag == "strong" and self._row is not None and "data-status" in values:
-            self._row["badge-status"] = values["data-status"]
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "tr" and self._row is not None:
-            self.rows.append(self._row)
-            self._row = None
-        if tag == "form" and self._in_report_filters:
-            self._in_report_filters = False
-        if tag == "label" and self._labels:
-            self.filter_fields.append(self._labels.pop())
-
-    def handle_data(self, data: str) -> None:
-        if self._row is not None:
-            current = self._row.get("_text", "")
-            self._row["_text"] = f"{current}{data}"
 
 
 def _cycle_baseline_fixture(tmp_path: Path, capsys) -> tuple[Path, Path]:
@@ -909,10 +869,10 @@ def test_html_banner_discloses_unknown_rule_in_aggregate_verdict(tmp_path: Path,
     ]
     assert not result["open_decisions"]
     page = (tmp_path / "unknown-cycle-report" / "architecture.report.html").read_text()
-    assert "declared rules could not be evaluated completely." in page
-    banner = page.split('<section class="decision-banner"', 1)[1].split("</section>", 1)[0]
-    assert 'data-decision="unknown"' in banner
-    assert 'aria-label="Decision: NOT CHECKED"' in banner
+    assert "Declared rules: UNKNOWN" in page
+    atlas = _flow_data(page)["atlas"]
+    assert atlas["status"] == "UNKNOWN" and atlas["unknown_count"] > 0
+    assert _linked_audit(page, tmp_path / "unknown-cycle-report") == observation
 
 
 def test_replay_reports_mixed_boundary_failure_and_unknown_without_double_counting(
@@ -954,19 +914,11 @@ def test_replay_reports_mixed_boundary_failure_and_unknown_without_double_counti
     )
 
     page = output.with_name("mixed-evidence.report.html").read_text()
-    parser = _ReportFilterRows()
-    parser.feed(page)
-    rule_row = next(
-        row for row in parser.rows if row.get("_text", "").lstrip().startswith("APP-TYPES-NOT-DICT")
-    )
-    detail_rows = [
-        row
-        for row in parser.rows
-        if row.get("_text", "").lstrip().startswith("VIO-")
-        and "APP-TYPES-NOT-DICT" in row.get("_text", "")
-    ]
-    assert rule_row["data-status"] == "FAIL" and rule_row.get("data-undecided") == "1"
-    assert len(detail_rows) == 1 and detail_rows[0]["data-status"] == "FAIL"
+    assert _linked_audit(page, output.parent) == observation
+    assert "Declared rules: FAIL" in page
+    atlas = _flow_data(page)["atlas"]
+    # Architecture scope stays undecided while this boundary-type rule fails.
+    assert atlas["status"] == "UNKNOWN" and atlas["unknown_count"] > 0
 
 
 def test_replay_keeps_partial_module_cycle_scope_unknown_and_baseline_unresolved(
@@ -1044,27 +996,17 @@ def test_real_html_keeps_mixed_fail_and_unknown_evidence_available_without_javas
         "store_dir: object,\n    extra_path: FutureOrder,\n    order_id",
     )
     root = _prepare_repo(tmp_path, files, tour.fixture)
-    result, _ = _cli_report(root, tmp_path / "html-report", capsys)
+    result, observation = _cli_report(root, tmp_path / "html-report", capsys)
     page = (tmp_path / "html-report" / "architecture.report.html").read_text()
-    parser = _ReportFilterRows()
-    parser.feed(page)
-
-    mixed = next(
-        row for row in parser.rows if row.get("_text", "").lstrip().startswith("APP-TYPES-NOT-DICT")
-    )
-    clean = next(
-        row for row in parser.rows if row.get("_text", "").lstrip().startswith("DEP-APP-NO-CLI")
-    )
-    assert parser.filters_hidden  # without JS, controls stay hidden but evidence rows are readable
+    assert _linked_audit(page, tmp_path / "html-report") == observation
+    views = next(item for item in _start_tags(page, "nav") if item.get("class") == "flow-views")
+    assert "hidden" in views
     assert result["declared_rules"] == "FAIL"
-    banner = page.split('<section class="decision-banner"', 1)[1].split("</section>", 1)[0]
-    assert 'data-decision="fail"' in banner
-    assert 'aria-label="Decision: FAIL"' in banner
-    assert mixed["data-status"] == "FAIL"
-    assert mixed.get("data-undecided") == "1"
-    assert clean["data-status"] == "PASS" and clean.get("data-undecided") == "0"
-    assert 'value="FAIL+UNKNOWN"' in page and 'value="UNKNOWN"' in page
-    assert all("hidden" not in row for row in parser.rows)
+    assert "Declared rules: FAIL" in page
+    _assert_assessment(result, "APP-TYPES-NOT-DICT", "FAIL", 1, 1, _PROVENANCE)
+    _assert_assessment(result, "DEP-APP-NO-CLI", "PASS", 0, 0, _PROVENANCE)
+    assert _unknown_positions(observation, "APP-TYPES-NOT-DICT")
+    assert any("APP-TYPES-NOT-DICT" in item.rule_ids for item in observation.records("violations"))
 
 
 def test_real_html_marks_failure_explicitly_and_permission_as_neutral(
@@ -1072,32 +1014,33 @@ def test_real_html_marks_failure_explicitly_and_permission_as_neutral(
 ) -> None:
     tour = _variant("tour")
     root = _prepare_repo(tmp_path, dict(tour.files), tour.fixture)
-    _cli_report(root, tmp_path, capsys)
+    result, observation = _cli_report(root, tmp_path, capsys)
     page = (tmp_path / "architecture.report.html").read_text()
-    parser = _ReportFilterRows()
-    parser.feed(page)
+    audit = _linked_audit(page, tmp_path)
+    assert audit == observation and "Declared rules: FAIL" in page
+    _assert_assessment(result, "APP-TYPES-NOT-DICT", "FAIL", 0, 1, _PROVENANCE)
+    _assert_assessment(result, "DEP-APP-ALLOWS-MODEL", "DECLARATION", 0, 0, _PROVENANCE)
+    permission = _declared(audit, "DEP-APP-ALLOWS-MODEL")
+    assert permission.kind == "allowed_dependency"
+    assert permission.evidence_class.value == "DECLARED_RULE"
+    assert not any(permission.id in item.rule_ids for item in audit.records("violations"))
+    assert not any(permission.id in item.rule_ids for item in audit.records("unknowns"))
+    atlas = _flow_data(page)["atlas"]
+    assert any(cell[3] == "FAIL" for cell in atlas["cells"])
+    assert all(cell[4] == "UNKNOWN" for cell in atlas["cells"])
 
-    failure = next(
-        row for row in parser.rows if row.get("_text", "").lstrip().startswith("APP-TYPES-NOT-DICT")
-    )
-    permission = next(row for row in parser.rows if row.get("data-kind") == "allowed_dependency")
-    css = (Path(__file__).parents[1] / "src/archkeel/render/assets/archkeel-report.css").read_text()
 
-    assert "FAIL" in failure["_text"] and failure.get("badge-status") == "fail"
-    assert "DECLARATION" in permission["_text"] and permission.get("badge-status") == "info"
-    assert '[data-status="fail"] {\n  color: var(--ck-fail);' in css
-    assert '[data-status="info"] {\n  color: var(--ck-muted);' in css
-
-
-def test_real_html_keeps_each_mobile_filter_label_with_its_control(tmp_path: Path, capsys) -> None:
+def test_real_html_keeps_each_native_scope_filter_label_with_its_control(
+    tmp_path: Path, capsys
+) -> None:
     tour = _variant("tour")
     root = _prepare_repo(tmp_path, dict(tour.files), tour.fixture)
     _cli_report(root, tmp_path, capsys)
-    parser = _ReportFilterRows()
-    parser.feed((tmp_path / "architecture.report.html").read_text())
-
-    assert len(parser.filter_fields) == 4
-    assert all(control_owned_by_label for _label, control_owned_by_label in parser.filter_fields)
+    page = (tmp_path / "architecture.report.html").read_text()
+    labels = _start_tags(page, "label")
+    controls = {item["id"] for tag in ("input", "select") for item in _start_tags(page, tag)}
+    assert {item["for"] for item in labels} == {"flow-focus", "flow-violations-only"}
+    assert all(item["for"] in controls for item in labels)
 
 
 def test_real_report_scopes_root_intermediate_and_leaf_assessments_to_receipts(
