@@ -683,3 +683,52 @@ def test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation(view)
     finally:
         browser.close()
         playwright.stop()
+
+
+@pytest.mark.parametrize("view", ["As-Is", "Diff"])
+def test_own_dense_scenes_remain_actionable_at_reduced_cpu(
+    view, self_observation: Observation
+):
+    api = pytest.importorskip("playwright.sync_api")
+    model = self_observation
+    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
+    errors = []
+    playwright, browser, page = _browser_page(
+        api,
+        render_html(result, model, repository="archkeel", architecture_href=None).decode(),
+        width=1550,
+        height=1150,
+        errors=errors,
+    )
+    try:
+        page.context.new_cdp_session(page).send("Emulation.setCPUThrottlingRate", {"rate": 2})
+        payload = page.locator("#flow-data").text_content()
+        page.get_by_role("button", name=view, exact=True).click()
+        for label in ("ir", "governance", "architecture_graph"):
+            page.locator(f'.flow-nodes [data-label="{label}"]').dblclick()
+        nodes = page.locator(".flow-nodes [data-uml-id]")
+        edges = page.locator(".flow-edges [data-uml-id]")
+        identities = nodes.evaluate_all("nodes => nodes.map(node => node.dataset.umlId).sort()")
+        connections = edges.evaluate_all("edges => edges.map(edge => edge.dataset.umlId).sort()")
+        previews = page.get_by_role("button", name="Member previews", exact=True)
+        previews.focus()
+        previews.press("Space")
+        assert previews.get_attribute("aria-pressed") == "true"
+        assert (
+            nodes.evaluate_all("nodes => nodes.map(node => node.dataset.umlId).sort()")
+            == identities
+        )
+        assert (
+            edges.evaluate_all("edges => edges.map(edge => edge.dataset.umlId).sort()")
+            == connections
+        )
+        assert edges.evaluate_all("""edges => edges.every(edge =>
+          edge.querySelector('.line').getAttribute('d') ===
+          edge.querySelector('.hit').getAttribute('d'))""")
+        page.locator(".flow-back").click()
+        assert "architecture_graph" not in page.locator(".flow-breadcrumb").inner_text()
+        assert page.locator("#flow-data").text_content() == payload
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()

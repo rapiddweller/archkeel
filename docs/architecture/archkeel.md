@@ -283,6 +283,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-197 | [Expanded Target records eight UNKNOWN inventories](decisions/ad-197-expanded-target-records-eight-unknown-inventories.md) |
 | AD-185 | [Provider use survives initializer ownership](decisions/ad-185-provider-use-survives-initializer-ownership.md) |
 | AD-188 | [Nested permissions pin the complete field](decisions/ad-188-nested-permissions-pin-the-complete-field.md) |
+| AD-183 | [Diff projects recorded imports](decisions/ad-183-diff-projects-recorded-imports.md) |
 
 ## Allowed dependencies
 

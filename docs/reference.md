@@ -276,6 +276,10 @@ Schema validation checks shape, not source authenticity, count arithmetic or con
 The `report` headline follows `declared_rules`: FAIL and UNKNOWN stay visible even on exit 0.
 Open decisions remain context. Use `archkeel validate --baseline architecture-baseline.json`
 with your existing baseline to gate changes; see onboarding to create a baseline.
+Diff shows recorded imports through component ownership without requiring UML intent.
+Its inspector limits findings to the selected subject or opened scope. Expand
+**Global or unmapped findings** for evidence without a known graph subject (AD-183).
+
 The report's declared-facade section measures export counts, re-exports, names defined in each
 facade, unused re-exports, consumers per export and distinct exported names per component pair.
 They do not assert that a barrel is complete (AD-88). `validate` measures
