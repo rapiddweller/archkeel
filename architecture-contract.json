@@ -108,6 +108,7 @@
         "archkeel.ir.profiles:PROFILES",
         "archkeel.ir.profiles:UnmeasurableScalar",
         "archkeel.ir.facts_validation:validate_source_facts",
+        "archkeel.ir.facts_validation:validate_source_bindings",
         "archkeel.ir.source_records:RawData",
         "archkeel.ir.source_records:RawRecord",
         "archkeel.ir.source_records:RawEvidence",
@@ -448,10 +449,11 @@
       {
         "source": "cli",
         "target": "check",
-        "max_names": 14,
+        "max_names": 15,
         "provenance": [
           "docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md",
-          "docs/architecture/decisions/ad-148-source-facts-and-core-evaluation-have-separate-owners.md"
+          "docs/architecture/decisions/ad-148-source-facts-and-core-evaluation-have-separate-owners.md",
+          "docs/architecture/decisions/ad-207-atlas-projection-boundaries.md"
         ]
       },
       {

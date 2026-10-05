@@ -96,7 +96,8 @@
       ],
       "public": [
         "archkeel.check.observe:Observer",
-        "archkeel.check.observation:analyze_source_snapshot"
+        "archkeel.check.observation:analyze_source_snapshot",
+        "archkeel.check.observe:observation_diagnostics"
       ]
     },
     {

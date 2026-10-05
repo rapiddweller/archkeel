@@ -94,7 +94,8 @@
       ],
       "public": [
         "archkeel.ir.facts_codec",
-        "archkeel.ir.facts_validation:validate_source_facts"
+        "archkeel.ir.facts_validation:validate_source_facts",
+        "archkeel.ir.facts_validation:validate_source_bindings"
       ]
     },
     {
