@@ -8,7 +8,8 @@ from dataclasses import replace
 from pathlib import Path
 
 from archkeel.check.uml_compare import compare_graphs
-from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
+from archkeel.ir.codec import parse_contract
+from archkeel.ir.model import Observation
 from archkeel.ir.source_graph import observed_graph
 from archkeel.ir.target_graph import declared_graph
 
@@ -27,19 +28,18 @@ PROTOCOL_REFERENCES = {
 }
 
 
-def _graphs():
+def _graphs(observation: Observation):
     contract = parse_contract(
         json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text())
     )
     target = declared_graph(contract)
-    observation = parse_observation(
-        decode_canonical_model(json.loads((ROOT / "fixtures/D-self/architecture.json").read_text()))
-    )
     return observed_graph(observation), target
 
 
-def test_protocol_target_has_all_resolver_variants_and_typed_public_fields():
-    observed, target = _graphs()
+def test_protocol_target_has_all_resolver_variants_and_typed_public_fields(
+    self_observation: Observation,
+):
+    observed, target = _graphs(self_observation)
     by_name = {e.qualified_name: e for e in target.entities}
     for name, fields in SETTINGS.items():
         classifier = by_name[f"archkeel.ir.protocol.{name}"]
@@ -62,8 +62,10 @@ def test_protocol_target_has_all_resolver_variants_and_typed_public_fields():
     )
 
 
-def test_protocol_target_links_language_variants_request_and_shared_version():
-    observed, target = _graphs()
+def test_protocol_target_links_language_variants_request_and_shared_version(
+    self_observation: Observation,
+):
+    observed, target = _graphs(self_observation)
     entities = {e.id: e for e in target.entities}
     relations = [
         r
@@ -86,8 +88,10 @@ def test_protocol_target_links_language_variants_request_and_shared_version():
     )
 
 
-def test_protocol_target_rejects_a_changed_language_discriminator_without_copying_source():
-    observed, target = _graphs()
+def test_protocol_target_rejects_a_changed_language_discriminator_without_copying_source(
+    self_observation: Observation,
+):
+    observed, target = _graphs(self_observation)
     wanted = next(
         e
         for e in target.entities
@@ -109,14 +113,13 @@ def test_protocol_target_rejects_a_changed_language_discriminator_without_copyin
         a.subject_id == wanted.id and a.aspect == "annotation" and a.status == "FAIL"
         for a in comparison.assessments
     )
-    assert target.entities == _graphs()[1].entities
+    assert target.entities == _graphs(self_observation)[1].entities
 
 
-def test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes():
-    observation = parse_observation(
-        decode_canonical_model(json.loads((ROOT / "fixtures/D-self/architecture.json").read_text()))
-    )
-    unknowns = observation.records("unknowns")
+def test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes(
+    self_observation: Observation,
+):
+    unknowns = self_observation.records("unknowns")
     inventory = tuple(item for item in unknowns if item.kind == "uml_conformance")
     assert len(inventory) == 8
     assert {item.data.get("subject_id") for item in inventory} == {
@@ -136,7 +139,7 @@ def test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes():
     # New closed intent must not conceal a regression in the existing boundary debt.
     from archkeel.check.ratchets import unknown_positions_by_rule
 
-    counts = dict(unknown_positions_by_rule(observation))
+    counts = dict(unknown_positions_by_rule(self_observation))
     assert sum(count for rule, count in counts.items() if not rule.startswith("UML-TARGET")) == 40
     assert sum(counts.values()) == 48
     baseline = json.loads((ROOT / "architecture-baseline.json").read_text())
