@@ -1772,7 +1772,8 @@
     const kinds = [...new Set(complete.edges.map((edge) => edge.relationshipKind))].sort();
     if (!kinds.includes(relationshipKind)) relationshipKind = null;
     const directOverview = ["module", "class", "interface", "enum"].includes(
-      architectureEntity(context.scope, context.graph)?.kind) && !focusLabel && !relationshipKind;
+      architectureEntity(context.scope, context.graph)?.kind) && !focusLabel && !relationshipKind
+      && !violationsOnly.checked;
     const scopeElements = complete.nodes.filter((node) => !directOverview
       || !node.outside && node.entity?.id !== context.scope);
     const elementKinds = [...new Set(scopeElements.map((node) => node.kind))].sort();
@@ -1788,7 +1789,8 @@
       `<option value="${esc(node.id)}">${esc(node.label)} · ${esc(node.kind)}${node.outside ? " · outside" : ""}</option>`).join("");
     focusInput.value = focusLabel || "";
     focusInput.disabled = !elements.length;
-    const edges = complete.edges.filter((edge) => (!violationsOnly.checked || edge.state === "violation")
+    const edges = complete.edges.filter((edge) => !directOverview
+      && (!violationsOnly.checked || edge.state === "violation")
       && (!relationshipKind || edge.relationshipKind === relationshipKind)
       && elementIds.has(edge.source) && elementIds.has(edge.target)
       && (!focusLabel || edge.source === focusLabel || edge.target === focusLabel));
@@ -1810,7 +1812,7 @@
     scene.nodes.forEach((node) => { node.rank = ranks.get(node.id); });
     filterStatus.textContent = focusLabel || relationshipKind || elementKind
       ? `${[focusLabel ? "Direct neighbors" : null, elementKind ? `Elements: ${elementKind}` : null, relationshipKind ? `Relationships: ${relationshipKind}` : null].filter(Boolean).join(" · ")} · ${scene.nodes.length} of ${complete.nodes.length} elements · ${edges.length} of ${complete.edges.length} connections`
-      : directOverview ? "Direct children; outside and referenced symbols remain in relationship filters, Focus and Details"
+      : directOverview ? "Direct children; connections, outside and referenced symbols remain in relationship filters, Focus and Details"
         : "All elements and connections at this level";
     memberPreviewsButton.hidden = !scene.nodes.some((node) => node.sections.length);
     if (!memberPreviews) for (const node of scene.nodes) {

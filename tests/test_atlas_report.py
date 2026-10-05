@@ -343,6 +343,7 @@ def test_module_and_classifier_defaults_show_only_direct_native_children(tmp_pat
 
         assert scene_ids() == direct_ids(module.id)
         assert page.locator('.flow-nodes [data-outside="true"]').count() == 0
+        assert page.locator(".flow-edges .hit").count() == 0
         assert (
             page.get_by_label("Element kind", exact=True).locator('[value="class"]').inner_text()
             == "class · 1"
@@ -356,6 +357,7 @@ def test_module_and_classifier_defaults_show_only_direct_native_children(tmp_pat
         page.get_by_label("Element kind", exact=True).select_option("")
         page.locator('.flow-legend [data-relationship-kind="inherits"]').click()
         assert page.locator('.flow-nodes [data-label="Base"]').count() == 1
+        assert page.locator(".flow-edges .hit").count() > 0
         page.locator('.flow-legend [data-relationship-kind=""]').click()
         assert scene_ids() == direct_ids(module.id)
         for name in ("Client", "State"):
