@@ -8,7 +8,15 @@ from dataclasses import dataclass, replace
 from statistics import median
 from typing import Literal
 
-from .architecture_graph import ArchitectureReport, AssessmentStatus, Coverage, Entity, Relationship
+from .architecture_graph import (
+    ArchitectureGraph,
+    ArchitectureReport,
+    AssessmentStatus,
+    ComponentIntent,
+    Coverage,
+    Entity,
+    Relationship,
+)
 from .interfaces import component_owners, owner_of
 from .levels import inside_levels
 from .model import ComponentOwnership, JsonValue, Observation, Record
@@ -96,8 +104,12 @@ def _cells(model: Observation, report: ArchitectureReport) -> tuple[ModuleImport
     }
     sites: dict[tuple[str, str], list[Relationship]] = defaultdict(list)
     for edge in report.observed.relationships:
-        if edge.kind == "imports" and edge.source_id in modules and edge.target_id in modules:
-            assert edge.target_id is not None
+        if (
+            edge.kind == "imports"
+            and edge.source_id in modules
+            and edge.target_id is not None
+            and edge.target_id in modules
+        ):
             sites[edge.source_id, edge.target_id].append(edge)
     cells = []
     for source, target in sorted(set(weights) | set(sites)):
@@ -214,47 +226,14 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
         )
     observed, target = report.observed, report.target
     intents = {item.component_id: item for item in target.component_intents}
-    labels: dict[str, str] = {}
-
-    def scope(identity: str) -> str:
-        if identity not in labels:
-            intent = intents[identity]
-            label = intent.label or identity
-            labels[identity] = f"{scope(intent.parent_id)}:{label}" if intent.parent_id else label
-        return labels[identity]
-
-    scope_ids = {scope(identity): identity for identity in intents}
-    owners: dict[str | None, tuple[ComponentOwnership, ...]] = {None: component_owners(model)}
-    for inside_level in inside_levels(model):
-        owners[scope_ids[inside_level.parent]] = tuple(
-            (f"{inside_level.parent}:{item.label}", item.packages, item.exact_modules)
-            for item in inside_level.components
-        )
+    scope_ids, owners = _scope_owners(model, intents)
     modules = tuple(
         item for item in observed.entities if item.kind == "module" and item.presence == "defined"
     )
     records = {item.id: item for item in model.records("modules") or ()}
     memberships = {item.component_id: set(item.module_ids) for item in report.memberships}
-    covered = {
-        item.scope_id
-        for item in observed.coverage
-        if "imports" in item.relationship_kinds and item.status == "complete"
-    }
-    complete = (
-        model.coverage.status == "PASS"
-        and model.records("imports") is not None
-        and model.records("dependency_edges") is not None
-        and bool(modules)
-        and all(item.id in covered for item in modules)
-        and not any(
-            item.kind == "imports" and item.target_id is None for item in observed.relationships
-        )
-    )
     cells = _cells(model, report)
-    complete = complete and all(
-        cell.import_sites == len(cell.relationship_ids) and bool(cell.relationship_ids)
-        for cell in cells
-    )
+    complete = _imports_complete(model, observed, modules, cells)
     parents = (
         None,
         *sorted({item.parent_id for item in intents.values() if item.parent_id is not None}),
@@ -264,64 +243,17 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
         groups = tuple(
             sorted(item.component_id for item in intents.values() if item.parent_id == parent)
         )
-        selected = tuple(
-            item for item in modules if parent is None or item.id in memberships.get(parent, set())
-        )
-        statistics = []
-        for module in selected:
-            members = tuple(
-                identity for identity in groups if module.id in memberships.get(identity, set())
-            )
-            candidates = tuple(
-                sorted(
-                    scope_ids[label]
-                    for candidate in owners.get(parent, ())
-                    if (label := owner_of(module.qualified_name, (candidate,))) is not None
-                )
-            )
-            statistics.append(
-                _statistic(
-                    module, records[module.id], members, candidates, complete, observed.coverage
-                )
-            )
-        order = {identity: index for index, identity in enumerate(groups)}
-        ordered = tuple(
-            sorted(
-                statistics,
-                key=lambda item: (
-                    order.get(item.component_id, len(groups))
-                    if item.component_id is not None
-                    else len(groups),
-                    item.rank is None,
-                    item.rank or 0,
-                    item.name,
-                    item.id,
-                ),
-            )
-        )
-        selected_ids = {item.id for item in selected}
-        level = ModuleExploreLevel(
+        level = _module_level(
             parent,
             groups,
-            ordered,
-            tuple(
-                item
-                for item in cells
-                if item.source_id in selected_ids and item.target_id in selected_ids
-            ),
-            "PASS" if complete else "UNKNOWN",
-            "Complete module import evidence."
-            if complete
-            else "Module/import coverage or resolved import-site evidence is incomplete.",
-            tuple(
-                sorted(
-                    item.id
-                    for item in observed.relationships
-                    if item.kind == "imports"
-                    and item.target_id is None
-                    and item.source_id in selected_ids
-                )
-            ),
+            modules,
+            memberships,
+            records,
+            scope_ids,
+            owners,
+            complete,
+            observed,
+            cells,
         )
         levels.append(level)
     root = next(level for level in levels if level.parent_id is None)
@@ -340,35 +272,12 @@ def _hint_candidates(
     cells: tuple[ModuleImportCell, ...],
     inventory_complete: bool,
 ) -> tuple[HintCandidate, ...]:
-    """Mockup thresholds for human calibration, deliberately outside production defaults."""
+    """Provisional question candidates preserve native ownership and coverage."""
     root_modules = {item.id: item for item in root.modules}
     incoming: dict[str, list[ModuleImportCell]] = defaultdict(list)
     for cell in cells:
         incoming[cell.target_id].append(cell)
     hints = []
-
-    def hint(
-        kind: Literal["used_elsewhere", "hub", "heavy", "no_owner"],
-        modules: tuple[ModuleStatistic, ...],
-        components: tuple[str, ...],
-        count: int,
-        question: str,
-    ) -> HintCandidate:
-        sites = tuple(cell for module in modules for cell in incoming[module.id])
-        return HintCandidate(
-            kind,
-            tuple(item.id for item in modules),
-            components,
-            count,
-            tuple(sorted({identity for cell in sites for identity in cell.relationship_ids})),
-            tuple(
-                sorted(
-                    {identity for cell in sites for identity in cell.evidence_ids}
-                    | {identity for module in modules for identity in module.evidence_ids}
-                )
-            ),
-            question,
-        )
 
     if level.import_status == "PASS":
         elsewhere: dict[tuple[str, str], list[ModuleStatistic]] = defaultdict(list)
@@ -377,12 +286,13 @@ def _hint_candidates(
             users = {root_modules[cell.source_id].component_id for cell in incoming[module.id]}
             if owner is not None and len(users) == 1 and None not in users and owner not in users:
                 user = next(iter(users))
-                assert user is not None
-                elsewhere[owner, user].append(module)
+                if user is not None:
+                    elsewhere[owner, user].append(module)
         for pair, candidates in sorted(elsewhere.items()):
             group = tuple(sorted(candidates, key=lambda item: item.name))
             hints.append(
-                hint(
+                _hint(
+                    incoming,
                     "used_elsewhere",
                     group,
                     pair,
@@ -396,7 +306,8 @@ def _hint_candidates(
             key=lambda item: (-(item.fan_in or 0), item.name),
         )[:3]
         hints.extend(
-            hint(
+            _hint(
+                incoming,
                 "hub",
                 (item,),
                 (),
@@ -405,34 +316,21 @@ def _hint_candidates(
             )
             for item in hubs
         )
-    sizes = [item.symbols for item in level.modules if item.symbols is not None]
-    symbols_complete = all(
-        item.symbol_coverage and all(entry.status == "complete" for entry in item.symbol_coverage)
-        for item in level.modules
-    )
-    if inventory_complete and symbols_complete and sizes and len(sizes) == len(level.modules):
-        threshold = max(40, 3 * median(sizes))
-        heavy = sorted(
-            (
-                item
-                for item in level.modules
-                if item.symbols is not None and item.symbols >= threshold
-            ),
-            key=lambda item: (-(item.symbols or 0), item.name),
-        )[:3]
-        hints.extend(
-            hint(
-                "heavy",
-                (item,),
-                (),
-                item.symbols or 0,
-                "Does this module have one responsibility, or several that grew together?",
-            )
-            for item in heavy
+    hints.extend(
+        _hint(
+            incoming,
+            "heavy",
+            (item,),
+            (),
+            item.symbols or 0,
+            "Does this module have one responsibility, or several that grew together?",
         )
+        for item in _heavy_modules(level, inventory_complete)
+    )
     if inventory_complete:
         hints.extend(
-            hint(
+            _hint(
+                incoming,
                 "no_owner",
                 (item,),
                 (),
@@ -443,3 +341,178 @@ def _hint_candidates(
             if not item.candidate_ids and item.component_id is None
         )
     return tuple(hints)
+
+
+def _scope_owners(
+    model: Observation, intents: dict[str, ComponentIntent]
+) -> tuple[dict[str, str], dict[str | None, tuple[ComponentOwnership, ...]]]:
+    labels: dict[str, str] = {}
+
+    def scope(identity: str) -> str:
+        if identity not in labels:
+            intent = intents[identity]
+            label = intent.label or identity
+            labels[identity] = f"{scope(intent.parent_id)}:{label}" if intent.parent_id else label
+        return labels[identity]
+
+    scope_ids = {scope(identity): identity for identity in intents}
+    owners: dict[str | None, tuple[ComponentOwnership, ...]] = {None: component_owners(model)}
+    for inside_level in inside_levels(model):
+        owners[scope_ids[inside_level.parent]] = tuple(
+            (f"{inside_level.parent}:{item.label}", item.packages, item.exact_modules)
+            for item in inside_level.components
+        )
+    return scope_ids, owners
+
+
+def _module_level(
+    parent: str | None,
+    groups: tuple[str, ...],
+    modules: tuple[Entity, ...],
+    memberships: dict[str, set[str]],
+    records: dict[str, Record],
+    scope_ids: dict[str, str],
+    owners: dict[str | None, tuple[ComponentOwnership, ...]],
+    complete: bool,
+    observed: ArchitectureGraph,
+    cells: tuple[ModuleImportCell, ...],
+) -> ModuleExploreLevel:
+    selected = tuple(
+        item for item in modules if parent is None or item.id in memberships.get(parent, set())
+    )
+    statistics = []
+    for module in selected:
+        members = tuple(
+            identity for identity in groups if module.id in memberships.get(identity, set())
+        )
+        candidates = tuple(
+            sorted(
+                scope_ids[label]
+                for candidate in owners.get(parent, ())
+                if (label := owner_of(module.qualified_name, (candidate,))) is not None
+            )
+        )
+        statistics.append(
+            _statistic(module, records[module.id], members, candidates, complete, observed.coverage)
+        )
+    ordered = _ordered_statistics(statistics, groups)
+    selected_ids = {item.id for item in selected}
+    return ModuleExploreLevel(
+        parent,
+        groups,
+        ordered,
+        tuple(
+            item
+            for item in cells
+            if item.source_id in selected_ids and item.target_id in selected_ids
+        ),
+        "PASS" if complete else "UNKNOWN",
+        "Complete module import evidence."
+        if complete
+        else "Module/import coverage or resolved import-site evidence is incomplete.",
+        tuple(
+            sorted(
+                item.id
+                for item in observed.relationships
+                if item.kind == "imports"
+                and item.target_id is None
+                and item.source_id in selected_ids
+            )
+        ),
+    )
+
+
+def _ordered_statistics(
+    statistics: list[ModuleStatistic], groups: tuple[str, ...]
+) -> tuple[ModuleStatistic, ...]:
+    order = {identity: index for index, identity in enumerate(groups)}
+    ordered = tuple(
+        sorted(
+            statistics,
+            key=lambda item: (
+                order.get(item.component_id, len(groups))
+                if item.component_id is not None
+                else len(groups),
+                item.rank is None,
+                item.rank or 0,
+                item.name,
+                item.id,
+            ),
+        )
+    )
+    return ordered
+
+
+def _hint(
+    incoming: dict[str, list[ModuleImportCell]],
+    kind: Literal["used_elsewhere", "hub", "heavy", "no_owner"],
+    modules: tuple[ModuleStatistic, ...],
+    components: tuple[str, ...],
+    count: int,
+    question: str,
+) -> HintCandidate:
+    sites = tuple(cell for module in modules for cell in incoming[module.id])
+    return HintCandidate(
+        kind,
+        tuple(item.id for item in modules),
+        components,
+        count,
+        tuple(sorted({identity for cell in sites for identity in cell.relationship_ids})),
+        tuple(
+            sorted(
+                {identity for cell in sites for identity in cell.evidence_ids}
+                | {identity for module in modules for identity in module.evidence_ids}
+            )
+        ),
+        question,
+    )
+
+
+def _heavy_modules(
+    level: ModuleExploreLevel, inventory_complete: bool
+) -> tuple[ModuleStatistic, ...]:
+    sizes = [item.symbols for item in level.modules if item.symbols is not None]
+    symbols_complete = all(
+        item.symbol_coverage and all(entry.status == "complete" for entry in item.symbol_coverage)
+        for item in level.modules
+    )
+    if inventory_complete and symbols_complete and sizes and len(sizes) == len(level.modules):
+        threshold = max(40, 3 * median(sizes))
+        return tuple(
+            sorted(
+                (
+                    item
+                    for item in level.modules
+                    if item.symbols is not None and item.symbols >= threshold
+                ),
+                key=lambda item: (-(item.symbols or 0), item.name),
+            )[:3]
+        )
+    return ()
+
+
+def _imports_complete(
+    model: Observation,
+    observed: ArchitectureGraph,
+    modules: tuple[Entity, ...],
+    cells: tuple[ModuleImportCell, ...],
+) -> bool:
+    covered = {
+        item.scope_id
+        for item in observed.coverage
+        if "imports" in item.relationship_kinds and item.status == "complete"
+    }
+    complete = (
+        model.coverage.status == "PASS"
+        and model.records("imports") is not None
+        and model.records("dependency_edges") is not None
+        and bool(modules)
+        and all(item.id in covered for item in modules)
+        and not any(
+            item.kind == "imports" and item.target_id is None for item in observed.relationships
+        )
+    )
+    return complete and all(
+        cell.import_sites == len(cell.relationship_ids) and bool(cell.relationship_ids)
+        for cell in cells
+    )
