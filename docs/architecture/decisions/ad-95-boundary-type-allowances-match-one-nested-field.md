@@ -7,6 +7,11 @@ source. The outer signature annotation remains on the violation; an exact match 
 that nested finding and emits a `FACT` in `typing_signals` with the rule and function evidence.
 An unmatched allowance changes nothing and emits no fact.
 
+AD-188 preserves the complete leaf declaration beside each member finding. Nullable and proven
+Optional spellings match their own collected text, without semantic normalization. One outer map
+may be selected; other findings and UNKNOWN survive. Ambiguous declarations and multiple outer
+maps remain unallowed. Member-only permissions cannot pin a nullable field or union alias.
+
 AD-123 later permits `field_path: ""` for an exact top-level parameter or
 return finding. It matches the complete signature annotation and exempts one
 top-level broad finding, including one inside an optional union. Nested maps,

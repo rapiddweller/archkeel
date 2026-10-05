@@ -674,7 +674,7 @@ def test_exact_mapping_allowance_does_not_pass_an_unresolved_value_type(tmp_path
     assert allowance_fact.data.get("annotation") == "Mapping[str, MissingType]"
 
 
-def test_mapping_alias_allowance_keeps_union_violation_and_unknown(tmp_path: Path) -> None:
+def test_mapping_member_allowance_cannot_pin_a_union_alias(tmp_path: Path) -> None:
     allowance = {
         "qualified_name": "sample.app.impl.run",
         "position": "return",
@@ -710,12 +710,12 @@ def test_mapping_alias_allowance_keeps_union_violation_and_unknown(tmp_path: Pat
         item.data.get("path") == "return.payload" and item.data.get("reason") == "unresolved_name"
         for item in unknowns
     )
-    [allowance_fact] = [
+    assert len(violations) == 3
+    assert not [
         item
         for item in result.observation.records("typing_signals") or ()
         if item.kind == "boundary_type_allowance"
     ]
-    assert allowance_fact.data.get("annotation") == "Mapping[str, float]"
 
 
 def test_top_level_mapping_union_keeps_hidden_violation_and_unknown(tmp_path: Path) -> None:

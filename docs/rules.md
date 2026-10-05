@@ -463,7 +463,11 @@ Mixed union or DTO findings likewise retain both known violations and UNKNOWNs.
 `allowed_positions` may exempt one finding by exact `qualified_name`, `position`,
 `field_path` and `annotation`. An omitted or empty `field_path` selects the parameter or return itself;
 its `annotation` must match the complete signature annotation. A nonempty `field_path`
-names a nested field relative to that position and matches the offending leaf type.
+names a nested field relative to that position and matches its complete declared annotation,
+including nullable unions. Matching uses the collector's annotation text; `Optional[T]` and
+`T | None` are distinct selectors. A member permission cannot exempt a nullable field.
+Multiple maps or ambiguous declarations at the same path remain unallowed. A compound-field
+permission selects one outer map; other bad members, nested map values and UNKNOWN remain visible.
 Neither selector hides an unresolved union or mapping member.
 A direct-map allowance applies only when the signature has one top-level broad-type
 finding; it never covers a nested map or an undeclared member. Multiple

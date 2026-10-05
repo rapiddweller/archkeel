@@ -261,6 +261,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-180 | [Relationship exploration retains evidence](decisions/ad-180-relationship-exploration-retains-evidence.md) |
 | AD-181 | [UML bases retain binding evidence](decisions/ad-181-uml-bases-retain-binding-evidence.md) |
 | AD-182 | [Shared report integration](decisions/ad-182-shared-report-integration.md) |
+| AD-188 | [Nested permissions pin the complete field](decisions/ad-188-nested-permissions-pin-the-complete-field.md) |
 
 ## Allowed dependencies
 
