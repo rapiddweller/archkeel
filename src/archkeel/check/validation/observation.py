@@ -93,7 +93,7 @@ def observation_diagnostics(
                 (
                     "Change the permission or layer, or amend the order with owner approval."
                     if record.kind == "layer_order"
-                    else "Change the code or amend the contract with owner approval."
+                    else VIOLATION_REMEDY
                 ),
             )
         )

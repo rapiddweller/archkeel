@@ -1275,8 +1275,6 @@ def _symbol_placement_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
-
-
 def requires_violations(
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
