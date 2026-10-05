@@ -1,20 +1,25 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: against gate ci ci-typescript mermaid check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema
+.PHONY: against gate ci ci-check ci-typescript ci-artifacts-clean mermaid check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema
 check: lint typecheck test
 
 # These stages consume the previous stage's success, even with make -j.
-.NOTPARALLEL: gate release-check ci
+.NOTPARALLEL: gate release-check ci ci-check
 
 gate: $(if $(strip $(BASE)),against,self-validate) release-check
 
 release-check: check build smoke
 
-ci: gate ci-typescript browser-install report-browser
+ci: ci-check mermaid
+
+ci-check: gate ci-artifacts-clean ci-typescript browser-install report-browser
 
 ci-typescript: OUTPUT := test-artifacts/typescript-demo
 ci-typescript: demo-typescript
+
+ci-artifacts-clean:
+	rm -rf test-artifacts/typescript-demo test-artifacts/report-browser
 
 mermaid:
 	@set -eu; mermaid_dir=$$(mktemp -d); \

@@ -13,7 +13,14 @@ import pytest
 
 ROOT = Path(__file__).parents[1]
 GATE_STEPS = ["self-validate", "check", "build", "smoke"]
-CI_STEPS = [*GATE_STEPS, "demo-typescript", "browser-install", "report-browser"]
+CI_CHECK_STEPS = [
+    *GATE_STEPS,
+    "ci-artifacts-clean",
+    "demo-typescript",
+    "browser-install",
+    "report-browser",
+]
+CI_STEPS = [*CI_CHECK_STEPS, "mermaid"]
 
 
 def _run_gate(
@@ -86,7 +93,10 @@ def test_gate_uses_pinned_base_instead_of_duplicate_self_validation(
 
 
 @pytest.mark.parametrize("jobs", [1, 2])
-@pytest.mark.parametrize("failed", [None, "self-validate", "demo-typescript", "browser-install"])
+@pytest.mark.parametrize(
+    "failed",
+    [None, "self-validate", "ci-artifacts-clean", "demo-typescript", "browser-install", "mermaid"],
+)
 def test_ci_runs_acceptance_only_after_a_successful_gate(
     tmp_path: Path, jobs: int, failed: str | None
 ) -> None:
@@ -94,6 +104,13 @@ def test_ci_runs_acceptance_only_after_a_successful_gate(
     expected = CI_STEPS if failed is None else CI_STEPS[: CI_STEPS.index(failed) + 1]
     assert steps == expected, result.stderr
     assert result.returncode == (0 if failed is None else 2), result.stderr
+
+
+@pytest.mark.parametrize("jobs", [1, 2])
+def test_ci_check_leaves_mermaid_to_its_parallel_workflow_job(tmp_path: Path, jobs: int) -> None:
+    result, steps = _run_gate(tmp_path, "ci-check", None, jobs, True)
+    assert result.returncode == 0, result.stderr
+    assert steps == CI_CHECK_STEPS
 
 
 def test_against_receives_the_exact_ci_base_and_stops_before_tests(tmp_path: Path) -> None:
@@ -119,7 +136,7 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     check = workflow.split("  check:\n", 1)[1].split("\n  collector-safety-windows:", 1)[0]
     assert "BASE: ${{ github.event.pull_request.base.sha }}" in check
-    assert "run: make ci" in check
+    assert "run: make ci-check\n" in check
     assert "continue-on-error" not in check
     assert "timeout-minutes: 60" in check
     assert "Observe Archkeel" not in check
@@ -160,3 +177,26 @@ def test_mermaid_renders_every_block_and_propagates_renderer_failure(
     if renderer_exit:
         assert result.stdout.count("::error::") == len(rendered)
         assert all(line.split("\t", 1)[1] in result.stdout for line in extracted)
+
+
+def test_ci_cleanup_preserves_test_evidence(tmp_path: Path) -> None:
+    output = tmp_path / "test-artifacts/typescript-demo"
+    output.mkdir(parents=True)
+    (output / "stale.ts").write_text("previous demo")
+    browser = tmp_path / "test-artifacts/report-browser"
+    browser.mkdir()
+    (browser / "tour.json").write_text("previous catalog")
+    evidence = tmp_path / "test-artifacts/pytest/results.xml"
+    evidence.parent.mkdir()
+    evidence.write_text("keep")
+    run = subprocess.run(
+        ["make", "-f", str(ROOT / "Makefile"), "ci-artifacts-clean"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert run.returncode == 0, run.stderr
+    assert not output.exists()
+    assert not browser.exists()
+    assert evidence.read_text() == "keep"

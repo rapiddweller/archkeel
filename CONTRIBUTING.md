@@ -18,12 +18,12 @@ Flow browser tests require Node.js 22; CI and release builds install that pinned
 ## Before you push
 
 ```bash
-make ci BASE=origin/main                 # policy, release checks, TypeScript and browser acceptance
-make mermaid                            # the parallel CI job
+make ci BASE=origin/main                 # policy, release checks, TypeScript, browser and Mermaid
 ```
 
 Policy validation runs first. `BASE` also checks widenings and amendments; CI pins the PR base SHA.
 Without `BASE`, `make gate` validates only the checked-out policy before release checks.
+CI splits this command into `make ci-check` and the parallel `make mermaid` job.
 The Windows/Python/Node matrices remain separate CI checks. Obsolete PR runs cancel automatically;
 main runs stay independent. The main check has a 60-minute cap, not a performance guarantee.
 

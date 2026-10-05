@@ -44,7 +44,7 @@ jobs:
       - name: Run the locked CI checks
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
-        run: make ci
+        run: make ci-check
 
       - name: Upload test timings
         if: always()

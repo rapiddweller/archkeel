@@ -8,8 +8,9 @@ with `archkeel validate --root . --baseline architecture-baseline.json --json`, 
 release checks. With `BASE=<commit>`, `against` also rejects unamended or stale policy widenings;
 it already validates the head, so no second self-validation is needed.
 
-CI calls `make ci`, adding the TypeScript CLI demo and Chromium report acceptance to the gate.
-`make mermaid` reproduces the separate parallel render job. Runtime matrices stay separate.
+`make ci` adds the TypeScript CLI demo, Chromium report acceptance and Mermaid rendering to the gate.
+CI runs `make ci-check` and `make mermaid` in parallel. Runtime matrices stay separate.
+CI clears its two fixed demo output directories before rebuilding; test timings remain intact.
 Make serializes policy, check, build and smoke stages even under `-j`; failure stops later stages.
 GNU Make before 4.4 serializes the whole invocation. Pytest still runs its two workers.
 
