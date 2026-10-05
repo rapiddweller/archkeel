@@ -221,6 +221,12 @@
         "archkeel.ir.target_records",
         "archkeel.ir.report_graph",
         "archkeel.ir.architecture_projection:ArchitectureProjection",
+        "archkeel.ir.architecture_projection:ComponentProjection",
+        "archkeel.ir.architecture_projection:LevelProjection",
+        "archkeel.ir.architecture_projection:PermissionRuleProjection",
+        "archkeel.ir.architecture_projection:RequiredRelationshipProjection",
+        "archkeel.ir.architecture_projection:OwnershipGap",
+        "archkeel.ir.architecture_projection:UnknownProjection",
         "archkeel.ir.report_projection:architecture_projection"
       ]
     }

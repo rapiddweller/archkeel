@@ -11,7 +11,7 @@ the existing diagnostic text. Command result schema 5 adds the projection; its o
 starts at 1.0. Stable JSON excludes artifact paths.
 
 The delegated task owner approved two new Governance modules and their exact public
-projection symbols, plus `workflows -> declarations` to authenticate dependency
+projection symbols and the six directly exposed view dataclasses, plus `workflows -> declarations` to authenticate dependency
 permissions against the recorded contract. This feature widens the contract.
 
 Evidence: `tests/test_architecture_projection.py`. Own-repository byte budgets and integrated
