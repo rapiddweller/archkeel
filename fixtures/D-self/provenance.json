@@ -1,9 +1,9 @@
 {
-    "analyzer_digest": "344b3293bd6dc7190bfd25e2ddd79571e5280c4ed718150b96de0c1461138a70",
-    "checker_digest": "c1b27dd8f7cd20bfc5e200b45871902d07c8f8c73aa52fe64cc378d213a67451",
-    "source_digest": "bc8282fbec9fd61a13beaeecdbeb6232dfa19710dd5b2889432493643993cb6d",
+    "analyzer_digest": "cdc3141f22c36a1222a26dd31b81624be762f0b9f78707457ad007f962101aee",
+    "checker_digest": "6d9bb38c2c439306a6b797d33d69bb840c4d6f73b6a80b8bcc70c0bb69473141",
+    "source_digest": "6c611f1f0ad051083e0aba348ce4c5ee070fe44c6e7d4d4a9303dd15116a3560",
     "contract_digest": "d484f7dd3ff60b6022c1a0454e2095bf9bea86be342ab5d85c9eae1f3e3f8ba7",
-    "artifact_digest": "3f5353b7cd5534a18d01528e2796395f4e4d842e1096cb8cbe76b8255044a91f",
+    "artifact_digest": "229f9afe2dd898d2295e86d44255393393d599f64c82a8fa4d30d29a4fe888ad",
     "command": "archkeel report --root . --output fixtures/D-self/architecture.json",
     "exit_code": 0,
     "python_version": "3.11.12"
