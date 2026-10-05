@@ -36,7 +36,6 @@ from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     baseline_bytes,
-    decode_canonical_model,
     decode_json,
     parse_contract,
     parse_observation,
@@ -264,14 +263,12 @@ def test_validate_sorts_namespace_and_provenance_diagnostics(tmp_path: Path) -> 
     ]
 
 
-def test_reference_check_rejects_a_component_without_scanned_modules() -> None:
+def test_reference_check_rejects_a_component_without_scanned_modules(
+    self_observation: Observation,
+) -> None:
     raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
     contract = parse_contract(raw)
-    observation = parse_observation(
-        decode_canonical_model(
-            json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
-        )
-    )
+    observation = self_observation
     diagnostics = reference_diagnostics(ROOT, CONFIG, contract, observation)
     assert any(item.pointer == "/components/0/packages/0" for item in diagnostics)
 

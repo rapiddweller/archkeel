@@ -13,19 +13,14 @@ from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, repeated_logic
+from archkeel.ir.model import Observation
 from fixtures.architecture_demo import CATALOG
 
-ROOT = Path(__file__).resolve().parents[1]
 _TOUR = next(variant for variant in CATALOG if variant.id == "tour")
 
 
-def _self_observation():
-    artifact = (ROOT / "fixtures/D-self/architecture.json").read_bytes()
-    return parse_observation(decode_canonical_model(json.loads(artifact)))
-
-
-def test_the_claim_is_unknown_without_the_shape_signal() -> None:
-    observation = _self_observation()
+def test_the_claim_is_unknown_without_the_shape_signal(self_observation: Observation) -> None:
+    observation = self_observation
     without = replace(
         observation,
         sections=tuple(item for item in observation.sections if item.name != "symbols"),
@@ -38,14 +33,14 @@ def test_the_claim_is_unknown_without_the_shape_signal() -> None:
     assert result.functions == 0
 
 
-def test_archkeel_repeats_nothing_its_declared_owner_holds() -> None:
+def test_archkeel_repeats_nothing_its_declared_owner_holds(self_observation: Observation) -> None:
     """One owner is declared, and no function outside it repeats one inside it.
 
     This claim found its own repository on the first run: the analyzer carried a second
     copy of `stable_id`, the fingerprint every record id is built from. It was removed,
     and this test is what keeps it removed.
     """
-    result = repeated_logic(_self_observation())
+    result = repeated_logic(self_observation)
 
     assert result.status == "SUPPORTED"
     assert result.owners == 1

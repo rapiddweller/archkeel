@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Regenerate fixtures/D-self, the saved run tests/test_self.py compares every run with.
 
-A change to Python code under src/ or to an architecture contract (architecture-contract.json or
-an inside under src/) moves the self-observation; documentation does not. Run from the
+A change to Python code under src/, pyproject.toml, or an architecture contract moves the
+self-observation; documentation does not. Run from the
 repository root with:
 
     make self-observation
@@ -28,7 +28,7 @@ ARTIFACT = "fixtures/D-self/architecture.json"
 COMMAND = f"archkeel report --root . --output {ARTIFACT}"
 
 
-def provenance(saved: Observation, artifact: bytes) -> dict[str, str | int]:
+def provenance(saved: Observation, artifact: bytes) -> dict[str, str | int | bool]:
     """The digests that bind the saved artifact to the source, contract and tool that made it."""
     return {
         "analyzer_digest": saved.analyzer.code_digest,
@@ -39,6 +39,8 @@ def provenance(saved: Observation, artifact: bytes) -> dict[str, str | int]:
         "command": COMMAND,
         "exit_code": 0,
         "python_version": saved.python_version,
+        "git_head": saved.source.git_head,
+        "dirty": saved.source.dirty,
     }
 
 

@@ -8,15 +8,8 @@ from dataclasses import replace
 from pathlib import Path
 
 from archkeel.cli.observe import observe
-from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.model import Observation
 from archkeel.ir.type_fanin import type_fanin
-
-ROOT = Path(__file__).resolve().parents[1]
-
-
-def _self_observation():
-    artifact = (ROOT / "fixtures/D-self/architecture.json").read_bytes()
-    return parse_observation(decode_canonical_model(json.loads(artifact)))
 
 
 def _observe(source: Path):
@@ -37,8 +30,8 @@ def _observe(source: Path):
     )
 
 
-def test_the_claim_is_unknown_without_the_imports_signal() -> None:
-    observation = _self_observation()
+def test_the_claim_is_unknown_without_the_imports_signal(self_observation: Observation) -> None:
+    observation = self_observation
     without = replace(
         observation,
         sections=tuple(item for item in observation.sections if item.name != "imports"),
@@ -51,8 +44,8 @@ def test_the_claim_is_unknown_without_the_imports_signal() -> None:
     assert result.positions == 0
 
 
-def test_the_claim_is_unknown_without_the_symbols_signal() -> None:
-    observation = _self_observation()
+def test_the_claim_is_unknown_without_the_symbols_signal(self_observation: Observation) -> None:
+    observation = self_observation
     without = replace(
         observation,
         sections=tuple(item for item in observation.sections if item.name != "symbols"),
@@ -123,9 +116,9 @@ def test_a_type_crossing_two_component_pairs_is_named(tmp_path: Path) -> None:
     assert [(item.annotation, item.crossings) for item in claim.candidates] == [("Money", 2)]
 
 
-def test_archkeel_itself_names_its_own_shared_ir_types() -> None:
+def test_archkeel_itself_names_its_own_shared_ir_types(self_observation: Observation) -> None:
     """Archkeel's shared IR crossing widely is the architecture working as declared (AD-26)."""
-    result = type_fanin(_self_observation())
+    result = type_fanin(self_observation)
 
     assert result.status == "SUPPORTED"
     assert result.positions > 0

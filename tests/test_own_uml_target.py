@@ -12,8 +12,8 @@ from browser_report_support import _browser_page
 from test_uml_visual_acceptance import _route_problems
 
 from archkeel.check.uml_compare import compare_graphs
-from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
-from archkeel.ir.model import RunResult
+from archkeel.ir.codec import parse_contract
+from archkeel.ir.model import Observation, RunResult
 from archkeel.ir.source_graph import observed_graph
 from archkeel.ir.target_graph import declared_graph
 from archkeel.render.html import render_html
@@ -85,7 +85,7 @@ def test_own_graph_boundary_declares_fields_methods_and_imports():
     assert all(not item.record_ids and not item.evidence_ids for item in target.entities)
 
 
-def test_own_class_model_has_independent_type_dependencies():
+def test_own_class_model_has_independent_type_dependencies(self_observation: Observation):
     target = _target()
     entities = {item.id: item for item in target.entities}
     references = tuple(
@@ -105,13 +105,7 @@ def test_own_class_model_has_independent_type_dependencies():
         item.provenance and not item.record_ids and not item.evidence_ids for item in references
     )
 
-    observed = observed_graph(
-        parse_observation(
-            decode_canonical_model(
-                json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
-            )
-        )
-    )
+    observed = observed_graph(self_observation)
     before = compare_graphs(observed, target)
     assert all(
         any(
@@ -170,13 +164,9 @@ def test_own_class_model_has_independent_type_dependencies():
     assert _target() == target
 
 
-def test_own_target_does_not_follow_an_observed_method_change():
+def test_own_target_does_not_follow_an_observed_method_change(self_observation: Observation):
     target = _target()
-    model = parse_observation(
-        decode_canonical_model(
-            json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
-        )
-    )
+    model = self_observation
     observed = observed_graph(model)
     qualified_name = "archkeel.ir.architecture_graph.ArchitectureGraph.validate"
     wanted = next(item for item in target.entities if item.qualified_name == qualified_name)
@@ -203,13 +193,9 @@ def test_own_target_does_not_follow_an_observed_method_change():
     assert _target() == target
 
 
-def test_own_target_distinguishes_a_field_from_its_value_binding():
+def test_own_target_distinguishes_a_field_from_its_value_binding(self_observation: Observation):
     target = _target()
-    model = parse_observation(
-        decode_canonical_model(
-            json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
-        )
-    )
+    model = self_observation
     observed = observed_graph(model)
     name = "archkeel.ir.architecture_graph.Entity.visibility"
     wanted = next(item for item in target.entities if item.qualified_name == name)
@@ -248,13 +234,11 @@ def test_own_target_distinguishes_a_field_from_its_value_binding():
     )
 
 
-def test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints():
+def test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints(
+    self_observation: Observation,
+):
     api = pytest.importorskip("playwright.sync_api")
-    model = parse_observation(
-        decode_canonical_model(
-            json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
-        )
-    )
+    model = self_observation
     result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
@@ -304,13 +288,11 @@ def test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints():
 
 
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
-def test_own_ir_scope_sizes_the_canvas_after_collecting_shared_evidence(view):
+def test_own_ir_scope_sizes_the_canvas_after_collecting_shared_evidence(
+    view, self_observation: Observation
+):
     api = pytest.importorskip("playwright.sync_api")
-    model = parse_observation(
-        decode_canonical_model(
-            json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
-        )
-    )
+    model = self_observation
     result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
@@ -337,13 +319,11 @@ def test_own_ir_scope_sizes_the_canvas_after_collecting_shared_evidence(view):
 
 
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
-def test_own_graph_boundary_has_readable_members_and_directed_calls(view):
+def test_own_graph_boundary_has_readable_members_and_directed_calls(
+    view, self_observation: Observation
+):
     api = pytest.importorskip("playwright.sync_api")
-    model = parse_observation(
-        decode_canonical_model(
-            json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
-        )
-    )
+    model = self_observation
     result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     html = render_html(result, model, repository="archkeel", architecture_href=None).decode()
     errors = []
@@ -387,13 +367,11 @@ def test_own_graph_boundary_has_readable_members_and_directed_calls(view):
 
 
 @pytest.mark.parametrize("view", ["Target", "Diff"])
-def test_own_type_dependencies_have_visible_endpoints_and_connected_focus(view):
+def test_own_type_dependencies_have_visible_endpoints_and_connected_focus(
+    view, self_observation: Observation
+):
     api = pytest.importorskip("playwright.sync_api")
-    model = parse_observation(
-        decode_canonical_model(
-            json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
-        )
-    )
+    model = self_observation
     result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
@@ -443,13 +421,11 @@ def test_own_type_dependencies_have_visible_endpoints_and_connected_focus(view):
 
 
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
-def test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence(view):
+def test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence(
+    view, self_observation: Observation
+):
     api = pytest.importorskip("playwright.sync_api")
-    model = parse_observation(
-        decode_canonical_model(
-            json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
-        )
-    )
+    model = self_observation
     result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
@@ -537,13 +513,11 @@ def test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence(view
 
 
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
-def test_own_class_overview_keeps_distinct_routes_and_type_cues(view):
+def test_own_class_overview_keeps_distinct_routes_and_type_cues(
+    view, self_observation: Observation
+):
     api = pytest.importorskip("playwright.sync_api")
-    model = parse_observation(
-        decode_canonical_model(
-            json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
-        )
-    )
+    model = self_observation
     result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(

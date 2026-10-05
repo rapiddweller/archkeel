@@ -24,21 +24,24 @@ make gate                               # locked checks and Archkeel's own contr
 ## Regenerate the self-observation
 
 `tests/test_self.py` runs `archkeel report` on this repository and compares the result with the
-saved run in `fixtures/D-self`. A change to Python code under `src/` or to an architecture contract
-(`architecture-contract.json` or an inside under `src/`) moves that run, and the test fails with
-`fixtures/D-self is stale`. Documentation does not. Regenerate it and commit it on its own:
+saved result and provenance in `fixtures/D-self`. The full JSON and HTML are generated once
+per test session and shared by local workers. A change to Python code under `src/`,
+`pyproject.toml`, or a contract (`architecture-contract.json` or an inside contract) moves
+that run, and the test fails with
+`fixtures/D-self is stale`. Documentation does not. Regenerate it and commit the compact evidence:
 
 ```bash
 make self-observation
-git add fixtures/D-self
+git add fixtures/D-self/result.json fixtures/D-self/provenance.json
 git commit -m "Regenerate the self-observation after <your change>"
 ```
 
 Two branches that both regenerate conflict in these files. Rebase and run `make self-observation`
 again instead of resolving the JSON by hand.
 
-Only regenerate when the test says so: every regeneration also records the current commit, so an
-unneeded one rewrites `architecture.json` and conflicts with other branches for nothing.
+`make self-observation` also writes the ignored full JSON and HTML locally. Provenance retains
+the full artifact hash and its original Git context; tests compare all other content unchanged.
+Only regenerate when the test says so.
 
 ## A behaviour change carries its decision
 

@@ -272,7 +272,7 @@ def test_amendment_schema_and_parser_reject_malformed_digests(field: str, digest
     assert not Draft202012Validator(_schema("contract-amendment.schema.json")).is_valid(record)
 
 
-def test_ir_schemas_accept_the_parsed_self_observation() -> None:
+def test_ir_schemas_accept_the_parsed_self_observation(self_artifact_bytes: bytes) -> None:
     common = _schema("architecture-ir-common.schema.json")
     profile = _schema("architecture-ir-python-decoded.schema.json")
     Draft202012Validator.check_schema(common)
@@ -281,9 +281,7 @@ def test_ir_schemas_accept_the_parsed_self_observation() -> None:
         (schema["$id"], Resource.from_contents(schema))
         for schema in (_schema(path.name) for path in (ROOT / "schema").glob("*.json"))
     )
-    observation = decode_canonical_model(
-        json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
-    )
+    observation = decode_canonical_model(json.loads(self_artifact_bytes))
     parse_observation(observation)
     assert not list(Draft202012Validator(profile, registry=registry).iter_errors(observation))
     for imported in observation["imports"]:
@@ -380,15 +378,15 @@ def test_shared_observation_schema_rejects_unknown_provenance(field, value) -> N
         ("reexport_candidates", "archkeel.ir.model.Record", False),
     ],
 )
-def test_import_proof_metadata_schema(field: str, value: object, accepted: bool) -> None:
+def test_import_proof_metadata_schema(
+    field: str, value: object, accepted: bool, self_artifact_bytes: bytes
+) -> None:
     profile = _schema("architecture-ir-python-decoded.schema.json")
     registry = Registry().with_resources(
         (schema["$id"], Resource.from_contents(schema))
         for schema in (_schema(path.name) for path in (ROOT / "schema").glob("*.json"))
     )
-    observation = decode_canonical_model(
-        json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
-    )
+    observation = decode_canonical_model(json.loads(self_artifact_bytes))
     imported = next(
         item for item in observation["imports"] if "source_member_binding_static" in item["data"]
     )
