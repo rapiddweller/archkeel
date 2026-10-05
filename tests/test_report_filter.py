@@ -236,9 +236,11 @@ def test_unfiltered_html_report_carries_no_filter_marker(tmp_path: Path) -> None
         result, architecture, repository="shop", architecture_href="architecture.json"
     ).decode()
 
-    assert 'data-report-filter="false"' in page
+    assert result.report_filter is None
+    assert "data-report-filter=" not in page
     assert "Filtered (" not in page
-    assert "Component dependencies" in page and "Review claim" in page
+    assert 'data-atlas="true"' in page and "Architecture Atlas" in page
+    assert 'href="architecture.json"' in page
 
 
 def test_terminal_summary_announces_the_filter(tmp_path: Path) -> None:

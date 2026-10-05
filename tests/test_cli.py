@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 from test_architecture_demo import _prepare_repo
+from test_report_159_160 import _flow_data
 
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, TARGET_GRAPH_MARKER
 from archkeel.cli import main
@@ -535,7 +536,11 @@ def test_native_report_publishes_only_its_linked_offline_component_pages(
     for name in links:
         assert Path(name).name == name
         detail = (output.parent / name).read_text()
-        assert f'href="{main_page.name}"' in detail
+        navigation = _flow_data(detail)["navigation"]
+        assert navigation["main_href"] == main_page.name
+        assert (output.parent / navigation["main_href"]).is_file()
+        if navigation["component_id"] is not None:
+            assert navigation["component_path"][-1]["id"] == navigation["component_id"]
         assert f'href="{output.name}"' in detail
         assert "default-src 'none'" in detail and "fetch(" not in detail
         assert name in receipt
