@@ -1980,7 +1980,7 @@
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height || !canvas.clientWidth || !canvas.clientHeight) return;
     // Member compartments need readable text; oversized content stays pannable.
-    transform.k = Math.max(focusLabel || memberPreviews || !overview && umlSelection?.type === "node" ? 1 : 0.85, Math.min(
+    transform.k = Math.max(focusLabel || memberPreviews || umlSelection?.type === "node" ? 1 : overview ? 0 : 0.85, Math.min(
       1.4,
       canvas.clientWidth / (bounds.width + 48),
       canvas.clientHeight / (bounds.height + 48),
