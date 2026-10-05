@@ -391,7 +391,12 @@ def test_import_proof_metadata_schema(
         item for item in observation["imports"] if "source_member_binding_static" in item["data"]
     )
     imported["data"][field] = value
-    errors = list(Draft202012Validator(profile, registry=registry).iter_errors(observation))
+    # The full IR has its own test; these cases vary one import record.
+    errors = list(
+        Draft202012Validator(profile, registry=registry).descend(
+            imported, profile["properties"]["imports"]["items"]
+        )
+    )
     assert (not errors) == accepted
     if not accepted:
         assert len(errors) == 1
