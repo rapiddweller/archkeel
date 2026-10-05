@@ -1,8 +1,7 @@
 # Known limits
 
-Archkeel decides from one static observation of Python source. This page lists what that
-observation cannot see or only sees partly, with the measured size where one exists. A limit here
-is a reason for review, not a failed check.
+Archkeel checks one static source snapshot. Python, Dart and TypeScript observe different
+evidence; missing proof stays UNKNOWN or unavailable. A listed limit calls for review.
 
 ## Report layout is not architecture proof
 
@@ -27,9 +26,8 @@ retain API UNKNOWN with source evidence. Compound generic arguments are not subs
 
 The bundled analyzer has a 300-second deadline. Exceeding it returns exit 2 and
 UNKNOWN with no complete observation; an older HTML file is not a fresh result.
-On 2026-09-28, the direct bundled bridge completed a 487-file DATAMIMIC CE scan in
-87.82 seconds (#200). The 1,129-file EE checkout has not been timed, so 300 seconds
-is bounded headroom, not a completion guarantee.
+Historical pinned CE and EE timings live in the [measurement evidence](evidence/rule-yield/README.md).
+They are not current release measurements. The deadline is a bound, not a completion guarantee.
 Recursive facade checks reuse re-export indexes per boundary pass (AD-119, #192).
 This removes repeated import scans per function, not all scaling limits.
 
@@ -231,6 +229,15 @@ modules without `__all__`, so its contract pins pair budgets only.
   states, the way a module moved between components is a code change `--against` never judges.
   Any file left where an old prefix lived stops the rename, scanned or not, except in
   `__pycache__`. Paths are not renamed, so a moved `inside` contract remains one finding.
+
+## TypeScript profile (0.9.0+)
+
+The pinned compiler adapter observes imports, ownership, external dependencies, cycles and layout.
+Symbols, calls, typing and private-use metrics are unavailable; unsupported rules cannot PASS.
+Computed or shadowed loaders, unproved runtime aliases, missing resolver inputs and incomplete
+JavaScript closure retain UNKNOWN. Analysis does not execute project code or install dependencies.
+See the [adapter decision](architecture/typescript-foundation-proposal.md#evidence-and-limits)
+for supported syntax and compiler-resolution limits.
 
 ## Dart profile
 

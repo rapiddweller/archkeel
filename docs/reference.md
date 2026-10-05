@@ -226,6 +226,8 @@ Without JavaScript, the tables remain readable and inactive filter controls are 
 
 JSON results separate `observation_complete`, `declared_rules` and
 `expectation_fulfilled`. `report` uses `n/a` for expectations.
+For a complete, valid observation, `declared_rules` is FAIL with violations; otherwise UNKNOWN
+with counted undecided positions or any UNKNOWN rule assessment; otherwise PASS ([AD-124](architecture/decisions/ad-124-rule-pass-requires-complete-scope-receipt.md)).
 
 ### Exit codes
 
@@ -614,9 +616,8 @@ disclaimers count 0: `dynamic_call_limit` and `context_alias_limit` fire on ever
 `private_attribute_access_limit` has the scalar above. A record that is also a coverage failure
 counts 0, a `boundary_type_limit` counts its undecided positions except `external_type`
 (AD-67), and every other kind counts its `data.undecided` integer, or 1 without one. A kind a
-new analyzer profile adds therefore counts. The same value sets `declared_rules`: a
-violation-free observation with a count above 0 is `UNKNOWN`, not `PASS`; the exit code does
-not change. Older measurement payloads without the scalar read as zero (AD-92).
+new analyzer profile adds therefore counts. Its role in the aggregate verdict is described
+under [report results](#results). Older measurement payloads without the scalar read as zero (AD-92).
 
 `calls_total` follows the analyzer's call measurement: null when unavailable, otherwise zero or a positive
 integer. Decoding older measurements with total zero and null `calls_unresolved` normalizes
@@ -672,7 +673,7 @@ Runtime: `packaging` parses PEP 440 `requires-python` ranges; stdlib has no equi
 imports to exactly those modules through `exact_sources`, so no submodule of `archkeel.cli`
 inherits `rich-argparse` (AD-49); JSON results never depend on them.
 Build: Hatchling packages the root schemas; `hatch-vcs` derives versions from Git tags.
-`hatch-fancy-pypi-readme` rewrites the local hero path only in distribution metadata.
+`hatch-fancy-pypi-readme` resolves README asset and documentation links in distribution metadata.
 Development: Ruff (lint/format), MyPy (strict),
 Pytest. `make build` uses Twine only to validate distribution metadata.
 The runtime fixture in `make check` requires Python 3.11 and 3.12.
@@ -693,5 +694,5 @@ Versions come from Git tags. A clean checkout of `1.2.3` or `v1.2.3` builds
 version `1.2.3`; commits after the tag produce development versions. Release
 builds need the Git history and tags. No fixed fallback version is configured.
 
-The README keeps its relative hero path for local previews. PyPI metadata uses
-an absolute image URL; the build does not rewrite the source README.
+README asset paths and documentation links stay relative in source; PyPI metadata uses
+absolute URLs. The build does not rewrite the source README.

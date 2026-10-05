@@ -782,7 +782,7 @@ claim removes that ambiguity without turning it into a verdict.
   `analyzer` (22 modules, 50 inner edges), `check` (13 and 24) and `ir` (18 and 32), while `cli`,
   `render` and `host` stayed below on both. Review the physical subtree before introducing an
   `inside` contract. Do not rerun root `init --source` to create it: that command targets the
-  standard onboarding files. Follow the [recursive review guidance](onboarding.md#review-the-physical-structure).
+  standard onboarding files. Follow the [boundary review guidance](onboarding.md#choose-the-boundaries).
 
 `cross-component type fan-in` is the fifth claim (issue #9, AD-59). Its signals are the `symbols`
 and `imports` sections: `imports` for which function or method a cross-component call reaches,

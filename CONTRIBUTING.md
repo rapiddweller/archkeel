@@ -55,14 +55,17 @@ Only regenerate when the test says so.
 - **Record the decision.** A change in behaviour gets an `AD-<n>` file under
   [docs/architecture/decisions/](docs/architecture/decisions/) with its reason, the rejected
   alternatives, its limit and the tests that check it, an index row in
-  [docs/architecture/archkeel.md](docs/architecture/archkeel.md), and a row in
-  [docs/roadmap.md](docs/roadmap.md). Update every document that describes the old behaviour.
-  Keep it under 70 lines, which is where a test draws the line and where three quarters of the
-  existing records already are: a table for the measurement, a short section per question, and
-  the code the decision is about instead of a description of it.
+  [docs/architecture/archkeel.md](docs/architecture/archkeel.md). Update documents that describe
+  the old behaviour. Keep the decision under the tested 70-line limit. The
+  [roadmap](docs/roadmap.md) lists open work only.
 - **Keep the contract true.** A new module needs a component in `architecture-contract.json`, and a
   new import between components needs a `requires` entry with its reason. Never widen a rule to
   make a check pass.
 - **Commit messages** start with an imperative sentence and explain why in the body.
 
 Contract or baseline budget widenings require a reviewed v2 amendment binding both policies. Use `make ci BASE=<base-commit>` to check them before the full gate. A changed amendment must match exactly; multiple changed records fail. `decided_by` and `rationale` are free text, not authenticated approval.
+
+## Update the agent skill
+
+Edit [skills/archkeel/SKILL.md](skills/archkeel/SKILL.md). The CLI asset links to this source.
+Run `make plugin-directory` to refresh the committed compact plugin; do not edit its copy.
