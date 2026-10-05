@@ -77,6 +77,49 @@
           "enum": [
             "1.0.0"
           ]
+        },
+        "baseline_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "baseline_comparisons": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BaselineViolationComparison"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "baseline_new": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "baseline_resolved": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -994,6 +1037,59 @@
         "path",
         "candidate_ids",
         "reason"
+      ],
+      "additionalProperties": false
+    },
+    "BaselineViolationComparison": {
+      "type": "object",
+      "properties": {
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "known_count": {
+          "type": "integer"
+        },
+        "shared_count": {
+          "type": "integer"
+        },
+        "current_count": {
+          "type": "integer"
+        },
+        "new_count": {
+          "type": "integer"
+        },
+        "resolved_count": {
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "known",
+            "new",
+            "reduced",
+            "resolved",
+            "contracted",
+            "unknown"
+          ]
+        }
+      },
+      "required": [
+        "rules",
+        "subjects",
+        "known_count",
+        "shared_count",
+        "current_count",
+        "new_count",
+        "resolved_count",
+        "status"
       ],
       "additionalProperties": false
     }

@@ -171,10 +171,11 @@ def build_parser() -> _Parser:
     )
     report.add_argument(
         "--component",
-        help="Narrow the violations, or with --only calls the calls, to this component: a "
-        "violation whose crossing touches it as source or target, a call its modules make. "
-        "With --only architecture, use an exact component id or scoped label from "
-        "architecture_projection.components. Unknown to this contract: exit 2.",
+        help="With --only architecture or violations, use an exact component id or scoped "
+        "label from architecture_projection.components; violations include local findings "
+        "and descendants. With violations, top-level labels take precedence. Otherwise, "
+        "use a top-level label for crossing endpoints or --only calls. "
+        "Unknown to this contract: exit 2.",
     )
 
     validate = commands.add_parser(

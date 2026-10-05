@@ -308,7 +308,13 @@ def _architecture_result(
     *,
     require_source_graph: bool = False,
 ) -> RunResult:
+    only_violations = report_filter is not None and report_filter.only_violations
     try:
+        selected_violations = (
+            _selected_violations(model, replace(report_filter, component=None))
+            if only_violations and report_filter is not None
+            else ()
+        )
         report = architecture_report(model)
         if require_source_graph and report.unavailable is not None:
             raise ValueError(f"Recorded source graph is invalid: {report.unavailable}")
@@ -317,7 +323,8 @@ def _architecture_result(
             report,
             command_result.rule_assessments or (),
             violation_remedy=VIOLATION_REMEDY,
-            component=component if only_architecture else None,
+            component=component if only_architecture or only_violations else None,
+            prefer_top_label=only_violations,
         )
         finding_ids = (
             {identity for owner in projection.components for identity in owner.finding_ids}
@@ -329,6 +336,10 @@ def _architecture_result(
             report_filter=report_filter,
             architecture_projection=projection,
             filtered_violations=tuple(
+                item for item in selected_violations if item.record.id in finding_ids
+            )
+            if only_violations
+            else tuple(
                 FilteredViolation(
                     record,
                     tuple(
@@ -384,7 +395,10 @@ def _report_result(
             measurements, declared = inspect_observation(model)
             filtered_violations = (
                 _selected_violations(model, report_filter)
-                if report_filter is not None and not only_calls and not only_architecture
+                if report_filter is not None
+                and not only_calls
+                and not only_architecture
+                and not report_filter.only_violations
                 else None
             )
             filtered_calls = (

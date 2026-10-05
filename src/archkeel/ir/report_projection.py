@@ -36,6 +36,7 @@ from archkeel.ir.architecture_projection import (
 from archkeel.ir.facts import Record, SourceInfo
 from archkeel.ir.model import (
     RULE_KINDS,
+    BaselineViolationComparison,
     Coverage,
     Diagnostic,
     DiagnosticError,
@@ -279,9 +280,19 @@ def _selected_component(
     target: ArchitectureGraph,
     component: str | None,
     names: dict[str, str],
+    *,
+    prefer_top_label: bool = False,
 ) -> str | None:
     selected = None
     if component is not None:
+        if prefer_top_label:
+            top = {
+                item.component_id
+                for item in target.component_intents
+                if item.parent_id is None and item.label == component
+            }
+            if len(top) == 1:
+                return next(iter(top))
         matches = {
             item.component_id
             for item in target.component_intents
@@ -896,6 +907,7 @@ def architecture_projection(
     *,
     violation_remedy: str,
     component: str | None = None,
+    prefer_top_label: bool = False,
 ) -> ArchitectureProjection:
     """Project one authenticated report; filters retain global uncertainty and source identity."""
     report.validate()
@@ -904,7 +916,7 @@ def architecture_projection(
     if target is None or observed is None:
         return _unavailable_projection(model, unknowns, violation_remedy, component)
     names = _scope_names(target)
-    selected = _selected_component(target, component, names)
+    selected = _selected_component(target, component, names, prefer_top_label=prefer_top_label)
     modules = tuple(
         item for item in observed.entities if item.kind == "module" and item.presence == "defined"
     )
@@ -1052,6 +1064,10 @@ class ArchitectureCommandEnvelope:
     command: Literal["report"] = "report"
     expectation_fulfilled: Literal["n/a"] = "n/a"
     schema_version: Literal["1.0.0"] = "1.0.0"
+    baseline_path: str | None = None
+    baseline_comparisons: tuple[BaselineViolationComparison, ...] | None = None
+    baseline_new: int | None = None
+    baseline_resolved: int | None = None
 
 
 def short_selector(value: str, prefix: str | None) -> str:
@@ -1220,4 +1236,8 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
         result.report_filter,
         view,
         violations,
+        baseline_path=result.baseline_path,
+        baseline_comparisons=result.baseline_comparisons,
+        baseline_new=result.baseline_new,
+        baseline_resolved=result.baseline_resolved,
     )

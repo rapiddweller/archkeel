@@ -2008,6 +2008,9 @@ def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
         }
         for item in envelope.filtered_violations
     ]
+    for name in ("baseline_path", "baseline_comparisons", "baseline_new", "baseline_resolved"):
+        if payload[name] is None:
+            del payload[name]
     return payload
 
 
