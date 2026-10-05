@@ -50,6 +50,28 @@ def _inside_levels(declaration: Record) -> tuple[RecordData, ...]:
     return tuple(result)
 
 
+def _recorded_intent(
+    owner: Record, parent_id: str | None, layout_rule_ids: tuple[str, ...]
+) -> ComponentIntent:
+    metadata = RecordData(
+        (
+            ("component_id", owner.id),
+            ("parent_id", parent_id),
+            ("label", owner.title),
+            ("layout_rule_ids", layout_rule_ids),
+            *((("layer", owner.data.get("layer")),) if owner.data.get("layer") is not None else ()),
+            ("packages", owner.subjects),
+            ("exact_modules", owner.data.get("exact_modules", ())),
+            ("forbidden_responsibilities", owner.data.get("forbidden_responsibilities", ())),
+            *(
+                (key, owner.data.get(key))
+                for key in ("role", "namespace", "public", "planned", "decided_by", "inside")
+            ),
+        )
+    )
+    return parse_component_intent(decode_json(value_bytes(metadata)))
+
+
 def _recorded_owners(
     model: Observation, declaration: Record, levels: tuple[RecordData, ...]
 ) -> tuple[tuple[Entity, ...], tuple[ComponentIntent, ...]]:
@@ -113,27 +135,7 @@ def _recorded_owners(
                 provenance=owner.provenance,
             )
         )
-        metadata = RecordData(
-            (
-                ("component_id", owner.id),
-                ("parent_id", parents.get(owner.id)),
-                ("label", owner.title),
-                ("layout_rule_ids", layouts.get(owner.id, ())),
-                *(
-                    (("layer", owner.data.get("layer")),)
-                    if owner.data.get("layer") is not None
-                    else ()
-                ),
-                ("packages", owner.subjects),
-                ("exact_modules", owner.data.get("exact_modules", ())),
-                ("forbidden_responsibilities", owner.data.get("forbidden_responsibilities", ())),
-                *(
-                    (key, owner.data.get(key))
-                    for key in ("role", "namespace", "public", "planned", "decided_by", "inside")
-                ),
-            )
-        )
-        intents.append(parse_component_intent(decode_json(value_bytes(metadata))))
+        intents.append(_recorded_intent(owner, parents.get(owner.id), layouts.get(owner.id, ())))
     return tuple(result), tuple(intents)
 
 
