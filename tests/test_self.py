@@ -157,27 +157,11 @@ def test_self_result_matches_the_saved_run(self_run: SelfRun) -> None:
 
 
 def _assert_self_provenance(observed: Observation, provenance: dict[str, object]) -> None:
-    git_head = provenance.get("git_head")
-    dirty = provenance.get("dirty")
-    assert isinstance(git_head, str) and len(git_head) == 40, STALE
-    assert all(character in "0123456789abcdef" for character in git_head), STALE
-    assert isinstance(dirty, bool), STALE
-    saved_context = replace(
-        observed, source=replace(observed.source, git_head=git_head, dirty=dirty)
-    )
-    # Only Git context differs between equivalent runs after a commit or an unrelated edit.
-    # Source, checker, contract and every observation record remain part of the proof.
+    # A commit or unrelated edit does not change the observed source.
+    normalized = replace(observed, source=replace(observed.source, git_head=None, dirty=False))
     assert provenance == {
-        "analyzer_digest": observed.analyzer.code_digest,
         "checker_digest": package_digest(),
-        "source_digest": observed.source.source_digest,
-        "contract_digest": observed.contract.digest,
-        "artifact_digest": sha256(canonical_report_bytes(saved_context)).hexdigest(),
-        "command": "archkeel report --root . --output fixtures/D-self/architecture.json",
-        "exit_code": 0,
-        "python_version": observed.python_version,
-        "git_head": git_head,
-        "dirty": dirty,
+        "observation_digest": sha256(canonical_report_bytes(normalized)).hexdigest(),
     }, STALE
 
 

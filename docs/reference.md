@@ -49,7 +49,8 @@ where an artifact goes, not an input, and stay relative to the working directory
 The Python analyzer is bundled under `archkeel.analyzer`. `report` and `check`
 need no source checkout or private package. The analyzer runs in an isolated
 subprocess and returns a typed observation at the analyzer boundary.
-D-self verifies the bundled analyzer digest recorded in `fixtures/D-self/provenance.json`.
+D-self verifies the checker and complete observation against two saved digests in
+`fixtures/D-self/provenance.json`; only Git HEAD/dirty are normalized.
 
 Optional [`make rule-yield`](rule-yield.md) measures pinned rule findings and warm
 evaluator replays. Missing pass evidence remains unavailable; timings are outside IR.

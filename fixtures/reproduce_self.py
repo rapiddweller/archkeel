@@ -15,32 +15,25 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
-from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
 from archkeel.ir.digest import package_digest
 from archkeel.ir.model import Observation
 
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures/D-self"
 ARTIFACT = "fixtures/D-self/architecture.json"
-COMMAND = f"archkeel report --root . --output {ARTIFACT}"
 
 
-def provenance(saved: Observation, artifact: bytes) -> dict[str, str | int | bool]:
-    """The digests that bind the saved artifact to the source, contract and tool that made it."""
+def provenance(saved: Observation) -> dict[str, str]:
+    """Keep an independent content baseline without incidental Git context."""
+    normalized = replace(saved, source=replace(saved.source, git_head=None, dirty=False))
     return {
-        "analyzer_digest": saved.analyzer.code_digest,
         "checker_digest": package_digest(),
-        "source_digest": saved.source.source_digest,
-        "contract_digest": saved.contract.digest,
-        "artifact_digest": sha256(artifact).hexdigest(),
-        "command": COMMAND,
-        "exit_code": 0,
-        "python_version": saved.python_version,
-        "git_head": saved.source.git_head,
-        "dirty": saved.source.dirty,
+        "observation_digest": sha256(canonical_report_bytes(normalized)).hexdigest(),
     }
 
 
@@ -57,9 +50,7 @@ def main() -> int:
     (FIXTURE / "result.json").write_text(run.stdout)
     artifact = (FIXTURE / "architecture.json").read_bytes()
     saved = parse_observation(decode_canonical_model(json.loads(artifact)))
-    (FIXTURE / "provenance.json").write_text(
-        json.dumps(provenance(saved, artifact), indent=4) + "\n"
-    )
+    (FIXTURE / "provenance.json").write_text(json.dumps(provenance(saved), indent=4) + "\n")
     return 0
 
 

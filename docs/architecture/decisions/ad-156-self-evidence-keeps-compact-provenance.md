@@ -9,9 +9,10 @@ portable dev-only file lock. An atomic result marker publishes only complete out
 failed or interrupted generation cannot become cached evidence. Each session starts fresh.
 Schema mutation tests decode their own dictionaries from immutable shared bytes.
 
-Provenance keeps the raw artifact hash and original Git HEAD/dirty state. Tests reconstruct
-only that Git context; source, analyzer, checker, contract, coverage and record content remain
-unchanged in the comparison. The saved stdout result is checked independently.
+Provenance keeps only the checker digest and a canonical observation digest. Only Git
+HEAD/dirty are normalized; source, analyzer, contract, Python version, coverage, UNKNOWNs
+and every record remain in the comparison. Tests recompute both digests independently.
+The saved stdout result is checked separately.
 
 A plain session fixture was rejected: xdist would repeat the scan per worker. Upfront
 controller generation was rejected because unrelated tests would scan this repository.

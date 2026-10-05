@@ -19,6 +19,7 @@ from test_self import STALE
 
 from archkeel.ir.codec import canonical_report_bytes, parse_observation
 from archkeel.ir.digest import package_digest
+from fixtures import reproduce_self
 
 
 @pytest.fixture
@@ -35,21 +36,34 @@ def observation():
 
 
 def _provenance(observation):
+    normalized = replace(
+        observation, source=replace(observation.source, git_head=None, dirty=False)
+    )
     return {
-        "analyzer_digest": observation.analyzer.code_digest,
         "checker_digest": package_digest(),
-        "source_digest": observation.source.source_digest,
-        "contract_digest": observation.contract.digest,
-        "artifact_digest": sha256(canonical_report_bytes(observation)).hexdigest(),
-        "command": "archkeel report --root . --output fixtures/D-self/architecture.json",
-        "exit_code": 0,
-        "python_version": observation.python_version,
-        "git_head": observation.source.git_head,
-        "dirty": observation.source.dirty,
+        "observation_digest": sha256(canonical_report_bytes(normalized)).hexdigest(),
     }
 
 
-def test_git_metadata_changes_preserve_saved_raw_artifact_proof(observation):
+def test_generator_saves_only_checker_and_normalized_observation_digests(
+    tmp_path, monkeypatch, observation
+):
+    fixture = tmp_path / "fixtures/D-self"
+    fixture.mkdir(parents=True)
+    monkeypatch.setattr(reproduce_self, "ROOT", tmp_path)
+    monkeypatch.setattr(reproduce_self, "FIXTURE", fixture)
+
+    def report(args, **kwargs):
+        output = tmp_path / args[args.index("--output") + 1]
+        output.write_bytes(canonical_report_bytes(observation))
+        return subprocess.CompletedProcess(args, 0, "{}", "")
+
+    monkeypatch.setattr(reproduce_self.subprocess, "run", report)
+    assert reproduce_self.main() == 0
+    assert json.loads((fixture / "provenance.json").read_text()) == _provenance(observation)
+
+
+def test_git_metadata_changes_preserve_saved_observation_proof(observation):
     changed = replace(
         observation, source=replace(observation.source, git_head="e" * 40, dirty=True)
     )
@@ -58,18 +72,7 @@ def test_git_metadata_changes_preserve_saved_raw_artifact_proof(observation):
 
 @pytest.mark.parametrize(
     "field",
-    [
-        "analyzer_digest",
-        "checker_digest",
-        "source_digest",
-        "contract_digest",
-        "artifact_digest",
-        "python_version",
-        "command",
-        "exit_code",
-        "git_head",
-        "dirty",
-    ],
+    ["checker_digest", "observation_digest"],
 )
 def test_stale_provenance_is_rejected(observation, field):
     provenance = _provenance(observation)
@@ -78,9 +81,7 @@ def test_stale_provenance_is_rejected(observation, field):
         test_self._assert_self_provenance(observation, provenance)
 
 
-@pytest.mark.parametrize(
-    "field", ["source_digest", "checker_digest", "artifact_digest", "git_head", "dirty"]
-)
+@pytest.mark.parametrize("field", ["checker_digest", "observation_digest"])
 def test_missing_provenance_is_rejected(observation, field):
     provenance = _provenance(observation)
     del provenance[field]
@@ -90,6 +91,12 @@ def test_missing_provenance_is_rejected(observation, field):
 
 def test_changed_coverage_is_rejected_even_when_top_level_digests_match(observation):
     changed = replace(observation, coverage=replace(observation.coverage, files_read=0))
+    with pytest.raises(AssertionError, match=STALE):
+        test_self._assert_self_provenance(changed, _provenance(observation))
+
+
+def test_changed_unknown_status_is_rejected(observation):
+    changed = replace(observation, coverage=replace(observation.coverage, rules="UNKNOWN"))
     with pytest.raises(AssertionError, match=STALE):
         test_self._assert_self_provenance(changed, _provenance(observation))
 
@@ -159,22 +166,24 @@ def test_invalid_successful_output_does_not_publish_a_cached_result(tmp_path, mo
     assert not (tmp_path / "result.json").exists()
 
 
-@pytest.mark.parametrize("part", ["source", "analyzer", "contract"])
+@pytest.mark.parametrize("part", ["source", "analyzer", "contract", "python_version"])
 def test_changed_actual_digest_is_rejected(observation, part):
     if part == "source":
         changed = replace(observation, source=replace(observation.source, source_digest="f" * 64))
     elif part == "analyzer":
         changed = replace(observation, analyzer=replace(observation.analyzer, code_digest="f" * 64))
-    else:
+    elif part == "contract":
         changed = replace(observation, contract=replace(observation.contract, digest="f" * 64))
+    else:
+        changed = replace(observation, python_version="3.12.0")
     with pytest.raises(AssertionError, match=STALE):
         test_self._assert_self_provenance(changed, _provenance(observation))
 
 
-@pytest.mark.parametrize("field,value", [("git_head", "e" * 40), ("dirty", True)])
-def test_valid_but_incorrect_original_git_context_is_rejected(observation, field, value):
+@pytest.mark.parametrize("field", ["git_head", "dirty", "artifact_digest", "extra"])
+def test_unknown_provenance_key_is_rejected(observation, field):
     provenance = _provenance(observation)
-    provenance[field] = value
+    provenance[field] = "unused"
     with pytest.raises(AssertionError, match=STALE):
         test_self._assert_self_provenance(observation, provenance)
 

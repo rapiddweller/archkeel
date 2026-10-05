@@ -45,8 +45,8 @@ git commit -m "Regenerate the self-observation after <your change>"
 Two branches that both regenerate conflict in these files. Rebase and run `make self-observation`
 again instead of resolving the JSON by hand.
 
-`make self-observation` also writes the ignored full JSON and HTML locally. Provenance retains
-the full artifact hash and its original Git context; tests compare all other content unchanged.
+`make self-observation` also writes the ignored full JSON and HTML locally. Provenance keeps
+only the checker and observation digests; tests normalize Git HEAD/dirty and check all other content.
 Only regenerate when the test says so.
 
 ## A behaviour change carries its decision
