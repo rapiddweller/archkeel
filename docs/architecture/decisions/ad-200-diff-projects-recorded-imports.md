@@ -1,4 +1,4 @@
-# AD-183 Diff projects recorded imports
+# AD-200 Diff projects recorded imports
 
 Diff reads observed import sites through recorded component memberships, even
 without a UML comparison. Unique deepest ownership determines navigation; ties

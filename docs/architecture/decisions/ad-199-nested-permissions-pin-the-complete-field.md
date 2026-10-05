@@ -1,4 +1,4 @@
-# AD-188 Nested permissions pin the complete field
+# AD-199 Nested permissions pin the complete field
 
 Issue #342: a union member cannot stand in for its field declaration. The typed verdict retains
 both, correlated by finding before deduplication. Parent DTOs prefix paths without replacing leaf

@@ -107,8 +107,7 @@ def test_exact_initializer_keeps_proven_external_provider_use(tmp_path: Path, en
         assert record.data.get("symbols_known") is True
         assert record.data.get("source_binding_unique") is True
     assert [(item.code, item.pointer, item.subject) for item in after.diagnostics] == [
-        ("decision.open", "/rules", "consumer -> provider"),
-        ("decision.open", "/rules", "provider -> consumer"),
+        ("decision.open", "/components", "2 open dependency decisions"),
     ]
     assert after.diagnostics == before.diagnostics
 
@@ -124,9 +123,8 @@ def test_exact_initializer_does_not_publish_private_or_unpublished_routes(
             _assign_initializer(tmp_path)
         result, _ = run_validate(tmp_path, _scan_config(), observe)
         assert [(item.code, item.pointer, item.subject) for item in result.diagnostics] == [
+            ("decision.open", "/components", "2 open dependency decisions"),
             ("interface.unused", _POINTER, _MODULE),
-            ("decision.open", "/rules", "consumer -> provider"),
-            ("decision.open", "/rules", "provider -> consumer"),
             ("rule.violated", "/rules/0", "INTERFACE"),
         ]
 
@@ -154,9 +152,8 @@ def test_exact_initializer_retains_unproven_provider_candidates_as_unknown(
         assert record.data.get("reexport_chain") == ("sample.provider.run",)
         assert record.data.get("reexport_candidates") == ("sample.provider.factory.run",)
         assert [(item.code, item.pointer, item.subject) for item in result.diagnostics] == [
+            ("decision.open", "/components", "2 open dependency decisions"),
             ("interface.usage_unknown", _POINTER, entry),
-            ("decision.open", "/rules", "consumer -> provider"),
-            ("decision.open", "/rules", "provider -> consumer"),
         ]
 
 

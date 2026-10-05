@@ -17,7 +17,7 @@ import test_self
 from test_codec import raw_observation
 from test_self import STALE
 
-from archkeel.ir.codec import canonical_report_bytes, parse_observation
+from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
 from archkeel.ir.digest import package_digest
 from fixtures import reproduce_self
 
@@ -95,8 +95,12 @@ def test_changed_coverage_is_rejected_even_when_top_level_digests_match(observat
         test_self._assert_self_provenance(changed, _provenance(observation))
 
 
-def test_changed_unknown_status_is_rejected(observation):
-    changed = replace(observation, coverage=replace(observation.coverage, rules="UNKNOWN"))
+def test_added_valid_unknown_record_is_rejected(observation):
+    raw = json.loads(canonical_report_bytes(observation))
+    raw["unknowns"] = [
+        {**raw["modules"][0], "id": "unknown1", "evidence_class": "UNKNOWN", "kind": "unresolved"}
+    ]
+    changed = parse_observation(decode_canonical_model(raw))
     with pytest.raises(AssertionError, match=STALE):
         test_self._assert_self_provenance(changed, _provenance(observation))
 

@@ -552,13 +552,9 @@ def test_own_class_overview_keeps_distinct_routes_and_type_cues(
 
 
 @pytest.mark.parametrize("width", [1600, 1300])
-def test_own_ports_keep_mixed_relationship_routes_separate(width):
+def test_own_ports_keep_mixed_relationship_routes_separate(width, self_observation: Observation):
     api = pytest.importorskip("playwright.sync_api")
-    model = parse_observation(
-        decode_canonical_model(
-            json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
-        )
-    )
+    model = self_observation
     result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
@@ -588,13 +584,11 @@ def test_own_ports_keep_mixed_relationship_routes_separate(width):
 
 
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
-def test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation(view):
+def test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation(
+    view, self_observation: Observation
+):
     api = pytest.importorskip("playwright.sync_api")
-    model = parse_observation(
-        decode_canonical_model(
-            json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
-        )
-    )
+    model = self_observation
     result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
@@ -686,9 +680,7 @@ def test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation(view)
 
 
 @pytest.mark.parametrize("view", ["As-Is", "Diff"])
-def test_own_dense_scenes_remain_actionable_at_reduced_cpu(
-    view, self_observation: Observation
-):
+def test_own_dense_scenes_remain_actionable_at_reduced_cpu(view, self_observation: Observation):
     api = pytest.importorskip("playwright.sync_api")
     model = self_observation
     result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)

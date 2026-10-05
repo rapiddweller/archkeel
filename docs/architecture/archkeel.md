@@ -281,9 +281,9 @@ often explains an earlier one; the index below keeps that order.
 | AD-195 | [Overviews separate boundaries from file intent](decisions/ad-195-overviews-separate-boundaries-from-file-intent.md) |
 | AD-196 | [Closed demo intent retains observation limits](decisions/ad-196-closed-demo-intent-retains-observation-limits.md) |
 | AD-197 | [Expanded Target records eight UNKNOWN inventories](decisions/ad-197-expanded-target-records-eight-unknown-inventories.md) |
-| AD-185 | [Provider use survives initializer ownership](decisions/ad-185-provider-use-survives-initializer-ownership.md) |
-| AD-188 | [Nested permissions pin the complete field](decisions/ad-188-nested-permissions-pin-the-complete-field.md) |
-| AD-183 | [Diff projects recorded imports](decisions/ad-183-diff-projects-recorded-imports.md) |
+| AD-198 | [Provider use survives initializer ownership](decisions/ad-198-provider-use-survives-initializer-ownership.md) |
+| AD-199 | [Nested permissions pin the complete field](decisions/ad-199-nested-permissions-pin-the-complete-field.md) |
+| AD-200 | [Diff projects recorded imports](decisions/ad-200-diff-projects-recorded-imports.md) |
 
 ## Allowed dependencies
 

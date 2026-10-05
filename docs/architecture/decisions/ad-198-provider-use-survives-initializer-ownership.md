@@ -1,4 +1,4 @@
-# AD-185 Provider use survives initializer ownership
+# AD-198 Provider use survives initializer ownership
 
 Exact initializer ownership must preserve a provider's proven use through an
 ancestor-published re-export (#338). Rule evaluation and lifecycle validation
