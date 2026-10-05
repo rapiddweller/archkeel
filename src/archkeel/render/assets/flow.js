@@ -1539,8 +1539,8 @@
     if (SIDECAR && umlPath.length < 2) { location.href = mainHref(); return; }
     if (!umlPath.length) return;
     if (!restoreNavigationState()) {
-      umlPath.pop();
-      umlSelection = null;
+      const child = umlPath.pop();
+      umlSelection = child ? { type: "node", id: child.id } : null;
       positions = {};
       render();
     }

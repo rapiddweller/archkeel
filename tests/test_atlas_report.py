@@ -560,7 +560,8 @@ def test_offline_atlas_and_uml_share_shell_empty_scope_and_url_theme(tmp_path):
         playwright.stop()
 
 
-def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_path):
+@pytest.mark.parametrize("lens", ["As-Is", "Diff"])
+def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_path, lens):
     api = pytest.importorskip("playwright.sync_api")
     index, graph = _route_pages(tmp_path)
     errors = []
@@ -576,7 +577,7 @@ def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_pat
         method = next(
             item for item in graph.entities if item.qualified_name == "sample.core.Client.run"
         )
-        page.get_by_role("button", name="Diff", exact=True).click()
+        page.get_by_role("button", name=lens, exact=True).click()
         assert page.locator(".flow-canvas").is_visible()
         page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').press("Space")
         assert (
@@ -587,11 +588,19 @@ def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_pat
         )
         page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').press("Enter")
         assert "module=" + module.id in page.url and "scope=" + classifier.id in page.url
+        page.goto(page.url)
         page.reload()
         assert page.locator(f'.flow-nodes [data-uml-id="{method.id}"]').count() == 1
         assert "Client [class]" in page.locator(".flow-breadcrumb").inner_text()
         page.locator(".flow-back").click()
         assert "scope=" + classifier.id not in page.url
+        assert "selected=" + classifier.id in page.url
+        assert (
+            page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').get_attribute(
+                "aria-pressed"
+            )
+            == "true"
+        )
         page.go_back()
         assert "scope=" + classifier.id in page.url
         assert page.locator(f'.flow-nodes [data-uml-id="{method.id}"]').count() == 1
@@ -674,6 +683,7 @@ def test_target_counterpart_and_planned_classifier_open_declared_members(tmp_pat
         for identity, member in (("service", "run"), ("future", "execute")):
             page.locator(f'.flow-nodes [data-uml-id="{identity}"]').press("Enter")
             assert "origin=declared" in page.url and "scope=" + identity in page.url
+            page.goto(page.url)
             page.reload()
             assert (
                 page.get_by_role("button", name="Target", exact=True).get_attribute("aria-pressed")
@@ -682,6 +692,13 @@ def test_target_counterpart_and_planned_classifier_open_declared_members(tmp_pat
             assert page.locator(f'.flow-nodes [data-uml-id="{member}"]').count() == 1
             assert page.locator('.flow-nodes [data-uml-kind="component"]').count() == 0
             page.locator(".flow-back").click()
+            assert "origin=declared" in page.url and "selected=" + identity in page.url
+            assert (
+                page.locator(f'.flow-nodes [data-uml-id="{identity}"]').get_attribute(
+                    "aria-pressed"
+                )
+                == "true"
+            )
         page.goto(index.as_uri() + "?scope=core&view=target&theme=dark")
         page.locator('.flow-nodes [data-uml-id="declared-module"]').press("Enter")
         assert "module=declared-module" in page.url and "origin=declared" in page.url
