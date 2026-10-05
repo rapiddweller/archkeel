@@ -1403,7 +1403,7 @@ class _MappingOccurrence(NamedTuple):
     depth: int
     path: tuple[str, ...] = ()
     alias_free: bool = True
-    value_annotation: str | None = None
+    opaque_value_depth: int | None = None
 
 
 # A container whose declared element type is the whole of what actually crosses the boundary
@@ -1500,12 +1500,12 @@ def _proven_type_head(
     if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
         return _Position(undecidable="ambiguous_binding")
     if (
-        binding == "dict"
-        and member is None
+        member is None
+        and ("builtins", binding) in origins
         and key not in imports_by_binding
         and key not in classes_by_location
     ):
-        origin_module, origin_name = "builtins", "dict"
+        origin_module, origin_name = "builtins", binding
     else:
         imported = imports_by_binding.get(key)
         if not isinstance(imported, dict):
@@ -2216,7 +2216,7 @@ def _type_alias_verdict(
                 occurrence.depth,
                 occurrence.path,
                 alias_free=False,
-                value_annotation=occurrence.value_annotation,
+                opaque_value_depth=occurrence.opaque_value_depth,
             )
             for occurrence in expanded.mapping_occurrences
         ),
@@ -2475,6 +2475,38 @@ def _annotation_shape_verdict(
     return _Position(undecidable=_unresolvable_shape(annotation))
 
 
+def _opaque_mapping_value_depth(
+    annotation: str,
+    module: str,
+    imports: BindingIndex,
+    classes: BindingIndex,
+    type_shapes: TypeShapeIndex,
+) -> int | None:
+    shape = type_shapes.get(annotation)
+    depth = 1
+    if isinstance(shape, TypeApplication):
+        if (
+            not isinstance(shape.head, TypeName)
+            or shape.head.name != "list"
+            or shape.tuple_arguments
+            or len(shape.arguments) != 1
+            or _proven_type_head(
+                shape.head, module, imports, classes, frozenset({("builtins", "list")})
+            )
+            is not True
+        ):
+            return None
+        shape = shape.arguments[0]
+        depth = 2
+    return (
+        depth
+        if isinstance(shape, TypeName)
+        and shape.name == "object"
+        and _is_broad_boundary_type("object", module, imports, classes)
+        else None
+    )
+
+
 def _mapping_container_verdict(
     annotation: str,
     parameters: list[str],
@@ -2518,14 +2550,20 @@ def _mapping_container_verdict(
         ),
         field_declarations=contents.field_declarations,
         mapping_occurrences=(
-            _MappingOccurrence(annotation, 0, value_annotation=parameters[1]),
+            _MappingOccurrence(
+                annotation,
+                0,
+                opaque_value_depth=_opaque_mapping_value_depth(
+                    parameters[1], module, imports_by_binding, classes_by_location, type_shapes
+                ),
+            ),
             *(
                 _MappingOccurrence(
                     occurrence.annotation,
                     occurrence.depth + 1,
                     occurrence.path,
                     occurrence.alias_free,
-                    occurrence.value_annotation,
+                    occurrence.opaque_value_depth,
                 )
                 for occurrence in contents.mapping_occurrences
             ),
@@ -2608,7 +2646,7 @@ def _field_position_verdict(
             occurrence.depth,
             (field_name, *occurrence.path),
             occurrence.alias_free,
-            occurrence.value_annotation,
+            occurrence.opaque_value_depth,
         )
         for occurrence in verdict.mapping_occurrences
     )
@@ -2713,7 +2751,7 @@ def _collection_verdict(
                 occurrence.depth + 1,
                 occurrence.path,
                 occurrence.alias_free,
-                occurrence.value_annotation,
+                occurrence.opaque_value_depth,
             )
             for occurrence in verdict.mapping_occurrences
         ),
@@ -4102,8 +4140,8 @@ def _opaque_mapping_value_allowance_matches(
     return (
         len(mappings) == 1
         and mappings[0].alias_free
-        and mappings[0].value_annotation == "object"
-        and mappings[0].depth + 1 == depth
+        and mappings[0].opaque_value_depth is not None
+        and mappings[0].depth + mappings[0].opaque_value_depth == depth
         # Findings deduplicate; the selector must not accept two equal opaque occurrences.
         and verdict.violations.count((reason, (), "object", depth)) == 1
     )

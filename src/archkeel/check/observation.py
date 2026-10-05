@@ -40,7 +40,7 @@ from .declarations import (
 from .evaluation.evaluate import ScanResult, evaluate_source
 from .ports import SourceCollector
 
-OBSERVATION_VERSION = "0.72.0"
+OBSERVATION_VERSION = "0.73.0"
 
 DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")
 

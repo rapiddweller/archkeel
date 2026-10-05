@@ -282,6 +282,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-199 | [Nested permissions pin the complete field](decisions/ad-199-nested-permissions-pin-the-complete-field.md) |
 | AD-200 | [Diff projects recorded imports](decisions/ad-200-diff-projects-recorded-imports.md) |
 | AD-201 | [Layers assess declared permissions](decisions/ad-201-layers-assess-declared-permissions.md) |
+| AD-203 | [Native map list values use proven coordinates](decisions/ad-203-native-map-list-values-use-proven-coordinates.md) |
 
 ## Allowed dependencies
 

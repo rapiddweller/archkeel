@@ -519,11 +519,13 @@ An allowance removes only its matching violation; member findings and UNKNOWNs r
 
 An explicit positive-integer `container_depth` selects a literal `object` map value (AD-142):
 `{"qualified_name": "sample.api.validate_raw", "position": "values", "annotation": "dict[str, object]", "container_depth": 1}`.
+For `dict[str, list[object]]`, depth 2 selects the value's literal builtin-list element (AD-189).
+Both `list` and `object` need proven builtin bindings; rebinding or ambiguous imports cannot grant permission.
 The outer map needs its own entry without that coordinate. The complete signature annotation,
 symbol and parameter/return must match; the field path must be empty. Each enclosing collection
 or mapping adds one depth; unions do not. Only one alias-free, pathless mapping and one matching
 opaque occurrence before finding deduplication can apply. Keys, duplicate siblings, alias-wrapped
-values, bare dictionaries, `Any`, other positions and UNKNOWNs stay checked. The FACT records
+values, deeper value collections, nullable list elements, bare dictionaries, `Any`, other positions and UNKNOWNs stay checked. The FACT records
 depth, `nested_annotation: object`, `accepted_opacity: true` and decision provenance. Accepted
 opacity does not prove type closure. Omitting depth preserves existing wire bytes and digests.
 
