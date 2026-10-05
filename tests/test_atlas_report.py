@@ -238,8 +238,9 @@ def test_offline_module_drilldown_reaches_native_classifiers_and_returns(tmp_pat
             == "enum_literal"
         )
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
-        assert page.url == index.as_uri()
-        assert "Architecture map" == page.locator("#flow-heading").inner_text()
+        assert page.url.startswith(index.as_uri())
+        assert "scope=" in page.url
+        assert "Architecture map · core" == page.locator("#flow-heading").inner_text()
         assert not errors
     finally:
         browser.close()
@@ -457,6 +458,7 @@ def test_unknown_detail_links_keep_deeper_claimed_modules_and_distinct_names(
     native = json.loads(payload.group(1))
     native.pop("initial_scope")
     native.pop("initial_view")
+    native.pop("navigation")
     scoped = parse_report(native)
     scoped.validate()
     original = architecture_report(model).observed
@@ -483,7 +485,191 @@ def test_unknown_detail_links_keep_deeper_claimed_modules_and_distinct_names(
         assert data["unassigned_detail_href"] in page.url
         assert page.locator('.flow-nodes [data-label="Service"]').count() == 1
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
-        assert page.url == index.as_uri()
+        assert page.url.startswith(index.as_uri())
+        assert "scope=" in page.url
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def _route_pages(tmp_path):
+    from archkeel.render.html import render_architecture_details
+
+    model = _sample(
+        tmp_path,
+        core_exact=("sample.empty",),
+        extra_files={
+            "sample/empty.py": "",
+            "sample/core.py": (
+                "from enum import Enum\nLIMIT = 3\n"
+                "class Client:\n    def run(self):\n        return LIMIT\n"
+                "class State(Enum):\n    READY = 'ready'\n"
+            ),
+        },
+    )
+    index = tmp_path / "architecture.report.html"
+    index.write_text(_page(model))
+    for name, content in render_architecture_details(
+        _result(model),
+        canonical_report_bytes(model),
+        repository="One target",
+        architecture_href="architecture.json",
+    ).items():
+        (tmp_path / name).write_bytes(content)
+    return index, architecture_report(model).observed
+
+
+def test_offline_atlas_and_uml_share_shell_empty_scope_and_url_theme(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    index, graph = _route_pages(tmp_path)
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        page.goto(index.as_uri() + "?theme=dark")
+        page.locator('.flow-nodes [data-label="core"]').press("Enter")
+        page.get_by_role("button", name="Switch to light theme", exact=True).click()
+        page.locator(".atlas-module-list").get_by_role(
+            "link", name="sample.empty", exact=True
+        ).click()
+        assert page.locator(".atlas-heading").count() == 1
+        assert page.locator(".flow-views [data-flow-view]").count() == 3
+        assert page.locator(".theme-toggle").count() == 1
+        assert page.locator("html").get_attribute("data-theme") == "light"
+        assert "No direct declarations" in page.locator(".flow-alternative").inner_text()
+        assert "sample/empty.py" in page.locator(".flow-alternative").inner_text()
+        empty = next(item for item in graph.entities if item.qualified_name == "sample.empty")
+        assert "module=" + empty.id in page.url
+        page.reload()
+        assert page.locator("html").get_attribute("data-theme") == "light"
+        for lens in ("Target", "Diff", "As-Is"):
+            page.get_by_role("button", name=lens, exact=True).click()
+            assert "module=" + empty.id in page.url
+            assert page.locator('.flow-nodes [data-uml-kind="component"]').count() == 0
+        page.get_by_role("link", name="Back to architecture map", exact=True).click()
+        assert "scope=core" in page.url and "theme=light" in page.url
+        assert page.locator("#flow-heading").inner_text() == "Architecture map · core"
+        page.get_by_role("button", name="Target", exact=True).click()
+        assert "No declared subcomponents" in page.locator(".flow-alternative").inner_text()
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    index, graph = _route_pages(tmp_path)
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        page.goto(index.as_uri())
+        page.locator('.flow-nodes [data-label="core"]').press("Enter")
+        page.locator(".atlas-module-list").get_by_role(
+            "link", name="sample.core", exact=True
+        ).click()
+        module = next(item for item in graph.entities if item.qualified_name == "sample.core")
+        classifier = next(
+            item for item in graph.entities if item.qualified_name == "sample.core.Client"
+        )
+        method = next(
+            item for item in graph.entities if item.qualified_name == "sample.core.Client.run"
+        )
+        page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').press("Enter")
+        assert "module=" + module.id in page.url and "scope=" + classifier.id in page.url
+        page.reload()
+        assert page.locator(f'.flow-nodes [data-uml-id="{method.id}"]').count() == 1
+        assert "Client [class]" in page.locator(".flow-breadcrumb").inner_text()
+        page.locator(".flow-back").click()
+        assert "scope=" + classifier.id not in page.url
+        page.go_back()
+        assert "scope=" + classifier.id in page.url
+        assert page.locator(f'.flow-nodes [data-uml-id="{method.id}"]').count() == 1
+        page.goto(page.url.replace(classifier.id, "unknown-native-id"))
+        assert "scope=unknown-native-id" not in page.url
+        assert page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').count() == 1
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_target_counterpart_and_planned_classifier_open_declared_members(tmp_path):
+    from test_target_graph import _contract
+    from test_uml_evaluation import _model, _repository
+
+    from archkeel.render.html import render_architecture_details
+
+    api = pytest.importorskip("playwright.sync_api")
+    contract = _contract()
+    entities = contract["declarations"]["uml"]["entities"]
+    entities[0]["parent_id"] = "declared-module"
+    context = {
+        "presence": "planned",
+        "language": "python",
+        "provenance": ["docs/target.md"],
+        "responsibilities": ["Own the declared operation."],
+    }
+    entities.extend(
+        [
+            {
+                **context,
+                "id": "declared-module",
+                "kind": "module",
+                "qualified_name": "sample.core",
+                "parent_id": "core",
+            },
+            {
+                **context,
+                "id": "future",
+                "kind": "class",
+                "qualified_name": "sample.core.Future",
+                "parent_id": "declared-module",
+            },
+            {
+                **context,
+                "id": "execute",
+                "kind": "method",
+                "qualified_name": "sample.core.Future.execute",
+                "parent_id": "future",
+            },
+        ]
+    )
+    root, config = _repository(
+        tmp_path,
+        contract=contract,
+        source="class Service:\n    def run(self, request):\n        return request\n",
+    )
+    model = _model(root, config)
+    index = tmp_path / "architecture.report.html"
+    index.write_text(_page(model))
+    for name, content in render_architecture_details(
+        _result(model),
+        canonical_report_bytes(model),
+        repository="One target",
+        architecture_href="architecture.json",
+    ).items():
+        (tmp_path / name).write_bytes(content)
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        page.goto(index.as_uri() + "?theme=dark")
+        page.locator('.flow-nodes [data-label="core"]').press("Enter")
+        page.locator(".atlas-module-list").get_by_role(
+            "link", name="sample.core", exact=True
+        ).click()
+        page.get_by_role("button", name="Target", exact=True).click()
+        for identity, member in (("service", "run"), ("future", "execute")):
+            page.locator(f'.flow-nodes [data-uml-id="{identity}"]').press("Enter")
+            assert "origin=declared" in page.url and "scope=" + identity in page.url
+            page.reload()
+            assert (
+                page.get_by_role("button", name="Target", exact=True).get_attribute("aria-pressed")
+                == "true"
+            )
+            assert page.locator(f'.flow-nodes [data-uml-id="{member}"]').count() == 1
+            assert page.locator('.flow-nodes [data-uml-kind="component"]').count() == 0
+            page.locator(".flow-back").click()
         assert not errors
     finally:
         browser.close()

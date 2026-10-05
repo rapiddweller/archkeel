@@ -688,6 +688,7 @@ def _atlas_section(payload: dict[str, object]) -> str:
         '<section class="flow-explore" aria-label="Module exploration">'
         '<h3>Worth a look</h3></section></div><aside class="flow-inspector"',
     )
+    head = head.replace('aria-label="Set zoom to 100%">Reset', 'aria-label="Set zoom to 100%">100%')
     encoded = json.dumps(
         payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).replace("<", "\\u003c")
@@ -698,6 +699,37 @@ def _atlas_section(payload: dict[str, object]) -> str:
         + _asset("flow.js").decode()
         + _FLOW_SECTION_TAIL
     )
+
+
+def _atlas_content(
+    result: RunResult,
+    observation: Observation,
+    data: dict[str, object],
+    *,
+    repository: str,
+    architecture_href: str,
+) -> str:
+    components = (
+        len(result.architecture_projection.components) if result.architecture_projection else 0
+    )
+    return f"""<section class="report-heading atlas-heading">
+      <div><span class="eyebrow">Architecture Atlas</span><h1>{_text(repository)}</h1>
+      <p><code>{_text(observation.source.git_head)}</code>
+      · {observation.coverage.files_parsed} observed files
+      · {components} components</p></div>
+      <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
+      </section><p class="atlas-status">Scan: {_text(result.observation_complete)}
+      · Declared rules: {_text(result.declared_rules)}</p>
+      {_atlas_section(data)}
+      <details class="atlas-source"><summary>Snapshot and audit</summary>
+      <p>Source digest <code>{_text(observation.source.source_digest)}</code>
+      · Dirty {_text(observation.source.dirty)}.</p>
+      <p>Scope: {_text(", ".join(observation.source.scope))}</p>
+      <p>Contract <code>{_text(observation.contract.path)}</code>
+      · {_text(observation.contract.digest)}</p>
+      <p><a href="{_text(architecture_href)}">Complete architecture JSON and recorded evidence
+      </a></p>
+      </details>"""
 
 
 def _atlas_document(
@@ -715,30 +747,53 @@ def _atlas_document(
     data["atlas"] = atlas_payload(
         observation, report, projection, repository=repository, architecture_href=architecture_href
     )
-    content = f"""<section class="report-heading atlas-heading">
-      <div><span class="eyebrow">Architecture Atlas</span><h1>{_text(repository)}</h1>
-      <p><code>{_text(observation.source.git_head)}</code>
-      · {observation.coverage.files_parsed} observed files
-      · {len(projection.components)} components</p></div>
-      <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
-      </section><p class="atlas-status">Scan: {_text(result.observation_complete)}
-      · Declared rules: {_text(result.declared_rules)}</p>
-      {_atlas_section(data)}
-      <details class="atlas-source"><summary>Snapshot and audit</summary>
-      <p>Source digest <code>{_text(observation.source.source_digest)}</code>
-      · Dirty {_text(observation.source.dirty)}.</p>
-      <p>Scope: {_text(", ".join(observation.source.scope))}</p>
-      <p>Contract <code>{_text(observation.contract.path)}</code>
-      · {_text(observation.contract.digest)}</p>
-      <p><a href="{_text(architecture_href)}">Complete architecture JSON and recorded evidence
-      </a></p>
-      </details>"""
+    data["navigation"] = {
+        "repository": repository,
+        "main_href": f"{_PurePosixPath(architecture_href).stem}.report.html",
+    }
     return _document(
         repository=repository,
         kind="Architecture report",
         title="Architecture Atlas",
-        content=content,
+        content=_atlas_content(
+            result, observation, data, repository=repository, architecture_href=architecture_href
+        ),
     )
+
+
+def _component_navigation(
+    result: RunResult,
+    identity: str | None,
+    members: tuple[str, ...],
+    target_modules: tuple[str, ...],
+    *,
+    repository: str,
+    architecture_href: str,
+) -> dict[str, object]:
+    projection = result.architecture_projection
+    if projection is None:
+        raise ValueError("Component navigation requires its Core projection")
+    component = next((item for item in projection.components if item.id == identity), None)
+    path: list[dict[str, str | None]] = []
+    while component is not None:
+        parent_id = component.parent_id
+        path.insert(
+            0, {"id": component.id, "label": component.label, "parent_id": component.parent_id}
+        )
+        component = next((item for item in projection.components if item.id == parent_id), None)
+    if identity is None:
+        path = [
+            {"id": item.id, "label": item.label, "parent_id": item.parent_id}
+            for item in projection.components
+        ]
+    return {
+        "repository": repository,
+        "main_href": f"{_PurePosixPath(architecture_href).stem}.report.html",
+        "component_id": identity,
+        "component_path": path,
+        "module_ids": members,
+        "target_module_ids": target_modules,
+    }
 
 
 def render_architecture_details(
@@ -752,6 +807,8 @@ def render_architecture_details(
     if result.report_filter is not None or result.architecture_projection is None:
         return {}
     observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
+    if result.architecture_projection.source != observation.source:
+        raise ValueError("Atlas requires its matching authenticated Core projection")
     report = architecture_report(observation)
     identities = (
         [item.component_id for item in report.target.component_intents] if report.target else []
@@ -768,27 +825,35 @@ def render_architecture_details(
         data = json.loads(report_bytes(scoped))
         data["initial_scope"] = identity
         data["initial_view"] = "diagram"
-        payload = json.dumps(
-            data, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-        ).replace("<", "\\u003c")
-        flow = (
-            _FLOW_SECTION_HEAD
-            + payload
-            + _FLOW_SECTION_BETWEEN_SCRIPTS
-            + _asset("flow.js").decode()
-            + _FLOW_SECTION_TAIL
+        members = (
+            tuple(sorted(unknown_modules))
+            if identity is None
+            else next(
+                (item.module_ids for item in report.memberships if item.component_id == identity),
+                (),
+            )
         )
-        title = identity if identity is not None else "Unknown module ownership"
-        content = (
-            f"<h1>{_text(repository)} · {_text(title)}</h1>"
-            f"<p>Snapshot <code>{_text(observation.source.git_head)}</code>"
-            f" · Scan {_text(result.observation_complete)}"
-            f' · <a href="{_text(_PurePosixPath(architecture_href).stem)}.report.html">'
-            "Back to architecture map</a>"
-            f' · <a href="{_text(architecture_href)}">Complete audit JSON</a></p>{flow}'
+        data["navigation"] = _component_navigation(
+            result,
+            identity,
+            members,
+            tuple(item.id for item in scoped.target.entities if item.kind == "module")
+            if scoped.target
+            else (),
+            repository=repository,
+            architecture_href=architecture_href,
         )
         pages[detail_name(architecture_href, identity)] = _document(
-            repository=repository, kind="Source details", title="UML and evidence", content=content
+            repository=repository,
+            kind="Architecture report",
+            title="Architecture Atlas",
+            content=_atlas_content(
+                result,
+                observation,
+                data,
+                repository=repository,
+                architecture_href=architecture_href,
+            ),
         )
     return pages
 

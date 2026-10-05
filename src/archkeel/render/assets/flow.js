@@ -8,6 +8,9 @@
   flowHeading.tabIndex = -1;
   const DATA = JSON.parse(dataNode.textContent);
   const ATLAS = DATA.atlas || null;
+  const NAV = DATA.navigation || null;
+  const SIDECAR = Boolean(NAV?.module_ids);
+  let routeReady = false, returnScope = null, returnView = "diagram", returnSelection = null;
   if (ATLAS) {
     ATLAS.cells = ATLAS.cells.map(([source, target, count, status, permission, reason, evidence, findings, reasons]) => ({
       source_id: ATLAS.modules[source].id, target_id: ATLAS.modules[target].id, import_sites: count,
@@ -30,7 +33,7 @@
   let positions = {}, diagramOrigin = null, sizedPositions = positions;
   let scrollRemainderX = 0, scrollRemainderY = 0;
   let viewMode = DATA.initial_view || "diagram", renderedScene = null, focusLabel = null, relationshipKind = null, elementKind = null;
-  let transform = { k: 1 }, umlPath = DATA.initial_scope ? [{ id: DATA.initial_scope, origin: "observed" }] : [], umlSelection = null, scopeNotice = null;
+  let transform = { k: 1 }, umlPath = !SIDECAR && DATA.initial_scope ? [{ id: DATA.initial_scope, origin: "observed" }] : [], umlSelection = null, scopeNotice = null;
   let dragState = null, panState = null, expansionRestore = null;
   let lastPointerTap = null, skipSvgClick = false;
   const viewStates = new Map(), navigationHistory = new Map();
@@ -1462,7 +1465,7 @@
   }
 
   function selectArchitectureSubject(type, id) {
-    if (ATLAS) { umlSelection = { type, id }; atlasModule = null; atlasCell = null; setTargetDetails(true); renderAtlas(); return; }
+    if (ATLAS) { umlSelection = { type, id }; atlasModule = null; atlasCell = null; setTargetDetails(true); render(); return; }
     umlSelection = { type, id };
     setTargetDetails(true);
     nodeLayer.querySelectorAll("[data-uml-id]").forEach((node) => {
@@ -1473,6 +1476,7 @@
     edgeLayer.querySelectorAll(".hit").forEach((hit) => hit.setAttribute("aria-pressed",
       String(type === "edge" && hit.parentElement.dataset.umlId === id)));
     emphasizeUmlScene(umlSelection);
+    syncRoute();
     architectureInspector(architectureGraphContext(), renderedScene);
     updateOpenSelected();
     if (type === "node") {
@@ -1498,6 +1502,12 @@
     const node = sourceGraph ? { entity: architectureEntity(id, sourceGraph), sourceGraph }
       : renderedScene?.nodes.find((item) => item.id === id);
     if (!context || !node?.entity) { selectArchitectureSubject("node", id); return; }
+    if (SIDECAR && !lexicalRoute(node.entity.id, null, node.sourceGraph.origin).length) {
+      if (node.entity.kind === "component" && componentRoute(node.entity.id).length)
+        location.href = mainHref(node.entity.id, null);
+      else selectArchitectureSubject("node", id);
+      return;
+    }
     if (node.sourceGraph === context.graph && node.entity.id === context.scope
         || !architectureHasInterior(node.entity, node.sourceGraph)
           && !(sourceGraph && node.entity.kind === "module")) {
@@ -1507,7 +1517,8 @@
     const card = renderedScene.nodes.find((item) => item.entity?.id === node.entity.id && item.sourceGraph === node.sourceGraph);
     if (card) umlSelection = { type: "node", id: card.id };
     rememberNavigationState();
-    umlPath.push({ id: node.entity.id, origin: node.sourceGraph.origin });
+    if (SIDECAR) umlPath = lexicalRoute(node.entity.id, null, node.sourceGraph.origin);
+    else umlPath.push({ id: node.entity.id, origin: node.sourceGraph.origin });
     umlSelection = null;
     focusLabel = null;
     relationshipKind = null;
@@ -1518,6 +1529,7 @@
   }
 
   function leaveArchitectureGraph() {
+    if (SIDECAR && umlPath.length < 2) { location.href = mainHref(); return; }
     if (!umlPath.length) return;
     if (!restoreNavigationState()) {
       umlPath.pop();
@@ -1528,13 +1540,172 @@
     focusCurrentLevel();
   }
 
+  function lexicalRoute(id, moduleId = null, origin = "observed") {
+    const path = [];
+    const graph = origin === "declared" ? DATA.target : DATA.observed;
+    const modules = origin === "declared" ? NAV.target_module_ids : NAV.module_ids;
+    let entity = graph?.entities.find((item) => item.id === id);
+    while (entity && !["component", "package"].includes(entity.kind)) {
+      path.unshift({ id: entity.id, origin });
+      if (entity.kind === "module") return modules.includes(entity.id)
+        && (!moduleId || moduleId === entity.id) ? path : [];
+      entity = graph.entities.find((item) => item.id === entity.parent_id);
+    }
+    return [];
+  }
+
+  function componentRoute(id) {
+    const components = ATLAS?.components || NAV?.component_path || [];
+    const path = [];
+    let component = components.find((item) => item.id === id);
+    while (component) {
+      path.unshift(component);
+      component = components.find((item) => item.id === component.parent_id);
+    }
+    return path;
+  }
+
+  function mainHref(scope = returnScope, selection = returnSelection) {
+    const query = new URLSearchParams();
+    if (scope) query.set("scope", scope);
+    query.set("view", returnView);
+    if (selection) query.set("selected", selection);
+    query.set("theme", document.documentElement.dataset.theme);
+    return `${NAV.main_href}?${query}`;
+  }
+
+  function readRoute() {
+    const query = new URLSearchParams(location.search);
+    const views = ["diagram", "target", "diff"];
+    viewMode = views.includes(query.get("view")) ? query.get("view") : "diagram";
+    applyTheme(query.get("theme") === "light" || query.get("theme") !== "dark"
+      && window.matchMedia("(prefers-color-scheme: light)").matches);
+    umlSelection = null; atlasModule = null; atlasCell = null; scopeNotice = null;
+    navigationHistory.clear(); viewStates.clear();
+    focusLabel = null; relationshipKind = null; elementKind = null; positions = {};
+    const selected = query.get("selected");
+    if (SIDECAR) {
+      const origin = query.get("origin") === "declared" ? "declared" : "observed";
+      const module = query.get("module") || NAV.module_ids[0];
+      umlPath = lexicalRoute(query.get("scope") || module, module, origin);
+      if (!umlPath.length) umlPath = lexicalRoute(module, null, origin);
+      const sourceScope = query.has("return_scope") ? query.get("return_scope") : NAV.component_id;
+      returnScope = componentRoute(sourceScope).at(-1)?.id || null;
+      returnView = views.includes(query.get("return_view")) ? query.get("return_view") : "diagram";
+      const sourceSelection = query.get("return_selected");
+      returnSelection = NAV.component_path.some((item) => item.id === sourceSelection)
+        || NAV.module_ids.includes(sourceSelection) ? sourceSelection : null;
+      if (selected && lexicalRoute(selected, umlPath[0]?.id, umlPath[0]?.origin).length)
+        umlSelection = { type: "node", id: selected };
+    } else {
+      const scope = query.get("scope");
+      umlPath = ATLAS.levels.some((level) => level.parent_id === scope)
+        ? componentRoute(scope).map((item) => ({ id: item.id, origin: "observed" })) : [];
+      const level = atlasLevel();
+      if (level.component_ids.includes(selected)) umlSelection = { type: "node", id: selected };
+      else if (viewMode !== "target" && level.modules.some((item) => item.id === selected)) atlasModule = selected;
+      const cell = Number(query.get("cell"));
+      if (query.has("cell") && viewMode !== "target" && level.cells.includes(cell)) atlasCell = cell;
+    }
+  }
+
+  function syncRoute(replace = false) {
+    if (!NAV || !routeReady || !["file:", "http:", "https:"].includes(location.protocol)) return;
+    const query = new URLSearchParams();
+    if (SIDECAR) {
+      if (umlPath[0]) query.set("module", umlPath[0].id);
+      if (umlPath[0]?.origin === "declared") query.set("origin", "declared");
+      if (umlPath.length > 1) query.set("scope", umlPath.at(-1).id);
+      query.set("return_scope", returnScope || "");
+      query.set("return_view", returnView);
+      if (returnSelection) query.set("return_selected", returnSelection);
+    } else if (umlPath.length) query.set("scope", umlPath.at(-1).id);
+    query.set("view", viewMode);
+    const selected = atlasModule || (umlSelection?.type === "node" ? umlSelection.id : null);
+    if (selected) query.set("selected", selected);
+    if (ATLAS && atlasCell !== null) query.set("cell", String(atlasCell));
+    query.set("theme", document.documentElement.dataset.theme);
+    const next = `${location.pathname}?${query}`;
+    if (location.pathname + location.search !== next)
+      if (replace) history.replaceState(null, "", next);
+      else history.pushState(null, "", next);
+  }
+
+  function applyTheme(light) {
+    document.documentElement.dataset.theme = light ? "light" : "dark";
+    const button = document.querySelector(".theme-toggle");
+    if (button) {
+      button.textContent = light ? "☾" : "☀";
+      button.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
+    }
+  }
+
+  function sidecarNavigation() {
+    const components = componentRoute(NAV.component_id || returnScope);
+    const links = [`<a href="${esc(mainHref())}" aria-label="Back to architecture map">${esc(NAV.repository)}</a>`,
+      ...components.map((item) => `<a href="${esc(mainHref(item.id, null))}">${esc(item.label)} [component]</a>`)];
+    const lexical = umlPath.map((entry, index) => {
+      const graph = entry.origin === "declared" ? DATA.target : DATA.observed;
+      const entity = graph.entities.find((item) => item.id === entry.id);
+      const label = entity.kind === "module" ? entity.file_path?.split("/").at(-1) || entity.qualified_name
+        : architectureLabel(entity, graph);
+      return `<button type="button" data-lexical-depth="${index + 1}"${index === umlPath.length - 1 ? " disabled" : ""}>${esc(label)} [${esc(entity.kind)}]</button>`;
+    });
+    breadcrumb.innerHTML = [...links, ...lexical].join(" / ");
+    breadcrumb.querySelectorAll("[data-lexical-depth]").forEach((button) => button.onclick = () => {
+      umlPath = umlPath.slice(0, Number(button.dataset.lexicalDepth)); umlSelection = null;
+      focusLabel = null; relationshipKind = null; elementKind = null; positions = {}; render(); fit();
+    });
+    backButton.hidden = false;
+    backButton.textContent = umlPath.length > 1 ? "Back to " + breadcrumb.querySelectorAll("button")[umlPath.length - 2].textContent
+      : "Back to architecture map";
+  }
+
+  function renderSidecar() {
+    root.querySelector(".flow-explore").hidden = true;
+    const entry = umlPath.at(-1);
+    const source = entry?.origin === "declared" ? DATA.target : DATA.observed;
+    const entity = source?.entities.find((item) => item.id === entry?.id);
+    const destination = viewMode === "target" ? DATA.target : viewMode === "diagram" ? DATA.observed : source;
+    const counterpart = entity && destination !== source ? scopeCounterpart(entry, destination) : null;
+    const missingTarget = entity && destination !== source && !counterpart?.entity;
+    filters.hidden = missingTarget || !entity;
+    elementKindControl.hidden = missingTarget || !entity;
+    focusInput.closest("label").hidden = missingTarget || !entity;
+    violationFocus.hidden = missingTarget || !entity;
+    fitButton.hidden = missingTarget || !entity;
+    root.dataset.view = viewMode;
+    viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === viewMode)));
+    if (entity && !missingTarget) {
+      const graph = counterpart?.entity ? destination : source;
+      renderArchitectureGraph({ graph, scope: counterpart?.entity?.id || entity.id, base: null,
+        comparison: viewMode === "diff" ? DATA.comparison : null });
+      const scene = renderedScene;
+      if (!scene.nodes.length) {
+        canvas.hidden = true; alternative.hidden = false;
+        alternative.innerHTML = `<div class="flow-scope-notice"><h3>${esc(entity.file_path?.split("/").at(-1) || entity.qualified_name)}</h3><p><code>${esc(entity.file_path || entity.qualified_name)}</code></p><p>No direct declarations</p><p>Source details and recorded evidence are available in the fact sheet.</p></div>`;
+      }
+    } else {
+      canvas.hidden = true; alternative.hidden = false; inspector.hidden = false;
+      legend.textContent = ""; openSelectedButton.disabled = true;
+      flowHeading.textContent = entity ? entity.file_path || entity.qualified_name : "Source details";
+      alternative.innerHTML = `<div class="flow-scope-notice"><h3>${esc(entity?.file_path || "Source scope")}</h3><p>${entity ? `No recorded ${viewMode === "target" ? "Target" : "observed"} counterpart for this scope. The location is retained.` : "Choose a recorded module from the architecture map."}</p></div>`;
+      const component = DATA.target?.entities.find((item) => item.id === NAV.component_id);
+      if (component) architectureInspector({ graph: DATA.target, scope: component.id, base: null }, { nodes: [], edges: [] });
+      else inspectorContent.innerHTML = '<div class="kicker">Declared intent</div><p>No component declaration is recorded for this source assignment.</p>';
+    }
+    root.querySelector(".atlas-summary").textContent = entity?.file_path || "Recorded source scope";
+    sidecarNavigation();
+  }
+
   function architectureNavigation(context) {
+    if (SIDECAR) { sidecarNavigation(); return; }
     if (ATLAS) {
       breadcrumb.innerHTML = `<button type="button" data-atlas-depth="0">${esc(ATLAS.repository)}</button>`
         + umlPath.map((entry, index) => `<span> / </span><button type="button" data-atlas-depth="${index + 1}">${esc(atlasComponent(entry.id)?.label || entry.id)}</button>`).join("");
       breadcrumb.querySelectorAll("button").forEach((button) => button.onclick = () => {
         umlPath = umlPath.slice(0, Number(button.dataset.atlasDepth)); umlSelection = null;
-        atlasModule = null; atlasCell = null; atlasHint = null; positions = {}; renderAtlas(); fit();
+        atlasModule = null; atlasCell = null; atlasHint = null; positions = {}; render(); fit();
       });
       backButton.hidden = !umlPath.length; backButton.textContent = "Back to components"; return;
     }
@@ -2126,10 +2297,17 @@
   }
 
   function switchArchitectureView(nextView) {
+    if (SIDECAR) {
+      const graph = nextView === "target" ? DATA.target : nextView === "diagram" ? DATA.observed : null;
+      const counterpart = graph && umlPath.length ? scopeCounterpart(umlPath.at(-1), graph).entity : null;
+      if (counterpart) umlPath = lexicalRoute(counterpart.id, null, graph.origin);
+      viewMode = nextView; umlSelection = null; scopeNotice = null;
+      focusLabel = null; relationshipKind = null; elementKind = null; positions = {}; render(); fit(); return;
+    }
     if (ATLAS) {
       viewMode = nextView;
       atlasCell = null; atlasModule = null; atlasHint = null;
-      renderAtlas(); return;
+      render(); return;
     }
     if (nextView === viewMode) return;
     viewStates.set(viewMode, currentState());
@@ -2197,7 +2375,11 @@
   function atlasDetailsHref(module, level) {
     const assignment = level.modules.find((item) => item.id === module.id);
     const href = atlasComponent(assignment?.component_id)?.detail_href || ATLAS.unassigned_detail_href;
-    return `${href}?module=${encodeURIComponent(module.id)}`;
+    const query = new URLSearchParams({ module: module.id, return_scope: level.parent_id || "",
+      return_view: viewMode, view: viewMode, theme: document.documentElement.dataset.theme });
+    const selected = atlasModule || (umlSelection?.type === "node" ? umlSelection.id : null);
+    if (selected) query.set("return_selected", selected);
+    return `${href}?${query}`;
   }
 
   function openAtlasComponent(id) {
@@ -2206,7 +2388,7 @@
     umlPath.push({ id, origin: "observed" });
     umlSelection = null;
     atlasModule = null; atlasCell = null; atlasHint = null; atlasAllHints = false;
-    positions = {}; renderAtlas(); fit(); focusCurrentLevel();
+    positions = {}; render(); fit(); focusCurrentLevel();
   }
 
   function atlasLayout(nodes, declared) {
@@ -2434,7 +2616,7 @@
       if (!cell && !module) return;
       atlasCell = cell ? Number(cell.dataset.cell) : null;
       atlasModule = module?.dataset.module || null;
-      setTargetDetails(true); atlasSheet(level);
+      setTargetDetails(true); syncRoute(); atlasSheet(level);
     };
     matrix.addEventListener("click", choose);
     explore.querySelector(".atlas-module-list").addEventListener("click", choose);
@@ -2452,7 +2634,8 @@
     const level = atlasLevel(), scene = atlasScene(level);
     root.dataset.view = viewMode; root.dataset.umlGraph = "true"; root.dataset.componentOverview = "true";
     flowHeading.textContent = level.parent_id ? `Architecture map · ${atlasComponent(level.parent_id)?.label || level.parent_id}` : "Architecture map";
-    canvas.hidden = !scene.nodes.length; alternative.hidden = true;
+    canvas.hidden = !scene.nodes.length; alternative.hidden = Boolean(scene.nodes.length);
+    if (!scene.nodes.length) alternative.innerHTML = `<div class="flow-scope-notice"><h3>${viewMode === "target" ? "No declared subcomponents" : "No subcomponents at this level"}</h3><p>${viewMode === "target" ? "Declared responsibility and permissions remain in the fact sheet." : "Recorded modules remain below and in the fact sheet."}</p></div>`;
     viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === viewMode)));
     elementKindControl.hidden = true; focusInput.closest("label").hidden = true; violationFocus.hidden = true;
     fitButton.hidden = true; memberPreviewsButton.hidden = true; unassignedCodeButton.hidden = true;
@@ -2510,6 +2693,8 @@
   }
 
   function render() {
+    syncRoute();
+    if (SIDECAR) { renderSidecar(); return; }
     if (ATLAS) { renderAtlas(); return; }
     const context = architectureGraphContext();
     root.dataset.umlGraph = "true";
@@ -2681,21 +2866,23 @@
 
 
   detailsToggle.addEventListener("click", () => { setTargetDetails(!targetDetailsOpen); render(); fit(); });
-  if (ATLAS) {
+  if (NAV) {
     setTargetDetails(true);
-    const themeButton = document.querySelector(".theme-toggle");
-    const applyTheme = (light) => {
-      document.documentElement.dataset.theme = light ? "light" : "dark";
-      themeButton.textContent = light ? "☾" : "☀";
-      themeButton.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
-    };
-    applyTheme(window.matchMedia("(prefers-color-scheme: light)").matches);
-    themeButton.addEventListener("click", () => applyTheme(document.documentElement.dataset.theme !== "light"));
+    readRoute();
+    document.querySelector(".theme-toggle").addEventListener("click", () => {
+      applyTheme(document.documentElement.dataset.theme !== "light"); render();
+    });
+    window.addEventListener("popstate", () => {
+      routeReady = false; readRoute(); render(); fit(); routeReady = true; syncRoute(true);
+    });
   }
   render();
-  const moduleId = new URLSearchParams(location.search).get("module");
-  const module = DATA.observed?.entities.find((entity) => entity.id === moduleId && entity.kind === "module");
-  if (!ATLAS && module) openArchitectureEntity(module.id, DATA.observed);
+  if (!NAV) {
+    const moduleId = new URLSearchParams(location.search).get("module");
+    const module = DATA.observed?.entities.find((entity) => entity.id === moduleId && entity.kind === "module");
+    if (!ATLAS && module) openArchitectureEntity(module.id, DATA.observed);
+  }
+  routeReady = true; syncRoute(true);
   fit();
   window.addEventListener("resize", () => { sizeDiagram(); });
 
