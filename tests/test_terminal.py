@@ -119,8 +119,8 @@ def test_report_headline_fails_on_declared_rule_violations_even_though_exit_code
     assert "report records violations without gating" in summary.sentence
 
 
-def test_init_headline_is_unchanged_by_the_report_decision_fix() -> None:
-    """AD-14 only changes report; init keeps its onboarding sentence and pass badge."""
+def test_init_headline_distinguishes_a_draft_from_a_decided_target() -> None:
+    """The completed scan is PASS; the target still needs decisions."""
     result = RunResult(
         "init",
         0,
@@ -129,7 +129,8 @@ def test_init_headline_is_unchanged_by_the_report_decision_fix() -> None:
         artifact="architecture-contract.json",
     )
     summary = init_summary(result)
-    assert summary.decision.label == "PASS"
+    assert summary.decision.label == "DRAFT"
+    assert summary.decision.state == "info"
     assert summary.sentence == "Draft written. Run archkeel validate to list every decision left."
     assert len(summary.verdicts) == 1
 

@@ -38,7 +38,8 @@
 <text x="706" y="530" fill="#E8E8E2" font-size="12.5" font-weight="600">The approved top-level target</text>
 <text x="706" y="545" fill="#E8E8E2" font-size="12.5" font-weight="600">enters the replay</text>
 <text x="676" y="574" fill="#8A8A84" font-size="9.8" font-family="ui-monospace, Menlo, monospace">$ archkeel validate</text>
-<text x="676" y="608" fill="#C5F82A" font-size="10.5">exit 0, no diagnostics</text>
+<text x="676" y="608" fill="#C5F82A" font-size="10.5">exit 0, declared_rules PASS, 6 requires</text>
+<text x="676" y="621" fill="#C5F82A" font-size="10.5">entries</text>
 <path d="M 800.0 634 V 650.0 Q 800.0 662.0 788.0 662.0 H 502.0 Q 490.0 662.0 490.0 674.0 V 680" fill="none" stroke="#6E6E66" stroke-width="1.8" stroke-linecap="round" marker-end="url(#tip)"/>
 <rect x="350" y="690" width="280" height="128" rx="10" fill="#141414" stroke="#2A2A28"/>
 <rect x="350" y="690" width="3" height="128" rx="1.5" fill="#F4C95D"/>
@@ -65,7 +66,8 @@
 <text x="706" y="1082" fill="#E8E8E2" font-size="12.5" font-weight="600">The approved nested target</text>
 <text x="706" y="1097" fill="#E8E8E2" font-size="12.5" font-weight="600">enters the replay</text>
 <text x="676" y="1126" fill="#8A8A84" font-size="9.8" font-family="ui-monospace, Menlo, monospace">$ archkeel validate</text>
-<text x="676" y="1160" fill="#C5F82A" font-size="10.5">exit 0, 3 requires entries</text>
+<text x="676" y="1160" fill="#C5F82A" font-size="10.5">exit 0, declared_rules PASS, 3 requires</text>
+<text x="676" y="1173" fill="#C5F82A" font-size="10.5">entries</text>
 <path d="M 800.0 1186 V 1202.0 Q 800.0 1214.0 788.0 1214.0 H 502.0 Q 490.0 1214.0 490.0 1226.0 V 1232" fill="none" stroke="#6E6E66" stroke-width="1.8" stroke-linecap="round" marker-end="url(#tip)"/>
 <rect x="350" y="1242" width="280" height="128" rx="10" fill="#141414" stroke="#2A2A28"/>
 <rect x="350" y="1242" width="3" height="128" rx="1.5" fill="#FF6B6B"/>

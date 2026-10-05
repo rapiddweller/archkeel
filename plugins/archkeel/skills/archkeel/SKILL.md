@@ -5,7 +5,7 @@ description: Use when setting up or changing architecture rules, or checking arc
 
 # Archkeel
 
-Archkeel is a deterministic architecture checker. It observes Python imports, evaluates a
+Archkeel is a deterministic architecture checker. It observes Python, TypeScript and Dart imports, evaluates a
 declared contract of components and rules against that observation, and distinguishes
 PASS, FAIL and UNKNOWN. Rules live in `architecture-contract.json` and its explicit nested
 contracts; nothing is enforced by convention alone.
@@ -35,7 +35,8 @@ continue from them; do not use `--force` without explicit approval to replace th
 `--source` and `--namespace`), requires an existing Git repository with at least one
 commit, and writes three files: `archkeel.toml`, `architecture-contract.json` (one component
 per top-level subpackage/module, plus `complete_assignment` and — only when no component
-cycle exists — `no_component_cycles`; no dependency rule), and
+cycle exists — `no_component_cycles`, and `interface_boundary` when it drafts public
+interfaces; no dependency rule), and
 `docs/architecture/architecture.md` (component table, each component's modules and inner
 edges, and a Mermaid graph of observed edges).
 Every rule `init` drafts carries `decided_by: "agent"` as a placeholder you must resolve, not
@@ -47,6 +48,51 @@ choice with the existing `symbol_placement` rule: set `source` to the package, `
 the types it owns, and `exact_sources` to the chosen module (or `allowed_sources` to a package
 subtree). Follow the ownership example in the target-first guide. Run `archkeel validate` after
 adding it; a misplaced matching class is a `rule.violated`.
+
+For TypeScript, use `archkeel init --language typescript --source src --namespace app
+--tsconfig tsconfig.json`; for Dart, use `archkeel init --language dart --source lib
+--namespace app`. Repeat `--source` for multiple roots. A non-empty namespace initializer
+requires explicit ownership via `exact_modules`; inspect it before recording the owner.
+`init` shows DRAFT while its completed scan remains PASS. Review measured
+`measurements.scalars.cycle_edges`: a cyclic component graph receives no drafted
+`no_component_cycles` rule. Cycles are an advisory, not an error diagnostic.
+Ignore `/test-artifacts/` in `.gitignore` for default report output, or choose `--output`.
+Restore missing configuration in existing setups or select `--config PATH`; use `init`
+only for a new setup. Without Git history, run `git init` and create a commit first.
+
+For example, after approving `storage -> domain`, add this fragment to the existing
+`storage` component. Replace the example reason with the decision owner's actual reason;
+keep its existing ownership and public interface fields.
+
+```json
+{
+  "requires": [
+    {
+      "component": "domain",
+      "rationale": "Storage persists domain records.",
+      "decided_by": "architect"
+    }
+  ]
+}
+```
+
+Append this rule to the existing `rules` list. An empty or absent `requires` list then
+forbids all outbound component pairs; it does not grant observed imports.
+
+```json
+{
+  "id": "REQUIRES-COMPLETE",
+  "kind": "complete_requires",
+  "rationale": "Each source states its approved outbound dependencies.",
+  "provenance": ["docs/architecture/architecture.md"],
+  "decided_by": "architect"
+}
+```
+
+Review drafted `public` entries and replace each structural rule's TODO with its own real
+reason and decision author. A non-empty namespace initializer needs explicit ownership via
+`exact_modules`; inspect it before adding that ownership. Rule kinds and selectors are in
+the [rule catalog](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
 
 Then pick one of two modes. The architect chooses; do not choose for them.
 
@@ -124,7 +170,7 @@ architect's own words as the `rationale`, with `decided_by: "architect"`.
 3. Write every rule you decide with `decided_by: "agent"`, and mark a component whose
    `public` list or `requires` edges you decided the same way: `decided_by` on the component
    covers its `public` list and every `requires` entry that carries none of its own, and one
-   entry may override it (AD-50).
+   entry may override it.
 4. End with a summary of your decisions grouped by evidence basis (document, layer
    principle, judgment) and name the lowest-confidence decisions first, for the architect to
    review.
@@ -161,17 +207,17 @@ archkeel validate --baseline known-violations.json                    # the CI g
 `--baseline` and `--amendment` are relative to `--root`, like the contract: with `--root mobile`,
 pass `--baseline known-violations.json` for `mobile/known-violations.json`, never the
 `mobile/`-prefixed path. An absolute path inside the root works; one outside it is
-`baseline.invalid`, exit 2 (AD-103).
+`baseline.invalid`, exit 2.
 The gate fails (exit 1) on a violation the file does not state, and on one it states that
 nobody violates any more — so the budget only shrinks, and the file is rewritten in the same
 change that shrinks it. `declarations.measurement_budgets` may put deterministic scalar values
-through the same loop (AD-89). `declarations.facade_budgets` and
+through the same loop. `declarations.facade_budgets` and
 `declarations.coupling_budgets` set name targets in the contract, and the baseline holds their
-accepted names (AD-99).
+accepted names.
 Never raise any of them to make a run pass without the architect's decision.
 When `calls_unresolved` rises, rerun with `--against <base ref>`, as the
 finding says: `unresolved_call_changes` names each added and removed unresolved call with its
-caller, path, lines, expression, reason and component (AD-100). `report --only calls --json` lists every
+caller, path, lines, expression, reason and component. `report --only calls --json` lists every
 unresolved and partially resolved call as `filtered_calls`; add `--component <label>` for one
 component's calls.
 
@@ -180,7 +226,7 @@ A reviewer or a CI gate may hold your branch to this the same way, with `archkee
 new `requires` edge, a `public` entry, an `allowed_sources` module, a relaxed or deleted rule,
 a padded baseline entry, and anything else this repository's `ir.widening` does not otherwise
 name — as a widening, which fails (exit 1) unless `--amendment <path>` names a file the
-architect wrote, recording who decided it and why, bound to this exact change (AD-61, #11).
+architect wrote, recording who decided it and why, bound to this exact change.
 Never widen the contract in the same change that removes the violation it names: fix the code,
 or ask the architect for an amendment. The full loop — gating, widening, picking a slice of the
 backlog and landing a planned interface — is worked end to end on the shop sample in
@@ -218,7 +264,7 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md.
 ## Nested contracts: the inside of a component
 
 A component may name a contract of its own, which becomes a second level of the same
-architecture (AD-20, AD-34). Adding one is the architect's decision; inspecting the physical
+architecture. Adding one is the architect's decision; inspecting the physical
 subtree is already part of the recursive review above and does not depend on that decision. The
 `component larger than its level` claim is evidence that a component holds more than the whole
 top level does; it is a reason to ask, not permission to split.
@@ -235,7 +281,7 @@ Once the architect decides:
 2. Point the outer component at the resulting contract with
    `"inside": "<repository-relative path>"`.
 3. Decide the inside the way you decide the top level: a `requires` list per sub-component and
-   one `complete_requires` rule, so absence forbids there too (AD-32).
+   one `complete_requires` rule, so absence forbids there too.
 
 `validate` holds the declared levels to each other; read its diagnostics by `code`:
 
@@ -268,35 +314,13 @@ Mounting a contract does not create a standalone `archkeel.toml` for it. Nonempt
 declaration is not compared with ancestor declarations; ancestor rules still evaluate their
 own source scope. A physical folder alone is not a declared contract.
 
-## Rule catalog (summary)
+## Rule catalog
 
-Class A rules are evaluated from one observation; unavailable evidence can leave them UNKNOWN:
-`complete_requires`, `forbidden_dependency`, `forbidden_construct`,
-`external_dependency_scope`, `complete_assignment`, `no_component_cycles`. A
-`no_component_cycles` rule with `level: "module"` and an optional `components` list judges import
-cycles between modules, which the component level cannot see (AD-98). Components list
-permitted outbound edges under `requires`; `complete_requires` makes every absent pair
-forbidden. `forbidden_construct` and `external_dependency_scope` exempt by prefix in
-`allowed_sources` and by exact name in `exact_sources`; a package root such as `pkg` goes in
-`exact_sources`, because as a prefix it exempts the whole package (AD-49).
-`forbidden_construct.allowed_type_ignores` permits one suppression by exact `qualified_name`,
-`line`, AST-rendered `statement` and comment `tag` (AD-133). Prefer it for one native boundary
-call; neighbors remain forbidden. Moving or changing it needs contract review; a changed
-permission widens under `--against`. Class B
-regression checks compare an accepted observation with a candidate.
-Counts and unresolved-call share must each not increase; conflicting directions reject.
-Require comparable profiles and complete coverage; retain UNKNOWN and unmeasured `n/a`.
-Class C declarations are recorded and reported. `public_api` is also checked for existence,
-membership in a non-empty literal `__all__` and resolvable types exposed by declared classes and
-functions; an empty `__all__`, ambiguous bindings and unsupported annotation forms are not
-guessed. Class D review claims are derived
-and never enforced: `report` and `validate` count them in the terminal and under `claims` in
-`--json`, and the HTML report lists the candidates. A claim is a reading task, not a verdict; it
-never changes an exit code, and `null` for a claim means its signal was missing, which is not the
-same as finding nothing.
-
-Full field reference and examples:
-https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md
+Use the [canonical field reference and examples](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md)
+for rule kinds and selectors. Class A evaluates declared constraints; unavailable evidence
+remains UNKNOWN. Class B compares accepted and candidate observations, requiring comparable
+profiles and complete coverage. Class C records declarations. Class D claims are review tasks;
+they never change verdicts or exit codes, and `null` means unavailable evidence.
 
 ## Exit codes
 
@@ -306,13 +330,16 @@ See the canonical [per-command exit table](https://github.com/rapiddweller/archk
   when a candidate is not meant to change anything architectural, such as a pure refactor. That
   declares absence, not "nothing to report": `check` then fails on any semantic change the
   candidate actually produced, in any dimension, not only the six guardrail ones. Declare `[]`
-  only when you mean it; naming the real changes remains the default (AD-39). A non-empty
+  only when you mean it; naming the real changes remains the default. A non-empty
   declaration still lets an undeclared change through in most dimensions, except
-  `dependency_edges`: name every new edge you add, or `check` fails on the one you left out
-  (AD-44).
+  `dependency_edges`: name every new edge you add, or `check` fails on the one you left out.
 
 ## JSON output
 
 Every command accepts `--json`. Prefer it when scripting or reading output
 programmatically: `archkeel validate --json`, `archkeel init --json`, `archkeel report
 --json`. Interactive terminals otherwise get a Rich-formatted summary instead of raw JSON.
+Read `declared_rules`, not just exit 0: FAIL names violated constraints; UNKNOWN retains
+unproved results. The [command-result schema](https://github.com/rapiddweller/archkeel/blob/main/schema/command-result.schema.json)
+covers `check`, `validate` and `report`, excluding `init`, `skill` and the observation artifact.
+Use the CLI’s bundled schemas for offline validation; pin schema and CLI together.
