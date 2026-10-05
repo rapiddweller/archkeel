@@ -1771,18 +1771,16 @@
 
     const kinds = [...new Set(complete.edges.map((edge) => edge.relationshipKind))].sort();
     if (!kinds.includes(relationshipKind)) relationshipKind = null;
-    const elementKinds = [...new Set(complete.nodes.map((node) => node.kind))].sort();
+    const directOverview = ["module", "class", "interface", "enum"].includes(
+      architectureEntity(context.scope, context.graph)?.kind) && !focusLabel && !relationshipKind;
+    const scopeElements = complete.nodes.filter((node) => !directOverview
+      || !node.outside && node.entity?.id !== context.scope);
+    const elementKinds = [...new Set(scopeElements.map((node) => node.kind))].sort();
     if (!elementKinds.includes(elementKind)) elementKind = null;
     elementKindInput.innerHTML = '<option value="">All kinds</option>' + elementKinds.map((kind) =>
-      `<option value="${esc(kind)}">${esc(kind)} · ${complete.nodes.filter((node) => node.kind === kind).length}</option>`).join("");
+      `<option value="${esc(kind)}">${esc(kind)} · ${scopeElements.filter((node) => node.kind === kind).length}</option>`).join("");
     elementKindInput.value = elementKind || "";
-    const referenceOverview = context.graph.origin === "observed"
-      && architectureEntity(context.scope, context.graph)?.kind === "module" && !focusLabel && !relationshipKind && !elementKind;
-    const typeContext = new Set(complete.edges.filter((edge) => ["inherits", "realizes"].includes(edge.relationshipKind))
-      .flatMap((edge) => [edge.source, edge.target]));
-    const elements = complete.nodes.filter((node) => (!elementKind || node.kind === elementKind)
-      && (!referenceOverview || node.entity?.presence !== "referenced"
-        || typeContext.has(node.id) || ["class", "interface", "enum", "module"].includes(node.kind)));
+    const elements = scopeElements.filter((node) => !elementKind || node.kind === elementKind);
     const elementIds = new Set(elements.map((node) => node.id));
     if (!elementIds.has(focusLabel)) focusLabel = null;
     focusInput.innerHTML = '<option value="">All elements</option>' + [...complete.nodes.filter((node) => !elementKind || node.kind === elementKind)]
@@ -1812,7 +1810,7 @@
     scene.nodes.forEach((node) => { node.rank = ranks.get(node.id); });
     filterStatus.textContent = focusLabel || relationshipKind || elementKind
       ? `${[focusLabel ? "Direct neighbors" : null, elementKind ? `Elements: ${elementKind}` : null, relationshipKind ? `Relationships: ${relationshipKind}` : null].filter(Boolean).join(" · ")} · ${scene.nodes.length} of ${complete.nodes.length} elements · ${edges.length} of ${complete.edges.length} connections`
-      : referenceOverview ? "Definitions and type context; referenced symbols remain in relationship filters, Focus and Details"
+      : directOverview ? "Direct children; outside and referenced symbols remain in relationship filters, Focus and Details"
         : "All elements and connections at this level";
     memberPreviewsButton.hidden = !scene.nodes.some((node) => node.sections.length);
     if (!memberPreviews) for (const node of scene.nodes) {
@@ -2119,7 +2117,11 @@
   }
 
   function switchArchitectureView(nextView) {
-    if (ATLAS) { viewMode = nextView; renderAtlas(); return; }
+    if (ATLAS) {
+      viewMode = nextView;
+      atlasCell = null; atlasModule = null; atlasHint = null;
+      renderAtlas(); return;
+    }
     if (nextView === viewMode) return;
     viewStates.set(viewMode, currentState());
     const entry = umlPath.at(-1);
@@ -2275,7 +2277,7 @@
       : items.length ? items.map((item) => `<li>${esc(item)}</li>`).join("") : "Explicitly empty";
     const list = (title, items) => `<h3>${title}</h3><ul class="plain">${entries(items)}</ul>`;
     const link = (href, label) => `<a href="${esc(href)}">${esc(label)}</a>`;
-    if (atlasCell !== null) {
+    if (viewMode !== "target" && atlasCell !== null) {
       const cell = ATLAS.cells[atlasCell];
       const source = atlasModuleById(cell.source_id), target = atlasModuleById(cell.target_id);
       inspectorContent.innerHTML = `<div class="kicker">Observed import cell</div><h2>${esc(source.name)} → ${esc(target.name)}</h2>
@@ -2286,7 +2288,7 @@
         <p>${link(atlasDetailsHref(source, level), "Open UML and source evidence")}</p>`;
       return;
     }
-    if (atlasModule) {
+    if (viewMode !== "target" && atlasModule) {
       const module = atlasModuleById(atlasModule);
       const assignment = level.modules.find((item) => item.id === module.id);
       const owner = atlasComponent(assignment?.component_id);

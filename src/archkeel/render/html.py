@@ -39,6 +39,7 @@ from archkeel.ir.model import (
     RunResult,
     stable_id,
 )
+from archkeel.ir.module_explore import module_exploration
 from archkeel.ir.references import SymbolReferences, unreferenced_symbols
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.structure import (
@@ -755,9 +756,15 @@ def render_architecture_details(
     identities = (
         [item.component_id for item in report.target.component_intents] if report.target else []
     )
+    unknown_modules = frozenset(
+        item.id
+        for level in module_exploration(observation)
+        for item in level.modules
+        if item.component_id is None
+    )
     pages = {}
     for identity in (*identities, None):
-        scoped = detail_report(report, identity)
+        scoped = detail_report(report, identity, unknown_module_ids=unknown_modules)
         data = json.loads(report_bytes(scoped))
         data["initial_scope"] = identity
         data["initial_view"] = "diagram"
@@ -771,8 +778,9 @@ def render_architecture_details(
             + _asset("flow.js").decode()
             + _FLOW_SECTION_TAIL
         )
+        title = identity if identity is not None else "Unknown module ownership"
         content = (
-            f"<h1>{_text(repository)} · {_text(identity or 'Unassigned code')}</h1>"
+            f"<h1>{_text(repository)} · {_text(title)}</h1>"
             f"<p>Snapshot <code>{_text(observation.source.git_head)}</code>"
             f" · Scan {_text(result.observation_complete)}"
             f' · <a href="{_text(_PurePosixPath(architecture_href).stem)}.report.html">'

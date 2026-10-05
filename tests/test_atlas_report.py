@@ -163,6 +163,15 @@ def test_atlas_browser_keeps_positions_and_unknown_cells_across_lenses(tmp_path,
         page.locator('.flow-matrix [data-cell="0"]').click()
         assert "Permission: UNKNOWN" in page.locator(".flow-inspector-content").inner_text()
         assert "FAIL" in page.locator(".flow-inspector-content").inner_text()
+        page.get_by_role("button", name="Target", exact=True).click()
+        details = page.locator(".flow-inspector-content").inner_text()
+        assert "observed import cell" not in details.lower()
+        assert "evidence ids" not in details.lower()
+        page.get_by_role("button", name="As-Is", exact=True).click()
+        page.locator(".matrix-label[data-module]").first.click()
+        assert "observed module" in page.locator(".flow-inspector-content").inner_text().lower()
+        page.get_by_role("button", name="Target", exact=True).click()
+        assert "observed module" not in page.locator(".flow-inspector-content").inner_text().lower()
         dark = page.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(0, 0, 0)"
         page.get_by_role(
             "button", name="Switch to light theme" if dark else "Switch to dark theme"
@@ -283,3 +292,160 @@ def test_nested_detail_scope_retains_authentic_component_ancestors(tmp_path):
         assert intent.component_id in ids
         if intent.parent_id:
             assert intent.parent_id in ids
+
+
+def test_module_and_classifier_defaults_show_only_direct_native_children(tmp_path):
+    from archkeel.render.html import render_architecture_details
+
+    api = pytest.importorskip("playwright.sync_api")
+    model = _sample(
+        tmp_path,
+        extra_files={
+            "sample/core.py": (
+                "from enum import Enum\nfrom sample.peer import Base\nLIMIT = 3\n"
+                "def transform(value):\n    return value + LIMIT\n"
+                "class Client(Base):\n    def run(self):\n        return transform(LIMIT)\n"
+                "class State(Enum):\n    READY = 'ready'\n    FAILED = 'failed'\n"
+            ),
+            "sample/peer.py": "class Base:\n    def outside(self):\n        return 1\n",
+        },
+    )
+    graph = architecture_report(model).observed
+    module = next(item for item in graph.entities if item.qualified_name == "sample.core")
+    pages = render_architecture_details(
+        _result(model),
+        canonical_report_bytes(model),
+        repository="One target",
+        architecture_href="architecture.json",
+    )
+    data = _atlas(_page(model))
+    href = next(item["detail_href"] for item in data["components"] if item["id"] == "core")
+    for name, content in pages.items():
+        (tmp_path / name).write_bytes(content)
+    errors = []
+    playwright, browser, page = _browser_page(api, pages[href].decode(), errors=errors)
+    try:
+        page.goto((tmp_path / href).as_uri() + "?module=" + module.id)
+
+        def direct_ids(parent):
+            return {
+                item.id
+                for item in graph.entities
+                if item.parent_id == parent and item.presence != "referenced"
+            }
+
+        def scene_ids():
+            return set(
+                page.locator(".flow-nodes [data-uml-id]").evaluate_all(
+                    "nodes => nodes.map(node => node.dataset.umlId)"
+                )
+            )
+
+        assert scene_ids() == direct_ids(module.id)
+        assert page.locator('.flow-nodes [data-outside="true"]').count() == 0
+        assert (
+            page.get_by_label("Element kind", exact=True).locator('[value="class"]').inner_text()
+            == "class · 1"
+        )
+        page.get_by_label("Element kind", exact=True).select_option("class")
+        assert scene_ids() == {
+            item.id
+            for item in graph.entities
+            if item.parent_id == module.id and item.kind == "class"
+        }
+        page.get_by_label("Element kind", exact=True).select_option("")
+        page.locator('.flow-legend [data-relationship-kind="inherits"]').click()
+        assert page.locator('.flow-nodes [data-label="Base"]').count() == 1
+        page.locator('.flow-legend [data-relationship-kind=""]').click()
+        assert scene_ids() == direct_ids(module.id)
+        for name in ("Client", "State"):
+            classifier = next(
+                item
+                for item in graph.entities
+                if item.parent_id == module.id and item.qualified_name.endswith("." + name)
+            )
+            page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').click()
+            page.locator(".flow-open-selected").click()
+            assert scene_ids() == direct_ids(classifier.id)
+            page.locator(".flow-back").click()
+            assert scene_ids() == direct_ids(module.id)
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.parametrize("component_id", ["ROOT", "unassigned"])
+def test_unknown_detail_links_keep_deeper_claimed_modules_and_distinct_names(
+    tmp_path, component_id
+):
+    from test_target_graph import _nested_repository
+
+    from archkeel.check.report import run_report
+    from archkeel.cli.observe import observe
+    from archkeel.ir.codec import decode_canonical_model, parse_observation
+    from archkeel.ir.graph_codec import parse_report
+    from archkeel.render.html import render_architecture_details
+
+    root, config = _nested_repository(tmp_path)
+    raw = json.loads((root / config.contract).read_bytes())
+    raw["components"][0]["id"] = component_id
+    (root / config.contract).write_text(json.dumps(raw))
+    inner = json.loads((root / "inside.json").read_bytes())
+    inner["components"][0].update(packages=["sample.future"], namespace="sample.future")
+    (root / "inside.json").write_text(json.dumps(inner))
+    _, encoded = run_report(root, config=config, analyzer=observe)
+    assert encoded is not None
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    data = _atlas(_page(model))
+    level = next(item for item in data["levels"] if item["parent_id"] == component_id)
+    module = next(item for item in data["modules"] if item["name"] == "sample.core")
+    assignment = next(item for item in level["modules"] if item["id"] == module["id"])
+    assert assignment["component_id"] is None and assignment["ownership_status"] == "UNKNOWN"
+    assert any(module["id"] in item.module_ids for item in architecture_report(model).memberships)
+    pages = render_architecture_details(
+        _result(model), encoded, repository="One target", architecture_href="architecture.json"
+    )
+    component_href = next(
+        item["detail_href"] for item in data["components"] if item["id"] == component_id
+    )
+    assert component_href != data["unassigned_detail_href"]
+    assert component_href in pages and data["unassigned_detail_href"] in pages
+    text = pages[data["unassigned_detail_href"]].decode()
+    payload = re.search(
+        r'<script id="flow-data" type="application/json">(.*?)</script>', text, re.S
+    )
+    native = json.loads(payload.group(1))
+    native.pop("initial_scope")
+    native.pop("initial_view")
+    scoped = parse_report(native)
+    scoped.validate()
+    original = architecture_report(model).observed
+    wanted = {
+        item
+        for item in original.entities
+        if item.id == module["id"] or item.parent_id == module["id"]
+    }
+    assert wanted <= set(scoped.observed.entities)
+    api = pytest.importorskip("playwright.sync_api")
+    index = tmp_path / "architecture.report.html"
+    index.write_text(_page(model))
+    for name, content in pages.items():
+        (tmp_path / name).write_bytes(content)
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        page.goto(index.as_uri())
+        page.locator(f'.flow-nodes [data-uml-id="{component_id}"]').dblclick()
+        page.locator(".atlas-module-list > summary").click()
+        page.locator(".atlas-module-list").get_by_role(
+            "link", name="sample.core", exact=True
+        ).click()
+        assert data["unassigned_detail_href"] in page.url
+        assert page.locator('.flow-nodes [data-label="Service"]').count() == 1
+        page.get_by_role("link", name="Back to architecture map", exact=True).click()
+        assert page.url == index.as_uri()
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()

@@ -20,7 +20,8 @@ from archkeel.ir.module_explore import ModuleExploreLevel, ModuleStatistic, modu
 
 def detail_name(architecture_href: str, component_id: str | None) -> str:
     stem = PurePosixPath(architecture_href).stem
-    return f"{stem}.detail-{stable_id('component', component_id or 'unassigned')}.html"
+    suffix = stable_id("component", component_id) if component_id is not None else "unknown"
+    return f"{stem}.detail-{suffix}.html"
 
 
 def _reference_fields(item: dict[str, object], references: dict[str, int]) -> dict[str, object]:
@@ -307,7 +308,12 @@ def _detail_graph(graph: ArchitectureGraph, selected: set[str]) -> ArchitectureG
     )
 
 
-def detail_report(report: ArchitectureReport, component_id: str | None) -> ArchitectureReport:
+def detail_report(
+    report: ArchitectureReport,
+    component_id: str | None,
+    *,
+    unknown_module_ids: frozenset[str] = frozenset(),
+) -> ArchitectureReport:
     """Choose recorded membership and lexical descendants, retaining incident sites."""
     members = set(
         next(
@@ -315,13 +321,8 @@ def detail_report(report: ArchitectureReport, component_id: str | None) -> Archi
             (),
         )
     )
-    if component_id is None and report.observed:
-        claimed = {identity for item in report.memberships for identity in item.module_ids}
-        members = {
-            item.id
-            for item in report.observed.entities
-            if item.kind == "module" and item.presence == "defined" and item.id not in claimed
-        }
+    if component_id is None:
+        members = set(unknown_module_ids)
     selected = members | ({component_id} if component_id else set())
     for graph in (report.target, report.observed):
         if graph:
