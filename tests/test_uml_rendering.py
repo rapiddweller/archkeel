@@ -725,7 +725,7 @@ def test_diff_unresolved_operation_remains_inspectable_without_ghost_endpoints(t
         details = page.locator(".flow-inspector-content").inner_text()
         assert "sample.core.Pending.run" in details
         assert "missing()" in details and "unresolved" in details
-        assert "No Core assessment for this observed scope" in details and "PASS" not in details
+        assert "No recorded check for this observed scope" in details and "PASS" not in details
         assert "sample/core.py:" in details
         assert "No elements or resolved connections" in page.locator(".flow-empty").text_content()
         assert not errors
