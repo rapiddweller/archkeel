@@ -303,16 +303,17 @@ def _architecture_result(
     model: Observation,
     command_result: RunResult,
     report_filter: ReportFilter | None,
-    component: str | None,
-    only_architecture: bool,
     *,
     require_source_graph: bool = False,
 ) -> RunResult:
     only_violations = report_filter is not None and report_filter.only_violations
+    only_architecture = report_filter is not None and report_filter.only_architecture
+    component = report_filter.component if report_filter is not None else None
+    complete = command_result.observation_complete == "PASS"
     try:
         selected_violations = (
             _selected_violations(model, replace(report_filter, component=None))
-            if only_violations and report_filter is not None
+            if complete and only_violations and report_filter is not None
             else ()
         )
         report = architecture_report(model)
@@ -335,9 +336,9 @@ def _architecture_result(
             command_result,
             report_filter=report_filter,
             architecture_projection=projection,
-            filtered_violations=tuple(
-                item for item in selected_violations if item.record.id in finding_ids
-            )
+            filtered_violations=None
+            if not complete
+            else tuple(item for item in selected_violations if item.record.id in finding_ids)
             if only_violations
             else tuple(
                 FilteredViolation(
@@ -385,8 +386,6 @@ def _report_result(
     require_source_graph: bool = False,
 ) -> RunResult:
     only_calls = report_filter is not None and report_filter.only_calls
-    only_architecture = report_filter is not None and report_filter.only_architecture
-    component = report_filter.component if report_filter is not None else None
     model = result.observation
     if result.diagnostics or model is None:
         command_result = _incomplete_report_result(result)
@@ -397,7 +396,7 @@ def _report_result(
                 _selected_violations(model, report_filter)
                 if report_filter is not None
                 and not only_calls
-                and not only_architecture
+                and not report_filter.only_architecture
                 and not report_filter.only_violations
                 else None
             )
@@ -452,8 +451,6 @@ def _report_result(
             model,
             command_result,
             report_filter,
-            component,
-            only_architecture,
             require_source_graph=require_source_graph,
         )
     return command_result

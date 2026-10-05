@@ -253,10 +253,46 @@ def test_recorded_native_live_and_saved_filters_have_exact_parity(
     assert result_bytes(saved) == result_bytes(live)
     assert canonical == packet.read_bytes()
     assert saved.exit_code == (2 if partial else 0)
-    assert [row.record.kind for row in saved.filtered_violations] == ["root_layout"]
     if partial:
+        assert saved.filtered_violations is None
         assert saved.observation_complete == "UNKNOWN"
         assert saved.architecture_projection.unknowns
+    else:
+        assert [row.record.kind for row in saved.filtered_violations] == ["root_layout"]
+
+
+@pytest.mark.parametrize("selector", [None, "app", "app:UNIT", "app:app"])
+def test_incomplete_native_violation_facet_keeps_unmeasured_rows_null(
+    recorded_native, monkeypatch, selector
+):
+    root, observed, packet = recorded_native(partial=True)
+    assert any(
+        row.evidence_class == EvidenceClass.VIOLATION
+        for row in observed.observation.records("violations")
+    )
+    monkeypatch.setattr(
+        "archkeel.check.report.observe_repository", lambda *args, **kwargs: observed
+    )
+    config = ScanConfig(("src",), "project", "contract.json", "recorded-native")
+    live, canonical = run_report(
+        root,
+        config=config,
+        analyzer=lambda *args, **kwargs: observed,
+        only_violations=True,
+        component=selector,
+        rule="LAYOUT",
+    )
+    saved = run_saved_report(packet, only_violations=True, component=selector, rule="LAYOUT")
+    assert result_bytes(saved) == result_bytes(live)
+    assert canonical == packet.read_bytes()
+    assert saved.exit_code == 2 and saved.observation_complete == "UNKNOWN"
+    assert saved.filtered_violations is saved.filtered_calls is saved.measurements is None
+    assert saved.violations_by_rule is saved.violations_by_component_pair is None
+    assert saved.architecture_projection.unknowns
+    assert saved.rule_assessments and all(
+        not row.evaluation_proven and row.status in {"FAIL", "UNKNOWN"}
+        for row in saved.rule_assessments
+    )
 
 
 @pytest.mark.parametrize("collision", ["label", "id-scope"])

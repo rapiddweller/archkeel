@@ -171,7 +171,8 @@ def build_parser() -> _Parser:
     )
     report.add_argument(
         "--component",
-        help="With --only architecture or violations, use an exact component id or scoped "
+        help="Narrow the violations, or with --only calls the calls, by top-level label. "
+        "With --only architecture or violations, use an exact component id or scoped "
         "label from architecture_projection.components; violations include local findings "
         "and descendants. With violations, top-level labels take precedence. Otherwise, "
         "use a top-level label for crossing endpoints or --only calls. "
