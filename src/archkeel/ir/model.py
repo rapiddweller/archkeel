@@ -1165,6 +1165,20 @@ class ReportFilter:
     only_calls: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class ReportLocation:
+    path: str
+    line: int
+
+
+@dataclass(frozen=True, slots=True)
+class FilteredViolation:
+    """Command projection; source locations never enter canonical violation records."""
+
+    record: Record
+    locations: tuple[ReportLocation, ...]
+
+
 RuleAssessmentStatus: TypeAlias = Literal["PASS", "FAIL", "UNKNOWN", "DECLARATION"]
 
 
@@ -1277,7 +1291,7 @@ class RunResult:
     report_filter: ReportFilter | None = None
     # AD-60: the violation records `report_filter` selects, the same ones the HTML table
     # shows; None whenever no filter was given, so an unfiltered result's shape is unchanged.
-    filtered_violations: tuple[Record, ...] | None = None
+    filtered_violations: tuple[FilteredViolation, ...] | None = None
     # AD-100: the call sites behind a calls_unresolved change; None when no two revisions'
     # calls were compared.
     unresolved_call_changes: tuple[UnresolvedCallChange, ...] | None = None

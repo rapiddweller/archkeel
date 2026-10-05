@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:archkeel:command-result:3.0.0",
+  "$id": "urn:archkeel:command-result:4.0.0",
   "title": "Archkeel check, validate and report JSON results",
-  "$comment": "AD-138. Describes codec.result_payload; Version 3 preserves inspected validate verdicts and measurements at diagnostic exit 2; incomplete results remain UNKNOWN/null. Version 2 null call totals and legacy zero sentinels remain readable. Register the bundled IR common, Python decoded and architecture contract schemas by their $id for offline validation. Shape validation does not prove source authenticity, arithmetic consistency or contract conformance.",
+  "$comment": "AD-138. Describes codec.result_payload; Version 4 requires filtered violation locations and retains only FAIL/UNKNOWN assessments under --only violations. Version 3 preserves inspected validate verdicts and measurements at diagnostic exit 2; incomplete results remain UNKNOWN/null. Version 2 null call totals and legacy zero sentinels remain readable. Register the bundled IR common, Python decoded and architecture contract schemas by their $id for offline validation. Shape validation does not prove source authenticity, arithmetic consistency or contract conformance.",
   "type": "object",
   "required": [
     "command",
@@ -120,12 +120,7 @@
       "anyOf": [
         {
           "type": "array",
-          "items": {
-            "allOf": [
-              {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"},
-              {"properties": {"evidence_class": {"const": "VIOLATION"}}}
-            ]
-          }
+          "items": {"$ref": "#/$defs/filteredViolation"}
         },
         {"type": "null"}
       ]
@@ -319,6 +314,10 @@
             }
           },
           {
+            "if": {"properties": {"report_filter": {"type": "object", "properties": {"only_violations": {"const": true}}}}},
+            "then": {"properties": {"rule_assessments": {"items": {"properties": {"status": {"enum": ["FAIL", "UNKNOWN"]}}}}}}
+          },
+          {
             "if": {"properties": {"report_filter": {"type": "null"}}},
             "then": {"properties": {"filtered_violations": {"type": "null"}, "filtered_calls": {"type": "null"}}}
           },
@@ -459,6 +458,37 @@
         "repeated_logic": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
         "type_fanin": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]}
       }
+    },
+    "filteredViolation": {
+      "type": "object",
+      "required": ["id", "evidence_class", "area", "kind", "title", "subjects", "evidence_ids", "rule_ids", "fact_ids", "provenance", "data", "locations"],
+      "properties": {
+        "id": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record/properties/id"},
+        "evidence_class": {"const": "VIOLATION"},
+        "area": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record/properties/area"},
+        "kind": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record/properties/kind"},
+        "title": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record/properties/title"},
+        "subjects": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record/properties/subjects"},
+        "evidence_ids": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record/properties/evidence_ids"},
+        "rule_ids": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record/properties/rule_ids"},
+        "fact_ids": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record/properties/fact_ids"},
+        "provenance": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record/properties/provenance"},
+        "data": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record/properties/data"},
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "line"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "line": {"type": "integer", "minimum": 0}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [{"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record/allOf/1/then"}]
     },
     "reportFilter": {
       "type": "object",

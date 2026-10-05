@@ -921,7 +921,7 @@ def render_html(
     # AD-60: a filtered run shows `filtered_violations`, the same records `ir.baseline
     # .select_violations` chose; an unfiltered one shows every violation, exactly as before.
     violations = (
-        result.filtered_violations
+        tuple(item.record for item in result.filtered_violations or ())
         if result.report_filter is not None
         else observation.records("violations")
         if observation is not None

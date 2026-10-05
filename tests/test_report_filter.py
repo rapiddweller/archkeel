@@ -40,7 +40,9 @@ def test_rule_facet_narrows_filtered_violations_to_the_named_rule(tmp_path: Path
 
     assert result.report_filter == ReportFilter(False, "DEP-STORE-NO-MONEY", None)
     assert result.filtered_violations is not None
-    assert [record.rule_ids for record in result.filtered_violations] == [("DEP-STORE-NO-MONEY",)]
+    assert [item.record.rule_ids for item in result.filtered_violations] == [
+        ("DEP-STORE-NO-MONEY",)
+    ]
 
 
 def test_component_facet_matches_either_side_of_a_crossing(tmp_path: Path) -> None:
@@ -50,7 +52,7 @@ def test_component_facet_matches_either_side_of_a_crossing(tmp_path: Path) -> No
     result, _ = run_report(root, config=CONFIG, analyzer=observe, component="store")
 
     assert result.filtered_violations is not None
-    matched = {record.rule_ids[0] for record in result.filtered_violations}
+    matched = {item.record.rule_ids[0] for item in result.filtered_violations}
     # store is the source of DEP-STORE-NO-MONEY and the target of the next three; the last two
     # are inner pairs sibling_isolation and complete_requires (inside) decide inside store
     # itself (AD-11, issue #47).
