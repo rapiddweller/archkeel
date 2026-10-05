@@ -16,7 +16,10 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.cli import main
 from archkeel.cli.observe import observe
+from archkeel.ir.architecture_graph import RuleAssessment as GraphRuleAssessment
+from archkeel.ir.architecture_graph import RuleAssessmentStatus as GraphRuleAssessmentStatus
 from archkeel.ir.codec import decode_canonical_model, parse_observation, parse_record, result_bytes
+from archkeel.ir.model import RuleAssessment, RuleAssessmentStatus
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.report_projection import (
     architecture_command_envelope,
@@ -25,6 +28,42 @@ from archkeel.ir.report_projection import (
     unknown_groups,
 )
 from archkeel.render.summary import report_summary
+
+
+def test_public_rule_assessment_import_preserves_identity_constructor_and_fields():
+    assert RuleAssessment is GraphRuleAssessment
+    assert RuleAssessmentStatus is GraphRuleAssessmentStatus
+    values = (
+        "RULE",
+        "complete_requires",
+        "UNKNOWN",
+        False,
+        0,
+        2,
+        "architect",
+        "Own boundaries.",
+        ("docs/target.md",),
+        "missing receipt",
+        "core",
+        ("CORE",),
+    )
+    assessment = RuleAssessment(*values)
+
+    assert assessment == GraphRuleAssessment(*values)
+    assert asdict(assessment) == {
+        "id": "RULE",
+        "kind": "complete_requires",
+        "status": "UNKNOWN",
+        "evaluation_proven": False,
+        "count": 0,
+        "undecided": 2,
+        "decided_by": "architect",
+        "rationale": "Own boundaries.",
+        "provenance": ("docs/target.md",),
+        "reason": "missing receipt",
+        "scope": "core",
+        "components": ("CORE",),
+    }
 
 
 def _repository(tmp_path, *, closed=True):

@@ -59,6 +59,7 @@ PresenceKind: TypeAlias = Literal["defined", "referenced", "planned", "unspecifi
 ResolutionKind: TypeAlias = Literal["resolved", "partial", "unresolved", "not_applicable"]
 CompletenessMode: TypeAlias = Literal["open", "closed"]
 AssessmentStatus: TypeAlias = Literal["PASS", "FAIL", "UNKNOWN"]
+RuleAssessmentStatus: TypeAlias = Literal["PASS", "FAIL", "UNKNOWN", "DECLARATION"]
 AssessmentAspect: TypeAlias = Literal[
     "existence",
     "kind",
@@ -87,6 +88,24 @@ class ComponentRole(StrEnum):
     CONTRACT = "contract"
     PROJECTION = "projection"
     FOUNDATION = "foundation"
+
+
+@dataclass(frozen=True, slots=True)
+class RuleAssessment:
+    """One rule's evaluator-backed state for the current observation."""
+
+    id: str
+    kind: str
+    status: RuleAssessmentStatus
+    evaluation_proven: bool
+    count: int
+    undecided: int
+    decided_by: str
+    rationale: str
+    provenance: tuple[str, ...]
+    reason: str
+    scope: str
+    components: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)

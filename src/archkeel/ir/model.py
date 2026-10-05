@@ -16,6 +16,8 @@ from .architecture_graph import ComponentRole as ComponentRole
 from .architecture_graph import ContractModuleTarget as ContractModuleTarget
 from .architecture_graph import ExternalDependencyScopeRule as ExternalDependencyScopeRule
 from .architecture_graph import RootLayoutRule as RootLayoutRule
+from .architecture_graph import RuleAssessment as RuleAssessment
+from .architecture_graph import RuleAssessmentStatus as RuleAssessmentStatus
 from .architecture_graph import contract_relative_path as contract_relative_path
 from .facts import (
     EVIDENCE_FIELDS as EVIDENCE_FIELDS,
@@ -1235,27 +1237,6 @@ class FilteredViolation:
 
     record: Record
     locations: tuple[ReportLocation, ...]
-
-
-RuleAssessmentStatus: TypeAlias = Literal["PASS", "FAIL", "UNKNOWN", "DECLARATION"]
-
-
-@dataclass(frozen=True, slots=True)
-class RuleAssessment:
-    """One rule's evaluator-backed state for the current observation."""
-
-    id: str
-    kind: str
-    status: RuleAssessmentStatus
-    evaluation_proven: bool
-    count: int
-    undecided: int
-    decided_by: str
-    rationale: str
-    provenance: tuple[str, ...]
-    reason: str
-    scope: str
-    components: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)

@@ -118,6 +118,28 @@ def test_the_component_rule_passes_while_a_module_cycle_exists(tmp_path: Path) -
     assert _module_sccs(observation) == [("sample.core.a", "sample.core.b")]
 
 
+@pytest.mark.parametrize("close_cycle", [False, True], ids=["native", "negative-control"])
+def test_projection_types_do_not_close_a_model_module_cycle(
+    tmp_path: Path, close_cycle: bool
+) -> None:
+    source_root = Path(__file__).resolve().parents[1] / "src/archkeel/ir"
+    sources = {
+        f"core/{name}.py": (source_root / f"{name}.py").read_text()
+        for name in ("model", "architecture_projection")
+    }
+    if close_cycle:
+        sources["core/architecture_projection.py"] += "\nfrom . import model\n"
+    observation = _observe(tmp_path, sources, labels=("core",), level="module")
+    (assessment,) = rule_assessments(observation, undecided_by_rule={})
+
+    assert assessment.status == ("FAIL" if close_cycle else "PASS")
+    assert assessment.evaluation_proven
+    assert assessment.count == int(close_cycle)
+    assert _module_sccs(observation) == (
+        [("sample.core.architecture_projection", "sample.core.model")] if close_cycle else []
+    )
+
+
 @pytest.mark.parametrize("reverse_roots", [False, True], ids=["forward", "reversed"])
 @pytest.mark.parametrize(
     ("roots", "status"),

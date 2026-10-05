@@ -1,4 +1,4 @@
-# AD-183: Focused architecture projection
+# AD-202: Focused architecture projection
 
 `report --only architecture --json` projects the authenticated shared report once.
 The typed projection is the source for architecture fact sheets. It adds no collector,
@@ -20,6 +20,7 @@ kind, status and original reasons. Boundary relationships remain individual; the
 ArchitectureReport retains the detail source for #355. Authenticated namespaces shorten
 names. Its generated schema defines reconstruction and defaults.
 Finding IDs and locations retain #314's format and existing remedy text.
+Rule assessments live in the shared graph vocabulary to avoid a model/projection cycle; model re-exports preserve existing imports.
 Command result schema 5 accepts this separate 1.0 envelope. Stable JSON excludes artifact paths.
 
 The delegated task owner approved two new Governance modules and their exact public
