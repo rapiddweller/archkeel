@@ -264,6 +264,7 @@ def test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints():
         height=1150,
         errors=errors,
     )
+    page.context.new_cdp_session(page).send("Emulation.setCPUThrottlingRate", {"rate": 4})
     try:
         for label in ("ir", "governance", "architecture_graph"):
             page.locator(f'.flow-nodes [data-label="{label}"]').dblclick()
@@ -615,10 +616,16 @@ def test_own_ports_keep_mixed_relationship_routes_separate(width):
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
 def test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation(view):
     api = pytest.importorskip("playwright.sync_api")
+    model = parse_observation(
+        decode_canonical_model(
+            json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
+        )
+    )
+    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
         api,
-        (ROOT / "fixtures/D-self/architecture.report.html").read_text(),
+        render_html(result, model, repository="archkeel", architecture_href=None).decode(),
         width=1550,
         height=1150,
         errors=errors,

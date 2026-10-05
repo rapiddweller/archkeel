@@ -831,24 +831,52 @@
           && (laneY - source.lead[1]) * sourceDirection < 0)
           && clearSegments([source.point, source.lead, [source.lead[0], laneY]])
           && (!sideRetry || sharedRouteLength([source.point, source.lead, [source.lead[0], laneY]],
-            occupied, 1, LANE_GAP / 2, avoidCrossings) === 0));
+            occupied, 1, LANE_GAP / 2, avoidCrossings) === 0))
+          .map((laneY) => ({ laneY, shared: sharedRouteLength(
+            [source.point, source.lead, [source.lead[0], laneY]],
+            occupied, Infinity, LANE_GAP / 2, avoidCrossings), nearby: sharedRouteLength(
+            [source.point, source.lead, [source.lead[0], laneY]],
+            occupied, Infinity, LANE_GAP, avoidCrossings) }));
+        // Horizontal departures are independent of the target's arrival height.
+        const departures = new Map(candidateGutters.map((x) => [x, exits.filter(({ laneY }) =>
+          clearSegments([[source.lead[0], laneY], [x, laneY]]))
+          .map((exit) => {
+            const segment = [[source.lead[0], exit.laneY], [x, exit.laneY]];
+            return { laneY: exit.laneY,
+              shared: exit.shared + sharedRouteLength(segment, occupied, Infinity, LANE_GAP / 2, avoidCrossings),
+              nearby: exit.nearby + sharedRouteLength(segment, occupied, Infinity, LANE_GAP, avoidCrossings) };
+          })]));
         for (const target of targetPorts) {
           const arrivals = candidateGutters.filter((x) => clearSegments([
             [x, target.lead[1]], target.lead, target.point,
           ]) && (!sideRetry || sharedRouteLength([[x, target.lead[1]], target.lead, target.point],
-            occupied, 1, LANE_GAP / 2, avoidCrossings) === 0));
-          for (const gutterX of arrivals) {
-            for (const laneY of exits) {
+            occupied, 1, LANE_GAP / 2, avoidCrossings) === 0))
+            .map((gutterX) => ({ gutterX, shared: sharedRouteLength(
+              [[gutterX, target.lead[1]], target.lead, target.point],
+              occupied, Infinity, LANE_GAP / 2, avoidCrossings), nearby: sharedRouteLength(
+              [[gutterX, target.lead[1]], target.lead, target.point],
+              occupied, Infinity, LANE_GAP, avoidCrossings) }));
+          for (const arrival of arrivals) {
+            if (arrival.shared > leastShared) continue;
+            const { gutterX } = arrival;
+            for (const exit of departures.get(gutterX)) {
+              // The middle cannot reduce overlap already fixed at either endpoint.
+              if (exit.shared + arrival.shared > leastShared) continue;
+              const { laneY } = exit;
               const points = [
                 source.point, source.lead, [source.lead[0], laneY], [gutterX, laneY],
                 [gutterX, target.lead[1]], target.lead, target.point,
               ];
-              // Exits and arrivals already checked the first and last two segments.
-              if (!clearSegments(points.slice(2, 5))) continue;
-              const shared = sharedRouteLength(points, occupied, Math.max(1, leastShared), LANE_GAP / 2, avoidCrossings);
+              // Only the vertical middle remains after departures and arrivals.
+              if (!clearSegments(points.slice(3, 5))) continue;
+              const fixedShared = exit.shared + arrival.shared;
+              const shared = fixedShared + sharedRouteLength(points.slice(3, 5), occupied,
+                Math.max(1, leastShared - fixedShared), LANE_GAP / 2, avoidCrossings);
               if (shared > leastShared || sideRetry && shared > 0) continue;
-              const nearby = sharedRouteLength(points, occupied,
-                shared === leastShared ? Math.max(1, leastNearby) : Infinity, LANE_GAP, avoidCrossings);
+              const fixedNearby = exit.nearby + arrival.nearby;
+              const nearby = fixedNearby + sharedRouteLength(points.slice(3, 5), occupied,
+                shared === leastShared ? Math.max(1, leastNearby - fixedNearby) : Infinity,
+                LANE_GAP, avoidCrossings);
               const length = points.slice(1).reduce((total, point, index) => total
                 + Math.abs(point[0] - points[index][0]) + Math.abs(point[1] - points[index][1]), 0);
               if (shared < leastShared || nearby < leastNearby
