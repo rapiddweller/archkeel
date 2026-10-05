@@ -122,7 +122,7 @@ from archkeel.ir.model import (
     RawJson as RawJson,
 )
 from archkeel.ir.profiles import Profile, profile_for
-from archkeel.ir.report_projection import architecture_command_envelope
+from archkeel.ir.report_projection import ArchitectureComponentView, architecture_command_envelope
 from archkeel.ir.target_graph import declared_graph, scoped_target
 from archkeel.ir.widening import AMENDMENT_SCHEMA_VERSION, Amendment
 
@@ -1050,6 +1050,15 @@ def _public_entry(value: str, label: str) -> str:
     return value
 
 
+def _public_entries(raw: RawJson, label: str) -> tuple[str, ...] | None:
+    if raw is None:
+        return None
+    return tuple(
+        _public_entry(value, f"{label}[{index}]")
+        for index, value in enumerate(_contract_strings(raw, label))
+    )
+
+
 def parse_required_component(raw: RawJson, label: str = "requires") -> RequiredComponent:
     item = _contract_fields(raw, {"component", "rationale"}, {"through", "decided_by"}, label)
     decided_by = item.get("decided_by")
@@ -1101,24 +1110,8 @@ def _parse_component(raw: RawJson, label: str, *, version: str) -> ContractCompo
     except ValueError as exc:
         raise ValueError(f"{label}.role is invalid") from exc
     capability = item.get("capability_id")
-    public_raw = item.get("public")
-    public = (
-        tuple(
-            _public_entry(value, f"{label}.public[{index}]")
-            for index, value in enumerate(_contract_strings(public_raw, f"{label}.public"))
-        )
-        if public_raw is not None
-        else None
-    )
-    planned_raw = item.get("planned")
-    planned = (
-        tuple(
-            _public_entry(value, f"{label}.planned[{index}]")
-            for index, value in enumerate(_contract_strings(planned_raw, f"{label}.planned"))
-        )
-        if planned_raw is not None
-        else None
-    )
+    public = _public_entries(item.get("public"), f"{label}.public")
+    planned = _public_entries(item.get("planned"), f"{label}.planned")
     requires_raw = item.get("requires")
     if requires_raw is not None and not isinstance(requires_raw, list):
         raise ValueError(f"{label}.requires must be a list")
@@ -1949,6 +1942,75 @@ def _open_decision_payload(decision: OpenDecision) -> dict[str, RawJson]:
     return payload
 
 
+def _architecture_component_payload(
+    component: ArchitectureComponentView,
+) -> dict[str, RawJson]:
+    row = _raw_object(asdict(component))
+    for name in ("parent_id", "namespace", "selector_prefix", "layer", "public", "planned"):
+        if row[name] is None:
+            del row[name]
+    for name in (
+        "exact_modules",
+        "modules",
+        "requires",
+        "permissions",
+        "used_by",
+        "finding_ids",
+    ):
+        if row[name] == [] or row[name] == {}:
+            del row[name]
+    if row["role"] == "component":
+        del row["role"]
+    permission_rows = []
+    for permission in component.permissions:
+        item = _raw_object(asdict(permission))
+        if item["rule_ids"] == []:
+            del item["rule_ids"]
+        permission_rows.append(item)
+    if permission_rows:
+        row["permissions"] = permission_rows
+    return row
+
+
+def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
+    envelope = architecture_command_envelope(result)
+    payload = _raw_object(asdict(envelope))
+    projection = _raw_object(asdict(envelope.architecture_projection))
+    projection["components"] = [
+        _architecture_component_payload(component)
+        for component in envelope.architecture_projection.components
+    ]
+    projection["permission_rules"] = [
+        {
+            "declaration": _record_payload(rule.declaration),
+            "assessment": _raw_object(asdict(rule.assessment))
+            if rule.assessment is not None
+            else None,
+            **({"parent_id": rule.parent_id} if rule.parent_id is not None else {}),
+        }
+        for rule in envelope.architecture_projection.permission_rules
+    ]
+    payload["architecture_projection"] = projection
+    if result.coverage is not None:
+        payload["coverage"] = _coverage_payload(result.coverage)
+    payload["diagnostics"] = [
+        {
+            key: value
+            for key, value in _raw_object(asdict(item)).items()
+            if key not in {"pointer", "code"} or value is not None
+        }
+        for item in result.diagnostics
+    ]
+    payload["filtered_violations"] = [
+        {
+            **_record_payload(item.record),
+            "locations": [_raw_object(asdict(location)) for location in item.locations],
+        }
+        for item in envelope.filtered_violations
+    ]
+    return payload
+
+
 def result_payload(result: RunResult) -> dict[str, RawJson]:
     if (
         result.command == "report"
@@ -1956,67 +2018,8 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
         and result.report_filter.only_architecture
         and result.architecture_projection is not None
     ):
-        envelope = architecture_command_envelope(result)
-        payload = _raw_object(asdict(envelope))
-        projection = _raw_object(asdict(envelope.architecture_projection))
-        component_rows = []
-        for component in envelope.architecture_projection.components:
-            row = _raw_object(asdict(component))
-            for name in ("parent_id", "namespace", "selector_prefix", "public", "planned"):
-                if row[name] is None:
-                    del row[name]
-            for name in (
-                "exact_modules",
-                "modules",
-                "requires",
-                "permissions",
-                "used_by",
-                "finding_ids",
-            ):
-                if row[name] == [] or row[name] == {}:
-                    del row[name]
-            if row["role"] == "component":
-                del row["role"]
-            permission_rows = []
-            for permission in component.permissions:
-                item = _raw_object(asdict(permission))
-                if item["rule_ids"] == []:
-                    del item["rule_ids"]
-                permission_rows.append(item)
-            if permission_rows:
-                row["permissions"] = permission_rows
-            component_rows.append(row)
-        projection["components"] = component_rows
-        projection["permission_rules"] = [
-            {
-                "declaration": _record_payload(rule.declaration),
-                "assessment": _raw_object(asdict(rule.assessment))
-                if rule.assessment is not None
-                else None,
-                **({"parent_id": rule.parent_id} if rule.parent_id is not None else {}),
-            }
-            for rule in envelope.architecture_projection.permission_rules
-        ]
-        payload["architecture_projection"] = projection
-        if result.coverage is not None:
-            payload["coverage"] = _coverage_payload(result.coverage)
-        payload["diagnostics"] = [
-            {
-                key: value
-                for key, value in _raw_object(asdict(item)).items()
-                if key not in {"pointer", "code"} or value is not None
-            }
-            for item in result.diagnostics
-        ]
-        payload["filtered_violations"] = [
-            {
-                **_record_payload(item.record),
-                "locations": [_raw_object(asdict(location)) for location in item.locations],
-            }
-            for item in envelope.filtered_violations
-        ]
-        return payload
-    payload = _raw_object(asdict(result))
+        return _architecture_result_payload(result)
+    payload = _raw_object(asdict(replace(result, architecture_projection=None)))
     if result.provenance is not None and result.provenance.initial_pr is None:
         provenance = _raw_object(asdict(result.provenance))
         del provenance["initial_pr"]

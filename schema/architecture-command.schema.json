@@ -387,6 +387,16 @@
             }
           ]
         },
+        "layer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "exact_modules": {
           "type": "array",
           "items": {

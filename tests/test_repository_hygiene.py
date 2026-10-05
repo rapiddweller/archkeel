@@ -57,7 +57,7 @@ ALLOWED_LONG_FUNCTIONS = {
     ("src/archkeel/analyzer/python/collect.py::collect"): (
         "One deterministic collector pass shares the parsed and resolved project."
     ),
-    ("src/archkeel/check/declarations.py::_rule_declaration"): (
+    ("src/archkeel/check/declarations.py::project_rule_declaration"): (
         "One output record is built per declared rule kind."
     ),
     ("src/archkeel/check/declarations.py::project_declarations"): (

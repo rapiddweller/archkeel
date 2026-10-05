@@ -289,6 +289,68 @@ def _incomplete_report_result(result: ObservationResult) -> RunResult:
     )
 
 
+def _architecture_result(
+    model: Observation,
+    command_result: RunResult,
+    report_filter: ReportFilter | None,
+    component: str | None,
+    only_architecture: bool,
+) -> RunResult:
+    try:
+        report = architecture_report(model)
+        projection = architecture_projection(
+            model,
+            report,
+            command_result.rule_assessments or (),
+            violation_remedy=VIOLATION_REMEDY,
+            component=component if only_architecture else None,
+        )
+        finding_ids = (
+            {identity for owner in projection.components for identity in owner.finding_ids}
+            if component is not None
+            else {item.id for item in report.findings}
+        )
+        command_result = replace(
+            command_result,
+            report_filter=report_filter,
+            architecture_projection=projection,
+            filtered_violations=tuple(
+                FilteredViolation(
+                    record,
+                    tuple(
+                        ReportLocation(entry.file, entry.line)
+                        for entry in model.evidence
+                        if entry.id in record.evidence_ids
+                    ),
+                )
+                for record in model.records("violations") or ()
+                if record.id in finding_ids
+            )
+            if only_architecture
+            else command_result.filtered_violations,
+        )
+    except ValueError as error:
+        command_result = replace(
+            unknown_result("report", "architecture projection", error),
+            coverage=model.coverage,
+            python_version=model.python_version,
+        )
+    if (
+        report_filter is not None
+        and report_filter.only_violations
+        and command_result.rule_assessments is not None
+    ):
+        command_result = replace(
+            command_result,
+            rule_assessments=tuple(
+                item
+                for item in command_result.rule_assessments
+                if item.status in {"FAIL", "UNKNOWN"}
+            ),
+        )
+    return command_result
+
+
 def run_report(
     root: Path,
     *,
@@ -358,51 +420,8 @@ def run_report(
                 baseline_path=baseline_name,
                 baseline_comparisons=comparisons,
             )
-    if only_architecture and model is not None:
-        try:
-            report = architecture_report(model)
-            projection = architecture_projection(
-                model,
-                report,
-                command_result.rule_assessments or (),
-                violation_remedy=VIOLATION_REMEDY,
-                component=component,
-            )
-            finding_ids = (
-                {identity for owner in projection.components for identity in owner.finding_ids}
-                if component is not None
-                else {item.id for item in report.findings}
-            )
-            command_result = replace(
-                command_result,
-                report_filter=report_filter,
-                architecture_projection=projection,
-                filtered_violations=tuple(
-                    FilteredViolation(
-                        record,
-                        tuple(
-                            ReportLocation(entry.file, entry.line)
-                            for entry in model.evidence
-                            if entry.id in record.evidence_ids
-                        ),
-                    )
-                    for record in model.records("violations") or ()
-                    if record.id in finding_ids
-                ),
-            )
-        except ValueError as error:
-            command_result = replace(
-                unknown_result("report", "architecture projection", error),
-                coverage=model.coverage,
-                python_version=model.python_version,
-            )
-    if only_violations and command_result.rule_assessments is not None:
-        command_result = replace(
-            command_result,
-            rule_assessments=tuple(
-                item
-                for item in command_result.rule_assessments
-                if item.status in {"FAIL", "UNKNOWN"}
-            ),
+    if model is not None:
+        command_result = _architecture_result(
+            model, command_result, report_filter, component, only_architecture
         )
     return command_result, architecture

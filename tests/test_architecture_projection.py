@@ -374,6 +374,37 @@ def test_two_same_commit_cli_results_are_identical_including_whole_envelope(tmp_
     assert len(outputs[0]) < 50_000
 
 
+def test_ordinary_report_exposes_the_same_authenticated_projection_without_changing_json(tmp_path):
+    root, config = _repository(tmp_path)
+    ordinary, original = run_report(root, config=config, analyzer=observe)
+    focused, recorded = run_report(root, config=config, analyzer=observe, only_architecture=True)
+
+    assert ordinary.architecture_projection is not None
+    assert ordinary.architecture_projection == focused.architecture_projection
+    assert original == recorded
+    assert ordinary.rule_assessments == focused.rule_assessments
+    assert ordinary.declared_rules == focused.declared_rules
+    payload = json.loads(result_bytes(ordinary))
+    assert payload["architecture_projection"] is None
+    assert payload["report_filter"] is None
+
+
+def test_projection_retains_authenticated_layer_metadata(tmp_path):
+    root, config = _repository(tmp_path)
+    path = root / config.contract
+    contract = json.loads(path.read_bytes())
+    contract["schema_version"] = "2.3.0"
+    contract["components"][0]["layer"] = "domain"
+    path.write_text(json.dumps(contract))
+
+    result, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    assert result.architecture_projection is not None
+    core = next(item for item in result.architecture_projection.components if item.label == "core")
+    assert core.layer == "domain"
+    wire = json.loads(result_bytes(result))["architecture_projection"]["components"]
+    assert next(item for item in wire if item["id"] == core.id)["layer"] == "domain"
+
+
 def test_unknown_architecture_component_is_a_named_diagnostic(tmp_path):
     root, config = _repository(tmp_path)
     result, _ = run_report(

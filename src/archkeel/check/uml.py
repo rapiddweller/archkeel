@@ -10,7 +10,7 @@ import json
 from dataclasses import asdict, replace
 from pathlib import Path
 
-from archkeel.ir.architecture_graph import TargetDefinition
+from archkeel.ir.architecture_graph import ArchitectureGraph, TargetDefinition
 from archkeel.ir.codec import (
     InsideContractTree,
     decode_json,
@@ -261,6 +261,15 @@ def _authenticate_rules(tree: InsideContractTree, known: dict[str, Record]) -> N
         raise ValueError("governing rules differ from the authenticated contract")
 
 
+def _target_definition(graph: ArchitectureGraph) -> TargetDefinition:
+    return TargetDefinition(
+        entities=tuple(entity for entity in graph.entities if entity.kind != "component"),
+        relationships=tuple(edge for edge in graph.relationships if edge.kind != "requires"),
+        scopes=graph.target_scopes,
+        schema_version=graph.schema_version,
+    )
+
+
 def _target_records(
     tree: InsideContractTree, path: str, known: dict[str, Record]
 ) -> tuple[Record, Record | None] | None:
@@ -301,12 +310,7 @@ def _target_records(
             }
         )
     _authenticate_rules(tree, known)
-    target = TargetDefinition(
-        entities=tuple(entity for entity in graph.entities if entity.kind != "component"),
-        relationships=tuple(edge for edge in graph.relationships if edge.kind != "requires"),
-        scopes=graph.target_scopes,
-        schema_version=graph.schema_version,
-    )
+    target = _target_definition(graph)
     identity = stable_id("UML-TARGET" if targets else "ARCHITECTURE-TARGET", path)
     declaration = parse_record(
         {

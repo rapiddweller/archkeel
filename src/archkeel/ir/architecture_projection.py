@@ -84,6 +84,7 @@ class ComponentProjection:
     reason: str
     decided_by: Literal["architect", "agent"] | None
     selector_prefix: str | None = None
+    layer: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

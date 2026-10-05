@@ -12,8 +12,12 @@ from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
     AssessmentStatus,
+    ComponentIntent,
     ComponentRole,
+    Entity,
     RelationshipKind,
+    ReportFinding,
+    RuleAssessment,
 )
 from archkeel.ir.architecture_projection import (
     ArchitectureProjection,
@@ -39,7 +43,6 @@ from archkeel.ir.model import (
     Observation,
     ReportFilter,
     RequiredComponent,
-    RuleAssessment,
     RuleVerdict,
     RunResult,
     declared_package_pair,
@@ -213,19 +216,10 @@ def _permissions(
     return rows
 
 
-def architecture_projection(
-    model: Observation,
-    report: ArchitectureReport,
-    assessments: tuple[RuleAssessment, ...],
-    *,
-    violation_remedy: str,
-    component: str | None = None,
-) -> ArchitectureProjection:
-    """Project one authenticated report; filters retain global uncertainty and source identity."""
-    report.validate()
-    target, observed = report.target, report.observed
+def _projection_unknowns(model: Observation, report: ArchitectureReport) -> list[UnknownProjection]:
     original_unknowns = {item.id: item for item in model.records("unknowns") or ()}
     unknowns: list[UnknownProjection] = []
+    target, observed = report.target, report.observed
     for item in report.findings:
         if item.status == "UNKNOWN":
             original_unknown: Record = original_unknowns[item.id]
@@ -247,31 +241,45 @@ def architecture_projection(
                 "source.unavailable", report.unavailable or "Observed source facts are unavailable."
             )
         )
-    if target is None or observed is None:
-        if component is not None:
-            raise DiagnosticError(
-                Diagnostic(
-                    "filter_unknown",
-                    f"--component {component}",
-                    "Selecting a component requires authenticated Target and source facts.",
-                    "Restore the missing evidence and retry.",
-                )
+    return unknowns
+
+
+def _unavailable_projection(
+    model: Observation,
+    unknowns: list[UnknownProjection],
+    remedy: str,
+    component: str | None,
+) -> ArchitectureProjection:
+    if component is not None:
+        raise DiagnosticError(
+            Diagnostic(
+                "filter_unknown",
+                f"--component {component}",
+                "Selecting a component requires authenticated Target and source facts.",
+                "Restore the missing evidence and retry.",
             )
-        return ArchitectureProjection(
-            model.source,
-            model.contract.digest,
-            model.analyzer.code_digest,
-            (),
-            (),
-            (),
-            (),
-            (),
-            tuple(unknowns),
-            "UNKNOWN",
-            "Target or observed evidence is unavailable.",
-            violation_remedy,
         )
-    names = _scope_names(target)
+    return ArchitectureProjection(
+        model.source,
+        model.contract.digest,
+        model.analyzer.code_digest,
+        (),
+        (),
+        (),
+        (),
+        (),
+        tuple(unknowns),
+        "UNKNOWN",
+        "Target or observed evidence is unavailable.",
+        remedy,
+    )
+
+
+def _selected_component(
+    target: ArchitectureGraph,
+    component: str | None,
+    names: dict[str, str],
+) -> str | None:
     selected = None
     if component is not None:
         matches = {
@@ -290,11 +298,13 @@ def architecture_projection(
                     "Use an unambiguous component id or complete scope-qualified label.",
                 )
             )
-    entities = {item.id: item for item in observed.entities}
-    modules = tuple(
-        item for item in observed.entities if item.kind == "module" and item.presence == "defined"
-    )
-    ownership = {item.id: _deepest_owners(target, item.qualified_name) for item in modules}
+    return selected
+
+
+def _ownership_gaps(
+    modules: tuple[Entity, ...],
+    ownership: dict[str, tuple[str, ...]],
+) -> tuple[OwnershipGap, ...]:
     gaps = tuple(
         OwnershipGap(
             item.qualified_name,
@@ -307,15 +317,15 @@ def architecture_projection(
         for item in sorted(modules, key=lambda item: item.qualified_name)
         if len(ownership[item.id]) != 1
     )
-    unknowns.extend(
-        UnknownProjection(
-            f"ownership:{item.module}",
-            item.reason,
-            kind="module_ownership",
-            scopes=tuple(names[identity] for identity in item.candidate_ids),
-        )
-        for item in gaps
-    )
+    return gaps
+
+
+def _import_coverage(
+    model: Observation,
+    observed: ArchitectureGraph,
+    modules: tuple[Entity, ...],
+) -> tuple[bool, list[UnknownProjection]]:
+    unknowns: list[UnknownProjection] = []
     covered_imports = {
         item.scope_id
         for item in observed.coverage
@@ -342,26 +352,14 @@ def architecture_projection(
                 )
             )
             imports_complete = False
-    rules = _permission_rules(model, target, assessments)
-    permissions = _permissions(target, rules)
-    unknowns.extend(
-        UnknownProjection(
-            f"decision:{identity}:{item.target_id}",
-            item.reason,
-            item.rule_ids,
-            "dependency_permission",
-            (names[identity], names[item.target_id]),
-        )
-        for identity in sorted(permissions)
-        for item in permissions[identity]
-        if item.status == "undecided"
-    )
-    unknowns.extend(
-        UnknownProjection(item.id, item.reason, (item.id,))
-        for item in assessments
-        if item.status == "UNKNOWN"
-    )
-    memberships = {item.component_id: set(item.module_ids) for item in report.memberships}
+    return imports_complete, unknowns
+
+
+def _usage_counts(
+    target: ArchitectureGraph,
+    observed: ArchitectureGraph,
+) -> tuple[dict[tuple[str, str], int], dict[tuple[str | None, str, str], int]]:
+    entities = {item.id: item for item in observed.entities}
     counts: dict[tuple[str, str], int] = {}
     level_counts: dict[tuple[str | None, str, str], int] = {}
     for edge in observed.relationships:
@@ -386,34 +384,54 @@ def architecture_projection(
                 pairs.add((a[0], b[0]))
         for pair in pairs:
             counts[pair] = counts.get(pair, 0) + 1
+    return counts, level_counts
+
+
+def _entity_component(
+    identity: str,
+    target_entities: dict[str, Entity],
+    intents: dict[str, ComponentIntent],
+) -> str | None:
+    entity = target_entities[identity]
+    while entity.id not in intents and entity.parent_id is not None:
+        entity = target_entities[entity.parent_id]
+    return entity.id if entity.id in intents else None
+
+
+def _internal_relationship_scope(
+    source_id: str,
+    target_id: str | None,
+    kind: RelationshipKind,
+    target_entities: dict[str, Entity],
+    intents: dict[str, ComponentIntent],
+    names: dict[str, str],
+) -> str | None:
+    if target_id is None or kind in {"realizes", "publishes"}:
+        return None
+    owner = _entity_component(source_id, target_entities, intents)
+    if owner is None or _entity_component(target_id, target_entities, intents) != owner:
+        return None
+    if intents[owner].role in {ComponentRole.INTERFACE, ComponentRole.CONTRACT}:
+        return None
+    detail_kinds = {"class", "method", "attribute", "type_alias", "enum"}
+    for identity in (source_id, target_id):
+        entity = target_entities[identity]
+        if entity.kind not in detail_kinds:
+            return None
+        while entity.parent_id is not None:
+            if entity.kind == "interface":
+                return None
+            entity = target_entities[entity.parent_id]
+    return names[owner]
+
+
+def _required_relationships(
+    report: ArchitectureReport,
+    target: ArchitectureGraph,
+    names: dict[str, str],
+) -> tuple[RequiredRelationshipProjection, ...]:
     target_entities = {item.id: item for item in target.entities}
     intents = {item.component_id: item for item in target.component_intents}
-
-    def entity_component(identity: str) -> str | None:
-        entity = target_entities[identity]
-        while entity.id not in intents and entity.parent_id is not None:
-            entity = target_entities[entity.parent_id]
-        return entity.id if entity.id in intents else None
-
-    def internal_scope(source_id: str, target_id: str | None, kind: RelationshipKind) -> str | None:
-        if target_id is None or kind in {"realizes", "publishes"}:
-            return None
-        owner = entity_component(source_id)
-        if owner is None or entity_component(target_id) != owner:
-            return None
-        if intents[owner].role in {ComponentRole.INTERFACE, ComponentRole.CONTRACT}:
-            return None
-        detail_kinds = {"class", "method", "attribute", "type_alias", "enum"}
-        for identity in (source_id, target_id):
-            entity = target_entities[identity]
-            if entity.kind not in detail_kinds:
-                return None
-            while entity.parent_id is not None:
-                if entity.kind == "interface":
-                    return None
-                entity = target_entities[entity.parent_id]
-        return names[owner]
-
     relationships = []
     for edge in target.relationships:
         if edge.kind == "requires":
@@ -449,22 +467,143 @@ def architecture_projection(
                             owner
                             for identity in (edge.source_id, edge.target_id)
                             if identity is not None
-                            and (owner := entity_component(identity)) is not None
+                            and (owner := _entity_component(identity, target_entities, intents))
+                            is not None
                         }
                     )
                 ),
-                internal_scope(edge.source_id, edge.target_id, edge.kind),
+                _internal_relationship_scope(
+                    edge.source_id, edge.target_id, edge.kind, target_entities, intents, names
+                ),
             )
         )
-        if status == "UNKNOWN":
-            unknowns.append(
-                UnknownProjection(
-                    edge.id,
-                    " ".join(reasons),
-                    kind=edge.kind,
-                    scopes=tuple(names[identity] for identity in relationships[-1].component_ids),
-                )
-            )
+    return tuple(relationships)
+
+
+def _component_status(
+    imports_complete: bool,
+    scoped_modules: set[str],
+    scoped: tuple[RuleAssessment, ...],
+    findings: tuple[ReportFinding, ...],
+    permissions: tuple[PermissionProjection, ...],
+) -> tuple[AssessmentStatus, str]:
+    status: AssessmentStatus
+    undecided = any(item.status == "undecided" for item in permissions)
+    if not imports_complete or not scoped_modules:
+        status, reason = "UNKNOWN", "Complete owned module and import evidence is unavailable."
+    elif (
+        undecided
+        or any(item.status == "UNKNOWN" for item in scoped)
+        or any(item.status == "UNKNOWN" for item in findings)
+    ):
+        status, reason = (
+            "UNKNOWN",
+            "Dependency decisions or applicable Core assessments remain unknown.",
+        )
+    elif any(item.status == "FAIL" for item in findings):
+        status, reason = "FAIL", "Core recorded a finding in this component's source facts."
+    elif not any(item.evaluation_proven and item.status != "DECLARATION" for item in scoped):
+        status, reason = "UNKNOWN", "No completed applicable Core evaluator scope is proven."
+    else:
+        status, reason = (
+            "PASS",
+            "Core completed the applicable scopes without a finding in this component.",
+        )
+    return status, reason
+
+
+def _component_requires(
+    target: ArchitectureGraph,
+    intent: ComponentIntent,
+    level_counts: dict[tuple[str | None, str, str], int],
+    imports_complete: bool,
+) -> tuple[RequiresProjection, ...]:
+    requires = tuple(
+        RequiresProjection(
+            edge.id,
+            edge.target_id,
+            edge.through,
+            edge.reason or "",
+            edge.decided_by,
+            level_counts.get((intent.parent_id, intent.component_id, edge.target_id), 0)
+            if imports_complete
+            else None,
+        )
+        for edge in target.relationships
+        if edge.kind == "requires"
+        and edge.source_id == intent.component_id
+        and edge.target_id is not None
+    )
+    return requires
+
+
+def _component_view(
+    intent: ComponentIntent,
+    entity: Entity,
+    names: dict[str, str],
+    modules: tuple[Entity, ...],
+    owned: tuple[Entity, ...],
+    scoped_modules: set[str],
+    requires: tuple[RequiresProjection, ...],
+    permissions: dict[str, tuple[PermissionProjection, ...]],
+    counts: dict[tuple[str, str], int],
+    findings: tuple[ReportFinding, ...],
+    status_reason: tuple[AssessmentStatus, str],
+    selector_prefix: str | None,
+) -> ComponentProjection:
+    source_paths = tuple(
+        item.file_path
+        for item in modules
+        if item.id in scoped_modules and item.file_path is not None
+    )
+    return ComponentProjection(
+        id=intent.component_id,
+        scope=names[intent.component_id],
+        label=intent.label or intent.component_id,
+        parent_id=intent.parent_id,
+        role=intent.role,
+        path=commonpath(source_paths) if source_paths else None,
+        provenance=entity.provenance,
+        namespace=intent.namespace,
+        packages=intent.packages,
+        exact_modules=intent.exact_modules,
+        responsibilities=entity.responsibilities,
+        not_responsible_for=intent.forbidden_responsibilities,
+        public=intent.public,
+        planned=intent.planned,
+        modules=tuple(ModuleProjection(item.qualified_name, item.file_path) for item in owned),
+        requires=requires,
+        permissions=permissions[intent.component_id],
+        used_by=tuple(
+            UsageProjection(a, count)
+            for (a, b), count in sorted(counts.items())
+            if b == intent.component_id
+        ),
+        finding_ids=tuple(sorted(item.id for item in findings)),
+        status=status_reason[0],
+        reason=status_reason[1],
+        decided_by=intent.decided_by,
+        selector_prefix=selector_prefix,
+        layer=intent.layer,
+    )
+
+
+def _component_projections(
+    model: Observation,
+    report: ArchitectureReport,
+    target: ArchitectureGraph,
+    assessments: tuple[RuleAssessment, ...],
+    names: dict[str, str],
+    modules: tuple[Entity, ...],
+    ownership: dict[str, tuple[str, ...]],
+    permissions: dict[str, tuple[PermissionProjection, ...]],
+    counts: dict[tuple[str, str], int],
+    level_counts: dict[tuple[str | None, str, str], int],
+    imports_complete: bool,
+) -> tuple[tuple[ComponentProjection, ...], dict[str, set[str]]]:
+    target_entities = {item.id: item for item in target.entities}
+    intents = {item.component_id: item for item in target.component_intents}
+    memberships = {item.component_id: set(item.module_ids) for item in report.memberships}
     components = []
     assessment_scopes: dict[str, set[str]] = {}
     declarations = {item.id: item for item in model.records("declarations") or ()}
@@ -503,81 +642,39 @@ def architecture_projection(
         while selector_prefix is None and ancestor is not None:
             selector_prefix = intents[ancestor].namespace
             ancestor = intents[ancestor].parent_id
-        undecided = any(item.status == "undecided" for item in permissions[intent.component_id])
-        if not imports_complete or not scoped_modules:
-            status, reason = "UNKNOWN", "Complete owned module and import evidence is unavailable."
-        elif (
-            undecided
-            or any(item.status == "UNKNOWN" for item in scoped)
-            or any(item.status == "UNKNOWN" for item in findings)
-        ):
-            status, reason = (
-                "UNKNOWN",
-                "Dependency decisions or applicable Core assessments remain unknown.",
-            )
-        elif any(item.status == "FAIL" for item in findings):
-            status, reason = "FAIL", "Core recorded a finding in this component's source facts."
-        elif not any(item.evaluation_proven and item.status != "DECLARATION" for item in scoped):
-            status, reason = "UNKNOWN", "No completed applicable Core evaluator scope is proven."
-        else:
-            status, reason = (
-                "PASS",
-                "Core completed the applicable scopes without a finding in this component.",
-            )
-        requires = tuple(
-            RequiresProjection(
-                edge.id,
-                edge.target_id,
-                edge.through,
-                edge.reason or "",
-                edge.decided_by,
-                level_counts.get((intent.parent_id, intent.component_id, edge.target_id), 0)
-                if imports_complete
-                else None,
-            )
-            for edge in target.relationships
-            if edge.kind == "requires"
-            and edge.source_id == intent.component_id
-            and edge.target_id is not None
-        )
-        source_paths = tuple(
-            item.file_path
-            for item in modules
-            if item.id in scoped_modules and item.file_path is not None
-        )
         components.append(
-            ComponentProjection(
-                id=intent.component_id,
-                scope=names[intent.component_id],
-                label=intent.label or intent.component_id,
-                parent_id=intent.parent_id,
-                role=intent.role,
-                path=commonpath(source_paths) if source_paths else None,
-                provenance=target_entities[intent.component_id].provenance,
-                namespace=intent.namespace,
-                packages=intent.packages,
-                exact_modules=intent.exact_modules,
-                responsibilities=target_entities[intent.component_id].responsibilities,
-                not_responsible_for=intent.forbidden_responsibilities,
-                public=intent.public,
-                planned=intent.planned,
-                modules=tuple(
-                    ModuleProjection(item.qualified_name, item.file_path) for item in owned
+            _component_view(
+                intent,
+                target_entities[intent.component_id],
+                names,
+                modules,
+                owned,
+                scoped_modules,
+                _component_requires(target, intent, level_counts, imports_complete),
+                permissions,
+                counts,
+                findings,
+                _component_status(
+                    imports_complete,
+                    scoped_modules,
+                    scoped,
+                    findings,
+                    permissions[intent.component_id],
                 ),
-                requires=requires,
-                permissions=permissions[intent.component_id],
-                used_by=tuple(
-                    UsageProjection(a, count)
-                    for (a, b), count in sorted(counts.items())
-                    if b == intent.component_id
-                ),
-                finding_ids=tuple(sorted(item.id for item in findings)),
-                status=status,
-                reason=reason,
-                decided_by=intent.decided_by,
-                selector_prefix=selector_prefix,
+                selector_prefix,
             )
         )
+    return tuple(components), assessment_scopes
+
+
+def _level_projections(
+    target: ArchitectureGraph,
+    modules: tuple[Entity, ...],
+    memberships: dict[str, set[str]],
+    permissions: dict[str, tuple[PermissionProjection, ...]],
+    level_counts: dict[tuple[str | None, str, str], int],
+    imports_complete: bool,
+) -> tuple[LevelProjection, ...]:
     levels = []
     for parent in sorted(
         {item.parent_id for item in target.component_intents}, key=lambda item: item or ""
@@ -627,6 +724,22 @@ def architecture_projection(
                 unowned,
             )
         )
+    return tuple(levels)
+
+
+def _scoped_unknowns(
+    model: Observation,
+    target: ArchitectureGraph,
+    unknowns: list[UnknownProjection],
+    names: dict[str, str],
+    modules: tuple[Entity, ...],
+    ownership: dict[str, tuple[str, ...]],
+    components: tuple[ComponentProjection, ...],
+    assessment_scopes: dict[str, set[str]],
+) -> tuple[UnknownProjection, ...]:
+    original_unknowns = {item.id: item for item in model.records("unknowns") or ()}
+    declarations = {item.id: item for item in model.records("declarations") or ()}
+    intents = {item.component_id: item for item in target.component_intents}
     scoped_unknowns = []
     for unknown in unknowns:
         original = original_unknowns.get(unknown.id)
@@ -661,7 +774,23 @@ def architecture_projection(
                 scopes=unknown.scopes or tuple(sorted(names[identity] for identity in scoped_ids)),
             )
         )
-    unknowns = scoped_unknowns
+    return tuple(scoped_unknowns)
+
+
+def _selected_projection(
+    model: Observation,
+    report: ArchitectureReport,
+    target: ArchitectureGraph,
+    components: tuple[ComponentProjection, ...],
+    levels: tuple[LevelProjection, ...],
+    rules: tuple[PermissionRuleProjection, ...],
+    relationships: tuple[RequiredRelationshipProjection, ...],
+    gaps: tuple[OwnershipGap, ...],
+    unknowns: tuple[UnknownProjection, ...],
+    selected: str | None,
+    violation_remedy: str,
+) -> ArchitectureProjection:
+    intents = {item.component_id: item for item in target.component_intents}
     projection_status: AssessmentStatus = (
         "UNKNOWN"
         if unknowns
@@ -672,6 +801,7 @@ def architecture_projection(
     )
     subtree_ids: set[str] = set()
     context_parents: set[str | None] = set()
+    parent: str | None
     if selected is not None:
         for intent in target.component_intents:
             parent = intent.component_id
@@ -712,6 +842,123 @@ def architecture_projection(
     )
 
 
+def _projection_uncertainties(
+    gaps: tuple[OwnershipGap, ...],
+    permissions: dict[str, tuple[PermissionProjection, ...]],
+    assessments: tuple[RuleAssessment, ...],
+    relationships: tuple[RequiredRelationshipProjection, ...],
+    names: dict[str, str],
+) -> list[UnknownProjection]:
+    unknowns: list[UnknownProjection] = []
+    unknowns.extend(
+        UnknownProjection(
+            f"ownership:{item.module}",
+            item.reason,
+            kind="module_ownership",
+            scopes=tuple(names[identity] for identity in item.candidate_ids),
+        )
+        for item in gaps
+    )
+    unknowns.extend(
+        UnknownProjection(
+            f"decision:{identity}:{item.target_id}",
+            item.reason,
+            item.rule_ids,
+            "dependency_permission",
+            (names[identity], names[item.target_id]),
+        )
+        for identity in sorted(permissions)
+        for item in permissions[identity]
+        if item.status == "undecided"
+    )
+    unknowns.extend(
+        UnknownProjection(item.id, item.reason, (item.id,))
+        for item in assessments
+        if item.status == "UNKNOWN"
+    )
+    unknowns.extend(
+        UnknownProjection(
+            item.id,
+            " ".join(item.reasons),
+            kind=item.kind,
+            scopes=tuple(names[identity] for identity in item.component_ids),
+        )
+        for item in relationships
+        if item.status == "UNKNOWN"
+    )
+    return unknowns
+
+
+def architecture_projection(
+    model: Observation,
+    report: ArchitectureReport,
+    assessments: tuple[RuleAssessment, ...],
+    *,
+    violation_remedy: str,
+    component: str | None = None,
+) -> ArchitectureProjection:
+    """Project one authenticated report; filters retain global uncertainty and source identity."""
+    report.validate()
+    target, observed = report.target, report.observed
+    unknowns = _projection_unknowns(model, report)
+    if target is None or observed is None:
+        return _unavailable_projection(model, unknowns, violation_remedy, component)
+    names = _scope_names(target)
+    selected = _selected_component(target, component, names)
+    modules = tuple(
+        item for item in observed.entities if item.kind == "module" and item.presence == "defined"
+    )
+    ownership = {item.id: _deepest_owners(target, item.qualified_name) for item in modules}
+    gaps = _ownership_gaps(modules, ownership)
+    imports_complete, import_unknowns = _import_coverage(model, observed, modules)
+    unknowns.extend(import_unknowns)
+    rules = _permission_rules(model, target, assessments)
+    permissions = _permissions(target, rules)
+    counts, level_counts = _usage_counts(target, observed)
+    relationships = _required_relationships(report, target, names)
+    unknowns.extend(_projection_uncertainties(gaps, permissions, assessments, relationships, names))
+    components, assessment_scopes = _component_projections(
+        model,
+        report,
+        target,
+        assessments,
+        names,
+        modules,
+        ownership,
+        permissions,
+        counts,
+        level_counts,
+        imports_complete,
+    )
+    memberships = {item.component_id: set(item.module_ids) for item in report.memberships}
+    levels = _level_projections(
+        target, modules, memberships, permissions, level_counts, imports_complete
+    )
+    scoped_unknowns = _scoped_unknowns(
+        model,
+        target,
+        unknowns,
+        names,
+        modules,
+        ownership,
+        components,
+        assessment_scopes,
+    )
+    return _selected_projection(
+        model,
+        report,
+        target,
+        components,
+        levels,
+        rules,
+        relationships,
+        gaps,
+        scoped_unknowns,
+        selected,
+        violation_remedy,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class PermissionGroup:
     status: PermissionStatus
@@ -740,6 +987,7 @@ class ArchitectureComponentView:
     role: ComponentRole = ComponentRole.COMPONENT
     namespace: str | None = None
     selector_prefix: str | None = None
+    layer: str | None = None
     exact_modules: tuple[str, ...] = ()
     public: dict[str, tuple[str, ...]] | None = None
     planned: dict[str, tuple[str, ...]] | None = None
@@ -839,80 +1087,88 @@ def unknown_groups(unknowns: tuple[UnknownProjection, ...]) -> UnknownGroups:
     return result
 
 
+def _reason_index(reasons: list[str], reason: str) -> int:
+    if reason not in reasons:
+        reasons.append(reason)
+    return reasons.index(reason)
+
+
+def _permission_groups(
+    component: ComponentProjection,
+    reasons: list[str],
+) -> tuple[PermissionGroup, ...]:
+    groups: dict[tuple[PermissionStatus, tuple[str, ...], str], list[str]] = {}
+    requires_ids = {item.id for item in component.requires}
+    for permission in component.permissions:
+        rule_ids = tuple(
+            identity
+            for identity in permission.rule_ids
+            if permission.status != "allowed" or identity not in requires_ids
+        )
+        targets: list[str] = groups.setdefault((permission.status, rule_ids, permission.reason), [])
+        targets.append(permission.target_id)
+    return tuple(
+        PermissionGroup(status, _reason_index(reasons, reason), tuple(targets), rule_ids)
+        for (status, rule_ids, reason), targets in sorted(groups.items())
+    )
+
+
+def _command_component(
+    component: ComponentProjection,
+    violation_ids: set[str],
+    reasons: list[str],
+) -> ArchitectureComponentView:
+    prefix = component.selector_prefix
+    modules = {}
+    for module in component.modules:
+        path: str | None = module.path
+        if path is not None and component.path is not None:
+            if path == component.path:
+                path = ""
+            elif path.startswith(f"{component.path}/"):
+                path = path[len(component.path) + 1 :]
+        modules[short_selector(module.name, prefix)] = path
+    return ArchitectureComponentView(
+        id=component.id,
+        scope=component.scope,
+        parent_id=component.parent_id,
+        role=component.role,
+        path=component.path,
+        provenance=component.provenance,
+        namespace=component.namespace,
+        selector_prefix=prefix if prefix != component.namespace else None,
+        layer=component.layer,
+        packages=tuple(short_selector(item, prefix) for item in component.packages),
+        exact_modules=tuple(short_selector(item, prefix) for item in component.exact_modules),
+        responsibilities=component.responsibilities,
+        not_responsible_for=component.not_responsible_for,
+        public=grouped_selectors(component.public, prefix),
+        planned=grouped_selectors(component.planned, prefix),
+        modules=modules,
+        requires=component.requires,
+        permissions=_permission_groups(component, reasons),
+        used_by={item.component_id: item.import_sites for item in component.used_by},
+        finding_ids=tuple(
+            identity for identity in component.finding_ids if identity in violation_ids
+        ),
+        status=component.status,
+        reason=_reason_index(reasons, component.reason),
+        decided_by=component.decided_by,
+    )
+
+
 def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvelope:
     projection = result.architecture_projection
     if projection is None:
         raise ValueError("architecture command requires its authenticated projection")
     reasons: list[str] = []
 
-    def reason_ref(reason: str) -> int:
-        if reason not in reasons:
-            reasons.append(reason)
-        return reasons.index(reason)
-
     violations = result.filtered_violations or ()
     violation_ids = {item.record.id for item in violations}
 
-    def permission_groups(component: ComponentProjection) -> tuple[PermissionGroup, ...]:
-        groups: dict[tuple[PermissionStatus, tuple[str, ...], str], list[str]] = {}
-        requires_ids = {item.id for item in component.requires}
-        for permission in component.permissions:
-            rule_ids = tuple(
-                identity
-                for identity in permission.rule_ids
-                if permission.status != "allowed" or identity not in requires_ids
-            )
-            targets: list[str] = groups.setdefault(
-                (permission.status, rule_ids, permission.reason), []
-            )
-            targets.append(permission.target_id)
-        return tuple(
-            PermissionGroup(status, reason_ref(reason), tuple(targets), rule_ids)
-            for (status, rule_ids, reason), targets in sorted(groups.items())
-        )
-
-    components = []
-    for component in projection.components:
-        prefix = component.selector_prefix
-        modules = {}
-        for module in component.modules:
-            path: str | None = module.path
-            if path is not None and component.path is not None:
-                if path == component.path:
-                    path = ""
-                elif path.startswith(f"{component.path}/"):
-                    path = path[len(component.path) + 1 :]
-            modules[short_selector(module.name, prefix)] = path
-        components.append(
-            ArchitectureComponentView(
-                id=component.id,
-                scope=component.scope,
-                parent_id=component.parent_id,
-                role=component.role,
-                path=component.path,
-                provenance=component.provenance,
-                namespace=component.namespace,
-                selector_prefix=prefix if prefix != component.namespace else None,
-                packages=tuple(short_selector(item, prefix) for item in component.packages),
-                exact_modules=tuple(
-                    short_selector(item, prefix) for item in component.exact_modules
-                ),
-                responsibilities=component.responsibilities,
-                not_responsible_for=component.not_responsible_for,
-                public=grouped_selectors(component.public, prefix),
-                planned=grouped_selectors(component.planned, prefix),
-                modules=modules,
-                requires=component.requires,
-                permissions=permission_groups(component),
-                used_by={item.component_id: item.import_sites for item in component.used_by},
-                finding_ids=tuple(
-                    identity for identity in component.finding_ids if identity in violation_ids
-                ),
-                status=component.status,
-                reason=reason_ref(component.reason),
-                decided_by=component.decided_by,
-            )
-        )
+    components = tuple(
+        _command_component(item, violation_ids, reasons) for item in projection.components
+    )
     relationships = projection.required_relationships
     detail_relationships = tuple(item for item in relationships if item.internal_scope is None)
     summary_counts = Counter(
@@ -938,7 +1194,7 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
                 item.packages,
                 item.exact_modules,
                 item.requires,
-                permission_groups(item),
+                _permission_groups(item, reasons),
                 item.public,
                 item.planned,
             )

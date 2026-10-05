@@ -22,6 +22,7 @@ names. Its generated schema defines reconstruction and defaults.
 Finding IDs and locations retain #314's format and existing remedy text.
 Rule assessments live in the shared graph vocabulary to avoid a model/projection cycle; model re-exports preserve existing imports.
 Command result schema 5 accepts this separate 1.0 envelope. Stable JSON excludes artifact paths.
+Ordinary reports carry the same Core projection for the human view; ordinary JSON keeps its existing null field. Component layers come from authenticated intent.
 
 The delegated task owner approved two new Governance modules and their exact public
 projection symbols and the view dataclasses actually contained in that public DTO, plus `workflows -> declarations` to authenticate dependency
