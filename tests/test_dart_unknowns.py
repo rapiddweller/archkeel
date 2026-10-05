@@ -502,6 +502,7 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
     }
     assert set(payload) == {
         "agent_decisions",
+        "architecture_projection",
         "artifact",
         "baseline_new",
         "baseline_resolved",
@@ -547,6 +548,7 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
         payload["unresolved_call_note"],
     ) == (None, None, None)
     assert payload["baseline_comparisons"] is None
+    assert payload["architecture_projection"] is None
     assert payload["baseline_path"] is None
     assert payload["rule_assessments"] == []
     claims = payload["claims"]

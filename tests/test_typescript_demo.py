@@ -127,6 +127,22 @@ def test_clean_graph_has_independently_counted_modules_and_edges(
     } == {"violations": 0, "cycle_edges": 0, "coverage_failures": 0, "unknown_positions": 0}
 
 
+def test_layer_order_judges_declared_permissions_without_changing_imports(
+    outcomes: dict[str, Outcome],
+) -> None:
+    positive = outcomes["typescript-layer-order-positive"]
+    negative = outcomes["typescript-layer-order-forbidden-permission"]
+    assert positive.observation is not None and negative.observation is not None
+    assert module_edges(positive.observation) == module_edges(negative.observation)
+    for outcome, status in ((positive, "PASS"), (negative, "FAIL")):
+        assessment = next(item for item in outcome.report.rule_assessments if item.id == "PROBE")
+        assert assessment.kind == "layer_order" and assessment.status == status
+        assert assessment.evaluation_proven and assessment.undecided == 0
+    [violation] = trace_valid_violations(negative.observation)
+    assert violation.kind == "layer_order" and violation.rule_ids == ("PROBE",)
+    assert violation.subjects == ("domain", "presentation")
+
+
 def test_real_typescript_demo_matches_decoded_profile_schema(outcomes: dict[str, Outcome]) -> None:
     root = Path(__file__).parents[1]
     schemas = [json.loads(path.read_bytes()) for path in (root / "schema").glob("*.json")]

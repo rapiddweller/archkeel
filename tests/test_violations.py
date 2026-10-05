@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -23,12 +24,12 @@ from fixtures.architecture_demo import CATALOG
 
 CONFIG = ScanConfig(("shop",), "shop", "architecture-contract.json", "0" * 64)
 ROOT = Path(__file__).parents[1]
+TOUR = next(variant for variant in CATALOG if variant.id == "tour")
 
 
 def _tour_report(tmp_path: Path) -> Path:
     """Run `report` on the `tour` variant (AD-51's own demo) and write its bytes to disk."""
-    tour = next(variant for variant in CATALOG if variant.id == "tour")
-    root = _prepare_repo(tmp_path, dict(tour.files))
+    root = _prepare_repo(tmp_path, dict(TOUR.files))
     _, architecture = run_report(root, config=CONFIG, analyzer=observe)
     assert architecture is not None
     report_path = tmp_path / "architecture.json"
@@ -43,7 +44,13 @@ def test_load_violations_reads_the_canonical_report_bytes_back(tmp_path: Path) -
 
     rows = load_violations(report_path)
 
-    assert len(rows) == 20
+    assert len(rows) == len(TOUR.expected_violations)
+    assert Counter(rule for row in rows for rule in row.fingerprint.rules) == Counter(
+        TOUR.expected_violations
+    )
+    assert next(
+        row for row in rows if row.fingerprint.rules == ("LAYERS-MODEL",)
+    ).fingerprint.subjects == ("model", "render")
     assert all(isinstance(row, ViolationRow) for row in rows)
 
 
@@ -98,7 +105,7 @@ def test_reference_md_snippet_reads_a_report_and_lists_its_rows(tmp_path: Path) 
     ]
     # --- docs/reference.md snippet ends ---
 
-    assert len(rows) == 20
+    assert len(rows) == len(TOUR.expected_violations)
     assert all(isinstance(fingerprint, ViolationFingerprint) for fingerprint, _, _ in rows)
 
 
