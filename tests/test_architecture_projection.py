@@ -6,7 +6,7 @@
 import json
 import subprocess
 from collections import Counter
-from dataclasses import replace
+from dataclasses import asdict, replace
 
 import pytest
 from test_result_schema import validator as validator
@@ -827,6 +827,122 @@ def test_native_nested_slice_retains_governing_ancestor_policy_without_findings(
     assert selected.declared_rules == full.declared_rules
     assert view["unknowns"] == json.loads(result_bytes(full))["architecture_projection"]["unknowns"]
     assert selected.coverage == full.coverage
+    assert not list(validator.iter_errors(wire))
+
+
+@pytest.mark.parametrize("type_only", [False, True])
+def test_native_parent_slice_retains_descendant_policy_and_endpoint_context(
+    tmp_path, capsys, validator, type_only
+):
+    root, config = _repository(tmp_path)
+    path = root / config.contract
+    contract = json.loads(path.read_bytes())
+    contract["components"][0]["inside"] = "core.json"
+    contract["components"][1]["inside"] = "store.json"
+    (root / "sample/core.py").unlink()
+    (root / "sample/core").mkdir()
+    (root / "sample/core/__init__.py").write_text("")
+    (root / "sample/core/right.py").write_text("")
+    (root / "sample/core/left.py").write_text(
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import sample.core.right\n"
+        if type_only
+        else "import sample.core.right\n"
+    )
+    children = [
+        {
+            **contract["components"][0],
+            "id": label.upper(),
+            "label": label,
+            "packages": [f"sample.core.{label}"],
+            "namespace": f"sample.core.{label}",
+            "public": [f"sample.core.{label}"],
+            "planned": [f"sample.core.{label}:Future"],
+            "requires": [],
+        }
+        for label in ("left", "right")
+    ]
+    for child in children:
+        child.pop("inside")
+    children[0]["requires"] = [{"component": "right", "rationale": "Reach the published boundary."}]
+    children[0]["inside"] = "left.json"
+    complete = contract["rules"][-1]
+    (root / "core.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": children,
+                "rules": [
+                    complete,
+                    {
+                        **complete,
+                        "id": "RESTRICT",
+                        "kind": "sibling_isolation",
+                        "members": ["sample.core.left", "sample.core.right"],
+                        "include_type_checking": False,
+                    },
+                ],
+            }
+        )
+    )
+    for owner, filename in ((children[0], "left.json"), (contract["components"][1], "store.json")):
+        leaf = {**owner, "id": "LEAF", "label": "leaf", "requires": []}
+        leaf.pop("inside")
+        (root / filename).write_text(
+            json.dumps({"schema_version": "2.1.0", "components": [leaf], "rules": [complete]})
+        )
+    path.write_text(json.dumps(contract))
+    full, canonical = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    selected, encoded = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, component="core"
+    )
+    assert encoded == canonical
+    command = [
+        "report",
+        "--root",
+        str(root),
+        "--only",
+        "architecture",
+        "--component",
+        "core",
+        "--output",
+        str(tmp_path / "slice.json"),
+        "--json",
+    ]
+    for _ in range(2):
+        assert main(command) == 0
+        assert capsys.readouterr().out.encode() == result_bytes(selected)
+    wire = json.loads(result_bytes(selected))
+    view = wire["architecture_projection"]
+    policies = {row["declaration"]["id"]: row for row in view["permission_rules"]}
+    assert set(policies) == {
+        "COMPLETE",
+        "NO-OTHER",
+        "core:COMPLETE",
+        "core:RESTRICT",
+        "core:left:COMPLETE",
+    }
+    assert {row["parent_id"] for row in view["levels"]} == {None, "CORE", "core:LEFT"}
+    context = {row["id"]: row for row in view["policy_context"]}
+    assert {"core:LEFT", "core:RIGHT", "core:left:LEAF"} <= context.keys()
+    assert "store:LEAF" not in context
+    assert context["core:RIGHT"]["packages"] == ["sample.core.right"]
+    assert context["core:RIGHT"]["public"] == ["sample.core.right"]
+    assert context["core:RIGHT"]["planned"] == ["sample.core.right:Future"]
+    assert context["core:LEFT"]["requires"][0]["target_id"] == "core:RIGHT"
+    model = parse_observation(decode_canonical_model(json.loads(canonical)))
+    declarations = {row.id: row for row in model.records("declarations")}
+    assessments = {row.id: row for row in full.rule_assessments}
+    for identity, row in policies.items():
+        assert parse_record(row["declaration"]) == declarations[identity]
+        assert row["assessment"] == json.loads(json.dumps(asdict(assessments[identity])))
+    assert policies["core:RESTRICT"]["assessment"]["status"] == ("PASS" if type_only else "FAIL")
+    assert policies["core:RESTRICT"]["declaration"]["data"]["include_type_checking"] is False
+    assert bool(wire["filtered_violations"]) is not type_only
+    assert selected.declared_rules == full.declared_rules
+    assert selected.coverage == full.coverage
+    assert selected.architecture_projection.source == full.architecture_projection.source
+    assert selected.architecture_projection.unknowns == full.architecture_projection.unknowns
+    assert view["unknowns"] == json.loads(result_bytes(full))["architecture_projection"]["unknowns"]
     assert not list(validator.iter_errors(wire))
 
 

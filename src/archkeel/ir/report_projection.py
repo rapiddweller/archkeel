@@ -665,6 +665,12 @@ def architecture_projection(
     )
     context_parents: set[str | None] = set()
     if selected is not None:
+        for intent in target.component_intents:
+            parent = intent.component_id
+            while parent is not None and parent != selected:
+                parent = intents[parent].parent_id
+            if parent == selected:
+                context_parents.add(intent.component_id)
         parent = intents[selected].parent_id
         context_parents.add(parent)
         while parent is not None:
@@ -675,8 +681,8 @@ def architecture_projection(
         model.contract.digest,
         model.analyzer.code_digest,
         tuple(item for item in components if selected is None or item.id == selected),
-        tuple(levels),
-        rules,
+        tuple(level for level in levels if selected is None or level.parent_id in context_parents),
+        tuple(rule for rule in rules if selected is None or rule.parent_id in context_parents),
         tuple(relationships),
         gaps,
         tuple(sorted(unknowns, key=lambda item: item.id)),
@@ -898,9 +904,6 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
         and projection.components
         else None
     )
-    context_parents = {item.parent_id for item in projection.policy_context}
-    if selected is not None:
-        context_parents.add(selected.parent_id)
     relationships = tuple(
         relationship
         for relationship in projection.required_relationships
@@ -936,16 +939,8 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
             )
             for item in projection.policy_context
         ),
-        tuple(
-            level
-            for level in projection.levels
-            if selected is None or level.parent_id in context_parents
-        ),
-        tuple(
-            rule
-            for rule in projection.permission_rules
-            if selected is None or rule.parent_id in context_parents
-        ),
+        projection.levels,
+        projection.permission_rules,
         detail_relationships,
         summaries,
         projection.ownership_gaps,
