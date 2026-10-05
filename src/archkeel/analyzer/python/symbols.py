@@ -375,7 +375,9 @@ def _annotation_binding_uncertainties(
             or (
                 scope is not None
                 and (
-                    _binding_may_exist_before(scope.body, None if deferred else statement, name)
+                    _binding_may_exist_before(
+                        module, scope.body, None if deferred else statement, name
+                    )
                     or (
                         isinstance(statement, ast.AnnAssign)
                         and statement.value is not None
@@ -523,7 +525,7 @@ def _class_bases(module: ParsedModule, node: ast.ClassDef) -> list[str]:
         )
         if isinstance(target, ast.Name) and target.id == "object":
             alias = module.aliases.get(target.id)
-            if not _binding_may_exist_before(module.tree.body, node, target.id):
+            if not _binding_may_exist_before(module, module.tree.body, node, target.id):
                 return "object"
             if (
                 alias is not None
@@ -534,7 +536,7 @@ def _class_bases(module: ParsedModule, node: ast.ClassDef) -> list[str]:
             return f"{module.module}.object"
         if root in module.aliases and (
             root not in stable_bindings
-            or not _binding_may_exist_before(module.tree.body, node, root)
+            or not _binding_may_exist_before(module, module.tree.body, node, root)
         ):
             return f"{module.module}.{root}"
         return resolved
@@ -549,7 +551,7 @@ def _class_bases(module: ParsedModule, node: ast.ClassDef) -> list[str]:
 
 def _resolve_class_kinds(
     classes: dict[str, ast.ClassDef],
-    owners: dict[str, ParsedModule],
+    owners: dict[ast.AST, ParsedModule],
     symbols: Sequence[RawRecord],
 ) -> None:
     symbol_by_id = {item["id"]: item for item in symbols}
@@ -565,7 +567,6 @@ def _resolve_class_kinds(
         changed = False
         for identity, node in classes.items():
             item = symbol_by_id[identity]
-            qualname = item["data"]["qualified_name"]
             current = item["data"].get("class_kind")
             data = item["data"]
             if data.get("definition_contexts"):
@@ -575,7 +576,7 @@ def _resolve_class_kinds(
                 tail = resolved_base.rsplit(".", 1)[-1]
                 if resolved_base in _KNOWN_CLASS_KINDS:
                     candidates.add(_KNOWN_CLASS_KINDS[resolved_base])
-                local_target = f"{owners[qualname].module}.{tail}"
+                local_target = f"{owners[node].module}.{tail}"
                 bases = by_name.get(resolved_base) or by_name.get(local_target) or []
                 inherited = bases[0]["data"].get("class_kind") if len(bases) == 1 else None
                 # A Protocol subclass is a normal class unless Protocol is an explicit base.
@@ -583,7 +584,7 @@ def _resolve_class_kinds(
                     candidates.add(inherited)
             if any(
                 _resolve_static_name(
-                    owners[qualname],
+                    owners[node],
                     decorator.func if isinstance(decorator, ast.Call) else decorator,
                 )
                 in DATACLASS_DECORATORS
@@ -598,11 +599,10 @@ def _resolve_class_kinds(
                 item["data"]["enum_members"] = _static_enum_members(node)
     for identity, node in classes.items():
         item = symbol_by_id[identity]
-        qualname = item["data"]["qualified_name"]
         # frozen_object depends on class_kind, which is final only after the fixpoint.
         item["data"]["frozen_object"] = _class_is_frozen(
             node,
-            owners[qualname],
+            owners[node],
             allow_pydantic=item["data"].get("class_kind") == "pydantic_model",
         )
 
@@ -655,7 +655,7 @@ def _base_binding(
         elif (
             dotted == "object"
             and owner["data"]["lexical_parent_id"] is None
-            and not _binding_may_exist_before(module.tree.body, node, root)
+            and not _binding_may_exist_before(module, module.tree.body, node, root)
         ):
             targets = ["builtins.object"]
             status, reason = "resolved", "unshadowed builtin object base"
@@ -739,7 +739,7 @@ def _base_namespace_uncertain(
 
 def _record_class_bases(
     classes: dict[str, ast.ClassDef],
-    owners: dict[str, ParsedModule],
+    owners: dict[ast.AST, ParsedModule],
     symbols: Sequence[RawRecord],
     evidence: dict[str, RawEvidence],
 ) -> None:
@@ -750,7 +750,7 @@ def _record_class_bases(
         definitions.append(item)
     for identity, node in classes.items():
         item = by_id[identity]
-        module = owners[item["data"]["qualified_name"]]
+        module = owners[node]
         stable_bindings = stable_direct_module_bindings(module)
         item["data"]["base_declarations"] = [
             _base_declaration(module, node, item, base, by_name, stable_bindings, evidence)
@@ -1040,10 +1040,10 @@ def _default_constructor_body(node: ast.ClassDef) -> bool:
 
 def collect_symbols(
     modules: Sequence[ParsedModule], evidence: dict[str, RawEvidence]
-) -> tuple[list[RawRecord], dict[str, ast.AST], dict[str, ParsedModule]]:
+) -> tuple[list[RawRecord], dict[str, ast.AST], dict[ast.AST, ParsedModule]]:
     symbols: list[RawRecord] = []
     nodes: dict[str, ast.AST] = {}
-    owners: dict[str, ParsedModule] = {}
+    owners: dict[ast.AST, ParsedModule] = {}
     classes: dict[str, ast.ClassDef] = {}
 
     for module in modules:
@@ -1063,7 +1063,7 @@ def collect_symbols(
             symbols.append(symbol)
             if not contexts:
                 nodes[qualname] = node
-            owners[qualname] = module
+            owners[node] = module
             if isinstance(node, ast.ClassDef):
                 classes[symbol["id"]] = node
         definition_ids = {item["id"] for item in symbols}
@@ -1095,12 +1095,14 @@ def _mark_overloaded_symbols(symbols: list[RawRecord]) -> list[RawRecord]:
 
 
 def _record_member_inventories(
-    classes: dict[str, ast.ClassDef], owners: dict[str, ParsedModule], symbols: Sequence[RawRecord]
+    classes: dict[str, ast.ClassDef],
+    owners: dict[ast.AST, ParsedModule],
+    symbols: Sequence[RawRecord],
 ) -> None:
     by_id = {item["id"]: item for item in symbols}
     for identity, node in classes.items():
         data = by_id[identity]["data"]
-        module = owners[data["qualified_name"]]
+        module = owners[node]
         stable = (
             data["source_binding_unique"]
             and not data["class_body_control_flow"]

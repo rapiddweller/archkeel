@@ -92,3 +92,61 @@ def test_namespace_access_remains_unproven(expression: str) -> None:
     module = _parsed_module("class C: pass\n" + expression + "\n")
     assert stable_direct_module_bindings(module) == frozenset()
     assert stable_direct_module_bindings(module) == frozenset()
+
+
+def test_absent_global_does_not_rescan_class_bodies() -> None:
+    module = _parsed_module("class Service:\n class Nested:\n  staticmethod = 1\n")
+    with patch.object(ast, "walk", wraps=ast.walk) as walks:
+        for _ in range(3):
+            assert not source.binding_may_exist_before(
+                module, module.tree.body, None, "staticmethod"
+            )
+        assert walks.call_count == 0
+
+
+def test_global_elsewhere_does_not_bind_inside_a_different_class() -> None:
+    module = _parsed_module(
+        "class First:\n global property\n property = None\nclass Second: pass\n"
+    )
+    second = module.tree.body[1]
+    assert isinstance(second, ast.ClassDef)
+    assert not source.binding_may_exist_before(module, second.body, None, "property")
+    assert source.binding_may_exist_before(module, module.tree.body, second, "property")
+
+
+def test_absent_binding_does_not_repeat_statement_scans() -> None:
+    module = _parsed_module("def service(value=factory('x')): pass\n")
+    with patch.object(ast, "iter_child_nodes", wraps=ast.iter_child_nodes) as visits:
+        for _ in range(3):
+            assert not source.binding_may_exist_before(
+                module, module.tree.body, None, "staticmethod"
+            )
+        assert visits.call_count == 0
+
+
+def test_wildcard_import_retains_arbitrary_binding_uncertainty() -> None:
+    module = _parsed_module("from unknown import *\n")
+    assert source.binding_may_exist_before(module, module.tree.body, None, "staticmethod")
+
+
+@pytest.mark.parametrize(
+    "declaration",
+    [
+        "del property",
+        "property: object",
+        "import unknown as property",
+        "from unknown import value as property",
+        "class property: pass",
+        "def property(): pass",
+        "async def property(): pass",
+        "try:\n pass\nexcept Exception as property:\n pass",
+        'match value:\n case {"x": property}: pass',
+        "match value:\n case [*property]: pass",
+        "match value:\n case {**property}: pass",
+        "class First:\n global property",
+        "def service(value=(property := 1)): pass",
+    ],
+)
+def test_binding_index_preserves_every_binding_form(declaration: str) -> None:
+    module = _parsed_module(declaration + "\n")
+    assert source.binding_may_exist_before(module, module.tree.body, None, "property")
