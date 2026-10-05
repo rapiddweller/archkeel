@@ -160,7 +160,7 @@ def test_acceptance_fixture_cleanup_tolerates_exit_before_sigkill(
     monkeypatch.setattr(acceptance.os, "kill", kill)
 
     acceptance.test_collection_stops_owned_descendant_for_every_completion(
-        tmp_path, "malformed", "protocol_error"
+        tmp_path, "malformed", "protocol_error", monkeypatch
     )
 
 
@@ -188,3 +188,12 @@ def test_timeout_stops_descendant_started_after_100ms(
     assert len(results) == 1
     assert isinstance(results[0], CollectionError)
     assert results[0].kind == "timeout"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX process-group proof only")
+def test_acceptance_timeout_stops_descendant_with_delayed_heartbeat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    acceptance.test_collection_stops_owned_descendant_for_every_completion(
+        tmp_path, "timeout", "timeout", monkeypatch, child_start_delay=0.18
+    )
