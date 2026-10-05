@@ -49,7 +49,7 @@ def project_name(root: Path, config: ScanConfig) -> str:
             path = _contained(root, "pyproject.toml", field="project metadata")
             with open(path, "rb") as stream:
                 metadata = tomllib.load(stream)
-        except (ConfigError, OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        except (ConfigError, OSError, RuntimeError, UnicodeDecodeError, tomllib.TOMLDecodeError):
             return config.namespace
         project = metadata.get("project")
         name = project.get("name") if isinstance(project, dict) else None

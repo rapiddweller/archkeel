@@ -8,6 +8,7 @@ contents keep their existing meaning. Report-mode guidance belongs beside the de
 not in an empty Failures list. Module counts use the singular for one module.
 
 The CLI displays a valid raw Python `[project].name`, falling back to the configured namespace.
+Unreadable metadata, including symlink loops, cannot change a check verdict.
 This changes presentation only; no configuration or IR field is added. Other languages use
 the namespace. Invalid-rule help lists `rule_assessments[].id`, including rules with no failures.
 
