@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: against gate check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema
+.PHONY: against gate check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema
 check: lint typecheck test
 
 gate: release-check self-validate
@@ -39,7 +39,7 @@ LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/r
 	tools/architecture_graph_schema.py
 
 architecture-graph-schema:
-	$(UV) run --locked python -m tools.architecture_graph_schema schema/architecture-graph.schema.json --contract schema/architecture-contract.schema.json --comparison schema/architecture-comparison.schema.json --report schema/architecture-report.schema.json
+	$(UV) run --locked python -m tools.architecture_graph_schema schema/architecture-graph.schema.json --contract schema/architecture-contract.schema.json --comparison schema/architecture-comparison.schema.json --report schema/architecture-report.schema.json --source-inventory schema/source-member-inventory.schema.json --source-profile schema/architecture-ir-python-decoded.schema.json
 
 lint:
 	$(UV) run --locked ruff format --check $(LINT_PATHS)
@@ -91,6 +91,13 @@ demo-architecture:
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
 	@$(UV) run --locked python -m fixtures.architecture_demo --replay "$(VARIANT)" --output "$(OUTPUT)"
 
+demo-uml: typescript-adapter
+	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
+	@$(MAKE) demo-architecture VARIANT=uml-match OUTPUT="$(OUTPUT)/python.json"
+	@$(MAKE) demo-architecture VARIANT=uml-complete OUTPUT="$(OUTPUT)/python-complete.json"
+	@$(MAKE) demo-architecture VARIANT=uml-dart OUTPUT="$(OUTPUT)/dart.json"
+	@$(MAKE) demo-architecture VARIANT=uml-typescript OUTPUT="$(OUTPUT)/typescript.json"
+
 # The figure is derived from the run above, so a test compares it with a fresh render.
 loop-figure:
 	@$(UV) run --locked python -m tools.onboarding_svg docs/assets/archkeel-onboarding-loop.svg
@@ -125,7 +132,7 @@ plugin-directory:
 		cp -R "$$stage/archkeel/." plugins/archkeel/
 
 report-browser:
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q tests/test_report_interactions.py tests/test_report_migration_negatives.py tests/test_secondary_table_acceptance.py tests/test_uml_rendering.py tests/test_legacy_graph_rendering.py tests/test_own_uml_target.py tests/test_uml_visual_acceptance.py
+	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q tests/test_report_interactions.py tests/test_report_migration_negatives.py tests/test_secondary_table_acceptance.py tests/test_uml_rendering.py tests/test_legacy_graph_rendering.py tests/test_own_uml_target.py tests/test_uml_visual_acceptance.py tests/test_uml_demo.py
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m tools.report_browser $(if $(OUTPUT),--output "$(OUTPUT)")
 
 # Twine validates PyPI metadata; it is a build-only tool.

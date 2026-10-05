@@ -20,6 +20,9 @@ from archkeel.render.html import render_html
 
 ROOT = Path(__file__).parents[1]
 TYPE_DEPENDENCIES = {
+    ("ComponentIntent", "ComponentRole"),
+    ("TargetDefinition", "GraphSchemaVersion"),
+    ("ArchitectureGraph", "GraphSchemaVersion"),
     ("Signature", "Parameter"),
     ("Entity", "Visibility"),
     ("Entity", "Signature"),
@@ -39,6 +42,22 @@ TYPE_DEPENDENCIES = {
     ("ArchitectureReport", "DependencyDecisionGap"),
     ("ArchitectureGraph", "ExternalDependencyScopeRule"),
 }
+
+
+def test_own_target_declares_the_component_role_enum_literals():
+    target = _target()
+    role = next(
+        e
+        for e in target.entities
+        if e.qualified_name == "archkeel.ir.architecture_graph.ComponentRole"
+    )
+    assert role.kind == "enum"
+    assert {
+        e.qualified_name.rsplit(".", 1)[-1]
+        for e in target.entities
+        if e.parent_id == role.id and e.kind == "enum_literal"
+    } == {"COMPONENT", "INTERFACE", "CONTRACT", "PROJECTION", "FOUNDATION"}
+    assert target.schema_version == "1.1.0"
 
 
 def _target():
@@ -69,7 +88,12 @@ def test_own_graph_boundary_declares_fields_methods_and_imports():
 def test_own_class_model_has_independent_type_dependencies():
     target = _target()
     entities = {item.id: item for item in target.entities}
-    references = tuple(item for item in target.relationships if item.kind == "references")
+    references = tuple(
+        item
+        for item in target.relationships
+        if item.kind == "references"
+        and entities[item.source_id].qualified_name.startswith("archkeel.ir.architecture_graph.")
+    )
     assert {
         (
             entities[item.source_id].qualified_name.rsplit(".", 1)[-1],
@@ -240,6 +264,7 @@ def test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints():
         height=1150,
         errors=errors,
     )
+    page.context.new_cdp_session(page).send("Emulation.setCPUThrottlingRate", {"rate": 4})
     try:
         for label in ("ir", "governance", "architecture_graph"):
             page.locator(f'.flow-nodes [data-label="{label}"]').dblclick()
@@ -456,7 +481,11 @@ def test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence(view
             "edges => edges.map(edge => edge.dataset.umlId).sort()"
         )
         if view != "As-Is":
-            assert len(identities) == 22 and len(relationships) == 22
+            assert {"ComponentRole", "ComponentIntent", "GraphSchemaVersion"} <= set(
+                page.locator(".flow-nodes [data-uml-id]").evaluate_all(
+                    "nodes => nodes.map(node => node.dataset.label)"
+                )
+            )
             assert (
                 card.locator(".label").evaluate("""node =>
               parseFloat(getComputedStyle(node).fontSize)
@@ -469,6 +498,10 @@ def test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence(view
         previews.press("Space")
         assert previews.get_attribute("aria-pressed") == "true"
         assert card.locator(".uml-member").count() > 0
+        assert card.locator(".uml-member").evaluate_all("""nodes => nodes.every(node =>
+          parseFloat(getComputedStyle(node).fontSize)
+            * Math.hypot(node.getScreenCTM().a, node.getScreenCTM().b) >= 11)
+        """)
         if view != "As-Is":
             assert not _route_problems(page.locator(".flow-edges .edge"))
         assert (
@@ -538,6 +571,140 @@ def test_own_class_overview_keeps_distinct_routes_and_type_cues(view):
         assert not _route_problems(edges)
         assert page.locator(".flow-edges [data-route-warning]").count() == 0
         assert page.locator("#flow-data").text_content() == complete
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.parametrize("width", [1600, 1300])
+def test_own_ports_keep_mixed_relationship_routes_separate(width):
+    api = pytest.importorskip("playwright.sync_api")
+    model = parse_observation(
+        decode_canonical_model(
+            json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
+        )
+    )
+    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
+    errors = []
+    playwright, browser, page = _browser_page(
+        api,
+        render_html(result, model, repository="archkeel", architecture_href=None).decode(),
+        width=width,
+        height=1050,
+        errors=errors,
+    )
+    try:
+        for label in ("check", "inputs", "ports"):
+            page.locator(f'.flow-nodes [data-label="{label}"]').dblclick()
+        payload = page.locator("#flow-data").text_content()
+        page.locator('.flow-nodes [data-label="SourceCollector"]').click()
+        edges = page.locator(".flow-edges .edge")
+        assert page.locator('.flow-edges [data-relationship-kind="imports"]').count() > 0
+        assert page.locator('.flow-edges [data-relationship-kind="references"]').count() > 0
+        assert not _route_problems(edges)
+        assert edges.evaluate_all("""edges => edges.every(edge =>
+          edge.querySelector('.line').getAttribute('d')
+            === edge.querySelector('.hit').getAttribute('d'))""")
+        assert page.locator("#flow-data").text_content() == payload
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
+def test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation(view):
+    api = pytest.importorskip("playwright.sync_api")
+    model = parse_observation(
+        decode_canonical_model(
+            json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
+        )
+    )
+    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
+    errors = []
+    playwright, browser, page = _browser_page(
+        api,
+        render_html(result, model, repository="archkeel", architecture_href=None).decode(),
+        width=1550,
+        height=1150,
+        errors=errors,
+    )
+    try:
+        payload = page.locator("#flow-data").text_content()
+        page.get_by_role("button", name=view, exact=True).click()
+        page.locator('.flow-nodes [data-label="ir"]').dblclick()
+        boundary = page.locator('.flow-nodes [data-label="protocol"]')
+        assert boundary.get_attribute("data-uml-kind") == "component"
+        assert "Architecture boundary" in boundary.text_content()
+        boundary_color = boundary.locator(".stereotype").evaluate(
+            "node => getComputedStyle(node).fill"
+        )
+        boundary.dblclick()
+        module = page.locator('.flow-nodes [data-label="protocol"]')
+        assert module.get_attribute("data-uml-kind") == "module"
+        assert ("protocol.py" if view == "As-Is" else "File not declared") in module.text_content()
+        assert "protocol [component]" in page.locator(".flow-breadcrumb").inner_text()
+        module.press("Space")
+        if page.locator(".flow-details-toggle").get_attribute("aria-expanded") != "true":
+            page.locator(".flow-details-toggle").click()
+        details = page.locator(".flow-inspector-content").inner_text()
+        assert "Python module" in details and "View group" in details
+        if view == "As-Is":
+            assert "src/archkeel/ir/protocol.py" in details
+            assert "Code namespace" in details and "archkeel.ir [namespace group]" in details
+        else:
+            assert "Not declared" in details
+        module_color = module.locator(".stereotype").evaluate("node => getComputedStyle(node).fill")
+        assert boundary_color != module_color
+        module.dblclick()
+        assert "protocol [module]" in page.locator(".flow-breadcrumb").inner_text()
+        for name in ("PythonSettings", "DartSettings", "TypeScriptSettings"):
+            card = page.locator(f'.flow-nodes [data-label="{name}"]')
+            assert card.get_attribute("data-uml-kind") == "class"
+            assert "«class»" in card.text_content()
+        assert (
+            page.locator('.flow-nodes [data-label="ResolverSettings"]').get_attribute(
+                "data-uml-kind"
+            )
+            == "type_alias"
+        )
+        assert (
+            page.locator('.flow-nodes [data-label="PROTOCOL_VERSION"]').get_attribute(
+                "data-uml-kind"
+            )
+            == "constant"
+        )
+        page.locator('.flow-nodes [data-label="TypeScriptSettings"]').dblclick()
+        language = page.locator('.flow-nodes [data-label="language"][data-uml-kind="attribute"]')
+        assert "Literal['typescript']" in language.text_content()
+        assert (
+            page.locator('.flow-nodes [data-label="tsconfig"]').get_attribute("data-uml-kind")
+            == "attribute"
+        )
+        language.press("Space")
+        if page.locator(".flow-details-toggle").get_attribute("aria-expanded") != "true":
+            page.locator(".flow-details-toggle").click()
+        details = page.locator(".flow-inspector-content").inner_text()
+        assert "public" in details and "Literal['typescript']" in details
+        heading = page.locator(".flow-inspector-content h2")
+        assert heading.inner_text() == "language"
+        qualified = page.locator(".flow-qualified-name")
+        assert qualified.text_content() == "archkeel.ir.protocol.TypeScriptSettings.language"
+        assert qualified.locator("wbr").count() == 4
+        assert heading.evaluate(
+            "node => node.getBoundingClientRect().height <= "
+            "parseFloat(getComputedStyle(node).lineHeight) + 1"
+        )
+        excerpts = page.locator(".flow-inspector-content pre").all_text_contents()
+        if view != "Target":
+            assert excerpts
+        page.set_viewport_size({"width": 1080, "height": 900})
+        assert page.locator(".flow-inspector").evaluate(
+            "node => node.scrollWidth <= node.clientWidth + 1"
+        )
+        assert page.locator(".flow-inspector-content pre").all_text_contents() == excerpts
+        assert page.locator("#flow-data").text_content() == payload
         assert not errors
     finally:
         browser.close()

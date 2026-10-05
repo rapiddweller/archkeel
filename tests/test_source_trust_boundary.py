@@ -36,6 +36,43 @@ def _payload():
     return json.loads(encode_response(CollectionResponse(_facts())))
 
 
+@pytest.mark.parametrize(
+    "details,accepted",
+    [
+        ({}, True),
+        ({"declaration_scope": "project.app.work", "declaration_definition_id": "OP-1"}, True),
+        ({"declaration_scope": "project.app.work"}, False),
+        ({"declaration_definition_id": "OP-1"}, False),
+        ({"declaration_scope": "project.app.work", "declaration_definition_id": False}, False),
+        ({"declaration_scope": "project.app.work", "declaration_definition_id": ""}, False),
+        ({"declaration_scope": "project.store.work", "declaration_definition_id": "OP-1"}, False),
+    ],
+)
+def test_source_reference_declaration_identity_pair(details, accepted):
+    payload = _payload()
+    reference = copy.deepcopy(payload["facts"]["sections"][0]["records"][0])
+    reference.update(id="REF-1", kind="value_reference", area="call_hierarchy")
+    reference["data"] = {
+        "source_scope": "project.app",
+        "source_module": "project.app",
+        "expression": "worker",
+        "status": "resolved",
+        "targets": ["project.store"],
+        "use": "value",
+        **details,
+    }
+    section = next(
+        section for section in payload["facts"]["sections"] if section["name"] == "references"
+    )
+    section["records"].append(reference)
+    encoded = json.dumps(payload).encode()
+    if accepted:
+        assert json.loads(encode_response(decode_response(encoded))) == payload
+    else:
+        with pytest.raises(ProtocolError):
+            decode_response(encoded)
+
+
 def _decode(payload):
     return decode_response(json.dumps(payload).encode()).facts
 

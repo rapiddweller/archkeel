@@ -6,7 +6,7 @@
 from collections.abc import Sequence
 from typing import Any, Final, TypeAlias, TypedDict
 
-from .facts import EvidenceClass, stable_id
+from .facts import EvidenceClass, MemberInventory, stable_id
 
 # Mutable JSON builders remain private to collection/evaluation, never the process port.
 RawData: TypeAlias = dict[str, Any]
@@ -120,3 +120,13 @@ FRAMEWORK_BASES: Final = frozenset(
 
 def is_public_method_name(name: str) -> bool:
     return not name.startswith("_") or (name.startswith("__") and name.endswith("__"))
+
+
+def member_inventory_data(inventory: MemberInventory) -> RawData:
+    return {
+        "schema_version": inventory.schema_version,
+        "kind": inventory.kind,
+        "status": inventory.status,
+        "definition_ids": list(inventory.definition_ids),
+        "reason": inventory.reason,
+    }

@@ -338,6 +338,38 @@
                 "evidence_class"
               ]
             }
+          },
+          {
+            "properties": {
+              "data": {
+                "properties": {
+                  "member_inventories": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": {
+                      "$ref": "#/$defs/member_inventory"
+                    }
+                  }
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "data": {
+                  "required": [
+                    "member_inventories"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "kind": {
+                  "const": "class"
+                }
+              }
+            }
           }
         ]
       }
@@ -603,7 +635,10 @@
                     "minLength": 1
                   },
                   "source_definition_id": {
-                    "type": ["string", "null"],
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "minLength": 1
                   },
                   "source_module": {
@@ -648,31 +683,75 @@
                     "type": "array",
                     "items": {
                       "type": "object",
-                      "required": ["id", "name", "target_kind", "annotation", "initializer", "evidence_ids", "definition_contexts"],
+                      "required": [
+                        "id",
+                        "name",
+                        "target_kind",
+                        "annotation",
+                        "initializer",
+                        "evidence_ids",
+                        "definition_contexts"
+                      ],
                       "properties": {
-                        "id": {"type": "string", "minLength": 1},
-                        "name": {"type": "string", "minLength": 1},
-                        "target_kind": {"enum": ["name", "attribute", "subscript"]},
-                        "annotation": {"type": ["string", "null"]},
-                        "initializer": {"type": "string", "minLength": 1},
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "target_kind": {
+                          "enum": [
+                            "name",
+                            "attribute",
+                            "subscript"
+                          ]
+                        },
+                        "annotation": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "initializer": {
+                          "type": "string",
+                          "minLength": 1
+                        },
                         "evidence_ids": {
                           "type": "array",
                           "minItems": 1,
-                          "items": {"type": "string", "minLength": 1}
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
                         },
                         "definition_contexts": {
                           "$comment": "Graph validation checks context vocabulary and cited evidence.",
                           "type": "array",
                           "items": {
                             "type": "object",
-                            "required": ["kind", "branch", "evidence_ids"],
+                            "required": [
+                              "kind",
+                              "branch",
+                              "evidence_ids"
+                            ],
                             "properties": {
-                              "kind": {"type": "string", "minLength": 1},
-                              "branch": {"type": "string", "minLength": 1},
+                              "kind": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "branch": {
+                                "type": "string",
+                                "minLength": 1
+                              },
                               "evidence_ids": {
                                 "type": "array",
                                 "minItems": 1,
-                                "items": {"type": "string", "minLength": 1}
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
                               }
                             },
                             "additionalProperties": false
@@ -683,17 +762,38 @@
                     }
                   },
                   "construction": {
-                    "type": ["object", "null"],
-                    "required": ["status", "targets", "candidates_truncated", "reason"],
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "required": [
+                      "status",
+                      "targets",
+                      "candidates_truncated",
+                      "reason"
+                    ],
                     "properties": {
-                      "status": {"enum": ["resolved", "partially_resolved"]},
+                      "status": {
+                        "enum": [
+                          "resolved",
+                          "partially_resolved"
+                        ]
+                      },
                       "targets": {
                         "type": "array",
                         "minItems": 1,
-                        "items": {"type": "string", "minLength": 1}
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
                       },
-                      "candidates_truncated": {"type": "boolean"},
-                      "reason": {"type": "string", "minLength": 1}
+                      "candidates_truncated": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1
+                      }
                     },
                     "additionalProperties": false
                   }
@@ -942,13 +1042,32 @@
                   "targets",
                   "use"
                 ],
+                "dependentRequired": {
+                  "declaration_scope": [
+                    "declaration_definition_id"
+                  ],
+                  "declaration_definition_id": [
+                    "declaration_scope"
+                  ]
+                },
                 "properties": {
+                  "declaration_scope": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "declaration_definition_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
                   "source_scope": {
                     "type": "string",
                     "minLength": 1
                   },
                   "source_definition_id": {
-                    "type": ["string", "null"],
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "minLength": 1
                   },
                   "source_module": {
@@ -1013,5 +1132,61 @@
       "additionalProperties": false
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "member_inventory": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "urn:archkeel:source-member-inventory:1.0.0",
+      "title": "Source member inventory",
+      "$comment": "Generated from archkeel.ir.facts.MemberInventory. Status/reason, identity and owner checks also require the SourceFacts validators.",
+      "$ref": "#/$defs/MemberInventory",
+      "$defs": {
+        "MemberInventory": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "attribute",
+                "method"
+              ]
+            },
+            "status": {
+              "enum": [
+                "complete",
+                "partial"
+              ]
+            },
+            "definition_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "schema_version": {
+              "enum": [
+                "1.0.0"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "status",
+            "definition_ids",
+            "schema_version"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  }
 }

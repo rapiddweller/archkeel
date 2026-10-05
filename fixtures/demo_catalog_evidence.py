@@ -88,19 +88,8 @@ _CLASS_C_ROWS: tuple[Variant, ...] = tuple(
     )
     for field in dataclass_fields(ContractDeclarations)
     if field.name not in {"measurement_budgets", "facade_budgets", "coupling_budgets", "uml"}
-) + (
-    Variant(
-        id="class-c-uml",
-        section="class_c",
-        item="ContractDeclarations.uml",
-        summary="Contract 2.2 retains independently authored UML intent. Core reports UNKNOWN "
-        "until entity, relationship and scope assessment is implemented.",
-        files={},
-        expected_violations=(),
-        expected_codes=(),
-        evidence="tests/test_target_graph.py",
-    ),
 )
+
 
 _CLASS_D_ROWS: tuple[Variant, ...] = (
     Variant(

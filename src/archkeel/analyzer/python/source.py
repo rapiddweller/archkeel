@@ -490,7 +490,7 @@ def is_proven_decorator(
     return parent is None or not binding_may_exist_before(parent.body, method, root)
 
 
-def _class_definition_expressions(node: ast.ClassDef) -> list[ast.expr]:
+def class_definition_expressions(node: ast.ClassDef) -> list[ast.expr]:
     expressions = [*node.decorator_list, *node.bases, *(kw.value for kw in node.keywords)]
     for child in node.body:
         if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -588,7 +588,7 @@ def unproven_class_body(
     if any(
         isinstance(item, ast.NamedExpr)
         or exposes_dynamic_namespace(module, item, local_namespace=True)
-        for expr in _class_definition_expressions(node)
+        for expr in class_definition_expressions(node)
         for item in ast.walk(expr)
     ):
         return True

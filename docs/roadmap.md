@@ -7,6 +7,21 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| UML details use short labels and retain complete qualified names (AD-192) | As-Is, Target and Diff protocol field browser tests |
+| UML navigation separates architecture boundaries, namespace groups and code files (AD-193) | Shared type colors, typed breadcrumbs and source mapping browser tests |
+| Native-language UML Target demos preserve unsupported observation (AD-194) | Python PASS, Dart/TypeScript UNKNOWN and shared-renderer acceptance |
+| Component overviews separate file intent and unassigned code (AD-195) | Actual DATAMIMIC root and focused browser proof |
+| Closed Python demo preserves incomplete observation; architecture views form one group (AD-196) | Internal State/VERSION uses, unlisted-definition negative and responsive navigation tests |
+| Expanded self-Target retains eight incomplete member inventories (AD-197) | Exact UNKNOWN subjects, unchanged boundary debt and digest-bound amendment |
+| Unannotated class fields retain static storage, visibility and definition sites (AD-187) | `tests/test_static_fields.py`; `tests/test_member_inventory.py` |
+| Proven enum literals share one typed graph kind and UML compartment; legacy graph formats stay readable (AD-188) | `tests/test_enum_graph.py`; `tests/test_uml_rendering.py`; `tests/test_own_uml_target.py` |
+| Routing clearance reuses numeric intervals without changing routes (AD-189) | Browser preview and routing acceptance |
+| Compact cards and native-size member previews preserve readable UML (AD-190) | Own As-Is, Target and Diff browser acceptance |
+| Independent protocol Target includes language settings, resolver union and shared version (AD-191) | Protocol intent and negative annotation tests; report browser acceptance |
+| Dense mixed relationships retry side exits without expanding the normal search (AD-186) | `tests/test_own_uml_target.py::test_own_ports_keep_mixed_relationship_routes_separate` |
+| Target identity references bind across authenticated inside contracts; the SourceCollector port and envelopes have independent intent (AD-183) | `tests/test_target_reference_linking.py`; `docs/architecture/contracts/{check,ir,analyzer}.json` |
+| Direct member inventories carry owner identities and conservative coverage (AD-185) | `tests/test_member_inventory.py`; `schema/source-member-inventory.schema.json` |
+| Parameter/return references retain declaration and evaluation identities separately (AD-184) | `tests/test_source_graph.py` |
 | Validated construct identity controls rules; descriptive kinds cannot hide accepted facts (AD-152) | `tests/test_collection_capabilities.py` |
 | TypeScript runtime aliases, unproved CommonJS targets and hidden namespace escapes retain coverage gaps; existing explicit JavaScript substitution observes runtime closure (AD-150, AD-151) | `packages/typescript-adapter/test/adapter.test.mjs`; `fixtures/typescript-runtime-aliases.json`; `fixtures/typescript-hidden-loaders.json`; `tests/test_typescript_init_acceptance.py` |
 | Explicit Python bases project to typed inheritance and Protocol realization with binding limits and classifier coverage (AD-181); complete binding proof and static instances remain open | `tests/test_uml_classifier_facts.py`; `tests/test_source_graph.py`; `tests/test_uml_comparison.py`; `docs/architecture/decisions/ad-181-uml-bases-retain-binding-evidence.md` |

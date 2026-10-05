@@ -20,7 +20,7 @@ from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
 from archkeel.cli import main
 from archkeel.cli.config import load_config
-from archkeel.cli.observe import observe
+from archkeel.cli.observe import observe, observer_for
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.graph_codec import parse_report
 from archkeel.ir.measurements import SCALARS, compare_measurements
@@ -607,7 +607,13 @@ def _report_findings(
     `run_report`'s own decoded model already stands in for violations below, and carries the
     `unknowns` section too, so checking it costs no second scan of the sample.
     """
-    report, architecture = run_report(root, config=config, analyzer=observe)
+    report, architecture = run_report(
+        root,
+        config=config,
+        analyzer=observer_for(
+            config.language, collector_argv=config.collector_argv, tsconfig=config.tsconfig
+        ),
+    )
     if architecture is None:
         return (), (), report.declared_rules
     summary = report_summary(report)
@@ -663,7 +669,13 @@ def _sample_run(tmp_path_factory: pytest.TempPathFactory, variant: Variant) -> _
         baseline = root / variant.baseline if variant.baseline is not None else None
         config = load_config(root, variant.config)
         validate_result, _ = run_validate(
-            root, config, observe, baseline=baseline, write_baseline=variant.write_baseline
+            root,
+            config,
+            observer_for(
+                config.language, collector_argv=config.collector_argv, tsconfig=config.tsconfig
+            ),
+            baseline=baseline,
+            write_baseline=variant.write_baseline,
         )
         actual_codes = tuple(sorted(item.code for item in validate_result.diagnostics if item.code))
         actual_kinds = tuple(

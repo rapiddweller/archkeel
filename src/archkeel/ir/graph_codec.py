@@ -32,6 +32,7 @@ from archkeel.ir.architecture_graph import (
     ExternalDependencyScopeRule,
     GraphAssessment,
     GraphComparison,
+    GraphSchemaVersion,
     ModifierKind,
     ModuleInventory,
     OriginKind,
@@ -442,8 +443,6 @@ def parse_graph(value: RawJson) -> ArchitectureGraph:
         },
         "graph",
     )
-    if item["schema_version"] != "1.0.0":
-        raise ValueError("unsupported graph schema_version")
     graph = ArchitectureGraph(
         _choice(item["origin"], get_args(OriginKind), "graph.origin"),
         tuple(parse_entity(entry) for entry in _array(item.get("entities", ()), "entities")),
@@ -453,6 +452,9 @@ def parse_graph(value: RawJson) -> ArchitectureGraph:
         ),
         tuple(_coverage(entry) for entry in _array(item.get("coverage", ()), "coverage")),
         tuple(_evidence(entry) for entry in _array(item.get("evidence", ()), "evidence")),
+        schema_version=_choice(
+            item["schema_version"], get_args(GraphSchemaVersion), "graph.schema_version"
+        ),
         target_scopes=tuple(
             _target_scope(entry) for entry in _array(item.get("target_scopes", ()), "target_scopes")
         ),
@@ -483,8 +485,6 @@ def parse_graph(value: RawJson) -> ArchitectureGraph:
 
 def parse_target(value: RawJson) -> TargetDefinition:
     item = _fields(value, {"schema_version"}, {"entities", "relationships", "scopes"}, "uml")
-    if item["schema_version"] != "1.0.0":
-        raise ValueError("unsupported UML schema_version")
     return TargetDefinition(
         tuple(parse_entity(entry) for entry in _array(item.get("entities", ()), "entities")),
         tuple(
@@ -492,6 +492,9 @@ def parse_target(value: RawJson) -> TargetDefinition:
             for entry in _array(item.get("relationships", ()), "relationships")
         ),
         tuple(_target_scope(entry) for entry in _array(item.get("scopes", ()), "scopes")),
+        schema_version=_choice(
+            item["schema_version"], get_args(GraphSchemaVersion), "uml.schema_version"
+        ),
     )
 
 

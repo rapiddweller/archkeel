@@ -1,0 +1,4 @@
+[scan]
+roots = ["demo"]
+namespace = "demo"
+contract = "architecture-contract.json"

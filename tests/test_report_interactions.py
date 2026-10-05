@@ -10,6 +10,50 @@ from test_uml_rendering import _open_module, _uml_report
 from archkeel.ir.architecture_graph import Relationship
 
 
+@pytest.mark.parametrize("width,height", [(1440, 1000), (375, 844)])
+def test_equal_root_diagram_uses_one_viewport_alignment_in_every_architecture_view(
+    tmp_path, width, height
+):
+    api = pytest.importorskip("playwright.sync_api")
+    html, _ = _uml_report(tmp_path)
+    playwright, browser, page = _browser_page(api, html, width, height)
+    try:
+        geometry = []
+        for name in ("As-Is", "Target", "Diff", "As-Is"):
+            page.get_by_role("button", name=name, exact=True).click()
+            card = page.locator('.flow-nodes [data-label="core"] .card')
+            assert card.count() == 1
+            geometry.append(card.bounding_box())
+        for box in geometry[1:]:
+            assert box == pytest.approx(geometry[0], abs=1)
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.parametrize("width,height", [(1440, 1000), (375, 844)])
+def test_architecture_views_are_grouped_separately_from_evidence_views(tmp_path, width, height):
+    api = pytest.importorskip("playwright.sync_api")
+    html, _ = _uml_report(tmp_path)
+    playwright, browser, page = _browser_page(api, html, width, height)
+    try:
+        architecture = page.get_by_role("group", name="Architecture diagrams", exact=True)
+        evidence = page.get_by_role("group", name="Evidence views", exact=True)
+        assert architecture.locator("button").all_text_contents() == ["As-Is", "Target", "Diff"]
+        assert evidence.locator("button").all_text_contents() == ["Structure", "Review", "Actual"]
+        for name in ("Target", "Diff", "Review", "As-Is"):
+            page.get_by_role("button", name=name, exact=True).click()
+            assert (
+                page.get_by_role("button", name=name, exact=True).get_attribute("aria-pressed")
+                == "true"
+            )
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
 @pytest.mark.parametrize("width,height", [(1440, 1000), (375, 844)])
 def test_scope_selection_and_geometry_survive_view_switch_and_resize(tmp_path, view, width, height):

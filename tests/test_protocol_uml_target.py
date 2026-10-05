@@ -1,0 +1,143 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""Protocol Target intent includes the language selector, not architecture policy."""
+
+import json
+from dataclasses import replace
+from pathlib import Path
+
+from archkeel.check.uml_compare import compare_graphs
+from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
+from archkeel.ir.source_graph import observed_graph
+from archkeel.ir.target_graph import declared_graph
+
+ROOT = Path(__file__).parents[1]
+SETTINGS = {
+    "PythonSettings": {"language": "Literal['python']"},
+    "DartSettings": {"language": "Literal['dart']"},
+    "TypeScriptSettings": {"language": "Literal['typescript']", "tsconfig": "str"},
+}
+PROTOCOL_REFERENCES = {
+    ("archkeel.ir.protocol", f"archkeel.ir.protocol.{name}") for name in SETTINGS
+} | {
+    ("archkeel.ir.protocol.CollectionRequest", "archkeel.ir.protocol.ResolverSettings"),
+    ("archkeel.ir.protocol.CollectionRequest", "archkeel.ir.protocol.PROTOCOL_VERSION"),
+    ("archkeel.ir.protocol.CollectionResponse", "archkeel.ir.protocol.PROTOCOL_VERSION"),
+}
+
+
+def _graphs():
+    contract = parse_contract(
+        json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text())
+    )
+    target = declared_graph(contract)
+    observation = parse_observation(
+        decode_canonical_model(json.loads((ROOT / "fixtures/D-self/architecture.json").read_text()))
+    )
+    return observed_graph(observation), target
+
+
+def test_protocol_target_has_all_resolver_variants_and_typed_public_fields():
+    observed, target = _graphs()
+    by_name = {e.qualified_name: e for e in target.entities}
+    for name, fields in SETTINGS.items():
+        classifier = by_name[f"archkeel.ir.protocol.{name}"]
+        assert classifier.kind == "class" and classifier.presence == "planned"
+        assert classifier.modifiers == ("frozen",)
+        for field, annotation in fields.items():
+            value = by_name[f"{classifier.qualified_name}.{field}"]
+            assert value.kind == "attribute" and value.parent_id == classifier.id
+            assert value.visibility.kind == "public" and value.annotation == annotation
+    assert by_name["archkeel.ir.protocol.ResolverSettings"].kind == "type_alias"
+    assert by_name["archkeel.ir.protocol.PROTOCOL_VERSION"].kind == "constant"
+    comparison = compare_graphs(observed, target)
+    ids = {by_name[f"archkeel.ir.protocol.{name}"].id for name in SETTINGS}
+    assert all(
+        any(
+            a.subject_id == id and a.aspect == "existence" and a.status == "PASS"
+            for a in comparison.assessments
+        )
+        for id in ids
+    )
+
+
+def test_protocol_target_links_language_variants_request_and_shared_version():
+    observed, target = _graphs()
+    entities = {e.id: e for e in target.entities}
+    relations = [
+        r
+        for r in target.relationships
+        if r.kind == "references"
+        and entities[r.source_id].qualified_name.startswith("archkeel.ir.protocol")
+    ]
+    assert {
+        (entities[r.source_id].qualified_name, entities[r.target_id].qualified_name)
+        for r in relations
+    } == PROTOCOL_REFERENCES
+    assert all(r.provenance and not r.evidence_ids and not r.record_ids for r in relations)
+    comparison = compare_graphs(observed, target)
+    assert all(
+        any(
+            a.subject_id == r.id and a.aspect == "relationship" and a.status == "PASS"
+            for a in comparison.assessments
+        )
+        for r in relations
+    )
+
+
+def test_protocol_target_rejects_a_changed_language_discriminator_without_copying_source():
+    observed, target = _graphs()
+    wanted = next(
+        e
+        for e in target.entities
+        if e.qualified_name == "archkeel.ir.protocol.TypeScriptSettings.language"
+    )
+    actual = next(
+        e
+        for e in observed.entities
+        if e.qualified_name == wanted.qualified_name and e.kind == "attribute"
+    )
+    changed = replace(
+        observed,
+        entities=tuple(
+            replace(e, annotation="str") if e.id == actual.id else e for e in observed.entities
+        ),
+    )
+    comparison = compare_graphs(changed, target)
+    assert any(
+        a.subject_id == wanted.id and a.aspect == "annotation" and a.status == "FAIL"
+        for a in comparison.assessments
+    )
+    assert target.entities == _graphs()[1].entities
+
+
+def test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes():
+    observation = parse_observation(
+        decode_canonical_model(json.loads((ROOT / "fixtures/D-self/architecture.json").read_text()))
+    )
+    unknowns = observation.records("unknowns")
+    inventory = tuple(item for item in unknowns if item.kind == "uml_conformance")
+    assert len(inventory) == 8
+    assert {item.data.get("subject_id") for item in inventory} == {
+        "ir:source-facts",
+        "ir:coverage",
+        "ir:snapshot",
+        "ir:scope",
+        "ir:request",
+        "ir:response",
+        "ir:error",
+        "check:port",
+    }
+    assert all(
+        item.data.get("aspect") == "completeness" and item.data.get("status") == "UNKNOWN"
+        for item in inventory
+    )
+    # New closed intent must not conceal a regression in the existing boundary debt.
+    from archkeel.check.ratchets import unknown_positions_by_rule
+
+    counts = dict(unknown_positions_by_rule(observation))
+    assert sum(count for rule, count in counts.items() if not rule.startswith("UML-TARGET")) == 40
+    assert sum(counts.values()) == 48
+    baseline = json.loads((ROOT / "architecture-baseline.json").read_text())
+    assert baseline["budgets"]["unknown_positions"] == 48

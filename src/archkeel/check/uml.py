@@ -275,8 +275,9 @@ def _target_records(
         )
     target = TargetDefinition(
         entities=tuple(entity for entity in graph.entities if entity.kind != "component"),
-        relationships=tuple(edge for target in targets for edge in target.relationships),
+        relationships=tuple(edge for edge in graph.relationships if edge.kind != "requires"),
         scopes=graph.target_scopes,
+        schema_version=graph.schema_version,
     )
     identity = stable_id("UML-TARGET" if targets else "ARCHITECTURE-TARGET", path)
     declaration = parse_record(
