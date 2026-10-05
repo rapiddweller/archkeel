@@ -88,9 +88,15 @@ def test_global_api_selectors_are_not_source_entities_or_language_visibility():
 
 
 def test_qualified_names_are_not_identity_overloads_and_package_initializers_survive() -> None:
-    module = _entity("module", "module")
+    module = _entity("module", "module", presence="defined")
     package = replace(module, id="package", kind="package")
-    overload = _entity("function", "function", parent_id=module.id)
+    overload = _entity(
+        "function",
+        "function",
+        parent_id=module.id,
+        presence="defined",
+        signature=Signature((Parameter("value", "str", "positional"),), "str"),
+    )
     implementation = replace(overload, id="implementation")
     _observed(package, module, overload, implementation).validate()
 

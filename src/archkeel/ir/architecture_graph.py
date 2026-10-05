@@ -28,6 +28,8 @@ EntityKind: TypeAlias = Literal[
     "binding",
     "symbol",
 ]
+_CLASSIFIER_KINDS: frozenset[EntityKind] = frozenset({"class", "interface", "enum"})
+
 RelationshipKind: TypeAlias = Literal[
     "imports",
     "calls",
@@ -519,6 +521,7 @@ class ArchitectureGraph:
                 raise ValueError("invalid external permission decider")
 
     def _validate_entities(self, entities: dict[str, Entity], evidence_ids: set[str]) -> None:
+        planned_identities: set[tuple[str, EntityKind, str, str | None, Signature | None]] = set()
         for entity in self.entities:
             if not entity.id or not entity.qualified_name or not entity.language:
                 raise ValueError("empty entity identity")
@@ -540,13 +543,33 @@ class ArchitectureGraph:
                 parent = entities[parent].parent_id
             if entity.signature is not None and entity.kind not in {"method", "function"}:
                 raise ValueError("signature on a non-operation")
+            if self.origin == "declared":
+                if entity.presence == "planned" and entity.kind != "component":
+                    identity = (
+                        entity.qualified_name,
+                        entity.kind,
+                        entity.language,
+                        entity.parent_id,
+                        entity.signature,
+                    )
+                    if identity in planned_identities:
+                        raise ValueError("duplicate planned entity")
+                    planned_identities.add(identity)
+                    if entity.kind == "attribute" and (
+                        entity.parent_id is None
+                        or entities[entity.parent_id].kind not in _CLASSIFIER_KINDS
+                    ):
+                        raise ValueError("planned attribute without a classifier")
+                if entity.language == "python" and entity.signature is not None:
+                    names = [parameter.name for parameter in entity.signature.parameters]
+                    if len(set(names)) != len(names):
+                        raise ValueError("duplicate Python parameter name")
             if entity.initializer is not None:
                 initializer: str = entity.initializer
                 if entity.kind != "binding" or not initializer.strip():
                     raise ValueError("initializer needs a binding and non-empty source syntax")
             if entity.kind == "method" and (
-                entity.parent_id is None
-                or entities[entity.parent_id].kind not in {"class", "interface", "enum"}
+                entity.parent_id is None or entities[entity.parent_id].kind not in _CLASSIFIER_KINDS
             ):
                 raise ValueError("method without a classifier")
             self._validate_evidence(entity.evidence_ids, entity.provenance, evidence_ids)
@@ -561,6 +584,15 @@ class ArchitectureGraph:
                 raise ValueError("unknown relationship source")
             if edge.target_id is not None and edge.target_id not in entities:
                 raise ValueError("unknown relationship target")
+            if self.origin == "declared" and edge.kind in {"inherits", "realizes"}:
+                for identity in (edge.source_id, edge.target_id):
+                    if identity is None:
+                        continue
+                    endpoint = entities[identity]
+                    if endpoint.kind not in _CLASSIFIER_KINDS and not (
+                        endpoint.kind == "symbol" and endpoint.presence == "referenced"
+                    ):
+                        raise ValueError("classifier relationship needs classifier endpoints")
             if edge.kind == "requires":
                 rationale: str = edge.reason or ""
                 if (

@@ -332,6 +332,21 @@ def test_core_correspondence_retains_scope_identity_and_ambiguous_definitions():
 @pytest.mark.parametrize("kind", ["inherits", "realizes", "creates", "instance_of"])
 def test_absent_relationships_without_adapter_coverage_are_unknown(kind):
     observed, target = _connections()
+    if kind in {"inherits", "realizes"}:
+        observed = replace(
+            observed,
+            entities=tuple(
+                replace(
+                    entity,
+                    kind="interface" if kind == "realizes" and entity.id == "helper" else "class",
+                    signature=None,
+                )
+                if entity.kind == "function"
+                else entity
+                for entity in observed.entities
+            ),
+        )
+        target = replace(target, entities=tuple(_intent(entity) for entity in observed.entities))
     observed = replace(observed, relationships=())
     target = replace(target, relationships=(replace(target.relationships[0], kind=kind),))
     assert _assessments(observed, target, "relationship")[0].status == "UNKNOWN"
