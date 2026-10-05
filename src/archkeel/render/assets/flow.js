@@ -8,7 +8,7 @@
   flowHeading.tabIndex = -1;
   const DATA = JSON.parse(dataNode.textContent);
   const graphIndexes = new WeakMap();
-  if (DATA.schema_version !== "1.0.0") {
+  if (!["1.0.0", "1.2.0"].includes(DATA.schema_version)) {
     root.textContent = "Unsupported architecture report schema.";
     return;
   }
