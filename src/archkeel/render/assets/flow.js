@@ -1273,7 +1273,7 @@
       ? item.observed_ids.some((id) => subjects.has(id)) : subjects.has(item.subject_id));
   }
 
-  function projectArchitectureScene(context) {
+  function projectArchitectureScene(context, directChildren = false) {
     const { graph, scope } = context;
     const displayEntities = architectureEntities(graph);
     const byId = new Map(displayEntities.map((entity) => [entity.id, entity]));
@@ -1354,6 +1354,8 @@
       ? unassignedArchitectureModules().map((entity) => entity.id) : []);
     const addSite = (site, source, target, sourceGraph, assessment = null) => {
       if (!source?.entity || !target?.entity || (!source.local && !target.local)) return;
+      if (directChildren && (!localIds.has(site.source_id) || !localIds.has(target.entity.id)
+          || site.target_id !== target.entity.id && !site.candidate_ids.includes(target.entity.id))) return;
       if (componentOverview && [source, target].some((entry) => entry.entity.kind !== "component")
           && !(sourceGraph.origin === "observed" && site.kind === "imports"
             && [source, target].every((entry) => entry.entity.kind === "component"
@@ -1789,8 +1791,8 @@
       `<option value="${esc(node.id)}">${esc(node.label)} · ${esc(node.kind)}${node.outside ? " · outside" : ""}</option>`).join("");
     focusInput.value = focusLabel || "";
     focusInput.disabled = !elements.length;
-    const edges = complete.edges.filter((edge) => !directOverview
-      && (!violationsOnly.checked || edge.state === "violation")
+    const connections = directOverview ? projectArchitectureScene(context, true).edges : complete.edges;
+    const edges = connections.filter((edge) => (!violationsOnly.checked || edge.state === "violation")
       && (!relationshipKind || edge.relationshipKind === relationshipKind)
       && elementIds.has(edge.source) && elementIds.has(edge.target)
       && (!focusLabel || edge.source === focusLabel || edge.target === focusLabel));
@@ -1812,7 +1814,7 @@
     scene.nodes.forEach((node) => { node.rank = ranks.get(node.id); });
     filterStatus.textContent = focusLabel || relationshipKind || elementKind
       ? `${[focusLabel ? "Direct neighbors" : null, elementKind ? `Elements: ${elementKind}` : null, relationshipKind ? `Relationships: ${relationshipKind}` : null].filter(Boolean).join(" · ")} · ${scene.nodes.length} of ${complete.nodes.length} elements · ${edges.length} of ${complete.edges.length} connections`
-      : directOverview ? "Direct children; connections, outside and referenced symbols remain in relationship filters, Focus and Details"
+      : directOverview ? "Direct children and local connections. Relationship filters and Focus include deeper sites, outside and referenced symbols."
         : "All elements and connections at this level";
     memberPreviewsButton.hidden = !scene.nodes.some((node) => node.sections.length);
     if (!memberPreviews) for (const node of scene.nodes) {

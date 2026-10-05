@@ -303,7 +303,8 @@ def test_module_and_classifier_defaults_show_only_direct_native_children(tmp_pat
         extra_files={
             "sample/core.py": (
                 "from enum import Enum\nfrom sample.peer import Base\nLIMIT = 3\n"
-                "def transform(value):\n    return value + LIMIT\n"
+                "def transform(value):\n    if value is State:\n        return State.READY\n"
+                "    return value + LIMIT\n"
                 "class Client(Base):\n    def run(self):\n        return transform(LIMIT)\n"
                 "class State(Enum):\n    READY = 'ready'\n    FAILED = 'failed'\n"
             ),
@@ -343,7 +344,36 @@ def test_module_and_classifier_defaults_show_only_direct_native_children(tmp_pat
 
         assert scene_ids() == direct_ids(module.id)
         assert page.locator('.flow-nodes [data-outside="true"]').count() == 0
-        assert page.locator(".flow-edges .hit").count() == 0
+        direct = direct_ids(module.id)
+        sites = [
+            (edge, target)
+            for edge in graph.relationships
+            if edge.kind != "owns" and edge.source_id in direct
+            for target in ([edge.target_id] if edge.target_id else edge.candidate_ids)
+            if target in direct
+        ]
+        groups = {(edge.kind, edge.source_id, target, edge.resolution) for edge, target in sites}
+        assert groups
+        assert page.locator(".flow-edges .hit").count() == len(groups)
+        for kind, source, target, resolution in groups:
+            hit = page.locator(
+                f'.flow-edges [data-uml-id="{kind}:{source}>{target}:{resolution}"] .hit'
+            )
+            expected = sum(
+                edge.kind == kind
+                and edge.source_id == source
+                and endpoint == target
+                and edge.resolution == resolution
+                for edge, endpoint in sites
+            )
+            assert f"{expected} source or declaration site" in hit.get_attribute("aria-label")
+            hit.press("Enter")
+            items = (
+                page.locator(".flow-inspector-content h3")
+                .filter(has_text="Relationship sites")
+                .locator("xpath=following-sibling::ul[1]/li")
+            )
+            assert items.count() == expected
         assert (
             page.get_by_label("Element kind", exact=True).locator('[value="class"]').inner_text()
             == "class · 1"
