@@ -233,3 +233,67 @@ def test_target_cycle_self_loop_and_dependents_keep_every_permission(tmp_path):
     finally:
         browser.close()
         playwright.stop()
+
+
+def test_large_component_chain_stays_readable_on_automatic_fit(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    root, config = _repository(tmp_path)
+    raw = json.loads((root / config.contract).read_bytes())
+    raw.get("declarations", {}).pop("uml", None)
+    template = raw["components"][0]
+    raw["components"] = [
+        {
+            **template,
+            "id": f"layer-{index}",
+            "label": f"layer-{index}",
+            "namespace": f"sample.layer{index}",
+            "packages": [f"sample.layer{index}"],
+            "public": [],
+            "requires": [{"component": f"layer-{index + 1}", "rationale": "Delegate one layer."}]
+            if index < 11
+            else [],
+        }
+        for index in range(12)
+    ]
+    (root / config.contract).write_text(json.dumps(raw))
+    result, encoded = run_report(root, config=config, analyzer=observe)
+    assert encoded is not None and not result.diagnostics
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    html = render_html(result, model, repository="sample", architecture_href=None).decode()
+    playwright, browser, page = _browser_page(api, html)
+    try:
+        page.get_by_role("button", name="Target", exact=True).click()
+        payload = page.locator("#flow-data").text_content()
+        assert int(page.locator(".flow-zoom-value").inner_text().removesuffix("%")) >= 85
+        assert page.locator(".flow-nodes .node").count() == 12
+        assert page.locator(".flow-nodes .node").evaluate_all("""nodes => {
+            const canvas = document.querySelector('.flow-canvas').getBoundingClientRect();
+            return nodes.every(node => { const box = node.getBoundingClientRect();
+                return box.left >= canvas.left && box.right <= canvas.right
+                    && box.top >= canvas.top && box.bottom <= canvas.bottom; });
+        }""")
+        assert page.locator(".flow-edges .edge").count() == 11
+        page.mouse.move(0, 0)
+        assert (
+            float(
+                page.locator(".flow-edges .line").first.evaluate(
+                    "node => getComputedStyle(node).opacity"
+                )
+            )
+            < 0.5
+        )
+        page.locator('.flow-nodes [data-label="layer-0"]').press("Space")
+        assert page.locator(".flow-nodes .related").count() == 2
+        assert page.locator(".flow-nodes .dim").count() == 10
+        assert (
+            float(
+                page.locator(".flow-edges .related .line").first.evaluate(
+                    "node => getComputedStyle(node).opacity"
+                )
+            )
+            == 1
+        )
+        assert page.locator("#flow-data").text_content() == payload
+    finally:
+        browser.close()
+        playwright.stop()

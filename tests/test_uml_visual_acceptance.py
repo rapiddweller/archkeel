@@ -18,6 +18,24 @@ HELPERS = (
 )
 
 
+def test_failed_card_explains_its_recorded_assessment(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    html, _ = _uml_report(tmp_path, mismatch=True)
+    playwright, browser, page = _browser_page(api, html)
+    try:
+        _open_module(page, "Diff")
+        client = page.locator('.flow-nodes [data-label="Client"]')
+        badge = client.locator(".uml-assessment")
+        assert badge.text_content() == "FAIL"
+        assert badge.get_attribute("aria-label").startswith("FAIL ·")
+        assert "Return annotation differs" in client.locator("title").text_content()
+        client.press("Space")
+        assert "Return annotation differs" in page.locator(".flow-inspector-content").inner_text()
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 def _route_problems(edges):
     return edges.evaluate_all("""edges => {
       const routes = edges.map(edge => {
@@ -202,7 +220,8 @@ def test_relationship_filter_keeps_evidence_and_restores_scope_state(tmp_path, v
         assert edges.count() == 1 and edges.get_attribute("data-relationship-kind") == "realizes"
         assert page.locator('.flow-edges [data-relationship-kind="inherits"] .hit').count() == 0
         assert not _route_problems(edges)
-        assert page.locator(".flow-inspector-content h2").inner_text() == "sample.core"
+        assert page.locator(".flow-inspector-content h2").inner_text() == "core"
+        assert page.locator(".flow-qualified-name").text_content() == "sample.core"
         page.locator('.flow-legend button[data-relationship-kind="inherits"]').click()
         page.locator('.flow-nodes [data-label="Client"]').dblclick()
         assert focus.input_value() == ""
@@ -527,7 +546,12 @@ def test_type_cues_and_five_direct_calls_remain_readable(tmp_path, view):
         page.get_by_role("button", name="Fit overview", exact=True).click()
         for name in ("validate", *HELPERS):
             card = page.locator(f'.flow-nodes [data-label="{name}"]')
-            assert card.locator(".label tspan").count() == 1
+            assert 1 <= card.locator(".label tspan").count() <= 2
+            assert "".join(card.locator(".label tspan").all_text_contents()) == name
+            assert card.locator(".label").evaluate("""node =>
+              parseFloat(getComputedStyle(node).fontSize)
+                * Math.hypot(node.getScreenCTM().a, node.getScreenCTM().b) >= 11
+            """)
             assert card.locator(".uml-icon").text_content() == "()"
             assert card.locator(".meta tspan").first.text_content().strip() not in {"+", "−", "?"}
         boxes = {

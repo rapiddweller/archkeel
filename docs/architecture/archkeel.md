@@ -261,6 +261,21 @@ often explains an earlier one; the index below keeps that order.
 | AD-180 | [Relationship exploration retains evidence](decisions/ad-180-relationship-exploration-retains-evidence.md) |
 | AD-181 | [UML bases retain binding evidence](decisions/ad-181-uml-bases-retain-binding-evidence.md) |
 | AD-182 | [Shared report integration](decisions/ad-182-shared-report-integration.md) |
+| AD-183 | [Target references bind declarations](decisions/ad-183-target-references-bind-declarations.md) |
+| AD-184 | [Annotation declarations retain lexical binding](decisions/ad-184-annotation-declarations-retain-lexical-binding.md) |
+| AD-185 | [Member inventories retain their owner](decisions/ad-185-member-inventories-retain-their-owner.md) |
+| AD-186 | [Dense routes can leave card sides](decisions/ad-186-dense-routes-can-leave-card-sides.md) |
+| AD-187 | [Class field assignments retain their sites](decisions/ad-187-class-field-assignments-retain-their-sites.md) |
+| AD-188 | [Enum literals have their own UML kind](decisions/ad-188-enum-literals-have-their-own-uml-kind.md) |
+| AD-189 | [Routing clearance uses numeric intervals](decisions/ad-189-routing-clearance-uses-numeric-intervals.md) |
+| AD-190 | [Member previews remain readable](decisions/ad-190-member-previews-remain-readable.md) |
+| AD-191 | [Source protocol Target includes resolver settings](decisions/ad-191-source-protocol-target-includes-resolver-settings.md) |
+| AD-192 | [UML details separate label and identity](decisions/ad-192-uml-details-separate-label-and-identity.md) |
+| AD-193 | [UML navigation distinguishes code and boundaries](decisions/ad-193-uml-navigation-distinguishes-code-and-boundaries.md) |
+| AD-194 | [Language demos retain capability gaps](decisions/ad-194-language-demos-retain-capability-gaps.md) |
+| AD-195 | [Overviews separate boundaries from file intent](decisions/ad-195-overviews-separate-boundaries-from-file-intent.md) |
+| AD-196 | [Closed demo intent retains observation limits](decisions/ad-196-closed-demo-intent-retains-observation-limits.md) |
+| AD-197 | [Expanded Target records eight UNKNOWN inventories](decisions/ad-197-expanded-target-records-eight-unknown-inventories.md) |
 
 ## Allowed dependencies
 

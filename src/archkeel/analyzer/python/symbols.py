@@ -13,9 +13,9 @@ import sys
 from collections.abc import Sequence
 from types import EllipsisType
 
-from archkeel.ir.facts import EvidenceClass, stable_id
+from archkeel.ir.facts import EvidenceClass, MemberInventory, stable_id
 from archkeel.ir.facts_codec import RawData as RecordData
-from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
+from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified, member_inventory_data
 
 from .resolve import dotted_expression
 from .source import (
@@ -24,13 +24,17 @@ from .source import (
     ParsedModule,
     add_evidence,
     annotation_text,
+    class_definition_expressions,
     class_header_static,
+    class_namespace_static,
     decorator_names,
     definition_id,
     definition_sites,
     is_static_type_alias_value,
     location,
     module_scope_bindings,
+    native_owner_creation_static,
+    own_scope,
     property_bindings,
     stable_direct_module_bindings,
     unproven_class_body,
@@ -111,18 +115,36 @@ def _python_visibility(name: str) -> RecordData:
 def _class_attribute_declarations(
     node: ast.ClassDef, module: ParsedModule, evidence: dict[str, RawEvidence]
 ) -> list[RecordData]:
-    """Keep private annotations for UML without widening AD-70's public API inventory."""
-    return [
-        {
-            "name": child.target.id,
-            "annotation": annotation_text(child.annotation),
-            "visibility": _python_visibility(child.target.id),
-            "definition_id": stable_id("ATTR", module.rel_path, *location(child), child.target.id),
-            "evidence_ids": [add_evidence(evidence, module, child)],
-        }
-        for child in node.body
-        if isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name)
-    ]
+    """Keep field declarations separate from AD-70's public API inventory."""
+    result: list[RecordData] = []
+    for child in node.body:
+        if isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
+            targets = [child.target]
+            annotation = annotation_text(child.annotation)
+        elif isinstance(child, ast.Assign):
+            targets = [
+                target
+                for expression in child.targets
+                for target in ast.walk(expression)
+                if isinstance(target, ast.Name) and isinstance(target.ctx, ast.Store)
+            ]
+            annotation = None
+        else:
+            continue
+        for target in targets:
+            result.append(
+                {
+                    "name": target.id,
+                    "annotation": annotation,
+                    "visibility": _python_visibility(target.id),
+                    "definition_id": stable_id(
+                        "ATTR", module.rel_path, *location(child), target.id
+                    ),
+                    "evidence_ids": [add_evidence(evidence, module, child)],
+                    **({"static": True} if isinstance(child, ast.Assign) else {}),
+                }
+            )
+    return result
 
 
 def _class_member_names(node: ast.ClassDef) -> list[str]:
@@ -266,9 +288,11 @@ def _class_symbol_data(
         "frozen_object": _class_is_frozen(node, module),
         "symbol_category": "class",
         "fields": [
-            {"name": item["name"], "annotation": item["annotation"]}
-            for item in attributes
-            if not item["name"].startswith("_")
+            {"name": child.target.id, "annotation": annotation_text(child.annotation)}
+            for child in node.body
+            if isinstance(child, ast.AnnAssign)
+            and isinstance(child.target, ast.Name)
+            and not child.target.id.startswith("_")
         ],
         "attribute_declarations": attributes,
         "source_binding_unique": node in module.tree.body
@@ -802,6 +826,7 @@ def _assignment_symbol(
             "name": name,
             "parent": None,
             "visibility": "private" if name.startswith("_") else "public_name",
+            "visibility_detail": _python_visibility(name),
             **(
                 {
                     "source_binding_unique": name in stable_direct_module_bindings(module),
@@ -1051,6 +1076,7 @@ def collect_symbols(
     _resolve_class_kinds(classes, owners, symbols)
     _record_class_bases(classes, owners, symbols, evidence)
     symbols = _mark_overloaded_symbols(symbols)
+    _record_member_inventories(classes, owners, symbols)
     return sorted(symbols, key=lambda item: item["id"]), nodes, owners
 
 
@@ -1066,3 +1092,79 @@ def _mark_overloaded_symbols(symbols: list[RawRecord]) -> list[RawRecord]:
         else item
         for item in symbols
     ]
+
+
+def _record_member_inventories(
+    classes: dict[str, ast.ClassDef], owners: dict[str, ParsedModule], symbols: Sequence[RawRecord]
+) -> None:
+    by_id = {item["id"]: item for item in symbols}
+    for identity, node in classes.items():
+        data = by_id[identity]["data"]
+        module = owners[data["qualified_name"]]
+        stable = (
+            data["source_binding_unique"]
+            and not data["class_body_control_flow"]
+            and node.name
+            not in unproven_member_bindings(module, include_creation_uncertainty=False)
+        )
+        bases = data["base_roots"]
+        plain = (
+            class_header_static(node)
+            and all(
+                base
+                in {"object", "builtins.object", "typing.Protocol", "typing_extensions.Protocol"}
+                for base in bases
+            )
+            and len(bases) == len(node.bases)
+            and class_namespace_static(module, node)
+            and not any(
+                isinstance(item, ast.Call)
+                for expr in class_definition_expressions(node)
+                for item in ast.walk(expr)
+            )
+        )
+        native = native_owner_creation_static(module, node, frozenset())
+        attribute_complete = (
+            stable
+            and (plain or native)
+            and not any(isinstance(child, ast.Assign) for child in node.body)
+            and not any(
+                isinstance(item, ast.Call)
+                for method in node.body
+                if isinstance(method, ast.FunctionDef | ast.AsyncFunctionDef)
+                for item in own_scope(method)
+            )
+            and not any(
+                isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Store | ast.Del)
+                for child in ast.walk(node)
+            )
+        )
+        method_complete = stable and plain
+        attributes = tuple(item["definition_id"] for item in data["attribute_declarations"])
+        methods = tuple(
+            item["id"]
+            for item in symbols
+            if item["kind"] == "method" and item["data"]["lexical_parent_id"] == identity
+        )
+        data["member_inventories"] = [
+            member_inventory_data(
+                MemberInventory(
+                    "attribute",
+                    "complete" if attribute_complete else "partial",
+                    attributes,
+                    None
+                    if attribute_complete
+                    else "class creation, binding or attribute writes remain unmeasured",
+                )
+            ),
+            member_inventory_data(
+                MemberInventory(
+                    "method",
+                    "complete" if method_complete else "partial",
+                    methods,
+                    None
+                    if method_complete
+                    else "class creation, binding or generated methods are not fully represented",
+                )
+            ),
+        ]

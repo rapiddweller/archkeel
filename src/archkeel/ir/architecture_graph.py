@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import PurePosixPath
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, get_args
 
 from archkeel.ir.facts import Evidence
 
@@ -20,6 +20,7 @@ EntityKind: TypeAlias = Literal[
     "class",
     "interface",
     "enum",
+    "enum_literal",
     "method",
     "function",
     "attribute",
@@ -28,6 +29,7 @@ EntityKind: TypeAlias = Literal[
     "binding",
     "symbol",
 ]
+GraphSchemaVersion: TypeAlias = Literal["1.1.0", "1.0.0"]
 RelationshipKind: TypeAlias = Literal[
     "imports",
     "calls",
@@ -301,7 +303,26 @@ class TargetDefinition:
     entities: tuple[Entity, ...] = ()
     relationships: tuple[Relationship, ...] = ()
     scopes: tuple[TargetScope, ...] = ()
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: GraphSchemaVersion = "1.1.0"
+
+    def __post_init__(self) -> None:
+        _validate_graph_version(self.schema_version, self.entities, self.scopes)
+
+
+def _validate_graph_version(
+    version: GraphSchemaVersion,
+    entities: tuple[Entity, ...],
+    scopes: tuple[TargetScope, ...] = (),
+    coverage: tuple[Coverage, ...] = (),
+) -> None:
+    if version not in get_args(GraphSchemaVersion):
+        raise ValueError("unsupported graph schema_version")
+    if version == "1.0.0" and (
+        any(entity.kind == "enum_literal" for entity in entities)
+        or any("enum_literal" in item.entity_kinds for item in scopes)
+        or any("enum_literal" in item.entity_kinds for item in coverage)
+    ):
+        raise ValueError("enum literal needs graph schema_version 1.1.0")
 
 
 @dataclass(frozen=True, slots=True)
@@ -388,7 +409,7 @@ class ArchitectureGraph:
     relationships: tuple[Relationship, ...] = ()
     coverage: tuple[Coverage, ...] = ()
     evidence: tuple[Evidence, ...] = ()
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: GraphSchemaVersion = "1.1.0"
     target_scopes: tuple[TargetScope, ...] = ()
     component_intents: tuple[ComponentIntent, ...] = ()
     module_inventories: tuple[ModuleInventory, ...] = ()
@@ -397,6 +418,9 @@ class ArchitectureGraph:
     external_scopes: tuple[ExternalDependencyScopeRule, ...] = ()
 
     def validate(self) -> None:
+        _validate_graph_version(
+            self.schema_version, self.entities, self.target_scopes, self.coverage
+        )
         if self.origin == "declared" and self.evidence:
             raise ValueError("Target does not carry observed source evidence")
         entities = {entity.id: entity for entity in self.entities}
@@ -549,6 +573,12 @@ class ArchitectureGraph:
                 or entities[entity.parent_id].kind not in {"class", "interface", "enum"}
             ):
                 raise ValueError("method without a classifier")
+            if entity.kind == "enum_literal" and (
+                entity.parent_id is None
+                or entities[entity.parent_id].kind != "enum"
+                or entity.modifiers
+            ):
+                raise ValueError("enum literal needs an enumeration parent and no modifiers")
             self._validate_evidence(entity.evidence_ids, entity.provenance, evidence_ids)
             for context in entity.definition_contexts:
                 if self.origin != "observed" or entity.kind in {"package", "module", "component"}:

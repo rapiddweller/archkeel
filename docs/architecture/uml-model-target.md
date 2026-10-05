@@ -2,6 +2,11 @@
 
 Status: shared types, generated schema, strict codecs and source and Target producers exist.
 Core authenticates Target intent and evaluates it against recorded facts and coverage.
+Graph and Target-definition format 1.1.0 add `enum_literal` (AD-188). Format 1.0.0
+remains readable; its version and vocabulary are preserved. Known literal enum
+assignments use a Literals compartment. Dynamic member generation stays partial.
+Independent Target intent includes the five component responsibility roles and
+the shared graph-format alias. This is not a complete inner repository Target.
 As-Is modules and Contract 2.2 Target/Diff entities use the shared UML renderer (AD-160).
 Legacy component and physical intent uses the same authenticated graph producers (AD-167).
 Global API intent retains declaration IDs, selectors and provenance (AD-168).
@@ -27,12 +32,24 @@ It is not a second persisted observation. Core's contract values already use the
 relationship, signature and visibility types. Their declared type boundary exports only these
 used dataclasses and graph producers. Render internals remain private.
 
+Demo coverage is tracked in [#339](https://github.com/rapiddweller/archkeel/issues/339).
+Remaining independent inner Target contracts are tracked in
+[#340](https://github.com/rapiddweller/archkeel/issues/340).
+The runnable H-uml examples keep one Target unchanged across matching, signature-failing
+and partial enum observations. They use the ordinary CLI and shared report renderer.
+
 ## Goal and current gaps
 
 Explore components → packages/modules → classes/interfaces → operations and static bindings.
 As-Is and Target use the same element vocabulary and renderer. Diff compares their evidence.
 Visibility, responsibilities, signatures and relationship direction remain inspectable.
 Overview stays compact; drill-down reveals detail without visible scrollbar tracks.
+Root overviews show component boundaries when components are declared. File inventories
+stay in Details; observed code without membership has its own explicit entry (AD-195).
+No file intent becomes a synthetic UML entity or inferred ownership. Automatic Fit
+retains at least 85 percent scale; large complete graphs remain pannable.
+The shared inspector uses short headings and retains full qualified identities below them
+with namespace break points (AD-192).
 Per-card heights and balanced columns improve large levels. Dense observed graphs
 still need a clearer overview; Fit alone cannot keep every full UML card readable.
 The existing Focus control narrows all three UML views to one entity and its direct
@@ -94,7 +111,13 @@ ArchKeel's IR Target declares the shared graph/report boundary: 17 immutable cla
 their annotated fields, public/private validation methods, producer/codec functions
 and typed imports/calls/references (AD-173, AD-179). Eighteen class dependencies connect
 the shared value types. These are independently authored design values.
-Other IR helpers, the SourceFacts port and the remaining inner components still need
+The SourceCollector port, its immutable envelopes and ProcessCollector now have
+independent Target intent (AD-183). Typed identity references link the inside contracts
+through one compiled graph. Inventory and annotation-reference gaps remain UNKNOWN.
+The protocol Target also declares all three resolver variants, their public fields,
+the resolver union and shared wire-version identity (AD-191). It checks typed presence
+and dependencies; it does not certify a runtime version value or complete class inventories.
+Other IR helpers and the remaining inner components still need
 explicit Target definitions. This does not complete the whole repository's Target.
 
 ## Responsibilities
@@ -292,6 +315,8 @@ coverage. Direct constructor and call-result assignment facts exist; other bindi
 Legacy parameter details remain unknown. These are gaps, not PASS.
 The legacy symbols section does not certify an exhaustive lexical inventory. Its reference collector
 omits unresolved and external uses. Both remain partial until the SourceFacts port supplies explicit capabilities.
+Parameter and return references now retain their declaring operation separately from Python's
+evaluation scope (AD-184). This proves recorded positive edges, not an exhaustive reference inventory.
 
 Each increment needs positive/negative proofs: identical local labels in different modules,
 private/public and Python special methods, call/reference distinction, partial/unresolved calls,
@@ -306,3 +331,27 @@ Reuse records, evidence and existing Make targets. No policy or layout in adapte
 No guessed interface realization, runtime object identity or composition.
 Ship small coherent steps with positive and negative proofs. Report local and CI evidence separately.
 Docs use Alex Voice: engineering language, straight and simple.
+
+
+Member inventories use the versioned source-only `MemberInventory` dataclass
+(AD-185). The Python process writes receipts; IR validates their exact definition
+identities; the graph projector emits coverage; Core compares independent closed
+Target scopes. Neither Target intent nor rule verdicts enter the collector.
+
+The explorer separates architecture boundaries from code symbols (AD-193). Components
+own responsibilities and code scopes. Modules are source units; namespace groups do
+not prove directories. Details retains recorded source paths and lexical containers.
+Target paths are never inferred from observed code. Kind colors and glyphs are shared
+across As-Is, Target and Diff; verdict borders remain independent.
+
+## Language demo acceptance
+
+make demo-uml OUTPUT=<fresh-directory> produces Python, Dart and TypeScript reports
+(AD-194). Native source files and independently declared Targets share the same graph
+format and renderer. The examples cover classifiers, members, operations, aliases,
+constants, visibility, static bindings and typed relationships.
+
+Python inner intent is observed. Dart/TypeScript collectors currently publish imports;
+inner comparisons remain UNKNOWN. Their Target views show declared UML, while As-Is
+shows recorded modules/imports and unavailable profile coverage. This is not language
+parity or a complete own-repository Target. #339 owns demos; #340 owns ArchKeel's Target.

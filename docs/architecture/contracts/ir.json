@@ -284,7 +284,7 @@
       }
     ],
     "uml": {
-      "schema_version": "1.0.0",
+      "schema_version": "1.1.0",
       "entities": [
         {
           "id": "IR-UML-architecture_graph",
@@ -1586,7 +1586,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "Literal['1.0.0']"
+          "annotation": "GraphSchemaVersion"
         },
         {
           "id": "IR-UML-architecture_graph.GraphAssessment",
@@ -2069,7 +2069,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "Literal['1.0.0']"
+          "annotation": "GraphSchemaVersion"
         },
         {
           "id": "IR-UML-architecture_graph.ArchitectureGraph.target_scopes",
@@ -3597,6 +3597,1540 @@
             ],
             "returns": "None"
           }
+        },
+        {
+          "id": "archkeel.ir.protocol",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.protocol",
+          "language": "python",
+          "parent_id": "TARGET-PROTOCOL",
+          "presence": "planned",
+          "responsibilities": [
+            "Define immutable source-only process envelopes; no Target or verdict data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "archkeel.ir.facts",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.facts",
+          "language": "python",
+          "parent_id": "TARGET-FACTS",
+          "presence": "planned",
+          "responsibilities": [
+            "Define immutable source facts, identity, evidence and collection coverage."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.facts.SourceFacts",
+          "language": "python",
+          "parent_id": "archkeel.ir.facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ],
+          "presence": "planned",
+          "responsibilities": [
+            "Return collected facts and limits; never carry architecture declarations or rule verdicts."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.profile",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.profile",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "SourceProfile",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry profile as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.adapter",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.adapter",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "AnalyzerInfo",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry adapter as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.runtime",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.runtime",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "RuntimeInfo",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry runtime as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.source",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.source",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "SourceInfo",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry source as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.capabilities",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.capabilities",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Capabilities",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry capabilities as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.inputs",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.inputs",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[ResolutionInput, ...]",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry inputs as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.files",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.files",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[FileFact, ...]",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry files as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.imports",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.imports",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[ImportTarget, ...]",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry imports as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.sections",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.sections",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[FactSection, ...]",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry sections as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.coverage",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.coverage",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "CollectionCoverage",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry coverage as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.evidence",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.evidence",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[Evidence, ...]",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry evidence as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.uncertain_reexports",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.uncertain_reexports",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[tuple[str, tuple[str, ...]], ...]",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry uncertain_reexports as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.type_shapes",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.type_shapes",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[tuple[str, TypeShape], ...]",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry type_shapes as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.state",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.state",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "StateFacts",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry state as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "source-facts.candidate_evidence",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.candidate_evidence",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[Evidence, ...]",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry candidate_evidence as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "coverage",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.facts.CollectionCoverage",
+          "language": "python",
+          "parent_id": "archkeel.ir.facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ],
+          "presence": "planned",
+          "responsibilities": [
+            "Distinguish fully read/parsed source scope from collection gaps."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "coverage.selected_files",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.CollectionCoverage.selected_files",
+          "language": "python",
+          "parent_id": "coverage",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry selected_files as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "coverage.files_read",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.CollectionCoverage.files_read",
+          "language": "python",
+          "parent_id": "coverage",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry files_read as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "coverage.files_parsed",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.CollectionCoverage.files_parsed",
+          "language": "python",
+          "parent_id": "coverage",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry files_parsed as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "coverage.full_scope",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.CollectionCoverage.full_scope",
+          "language": "python",
+          "parent_id": "coverage",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "bool",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry full_scope as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "coverage.gaps",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.CollectionCoverage.gaps",
+          "language": "python",
+          "parent_id": "coverage",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[Record, ...]",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry gaps as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "snapshot",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.protocol.SnapshotInput",
+          "language": "python",
+          "parent_id": "archkeel.ir.protocol",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ],
+          "presence": "planned",
+          "responsibilities": [
+            "Identify one immutable source snapshot for collection."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "snapshot.root",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.SnapshotInput.root",
+          "language": "python",
+          "parent_id": "snapshot",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry root as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "snapshot.git_head",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.SnapshotInput.git_head",
+          "language": "python",
+          "parent_id": "snapshot",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry git_head as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "snapshot.dirty",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.SnapshotInput.dirty",
+          "language": "python",
+          "parent_id": "snapshot",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "bool | Literal['unknown']",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry dirty as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "scope",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.protocol.SourceScope",
+          "language": "python",
+          "parent_id": "archkeel.ir.protocol",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ],
+          "presence": "planned",
+          "responsibilities": [
+            "Select source roots and their namespace without architecture policy."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "scope.roots",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.SourceScope.roots",
+          "language": "python",
+          "parent_id": "scope",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry roots as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "scope.namespace",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.SourceScope.namespace",
+          "language": "python",
+          "parent_id": "scope",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry namespace as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "request",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.protocol.CollectionRequest",
+          "language": "python",
+          "parent_id": "archkeel.ir.protocol",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ],
+          "presence": "planned",
+          "responsibilities": [
+            "Request source collection through a versioned typed envelope."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "request.snapshot",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.CollectionRequest.snapshot",
+          "language": "python",
+          "parent_id": "request",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "SnapshotInput",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry snapshot as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "request.scope",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.CollectionRequest.scope",
+          "language": "python",
+          "parent_id": "request",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "SourceScope",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry scope as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "request.resolver",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.CollectionRequest.resolver",
+          "language": "python",
+          "parent_id": "request",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "ResolverSettings",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry resolver as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "request.protocol_version",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.CollectionRequest.protocol_version",
+          "language": "python",
+          "parent_id": "request",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry protocol_version as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "response",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.protocol.CollectionResponse",
+          "language": "python",
+          "parent_id": "archkeel.ir.protocol",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ],
+          "presence": "planned",
+          "responsibilities": [
+            "Return source facts in one versioned wire message."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "response.facts",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.CollectionResponse.facts",
+          "language": "python",
+          "parent_id": "response",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "SourceFacts",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry facts as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "response.protocol_version",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.CollectionResponse.protocol_version",
+          "language": "python",
+          "parent_id": "response",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry protocol_version as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "error",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.protocol.CollectionError",
+          "language": "python",
+          "parent_id": "archkeel.ir.protocol",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ],
+          "presence": "planned",
+          "responsibilities": [
+            "Return a local collector failure; this is not a wire verdict or architecture result."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "error.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.CollectionError.kind",
+          "language": "python",
+          "parent_id": "error",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Literal['missing_tool', 'timeout', 'execution_error', 'protocol_error']",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry kind as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "error.subject",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.CollectionError.subject",
+          "language": "python",
+          "parent_id": "error",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry subject as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "error.message",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.CollectionError.message",
+          "language": "python",
+          "parent_id": "error",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry message as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "member-inventory",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.facts.MemberInventory",
+          "language": "python",
+          "parent_id": "archkeel.ir.facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ],
+          "presence": "planned",
+          "responsibilities": [
+            "Keep versioned member identities and collection limits immutable; reject inconsistent receipt values."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-185-member-inventories-retain-their-owner.md"
+          ]
+        },
+        {
+          "id": "member-inventory-kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.MemberInventory.kind",
+          "language": "python",
+          "parent_id": "member-inventory",
+          "annotation": "Literal['attribute', 'method']",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "presence": "planned",
+          "responsibilities": [
+            "Carry kind in the source receipt."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-185-member-inventories-retain-their-owner.md"
+          ]
+        },
+        {
+          "id": "member-inventory-status",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.MemberInventory.status",
+          "language": "python",
+          "parent_id": "member-inventory",
+          "annotation": "Literal['complete', 'partial']",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "presence": "planned",
+          "responsibilities": [
+            "Carry status in the source receipt."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-185-member-inventories-retain-their-owner.md"
+          ]
+        },
+        {
+          "id": "member-inventory-definition_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.MemberInventory.definition_ids",
+          "language": "python",
+          "parent_id": "member-inventory",
+          "annotation": "tuple[str, ...]",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "presence": "planned",
+          "responsibilities": [
+            "Carry definition_ids in the source receipt."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-185-member-inventories-retain-their-owner.md"
+          ]
+        },
+        {
+          "id": "member-inventory-reason",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.MemberInventory.reason",
+          "language": "python",
+          "parent_id": "member-inventory",
+          "annotation": "str | None",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "presence": "planned",
+          "responsibilities": [
+            "Carry reason in the source receipt."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-185-member-inventories-retain-their-owner.md"
+          ]
+        },
+        {
+          "id": "member-inventory-schema_version",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.MemberInventory.schema_version",
+          "language": "python",
+          "parent_id": "member-inventory",
+          "annotation": "Literal['1.0.0']",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "presence": "planned",
+          "responsibilities": [
+            "Carry schema_version in the source receipt."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-185-member-inventories-retain-their-owner.md"
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.GraphSchemaVersion",
+          "kind": "type_alias",
+          "qualified_name": "archkeel.ir.architecture_graph.GraphSchemaVersion",
+          "parent_id": "IR-UML-architecture_graph",
+          "responsibilities": [
+            "Name the current graph format and its readable legacy version."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentRole",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentRole",
+          "parent_id": "IR-UML-architecture_graph",
+          "responsibilities": [
+            "Distinguish component, interface, contract, projection and foundation responsibilities."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentRole.COMPONENT",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentRole.COMPONENT",
+          "parent_id": "IR-UML-architecture_graph.ComponentRole",
+          "responsibilities": [
+            "Own one implementation boundary."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentRole.INTERFACE",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentRole.INTERFACE",
+          "parent_id": "IR-UML-architecture_graph.ComponentRole",
+          "responsibilities": [
+            "Own a public entry surface."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentRole.CONTRACT",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentRole.CONTRACT",
+          "parent_id": "IR-UML-architecture_graph.ComponentRole",
+          "responsibilities": [
+            "Own immutable exchanged values."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentRole.PROJECTION",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentRole.PROJECTION",
+          "parent_id": "IR-UML-architecture_graph.ComponentRole",
+          "responsibilities": [
+            "Derive a presentation from recorded data."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentRole.FOUNDATION",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentRole.FOUNDATION",
+          "parent_id": "IR-UML-architecture_graph.ComponentRole",
+          "responsibilities": [
+            "Own shared pure mechanics."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.TargetDefinition.__post_init__",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.architecture_graph.TargetDefinition.__post_init__",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph.TargetDefinition",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/decisions/ad-188-enum-literals-have-their-own-uml-kind.md"
+          ],
+          "responsibilities": [
+            "Reject incompatible format versions and enum vocabulary before target compilation."
+          ]
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent",
+          "parent_id": "IR-UML-architecture_graph",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry independent component ownership, API selectors and inner contract intent without inferring language visibility."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.component_id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.component_id",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "str",
+          "responsibilities": [
+            "Bind intent to one declared component."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.role",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.role",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "ComponentRole",
+          "responsibilities": [
+            "Distinguish implementation, interface, contract, projection and foundation duties."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.packages",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.packages",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "tuple[str, ...]",
+          "responsibilities": [
+            "Name owned package prefixes."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.exact_modules",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.exact_modules",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "tuple[str, ...]",
+          "responsibilities": [
+            "Name exact module ownership."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.namespace",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.namespace",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "str | None",
+          "responsibilities": [
+            "Retain a declared namespace without guessing it from paths."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.public",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.public",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "tuple[str, ...] | None",
+          "responsibilities": [
+            "Retain published selectors and the undeclared versus empty distinction."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.planned",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.planned",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "tuple[str, ...] | None",
+          "responsibilities": [
+            "Retain planned selectors without publishing them automatically."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.forbidden_responsibilities",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.forbidden_responsibilities",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "tuple[str, ...]",
+          "responsibilities": [
+            "Retain excluded duties."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.decided_by",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "Literal['architect', 'agent'] | None",
+          "responsibilities": [
+            "Retain the decision owner."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.inside",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.inside",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "str | None",
+          "responsibilities": [
+            "Point to the declared inner contract."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.parent_id",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.parent_id",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "str | None",
+          "responsibilities": [
+            "Link a mounted component to its enclosing boundary."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.label",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.label",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "str | None",
+          "responsibilities": [
+            "Retain the declared human label."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.layout_rule_ids",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.layout_rule_ids",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "tuple[str, ...]",
+          "responsibilities": [
+            "Reference the canonical layout declarations."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "python-settings",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.protocol.PythonSettings",
+          "parent_id": "archkeel.ir.protocol",
+          "language": "python",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Select the Python source profile without architecture policy."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "python-settings.language",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.PythonSettings.language",
+          "parent_id": "python-settings",
+          "language": "python",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Discriminate the language profile."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "annotation": "Literal['python']"
+        },
+        {
+          "id": "dart-settings",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.protocol.DartSettings",
+          "parent_id": "archkeel.ir.protocol",
+          "language": "python",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Select the Dart source profile without architecture policy."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "dart-settings.language",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.DartSettings.language",
+          "parent_id": "dart-settings",
+          "language": "python",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Discriminate the language profile."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "annotation": "Literal['dart']"
+        },
+        {
+          "id": "typescript-settings",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.protocol.TypeScriptSettings",
+          "parent_id": "archkeel.ir.protocol",
+          "language": "python",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Select the TypeScript source profile and its resolver configuration."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "typescript-settings.language",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.TypeScriptSettings.language",
+          "parent_id": "typescript-settings",
+          "language": "python",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Discriminate the language profile."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "annotation": "Literal['typescript']"
+        },
+        {
+          "id": "typescript-settings.tsconfig",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.TypeScriptSettings.tsconfig",
+          "parent_id": "typescript-settings",
+          "language": "python",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Name the TypeScript resolver configuration file."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "annotation": "str"
+        },
+        {
+          "id": "resolver-settings",
+          "kind": "type_alias",
+          "qualified_name": "archkeel.ir.protocol.ResolverSettings",
+          "parent_id": "archkeel.ir.protocol",
+          "language": "python",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Restrict resolver settings to the three supported source profiles."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "protocol-version",
+          "kind": "constant",
+          "qualified_name": "archkeel.ir.protocol.PROTOCOL_VERSION",
+          "parent_id": "archkeel.ir.protocol",
+          "language": "python",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Name the source process wire version shared by requests and responses."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
         }
       ],
       "relationships": [
@@ -3883,9 +5417,203 @@
           "provenance": [
             "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
           ]
+        },
+        {
+          "id": "PORT-REL-1",
+          "kind": "imports",
+          "source_id": "archkeel.ir.protocol",
+          "target_id": "archkeel.ir.facts",
+          "resolution": "not_applicable",
+          "candidate_ids": [],
+          "expression": null,
+          "evidence_ids": [],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "record_ids": [],
+          "candidate_count": null,
+          "candidates_truncated": false,
+          "reason": "Protocol messages contain source values.",
+          "through": [],
+          "decided_by": null
+        },
+        {
+          "id": "IR-UML-REF-ComponentIntent-ComponentRole",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.ComponentIntent",
+          "target_id": "IR-UML-architecture_graph.ComponentRole",
+          "resolution": "not_applicable",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REF-TargetDefinition-GraphSchemaVersion",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.TargetDefinition",
+          "target_id": "IR-UML-architecture_graph.GraphSchemaVersion",
+          "resolution": "not_applicable",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "IR-UML-REF-ArchitectureGraph-GraphSchemaVersion",
+          "kind": "references",
+          "source_id": "IR-UML-architecture_graph.ArchitectureGraph",
+          "target_id": "IR-UML-architecture_graph.GraphSchemaVersion",
+          "resolution": "not_applicable",
+          "provenance": [
+            "docs/architecture/uml-model-target.md"
+          ]
+        },
+        {
+          "id": "PROTOCOL-REF-resolve-python",
+          "kind": "references",
+          "source_id": "archkeel.ir.protocol",
+          "target_id": "python-settings",
+          "reason": "Include the Python resolver variant.",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "PROTOCOL-REF-resolve-dart",
+          "kind": "references",
+          "source_id": "archkeel.ir.protocol",
+          "target_id": "dart-settings",
+          "reason": "Include the Dart resolver variant.",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "PROTOCOL-REF-resolve-typescript",
+          "kind": "references",
+          "source_id": "archkeel.ir.protocol",
+          "target_id": "typescript-settings",
+          "reason": "Include the TypeScript resolver variant.",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "PROTOCOL-REF-request-resolver",
+          "kind": "references",
+          "source_id": "request",
+          "target_id": "resolver-settings",
+          "reason": "Carry only a supported resolver variant in the request.",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "PROTOCOL-REF-request-version",
+          "kind": "references",
+          "source_id": "request",
+          "target_id": "protocol-version",
+          "reason": "Use the shared version default for source requests.",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "PROTOCOL-REF-response-version",
+          "kind": "references",
+          "source_id": "response",
+          "target_id": "protocol-version",
+          "reason": "Use the same shared version default for source responses.",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
         }
       ],
-      "scopes": []
+      "scopes": [
+        {
+          "scope_id": "source-facts",
+          "mode": "closed",
+          "rationale": "The source-only envelope has no architecture policy or report fields.",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": []
+        },
+        {
+          "scope_id": "coverage",
+          "mode": "closed",
+          "rationale": "The source-only envelope has no architecture policy or report fields.",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": []
+        },
+        {
+          "scope_id": "snapshot",
+          "mode": "closed",
+          "rationale": "The source-only envelope has no architecture policy or report fields.",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": []
+        },
+        {
+          "scope_id": "scope",
+          "mode": "closed",
+          "rationale": "The source-only envelope has no architecture policy or report fields.",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": []
+        },
+        {
+          "scope_id": "request",
+          "mode": "closed",
+          "rationale": "The source-only envelope has no architecture policy or report fields.",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": []
+        },
+        {
+          "scope_id": "response",
+          "mode": "closed",
+          "rationale": "The source-only envelope has no architecture policy or report fields.",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": []
+        },
+        {
+          "scope_id": "error",
+          "mode": "closed",
+          "rationale": "The source-only envelope has no architecture policy or report fields.",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": []
+        }
+      ]
     }
   }
 }

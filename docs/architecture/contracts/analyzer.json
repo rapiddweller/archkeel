@@ -1,6 +1,6 @@
 {
   "$schema": "../../../schema/architecture-contract.schema.json",
-  "schema_version": "2.1.0",
+  "schema_version": "2.2.0",
   "components": [
     {
       "id": "TARGET-PROCESS",
@@ -130,6 +130,320 @@
         "path": "src/archkeel/analyzer/process.py",
         "responsibility": "Execute the request/response port and validate limits."
       }
-    ]
+    ],
+    "uml": {
+      "entities": [
+        {
+          "id": "archkeel.analyzer.process",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.process",
+          "language": "python",
+          "parent_id": "TARGET-PROCESS",
+          "presence": "planned",
+          "responsibilities": [
+            "Execute a bounded collector process and validate its source-only response."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "process",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.process.ProcessCollector",
+          "language": "python",
+          "parent_id": "archkeel.analyzer.process",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ],
+          "presence": "planned",
+          "responsibilities": [
+            "Own bounded process execution, protocol validation and cleanup; do not evaluate architecture."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "process.argv",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.process.ProcessCollector.argv",
+          "language": "python",
+          "parent_id": "process",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[str, ...]",
+          "presence": "planned",
+          "responsibilities": [
+            "Bound collector execution through argv."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "process.timeout_seconds",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.process.ProcessCollector.timeout_seconds",
+          "language": "python",
+          "parent_id": "process",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "float",
+          "presence": "planned",
+          "responsibilities": [
+            "Bound collector execution through timeout_seconds."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "process.output_limit_bytes",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.process.ProcessCollector.output_limit_bytes",
+          "language": "python",
+          "parent_id": "process",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int",
+          "presence": "planned",
+          "responsibilities": [
+            "Bound collector execution through output_limit_bytes."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "process.stderr_limit_bytes",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.process.ProcessCollector.stderr_limit_bytes",
+          "language": "python",
+          "parent_id": "process",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int",
+          "presence": "planned",
+          "responsibilities": [
+            "Bound collector execution through stderr_limit_bytes."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "process.collect",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.process.ProcessCollector.collect",
+          "language": "python",
+          "parent_id": "process",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "request",
+                "annotation": "CollectionRequest",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "SourceFacts | CollectionError"
+          },
+          "presence": "planned",
+          "responsibilities": [
+            "Send a request to the configured process and return facts or a typed local failure."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "process.__post_init__",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.process.ProcessCollector.__post_init__",
+          "language": "python",
+          "parent_id": "process",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "presence": "planned",
+          "responsibilities": [
+            "Reject empty argv and nonpositive process bounds before execution."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "process._exchange",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.process.ProcessCollector._exchange",
+          "language": "python",
+          "parent_id": "process",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "process",
+                "annotation": "subprocess.Popen[bytes]",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "payload",
+                "annotation": "bytes",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "workers",
+                "annotation": "list[Thread]",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "tuple[bytes, bytes]"
+          },
+          "presence": "planned",
+          "responsibilities": [
+            "Drain both output pipes and send the request under one deadline."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "REF-archkeel.ir.protocol",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.protocol",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "REF-archkeel.ir.facts",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.facts",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "PORT-REL-4",
+          "kind": "imports",
+          "source_id": "archkeel.analyzer.process",
+          "target_id": "REF-archkeel.ir.protocol",
+          "resolution": "not_applicable",
+          "candidate_ids": [],
+          "expression": null,
+          "evidence_ids": [],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "record_ids": [],
+          "candidate_count": null,
+          "candidates_truncated": false,
+          "reason": "The process host exchanges typed envelopes.",
+          "through": [],
+          "decided_by": null
+        },
+        {
+          "id": "PORT-REL-5",
+          "kind": "imports",
+          "source_id": "archkeel.analyzer.process",
+          "target_id": "REF-archkeel.ir.facts",
+          "resolution": "not_applicable",
+          "candidate_ids": [],
+          "expression": null,
+          "evidence_ids": [],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "record_ids": [],
+          "candidate_count": null,
+          "candidates_truncated": false,
+          "reason": "The process host returns validated source facts.",
+          "through": [],
+          "decided_by": null
+        },
+        {
+          "id": "PORT-REL-9",
+          "kind": "calls",
+          "source_id": "process.collect",
+          "target_id": "process._exchange",
+          "resolution": "not_applicable",
+          "candidate_ids": [],
+          "expression": null,
+          "evidence_ids": [],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "record_ids": [],
+          "candidate_count": null,
+          "candidates_truncated": false,
+          "reason": "Process collection delegates bounded pipe exchange to its private method.",
+          "through": [],
+          "decided_by": null
+        }
+      ],
+      "scopes": [],
+      "schema_version": "1.0.0"
+    }
   }
 }

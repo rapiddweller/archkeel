@@ -98,6 +98,16 @@
   detailsToggle.setAttribute("aria-expanded", "false");
   detailsToggle.textContent = "Details";
   toolbar.appendChild(detailsToggle);
+  const unassignedCodeButton = document.createElement("button");
+  unassignedCodeButton.type = "button";
+  unassignedCodeButton.className = "flow-fit flow-unassigned-code";
+  unassignedCodeButton.hidden = true;
+  toolbar.appendChild(unassignedCodeButton);
+  unassignedCodeButton.addEventListener("click", () => {
+    umlSelection = null;
+    setTargetDetails(true);
+    render();
+  });
   let memberPreviews = false;
   const memberPreviewsButton = document.createElement("button");
   memberPreviewsButton.type = "button";
@@ -158,7 +168,7 @@
     measureText.font = font;
     const lines = [];
     let line = "";
-    for (const word of text.split(/(\s+)/).filter(Boolean)) {
+    for (const word of text.split(/(\s+)|(?<=_)|(?<=[a-z])(?=[A-Z])/).filter(Boolean)) {
       if (/^\s+$/.test(word)) {
         line += word;
         continue;
@@ -306,16 +316,13 @@
   }
 
   function measureUmlCards(nodes) {
-    measureText.font = `600 14px ${sansFontFamily}`;
-    CARD.w = Math.min(340, Math.max(200, ...nodes.map((node) =>
-      Math.ceil(measureText.measureText(node.label).width) + 48)));
     cardHeights.clear();
     for (const node of nodes) {
       if (["method", "function", "attribute", "binding"].includes(node.kind)) {
         node.meta = compactUmlText(node.meta, `12px ${monoFontFamily}`);
       }
       for (const section of node.sections || []) {
-        section.lines = section.lines.map((line) => compactUmlText(line));
+        section.lines = section.lines.map((line) => ({ ...line, text: compactUmlText(line.text) }));
       }
       const names = wrapText(node.label, CARD.w - 48, `600 14px ${sansFontFamily}`);
       const metadata = wrapText(node.meta, CARD.w - 32, `12px ${monoFontFamily}`);
@@ -363,18 +370,23 @@
       class: "card", width: String(CARD.w), height: String(cardHeight(node.id)),
       rx: ["class", "interface", "enum"].includes(node.kind) ? "2" : "8",
     }));
+    group.appendChild(el("path", { class: "uml-kind-accent", d: `M16,2 H${CARD.w - 16}` }));
     if (node.violation) group.appendChild(el("rect", {
       class: "tick violated", width: "3", height: String(cardHeight(node.id) - 24), x: "0", y: "12",
     }));
     const kind = el("text", { class: "stereotype", x: "16", y: "19" });
-    kind.textContent = `«${node.kind === "enum" ? "enumeration" : node.kind}»${node.outside ? " · outside" : ""}`;
+    kind.textContent = `«${node.kind === "enum" ? "enumeration" : node.kind === "enum_literal" ? "enumeration literal" : node.kind}»${node.outside ? " · outside" : ""}`;
     group.appendChild(kind);
-    const name = createWrappedText(node.label, { class: "label", x: "16", y: "37" },
+    const name = createWrappedText(node.label, {
+      class: "label", x: "16", y: "37",
+      "text-decoration": node.entity?.modifiers.includes("static") ? "underline" : "none",
+    },
       CARD.w - 48, `600 14px ${sansFontFamily}`, 18);
     group.appendChild(name);
     const nameLines = wrapText(node.label, CARD.w - 48, `600 14px ${sansFontFamily}`).length;
     group.appendChild(createWrappedText(node.meta, {
       class: "meta", x: "16", y: String(42 + nameLines * 18),
+      "text-decoration": node.entity?.modifiers.includes("static") ? "underline" : "none",
     }, CARD.w - 32, `12px ${monoFontFamily}`, 14));
     for (const section of umlCompartments(node)) {
       group.appendChild(el("path", { class: "uml-divider", d: `M0,${section.top} H${CARD.w}` }));
@@ -383,9 +395,11 @@
       group.appendChild(heading);
       let y = section.top + 32;
       for (const line of section.lines) {
-        group.appendChild(createWrappedText(line, { class: "uml-member", x: "12", y: String(y) },
-          CARD.w - 24, `11px ${monoFontFamily}`, 14));
-        y += wrapText(line, CARD.w - 24, `11px ${monoFontFamily}`).length * 14;
+        group.appendChild(createWrappedText(line.text, {
+          class: "uml-member", x: "12", y: String(y),
+          "text-decoration": line.static ? "underline" : "none",
+        }, CARD.w - 24, `11px ${monoFontFamily}`, 14));
+        y += wrapText(line.text, CARD.w - 24, `11px ${monoFontFamily}`).length * 14;
       }
     }
     const symbol = umlSymbol(node.kind);
@@ -401,7 +415,7 @@
       + wrapText(node.meta, CARD.w - 32, `12px ${monoFontFamily}`).length * 14;
     return (node.sections || []).map((section) => {
       const bottom = top + 30 + section.lines.reduce((height, line) =>
-        height + wrapText(line, CARD.w - 24, `11px ${monoFontFamily}`).length * 14, 0);
+        height + wrapText(line.text, CARD.w - 24, `11px ${monoFontFamily}`).length * 14, 0);
       const compartment = { ...section, top, bottom };
       top = bottom + 8;
       return compartment;
@@ -465,7 +479,8 @@
         - Math.abs(positions[a.target].x - positions[a.source].x)
       || positions[a.target].x - positions[b.target].x));
     const routes = [];
-    const occupied = { vertical: new Map(), horizontal: new Map(), clearance: new Map(), callFan };
+    const occupied = { vertical: new Map(), horizontal: new Map(),
+      clearance: { vertical: new Map(), horizontal: new Map() }, callFan };
     edges.forEach((edge, index) => {
       const source = endpoints[index * 2], target = endpoints[index * 2 + 1];
       const out = ports.get(`${source.node}:${source.side}`);
@@ -747,16 +762,34 @@
     const clearSegments = (points) => {
       for (let index = 1; index < points.length; index += 1) {
         const pair = [points[index - 1], points[index]];
-        const key = `${pair[0][0]}:${pair[0][1]}:${pair[1][0]}:${pair[1][1]}`;
-        if (!clearance.has(key)) clearance.set(key,
-          routePointsClear(pair, headers, 2) && routePointsClear(pair, cardBounds, 0));
-        if (!clearance.get(key)) return false;
+        const vertical = pair[0][0] === pair[1][0];
+        const at = vertical ? pair[0][0] : pair[0][1];
+        const start = Math.min(pair[0][vertical ? 1 : 0], pair[1][vertical ? 1 : 0]);
+        const end = Math.max(pair[0][vertical ? 1 : 0], pair[1][vertical ? 1 : 0]);
+        const axis = clearance[vertical ? "vertical" : "horizontal"];
+        if (!axis.has(at)) axis.set(at, new Map());
+        const starts = axis.get(at);
+        if (!starts.has(start)) starts.set(start, new Map());
+        const ends = starts.get(start);
+        let clear = ends.get(end);
+        if (clear === undefined) {
+          clear = routePointsClear(pair, headers, 2) && routePointsClear(pair, cardBounds, 0);
+          ends.set(end, clear);
+        }
+        if (!clear) return false;
       }
       return true;
     };
     let route = null, leastShared = Infinity, leastNearby = Infinity;
     // Most routes need no expanded search; retry only when every clear route shares a stretch.
-    for (const expanded of [false, true]) {
+    for (const pass of [
+      { expanded: false, sideRetry: false },
+      { expanded: true, sideRetry: false },
+      { expanded: true, sideRetry: true },
+    ]) {
+      const { expanded, sideRetry } = pass;
+      const sources = sideRetry
+        ? sourceCard ? sidePorts(sourceCard, sourceHeight, sx) : [] : sourcePorts;
       const distances = expanded
         ? Array.from({ length: Math.ceil((ROW_GAP - 14) / (LANE_GAP / 2)) }, (_, index) => 14 + index * LANE_GAP / 2)
         : [14, 14 + LANE_GAP];
@@ -769,14 +802,19 @@
         ...(targetCard && (targetBlocked || expanded) ? sidePorts(targetCard, targetHeight, tx) : []),
       ];
       const sourceLanes = [...new Set([
-        ...[normalSource.lead[1], normalTarget.lead[1]]
+        ...[...(sideRetry ? sources.map((port) => port.lead[1]) : [normalSource.lead[1]]), normalTarget.lead[1]]
           .flatMap((y) => offsets.map((offset) => y + offset * LANE_GAP)),
         ...cards.flatMap(([id, position]) => [
           position.y - 14, position.y + cardHeight(id) + 14,
         ]).flatMap((y) => offsets.map((offset) => y + offset * LANE_GAP)),
         ...headers.flatMap((header) => [header.top - 14, header.bottom + 14]),
       ])];
+      const occupiedX = [...occupied.vertical.values()].flat().map((segment) => segment.at);
       const candidateGutters = expanded ? [...new Set([...gutters,
+        ...(sideRetry ? [
+          Math.min(allLeft - 14, ...occupiedX) - LANE_GAP,
+          Math.max(allRight + 14, ...occupiedX) + LANE_GAP,
+        ] : []),
         ...cardBounds.flatMap((card) => Array.from(
           { length: Math.floor(GAP / (LANE_GAP / 2)) - 1 }, (_, index) => {
             const offset = (index + 1) * LANE_GAP / 2;
@@ -787,14 +825,18 @@
         - Math.abs(sx - b) - Math.abs(tx - b));
       sourceLanes.sort((a, b) => Math.abs(sy - a) + Math.abs(end - a)
         - Math.abs(sy - b) - Math.abs(end - b));
-      candidates: for (const source of sourcePorts) {
+      candidates: for (const source of sources) {
+        // Overlapping fixed segments cannot become a clear route by changing its middle.
         const exits = sourceLanes.filter((laneY) => !(source.axis === "vertical"
           && (laneY - source.lead[1]) * sourceDirection < 0)
-          && clearSegments([source.point, source.lead, [source.lead[0], laneY]]));
+          && clearSegments([source.point, source.lead, [source.lead[0], laneY]])
+          && (!sideRetry || sharedRouteLength([source.point, source.lead, [source.lead[0], laneY]],
+            occupied, 1, LANE_GAP / 2, avoidCrossings) === 0));
         for (const target of targetPorts) {
           const arrivals = candidateGutters.filter((x) => clearSegments([
             [x, target.lead[1]], target.lead, target.point,
-          ]));
+          ]) && (!sideRetry || sharedRouteLength([[x, target.lead[1]], target.lead, target.point],
+            occupied, 1, LANE_GAP / 2, avoidCrossings) === 0));
           for (const gutterX of arrivals) {
             for (const laneY of exits) {
               const points = [
@@ -804,7 +846,7 @@
               // Exits and arrivals already checked the first and last two segments.
               if (!clearSegments(points.slice(2, 5))) continue;
               const shared = sharedRouteLength(points, occupied, Math.max(1, leastShared), LANE_GAP / 2, avoidCrossings);
-              if (shared > leastShared) continue;
+              if (shared > leastShared || sideRetry && shared > 0) continue;
               const nearby = sharedRouteLength(points, occupied,
                 shared === leastShared ? Math.max(1, leastNearby) : Infinity, LANE_GAP, avoidCrossings);
               const length = points.slice(1).reduce((total, point, index) => total
@@ -874,7 +916,10 @@
     const byId = new Map(graphNodes.map((node) => [node.id, node]));
     const frameIds = new Set(Object.keys(containers));
     const rankNodes = graphNodes.filter((node) => node.kind === "component");
-    const residualRow = 1 + Math.max(0, ...rankNodes.map((node) => node.rank ?? 0));
+    const lastRank = Math.max(0, ...rankNodes.map((node) => node.rank ?? 0));
+    // Root layout bands keep long chains readable; they do not define architecture layers.
+    const rankSpan = scene.componentOverview ? Math.max(1, Math.ceil((lastRank + 1) / 3)) : 1;
+    const residualRow = 1 + Math.floor(lastRank / rankSpan);
     const step = CARD.w + GAP;
     let availableColumns = Math.max(1, Math.floor((canvas.clientWidth - 64 + GAP) / step));
     if (!scene.frames.length && graphNodes.length && canvas.clientHeight) {
@@ -885,7 +930,7 @@
       availableColumns = Math.max(availableColumns, balancedColumns);
     }
     const rowFor = (node) => node.rank === null ? residualRow
-      : Number.isFinite(node.rank) ? node.rank : residualRow + 1;
+      : Number.isFinite(node.rank) ? Math.floor(node.rank / rankSpan) : residualRow + 1;
     const itemsFor = (id) => [
       ...(containers[id].members || []).filter((member) => byId.has(member)),
     ];
@@ -1119,6 +1164,10 @@
   }
 
   function architectureLabel(entity, graph) {
+    if (entity.kind === "module" && entity.file_path) {
+      const filename = entity.file_path.split("/").at(-1);
+      if (filename !== "__init__.py") return filename.replace(/\.[^.]+$/, "");
+    }
     return (graph.origin === "observed" ? DATA.target?.component_intents || [] : graph.component_intents)
       .find((item) => item.component_id === entity.id)?.label
       || entity.qualified_name.split(".").at(-1);
@@ -1127,6 +1176,7 @@
   function umlMember(entity, includeName = true) {
     const visibility = { public: "+", private: "−", protected: "#", package: "~", unknown: "?" };
     const name = entity.qualified_name.split(".").at(-1);
+    if (entity.kind === "enum_literal") return name;
     let text = `${visibility[entity.visibility.kind]} ${includeName ? name : ""}`;
     if (entity.signature) {
       const parameters = [];
@@ -1178,8 +1228,10 @@
     const { graph, scope } = context;
     const displayEntities = architectureEntities(graph);
     const byId = new Map(displayEntities.map((entity) => [entity.id, entity]));
+    const componentOverview = scope === null && displayEntities.some((entity) =>
+      entity.kind === "component" && architectureParent(entity, graph) === null);
     const local = displayEntities.filter((entity) => architectureParent(entity, graph) === scope
-      && entity.presence !== "referenced");
+      && entity.presence !== "referenced" && (!componentOverview || entity.kind === "component"));
     const visible = new Map(local.map((entity) => [entity.id, entity]));
     const localIds = new Set(visible.keys());
     const operationScope = ["method", "function"].includes(byId.get(scope)?.kind);
@@ -1237,18 +1289,10 @@
       return observedEntry(operationScope ? id : classifier || module || id);
     };
     const entries = new Map([...visible].map(([id]) => [id, targetEntry(id)]));
-    if (observed && scope === null) {
-      // Unowned namespaces remain navigable even when the contract declares no UML comparison.
-      for (const entity of architectureEntities(observed)) {
-        if (["package", "module"].includes(entity.kind) && entity.presence !== "referenced"
-            && architectureParent(entity, observed) === null) {
-          entries.set(`observed:${entity.id}`, observedEntry(entity.id, true));
-        }
-      }
-    }
     const groups = new Map();
     const addSite = (site, source, target, sourceGraph, assessment = null) => {
       if (!source?.entity || !target?.entity || (!source.local && !target.local)) return;
+      if (componentOverview && [source, target].some((entry) => entry.entity.kind !== "component")) return;
       if (source.id === target.id && site.source_id !== site.target_id) return;
       for (const entry of [source, target]) if (!entries.has(entry.id)) entries.set(entry.id, entry);
       const id = site.kind === "requires" ? site.id
@@ -1296,20 +1340,26 @@
         for (const item of edge.assessments) if (!assessments.some((found) => found.id === item.id)) assessments.push(item);
       }
       const fields = children.filter((child) => child.kind === "attribute");
+      const literals = children.filter((child) => child.kind === "enum_literal");
       const methods = children.filter((child) => child.kind === "method");
       const sections = [
-        ["Attributes", fields], ["Operations", methods],
+        ["Literals", literals], ["Attributes", fields], ["Operations", methods],
       ].filter(([, entries]) => entries.length).map(([label, entries]) => ({ label,
-        lines: [...entries.slice(0, 3).map((entry) => umlMember(entry)),
-          ...(entries.length > 3 ? [`… ${entries.length - 3} more · Open selected`] : [])] }));
+        lines: [...entries.slice(0, 3).map((entry) => ({ text: umlMember(entry),
+          static: entry.modifiers.includes("static") })),
+          ...(entries.length > 3 ? [{ text: `… ${entries.length - 3} more · Open selected`, static: false }] : [])] }));
       return { id, kind: entity.kind, entity, sourceGraph, assessments,
         label: architectureLabel(entity, sourceGraph),
-        meta: ["method", "function", "attribute", "binding"].includes(entity.kind)
+        meta: entity.kind === "enum_literal" ? ""
+          : ["method", "function", "attribute", "binding"].includes(entity.kind)
           ? umlMember(entity, !["method", "function"].includes(entity.kind))
-          : sourceGraph !== graph ? `Observed · ${unexpected.some((item) => item.observed_ids.includes(entity.id)) ? "unlisted definition" : entity.kind === "package" ? "namespace" : "relationship endpoint"}`
           : entity.presence === "referenced" ? "Referenced symbol"
-            : `${boundary && sourceGraph.origin === "observed" ? "Declared boundary · " : boundary ? `${boundary.role} · ` : ""}${children.length} inner element${children.length === 1 ? "" : "s"}`,
-        sections, memberCounts: { fields: fields.length, methods: methods.length }, outside: !local,
+          : entity.kind === "component" ? `Architecture boundary${boundary?.role && boundary.role !== "component" ? ` · Role: ${boundary.role}` : ""} · ${children.length} inner element${children.length === 1 ? "" : "s"}`
+          : entity.kind === "package" ? `Namespace group${sourceGraph !== graph ? " · observed" : ""} · ${children.length} inner element${children.length === 1 ? "" : "s"}`
+          : entity.kind === "module" ? `${sourceGraph !== graph ? "Observed · " : ""}${entity.file_path?.split("/").at(-1) || "File not declared"} · ${children.length} inner element${children.length === 1 ? "" : "s"}`
+          : sourceGraph !== graph ? `Observed · ${unexpected.some((item) => item.observed_ids.includes(entity.id)) ? "unlisted definition" : "relationship endpoint"}`
+          : `${children.length} inner element${children.length === 1 ? "" : "s"}`,
+        sections, memberCounts: { literals: literals.length, fields: fields.length, methods: methods.length }, outside: !local,
         tooltip: `${entity.kind}: ${entity.qualified_name}. ${entity.presence}. ${entity.responsibilities.join(" ")}` };
     });
     const edges = [...groups.values()].map((edge) => {
@@ -1329,21 +1379,7 @@
           edge.sites.length} source or declaration site${edge.sites.length === 1 ? "" : "s"}.${statuses.length ? ` Core ${statuses.join("/")}${assessments.some((item) => item.change === "unexpected") ? " · unlisted observed relationship" : ""}.` : ""}`,
       };
     });
-    if (graph.origin === "declared") {
-      for (const inventory of graph.module_inventories.filter((item) => item.component_id === scope)) {
-        for (const file of inventory.modules) {
-          if (nodes.some((node) => node.entity?.file_path === file.path)) continue;
-          nodes.push({ id: `${inventory.id}:file:${encodeURIComponent(file.path)}`,
-            kind: "file", label: file.path.split("/").at(-1),
-            meta: DATA.observed ? DATA.observed.entities.some((entity) => entity.kind === "module" && entity.presence === "defined" && entity.file_path === file.path) ? "Declared file intent · observed" : "Declared file intent · not observed" : "Declared file intent · Source unavailable",
-            tooltip: `${file.path}. ${file.responsibility}`, fileIntent: file, inventory,
-            entity: null, sourceGraph: graph, assessments: [],
-            findings: (DATA.findings || []).filter((finding) => finding.subjects.includes(file.path)), sections: [],
-            memberCounts: { fields: 0, methods: 0 }, outside: false });
-        }
-      }
-    }
-    return { nodes, frames: [], edges, owner: scope };
+    return { nodes, frames: [], edges, owner: scope, componentOverview };
   }
 
   function selectArchitectureSubject(type, id) {
@@ -1382,7 +1418,8 @@
       : renderedScene?.nodes.find((item) => item.id === id);
     if (!context || !node?.entity) { selectArchitectureSubject("node", id); return; }
     if (node.sourceGraph === context.graph && node.entity.id === context.scope
-        || !architectureHasInterior(node.entity, node.sourceGraph)) {
+        || !architectureHasInterior(node.entity, node.sourceGraph)
+          && !(sourceGraph && node.entity.kind === "module")) {
       selectArchitectureSubject("node", id);
       return;
     }
@@ -1416,7 +1453,8 @@
       ...path.map((entry, depth) => {
         const graph = entry.origin === "observed" ? DATA.observed : DATA.target;
         return { label: (viewMode === "diff" && entry.origin === "observed" ? "Observed: " : "")
-          + architectureLabel(architectureEntity(entry.id, graph), graph), depth };
+          + architectureLabel(architectureEntity(entry.id, graph), graph)
+          + ` [${architectureEntity(entry.id, graph).kind}]`, depth };
       })];
     breadcrumb.hidden = false;
     breadcrumb.textContent = "";
@@ -1452,17 +1490,6 @@
     const { graph } = context;
     const node = umlSelection?.type === "node"
       ? scene.nodes.find((item) => item.id === umlSelection.id) : null;
-    if (node?.fileIntent) {
-      const observedFile = (DATA.observed?.entities || []).find((entity) => entity.kind === "module"
-        && entity.presence === "defined" && entity.file_path === node.fileIntent.path);
-      inspectorContent.innerHTML = `<div class="kicker">Independent Target · file intent</div>
-        <h2>${esc(node.fileIntent.path)}</h2><p>${esc(node.fileIntent.responsibility)}</p>
-        <p>This file inventory does not define classes, methods, imports or calls.</p>
-        <p>${DATA.observed ? observedFile ? `Observed module: ${esc(observedFile.qualified_name)}` : "Not in the observed file inventory." : "Source facts are unavailable."} This is separate from a Core verdict.</p>
-        <h3>Provenance</h3><p>${node.inventory.provenance.map(esc).join(" · ")}</p>
-        <h3>Recorded Core findings</h3>${findingMarkup(node.findings || [])}`;
-      return;
-    }
     const entity = node?.entity || (!umlSelection
       ? architectureEntity(context.scope, graph) : null) || null;
     const edge = umlSelection?.type === "edge"
@@ -1505,7 +1532,7 @@
     const proof = proofIds.map((id) => evidence.get(id)).filter(Boolean);
     const decisionGaps = (DATA.decision_gaps || []).filter((gap) => sites.some((site) => gap.relationship_ids.includes(site.id)));
     const scope = entity?.id || context.scope;
-    const coverage = entityGraph.coverage.filter((item) => item.scope_id === scope);
+    const coverage = entityGraph.coverage.filter((item) => item.scope_id === scope || item.scope_id === null);
     const children = entityGraph.entities.filter((item) => architectureParent(item, entityGraph) === entity?.id);
     const boundary = !edge && (entityGraph.origin === "observed" ? DATA.target?.component_intents || [] : entityGraph.component_intents)
       .find((item) => item.component_id === scope);
@@ -1517,6 +1544,11 @@
       ? !assignedLayouts.has(rule.id) : boundary?.layout_rule_ids.includes(rule.id)) : [];
     const plannedFiles = inventories.flatMap((item) => item.modules);
     const globalApi = !edge && graph.origin === "declared" && scope === null ? graph.public_api : [];
+    const unassigned = !entity && !edge && context.scope === null && viewMode !== "target"
+      ? unassignedArchitectureModules() : [];
+
+    const unassignedNamespaces = unassigned.length ? architectureEntities(DATA.observed)
+      .filter((item) => item.kind === "package" && architectureParent(item, DATA.observed) === null) : [];
     const permissionGraph = DATA.target;
     const externalScopes = (permissionGraph?.external_scopes || []).filter((rule) => scope === null
       || entity?.qualified_name === rule.dependency || siteEntries.some(({site, sourceGraph}) => {
@@ -1524,11 +1556,33 @@
         return target === rule.dependency || target.startsWith(`${rule.dependency}.`);
       }));
 
+    const viewParent = entity ? architectureEntity(architectureParent(entity, entityGraph), entityGraph) : null;
+    const codeParent = entity ? entityGraph.entities.find((item) => item.id === entity.parent_id) : null;
+    let sourceModule = entity;
+    while (sourceModule && !sourceModule.file_path) {
+      sourceModule = entityGraph.entities.find((item) => item.id === sourceModule.parent_id);
+    }
+    const assignedModules = boundary && entityGraph.origin === "observed"
+      ? (DATA.memberships || []).filter((item) => item.component_id === scope)
+        .flatMap((item) => item.module_ids).map((id) => architectureEntity(id, entityGraph)).filter(Boolean) : [];
+    const kindDescription = entity?.kind === "component" ? "Architecture boundary"
+      : entity?.kind === "package" ? "Namespace group"
+      : entity?.kind === "module" ? `${entity.language === "python" ? "Python" : entity.language} module`
+      : entity?.kind === "interface" && entity.language === "python" ? "Interface / Protocol" : entity?.kind;
+
     inspectorContent.innerHTML = `<div class="kicker">${context.comparison ? "Core comparison" : entityGraph.origin === "observed" ? entity?.kind === "component" ? "Declared navigation boundary · observed source" : "Observed" : "Independent Target"} UML</div>
-      <h2>${esc(entity?.qualified_name || (edge?.relationshipKind === "requires" ? "Allowed component import" : edge?.relationshipKind) || "Architecture scope")}</h2>
+      <h2>${esc(entity ? architectureLabel(entity, entityGraph) : (edge?.relationshipKind === "requires" ? "Allowed component import" : edge?.relationshipKind) || "Architecture scope")}</h2>
+      ${entity ? `<p class="flow-qualified-name"><code>${entity.qualified_name.split(".").map(esc).join(".<wbr>")}</code></p>` : ""}
       ${edge?.routingWarning ? `<p role="status">${esc(ROUTING_WARNING)}</p>` : ""}
-      ${entity ? `<dl class="kv"><dt>Kind</dt><dd>${esc(entity.kind)}</dd>${entity.kind !== "component" ? `<dt>Language visibility</dt><dd>${esc(entity.visibility.kind)} · ${esc(entity.visibility.basis)}</dd>` : ""}${entity.signature || entity.annotation ? `<dt>Signature or annotation</dt><dd><code>${esc(umlMember(entity))}</code></dd>` : ""}</dl>
+      ${entity ? `<dl class="kv"><dt>Kind</dt><dd>${esc(kindDescription)}</dd>
+        ${viewParent ? `<dt>View group</dt><dd>${esc(architectureLabel(viewParent, entityGraph))} [${esc(viewParent.kind)}]</dd>` : ""}
+        ${codeParent && codeParent.kind !== "component" ? `<dt>${codeParent.kind === "package" ? "Code namespace" : "Code container"}</dt><dd>${esc(codeParent.qualified_name)} [${esc(codeParent.kind === "package" ? "namespace group" : codeParent.kind)}]</dd>` : ""}
+        ${entity.kind !== "component" && entity.kind !== "package" ? `<dt>Source file</dt><dd><code>${esc(sourceModule?.file_path || (entityGraph.origin === "declared" ? "Not declared" : "Not recorded"))}</code></dd>` : ""}
+        ${entity.kind !== "component" ? `<dt>Language visibility</dt><dd>${esc(entity.visibility.kind)} · ${esc(entity.visibility.basis)}</dd>` : ""}${entity.signature || entity.annotation ? `<dt>Signature or annotation</dt><dd><code>${esc(umlMember(entity))}</code></dd>` : ""}</dl>
       ${entity.responsibilities.map((text) => `<p>${esc(text)}</p>`).join("")}${entityGraph.origin === "declared" && !entity.responsibilities.length ? "<p>No declared responsibility.</p>" : ""}` : ""}
+      ${entity?.kind === "component" ? "<p>A declared responsibility and ownership boundary. It may group several packages or modules; it is not a Python class or file.</p>" : ""}
+      ${entity?.kind === "package" ? "<p>A namespace group. This does not prove a package directory or an __init__.py file.</p>" : ""}
+      ${assignedModules.length ? `<h3>Assigned code · ${assignedModules.length} module${assignedModules.length === 1 ? "" : "s"}</h3><ul class="plain">${assignedModules.map((item) => `<li><code>${esc(item.file_path || item.qualified_name)}</code></li>`).join("")}</ul>` : ""}
       ${entity?.definition_contexts?.length ? `<h3>Definition context</h3><p>Recorded under control flow. Runtime name binding is not proven.</p><ol>${entity.definition_contexts.map((item) => `<li><code>${esc(item.kind)} · ${esc(item.branch)}</code></li>`).join("")}</ol>` : ""}
       ${entity?.initializer != null ? `<h3>Static assignment site</h3><p><code>${esc(umlMember(entity))}</code></p><p>Source value assigned at this site. This does not identify a live object or its current value.</p>` : ""}
       ${decisionGaps.length ? `<h3>Open dependency decisions</h3><p>These observed component imports have no declared dependency decision. This is not a Core UNKNOWN verdict.</p><ul>${decisionGaps.map((gap) => `<li>${esc(architectureLabel(architectureEntity(gap.source_id, DATA.target), DATA.target))} → ${esc(architectureLabel(architectureEntity(gap.target_id, DATA.target), DATA.target))}</li>`).join("")}</ul>` : ""}
@@ -1543,16 +1597,26 @@
         ${boundary.decided_by ? `<dt>Decided by</dt><dd>${esc(boundary.decided_by)}</dd>` : ""}
         ${boundary.inside ? `<dt>Inner contract</dt><dd>${esc(boundary.inside)}</dd>` : ""}
         </dl>${boundary.forbidden_responsibilities.length ? `<h3>Excluded responsibilities</h3><ul class="plain">${boundary.forbidden_responsibilities.map((text) => `<li>${esc(text)}</li>`).join("")}</ul>` : ""}` : ""}
+      ${unassigned.length ? `<h3>Observed code without a component assignment · ${unassigned.length} modules</h3>
+        <p>These modules have no recorded component membership. They remain source facts; the renderer assigns no owner.</p>
+        <ul class="plain">${unassigned.map((item) => `<li><code>${esc(item.file_path || item.qualified_name)}</code> <button type="button" data-uml-unassigned="${esc(item.id)}">Open</button></li>`).join("")}</ul>` : ""}
+      ${unassignedNamespaces.length ? `<details><summary>Recorded namespace groups · ${unassignedNamespaces.length}</summary>
+        <p>Namespace grouping does not prove a directory or a declared component owner.</p>
+        <ul class="plain">${unassignedNamespaces.map((item) => `<li><code>${esc(item.qualified_name)}</code> <button type="button" data-uml-unassigned="${esc(item.id)}">Open</button></li>`).join("")}</ul></details>` : ""}
       ${globalApi.length ? `<h3>Global published API</h3><p>API selectors. Symbol details come from explicit UML intent.</p><ul class="plain">${globalApi.map((entry) => `<li><code>${esc(entry.selector)}</code><p>${entry.provenance.map(esc).join(" · ")}</p></li>`).join("")}</ul>` : ""}
       ${physicalScope ? `${plannedFiles.length ? `<details><summary>Module inventory · ${plannedFiles.length} planned ${plannedFiles.length === 1 ? "file" : "files"}</summary>
-        <p>File intent does not define classes or calls.</p><ul class="plain">${plannedFiles.map((item) => `<li><code>${esc(item.path)}</code><p>${esc(item.responsibility)}</p></li>`).join("")}</ul>
+        <p>File intent does not define classes, methods, imports or calls. Observed file presence is separate from a Core verdict.</p><ul class="plain">${plannedFiles.map((item) => {
+          const actual = DATA.observed?.entities.find((entity) => entity.kind === "module" && entity.presence === "defined" && entity.file_path === item.path);
+          const findings = (DATA.findings || []).filter((finding) => finding.subjects.includes(item.path));
+          return `<li data-file-intent="${esc(item.path)}"><code>${esc(item.path)}</code><p>${esc(item.responsibility)}</p><p>${DATA.observed ? actual ? `Observed module: ${esc(actual.qualified_name)}` : "Not in the observed file inventory." : "Source facts are unavailable."}</p>${findings.length ? findingMarkup(findings) : ""}</li>`;
+        }).join("")}</ul>
         <p>${[...new Set(inventories.flatMap((item) => item.provenance))].map(esc).join(" · ")}</p></details>`
         : `<h3>Module inventory</h3><p>${inventories.length ? "Explicitly empty" : "Not declared"}</p>`}
         ${layouts.length ? `<details><summary>Permitted package layout · ${layouts.length} ${layouts.length === 1 ? "rule" : "rules"}</summary>
           <p>Permission does not require existence.</p><ul class="plain">${layouts.map((rule) => `<li><strong>${esc(rule.root)}</strong><p>${esc(rule.rationale)}</p><p>Allowed immediate children: ${rule.allowed_children.length ? rule.allowed_children.map(esc).join(", ") : "Explicitly empty"}</p><p>${esc(rule.decided_by)} · ${rule.provenance.map(esc).join(" · ")}</p></li>`).join("")}</ul></details>`
           : context.scope === null ? "<h3>Permitted package layout</h3><p>Not declared</p>" : ""}` : ""}
       ${children.length ? `<h3>Inner elements</h3><ul class="plain">${children.map((child) =>
-        `<li><code>${esc(umlMember(child))}</code>${architectureHasInterior(child, entityGraph) ? ` <button type="button" data-uml-detail="${esc(child.id)}">Open</button>` : ""}</li>`).join("")}</ul>` : ""}
+        `<li><span>${esc(child.kind)}</span> · <code>${esc(umlMember(child))}</code>${architectureHasInterior(child, entityGraph) ? ` <button type="button" data-uml-detail="${esc(child.id)}">Open</button>` : ""}</li>`).join("")}</ul>` : ""}
       ${assessments.length ? `<h3>Core assessments</h3>${problems.length ? `<ul class="plain">${assessmentDetails(problems)}</ul>` : ""}${matches.length ? `<details><summary>${matches.length} matched assessments</summary><ul class="plain">${assessmentDetails(matches)}</ul></details>` : ""}`
         : context.comparison && entityGraph.origin === "observed" ? "<h3>Core assessments</h3><p>No Core assessment for this observed scope.</p>" : ""}
       ${sites.length ? `<h3>Relationship sites</h3><ul class="plain">${siteEntries.map(({ site, sourceGraph }) =>
@@ -1569,8 +1633,17 @@
         || item.graph_subject_ids.some((id) => ids.has(id)));
       inspectorContent.insertAdjacentHTML("beforeend", `<h3>Recorded Core findings</h3>${findingMarkup(findings)}`);
     }
+    inspectorContent.querySelectorAll("[data-uml-unassigned]").forEach((button) =>
+      button.addEventListener("click", () => openArchitectureEntity(button.dataset.umlUnassigned, DATA.observed)));
     inspectorContent.querySelectorAll("[data-uml-detail]").forEach((button) =>
       button.addEventListener("click", () => openArchitectureEntity(button.dataset.umlDetail, entityGraph)));
+  }
+
+  function unassignedArchitectureModules() {
+    const owned = new Set((DATA.memberships || []).flatMap((item) => item.module_ids));
+    return (DATA.observed?.entities || []).filter((item) => item.kind === "module"
+      && item.presence === "defined" && !owned.has(item.id))
+      .sort((left, right) => (left.file_path || left.qualified_name).localeCompare(right.file_path || right.qualified_name));
   }
 
   function renderArchitectureGraph(context) {
@@ -1584,6 +1657,12 @@
     emptyLayer.textContent = "";
     architectureNavigation(context);
     const complete = projectArchitectureScene(context);
+    root.dataset.componentOverview = String(complete.componentOverview);
+    const unassigned = context.scope === null && viewMode !== "target"
+      && complete.nodes.some((node) => node.kind === "component") ? unassignedArchitectureModules() : [];
+    unassignedCodeButton.hidden = !unassigned.length;
+    unassignedCodeButton.textContent = `Unassigned code · ${unassigned.length} modules`;
+
     const kinds = [...new Set(complete.edges.map((edge) => edge.relationshipKind))].sort();
     if (!kinds.includes(relationshipKind)) relationshipKind = null;
     const elementKinds = [...new Set(complete.nodes.map((node) => node.kind))].sort();
@@ -1632,7 +1711,7 @@
     memberPreviewsButton.hidden = !scene.nodes.some((node) => node.sections.length);
     if (!memberPreviews) for (const node of scene.nodes) {
       if (node.sections.length) {
-        const counts = `${node.memberCounts.fields} fields · ${node.memberCounts.methods} methods`;
+        const counts = `${node.kind === "enum" ? `${node.memberCounts.literals} literals · ` : ""}${node.memberCounts.fields} fields · ${node.memberCounts.methods} methods`;
         node.meta = node.sourceGraph === context.graph ? counts : `${node.meta} · ${counts}`;
         node.sections = [];
       }
@@ -1704,6 +1783,12 @@
           const label = el("text", { class: "uml-assessment", x: String(CARD.w - 12),
             y: String(cardHeight(item.id) - 8), "text-anchor": "end" });
           label.textContent = status;
+          const receipts = [...(item.assessments || []), ...findings].filter((receipt) => receipt.status === status);
+          const explanation = receipts.slice(0, 3).map((receipt) => receipt.reason
+            || `${receipt.rule_ids.join(", ")}: ${receipt.title}`).join(" · ");
+          const message = `${status} · ${explanation}. Select the card for recorded checks. PASS does not certify complete observation.`;
+          label.setAttribute("aria-label", message);
+          element.querySelector("title").textContent += `\n${message}`;
           element.appendChild(label);
         }
       }
@@ -1765,9 +1850,8 @@
       sizedPositions = positions;
     }
     const padding = 24;
-    const nextX = viewMode === "target"
-      ? bounds.x - Math.max(padding, (canvas.clientWidth / transform.k - bounds.width) / 2)
-      : bounds.x - padding;
+    const nextX = bounds.x - Math.max(padding,
+      (canvas.clientWidth / transform.k - bounds.width) / 2);
     const nextY = bounds.y - padding;
     if (!diagramOrigin) {
       diagramOrigin = { x: nextX, y: nextY };
@@ -1813,11 +1897,11 @@
     zoomValue.textContent = `${Math.round(transform.k * 100)}%`;
   }
 
-  function fit() {
+  function fit(overview = false) {
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height || !canvas.clientWidth || !canvas.clientHeight) return;
-    // Focused neighborhoods stay readable; oversized content uses native scrolling.
-    transform.k = Math.max(focusLabel ? 1 : 0, Math.min(
+    // Member compartments need readable text; oversized content stays pannable.
+    transform.k = Math.max(overview ? 0 : focusLabel || memberPreviews ? 1 : 0.85, Math.min(
       1.4,
       canvas.clientWidth / (bounds.width + 48),
       canvas.clientHeight / (bounds.height + 48),
@@ -2030,7 +2114,7 @@
     render(); fit();
   });
   fitButton.addEventListener("click", () => { positions = {}; render(); fit(); });
-  overviewButton.addEventListener("click", () => { positions = {}; render(); fit(); });
+  overviewButton.addEventListener("click", () => { positions = {}; render(); fit(true); });
   zoomOutButton.addEventListener("click", () => zoomBy(1 / 1.2));
   zoomInButton.addEventListener("click", () => zoomBy(1.2));
   zoom100Button.addEventListener("click", () => { transform.k = 1; diagramOrigin = null; sizeDiagram(); });

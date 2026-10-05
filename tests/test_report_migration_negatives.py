@@ -120,7 +120,12 @@ def test_unmapped_namespace_offers_root_without_inventing_a_target_owner(tmp_pat
     api = pytest.importorskip("playwright.sync_api")
     playwright, browser, page = _browser_page(api, html)
     try:
-        page.locator('.flow-nodes [data-label="sample"][data-uml-kind="package"]').press("Enter")
+        page.locator(".flow-unassigned-code").click()
+        groups = page.locator(".flow-inspector-content details").filter(
+            has=page.locator("summary", has_text="Recorded namespace groups")
+        )
+        groups.locator("summary").click()
+        groups.get_by_role("button", name="Open", exact=True).click()
         page.get_by_role("button", name="Target", exact=True).click()
         notice = page.locator(".flow-scope-notice")
         assert "No counterpart" in notice.inner_text()
@@ -187,7 +192,12 @@ def test_legacy_diff_observed_selection_keeps_exact_source_site(tmp_path):
     playwright, browser, page = _browser_page(api, html)
     try:
         page.get_by_role("button", name="Diff", exact=True).click()
-        page.locator('.flow-nodes [data-label="sample"][data-uml-kind="package"]').press("Space")
+        page.locator(".flow-unassigned-code").click()
+        groups = page.locator(".flow-inspector-content details").filter(
+            has=page.locator("summary", has_text="Recorded namespace groups")
+        )
+        groups.locator("summary").click()
+        groups.get_by_role("button", name="Open", exact=True).click()
         _open_details(page)
         details = page.locator(".flow-inspector-content").inner_text()
         assert "Relationship sites" in details
@@ -241,7 +251,12 @@ def test_ambiguous_root_module_stays_reachable_without_an_invented_owner(tmp_pat
     playwright, browser, page = _browser_page(api, html)
     try:
         page.get_by_role("button", name=view, exact=True).click()
-        page.locator('.flow-nodes [data-label="sample"][data-uml-kind="package"]').press("Enter")
+        page.locator(".flow-unassigned-code").click()
+        groups = page.locator(".flow-inspector-content details").filter(
+            has=page.locator("summary", has_text="Recorded namespace groups")
+        )
+        groups.locator("summary").click()
+        groups.get_by_role("button", name="Open", exact=True).click()
         page.locator('.flow-nodes [data-label="core"][data-uml-kind="package"]').press("Enter")
         card = page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]')
         card.press("Space")
@@ -301,16 +316,17 @@ def test_source_free_file_and_initializer_intents_keep_distinct_details(tmp_path
     playwright, browser, page = _browser_page(api, html)
     try:
         page.get_by_role("button", name="Target", exact=True).click()
+        _open_details(page)
+        details = page.locator(".flow-inspector-content")
+        details.get_by_text("Module inventory · 2 planned files", exact=True).click()
         for file in files:
-            name = file["path"].split("/")[-1]
-            page.locator(f'.flow-nodes [data-label="{name}"]').press("Space")
-            details = page.locator(".flow-inspector-content").inner_text()
-            assert file["path"] in details and file["responsibility"] in details
-            assert "Not in the observed file inventory" in details
-            assert (
-                "This file inventory does not define classes, methods, imports or calls" in details
-            )
-        assert page.locator('.flow-nodes [data-uml-kind="file"]').count() == 2
+            row = details.locator(f'[data-file-intent="{file["path"]}"]').inner_text()
+            assert file["path"] in row and file["responsibility"] in row
+            assert "Not in the observed file inventory" in row
+        assert (
+            "File intent does not define classes, methods, imports or calls" in details.inner_text()
+        )
+        assert page.locator('.flow-nodes [data-uml-kind="file"]').count() == 0
     finally:
         browser.close()
         playwright.stop()
@@ -338,8 +354,10 @@ def test_long_target_names_paths_and_responsibilities_remain_accessible(tmp_path
         details = page.locator(".flow-inspector-content")
         assert label in details.inner_text() and responsibility.strip() in details.inner_text()
         assert details.evaluate("node => getComputedStyle(node).writingMode") == "horizontal-tb"
-        page.locator('.flow-nodes [data-label="interface_definition.py"]').press("Space")
-        assert path in details.inner_text() and responsibility.strip() in details.inner_text()
+        page.locator(".flow-graph").dispatch_event("click")
+        details.get_by_text("Module inventory · 1 planned file", exact=True).click()
+        row = details.locator(f'[data-file-intent="{path}"]').inner_text()
+        assert path in row and responsibility.strip() in row
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
     finally:
         browser.close()

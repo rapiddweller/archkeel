@@ -7,7 +7,7 @@ import json
 from dataclasses import asdict
 
 import pytest
-from browser_report_support import _browser_page
+from browser_report_support import _browser_page, _open_details
 from test_target_graph import _nested_repository, _permission_contract
 from test_uml_evaluation import _repository
 
@@ -439,28 +439,26 @@ def test_nested_intent_uses_component_ids_and_keeps_physical_scope(tmp_path, vie
         assert page.locator('.flow-nodes [data-uml-kind="component"]').evaluate_all(
             "nodes => nodes.map(n => n.dataset.umlId)"
         ) == ["ROOT"]
+        assert page.locator(".flow-nodes [data-uml-id]").count() == 1
         if view == "diff":
-            namespace = page.locator('.flow-nodes [data-uml-kind="package"]')
-            assert namespace.count() == 1
-            identity = namespace.get_attribute("data-uml-id")
-            assert identity.startswith("observed:")
+            _open_details(page)
+            details = page.locator(".flow-inspector-content")
+            assert "Observed code without a component assignment" in details.inner_text()
             payload = json.loads(page.locator("#flow-data").text_content())
-            findings = [
-                item
+            namespace_ids = {
+                item["id"] for item in payload["observed"]["entities"] if item["kind"] == "package"
+            }
+            assert any(
+                item["status"] == "UNKNOWN"
+                and namespace_ids.intersection(item["graph_subject_ids"])
                 for item in payload["findings"]
-                if identity.removeprefix("observed:") in item["graph_subject_ids"]
-            ]
-            assert findings and {item["status"] for item in findings} == {"UNKNOWN"}
-            assert namespace.get_attribute("data-assessment-status") == "UNKNOWN"
-        else:
-            assert page.locator(".flow-nodes [data-uml-id]").count() == 1
+            )
         page.locator('[data-uml-id="ROOT"]').dblclick()
         assert page.locator('.flow-nodes [data-uml-kind="component"]').evaluate_all(
             "nodes => nodes.map(n => n.dataset.umlId)"
         ) == ["core:core"]
         file = page.locator('.flow-nodes [data-uml-kind="file"]')
-        assert file.count() == 1 and "core.py" in file.text_content()
-        assert "Declared file intent" in file.text_content()
+        assert file.count() == 0
         details = page.locator(".flow-inspector-content")
         if not details.is_visible():
             page.locator("[data-flow-details-toggle]").click()
@@ -1140,13 +1138,20 @@ def test_file_intent_distinguishes_observed_inventory_from_core_verdict(tmp_path
     playwright, browser, page = _browser_page(api, html, errors=errors)
     try:
         page.locator(f'[data-flow-view="{view}"]').click()
-        page.locator('.flow-nodes [data-label="core.py"]').click()
+        _open_details(page)
         details = page.locator(".flow-inspector-content")
-        assert "Observed module: sample.core" in details.inner_text()
+        details.get_by_text("Module inventory · 2 planned files", exact=True).click()
+        assert (
+            "Observed module: sample.core"
+            in details.locator('[data-file-intent="sample/core.py"]').inner_text()
+        )
         assert "separate from a Core verdict" in details.inner_text()
-        page.locator('.flow-nodes [data-label="future.py"]').click()
-        assert "Not in the observed file inventory" in details.inner_text()
+        assert (
+            "Not in the observed file inventory"
+            in details.locator('[data-file-intent="src/sample/future.py"]').inner_text()
+        )
         assert "does not define classes, methods, imports or calls" in details.inner_text()
+        assert page.locator('.flow-nodes [data-uml-kind="file"]').count() == 0
         assert not errors
     finally:
         browser.close()
@@ -1169,6 +1174,179 @@ def test_module_overview_keeps_referenced_symbols_in_explicit_relationship_views
         referenced.press("Space")
         assert "builtins.print" in page.locator(".flow-inspector-content").inner_text()
         assert page.locator("#flow-data").text_content() == payload
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
+def test_static_members_are_underlined_in_previews_and_drilldown(tmp_path, view):
+    context = {
+        "presence": "planned",
+        "provenance": ("docs/target.md",),
+        "responsibilities": ("Keep shared state and its reset operation on the class.",),
+    }
+    html, _ = _uml_report(
+        tmp_path,
+        extra_source=(
+            "class Data:\n limit = 10\n _cache = {}\n @staticmethod\n def reset() -> None: pass\n"
+        ),
+        extra_target_entities=(
+            Entity("data", "class", "sample.core.Data", "python", "module", **context),
+            Entity(
+                "limit",
+                "attribute",
+                "sample.core.Data.limit",
+                "python",
+                "data",
+                visibility=Visibility("public", "declared"),
+                modifiers=("static",),
+                **context,
+            ),
+            Entity(
+                "cache",
+                "attribute",
+                "sample.core.Data._cache",
+                "python",
+                "data",
+                visibility=Visibility("private", "declared"),
+                modifiers=("static",),
+                **context,
+            ),
+            Entity(
+                "reset",
+                "method",
+                "sample.core.Data.reset",
+                "python",
+                "data",
+                visibility=Visibility("public", "declared"),
+                signature=Signature((), "None"),
+                modifiers=("static",),
+                **context,
+            ),
+        ),
+    )
+    api = pytest.importorskip("playwright.sync_api")
+    errors = []
+    playwright, browser, page = _browser_page(api, html, errors=errors)
+    try:
+        _open_module(page, view)
+        page.get_by_role("button", name="Member previews", exact=True).click()
+        card = page.locator('.flow-nodes [data-label="Data"]')
+        assert card.locator(".uml-member").count() == 3
+        assert card.locator(".uml-member").evaluate_all("""lines => lines.every(line =>
+            getComputedStyle(line).textDecorationLine.includes('underline'))""")
+        assert page.locator('.flow-nodes [data-label="Client"] .uml-member').evaluate_all(
+            "lines => lines.every(line => getComputedStyle(line).textDecorationLine === 'none')"
+        )
+        card.dblclick()
+        for name in ("limit", "_cache", "reset"):
+            member = page.locator(f'.flow-nodes [data-label="{name}"]')
+            assert member.count() == 1
+            assert member.locator(".label").evaluate("""line =>
+                getComputedStyle(line).textDecorationLine.includes('underline')""")
+            assert member.locator(".meta").evaluate("""line =>
+                getComputedStyle(line).textDecorationLine.includes('underline')""")
+        assert (
+            page.locator('.flow-nodes [data-label="_cache"] .meta').text_content().startswith("−")
+        )
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
+def test_enum_literals_share_a_distinct_compartment_and_drilldown_kind(tmp_path, view):
+    context = {
+        "presence": "planned",
+        "provenance": ("docs/target.md",),
+        "responsibilities": ("Expose the ready and failed states.",),
+    }
+    html, _ = _uml_report(
+        tmp_path,
+        extra_source=(
+            "from enum import Enum\nclass State(Enum):\n READY = 'ready'\n FAILED = 'failed'\n"
+        ),
+        extra_target_entities=(
+            Entity("state", "enum", "sample.core.State", "python", "module", **context),
+            Entity(
+                "ready", "enum_literal", "sample.core.State.READY", "python", "state", **context
+            ),
+            Entity(
+                "failed", "enum_literal", "sample.core.State.FAILED", "python", "state", **context
+            ),
+        ),
+    )
+    api = pytest.importorskip("playwright.sync_api")
+    errors = []
+    playwright, browser, page = _browser_page(api, html, errors=errors)
+    try:
+        _open_module(page, view)
+        card = page.locator('.flow-nodes [data-label="State"]')
+        assert "2 literals" in card.locator(".meta").text_content()
+        page.get_by_role("button", name="Member previews", exact=True).click()
+        assert card.locator(".uml-compartment-title").all_text_contents() == ["Literals"]
+        assert set(card.locator(".uml-member").all_text_contents()) == {"READY", "FAILED"}
+        assert card.locator(".uml-member").evaluate_all(
+            "lines => lines.every(line => getComputedStyle(line).textDecorationLine === 'none')"
+        )
+        card.dblclick()
+        for name in ("READY", "FAILED"):
+            member = page.locator(f'.flow-nodes [data-label="{name}"]')
+            assert member.get_attribute("data-uml-kind") == "enum_literal"
+            assert member.locator(".stereotype").text_content() == "«enumeration literal»"
+            assert member.locator(".label").evaluate(
+                "line => getComputedStyle(line).textDecorationLine === 'none'"
+            )
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.parametrize("view", ["diagram", "target", "diff"])
+@pytest.mark.parametrize("source", ["class Unassigned: pass\n", ""])
+def test_component_overview_keeps_file_intent_and_unassigned_code_out_of_the_graph(
+    tmp_path, view, source
+):
+    api = pytest.importorskip("playwright.sync_api")
+    html, payload = _uml_report(
+        tmp_path,
+        extra_files={"sample/unassigned.py": source},
+        declaration_changes={
+            "modules": [{"path": "sample/future.py", "responsibility": "Keep independent intent."}]
+        },
+    )
+    playwright, browser, page = _browser_page(api, html)
+    try:
+        page.locator(f'[data-flow-view="{view}"]').click()
+        assert set(
+            page.locator(".flow-nodes .node").evaluate_all(
+                "nodes => nodes.map(node => node.dataset.umlKind)"
+            )
+        ) == {"component"}
+        assert page.locator('.flow-nodes [data-uml-kind="file"]').count() == 0
+        if view != "target":
+            page.locator(".flow-unassigned-code").click()
+            details = page.locator(".flow-inspector-content")
+            assert "Observed code without a component assignment" in details.inner_text()
+            assert "sample/unassigned.py" in details.inner_text()
+            details.locator("li").filter(has_text="sample/unassigned.py").get_by_role(
+                "button", name="Open", exact=True
+            ).click()
+            if source:
+                assert page.locator('.flow-nodes [data-label="Unassigned"]').count() == 1
+            else:
+                assert details.locator("h2").inner_text() == "unassigned"
+                assert "Source file" in details.inner_text()
+                assert "sample/unassigned.py" in details.inner_text()
+        else:
+            _open_details(page)
+            details = page.locator(".flow-inspector-content")
+            details.get_by_text("Module inventory · 1 planned file", exact=True).click()
+            assert "sample/future.py" in details.inner_text()
+        assert json.loads(page.locator("#flow-data").text_content()) == payload
     finally:
         browser.close()
         playwright.stop()

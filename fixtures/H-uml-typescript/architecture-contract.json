@@ -1,0 +1,528 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "demo-component",
+      "label": "demo",
+      "role": "component",
+      "packages": [
+        "demo"
+      ],
+      "namespace": "demo",
+      "public": [
+        "demo.src.core_x2e_ts",
+        "demo.src.app_x2e_ts"
+      ],
+      "responsibilities": [
+        "Demonstrate static UML evidence and independent design intent."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": [],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "core-module",
+          "kind": "module",
+          "qualified_name": "demo.src.core_x2e_ts",
+          "parent_id": "demo-component",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define the execution port and local implementation."
+          ],
+          "file_path": "src/core.ts"
+        },
+        {
+          "id": "app-module",
+          "kind": "module",
+          "qualified_name": "demo.src.app_x2e_ts",
+          "parent_id": "demo-component",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Delegate requests through the published helper."
+          ],
+          "file_path": "src/app.ts"
+        },
+        {
+          "id": "port",
+          "kind": "interface",
+          "qualified_name": "demo.src.core_x2e_ts.Port",
+          "parent_id": "core-module",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Accept a value and return its text."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "port-run",
+          "kind": "method",
+          "qualified_name": "demo.src.core_x2e_ts.Port.run",
+          "parent_id": "port",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the execution operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "annotation": "number",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "string"
+          }
+        },
+        {
+          "id": "base",
+          "kind": "class",
+          "qualified_name": "demo.src.core_x2e_ts.Base",
+          "parent_id": "core-module",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the base classifier."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "client",
+          "kind": "class",
+          "qualified_name": "demo.src.core_x2e_ts.Client",
+          "parent_id": "core-module",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Implement the execution port."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "run",
+          "kind": "method",
+          "qualified_name": "demo.src.core_x2e_ts.Client.run",
+          "parent_id": "client",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Delegate formatting to helper."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "annotation": "number",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "string"
+          }
+        },
+        {
+          "id": "private-token",
+          "kind": "attribute",
+          "qualified_name": "demo.src.core_x2e_ts.Client._token",
+          "parent_id": "client",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reserve private token storage."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "limit",
+          "kind": "attribute",
+          "qualified_name": "demo.src.core_x2e_ts.Client.limit",
+          "parent_id": "client",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold the shared limit."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "static"
+          ]
+        },
+        {
+          "id": "reset",
+          "kind": "method",
+          "qualified_name": "demo.src.core_x2e_ts.Client.reset",
+          "parent_id": "client",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the static reset operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "static"
+          ],
+          "signature": {
+            "parameters": [],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "unit",
+          "kind": "class",
+          "qualified_name": "demo.src.core_x2e_ts.Unit",
+          "parent_id": "core-module",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent a statically constructed value."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "state",
+          "kind": "enum",
+          "qualified_name": "demo.src.core_x2e_ts.State",
+          "parent_id": "core-module",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Name the lifecycle states."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "ready",
+          "kind": "enum_literal",
+          "qualified_name": "demo.src.core_x2e_ts.State.READY",
+          "parent_id": "state",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Name the ready state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "stopped",
+          "kind": "enum_literal",
+          "qualified_name": "demo.src.core_x2e_ts.State.STOPPED",
+          "parent_id": "state",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Name the stopped state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "helper",
+          "kind": "function",
+          "qualified_name": "demo.src.core_x2e_ts.helper",
+          "parent_id": "core-module",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Convert the value to text."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "annotation": "number",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "string"
+          }
+        },
+        {
+          "id": "build",
+          "kind": "function",
+          "qualified_name": "demo.src.core_x2e_ts.build",
+          "parent_id": "core-module",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct one Unit."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Unit"
+          }
+        },
+        {
+          "id": "item",
+          "kind": "binding",
+          "qualified_name": "demo.src.core_x2e_ts.build.item",
+          "parent_id": "build",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold the constructed Unit at this assignment site."
+          ],
+          "initializer": "new Unit()"
+        },
+        {
+          "id": "work",
+          "kind": "function",
+          "qualified_name": "demo.src.app_x2e_ts.work",
+          "parent_id": "app-module",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Call the published helper."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "annotation": "number",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "string"
+          }
+        },
+        {
+          "id": "text",
+          "kind": "type_alias",
+          "qualified_name": "demo.src.core_x2e_ts.Text",
+          "parent_id": "core-module",
+          "language": "typescript",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Name the text result type."
+          ],
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "version",
+          "kind": "constant",
+          "qualified_name": "demo.src.core_x2e_ts.VERSION",
+          "parent_id": "core-module",
+          "language": "typescript",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Name the demo version."
+          ],
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "client-base",
+          "kind": "inherits",
+          "source_id": "client",
+          "target_id": "base",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "client-port",
+          "kind": "realizes",
+          "source_id": "client",
+          "target_id": "port",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "run-helper",
+          "kind": "calls",
+          "source_id": "run",
+          "target_id": "helper",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "build-unit-reference",
+          "kind": "references",
+          "source_id": "build",
+          "target_id": "unit",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "app-import",
+          "kind": "imports",
+          "source_id": "app-module",
+          "target_id": "core-module",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "work-helper",
+          "kind": "calls",
+          "source_id": "work",
+          "target_id": "helper",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "build-unit",
+          "kind": "creates",
+          "source_id": "build",
+          "target_id": "unit",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "item-unit",
+          "kind": "instance_of",
+          "source_id": "item",
+          "target_id": "unit",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "run-token",
+          "kind": "references",
+          "source_id": "run",
+          "target_id": "private-token",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": []
+    }
+  }
+}

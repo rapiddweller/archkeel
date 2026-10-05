@@ -19,6 +19,7 @@ from .facts import (
     SourceFacts,
     UnresolvedTarget,
     in_scope,
+    member_inventories,
 )
 from .state_facts import ArgumentPass, AttributeAccess
 
@@ -49,6 +50,8 @@ _STRING_FIELDS = frozenset(
         "target_module",
         "target_package",
         "source_scope",
+        "declaration_scope",
+        "declaration_definition_id",
         "owner",
         "module",
         "qualified_name",
@@ -272,9 +275,47 @@ def _source_record(record: Record, section: str) -> None:
     if record.rule_ids or record.provenance:
         raise ValueError("source records cannot carry rules or contract provenance")
     fields = {key for key, _ in record.data.entries}
+    declaration = {"declaration_scope", "declaration_definition_id"}
+    if fields & declaration and (section != "references" or not declaration <= fields):
+        raise ValueError("reference declaration needs both identity fields")
+    if fields & declaration and any(record.data.get(key) == "" for key in declaration):
+        raise ValueError("reference declaration identities must be nonempty")
     if not set(_REQUIRED[section]).issubset(fields):
         raise ValueError(f"{section} source payload is missing required fields")
+    if record.data.get("member_inventories") is not None:
+        if section != "symbols" or record.kind != "class":
+            raise ValueError("member inventory needs its class owner")
+        member_inventories(record.data.get("member_inventories"))
     _payload(record.data)
+
+
+def _member_inventory_bindings(records: list[Record]) -> None:
+    for owner in records:
+        for inventory in member_inventories(owner.data.get("member_inventories")):
+            if inventory.kind == "method":
+                actual = {
+                    item.id
+                    for item in records
+                    if item.kind == "method" and item.data.get("lexical_parent_id") == owner.id
+                }
+            else:
+                attributes = owner.data.get("attribute_declarations")
+                if not isinstance(attributes, tuple) or any(
+                    not isinstance(item, RecordData) for item in attributes
+                ):
+                    raise ValueError("member inventory needs explicit attribute declarations")
+                ids: list[str] = []
+                for item in attributes:
+                    identifier = item.get("definition_id") if isinstance(item, RecordData) else None
+                    if not isinstance(identifier, str) or not identifier:
+                        raise ValueError("member inventory needs explicit attribute identities")
+                    if isinstance(item, RecordData) and item.get("static") is not None:
+                        if not isinstance(item.get("static"), bool):
+                            raise ValueError("attribute static modifier must be boolean")
+                    ids.append(identifier)
+                actual = _unique(ids, "member inventory attribute")
+            if actual != set(inventory.definition_ids):
+                raise ValueError("member inventory identities disagree with their owner")
 
 
 def validate_source_facts(facts: SourceFacts) -> None:
@@ -357,6 +398,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
             raise ValueError("dangling source fact reference")
     record_by_id = {record.id: record for record in records}
     _property_bindings(records, base_by_id)
+    _member_inventory_bindings(records)
     for gap in facts.coverage.gaps:
         _source_record(gap, "unknowns")
         if gap.evidence_class != EvidenceClass.UNKNOWN:
@@ -388,7 +430,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
             source = file_by_module.get(source_module)
             if source is None:
                 raise ValueError("source record names an unobserved module")
-            for field in ("owner", "source_scope", "qualified_name"):
+            for field in ("owner", "source_scope", "qualified_name", "declaration_scope"):
                 identity = record.data.get(field)
                 if identity is not None and (
                     not isinstance(identity, str)

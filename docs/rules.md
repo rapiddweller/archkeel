@@ -8,6 +8,12 @@ permissions. Contract 2.1 remains readable with unchanged encoding. Core evaluat
 intent against recorded facts; incomplete coverage retains UNKNOWN.
 See [the model and current limits](architecture/uml-model-target.md).
 
+An entity with `presence: "referenced"` can identify a foreign Target definition.
+The compiler binds language, kind and qualified name to one planned declaration
+across authenticated inside contracts. It keeps one compiled identity. References
+carry no definition constraints; ambiguous matches and conflicting owners are errors.
+An unmatched external reference stays referenced. This binding adds no source evidence.
+
 `declarations.compat` records old module paths kept as typed compatibility shims. Each entry has
 distinct `module` and `target` values and a `lifetime` (`permanent` or `migration`). A shim must
 contain only imports and one literal `__all__`; every exported name must resolve only to the

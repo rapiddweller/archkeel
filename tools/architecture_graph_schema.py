@@ -19,6 +19,7 @@ from archkeel.ir.architecture_graph import (
     GraphComparison,
     TargetDefinition,
 )
+from archkeel.ir.facts import MemberInventory
 from archkeel.ir.model import ArchitectureContract
 
 
@@ -97,6 +98,15 @@ def report_schema() -> dict[str, object]:
     return _schema(ArchitectureReport, "architecture-report", "Shared architecture report boundary")
 
 
+def member_inventory_schema() -> dict[str, object]:
+    schema = _schema(MemberInventory, "source-member-inventory", "Source member inventory")
+    schema["$comment"] = (
+        "Generated from archkeel.ir.facts.MemberInventory. "
+        "Status/reason, identity and owner checks also require the SourceFacts validators."
+    )
+    return schema
+
+
 def _update_contract_schema(path: Path) -> None:
     schema = json.loads(path.read_bytes())
     versions = list(get_args(get_type_hints(ArchitectureContract)["schema_version"]))
@@ -116,12 +126,20 @@ def _update_contract_schema(path: Path) -> None:
     path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
 
 
+def _update_source_profile_schema(path: Path) -> None:
+    schema = json.loads(path.read_bytes())
+    schema.setdefault("$defs", {})["member_inventory"] = member_inventory_schema()
+    path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     parser.add_argument("--contract", type=Path)
     parser.add_argument("--comparison", type=Path)
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--source-inventory", type=Path)
+    parser.add_argument("--source-profile", type=Path)
     args = parser.parse_args()
     output = args.output
     output.write_text(json.dumps(graph_schema(), indent=2) + "\n", encoding="utf-8")
@@ -133,6 +151,14 @@ def main() -> None:
         )
     if args.report is not None:
         args.report.write_text(json.dumps(report_schema(), indent=2) + "\n", encoding="utf-8")
+
+    if args.source_inventory is not None:
+        args.source_inventory.write_text(
+            json.dumps(member_inventory_schema(), indent=2) + "\n", encoding="utf-8"
+        )
+
+    if args.source_profile is not None:
+        _update_source_profile_schema(args.source_profile)
 
 
 if __name__ == "__main__":

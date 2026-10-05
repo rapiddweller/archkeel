@@ -499,20 +499,24 @@ def _interface_profile_section(observation: Observation) -> str:
 
 _FLOW_GUIDE = """
       <details class="flow-how-to-read"><summary>How to read this report</summary>
-        <p>As-Is shows observed imports and which components depend
-        on each other. Select a component or connection for details; double-click, press Enter, or
-        use Open selected to explore one level. Drag the diagram background to move the view;
-        use Zoom or Fit overview to change its scale. Arrows point from importer to provider.
-        Declared interfaces remain in Details. Teal means the
-        displayed imports were checked with no violation or relevant UNKNOWN; red means a rule
-        fails, amber means a decision is needed, and grey shows observed relationships without
-        a conformance claim.
-        Unassigned modules and physical folders are navigation only; they do not create component
-        boundaries or owners. UNKNOWN findings remain in the report's evidence sections; Details
-        shows evidence for the selected item. The Actual view lists observed modules. Target
-        connections show declarations, not observed imports or execution order. Diff keeps
-        violations, UNKNOWN evidence, unmapped modules, and absent targets distinct. The import
-        evidence below works without JavaScript.</p>
+        <p>Components are declared responsibility and ownership boundaries, not classes or
+        files. Packages here are namespace groups; they do not prove a directory or __init__.py.
+        Modules represent source units: in Python, normally a .py file, including __init__.py.
+        Details shows recorded file paths and separates the view group from the code container.
+        Component roles describe architecture responsibilities; an interface node describes a
+        language interface, such as a Python Protocol.</p>
+        <p>Gold and the component glyph mark architecture boundaries. Blue document glyphs
+        mark modules; grey folder glyphs mark namespace groups. Classes use purple compartments,
+        interfaces use teal circles, enumerations use pink compartments. Functions use ƒ and
+        methods use (). Visibility: + public, − private, # protected, ~ package, ? unknown.
+        These conventions do not claim Python access enforcement. Border verdicts and edge
+        styles are separate from element types; use the relationship legend to filter edges.</p>
+        <p>As-Is uses observed source facts with declared boundaries for navigation. Target
+        uses independent declarations; missing file paths remain undeclared. Diff uses recorded
+        Core assessments. Select for details; double-click, press Enter or Open selected to
+        explore one level. Breadcrumbs include the kind. Drag the background to pan; use Zoom
+        or Fit overview to change scale. Arrows run from source to target. Allowed component
+        imports are permissions, not proof of a call or import.</p>
       </details>
 """
 
@@ -568,12 +572,18 @@ _FLOW_SECTION_HEAD = f"""
       <div id="flow" class="flow">
         <h2 id="flow-heading">Component dependencies</h2>
         <nav class="flow-views" aria-label="Architecture views" hidden>
+        <div class="flow-view-group" role="group" aria-label="Architecture diagrams">
+          <span class="flow-view-group-label">Architecture</span>
           <button type="button" data-flow-view="diagram" aria-pressed="true">As-Is</button>
+          <button type="button" data-flow-view="target" aria-pressed="false">Target</button>
+          <button type="button" data-flow-view="diff" aria-pressed="false">Diff</button>
+        </div>
+        <div class="flow-view-group" role="group" aria-label="Evidence views">
+          <span class="flow-view-group-label">Evidence</span>
           <button type="button" data-flow-view="structure" aria-pressed="false">Structure</button>
           <button type="button" data-flow-view="review" aria-pressed="false">Review</button>
           <button type="button" data-flow-view="actual" aria-pressed="false">Actual</button>
-          <button type="button" data-flow-view="target" aria-pressed="false">Target</button>
-          <button type="button" data-flow-view="diff" aria-pressed="false">Diff</button>
+        </div>
         </nav>
         <div class="flow-toolbar" hidden>
           <details class="flow-filters">

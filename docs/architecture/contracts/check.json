@@ -1,6 +1,6 @@
 {
   "$schema": "../../../schema/architecture-contract.schema.json",
-  "schema_version": "2.1.0",
+  "schema_version": "2.2.0",
   "components": [
     {
       "id": "TARGET-WORKFLOWS",
@@ -300,6 +300,242 @@
         "path": "src/archkeel/check/evaluation/topology.py",
         "responsibility": "Aggregate dependency and declared-scope evidence in Core."
       }
-    ]
+    ],
+    "uml": {
+      "entities": [
+        {
+          "id": "archkeel.check.ports",
+          "kind": "module",
+          "qualified_name": "archkeel.check.ports",
+          "language": "python",
+          "parent_id": "TARGET-INPUTS",
+          "presence": "planned",
+          "responsibilities": [
+            "Define callable ports consumed by Core; do not launch collectors."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "port",
+          "kind": "interface",
+          "qualified_name": "archkeel.check.ports.SourceCollector",
+          "language": "python",
+          "parent_id": "archkeel.check.ports",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "presence": "planned",
+          "responsibilities": [
+            "Let Core request source facts from a replaceable collector without owning its process."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "port.collect",
+          "kind": "method",
+          "qualified_name": "archkeel.check.ports.SourceCollector.collect",
+          "language": "python",
+          "parent_id": "port",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "request",
+                "annotation": "CollectionRequest",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "SourceFacts | CollectionError"
+          },
+          "presence": "planned",
+          "responsibilities": [
+            "Collect the requested snapshot and return facts or a local collection error."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "REF-archkeel.ir.protocol",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.protocol",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "REF-archkeel.ir.facts",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.facts",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "REF-request",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.protocol.CollectionRequest",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "REF-source-facts",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.facts.SourceFacts",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "REF-error",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.protocol.CollectionError",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "PORT-REL-2",
+          "kind": "imports",
+          "source_id": "archkeel.check.ports",
+          "target_id": "REF-archkeel.ir.protocol",
+          "resolution": "not_applicable",
+          "candidate_ids": [],
+          "expression": null,
+          "evidence_ids": [],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "record_ids": [],
+          "candidate_count": null,
+          "candidates_truncated": false,
+          "reason": "The port accepts the source-only request envelope.",
+          "through": [],
+          "decided_by": null
+        },
+        {
+          "id": "PORT-REL-3",
+          "kind": "imports",
+          "source_id": "archkeel.check.ports",
+          "target_id": "REF-archkeel.ir.facts",
+          "resolution": "not_applicable",
+          "candidate_ids": [],
+          "expression": null,
+          "evidence_ids": [],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "record_ids": [],
+          "candidate_count": null,
+          "candidates_truncated": false,
+          "reason": "The port returns shared facts, not an observation verdict.",
+          "through": [],
+          "decided_by": null
+        },
+        {
+          "id": "PORT-REL-6",
+          "kind": "references",
+          "source_id": "port.collect",
+          "target_id": "REF-request",
+          "resolution": "not_applicable",
+          "candidate_ids": [],
+          "expression": null,
+          "evidence_ids": [],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "record_ids": [],
+          "candidate_count": null,
+          "candidates_truncated": false,
+          "reason": "The collector accepts a source-only request.",
+          "through": [],
+          "decided_by": null
+        },
+        {
+          "id": "PORT-REL-7",
+          "kind": "references",
+          "source_id": "port.collect",
+          "target_id": "REF-source-facts",
+          "resolution": "not_applicable",
+          "candidate_ids": [],
+          "expression": null,
+          "evidence_ids": [],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "record_ids": [],
+          "candidate_count": null,
+          "candidates_truncated": false,
+          "reason": "The collector returns source facts.",
+          "through": [],
+          "decided_by": null
+        },
+        {
+          "id": "PORT-REL-8",
+          "kind": "references",
+          "source_id": "port.collect",
+          "target_id": "REF-error",
+          "resolution": "not_applicable",
+          "candidate_ids": [],
+          "expression": null,
+          "evidence_ids": [],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "record_ids": [],
+          "candidate_count": null,
+          "candidates_truncated": false,
+          "reason": "Collection failures remain separate from rule outcomes.",
+          "through": [],
+          "decided_by": null
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "port",
+          "mode": "closed",
+          "rationale": "The collector exposes one source-only operation.",
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": []
+        }
+      ],
+      "schema_version": "1.0.0"
+    }
   }
 }

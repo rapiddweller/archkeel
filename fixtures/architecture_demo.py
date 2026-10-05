@@ -42,6 +42,7 @@ from fixtures.demo_catalog_showcase import VARIANTS as _SHOWCASE_VARIANTS
 from fixtures.demo_catalog_support import FIXTURE_DIR, Variant, apply_overlay
 from fixtures.demo_catalog_test_scope import VARIANTS as _TEST_SCOPE_VARIANTS
 from fixtures.demo_catalog_types import VARIANTS as _TYPE_VARIANTS
+from fixtures.demo_catalog_uml import VARIANTS as _UML_VARIANTS
 from fixtures.demo_catalog_validation import VARIANTS as _VALIDATION_VARIANTS
 from fixtures.demo_catalog_widening import VARIANTS as _WIDENING_VARIANTS
 
@@ -59,6 +60,7 @@ CATALOG: tuple[Variant, ...] = (
     *_CHECK_PROTOCOL_VARIANTS,
     *_CHECK_REGRESSION_VARIANTS,
     *_EVIDENCE_VARIANTS,
+    *_UML_VARIANTS,
     *_EXACT_OWNERSHIP_VARIANTS,
     *_DART_VARIANTS,
 )
@@ -99,7 +101,7 @@ _TARGET_HIERARCHY_NOTE = (
     "`declared`, `inferred`, `multiple`, `ambiguous` or `unmapped`; exact `public` and "
     "`requires.through` remain declaration details. A null dependency rank can mean a cycle or a "
     "dependent of one, so it does not name an SCC or change the architecture verdict. Browser "
-    "acceptance checks 100% initial zoom, native scrolling, collapsed Details, and selection "
+    "acceptance checks initial zoom, hidden scrollbar tracks, collapsed Details, and selection "
     "identity across Actual, Target and Diff. Ranked components share width-aware rows; owner "
     "Details holds rule metadata. Target Fit keeps readable names and scrolls larger scopes "
     "(AD-139). The report does not certify CE completion."
@@ -112,6 +114,29 @@ _BROWSER_NOTE = (
     "All seven violating edges retain selectable labels; labels moved beside the graph name "
     "their source and target. The clean root and nested `store` captures exercise the "
     "conforming case."
+)
+
+
+_UML_NOTE = (
+    "Inner UML examples use fixtures/H-uml and one independently authored Contract 2.2 Target "
+    "(graph format 1.1). Replay uml-match (PASS), uml-mismatch (return signature FAIL), and "
+    "uml-partial (dynamic enum literal UNKNOWN). The Target stays unchanged across overlays. "
+    "They cover classifiers, literals, public/private members, typed operations, static members, "
+    "bindings and imports/calls/references/inheritance/realization/creation. "
+    "make report-browser captures their shared As-Is, Target and Diff views and drill-downs. "
+    "Open scopes do not claim exhaustive inventories. A successful report command does not "
+    "mean declared_rules is PASS. Dart and TypeScript currently lack inner UML collection. "
+    "Replay uml-dart and uml-typescript for independent native-language Target diagrams and "
+    "UNKNOWN inner comparisons. make demo-uml OUTPUT=<fresh-directory> generates all three "
+    "language reports; build the TypeScript collector with a supported Node runtime. "
+    "Recorded unavailable profile coverage remains visible in Details. "
+    "Track remaining demo acceptance in #339 and independent inner Target coverage in #340. "
+    "Replay uml-complete for closed Python intent, including internal State and VERSION uses. "
+    "make demo-uml also writes python-complete.report.html. An unlisted definition fails the "
+    "closed inventory; exhaustive observation stays UNKNOWN. Architecture groups As-Is, Target "
+    "and Diff. Structure, Review and Actual remain Evidence views. FAIL means a recorded failed "
+    "rule or comparison; select the card for its checks. "
+    "The status tooltip gives the first reasons."
 )
 
 
@@ -148,6 +173,8 @@ def markdown() -> str:
         ),
         "",
         *textwrap.wrap(_BROWSER_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
+        "",
+        *textwrap.wrap(_UML_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
         "",
         "| Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |",
         "|---|---|---|---|---|---|---|",
