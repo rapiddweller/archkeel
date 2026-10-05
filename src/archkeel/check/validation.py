@@ -80,6 +80,7 @@ from archkeel.ir.model import (
     declared_package_pair,
     facade_covers,
     in_scope,
+    interface_covers_import,
     module_in_ownership,
     module_references,
     text_value,
@@ -535,6 +536,20 @@ def _clip_contract(
     )
 
 
+def _reexport_owners(
+    contract: ArchitectureContract, names: Iterable[JsonValue]
+) -> dict[str, ContractComponent]:
+    """Keep canonical route ownership identical for local and outside lifecycle imports."""
+    owners: dict[str, ContractComponent] = {}
+    for name in names:
+        if not isinstance(name, str):
+            continue
+        owner = contract.component_for(name.rpartition(".")[0])
+        if owner is not None:
+            owners[name] = owner
+    return owners
+
+
 def _imports_by_target(
     contract: ArchitectureContract,
     observation: Observation,
@@ -569,14 +584,12 @@ def _imports_by_target(
             if source is not None and source_modules is None:
                 continue
             chain = record.data.get("reexport_chain")
-            targets: dict[str, ContractComponent] = {}
-            if isinstance(chain, tuple):
-                for name in chain:
-                    if not isinstance(name, str):
-                        continue
-                    chained_target = contract.component_for(name.rpartition(".")[0])
-                    if chained_target is not None:
-                        targets[chained_target.label] = chained_target
+            owners: dict[str, ContractComponent] = _reexport_owners(
+                contract, chain if isinstance(chain, tuple) else ()
+            )
+            targets: dict[str, ContractComponent] = {
+                owner.label: owner for owner in owners.values()
+            }
             target_components = tuple(targets.values())
         else:
             target_components = (target,)
@@ -1787,16 +1800,7 @@ def _inside_imports_by_target(
             or (symbol is not None and not isinstance(symbol, str))
         ):
             continue
-        target = scoped.component_for(target_module)
-        if target is None:
-            continue
-        public_import = _facade_covers_import(target_module, symbol, target, exports_by_module)
-        planned_import = any(
-            _entry_used(entry, [record.data], ()) for entry in target.planned or ()
-        )
-        if not public_import and not planned_import:
-            continue
-        if _import_published_through_ancestors(
+        if not _import_published_through_ancestors(
             source_module,
             target_module,
             symbol,
@@ -1805,6 +1809,45 @@ def _inside_imports_by_target(
             available_by_owner,
             exports_by_module,
         ):
+            continue
+        target = scoped.component_for(target_module)
+        if target is None and any(
+            component_owns_module(component, target_module) for component in scoped.components
+        ):
+            continue
+        chain = record.data.get("reexport_chain")
+        candidates = record.data.get("reexport_candidates")
+        names = (
+            tuple(name for name in chain if isinstance(name, str))
+            if isinstance(chain, tuple)
+            else ()
+        )
+        candidate_names = (
+            tuple(name for name in candidates if isinstance(name, str))
+            if isinstance(candidates, tuple)
+            else ()
+        )
+        owners: dict[str, ContractComponent] = _reexport_owners(scoped, (*names, *candidate_names))
+        targets: dict[str, ContractComponent] = (
+            {target.label: target}
+            if target is not None
+            else {owner.label: owner for owner in owners.values()}
+        )
+        for target in targets.values():
+            owned_names = tuple(name for name in names if owners.get(name) == target)
+            owned_candidates = tuple(name for name in candidate_names if owners.get(name) == target)
+            public_import = interface_covers_import(
+                target_module, symbol, owned_names, target, exports_by_module
+            )
+            uncertain_import = interface_covers_import(
+                target_module, symbol, owned_candidates, target, exports_by_module
+            )
+            planned_import = any(
+                _entry_used(entry, [record.data], ()) for entry in target.planned or ()
+            )
+            # Candidate admission preserves UNKNOWN; _entry_used reads only the proven chain.
+            if not public_import and not uncertain_import and not planned_import:
+                continue
             target_records: list[RecordData] = imports_by_target.setdefault(target.label, [])
             target_records.append(record.data)
     return imports_by_target

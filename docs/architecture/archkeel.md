@@ -261,6 +261,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-180 | [Relationship exploration retains evidence](decisions/ad-180-relationship-exploration-retains-evidence.md) |
 | AD-181 | [UML bases retain binding evidence](decisions/ad-181-uml-bases-retain-binding-evidence.md) |
 | AD-182 | [Shared report integration](decisions/ad-182-shared-report-integration.md) |
+| AD-185 | [Provider use survives initializer ownership](decisions/ad-185-provider-use-survives-initializer-ownership.md) |
 
 ## Allowed dependencies
 
