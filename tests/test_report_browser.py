@@ -13,10 +13,88 @@ import pytest
 from fixtures.architecture_demo import replay
 
 
+@pytest.mark.parametrize("width", [1440, 375])
+def test_native_module_cards_match_local_cells_and_return_scope_theme(tmp_path, width):
+    from test_atlas_report import _route_pages
+
+    api = pytest.importorskip("playwright.sync_api")
+    from tools.report_browser import _check_module_graph
+
+    index, graph = _route_pages(tmp_path, local_imports=True, package_empty=True)
+    module = next(item for item in graph.entities if item.qualified_name == "sample.core")
+    empty = next(item for item in graph.entities if item.qualified_name == "sample")
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": width, "height": 1000})
+            errors = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            main = index.as_uri()
+            page.goto(main + "?scope=core&view=diff&theme=dark")
+            _check_module_graph(page)
+            assert page.get_by_role("group", name="Content", exact=True).is_hidden()
+            assert page.locator(".atlas-summary").inner_text() == (
+                "2 observed modules · 1 local dependencies · 2 import sites"
+            )
+            page.locator(".atlas-summary").evaluate("n => n.textContent = '0 imports'")
+            with pytest.raises(AssertionError):
+                _check_module_graph(page)
+            page.reload()
+            page.locator(f'.flow-nodes [data-uml-id="{module.id}"]').dblclick()
+            page.wait_for_url("**/*.detail-*.html?*")
+            assert page.locator('.flow-nodes [data-label="Client"]').is_visible()
+            page.get_by_role("link", name="Back to architecture map", exact=True).click()
+            assert parse_qs(urlsplit(page.url).query) == {
+                "scope": ["core"],
+                "view": ["diff"],
+                "selected": [module.id],
+                "theme": ["dark"],
+            }
+            page.locator(f'.flow-nodes [data-uml-id="{empty.id}"]').press("Enter")
+            page.wait_for_url("**/*.detail-*.html?*")
+            assert "No direct declarations" in page.locator(".flow-alternative").inner_text()
+            assert "sample/__init__.py" in page.locator(".flow-alternative").inner_text()
+            page.get_by_role("link", name="Back to architecture map", exact=True).click()
+            page.get_by_role("button", name="Target", exact=True).click()
+            assert not page.locator('.flow-nodes [data-uml-kind="module"]').count()
+            assert "No declared modules recorded" in page.locator(".flow-alternative").inner_text()
+            page.goto(main + "?view=diff&theme=dark")
+            _check_module_graph(page)
+            assert page.get_by_role("group", name="Content", exact=True).is_visible()
+            page.locator(f'.flow-nodes [data-uml-id="{module.id}"]').press("Enter")
+            page.wait_for_url("**/*.detail-*.html?*")
+            assert parse_qs(urlsplit(page.url).query)["return_content"] == ["modules"]
+            page.get_by_role("link", name="Back to architecture map", exact=True).click()
+            assert parse_qs(urlsplit(page.url).query)["content"] == ["modules"]
+            _check_module_graph(page)
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            assert not errors
+        finally:
+            browser.close()
+
+
+def test_native_wide_inventory_opens_an_isolated_module_card(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    from tools.report_browser import _check_wide_inventory
+
+    architecture = tmp_path / "architecture.json"
+    with contextlib.redirect_stdout(io.StringIO()):
+        assert replay("class-a-recursive-wide-package", architecture) == 0
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page()
+            page.goto(architecture.with_suffix(".report.html").as_uri())
+            _check_wide_inventory(page)
+            assert page.locator('.flow-nodes [data-label="VALUE"]').is_visible()
+        finally:
+            browser.close()
+
+
 @pytest.mark.parametrize("variant, exit_code", [("uml-complete", 0), ("tour", 2)])
 def test_native_atlas_acceptance_rejects_a_corrupted_core_status(tmp_path, variant, exit_code):
     api = pytest.importorskip("playwright.sync_api")
-    from tools.report_browser import _check_atlas, _check_atlas_interactions
+    from tools.report_browser import _capture_assets, _check_atlas, _check_atlas_interactions
 
     architecture = tmp_path / "architecture.json"
     with contextlib.redirect_stdout(io.StringIO()):
@@ -29,6 +107,8 @@ def test_native_atlas_acceptance_rejects_a_corrupted_core_status(tmp_path, varia
             page.goto(report.as_uri())
             _check_atlas(page, architecture)
             _check_atlas_interactions(page)
+            if variant == "tour":
+                _capture_assets(browser, {"tour": report}, tmp_path)
             page.evaluate("""() => {
                 const script = document.querySelector('#flow-data');
                 const data = JSON.parse(script.textContent);
@@ -70,6 +150,8 @@ def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path):
             _check_inner_uml(page, "uml-complete", tmp_path)
             assert "detail-component-" in page.url
             data = json.loads(page.locator("#flow-data").text_content())
+            module_id = parse_qs(urlsplit(page.url).query)["module"][0]
+            assert parse_qs(urlsplit(page.url).query)["return_selected"] == [module_id]
             assert "atlas" not in data
             assert page.locator(".atlas-heading").inner_text() == heading
             assert page.locator(".atlas-status").inner_text() == verdict
@@ -99,6 +181,7 @@ def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path):
             assert parse_qs(urlsplit(page.url).query) == {
                 "scope": [data["navigation"]["component_id"]],
                 "view": ["diff"],
+                "selected": [module_id],
                 "theme": ["dark"],
             }
             assert page.locator('[data-atlas="true"]').is_visible()

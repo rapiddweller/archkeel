@@ -13,6 +13,7 @@ import os
 import sys
 from dataclasses import asdict
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 try:
     from playwright.sync_api import Browser, Page, sync_playwright
@@ -259,15 +260,76 @@ def _check_atlas_interactions(page: Page) -> None:
     assert page.evaluate("getComputedStyle(document.body).backgroundColor") == before
 
 
+def _check_module_graph(page: Page) -> None:
+    data = json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"]
+    query = parse_qs(urlsplit(page.url).query)
+    assert query.get("view") != ["target"]
+    scope = query.get("scope", [None])[0]
+    level = next(item for item in data["levels"] if item["parent_id"] == scope)
+    choice = page.get_by_role("group", name="Content", exact=True)
+    assert choice.is_visible() == bool(level["component_ids"] and level["modules"])
+    if choice.is_visible():
+        choice.locator('[data-content="modules"]').click()
+        assert parse_qs(urlsplit(page.url).query)["content"] == ["modules"]
+    modules = [data["modules"][data["assignments"][index][0]] for index in level["modules"]]
+    ids = {item["id"] for item in modules}
+    cards = page.locator('.flow-nodes [data-uml-kind="module"]')
+    assert set(cards.evaluate_all("nodes => nodes.map(n => n.dataset.umlId)")) == ids
+    assert page.locator(".flow-canvas").is_visible()
+    assert page.locator(".flow-alternative").is_hidden()
+    for module in modules:
+        card = page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]')
+        assert card.get_attribute("data-label") == Path(module["path"]).name
+    cells = {
+        index: data["cells"][index]
+        for index in level["cells"]
+        if data["modules"][data["cells"][index][0]]["id"] in ids
+        and data["modules"][data["cells"][index][1]]["id"] in ids
+    }
+    assert page.locator(".flow-edges .hit").count() == len(cells)
+    for index, cell in cells.items():
+        edge = page.locator(f'.flow-edges [data-uml-id="module-cell:{index}"]')
+        assert edge.get_attribute("data-uml-source") == data["modules"][cell[0]]["id"]
+        assert edge.get_attribute("data-uml-target") == data["modules"][cell[1]]["id"]
+        assert edge.locator(".atlas-edge-label").text_content() == (
+            f"{cell[2] if cell[2] is not None else '?'} imports"
+        )
+        state = (
+            "violation"
+            if cell[3] == "FAIL"
+            else "undecided"
+            if cell[3] == "UNKNOWN"
+            else "observed"
+        )
+        assert edge.evaluate("(edge, state) => edge.classList.contains(state)", state)
+        assert f"Core {cell[3]}; permission {cell[4]}" in edge.locator(".hit").get_attribute(
+            "aria-label"
+        )
+    sites = (
+        sum(cell[2] for cell in cells.values())
+        if all(cell[2] is not None for cell in cells.values())
+        else "UNKNOWN"
+    )
+    assert page.locator(".atlas-summary").inner_text() == (
+        f"{len(ids)} observed modules · {len(cells)} local dependencies · {sites} import sites"
+    )
+
+
 def _open_uml_details(page: Page) -> None:
     payload = json.loads(page.locator("#flow-data").text_content() or "{}")
     if "atlas" not in payload:
         return
-    module = next(item for item in payload["atlas"]["modules"] if Path(item["path"]).stem == "core")
-    page.locator('.flow-nodes [data-label="demo"]').press("Enter")
-    page.locator(".atlas-module-list").get_by_role("link", name=module["name"], exact=True).click()
+    data = payload["atlas"]
+    module = next(item for item in data["modules"] if Path(item["path"]).stem == "core")
+    component = next(item for item in data["components"] if item["label"] == "demo")
+    page.locator(f'.flow-nodes [data-uml-id="{component["id"]}"]').press("Enter")
+    _check_module_graph(page)
+    page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').dblclick()
+    page.wait_for_url("**/*.detail-*.html?*")
     assert page.url.startswith("file:") and ".detail-component-" in page.url
-    assert "module=" in page.url
+    query = parse_qs(urlsplit(page.url).query)
+    assert query["module"] == [module["id"]]
+    assert query["return_selected"] == [module["id"]]
 
 
 def _show_details(page: Page) -> None:
@@ -421,11 +483,14 @@ def _check_wide_inventory(page: Page) -> None:
     page.get_by_role("button", name="As-Is", exact=True).click()
     for label in ("store", "backend", "tasks"):
         page.locator(f'.flow-nodes [data-label="{label}"]').press("Enter")
-    link = page.locator(".atlas-module-list").get_by_role(
-        "link", name="shop.store.backend.tasks.isolated", exact=True
+    _check_module_graph(page)
+    module = next(
+        item for item in data["modules"] if item["name"] == "shop.store.backend.tasks.isolated"
     )
-    assert link.is_visible()
-    link.click()
+    card = page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]')
+    assert card.is_visible()
+    card.press("Enter")
+    page.wait_for_url("**/*.detail-*.html?*")
     assert page.url.startswith("file:") and "?module=" in page.url
     assert page.locator("#flow-data").text_content()
 
@@ -437,7 +502,7 @@ def _capture_assets(browser: Browser, reports: dict[str, Path], output: Path) ->
         page.locator("#flow").screenshot(path=str(output / "archkeel-component-flow.png"))
         page.locator('.flow-nodes [data-label="store"]').dblclick()
         page.locator("#flow").screenshot(path=str(output / "archkeel-shop-store-inside.png"))
-        assert page.locator(".atlas-module-list").get_by_role("link").count() > 0
+        _check_module_graph(page)
         assert not errors
     finally:
         _finish(page, "assets-atlas", output)
