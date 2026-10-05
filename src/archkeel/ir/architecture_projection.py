@@ -144,3 +144,4 @@ class ArchitectureProjection:
     reason: str
     violation_remedy: str
     schema_version: Literal["1.0.0"] = "1.0.0"
+    policy_context: tuple[ComponentProjection, ...] = ()

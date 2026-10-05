@@ -44,6 +44,7 @@ from archkeel.ir.model import (
     package_owners,
     stable_id,
 )
+from archkeel.ir.model import requires_covers as _requires_covers
 from archkeel.ir.profiles import DeclarationField, Profile
 from archkeel.ir.type_shapes import TypeShapeIndex
 
@@ -1274,14 +1275,6 @@ def _symbol_placement_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
-def _requires_covers(source: ContractComponent, target_label: str, target_module: str) -> bool:
-    """True when a `requires` entry names the target and, if it lists `through`, one of those
-    prefixes names the imported module (AD-42)."""
-    return any(
-        entry.component == target_label
-        and (not entry.through or any(in_scope(target_module, m) for m in entry.through))
-        for entry in source.requires or ()
-    )
 
 
 def requires_violations(

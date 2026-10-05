@@ -177,6 +177,7 @@ def command_schema() -> dict[str, object]:
         "count component-pair sites, not narrower through compliance. Numeric reasons index "
         "reasons. UNKNOWN rows [scopes, count] account for every uncertainty exactly once; "
         "empty scopes are global or unattributed. "
+        "Policy context retains ancestor levels/rules and peer ownership selectors. "
         "Coverage and Core verdicts remain global under component filters."
     )
     return schema

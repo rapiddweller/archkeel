@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:architecture-command:1.0.0",
   "title": "Focused architecture command",
-  "$comment": "Default fields may be omitted. Selector names starting with dot or colon (or empty) are relative to selector_prefix, falling back to namespace. Public/planned group selectors by module, with symbol names or empty for the whole module. Module paths are relative to component.path; empty means that exact file. Required summaries group only internal class/method/type relationships by authenticated scope, kind, Core status and exact reasons; cross-component and interface relationships remain individual. Permission rule_ids exclude requires IDs already carried by the same component: allowed pairs restore those IDs by matching requires.target_id. Requires observed_imports count component-pair sites, not narrower through compliance. Numeric reasons index reasons. UNKNOWN rows [scopes, count] account for every uncertainty exactly once; empty scopes are global or unattributed. Coverage and Core verdicts remain global under component filters.",
+  "$comment": "Default fields may be omitted. Selector names starting with dot or colon (or empty) are relative to selector_prefix, falling back to namespace. Public/planned group selectors by module, with symbol names or empty for the whole module. Module paths are relative to component.path; empty means that exact file. Required summaries group only internal class/method/type relationships by authenticated scope, kind, Core status and exact reasons; cross-component and interface relationships remain individual. Permission rule_ids exclude requires IDs already carried by the same component: allowed pairs restore those IDs by matching requires.target_id. Requires observed_imports count component-pair sites, not narrower through compliance. Numeric reasons index reasons. UNKNOWN rows [scopes, count] account for every uncertainty exactly once; empty scopes are global or unattributed. Policy context retains ancestor levels/rules and peer ownership selectors. Coverage and Core verdicts remain global under component filters.",
   "$ref": "#/$defs/ArchitectureCommandEnvelope",
   "$defs": {
     "ArchitectureCommandEnvelope": {
@@ -146,6 +146,12 @@
             "$ref": "#/$defs/ArchitectureComponentView"
           }
         },
+        "policy_context": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PermissionContextView"
+          }
+        },
         "levels": {
           "type": "array",
           "items": {
@@ -226,6 +232,7 @@
         "contract_digest",
         "analyzer_digest",
         "components",
+        "policy_context",
         "levels",
         "permission_rules",
         "required_relationships",
@@ -552,6 +559,61 @@
         "status",
         "reason",
         "target_ids"
+      ],
+      "additionalProperties": false
+    },
+    "PermissionContextView": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exact_modules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RequiresProjection"
+          }
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PermissionGroup"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "parent_id",
+        "packages",
+        "exact_modules",
+        "requires",
+        "permissions"
       ],
       "additionalProperties": false
     },

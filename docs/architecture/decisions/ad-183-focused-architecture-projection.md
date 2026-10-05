@@ -5,7 +5,10 @@ The typed projection is the source for architecture fact sheets. It adds no coll
 policy evaluator or inferred ports. Required Target relationships, permissions and imports
 remain separate. Nested ownership uses exact recorded scopes; ties remain UNKNOWN.
 
-Component slices retain global Core verdicts, coverage, source identity and UNKNOWNs.
+Component slices retain global Core verdicts, coverage, source identity and UNKNOWNs,
+plus governing ancestor rules/levels and peer ownership context. ID/scope/label collisions
+produce a named diagnostic. Core and projection share the existing requires predicate;
+Allow declarations do not bypass complete_requires or forbidden dependency constraints.
 The architecture command envelope groups every UNKNOWN by exact kind, reason and scope
 with counts. Only internal class/method/type Target details use Core summaries by scope,
 kind, status and original reasons. Boundary relationships remain individual; the full

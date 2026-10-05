@@ -70,6 +70,12 @@
           "enum": [
             "1.0.0"
           ]
+        },
+        "policy_context": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ComponentProjection"
+          }
         }
       },
       "required": [

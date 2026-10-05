@@ -38,11 +38,13 @@ from archkeel.ir.model import (
     FilteredViolation,
     Observation,
     ReportFilter,
+    RequiredComponent,
     RuleAssessment,
     RuleVerdict,
     RunResult,
     declared_package_pair,
     module_in_ownership,
+    requires_covers,
     text_value,
 )
 
@@ -187,37 +189,41 @@ def _permissions(
                 if rule.kind == "forbidden_dependency" and not rule.allowed_sources
             )
             allowed = tuple(rule.id for rule in deciding if rule.kind == "allowed_dependency")
+            required_entries = tuple(
+                RequiredComponent(edge.target_id, edge.reason or "", edge.through)
+                for edge in requires
+                if edge.target_id is not None
+            )
+            has_requires = requires_covers(required_entries, sibling.component_id)
+            identifiers = tuple(
+                sorted({*forbidden, *allowed, *complete, *(edge.id for edge in requires)})
+            )
             status: PermissionStatus
             if forbidden:
-                status, identifiers, reason = (
+                status, reason = (
                     "forbidden",
-                    forbidden,
                     "A declared dependency rule forbids this component pair.",
                 )
-            elif requires or allowed:
-                status, identifiers, reason = (
-                    "allowed",
-                    tuple(edge.id for edge in requires) + allowed,
-                    "Declared permission; requires.through and permission_rules "
-                    "retain narrower selectors.",
-                )
-            elif complete:
-                status, identifiers, reason = (
+            elif complete and not has_requires:
+                status, reason = (
                     "forbidden",
-                    complete,
-                    "complete_requires forbids this absent permission.",
+                    "complete_requires forbids this absent requires permission; "
+                    "allowed_dependency does not override the constraint.",
+                )
+            elif has_requires or allowed:
+                status, reason = (
+                    "allowed",
+                    "Declared permission subject to requires.through "
+                    "and applicable permission_rules.",
                 )
             else:
-                status, identifiers, reason = (
+                status, reason = (
                     "undecided",
-                    (),
                     "No whole-component decision is declared; permission_rules "
                     "retain partial selectors.",
                 )
             permissions.append(
-                PermissionProjection(
-                    sibling.component_id, status, tuple(sorted(identifiers)), reason
-                )
+                PermissionProjection(sibling.component_id, status, identifiers, reason)
             )
         rows[source.component_id] = tuple(sorted(permissions, key=lambda item: item.target_id))
     return rows
@@ -282,26 +288,20 @@ def architecture_projection(
     names = _scope_names(target)
     selected = None
     if component is not None:
-        selected = next(
-            (
-                item.component_id
-                for item in target.component_intents
-                if item.component_id == component or names[item.component_id] == component
-            ),
-            None,
-        )
-        if selected is None:
-            matches = tuple(
-                item.component_id for item in target.component_intents if item.label == component
-            )
-            selected = matches[0] if len(matches) == 1 else None
+        matches = {
+            item.component_id
+            for item in target.component_intents
+            if component in {item.component_id, names[item.component_id], item.label}
+        }
+        selected = next(iter(matches)) if len(matches) == 1 else None
         if selected is None:
             raise DiagnosticError(
                 Diagnostic(
                     "filter_unknown",
                     f"--component {component}",
-                    "The component selector is absent or ambiguous in the authenticated Target.",
-                    "Use a component id or its complete scope-qualified label.",
+                    "The component selector is absent or ambiguous across authenticated "
+                    "IDs, scopes and labels.",
+                    "Use an unambiguous component id or complete scope-qualified label.",
                 )
             )
     entities = {item.id: item for item in observed.entities}
@@ -680,6 +680,13 @@ def architecture_projection(
         or any(item.status == "FAIL" for item in relationships)
         else "PASS"
     )
+    context_parents: set[str | None] = set()
+    if selected is not None:
+        parent = intents[selected].parent_id
+        context_parents.add(parent)
+        while parent is not None:
+            parent = intents[parent].parent_id
+            context_parents.add(parent)
     return ArchitectureProjection(
         model.source,
         model.contract.digest,
@@ -697,6 +704,9 @@ def architecture_projection(
         if projection_status == "UNKNOWN"
         else "Authenticated architecture evidence is complete.",
         violation_remedy,
+        policy_context=tuple(
+            item for item in components if item.id != selected and item.parent_id in context_parents
+        ),
     )
 
 
@@ -739,6 +749,17 @@ class ArchitectureComponentView:
 
 
 @dataclass(frozen=True, slots=True)
+class PermissionContextView:
+    id: str
+    scope: str
+    parent_id: str | None
+    packages: tuple[str, ...]
+    exact_modules: tuple[str, ...]
+    requires: tuple[RequiresProjection, ...]
+    permissions: tuple[PermissionGroup, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class RequiredRelationshipSummary:
     scope: str
     kind: RelationshipKind
@@ -767,6 +788,7 @@ class ArchitectureCommandView:
     contract_digest: str
     analyzer_digest: str
     components: tuple[ArchitectureComponentView, ...]
+    policy_context: tuple[PermissionContextView, ...]
     levels: tuple[LevelProjection, ...]
     permission_rules: tuple[DependencyPermissionView, ...]
     required_relationships: tuple[RequiredRelationshipProjection, ...]
@@ -838,18 +860,27 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
 
     violations = result.filtered_violations or ()
     violation_ids = {item.record.id for item in violations}
-    components = []
-    for component in projection.components:
-        prefix = component.selector_prefix
-        permissions: dict[tuple[PermissionStatus, tuple[str, ...], str], list[str]] = {}
+
+    def permission_groups(component: ComponentProjection) -> tuple[PermissionGroup, ...]:
+        groups: dict[tuple[PermissionStatus, tuple[str, ...], str], list[str]] = {}
         requires_ids = {item.id for item in component.requires}
         for permission in component.permissions:
             rule_ids = tuple(
-                identity for identity in permission.rule_ids if identity not in requires_ids
+                identity
+                for identity in permission.rule_ids
+                if permission.status != "allowed" or identity not in requires_ids
             )
-            permissions.setdefault((permission.status, rule_ids, permission.reason), []).append(
+            groups.setdefault((permission.status, rule_ids, permission.reason), []).append(
                 permission.target_id
             )
+        return tuple(
+            PermissionGroup(status, reason_ref(reason), tuple(targets), rule_ids)
+            for (status, rule_ids, reason), targets in sorted(groups.items())
+        )
+
+    components = []
+    for component in projection.components:
+        prefix = component.selector_prefix
         modules = {}
         for module in component.modules:
             path = module.path
@@ -879,10 +910,7 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
                 planned=grouped_selectors(component.planned, prefix),
                 modules=modules,
                 requires=component.requires,
-                permissions=tuple(
-                    PermissionGroup(status, reason_ref(reason), tuple(targets), rule_ids)
-                    for (status, rule_ids, reason), targets in sorted(permissions.items())
-                ),
+                permissions=permission_groups(component),
                 used_by={item.component_id: item.import_sites for item in component.used_by},
                 finding_ids=tuple(
                     identity for identity in component.finding_ids if identity in violation_ids
@@ -899,6 +927,9 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
         and projection.components
         else None
     )
+    context_parents = {item.parent_id for item in projection.policy_context}
+    if selected is not None:
+        context_parents.add(selected.parent_id)
     relationships = tuple(
         relationship
         for relationship in projection.required_relationships
@@ -921,9 +952,21 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
         projection.analyzer_digest,
         tuple(components),
         tuple(
+            PermissionContextView(
+                item.id,
+                item.scope,
+                item.parent_id,
+                item.packages,
+                item.exact_modules,
+                item.requires,
+                permission_groups(item),
+            )
+            for item in projection.policy_context
+        ),
+        tuple(
             level
             for level in projection.levels
-            if selected is None or level.parent_id == selected.parent_id
+            if selected is None or level.parent_id in context_parents
         ),
         tuple(
             DependencyPermissionView(
@@ -939,7 +982,7 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
                 rule.include_type_checking,
             )
             for rule in projection.permission_rules
-            if selected is None or rule.parent_id == selected.parent_id
+            if selected is None or rule.parent_id in context_parents
         ),
         detail_relationships,
         summaries,

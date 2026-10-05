@@ -210,6 +210,24 @@ class RequiredComponent:
     decided_by: Literal["architect", "agent"] | None = None
 
 
+def requires_covers(
+    source: ContractComponent | tuple[RequiredComponent, ...],
+    target_label: str,
+    target_module: str | None = None,
+) -> bool:
+    """Apply AD-42; without a module, ask only whether the target is declared."""
+    entries = (source.requires or ()) if isinstance(source, ContractComponent) else source
+    return any(
+        entry.component == target_label
+        and (
+            target_module is None
+            or not entry.through
+            or any(in_scope(target_module, module) for module in entry.through)
+        )
+        for entry in entries
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ContractReviewScope:
     id: str

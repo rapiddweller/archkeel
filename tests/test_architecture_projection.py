@@ -734,3 +734,227 @@ def test_required_summaries_preserve_missing_core_evidence_reasons_and_counts(tm
         for rows in reasons.values()
         for scopes, count in rows
     ) == len(projection.unknowns)
+
+
+def test_native_allowed_declaration_cannot_bypass_complete_requires(tmp_path, capsys):
+    root, config = _repository(tmp_path)
+    path = root / config.contract
+    contract = json.loads(path.read_bytes())
+    contract["components"][0]["requires"] = []
+    contract["rules"].append(
+        {
+            "id": "ALLOW-STORE",
+            "kind": "allowed_dependency",
+            "source": "sample.core",
+            "target": "sample.store",
+            "rationale": "Store use is declared permitted.",
+            "provenance": ["docs/target.md"],
+            "decided_by": "architect",
+        }
+    )
+    path.write_text(json.dumps(contract))
+    assert (
+        main(
+            [
+                "report",
+                "--root",
+                str(root),
+                "--only",
+                "architecture",
+                "--output",
+                str(tmp_path / "out.json"),
+                "--json",
+            ]
+        )
+        == 0
+    )
+    wire = json.loads(capsys.readouterr().out)
+    projection = wire["architecture_projection"]
+    core = next(row for row in projection["components"] if row["id"] == "CORE")
+    permission = next(row for row in core["permissions"] if "STORE" in row["target_ids"])
+    assert permission["status"] == "forbidden"
+    assert set(permission["rule_ids"]) == {"COMPLETE", "ALLOW-STORE"}
+    assert {row["id"] for row in projection["permission_rules"]} >= {"COMPLETE", "ALLOW-STORE"}
+    assert any(
+        "COMPLETE" in row["rule_ids"] and row["data"]["target_module"] == "sample.store"
+        for row in wire["filtered_violations"]
+    )
+    assert wire["declared_rules"] == "FAIL"
+
+
+@pytest.mark.parametrize("observed_violation", [False, True])
+def test_native_nested_slice_retains_governing_ancestor_policy_without_findings(
+    tmp_path, observed_violation, validator
+):
+    root, config = _repository(tmp_path)
+    path = root / config.contract
+    contract = json.loads(path.read_bytes())
+    child = {**contract["components"][0], "id": "CHILD", "label": "child", "requires": []}
+    child.pop("namespace")
+    contract["components"][0]["inside"] = "inside.json"
+    (root / "inside.json").write_text(
+        json.dumps({"schema_version": "2.1.0", "components": [child], "rules": []})
+    )
+    path.write_text(json.dumps(contract))
+    if not observed_violation:
+        (root / "sample/core.py").write_text("import sample.store\n")
+    full, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    selected, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, component="core:child"
+    )
+    wire = json.loads(result_bytes(selected))
+    view = wire["architecture_projection"]
+    assert {row["id"] for row in view["permission_rules"]} >= {"NO-OTHER", "COMPLETE"}
+    assert {row["parent_id"] for row in view["levels"]} == {None, "CORE"}
+    context = {row["id"]: row for row in view["policy_context"]}
+    assert context["CORE"]["scope"] == "core"
+    assert context["CORE"]["packages"] == ["sample.core"]
+    assert context["OTHER"]["scope"] == "other" and context["OTHER"]["packages"] == ["sample.other"]
+    ancestor_permissions = {
+        target: row["status"]
+        for row in context["CORE"]["permissions"]
+        for target in row["target_ids"]
+    }
+    assert ancestor_permissions["OTHER"] == "forbidden"
+    assert ancestor_permissions["STORE"] == "allowed"
+    assert bool(wire["filtered_violations"]) is observed_violation
+    assert selected.declared_rules == full.declared_rules
+    assert view["unknowns"] == json.loads(result_bytes(full))["architecture_projection"]["unknowns"]
+    assert selected.coverage == full.coverage
+    assert not list(validator.iter_errors(wire))
+
+
+def test_native_id_scope_collision_is_diagnosed_instead_of_selecting_first(tmp_path, capsys):
+    root, config = _repository(tmp_path)
+    path = root / config.contract
+    contract = json.loads(path.read_bytes())
+    contract["components"][1]["id"] = "core"
+    path.write_text(json.dumps(contract))
+    assert (
+        main(
+            [
+                "report",
+                "--root",
+                str(root),
+                "--only",
+                "architecture",
+                "--component",
+                "core",
+                "--output",
+                str(tmp_path / "out.json"),
+                "--json",
+            ]
+        )
+        == 2
+    )
+    wire = json.loads(capsys.readouterr().out)
+    assert wire["diagnostics"][0]["kind"] == "filter_unknown"
+    selected, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, component="store"
+    )
+    assert [row.id for row in selected.architecture_projection.components] == ["core"]
+
+
+def test_native_allow_without_complete_constraint_retains_the_positive_decision(tmp_path):
+    root, config = _repository(tmp_path, closed=False)
+    path = root / config.contract
+    contract = json.loads(path.read_bytes())
+    contract["components"][0]["requires"] = []
+    contract["rules"].append(
+        {
+            "id": "ALLOW-STORE",
+            "kind": "allowed_dependency",
+            "source": "sample.core",
+            "target": "sample.store",
+            "rationale": "Store use is permitted.",
+            "provenance": ["docs/target.md"],
+            "decided_by": "architect",
+        }
+    )
+    path.write_text(json.dumps(contract))
+    result, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    core = next(row for row in result.architecture_projection.components if row.id == "CORE")
+    permission = next(row for row in core.permissions if row.target_id == "STORE")
+    assert permission.status == "allowed" and permission.rule_ids == ("ALLOW-STORE",)
+    assert not any(row.record.kind == "complete_requires" for row in result.filtered_violations)
+
+
+def test_native_forbidden_requires_pair_keeps_all_declarations_and_requirement_ids(tmp_path):
+    root, config = _repository(tmp_path)
+    path = root / config.contract
+    contract = json.loads(path.read_bytes())
+    for kind, identity in [
+        ("forbidden_dependency", "NO-STORE"),
+        ("allowed_dependency", "ALLOW-STORE"),
+    ]:
+        contract["rules"].append(
+            {
+                "id": identity,
+                "kind": kind,
+                "source": "sample.core",
+                "target": "sample.store",
+                **({"include_type_checking": True} if kind == "forbidden_dependency" else {}),
+                "rationale": "Retain each independent constraint.",
+                "provenance": ["docs/target.md"],
+                "decided_by": "architect",
+            }
+        )
+    path.write_text(json.dumps(contract))
+    result, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    wire = json.loads(result_bytes(result))["architecture_projection"]
+    core = next(row for row in wire["components"] if row["id"] == "CORE")
+    permission = next(row for row in core["permissions"] if "STORE" in row["target_ids"])
+    requirement_id = core["requires"][0]["id"]
+    assert permission["status"] == "forbidden"
+    assert set(permission["rule_ids"]) == {"NO-STORE", "ALLOW-STORE", "COMPLETE", requirement_id}
+    assert any("NO-STORE" in row.record.rule_ids for row in result.filtered_violations)
+    assert not any(
+        row.record.kind == "complete_requires"
+        and row.record.data.get("target_module") == "sample.store"
+        for row in result.filtered_violations
+    )
+
+
+def test_native_core_through_enforcement_uses_the_shared_predicate(tmp_path):
+    from archkeel.check.evaluation.rules import _requires_covers
+    from archkeel.ir.model import requires_covers
+
+    assert _requires_covers is requires_covers
+    root, config = _repository(tmp_path)
+    (root / "sample/store.py").unlink()
+    (root / "sample/store").mkdir()
+    for name in ("__init__", "allowed", "other"):
+        (root / f"sample/store/{name}.py").write_text("")
+    (root / "sample/core.py").write_text("import sample.store.allowed\nimport sample.store.other\n")
+    path = root / config.contract
+    contract = json.loads(path.read_bytes())
+    contract["components"][0]["requires"][0]["through"] = ["sample.store.allowed"]
+    path.write_text(json.dumps(contract))
+    result, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    complete_findings = [
+        row.record for row in result.filtered_violations if row.record.kind == "complete_requires"
+    ]
+    assert [row.data.get("target_module") for row in complete_findings] == ["sample.store.other"]
+    core = next(row for row in result.architecture_projection.components if row.id == "CORE")
+    assert core.requires[0].through == ("sample.store.allowed",)
+
+
+def test_native_stable_id_and_nested_label_collision_is_diagnosed(tmp_path):
+    root, config = _repository(tmp_path)
+    path = root / config.contract
+    contract = json.loads(path.read_bytes())
+    child = {**contract["components"][0], "id": "CHILD", "label": "CORE", "requires": []}
+    child.pop("namespace")
+    contract["components"][0]["inside"] = "inside.json"
+    (root / "inside.json").write_text(
+        json.dumps({"schema_version": "2.1.0", "components": [child], "rules": []})
+    )
+    path.write_text(json.dumps(contract))
+    collision, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, component="CORE"
+    )
+    assert collision.exit_code == 2 and collision.diagnostics[0].kind == "filter_unknown"
+    selected, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, component="core:CORE"
+    )
+    assert [row.id for row in selected.architecture_projection.components] == ["core:CHILD"]
