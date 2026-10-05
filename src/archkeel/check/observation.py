@@ -256,7 +256,7 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile)
             ),
             _metric(
                 "violations",
-                "Forbidden symbol crossings",
+                "Contract violations",
                 len(scan.violations),
                 "violations",
                 fact_ids=violation_fact_ids,
