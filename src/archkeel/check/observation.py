@@ -19,12 +19,13 @@ from archkeel.ir.codec import (
 )
 from archkeel.ir.digest import package_digest
 from archkeel.ir.facts import SourceFacts, dart_module_name
-from archkeel.ir.facts_codec import RawRecord, classified
+from archkeel.ir.facts_codec import RawRecord, classified, file_evidence
 from archkeel.ir.identity import module_identity
 from archkeel.ir.model import (
     SCHEMA_VERSION,
     ArchitectureContract,
     EvidenceClass,
+    LayerOrderRule,
     Observation,
     contract_relative_path,
     stable_id,
@@ -551,6 +552,64 @@ def _record_inside_failures(scan: ScanResult, failures: list[RawRecord]) -> None
     scan.coverage["rules"] = "FAIL"
 
 
+def _layer_order_evidence(
+    scan: ScanResult,
+    root: Path,
+    contract: ArchitectureContract,
+    contract_path: str,
+    contract_digest: str,
+    mounts: list[InsideContractMount],
+) -> None:
+    """Bind declaration-only assessments to the bytes Core actually read, never an import."""
+    evidence = {item["id"]: item for item in scan.evidence}
+    levels = [(contract_path, contract_digest, contract.rules)] + [
+        (mount.path, mount.digest, mount.contract.rules) for mount in mounts
+    ]
+    for path, digest, rules in levels:
+        identifiers = {rule.id for rule in rules if isinstance(rule, LayerOrderRule)}
+        if not identifiers:
+            continue
+        receipts = [
+            item
+            for item in scan.scope_observations
+            if item["kind"] == "rule_evaluation" and identifiers.intersection(item["rule_ids"])
+        ]
+        try:
+            content = (root / path).read_bytes()
+            if hashlib.sha256(content).hexdigest() != digest:
+                raise ValueError("Contract bytes changed after Core read them.")
+            evidence_id = file_evidence(evidence, path, content.decode("utf-8").splitlines())
+        except (OSError, UnicodeError, ValueError) as error:
+            for receipt in receipts:
+                receipt["data"]["assessment_complete"] = False
+            scan.violations = [
+                item for item in scan.violations if not identifiers.intersection(item["rule_ids"])
+            ]
+            _record_inside_failures(
+                scan,
+                [
+                    classified(
+                        item_id=stable_id("UNKNOWN-DECLARATION-SOURCE", path),
+                        evidence_class=EvidenceClass.UNKNOWN,
+                        area="analysis_coverage",
+                        kind="declaration_source_unavailable",
+                        title="Layer permission assessment lacks authenticated contract source",
+                        subjects=[path],
+                        rule_ids=sorted(identifiers),
+                        data={"path": path, "reason": str(error)},
+                    )
+                ],
+            )
+            continue
+        for receipt in receipts:
+            receipt["evidence_ids"] = [evidence_id]
+            receipt["data"].update(contract_path=path, contract_digest=digest)
+        for violation in scan.violations:
+            if identifiers.intersection(violation["rule_ids"]):
+                violation["evidence_ids"] = [evidence_id]
+    scan.evidence = sorted(evidence.values(), key=lambda item: item["id"])
+
+
 def assemble_observation(
     facts: SourceFacts,
     *,
@@ -575,6 +634,9 @@ def assemble_observation(
         roots=roots,
         namespace=namespace,
         inside_contracts=inside_contracts,
+    )
+    _layer_order_evidence(
+        scan, declarations_root, contract, contract_reference, contract_digest, inside_contracts
     )
     _record_inside_failures(scan, inside_failures)
     if git_head == "unknown" or dirty == "unknown":

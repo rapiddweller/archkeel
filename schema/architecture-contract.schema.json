@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:archkeel:architecture-contract:2.2.0",
+  "$id": "urn:archkeel:architecture-contract:2.3.0",
   "title": "Archkeel architecture contract",
-  "description": "Contract 2.1.0 / 2.2.0 structure. Rule semantics are cataloged in docs/rules.md.",
+  "description": "Contract 2.1.0 / 2.2.0 / 2.3.0 structure. Rule semantics are cataloged in docs/rules.md.",
   "type": "object",
   "required": [
     "schema_version",
@@ -17,7 +17,8 @@
     "schema_version": {
       "enum": [
         "2.1.0",
-        "2.2.0"
+        "2.2.0",
+        "2.3.0"
       ]
     },
     "components": {
@@ -70,6 +71,9 @@
           },
           {
             "$ref": "#/$defs/boundaryTypes"
+          },
+          {
+            "$ref": "#/$defs/layerOrder"
           }
         ]
       }
@@ -81,7 +85,7 @@
   "$defs": {
     "uml": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "urn:archkeel:architecture-target:1.1.0",
+      "$id": "urn:archkeel:architecture-target:1.2.0",
       "title": "Independent UML declarations",
       "$comment": "Generated from archkeel.ir.architecture_graph. Reference, identity, evidence and containment checks also require the graph/comparison validators. This graph does not change the Observation wire format.",
       "$ref": "#/$defs/TargetDefinition",
@@ -109,6 +113,7 @@
             },
             "schema_version": {
               "enum": [
+                "1.2.0",
                 "1.1.0",
                 "1.0.0"
               ]
@@ -744,6 +749,10 @@
         },
         "decided_by": {
           "$ref": "#/$defs/decidedBy"
+        },
+        "layer": {
+          "type": "string",
+          "pattern": "\\S"
         }
       }
     },
@@ -1797,6 +1806,53 @@
           "$ref": "#/$defs/provenance"
         }
       }
+    },
+    "layerOrder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "layers",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "layer_order"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        },
+        "layers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "\\S"
+          }
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "\\S"
+          }
+        }
+      }
     }
   },
   "allOf": [
@@ -1815,6 +1871,45 @@
               "required": [
                 "uml"
               ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "enum": [
+              "2.1.0",
+              "2.2.0"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "components": {
+            "items": {
+              "not": {
+                "required": [
+                  "layer"
+                ]
+              }
+            }
+          },
+          "rules": {
+            "items": {
+              "not": {
+                "properties": {
+                  "kind": {
+                    "const": "layer_order"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
             }
           }
         }

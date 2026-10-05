@@ -16,6 +16,7 @@ from typing import Literal, Union, get_args, get_origin, get_type_hints
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
+    ComponentIntent,
     GraphComparison,
     TargetDefinition,
 )
@@ -50,7 +51,9 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                 definitions[name] = {}
                 hints = get_type_hints(annotation)
                 properties = {field.name: shape(hints[field.name]) for field in fields(annotation)}
-                definitions[name] = {
+                if annotation is ComponentIntent:
+                    properties["layer"] = {"type": "string", "pattern": "\\S"}
+                definition: dict[str, object] = {
                     "type": "object",
                     "properties": properties,
                     "required": [
@@ -62,6 +65,36 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                     ],
                     "additionalProperties": False,
                 }
+                if annotation is ArchitectureGraph:
+                    definition["allOf"] = [
+                        {
+                            "if": {"properties": {"schema_version": {"enum": ["1.0.0", "1.1.0"]}}},
+                            "then": {
+                                "properties": {
+                                    "component_intents": {"items": {"not": {"required": ["layer"]}}}
+                                }
+                            },
+                        }
+                    ]
+                if annotation is ArchitectureReport:
+                    definition["allOf"] = [
+                        {
+                            "if": {"properties": {"schema_version": {"const": "1.0.0"}}},
+                            "then": {
+                                "properties": {
+                                    key: {
+                                        "not": {
+                                            "type": "object",
+                                            "properties": {"schema_version": {"const": "1.2.0"}},
+                                            "required": ["schema_version"],
+                                        }
+                                    }
+                                    for key in ("observed", "target")
+                                }
+                            },
+                        }
+                    ]
+                definitions[name] = definition
             return {"$ref": f"#/$defs/{name}"}
         raise TypeError(f"unsupported schema type: {annotation}")
 
@@ -115,6 +148,40 @@ def _update_contract_schema(path: Path) -> None:
         f"Contract {' / '.join(versions)} structure. Rule semantics are cataloged in docs/rules.md."
     )
     schema["properties"]["schema_version"] = {"enum": versions}
+    schema["$defs"]["component"]["properties"]["layer"] = {
+        "type": "string",
+        "pattern": "\\S",
+    }
+    common = schema["$defs"]["completeRequires"]
+    schema["$defs"]["layerOrder"] = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["id", "kind", "layers", "rationale", "provenance", "decided_by"],
+        "properties": {
+            **{
+                key: value
+                for key, value in common["properties"].items()
+                if key != "include_type_checking"
+            },
+            "kind": {"const": "layer_order"},
+            "layers": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": True,
+                "items": {"type": "string", "pattern": "\\S"},
+            },
+            "components": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": True,
+                "items": {"type": "string", "pattern": "\\S"},
+            },
+        },
+    }
+    choices = schema["properties"]["rules"]["items"]["oneOf"]
+    reference = {"$ref": "#/$defs/layerOrder"}
+    if reference not in choices:
+        choices.append(reference)
     schema["$defs"]["uml"] = target_schema()
     schema["$defs"]["declarations"]["properties"]["uml"] = {"$ref": "#/$defs/uml"}
     schema["allOf"] = [
@@ -123,6 +190,24 @@ def _update_contract_schema(path: Path) -> None:
             "then": {"properties": {"declarations": {"not": {"required": ["uml"]}}}},
         }
     ]
+    schema["allOf"].append(
+        {
+            "if": {"properties": {"schema_version": {"enum": ["2.1.0", "2.2.0"]}}},
+            "then": {
+                "properties": {
+                    "components": {"items": {"not": {"required": ["layer"]}}},
+                    "rules": {
+                        "items": {
+                            "not": {
+                                "properties": {"kind": {"const": "layer_order"}},
+                                "required": ["kind"],
+                            }
+                        }
+                    },
+                }
+            },
+        }
+    )
     path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
 
 

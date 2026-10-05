@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from fixtures.demo_catalog_dependencies import (
     ANALYTICS_MODULE_WITH_UNDECLARED_PACKAGE,
+    LAYER_ORDER_FORBIDDEN_CONTRACT,
+    LAYER_ORDER_TARGET_MD,
     REPOSITORY_WITH_MONEY_IMPORT,
     SHOP_EXTRA,
     STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
@@ -199,11 +201,13 @@ _TOUR = Variant(
     "parameter on place_order itself, the one function app.orders declares public (AD-63: "
     "only a declared facade function is inspected, so touch_store's own bare-object "
     "parameter, never declared, no longer fires here). Real "
-    "run: 19 rule ids and 20 violations, since CONSTRUCT-NO-DYNAMIC answers both the eval "
-    "and the getattr; at validate time the same 20 rule.violated diagnostics plus 2 "
+    "run: 20 rule ids and 21 violations, since CONSTRUCT-NO-DYNAMIC answers both the eval "
+    "and the getattr; at validate time the same 21 rule.violated diagnostics plus 2 "
     "closed_world.observed_forbidden pairs (model->render, render->store) and 1 graph.drift, "
-    "since the marked graph never declared either edge.",
+    "since the marked component graph never declared either edge.",
     files={
+        "architecture-contract.json": LAYER_ORDER_FORBIDDEN_CONTRACT,
+        "docs/architecture/shop.md": LAYER_ORDER_TARGET_MD,
         "shop/render/text.py": _TOUR_RENDER_TEXT,
         "shop/app/orders.py": _TOUR_APP_ORDERS,
         "shop/app/analytics.py": ANALYTICS_MODULE_WITH_UNDECLARED_PACKAGE,
@@ -233,6 +237,7 @@ _TOUR = Variant(
         "EXTERNAL-COMPLETE",
         "EXTERNAL-JSON-STORE",
         "INTERFACE-BOUNDARY",
+        "LAYERS-MODEL",
         "MODEL-TYPES-IN-ENTITIES",
         "ROOT-LAYOUT",
         "STORE-PEERS-ISOLATED",
@@ -242,6 +247,7 @@ _TOUR = Variant(
         "closed_world.observed_forbidden",
         "closed_world.observed_forbidden",
         "graph.drift",
+        "rule.violated",
         "rule.violated",
         "rule.violated",
         "rule.violated",

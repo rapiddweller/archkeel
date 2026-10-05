@@ -153,6 +153,7 @@ class ContractComponent:
     # Exact module ownership is separate from recursive package ownership. None preserves
     # canonical bytes for contracts that do not declare exact modules.
     exact_modules: tuple[str, ...] | None = None
+    layer: str | None = None
 
 
 def facade_covers(
@@ -374,6 +375,19 @@ class CompleteRequiresRule:
 
 
 @dataclass(frozen=True, slots=True)
+class LayerOrderRule:
+    """Declared requires permissions run from outer to inner layers, or stay in one layer."""
+
+    id: str
+    kind: Literal["layer_order"]
+    layers: tuple[str, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
+    components: tuple[str, ...] | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class CompleteExternalScopeRule:
     id: str
     kind: Literal["complete_external_scope"]
@@ -485,6 +499,7 @@ ArchitectureRule: TypeAlias = (
     | RootLayoutRule
     | CompleteExternalScopeRule
     | CompleteRequiresRule
+    | LayerOrderRule
     | NoComponentCyclesRule
     | InterfaceBoundaryRule
     | SiblingIsolationRule
@@ -590,7 +605,7 @@ class ContractDeclarations:
 
 @dataclass(frozen=True, slots=True)
 class ArchitectureContract:
-    schema_version: Literal["2.1.0", "2.2.0"]
+    schema_version: Literal["2.1.0", "2.2.0", "2.3.0"]
     components: tuple[ContractComponent, ...]
     rules: tuple[ArchitectureRule, ...]
     schema: str | None = None

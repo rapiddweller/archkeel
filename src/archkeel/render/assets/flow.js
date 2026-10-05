@@ -1651,6 +1651,7 @@
       ${externalScopes.length ? `<h3>External dependency permissions</h3><ul>${externalScopes.map((rule) => `<li><strong>${esc(rule.dependency)}</strong> · <code>${esc(rule.id)}</code><p>Allowed prefixes: ${entries(rule.allowed_sources)}<br>Exact modules: ${entries(rule.exact_sources)}</p><p>${esc(rule.rationale)}</p><p>Decided by ${esc(rule.decided_by)} · ${rule.provenance.map(esc).join(" · ")}</p></li>`).join("")}</ul>` : ""}
       ${boundary ? `<h3>Component intent</h3><dl class="kv">
         <dt>Component role</dt><dd>${esc(boundary.role)}</dd>
+        ${boundary.layer != null ? `<dt>Layer (declared)</dt><dd>${esc(boundary.layer)}</dd>` : ""}
         <dt>Package ownership</dt><dd>${entries(boundary.packages)}</dd>
         <dt>Exact module ownership</dt><dd>${entries(boundary.exact_modules)}</dd>
         <dt>Target namespace</dt><dd>${esc(boundary.namespace || "Not declared")}</dd>

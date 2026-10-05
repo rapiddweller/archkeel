@@ -186,6 +186,25 @@ finding reads `store:STORE-REQUIRES-COMPLETE` rather than the bare id the inside
 (AD-36). The same prefix keeps the two levels apart: a `complete_requires` an inside declares
 decides that level's pairs, never the pairs above it.
 
+Contract 2.3 adds optional nonempty, case-sensitive component `layer` labels. They describe
+architect intent and appear in Details; they do not change ownership or infer permissions.
+Optional `layer_order` rules assess **declared `requires` permissions**, even without an import:
+
+```json
+{"id":"LAYERS", "kind":"layer_order", "layers":["Core","Adapters","Edge"],
+ "rationale":"Inner layers cannot require outer layers.",
+ "provenance":["docs/architecture.md"], "decided_by":"architect"}
+```
+
+`layers` runs inner to outer. Earlier→later FAILs; reverse and same-layer permissions are
+allowed. Optional `components` selects source component labels at this contract level;
+their required targets must also have a layer in the order. Missing or unlisted affected layers
+are UNKNOWN. The assessment cites the real contract file and its loaded digest, never a
+fabricated import. Actual imports remain governed by `complete_requires` and existing
+dependency rules. Older contract versions reject both new fields; absent layers retain old
+canonical bytes. Target graphs carrying layers and their report envelopes use 1.2;
+legacy 1.0/1.1 graphs remain readable in report 1.0.
+
 Inside contracts use the shared rule evaluators over the same scan (AD-110). Source modules
 are limited to the parent's packages; global targets and origin signatures remain available.
 Missing contracts and unsupported rules remain incomplete, never PASS. The report marks an

@@ -1627,8 +1627,16 @@ def observation_diagnostics(
                 "rule.violated",
                 f"/rules/{index}" if index is not None else inside_pointers.get(rule_id, ""),
                 rule_id,
-                f"The observed code violates the declared rule: {record.title}",
-                "Change the code or amend the contract with owner approval.",
+                (
+                    f"The declared requires permission violates the layer order: {record.title}"
+                    if record.kind == "layer_order"
+                    else f"The observed code violates the declared rule: {record.title}"
+                ),
+                (
+                    "Change the permission or layer, or amend the order with owner approval."
+                    if record.kind == "layer_order"
+                    else "Change the code or amend the contract with owner approval."
+                ),
             )
         )
     return _sorted(diagnostics)

@@ -169,6 +169,7 @@ def _owner_ids(
             or owner.data.get("responsibilities") != tuple(sorted(component.responsibilities))
             or owner.subjects != tuple(sorted(component.packages))
             or owner.data.get("role") != component.role.value
+            or owner.data.get("layer") != component.layer
             or owner.data.get("public")
             != (None if component.public is None else tuple(sorted(component.public)))
             or owner.data.get("planned")
@@ -359,7 +360,7 @@ def assemble_uml(result: ObservationResult, contract_root: Path, path: str) -> O
         record for record in known.values() if record.kind in TARGET_GRAPH_RECORD_KINDS
     )
     if (
-        model.contract.schema_version != "2.2.0"
+        model.contract.schema_version not in {"2.2.0", "2.3.0"}
         and not recorded_targets
         and not any(
             record.kind

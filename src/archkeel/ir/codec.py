@@ -82,6 +82,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     JsonValue,
+    LayerOrderRule,
     NoComponentCyclesRule,
     Observation,
     OpenDecision,
@@ -747,9 +748,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
         "contract",
     )
     if root["schema_version"] == "2.1.0":
-        version: Literal["2.1.0", "2.2.0"] = "2.1.0"
+        version: Literal["2.1.0", "2.2.0", "2.3.0"] = "2.1.0"
     elif root["schema_version"] == "2.2.0":
         version = "2.2.0"
+    elif root["schema_version"] == "2.3.0":
+        version = "2.3.0"
     else:
         raise ContractVersionError(str(root["schema_version"]))
     components_raw = root["components"]
@@ -796,7 +799,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
         for index, value in enumerate(records("capabilities"))
     )
     components = tuple(
-        _parse_component(value, f"components[{index}]")
+        _parse_component(value, f"components[{index}]", version=version)
         for index, value in enumerate(components_raw)
     )
     for component in components:
@@ -860,9 +863,13 @@ def parse_contract(raw: object) -> ArchitectureContract:
     )
     if modules is not None and len({item.path for item in modules}) != len(modules):
         raise ValueError("contract.declarations.modules repeats a path")
-    if "uml" in declarations and version != "2.2.0":
+    if "uml" in declarations and version == "2.1.0":
         raise ValueError("UML declarations require contract schema_version 2.2.0")
     uml = parse_target(declarations["uml"]) if "uml" in declarations else None
+    if version != "2.3.0" and any(
+        _object(raw, "rule").get("kind") == "layer_order" for raw in rules_raw
+    ):
+        raise ValueError("layer_order requires contract schema_version 2.3.0")
     rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     labels = {component.label for component in components}
     seen_labels: set[str] = set()
@@ -882,7 +889,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
                     f"{entry.component!r} is not a component label in this contract",
                 )
     for index, rule in enumerate(rules):
-        if isinstance(rule, NoComponentCyclesRule) and rule.components is not None:
+        if isinstance(rule, NoComponentCyclesRule | LayerOrderRule) and rule.components is not None:
             unknown = sorted(set(rule.components) - labels)
             if unknown:
                 raise ValueError(
@@ -942,6 +949,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
 
 def contract_bytes(contract: ArchitectureContract) -> bytes:
     """Encode a contract in Contract 2.0 key order so parse_contract returns the same value."""
+    if contract.schema_version != "2.3.0" and (
+        any(component.layer is not None for component in contract.components)
+        or any(isinstance(rule, LayerOrderRule) for rule in contract.rules)
+    ):
+        raise ValueError("layer and layer_order require contract schema_version 2.3.0")
     fields = asdict(contract)
     # An absent permission must preserve existing amendment digests.
     for rule, encoded in zip(contract.rules, fields["rules"], strict=True):
@@ -1063,7 +1075,9 @@ def _component_names(
     return packages, exact
 
 
-def _parse_component(raw: RawJson, label: str) -> ContractComponent:
+def _parse_component(raw: RawJson, label: str, *, version: str) -> ContractComponent:
+    if "layer" in _object(raw, label) and version != "2.3.0":
+        raise ValueError(f"{label}.layer requires contract schema_version 2.3.0")
     item, item_id, provenance = _contract_record(
         raw,
         {"label", "role", "packages", "responsibilities", "forbidden_responsibilities"},
@@ -1076,6 +1090,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
             "requires",
             "namespace",
             "exact_modules",
+            "layer",
         },
         label,
     )
@@ -1142,6 +1157,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
         _decided_by(decided_by, f"{label}.decided_by") if decided_by is not None else None,
         namespace,
         exact_modules or None,
+        _nonempty(item["layer"], f"{label}.layer") if "layer" in item else None,
     )
 
 
@@ -1452,6 +1468,24 @@ def _parse_complete_requires(raw: RawJson, label: str) -> CompleteRequiresRule:
     )
 
 
+def _parse_layer_order(raw: RawJson, label: str) -> LayerOrderRule:
+    item, item_id, provenance = _contract_record(
+        raw, {"kind", "layers", "rationale", "decided_by"}, {"components"}, label
+    )
+    layers = _contract_strings(item["layers"], f"{label}.layers", required=True)
+    return LayerOrderRule(
+        item_id,
+        "layer_order",
+        layers,
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+        _contract_strings(item["components"], f"{label}.components", required=True)
+        if "components" in item
+        else None,
+    )
+
+
 def _cycle_level(raw: RawJson, label: str) -> Literal["module"] | None:
     """Narrow to the Literal by value; the default component level parses to absent (AD-98)."""
     value = _nonempty(raw, label)
@@ -1620,6 +1654,7 @@ _RULE_PARSERS: Final[dict[str, Callable[[RawJson, str], ArchitectureRule]]] = {
     "root_layout": _parse_root_layout,
     "complete_external_scope": _parse_complete_external_scope,
     "complete_requires": _parse_complete_requires,
+    "layer_order": _parse_layer_order,
     "no_component_cycles": _parse_no_component_cycles,
     "interface_boundary": _parse_interface_boundary,
     "sibling_isolation": _parse_sibling_isolation,

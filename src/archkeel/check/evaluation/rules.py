@@ -35,6 +35,7 @@ from archkeel.ir.model import (
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
+    LayerOrderRule,
     NoComponentCyclesRule,
     RootLayoutRule,
     SiblingIsolationRule,
@@ -915,7 +916,9 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     # complete_requires selects no module: it speaks about every cross-component import, so a
     # scope here would have rule_subject_failures match it against scanned module names and
     # call the rule vacuous.
-    if isinstance(rule, NoComponentCyclesRule | InterfaceBoundaryRule | CompleteRequiresRule):
+    if isinstance(
+        rule, NoComponentCyclesRule | InterfaceBoundaryRule | CompleteRequiresRule | LayerOrderRule
+    ):
         return {}
     if isinstance(rule, SiblingIsolationRule):
         return {"members": rule.members}
@@ -1044,6 +1047,22 @@ def rule_subject_failures(
     planned_subjects = _planned_subject_modules(contract) if contract is not None else frozenset()
     rule_failures: list[RawRecord] = []
     for rule in rules:
+        if isinstance(rule, LayerOrderRule) and contract is not None:
+            for component in _layer_order_components(contract, rule):
+                if component.layer not in rule.layers:
+                    rule_failures.append(
+                        classified(
+                            item_id=stable_id("UNKNOWN-LAYER", rule.id, component.id),
+                            evidence_class=EvidenceClass.UNKNOWN,
+                            area="components",
+                            kind="layer_metadata_missing",
+                            title=f"{component.label} has no layer in {rule.id} order",
+                            subjects=[component.label],
+                            rule_ids=[rule.id],
+                            provenance=list(component.provenance),
+                            data={"reason": "The component layer is absent or outside the order."},
+                        )
+                    )
         scopes = rule_scopes(rule)
         if isinstance(rule, ForbiddenDependencyRule) and rule.target in sdk_libraries:
             scopes = {"source": scopes["source"]}
@@ -5572,6 +5591,74 @@ def _boundary_rule_results(
     return matches, frozenset(item["id"] for _, item in matches), violations, allowances
 
 
+def _layer_order_components(
+    contract: ArchitectureContract, rule: LayerOrderRule
+) -> tuple[ContractComponent, ...]:
+    selected = set(rule.components) if rule.components is not None else None
+    sources = tuple(
+        component
+        for component in contract.components
+        if selected is None or component.label in selected
+    )
+    targets = {entry.component for component in sources for entry in component.requires or ()}
+    source_ids = {component.id for component in sources}
+    return tuple(
+        component
+        for component in contract.components
+        if component.id in source_ids or component.label in targets
+    )
+
+
+def _layer_order_violations(contract: ArchitectureContract, scope: str) -> list[RawRecord]:
+    violations: list[RawRecord] = []
+    components = {component.label: component for component in contract.components}
+    for rule in contract.rules:
+        if not isinstance(rule, LayerOrderRule):
+            continue
+        order = {layer: index for index, layer in enumerate(rule.layers)}
+        for source in contract.components:
+            if rule.components is not None and source.label not in rule.components:
+                continue
+            if source.layer is None or source.layer not in order:
+                continue
+            seen: set[str] = set()
+            for entry in source.requires or ():
+                if entry.component in seen:
+                    continue
+                seen.add(entry.component)
+                target = components[entry.component]
+                if (
+                    target.layer is None
+                    or target.layer not in order
+                    or order[source.layer] >= order[target.layer]
+                ):
+                    continue
+                violations.append(
+                    classified(
+                        item_id=stable_id("VIO-LAYER", rule.id, source.id, target.id),
+                        fact_ids=[stable_id("RULE-EVALUATION", scope, rule.id)],
+                        evidence_class=EvidenceClass.VIOLATION,
+                        area="components",
+                        kind=rule.kind,
+                        title=(
+                            f"{source.label} ({source.layer}) requires outer "
+                            f"{target.label} ({target.layer})"
+                        ),
+                        subjects=[source.label, target.label],
+                        rule_ids=[rule.id],
+                        provenance=list(source.provenance),
+                        data={
+                            "source_component": source.label,
+                            "target_component": target.label,
+                            "source_layer": source.layer,
+                            "target_layer": target.layer,
+                            "rationale": entry.rationale,
+                        },
+                    )
+                )
+    return violations
+
+
 def _collect_rule_violations(
     *,
     imports: Sequence[RawRecord],
@@ -5615,6 +5702,7 @@ def _collect_rule_violations(
             source_modules=source_modules,
             dependency_symbols=profile.dependency_symbols,
         ),
+        *_layer_order_violations(contract, assessment_parent or "root"),
         *_assignment_violations(module_facts, contract, blank_modules),
         *_root_layout_violations(package_facts, module_facts, contract.rules),
         *_module_placement_violations(module_facts, contract),
@@ -5969,6 +6057,25 @@ def rule_evaluation_facts(
         if rule.kind in profile.unsupported_rules or isinstance(
             rule, AllowedDependencyRule | BoundaryTypesRule | NoComponentCyclesRule
         ):
+            continue
+        if isinstance(rule, LayerOrderRule):
+            selected_components = _layer_order_components(contract, rule)
+            if selected_components:
+                facts.append(
+                    _rule_evaluation_receipt(
+                        rule,
+                        scope,
+                        (),
+                        subjects=[component.label for component in selected_components],
+                        data={
+                            "claim": "declared_requires",
+                            "layers": list(rule.layers),
+                            "assessment_complete": all(
+                                component.layer in rule.layers for component in selected_components
+                            ),
+                        },
+                    )
+                )
             continue
         if isinstance(rule, ExternalDependencyScopeRule):
             # allowed_sources is an exception list, not the rule's observed scope.

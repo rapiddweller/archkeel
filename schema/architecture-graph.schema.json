@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:archkeel:architecture-graph:1.1.0",
+  "$id": "urn:archkeel:architecture-graph:1.2.0",
   "title": "Shared architecture graph",
   "$comment": "Generated from archkeel.ir.architecture_graph. Reference, identity, evidence and containment checks also require the graph/comparison validators. This graph does not change the Observation wire format.",
   "$ref": "#/$defs/ArchitectureGraph",
@@ -40,6 +40,7 @@
         },
         "schema_version": {
           "enum": [
+            "1.2.0",
             "1.1.0",
             "1.0.0"
           ]
@@ -85,7 +86,34 @@
         "origin",
         "schema_version"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "schema_version": {
+                "enum": [
+                  "1.0.0",
+                  "1.1.0"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "component_intents": {
+                "items": {
+                  "not": {
+                    "required": [
+                      "layer"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "Entity": {
       "type": "object",
@@ -779,6 +807,10 @@
           "items": {
             "type": "string"
           }
+        },
+        "layer": {
+          "type": "string",
+          "pattern": "\\S"
         }
       },
       "required": [

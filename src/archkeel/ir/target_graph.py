@@ -127,7 +127,9 @@ def intent_graph(
         "declared",
         (*owners, *target.entities),
         target.relationships,
-        schema_version=target.schema_version,
+        schema_version="1.2.0"
+        if any(item.layer is not None for item in component_intents)
+        else target.schema_version,
         target_scopes=target.scopes,
         component_intents=component_intents,
         module_inventories=module_inventories,
@@ -198,6 +200,7 @@ def _component_intent(component: ContractComponent) -> ComponentIntent:
         component.decided_by,
         component.inside,
         label=component.label,
+        layer=component.layer,
     )
 
 

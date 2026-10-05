@@ -29,7 +29,7 @@ EntityKind: TypeAlias = Literal[
     "binding",
     "symbol",
 ]
-GraphSchemaVersion: TypeAlias = Literal["1.1.0", "1.0.0"]
+GraphSchemaVersion: TypeAlias = Literal["1.2.0", "1.1.0", "1.0.0"]
 RelationshipKind: TypeAlias = Literal[
     "imports",
     "calls",
@@ -105,6 +105,7 @@ class ComponentIntent:
     parent_id: str | None = None
     label: str | None = None
     layout_rule_ids: tuple[str, ...] = ()
+    layer: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -440,6 +441,11 @@ class ArchitectureGraph:
         layouts = {rule.id for rule in self.layout_rules}
         assigned_layouts: set[str] = set()
         for intent in self.component_intents:
+            if intent.layer is not None:
+                if not isinstance(intent.layer, str) or not intent.layer.strip():
+                    raise ValueError("component layer must be non-empty text")
+                if self.schema_version != "1.2.0":
+                    raise ValueError("component layer requires graph schema_version 1.2.0")
             owner = entities.get(intent.component_id)
             if self.origin != "declared" or owner is None or owner.kind != "component":
                 raise ValueError("component intent needs a declared component")
@@ -728,7 +734,7 @@ class ArchitectureReport:
     target: ArchitectureGraph | None
     comparison: GraphComparison | None = None
     unavailable: str | None = None
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.2.0", "1.0.0"] = "1.0.0"
     findings: tuple[ReportFinding, ...] = ()
     memberships: tuple[ComponentMembership, ...] = ()
     decision_gaps: tuple[DependencyDecisionGap, ...] = ()
@@ -736,6 +742,11 @@ class ArchitectureReport:
     def validate(self) -> None:
         if self.observed is None and not self.unavailable:
             raise ValueError("missing observed graph needs an unavailable reason")
+        if self.schema_version == "1.0.0" and any(
+            graph is not None and graph.schema_version == "1.2.0"
+            for graph in (self.observed, self.target)
+        ):
+            raise ValueError("graph layer vocabulary requires report schema_version 1.2.0")
         for graph, origin in ((self.observed, "observed"), (self.target, "declared")):
             if graph is not None:
                 if graph.origin != origin:

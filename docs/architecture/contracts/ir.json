@@ -2807,13 +2807,14 @@
             "Retain schema version in the report boundary."
           ],
           "provenance": [
-            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md",
+            "docs/architecture/decisions/ad-201-layers-assess-declared-permissions.md"
           ],
           "visibility": {
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "Literal['1.0.0']"
+          "annotation": "Literal['1.2.0', '1.0.0']"
         },
         {
           "id": "IR-UML-architecture_graph.ArchitectureReport.findings",
@@ -4951,6 +4952,25 @@
           "presence": "planned",
           "provenance": [
             "docs/architecture/uml-model-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-UML-architecture_graph.ComponentIntent.layer",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.layer",
+          "parent_id": "IR-UML-architecture_graph.ComponentIntent",
+          "annotation": "str | None",
+          "responsibilities": [
+            "Retain the authored component layer."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/decisions/ad-201-layers-assess-declared-permissions.md"
           ],
           "visibility": {
             "kind": "public",

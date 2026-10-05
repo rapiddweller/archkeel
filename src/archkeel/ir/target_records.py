@@ -119,6 +119,11 @@ def _recorded_owners(
                 ("parent_id", parents.get(owner.id)),
                 ("label", owner.title),
                 ("layout_rule_ids", layouts.get(owner.id, ())),
+                *(
+                    (("layer", owner.data.get("layer")),)
+                    if owner.data.get("layer") is not None
+                    else ()
+                ),
                 ("packages", owner.subjects),
                 ("exact_modules", owner.data.get("exact_modules", ())),
                 ("forbidden_responsibilities", owner.data.get("forbidden_responsibilities", ())),

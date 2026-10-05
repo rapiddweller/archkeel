@@ -34,6 +34,7 @@ from archkeel.ir.model import (
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
+    LayerOrderRule,
     NoComponentCyclesRule,
     RootLayoutRule,
     SiblingIsolationRule,
@@ -167,6 +168,17 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
         data = {
             "include_type_checking": rule.include_type_checking,
             "rationale": rule.rationale,
+        }
+    elif isinstance(rule, LayerOrderRule):
+        area, title, subjects = (
+            "components",
+            "Declared requires follow the inner-to-outer layer order",
+            [],
+        )
+        data = {
+            "layers": list(rule.layers),
+            "rationale": rule.rationale,
+            **({"components": list(rule.components)} if rule.components is not None else {}),
         }
     elif isinstance(rule, InterfaceBoundaryRule):
         area, title, subjects = (
@@ -371,6 +383,7 @@ def project_inside_declarations(
                 **({"public": sorted(component.public)} if component.public is not None else {}),
                 **({"planned": sorted(component.planned)} if component.planned is not None else {}),
                 "role": component.role.value,
+                **({"layer": component.layer} if component.layer is not None else {}),
                 "forbidden_responsibilities": sorted(component.forbidden_responsibilities),
                 **(
                     {"decided_by": component.decided_by} if component.decided_by is not None else {}
@@ -464,6 +477,7 @@ def project_declarations(
                         else {}
                     ),
                     "role": component.role.value,
+                    **({"layer": component.layer} if component.layer is not None else {}),
                     **({"inside": component.inside} if component.inside else {}),
                     **({"namespace": component.namespace} if component.namespace else {}),
                     "responsibilities": sorted(component.responsibilities),

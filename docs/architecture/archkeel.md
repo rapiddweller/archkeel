@@ -33,12 +33,9 @@ components nor modules import in a cycle (AD-98).
 
 ## Layers
 
-| Layer | Components | Responsibility | Quality goal (AD-17) |
-|---|---|---|---|
-| Core | `ir`, `check` | Stable evidence values and deterministic policy evaluation | Deterministic and stable |
-| Adapters | `analyzer`, `host` | Python source observations and GitLab host records | `analyzer` isolated behind its digest; `host` replaceable |
-| Edge | `cli`, `render` | Composition and presentation | `cli` a thin composition root; `render` replaceable |
-| External | `api` | The declared external read contract for a consumer outside this repository (AD-64) | Stable across every internal `ir` refactor |
+Layer names live on components in `architecture-contract.json` and appear in report Details.
+Responsibilities and quality goals stay with those components (AD-17). Layer metadata does
+not change ownership or infer dependency permissions.
 
 The CLI is the composition root. It selects concrete analyzer and host adapters, invokes the
 core, writes artifacts and delegates HTML and terminal projection to `render`. Core modules
@@ -284,6 +281,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-198 | [Provider use survives initializer ownership](decisions/ad-198-provider-use-survives-initializer-ownership.md) |
 | AD-199 | [Nested permissions pin the complete field](decisions/ad-199-nested-permissions-pin-the-complete-field.md) |
 | AD-200 | [Diff projects recorded imports](decisions/ad-200-diff-projects-recorded-imports.md) |
+| AD-201 | [Layers assess declared permissions](decisions/ad-201-layers-assess-declared-permissions.md) |
 
 ## Allowed dependencies
 
