@@ -1099,6 +1099,8 @@
 
   function architectureHasInterior(entity, graph) {
     return architectureEntities(graph).some((child) => architectureParent(child, graph) === entity.id)
+      || viewMode === "diff" && graph.origin === "declared" && DATA.observed
+        && architectureEntities(DATA.observed).some((child) => architectureParent(child, DATA.observed) === entity.id)
       || graph.relationships.some((site) => site.source_id === entity.id && site.kind !== "owns");
   }
 
@@ -1108,7 +1110,9 @@
     if (graph.origin === "observed" && entity.kind === "module") {
       const memberships = (DATA.memberships || []).filter((item) => item.module_ids.includes(entity.id))
         .sort((left, right) => componentDepth(right.component_id) - componentDepth(left.component_id));
-      if (memberships.length) return memberships[0].component_id;
+      const deepest = memberships.filter((item) => componentDepth(item.component_id)
+        === componentDepth(memberships[0]?.component_id));
+      if (deepest.length === 1) return deepest[0].component_id;
     }
     if (graph.origin === "observed" && entity.kind === "package") {
       // Namespace nesting is navigation, not a new lexical containment claim.
@@ -1202,7 +1206,7 @@
       return component || classifier || module || id;
     };
     const observed = viewMode === "diff" && graph.origin === "declared" ? DATA.observed : null;
-    const observedById = new Map((observed?.entities || []).map((entity) => [entity.id, entity]));
+    const observedById = new Map((observed ? architectureEntities(observed) : []).map((entity) => [entity.id, entity]));
     const counterparts = new Map();
     for (const match of context.comparison?.correspondences || []) {
       if (match.observed_ids.length !== 1 || !byId.has(match.target_id)) continue;
@@ -1217,6 +1221,8 @@
     const observedRepresentative = (id) => {
       let current = id, child = id, classifier = null, module = null;
       while (observedById.has(current)) {
+        if (current === scope) return observedEntry(classifier || child, true);
+        if (byId.get(current)?.kind === "component") return targetEntry(representative(current));
         const mapped = [...new Set([...(counterparts.get(current) || [])]
           .map(representative).filter(Boolean))];
         const local = mapped.filter((id) => localIds.has(id));
@@ -1228,23 +1234,23 @@
           if (choices[0] === scope && current !== id) return observedEntry(classifier || child, true);
           return targetEntry(choices[0]);
         }
+        if (observedLocalIds.has(current)) return observedEntry(current, true);
         const entity = observedById.get(current);
         if (!classifier && ["class", "interface", "enum"].includes(entity.kind)) classifier = current;
         if (!module && entity.kind === "module") module = current;
         child = current;
         current = architectureParent(entity, observed);
       }
-      return observedEntry(operationScope ? id : classifier || module || id);
+      return observedEntry(operationScope ? id : classifier || module || id, scope === null);
     };
     const entries = new Map([...visible].map(([id]) => [id, targetEntry(id)]));
-    if (observed && scope === null) {
-      // Unowned namespaces remain navigable even when the contract declares no UML comparison.
-      for (const entity of architectureEntities(observed)) {
-        if (["package", "module"].includes(entity.kind) && entity.presence !== "referenced"
-            && architectureParent(entity, observed) === null) {
-          entries.set(`observed:${entity.id}`, observedEntry(entity.id, true));
-        }
-      }
+    const observedLocalIds = new Set((observed ? architectureEntities(observed) : []).filter((entity) =>
+      ["package", "module"].includes(entity.kind) && entity.presence !== "referenced"
+      && architectureParent(entity, observed) === scope).map((entity) => entity.id));
+    for (const id of observedLocalIds) {
+      if (context.comparison && scope !== null) continue;
+      const entry = observedRepresentative(id);
+      if (entry.entity && entry.local) entries.set(entry.id, entry);
     }
     const groups = new Map();
     const addSite = (site, source, target, sourceGraph, assessment = null) => {
@@ -1252,7 +1258,7 @@
       if (source.id === target.id && site.source_id !== site.target_id) return;
       for (const entry of [source, target]) if (!entries.has(entry.id)) entries.set(entry.id, entry);
       const id = site.kind === "requires" ? site.id
-        : `${assessment ? "observed:" : ""}${site.kind}:${source.id}>${target.id}:${site.resolution}`;
+        : `${sourceGraph !== graph ? "observed:" : ""}${site.kind}:${source.id}>${target.id}:${site.resolution}`;
       if (!groups.has(id)) groups.set(id, { id, source: source.id, target: target.id, kind: "dependency",
         relationshipKind: site.kind, sites: [], sourceGraph, assessments: [], resolution: site.resolution,
         state: assessment?.status === "FAIL" ? "violation" : assessment?.status === "UNKNOWN" ? "undecided"
@@ -1279,10 +1285,18 @@
     }
     const unexpected = (context.comparison?.assessments || []).filter((item) => item.change === "unexpected");
     const observedSites = new Map((observed?.relationships || []).map((site) => [site.id, site]));
+    const representedSites = new Set((context.comparison?.assessments || [])
+      .filter((match) => graph.relationships.some((site) => site.id === match.subject_id))
+      .flatMap((match) => match.observed_ids));
+    for (const site of observedSites.values()) {
+      const assessment = unexpected.find((item) => item.observed_ids.includes(site.id));
+      if (representedSites.has(site.id) || (!assessment && site.kind !== "imports")) continue;
+      if (coarse && site.kind !== "imports") continue;
+      for (const endpoint of new Set(site.target_id ? [site.target_id] : site.candidate_ids)) {
+        addSite(site, observedRepresentative(site.source_id), observedRepresentative(endpoint), observed, assessment);
+      }
+    }
     for (const assessment of unexpected) for (const id of assessment.observed_ids) {
-      const site = observedSites.get(id);
-      if (site?.target_id) addSite(site, observedRepresentative(site.source_id),
-        observedRepresentative(site.target_id), observed, assessment);
       const entity = observedById.get(id);
       if (entity && assessment.subject_id === scope) entries.set(`observed:${id}`, observedEntry(id, true));
     }
@@ -1317,16 +1331,20 @@
         edge.sites.some((site) => edge.sourceGraph.origin === "observed"
           ? item.observed_ids.includes(site.id) : site.id === item.subject_id)) || [])]
         .map((item) => [item.id, item])).values()];
-      const findings = (DATA.findings || []).filter((item) => edge.sites.some((site) => item.graph_subject_ids.includes(site.id)));
+      const observedSites = [...new Set((context.comparison?.assessments || [])
+        .filter((match) => edge.sites.some((site) => site.id === match.subject_id))
+        .flatMap((match) => match.observed_ids))].map((id) => DATA.observed?.relationships.find((site) => site.id === id)).filter(Boolean);
+      const findings = (DATA.findings || []).filter((item) => [...edge.sites, ...observedSites]
+        .some((site) => item.graph_subject_ids.includes(site.id)));
       const statuses = [...new Set([...assessments, ...findings].map((item) => item.status))];
       const decisionGaps = (DATA.decision_gaps || []).filter((gap) => edge.sourceGraph.origin === "observed"
         && edge.sites.some((site) => gap.relationship_ids.includes(site.id)));
-      return { ...edge, assessments, findings, decisionGaps,
+      return { ...edge, observedSites, assessments, findings, decisionGaps,
         state: statuses.includes("FAIL") ? "violation" : statuses.includes("UNKNOWN") || decisionGaps.length ? "undecided" : edge.state,
         tooltip: `${edge.relationshipKind === "requires" ? "Allowed component import" : edge.relationshipKind}${edge.resolution === "partial" ? " candidate; not confirmed" : ""}: ${
           edge.sourceGraph.entities.find((item) => item.id === edge.sites[0].source_id).qualified_name} → ${
           edge.sourceGraph.entities.find((item) => item.id === (edge.sites[0].target_id || edge.sites[0].candidate_ids[0])).qualified_name}; ${
-          edge.sites.length} source or declaration site${edge.sites.length === 1 ? "" : "s"}.${statuses.length ? ` Core ${statuses.join("/")}${assessments.some((item) => item.change === "unexpected") ? " · unlisted observed relationship" : ""}.` : ""}`,
+          edge.sites.length + observedSites.length} source or declaration site${edge.sites.length + observedSites.length === 1 ? "" : "s"}.${statuses.length ? ` Core ${statuses.join("/")}${assessments.some((item) => item.change === "unexpected") ? " · unlisted observed relationship" : ""}.` : ""}`,
       };
     });
     if (graph.origin === "declared") {
@@ -1481,6 +1499,7 @@
       related.has(item.source_id) || entity && (related.has(item.target_id)
         || item.candidate_ids.some((id) => related.has(id)))))
       .map((site) => ({ site, sourceGraph: entityGraph }));
+    for (const site of edge?.observedSites || []) siteEntries.push({ site, sourceGraph: DATA.observed });
     if (node) for (const connection of scene.edges) {
       if (connection.sourceGraph === entityGraph || ![connection.source, connection.target].includes(node.id)) continue;
       for (const site of connection.sites) if (!siteEntries.some((entry) => entry.site.id === site.id
@@ -1564,10 +1583,26 @@
       ${[...(entity?.provenance || []), ...sites.flatMap((item) => item.provenance)].length ? `<h3>Provenance</h3><ul class="plain">${[...new Set([...(entity?.provenance || []), ...sites.flatMap((item) => item.provenance)])].map((item) => `<li>${esc(item)}</li>`).join("")}</ul>` : ""}
       ${!entity && !edge ? "<p>Select a visible element or connection for its recorded details.</p>" : ""}`;
     if (viewMode === "diff" || umlSelection) {
-      const ids = new Set(edge ? edge.sites.map((site) => site.id) : entity ? [entity.id] : []);
-      const findings = (DATA.findings || []).filter((item) => !umlSelection
-        || item.graph_subject_ids.some((id) => ids.has(id)));
-      inspectorContent.insertAdjacentHTML("beforeend", `<h3>Recorded Core findings</h3>${findingMarkup(findings)}`);
+      const ids = new Set(edge ? edge.sites.map((site) => site.id) : related);
+      if (!edge) for (const sourceGraph of new Set([entityGraph, DATA.observed].filter(Boolean))) {
+        for (const item of architectureEntities(sourceGraph)) {
+          let current = item.id;
+          while (current) {
+            if (ids.has(current)) { ids.add(item.id); break; }
+            const owner = architectureEntity(current, sourceGraph);
+            current = owner ? architectureParent(owner, sourceGraph) : null;
+          }
+        }
+        for (const site of sourceGraph.relationships) if (ids.has(site.source_id)
+            || ids.has(site.target_id) || site.candidate_ids.some((id) => ids.has(id))) ids.add(site.id);
+      }
+      const known = new Set([DATA.observed, DATA.target].filter(Boolean)
+        .flatMap((sourceGraph) => [...sourceGraph.entities, ...sourceGraph.relationships].map((item) => item.id)));
+      const globalFindings = (DATA.findings || []).filter((item) => !item.graph_subject_ids.some((id) => known.has(id)));
+      const findings = (DATA.findings || []).filter((item) => !globalFindings.includes(item)
+        && (edge ? edge.findings.includes(item) : context.scope === null && !umlSelection
+          || item.graph_subject_ids.some((id) => ids.has(id))));
+      inspectorContent.insertAdjacentHTML("beforeend", `<h3>Recorded Core findings</h3>${findingMarkup(findings)}${globalFindings.length ? `<details><summary>Global or unmapped findings · ${globalFindings.length}</summary>${findingMarkup(globalFindings)}</details>` : ""}`);
     }
     inspectorContent.querySelectorAll("[data-uml-detail]").forEach((button) =>
       button.addEventListener("click", () => openArchitectureEntity(button.dataset.umlDetail, entityGraph)));
@@ -1722,10 +1757,10 @@
       item.title = `Show ${kind || "all"} relationships at this level · ${count} connections`;
       legend.appendChild(item);
     }
-    if (complete.edges.some((edge) => edge.sourceGraph !== context.graph)) {
+    if (complete.edges.some((edge) => edge.assessments.some((item) => item.change === "unexpected"))) {
       const item = document.createElement("span");
       item.className = "flow-legend-item";
-      item.textContent = `Core ${[...new Set(complete.edges.filter((edge) => edge.sourceGraph !== context.graph)
+      item.textContent = `Core ${[...new Set(complete.edges.filter((edge) => edge.assessments.some((item) => item.change === "unexpected"))
         .flatMap((edge) => edge.assessments.map((item) => item.status)))].join("/")} · unlisted observed relationships`;
       legend.appendChild(item);
     }
@@ -1743,7 +1778,7 @@
     hint.textContent = `${scene.nodes.length} visible elements · ${scene.edges.length} connections · ${unresolved} uncertain sites in graph`;
     if ((context.scope === null || architectureEntity(scene.owner, context.graph)?.kind === "component") && context.graph.origin === "observed")
       hint.textContent += " · Internal import overview; other source sites remain in Details and module drill-down";
-    if (viewMode === "diff") hint.textContent += ` · Core: ${context.comparison?.status || "unavailable"}`;
+    if (context.comparison) hint.textContent += ` · Core: ${context.comparison.status}`;
     legend.appendChild(hint);
     architectureInspector(context, scene);
     inspector.hidden = !targetDetailsOpen;
