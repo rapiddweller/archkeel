@@ -2604,9 +2604,10 @@
       }
     }
     if (!component) {
-      inspectorContent.innerHTML = `<div class="kicker">Fact sheet</div><h2>${esc(ATLAS.repository)}</h2>
-        <p>Select a component, module, import cell or question.</p><p>Every count refers to the recorded snapshot.</p>
-        <p>Core ${esc(ATLAS.status)}: ${esc(ATLAS.reason)} · ${ATLAS.unknown_count} analysis limits in the complete audit</p>${list("Recorded analysis limits (most frequent reasons)", ATLAS.unknowns.map((item) => `${item.count} × ${item.reason}`))}
+      inspectorContent.innerHTML = `<div class="kicker">Fact sheet${viewMode === "target" ? " · Declared intent" : ""}</div><h2>${esc(ATLAS.repository)}</h2>
+        <p>${viewMode === "target" ? "Select a component or declared module." : "Select a component, module, import cell or question."}</p>
+        ${viewMode !== "target" ? `<p>Every count refers to the recorded snapshot.</p>
+        <p>Core ${esc(ATLAS.status)}: ${esc(ATLAS.reason)} · ${ATLAS.unknown_count} analysis limits in the complete audit</p>${list("Recorded analysis limits (most frequent reasons)", ATLAS.unknowns.map((item) => `${item.count} × ${item.reason}`))}` : ""}
         <p>${link(ATLAS.architecture_href, "Complete audit JSON")}</p>`;
       return;
     }
