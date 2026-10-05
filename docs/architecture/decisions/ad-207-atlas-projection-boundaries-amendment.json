@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "bbc5bd7a4258a810624b61bf455a63fc86c184d031a1a36fd46022b44f826a79",
+  "after_digest": "7976a01fb97d136a560e7297f7ca3034b62550baa54458dc67fac090d9481fda",
+  "before_baseline_digest": "24da4c22a0b46338fa3eca544fee4f3a0a9cfed9f73b96a710364e1630eddeeb",
+  "before_digest": "9863477f69b970b8c2ee6d8482b8ca2e979581df433ccbedcfaa62d6706f26f5",
+  "decided_by": "Codex (agent; authorized issue owner)",
+  "rationale": "Publish only the used Atlas and focused projection interfaces; authenticate workflow permissions; retain authored layers. Permit the exact offline filename-to-bytes return map. Accept audited native feature-call limits and one retained boundary UNKNOWN at exact measured values, with no headroom or violation relaxation.",
+  "schema_version": "2.0.0"
+}

@@ -287,6 +287,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-206 | [Check families keep existing behavior](decisions/ad-206-check-families-keep-existing-behavior.md) |
 | AD-202 | [Focused architecture projection](decisions/ad-202-focused-architecture-projection.md) |
 | AD-204 | [Report Atlas and offline details](decisions/ad-204-report-atlas-and-offline-details.md) |
+| AD-207 | [Atlas projection boundaries](decisions/ad-207-atlas-projection-boundaries.md) |
 
 ## Allowed dependencies
 
