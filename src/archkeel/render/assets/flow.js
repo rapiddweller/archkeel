@@ -676,7 +676,7 @@
         for (const segment of axis.get(bucket) || []) {
           if (Math.abs(at - segment.at) >= clearance) continue;
           const overlap = Math.min(end, segment.end) - Math.max(start, segment.start);
-          if (overlap > LANE_GAP / 2) total += overlap;
+          if (overlap > 0) total += overlap;
           // Equality must finish scoring before the caller can compare tied candidates.
           if (total > limit) return total;
         }
@@ -741,8 +741,6 @@
       const y = card.y + 14 + (height - 28) * (x - card.x) / CARD.w;
       return { point: [at, y], lead: [at + (side === "left" ? -14 : 14), y], axis: "horizontal" };
     });
-    const sourcePorts = sourceBlocked && sourceCard
-      ? sidePorts(sourceCard, sourceHeight, sx) : [normalSource];
     const clearance = occupied.clearance;
     const clearSegments = (points) => {
       for (let index = 1; index < points.length; index += 1) {
@@ -755,8 +753,10 @@
       return true;
     };
     let route = null, leastShared = Infinity, leastNearby = Infinity;
-    // Most routes need no expanded search; retry only when every clear route shares a stretch.
-    for (const expanded of [false, true]) {
+    // Preserve clear routes; change the source exit only when both target searches share a stretch.
+    for (const [expanded, alternateSource] of [[false, false], [true, false], [false, true]]) {
+      const sourcePorts = (sourceBlocked || alternateSource) && sourceCard
+        ? sidePorts(sourceCard, sourceHeight, sx) : [normalSource];
       const distances = expanded
         ? Array.from({ length: Math.ceil((ROW_GAP - 14) / (LANE_GAP / 2)) }, (_, index) => 14 + index * LANE_GAP / 2)
         : [14, 14 + LANE_GAP];
@@ -1852,7 +1852,7 @@
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height || !canvas.clientWidth || !canvas.clientHeight) return;
     // Focused neighborhoods stay readable; oversized content uses native scrolling.
-    transform.k = Math.max(focusLabel ? 1 : 0, Math.min(
+    transform.k = Math.max(focusLabel || umlSelection?.type === "node" ? 1 : 0, Math.min(
       1.4,
       canvas.clientWidth / (bounds.width + 48),
       canvas.clientHeight / (bounds.height + 48),

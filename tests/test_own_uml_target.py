@@ -456,7 +456,72 @@ def test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence(view
             "edges => edges.map(edge => edge.dataset.umlId).sort()"
         )
         if view != "As-Is":
-            assert len(identities) == 22 and len(relationships) == 22
+            if view == "Target":
+                assert len(identities) == 22 and len(relationships) == 22
+            else:
+                page.get_by_role("button", name="Target", exact=True).click()
+                target_ids = page.locator(".flow-nodes [data-uml-id]").evaluate_all(
+                    "nodes => nodes.map(node => node.dataset.umlId)"
+                )
+                target_edges = page.locator(".flow-edges [data-uml-id]").evaluate_all(
+                    "edges => edges.map(edge => edge.dataset.umlId)"
+                )
+                assert len(target_ids) == 22 and len(target_edges) == 22
+                page.get_by_role("button", name="Diff", exact=True).click()
+                assert set(target_ids) <= set(identities)
+                assert set(target_edges) <= set(relationships)
+                extra = page.locator(".flow-nodes [data-uml-id]").evaluate_all(
+                    "(nodes, ids) => nodes.filter(node => !ids.includes(node.dataset.umlId))"
+                    ".map(node => node.dataset.label).sort()",
+                    target_ids,
+                )
+                assert extra == [
+                    "__future__",
+                    "dataclasses",
+                    "enum",
+                    "evaluation",
+                    "facts",
+                    "governance",
+                    "pathlib",
+                    "re",
+                    "report_graph",
+                    "typing",
+                    "workflows",
+                ]
+                extra_edges = page.locator(".flow-edges [data-uml-id]").evaluate_all(
+                    """(edges, ids) => edges.filter(edge => !ids.includes(edge.dataset.umlId))
+                    .map(edge => [edge.dataset.relationshipKind,
+                      ...[edge.dataset.umlSource, edge.dataset.umlTarget].map(id =>
+                        document.querySelector(`.flow-nodes [data-uml-id="${id}"]`)
+                          .dataset.label)])""",
+                    target_edges,
+                )
+                assert sorted(extra_edges) == sorted(
+                    [
+                        ["imports", source, target]
+                        for source, target in [
+                            ("report_graph", "architecture_graph"),
+                            ("evaluation", "architecture_graph"),
+                            ("governance", "architecture_graph"),
+                            ("workflows", "architecture_graph"),
+                            *[
+                                ("architecture_graph", name)
+                                for name in (
+                                    "facts",
+                                    "typing",
+                                    "dataclasses",
+                                    "re",
+                                    "pathlib",
+                                    "enum",
+                                    "__future__",
+                                )
+                            ],
+                        ]
+                    ]
+                )
+                assert len(identities) == len(set(identities)) == 33
+                assert len(relationships) == len(set(relationships)) == 33
+            assert card.get_attribute("aria-pressed") == "true"
             assert (
                 card.locator(".label").evaluate("""node =>
               parseFloat(getComputedStyle(node).fontSize)
