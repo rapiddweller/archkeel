@@ -135,6 +135,7 @@ def _components_payload(
         item = asdict(component)
         for field in (
             "modules",
+            "role",
             "permissions",
             "finding_ids",
             "namespace",
@@ -176,6 +177,7 @@ def _declared_modules(report: ArchitectureReport) -> list[dict[str, object]]:
         return []
     entities = {item.id: item for item in report.target.entities}
     children = Counter(item.parent_id for item in report.target.entities)
+    module_ids = {item.id for item in report.target.entities if item.kind == "module"}
     modules: list[dict[str, object]] = []
     for entity in report.target.entities:
         if entity.kind != "module":
@@ -191,6 +193,13 @@ def _declared_modules(report: ArchitectureReport) -> list[dict[str, object]]:
                     path=entity.file_path,
                     component_id=parent.id,
                     declarations=children[entity.id],
+                    responsibilities=entity.responsibilities,
+                    provenance=entity.provenance,
+                    relationships=[
+                        asdict(item)
+                        for item in report.target.relationships
+                        if item.source_id == entity.id and item.target_id in module_ids
+                    ],
                 )
             )
     return modules

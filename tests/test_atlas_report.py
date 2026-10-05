@@ -218,7 +218,7 @@ def test_offline_module_drilldown_reaches_native_classifiers_and_returns(tmp_pat
     try:
         page.goto(index.as_uri())
         page.locator('.flow-nodes [data-label="core"]').dblclick()
-        page.locator(".atlas-module-list").get_by_role("link", name="core.py", exact=True).click()
+        page.locator('.flow-nodes [data-label="core.py"]').press("Enter")
         assert page.url.startswith("file:") and "module=" in page.url
         for name, kind in (
             ("Client", "class"),
@@ -489,16 +489,25 @@ def test_unknown_detail_links_keep_deeper_claimed_modules_and_distinct_names(
         playwright.stop()
 
 
-def _route_pages(tmp_path):
+def _route_pages(tmp_path, *, local_imports=False, package_empty=False):
     from archkeel.render.html import render_architecture_details
 
     model = _sample(
         tmp_path,
-        core_exact=("sample.empty",),
+        core_exact=("sample" if package_empty else "sample.empty",),
         extra_files={
-            "sample/empty.py": "",
+            "sample/__init__.py" if package_empty else "sample/empty.py": "",
             "sample/core.py": (
-                "from enum import Enum\nLIMIT = 3\n"
+                (
+                    (
+                        "import sample\nimport sample\n"
+                        if package_empty
+                        else "import sample.empty\nimport sample.empty\n"
+                    )
+                    if local_imports
+                    else ""
+                )
+                + "from enum import Enum\nLIMIT = 3\n"
                 "class Client:\n    def run(self):\n        return LIMIT\n"
                 "class State(Enum):\n    READY = 'ready'\n"
             ),
@@ -525,7 +534,7 @@ def test_offline_atlas_and_uml_share_shell_empty_scope_and_url_theme(tmp_path):
         page.goto(index.as_uri() + "?theme=dark")
         page.locator('.flow-nodes [data-label="core"]').press("Enter")
         page.get_by_role("button", name="Switch to light theme", exact=True).click()
-        page.locator(".atlas-module-list").get_by_role("link", name="empty.py", exact=True).click()
+        page.locator('.flow-nodes [data-label="empty.py"]').press("Enter")
         assert page.locator(".atlas-heading").count() == 1
         assert page.locator(".flow-views [data-flow-view]").count() == 3
         assert page.locator(".theme-toggle").count() == 1
@@ -559,7 +568,7 @@ def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_pat
     try:
         page.goto(index.as_uri())
         page.locator('.flow-nodes [data-label="core"]').press("Enter")
-        page.locator(".atlas-module-list").get_by_role("link", name="core.py", exact=True).click()
+        page.locator('.flow-nodes [data-label="core.py"]').press("Enter")
         module = next(item for item in graph.entities if item.qualified_name == "sample.core")
         classifier = next(
             item for item in graph.entities if item.qualified_name == "sample.core.Client"
@@ -660,7 +669,7 @@ def test_target_counterpart_and_planned_classifier_open_declared_members(tmp_pat
     try:
         page.goto(index.as_uri() + "?theme=dark")
         page.locator('.flow-nodes [data-label="core"]').press("Enter")
-        page.locator(".atlas-module-list").get_by_role("link", name="core.py", exact=True).click()
+        page.locator('.flow-nodes [data-label="core.py"]').press("Enter")
         page.get_by_role("button", name="Target", exact=True).click()
         for identity, member in (("service", "run"), ("future", "execute")):
             page.locator(f'.flow-nodes [data-uml-id="{identity}"]').press("Enter")
@@ -674,9 +683,7 @@ def test_target_counterpart_and_planned_classifier_open_declared_members(tmp_pat
             assert page.locator('.flow-nodes [data-uml-kind="component"]').count() == 0
             page.locator(".flow-back").click()
         page.goto(index.as_uri() + "?scope=core&view=target&theme=dark")
-        page.locator(".flow-alternative .atlas-module-list").get_by_role(
-            "link", name="sample.core", exact=True
-        ).click()
+        page.locator('.flow-nodes [data-uml-id="declared-module"]').press("Enter")
         assert "module=declared-module" in page.url and "origin=declared" in page.url
         assert page.locator('.flow-nodes [data-uml-id="future"]').is_visible()
         assert not errors
@@ -724,9 +731,9 @@ def test_generic_uml_entry_keeps_theme_return_selection_and_has_no_fragment(tmp_
             "button", name="Browse 2 modules", exact=True
         ).click()
         assert "scope=core" in page.url
-        page.locator(".flow-alternative .atlas-module-list").get_by_role(
-            "link", name="core.py", exact=True
-        ).click()
+        page.locator('.flow-nodes [data-label="core.py"]').dblclick()
+        page.wait_for_url("**/*.detail-*.html?*")
+        page.locator(".flow-canvas").wait_for(state="visible")
         assert "theme=dark" in page.url and "return_scope=core" in page.url
         assert "#" not in page.url and "null" not in page.url
         assert page.locator("html").get_attribute("data-theme") == "dark"
@@ -735,7 +742,7 @@ def test_generic_uml_entry_keeps_theme_return_selection_and_has_no_fragment(tmp_
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
         assert "view=diff" in page.url and "theme=dark" in page.url
         assert "scope=core" in page.url
-        assert page.locator(".flow-alternative .atlas-module-list").is_visible()
+        assert page.locator('.flow-nodes [data-uml-kind="module"]').count() > 0
         page.goto(index.as_uri() + "?scope=not-a-component&theme=dark")
         assert "scope=not-a-component" in page.url
         assert "not recorded in this snapshot" in page.locator(".flow-alternative").inner_text()
@@ -748,9 +755,9 @@ def test_generic_uml_entry_keeps_theme_return_selection_and_has_no_fragment(tmp_
         playwright.stop()
 
 
-def test_component_leaf_automatically_shows_native_files_before_secondary_analysis(tmp_path):
+def test_component_leaf_draws_native_module_cards_and_local_import_cells(tmp_path):
     api = pytest.importorskip("playwright.sync_api")
-    index, _ = _route_pages(tmp_path)
+    index, graph = _route_pages(tmp_path, local_imports=True, package_empty=True)
     errors = []
     playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
     try:
@@ -760,23 +767,38 @@ def test_component_leaf_automatically_shows_native_files_before_secondary_analys
             "button", name="Browse 2 modules", exact=True
         ).click()
         assert "scope=core" in page.url and "view=diff" in page.url
-        assert page.locator(".flow-canvas").is_hidden()
-        assert page.locator(".flow-alternative").is_visible()
-        files = page.locator(".flow-alternative .atlas-module-list")
-        assert files.get_by_role("link", name="core.py", exact=True).is_visible()
-        assert "sample/core.py" in files.inner_text()
-        assert files.bounding_box()["y"] < 600
+        assert page.locator(".flow-canvas").is_visible()
+        modules = {
+            item.id
+            for item in graph.entities
+            if item.kind == "module" and item.qualified_name in ("sample.core", "sample")
+        }
+        cards = page.locator('.flow-nodes [data-uml-kind="module"]')
+        assert set(cards.evaluate_all("nodes=>nodes.map(n=>n.dataset.umlId)")) == modules
+        assert (
+            "2 observed modules · 1 local dependencies · 2 import sites"
+            in page.locator(".atlas-summary").inner_text()
+        )
+        assert page.locator(".flow-edges .hit").count() == 1
+        page.locator(".flow-edges .hit").press("Enter")
+        assert "Permission: UNKNOWN" in page.locator(".flow-inspector-content").inner_text()
         assert page.get_by_role("group", name="Content", exact=True).is_hidden()
-        files.get_by_role("link", name="core.py", exact=True).click()
+        page.locator('.flow-nodes [data-label="core.py"]').dblclick()
+        page.wait_for_url("**/*.detail-*.html?*")
+        page.locator(".flow-canvas").wait_for(state="visible")
         assert "theme=dark" in page.url and "view=diff" in page.url
         assert page.locator('.flow-nodes [data-label="Client"]').is_visible()
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
-        assert page.locator(".flow-alternative .atlas-module-list").is_visible()
+        assert page.locator('.flow-nodes [data-label="core.py"]').is_visible()
+        page.locator('.flow-nodes [data-label="__init__.py"]').press("Enter")
+        assert "No direct declarations" in page.locator(".flow-alternative").inner_text()
+        assert "sample/__init__.py" in page.locator(".flow-alternative").inner_text()
+        page.get_by_role("link", name="Back to architecture map", exact=True).click()
         page.get_by_role("button", name="Target", exact=True).click()
         assert "No declared modules" in page.locator(".flow-alternative").inner_text()
-        assert not page.locator(".flow-alternative .atlas-module-list a").count()
+        assert page.locator('.flow-nodes [data-uml-kind="module"]').count() == 0
         page.get_by_role("button", name="Show As-Is modules", exact=True).click()
-        assert page.locator(".flow-alternative .atlas-module-list").is_visible()
+        assert page.locator('.flow-nodes [data-uml-kind="module"]').count() == 2
         assert not errors
     finally:
         browser.close()
@@ -816,8 +838,8 @@ def test_components_and_modules_choice_uses_native_scope_and_survives_return(tmp
         assert page.locator(".flow-canvas").is_visible()
         choice.get_by_role("button", name=re.compile("^Modules")).click()
         assert "content=modules" in page.url
-        assert page.locator(".flow-canvas").is_hidden()
-        assert page.locator(".flow-alternative .atlas-module-list").is_visible()
+        assert page.locator(".flow-canvas").is_visible()
+        assert page.locator('.flow-nodes [data-uml-kind="module"]').count() > 0
         page.reload()
         assert "content=modules" in page.url
         page.get_by_role("button", name="Diff", exact=True).click()
@@ -825,12 +847,42 @@ def test_components_and_modules_choice_uses_native_scope_and_survives_return(tmp
         choice.get_by_role("button", name=re.compile("^Components")).click()
         assert "content=components" in page.url and page.locator(".flow-canvas").is_visible()
         page.go_back()
-        assert "content=modules" in page.url and page.locator(".flow-canvas").is_hidden()
-        page.locator(".flow-alternative .atlas-module-list").get_by_role("link").first.click()
+        assert "content=modules" in page.url and page.locator(".flow-canvas").is_visible()
+        page.locator('.flow-nodes [data-uml-kind="module"]').first.press("Enter")
         assert "return_content=modules" in page.url
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
         assert "scope=ROOT" in page.url and "content=modules" in page.url
         assert "view=diff" in page.url and "theme=dark" in page.url
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_module_graph_keeps_native_fail_evidence_and_count_without_permission_inference(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    index, _ = _route_pages(tmp_path)
+    native = _atlas(index.read_text())
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        page.goto(index.as_uri() + "?view=diff&content=modules&theme=dark")
+        cards = page.locator('.flow-nodes [data-uml-kind="module"]')
+        assert set(cards.evaluate_all("nodes=>nodes.map(n=>n.dataset.umlId)")) == {
+            item["id"] for item in native["modules"]
+        }
+        assert page.locator('.flow-nodes [data-uml-kind="class"]').count() == 0
+        assert page.locator(".flow-edges .hit").count() == len(native["cells"])
+        assert "2 import sites" in page.locator(".atlas-summary").inner_text()
+        page.locator(".flow-edges .hit").press("Enter")
+        sheet = page.locator(".flow-inspector-content").inner_text()
+        assert "Core finding status: FAIL" in sheet and "Permission: UNKNOWN" in sheet
+        assert all(
+            identity in sheet
+            for index in native["cells"][0]["evidence_ids"]
+            for identity in [native["reference_ids"][index]]
+        )
+        assert "cell=0" in page.url
         assert not errors
     finally:
         browser.close()

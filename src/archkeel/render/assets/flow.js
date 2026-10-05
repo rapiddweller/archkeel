@@ -1465,7 +1465,7 @@
   }
 
   function selectArchitectureSubject(type, id) {
-    if (ATLAS) { umlSelection = { type, id }; atlasModule = null; atlasCell = null; setTargetDetails(true); render(); return; }
+    if (ATLAS) { atlasModule = viewMode !== "target" && atlasModuleById(id) ? id : null; atlasCell = null; }
     umlSelection = { type, id };
     setTargetDetails(true);
     nodeLayer.querySelectorAll("[data-uml-id]").forEach((node) => {
@@ -1477,8 +1477,10 @@
       String(type === "edge" && hit.parentElement.dataset.umlId === id)));
     emphasizeUmlScene(umlSelection);
     syncRoute();
-    architectureInspector(architectureGraphContext(), renderedScene);
+    if (ATLAS) atlasSheet(atlasLevel());
+    else architectureInspector(architectureGraphContext(), renderedScene);
     updateOpenSelected();
+    if (ATLAS) return;
     if (type === "node") {
       const node = nodeLayer.querySelector(`[data-uml-id="${CSS.escape(id)}"]`);
       if (!node) return;
@@ -1497,7 +1499,12 @@
   }
 
   function openArchitectureEntity(id, sourceGraph = null) {
-    if (ATLAS) { openAtlasComponent(id); return; }
+    if (ATLAS) {
+      const module = renderedScene?.nodes.find((node) => node.id === id)?.module;
+      if (module) location.href = atlasDetailsHref(module, atlasLevel());
+      else openAtlasComponent(id);
+      return;
+    }
     const context = architectureGraphContext();
     const node = sourceGraph ? { entity: architectureEntity(id, sourceGraph), sourceGraph }
       : renderedScene?.nodes.find((item) => item.id === id);
@@ -1606,7 +1613,7 @@
       returnCell = query.has("return_cell") && Number.isSafeInteger(cell) && cell >= 0 ? cell : null;
       const sourceSelection = query.get("return_selected");
       returnSelection = NAV.component_path.some((item) => item.id === sourceSelection)
-        || NAV.module_ids.includes(sourceSelection) ? sourceSelection : null;
+        || NAV.module_ids.includes(sourceSelection) || NAV.target_module_ids.includes(sourceSelection) ? sourceSelection : null;
       if (selected && lexicalRoute(selected, umlPath[0]?.id, umlPath[0]?.origin).length)
         umlSelection = { type: "node", id: selected };
     } else {
@@ -1617,8 +1624,8 @@
         ? componentRoute(scope).map((item) => ({ id: item.id, origin: "observed" })) : [];
       const level = atlasLevel();
       atlasContent = atlasHasChoice(level) && ["components", "modules"].includes(query.get("content")) ? query.get("content") : null;
-      if (level.component_ids.includes(selected)) umlSelection = { type: "node", id: selected };
-      else if (viewMode !== "target" && level.modules.some((item) => item.id === selected)) atlasModule = selected;
+      if (level.component_ids.includes(selected) || atlasModules(level).some((item) => item.id === selected)) umlSelection = { type: "node", id: selected };
+      if (viewMode !== "target" && level.modules.some((item) => item.id === selected)) atlasModule = selected;
       const cell = Number(query.get("cell"));
       if (query.has("cell") && viewMode !== "target" && level.cells.includes(cell)) atlasCell = cell;
     }
@@ -2306,8 +2313,9 @@
 
   function updateOpenSelected() {
     if (ATLAS) {
-      openSelectedButton.disabled = !umlSelection || !ATLAS.levels.some((level) => level.parent_id === umlSelection.id);
-      openSelectedButton.textContent = umlSelection ? `Open ${atlasComponent(umlSelection.id)?.label || "component"}` : "Open selected";
+      const module = renderedScene?.nodes.find((node) => node.id === umlSelection?.id)?.module;
+      openSelectedButton.disabled = !module && (!umlSelection || !ATLAS.levels.some((level) => level.parent_id === umlSelection.id));
+      openSelectedButton.textContent = module ? `Open ${module.path?.split("/").at(-1) || module.name}` : umlSelection ? `Open ${atlasComponent(umlSelection.id)?.label || "component"}` : "Open selected";
       return;
     }
     const node = umlSelection?.type === "node" && renderedScene?.nodes.find((item) => item.id === umlSelection.id);
@@ -2487,6 +2495,26 @@
     });
   }
 
+  function atlasModuleScene(level) {
+    const modules = atlasModules(level), ids = new Set(modules.map((module) => module.id));
+    const nodes = modules.map((module) => ({
+      id: module.id, label: module.path?.split("/").at(-1) || module.name, kind: "module", module,
+      entity: null, sourceGraph: null, sections: [], outside: false,
+      meta: module.path || "File path not declared", tooltip: module.name,
+    }));
+    const declared = modules.flatMap((module) => (module.relationships || []).filter((edge) => ids.has(edge.target_id)));
+    const edges = viewMode === "target" ? declared.map((edge) => ({ ...edge,
+      source: edge.source_id, target: edge.target_id, relationshipKind: edge.kind, state: "declared", declaration: edge,
+      tooltip: `${edge.kind}: ${edge.id}. ${edge.reason || "Authored module relationship"}`, label: edge.kind,
+    })) : level.cells.filter((index) => ids.has(ATLAS.cells[index].source_id) && ids.has(ATLAS.cells[index].target_id))
+      .map((index) => { const cell = ATLAS.cells[index]; return { ...cell, id: `module-cell:${index}`, cell: index,
+        source: cell.source_id, target: cell.target_id, kind: "dependency", relationshipKind: "imports",
+        state: cell.status === "FAIL" ? "violation" : cell.status === "UNKNOWN" ? "undecided" : "observed", label: `${cell.import_sites ?? "?"} imports`,
+        tooltip: `${cell.import_sites ?? "UNKNOWN"} import sites; Core ${cell.status}; permission ${cell.permission}.`,
+      }; });
+    return { nodes, edges, declared, frames: [], atlas: true, moduleOverview: true };
+  }
+
   function atlasScene(level) {
     const children = ATLAS.components.filter((component) => component.parent_id === level.parent_id);
     const ids = new Set(children.map((component) => component.id));
@@ -2562,6 +2590,17 @@
         <p>Does this fit the responsibility?</p>`;
       return;
     }
+    if (viewMode === "target") {
+      const module = atlasModules(level).find((item) => item.id === umlSelection?.id);
+      if (module) {
+        inspectorContent.innerHTML = `<div class="kicker">Declared module</div><h2>${esc(module.name)}</h2>
+          <p>${link(atlasDetailsHref(module, level), "Open UML and source evidence")}</p><p><code>${esc(module.path || "File path not declared")}</code></p>
+          <p>${module.declarations} direct declared definitions</p>${list("Responsibility", module.responsibilities)}${list("Provenance", module.provenance)}
+          ${list("Authored module relationships", renderedScene.edges.filter((edge) => edge.source === module.id || edge.target === module.id)
+            .map((edge) => `${edge.id} · ${edge.relationshipKind}: ${edge.source} → ${edge.target} · ${edge.declaration.evidence_ids.join(", ")}`))}`;
+        return;
+      }
+    }
     if (!component) {
       inspectorContent.innerHTML = `<div class="kicker">Fact sheet</div><h2>${esc(ATLAS.repository)}</h2>
         <p>Select a component, module, import cell or question.</p><p>Every count refers to the recorded snapshot.</p>
@@ -2630,12 +2669,7 @@
     choice.querySelectorAll("button").forEach((button) => button.onclick = () => {
       atlasContent = button.dataset.content; render(); fit();
     });
-    if (content !== "modules") return;
-    canvas.hidden = true; alternative.hidden = false;
-    alternative.innerHTML = modules.length ? atlasModuleList(level)
-      : `<div class="flow-scope-notice"><h3>${viewMode === "target" ? "No declared subcomponents. No declared modules recorded." : "No observed modules recorded."}</h3><p>${viewMode === "target" ? "The declared fact sheet remains available. Observed modules are not Target declarations." : "This snapshot records no module content for this scope."}</p>${viewMode === "target" ? '<button type="button" data-show-as-is>Show As-Is modules</button>' : ""}</div>`;
-    const asIs = alternative.querySelector("[data-show-as-is]");
-    if (asIs) asIs.onclick = () => switchArchitectureView("diagram");
+    return content;
   }
 
   function atlasExplore(level) {
@@ -2664,7 +2698,7 @@
       Module permission is never inferred from a declared requires edge.</p>
       <p class="atlas-coverage">${esc(level.import_status)}: ${esc(level.import_reason)} Fan-in/out refer to the whole observed source scope. Symbols are observed lexical declarations, including nested declarations.</p>
       <div class="flow-matrix" role="region" aria-label="Module import matrix" tabindex="0"></div>
-      ${root.dataset.content === "components" ? `<details class="atlas-module-list"><summary>Modules and UML · ${modules.length}</summary>${atlasModuleList(level)}</details>` : ""}`;
+      <details class="atlas-module-list"><summary>Modules and UML · ${modules.length}</summary>${atlasModuleList(level)}</details>`;
     if (!level.questions.length) {
       explore.querySelector(".atlas-explore-heading").remove();
       explore.querySelector(".atlas-questions").previousElementSibling.remove();
@@ -2728,24 +2762,32 @@
   }
 
   function renderAtlas() {
-    const level = atlasLevel(), scene = atlasScene(level);
+    const level = atlasLevel(), content = atlasContentPane(level);
+    const scene = content === "modules" ? atlasModuleScene(level) : atlasScene(level);
     root.dataset.view = viewMode; root.dataset.umlGraph = "true"; root.dataset.componentOverview = "true";
     flowHeading.textContent = level.parent_id ? `Architecture map · ${atlasComponent(level.parent_id)?.label || level.parent_id}` : "Architecture map";
     canvas.hidden = !scene.nodes.length; alternative.hidden = Boolean(scene.nodes.length);
-    if (!scene.nodes.length) alternative.innerHTML = `<div class="flow-scope-notice"><h3>${viewMode === "target" ? "No declared subcomponents" : "No subcomponents at this level"}</h3><p>${viewMode === "target" ? "Declared responsibility and permissions remain in the fact sheet." : "Recorded modules remain below and in the fact sheet."}</p></div>`;
+    if (!scene.nodes.length) {
+      alternative.innerHTML = `<div class="flow-scope-notice"><h3>${viewMode === "target" ? "No declared subcomponents. No declared modules recorded." : "No observed content recorded."}</h3><p>${viewMode === "target" ? "Declared facts remain in the Inspector; observed modules are not Target declarations." : "No native module content is recorded for this scope."}</p>${viewMode === "target" ? '<button type="button" class="flow-fit" data-show-as-is>Show As-Is modules</button>' : ""}</div>`;
+      const asIs = alternative.querySelector("[data-show-as-is]");
+      if (asIs) asIs.onclick = () => switchArchitectureView("diagram");
+    }
     viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === viewMode)));
     elementKindControl.hidden = true; focusInput.closest("label").hidden = true; violationFocus.hidden = true;
     fitButton.hidden = true; memberPreviewsButton.hidden = true; unassignedCodeButton.hidden = true;
     filters.hidden = true;
     architectureNavigation({ base: null });
-    const agentComponents = scene.nodes.filter((node) => node.component.decided_by === "agent").length;
+    const agentComponents = scene.nodes.filter((node) => node.component?.decided_by === "agent").length;
     const agentEdges = scene.declared.filter((edge) => edge.decided_by === "agent").length;
     const observed = scene.edges.filter((edge) => !edge.declaration);
-    root.querySelector(".atlas-summary").textContent = viewMode === "target"
+    root.querySelector(".atlas-summary").textContent = scene.moduleOverview
+      ? viewMode === "target" ? `${scene.nodes.length} declared modules · ${scene.edges.length} authored module relationships`
+        : `${scene.nodes.length} observed modules · ${observed.length} local dependencies · ${observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : "UNKNOWN"} import sites`
+      : viewMode === "target"
       ? `${scene.declared.length} declared requires at this level · agent decisions: ${agentComponents}/${scene.nodes.length} components, ${agentEdges}/${scene.declared.length} dependencies`
       : `${observed.length} observed dependencies · ${observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : "UNKNOWN"} imports at this level · ${viewMode === "diff" ? "recorded failures highlighted; unproven permission UNKNOWN" : "source facts"}`;
     cardHeights.clear(); scene.nodes.forEach((node) => cardHeights.set(node.id, 144)); CARD.h = 144;
-    positions = atlasLayout(scene.nodes, scene.declared);
+    positions = atlasLayout(scene.nodes, scene.moduleOverview ? scene.edges : scene.declared);
     renderUmlScene(scene, {
       frame() {},
       node(group, node) {
@@ -2760,15 +2802,15 @@
           last.textContent = last.textContent.trimEnd().slice(0, -1) + "…";
         }
         if (viewMode !== "target") {
-          group.dataset.assessmentStatus = node.component.status;
+          if (node.component) group.dataset.assessmentStatus = node.component.status;
           const weight = el("text", { class: "atlas-weight", x: "16", y: "129" });
-          weight.textContent = `${node.component.observed_modules} mod · ${node.component.observed_symbols ?? "?"} sym${node.component.symbols_complete ? "" : " · partial"}`;
+          weight.textContent = node.module ? `${node.module.symbols ?? "UNKNOWN"} observed symbols` : `${node.component.observed_modules} mod · ${node.component.observed_symbols ?? "?"} sym${node.component.symbols_complete ? "" : " · partial"}`;
           group.appendChild(weight);
         }
         group.addEventListener("click", (event) => { event.stopPropagation(); selectArchitectureSubject("node", node.id); });
-        group.addEventListener("dblclick", (event) => { event.preventDefault(); openAtlasComponent(node.id); });
+        group.addEventListener("dblclick", (event) => { event.preventDefault(); openArchitectureEntity(node.id); });
         group.addEventListener("keydown", (event) => {
-          if (event.key === "Enter") { event.preventDefault(); openAtlasComponent(node.id); }
+          if (event.key === "Enter") { event.preventDefault(); openArchitectureEntity(node.id); }
           if (event.key === " ") { event.preventDefault(); selectArchitectureSubject("node", node.id); }
         });
       },
@@ -2778,15 +2820,21 @@
         if (route.edge.import_sites) drawn.line.style.strokeWidth = String(1.2 + Math.log10(route.edge.import_sites) * 1.4);
         const label = el("text", { class: "atlas-edge-label", x: String(route.lx), y: String(route.ly), "text-anchor": "middle" });
         label.textContent = route.edge.label; drawn.group.appendChild(label);
-        drawn.hit.addEventListener("click", () => { umlSelection = { type: "node", id: route.edge.source }; atlasSheet(level); });
+        const choose = () => {
+          if (route.edge.cell !== undefined) { atlasCell = route.edge.cell; atlasModule = null; umlSelection = null; }
+          else { umlSelection = { type: "node", id: route.edge.source }; atlasModule = null; atlasCell = null; }
+          setTargetDetails(true); syncRoute(); atlasSheet(level);
+        };
+        drawn.hit.addEventListener("click", choose);
+        drawn.hit.addEventListener("keydown", (event) => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); choose(); } });
       },
     });
     const selected = umlSelection?.type === "node" ? umlSelection.id : null;
     const neighbors = new Set(scene.edges.filter((edge) => edge.source === selected || edge.target === selected).flatMap((edge) => [edge.source, edge.target]));
     nodeLayer.querySelectorAll("[data-uml-id]").forEach((node) => node.classList.toggle("dim", Boolean(selected && node.dataset.umlId !== selected && !neighbors.has(node.dataset.umlId))));
     edgeLayer.querySelectorAll("[data-uml-id]").forEach((edge) => edge.classList.toggle("dim", Boolean(selected && edge.dataset.umlSource !== selected && edge.dataset.umlTarget !== selected)));
-    legend.textContent = "Directed dependencies · card positions come from the Target · counts are observed import sites";
-    atlasContentPane(level); atlasExplore(level); atlasSheet(level); updateOpenSelected(); sizeDiagram();
+    legend.textContent = scene.moduleOverview ? "Native modules · local directed relationships · Enter opens direct definitions" : "Directed dependencies · card positions come from the Target · counts are observed import sites";
+    atlasExplore(level); atlasSheet(level); updateOpenSelected(); sizeDiagram();
   }
 
   function render() {
