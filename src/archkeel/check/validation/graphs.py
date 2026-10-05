@@ -1,11 +1,16 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Read and rewrite marked Mermaid document graphs."""
+"""Validate, read and rewrite marked Mermaid graphs."""
 
 from __future__ import annotations
 
 import re
+
+from archkeel.ir.model import ArchitectureContract, Diagnostic, Observation
+
+from .closed_world import observed_component_edges, target_component_edges
+from .diagnostics import _diagnostic
 
 COMPONENT_GRAPH_MARKER = "<!-- archkeel-component-graph -->"
 # AD-57: a second, independent marker for the graph the contract permits, beside the one
@@ -109,3 +114,135 @@ def rewrite_component_graph(
         if written != content:
             edited[path] = written
     return tuple(edited.items())
+
+
+# Each marker compares its own source: observed code or the declared contract.
+_GRAPH_MARKERS: tuple[tuple[str, str, str, str, str, str], ...] = (
+    (
+        COMPONENT_GRAPH_MARKER,
+        "component",
+        "observed imports",
+        "the observed component edges",
+        "edges gone from code (drawn, not observed)",
+        "edges new in code (observed, not drawn)",
+    ),
+    (
+        TARGET_GRAPH_MARKER,
+        "target",
+        "the edges the contract permits",
+        "the edges the contract permits",
+        "edges gone from contract (drawn, not permitted)",
+        "edges new in contract (permitted, not drawn)",
+    ),
+)
+
+
+def _marker_diagnostics(
+    marker: str,
+    noun: str,
+    claim_source: str,
+    remedy_source: str,
+    gone_label: str,
+    new_label: str,
+    edges: frozenset[tuple[str, str]],
+    documents: tuple[tuple[str, str], ...],
+    *,
+    required: bool,
+) -> tuple[Diagnostic, ...]:
+    """One marker's graph.count/graph.drift findings; the subject always names the marker.
+
+    AD-57: `required` is false for the target marker, so a page that draws none is silent -
+    the target is optional, the way a page may carry either, both or neither - while the
+    observed marker keeps AD-12's original rule, always exactly one.
+    """
+    graphs = [
+        (path, content[start:end])
+        for path, content in documents
+        for start, end in _marked_bodies(content, marker)
+    ]
+    if not graphs and not required:
+        return ()
+    if len(graphs) != 1:
+        return (
+            _diagnostic(
+                "graph.count",
+                "/components",
+                f"architecture {noun} graph",
+                f"Expected one marked Mermaid {noun} graph, found {len(graphs)}.",
+                f"Keep one graph after the archkeel-{noun}-graph marker in contract provenance.",
+            ),
+        )
+    path, body = graphs[0]
+    declared = frozenset(
+        (match.group(1), match.group(2))
+        for line in body.splitlines()
+        if (match := _GRAPH_EDGE.fullmatch(line))
+    )
+    if declared == edges:
+        return ()
+    new_edges = ", ".join(f"{a}->{b}" for a, b in sorted(edges - declared)) or "none"
+    gone_edges = ", ".join(f"{a}->{b}" for a, b in sorted(declared - edges)) or "none"
+    unwritable = _unwritable_line(body)
+    return (
+        _diagnostic(
+            "graph.drift",
+            "/components",
+            f"{path} ({noun} graph)",
+            f"The marked {noun} graph differs from {claim_source}; "
+            f"{gone_label}: {gone_edges}; {new_label}: {new_edges}.",
+            "Run archkeel validate --write-graph to regenerate the marked Mermaid graph "
+            f"from {remedy_source}."
+            if unwritable is None
+            else f"Edit the marked graph's edges by hand: it holds `{unwritable}`, structure "
+            "archkeel validate --write-graph does not rewrite.",
+        ),
+    )
+
+
+def graph_diagnostics(
+    contract: ArchitectureContract,
+    observation: Observation,
+    documents: tuple[tuple[str, str], ...],
+) -> tuple[Diagnostic, ...]:
+    """Require the observed marker always, and the target marker whenever a page draws one.
+
+    AD-57: `<!-- archkeel-target-graph -->` is compared against `target_component_edges`, the
+    pairs the contract permits, beside `<!-- archkeel-component-graph -->`'s unchanged
+    comparison against observed imports; the two are independent, so one may drift while the
+    other passes, and each diagnostic's subject names its own marker.
+    """
+    (
+        observed_marker,
+        observed_noun,
+        observed_claim,
+        observed_remedy,
+        observed_gone,
+        observed_new,
+    ) = _GRAPH_MARKERS[0]
+    target_marker, target_noun, target_claim, target_remedy, target_gone, target_new = (
+        _GRAPH_MARKERS[1]
+    )
+    return (
+        *_marker_diagnostics(
+            observed_marker,
+            observed_noun,
+            observed_claim,
+            observed_remedy,
+            observed_gone,
+            observed_new,
+            observed_component_edges(contract, observation),
+            documents,
+            required=True,
+        ),
+        *_marker_diagnostics(
+            target_marker,
+            target_noun,
+            target_claim,
+            target_remedy,
+            target_gone,
+            target_new,
+            target_component_edges(contract),
+            documents,
+            required=False,
+        ),
+    )
