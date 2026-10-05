@@ -349,7 +349,15 @@ def init_summary(result: RunResult) -> Summary:
         if result.exit_code == 0
         else report.sentence
     )
-    return Summary(report.decision, sentence, report.verdicts[:1], ())
+    if result.exit_code == 0 and result.measurements is not None:
+        cycle_edges = result.measurements.scalars.cycle_edges
+        if cycle_edges:
+            sentence += (
+                f"\n\nObserved {cycle_edges} cycle edge position(s). Review these cycles; "
+                "init does not draft no_component_cycles when components already cycle."
+            )
+    decision = Badge("info", "i", "DRAFT") if result.exit_code == 0 else report.decision
+    return Summary(decision, sentence, report.verdicts[:1], ())
 
 
 def check_summary(result: RunResult) -> Summary:

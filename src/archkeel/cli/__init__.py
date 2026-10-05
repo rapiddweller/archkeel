@@ -26,7 +26,13 @@ from ..host.gitlab import load_gitlab_records
 from ..render.html import render_architecture_html, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
-from .config import CONFIG_PATH, load_check_config, load_config, parse_config
+from .config import (
+    CONFIG_PATH,
+    ConfigFileMissingError,
+    load_check_config,
+    load_config,
+    parse_config,
+)
 from .observe import observer_for
 from .skill import install_skill
 
@@ -372,7 +378,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if command == "skill":
             path = install_skill(args.root.resolve(), args.agent)
             print(
-                f"Installed Archkeel instructions: {path}"
+                f"Installed Archkeel instructions: {path}\n"
+                f"Use {'$archkeel' if args.agent == 'codex' else '/archkeel'} "
+                "in your agent session; start a new session if needed."
                 if interactive
                 else json.dumps({"command": "skill", "exit_code": 0, "path": str(path)})
             )
@@ -532,6 +540,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(payload)
                 artifacts.append(target)
+    except ConfigFileMissingError as error:
+        result = (
+            invalid_result(subject, error)
+            if command == "validate"
+            else unknown_result(command, subject, error)
+        )
+        remedy = (
+            "For a new repository, run archkeel init; otherwise restore archkeel.toml "
+            "or select the existing configuration with --config PATH."
+            if args.config == CONFIG_PATH
+            else "Restore the selected configuration or correct --config PATH and retry."
+        )
+        result = replace(
+            result, diagnostics=tuple(replace(item, remedy=remedy) for item in result.diagnostics)
+        )
     # The CLI contract is a JSON result with exit 2, never a bare traceback, for any failure.
     except Exception as error:
         result = (

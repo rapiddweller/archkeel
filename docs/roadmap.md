@@ -7,6 +7,7 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| First-run typed remedies, neutral DRAFT, measured cycle advice, executable requires examples and approved-policy replay (AD-158, #318) | `tests/test_onboarding_guidance.py`; `tests/test_onboarding_demo.py`; `make demo-onboarding` |
 | First validation groups open dependency decisions with a count and the `requires` + `complete_requires` remedy; terminal panels show their own code (AD-155, #313) | `tests/test_onboarding.py`; `tests/test_terminal.py`; `make demo-onboarding` |
 | Validated construct identity controls rules; descriptive kinds cannot hide accepted facts (AD-152) | `tests/test_collection_capabilities.py` |
 | TypeScript runtime aliases, unproved CommonJS targets and hidden namespace escapes retain coverage gaps; existing explicit JavaScript substitution observes runtime closure (AD-150, AD-151) | `packages/typescript-adapter/test/adapter.test.mjs`; `fixtures/typescript-runtime-aliases.json`; `fixtures/typescript-hidden-loaders.json`; `tests/test_typescript_init_acceptance.py` |
