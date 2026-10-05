@@ -10,7 +10,7 @@
   const ATLAS = DATA.atlas || null;
   const NAV = DATA.navigation || null;
   const SIDECAR = Boolean(NAV?.module_ids);
-  let routeReady = false, returnScope = null, returnView = "diagram", returnSelection = null;
+  let routeReady = false, returnScope = null, returnView = "diagram", returnSelection = null, returnCell = null, routeNotice = null;
   if (ATLAS) {
     ATLAS.cells = ATLAS.cells.map(([source, target, count, status, permission, reason, evidence, findings, reasons]) => ({
       source_id: ATLAS.modules[source].id, target_id: ATLAS.modules[target].id, import_sites: count,
@@ -1570,6 +1570,7 @@
     if (scope) query.set("scope", scope);
     query.set("view", returnView);
     if (selection) query.set("selected", selection);
+    if (scope === returnScope && returnView !== "target" && returnCell !== null) query.set("cell", String(returnCell));
     query.set("theme", document.documentElement.dataset.theme);
     return `${NAV.main_href}?${query}`;
   }
@@ -1580,18 +1581,27 @@
     viewMode = views.includes(query.get("view")) ? query.get("view") : "diagram";
     applyTheme(query.get("theme") === "light" || query.get("theme") !== "dark"
       && window.matchMedia("(prefers-color-scheme: light)").matches);
-    umlSelection = null; atlasModule = null; atlasCell = null; scopeNotice = null;
+    umlSelection = null; atlasModule = null; atlasCell = null; scopeNotice = null; routeNotice = null;
     navigationHistory.clear(); viewStates.clear();
     focusLabel = null; relationshipKind = null; elementKind = null; positions = {};
     const selected = query.get("selected");
     if (SIDECAR) {
       const origin = query.get("origin") === "declared" ? "declared" : "observed";
       const module = query.get("module") || NAV.module_ids[0];
-      umlPath = lexicalRoute(query.get("scope") || module, module, origin);
-      if (!umlPath.length) umlPath = lexicalRoute(module, null, origin);
+      const requestedScope = query.get("scope");
+      umlPath = lexicalRoute(requestedScope || module, module, origin);
+      if (!umlPath.length) {
+        const recordedModule = lexicalRoute(module, null, origin);
+        routeNotice = recordedModule.length
+          ? { field: "scope", requested: requestedScope, message: "Requested scope is not recorded inside this module." }
+          : { field: "module", requested: module, message: "Requested module is not recorded in this component snapshot." };
+        umlPath = recordedModule;
+      }
       const sourceScope = query.has("return_scope") ? query.get("return_scope") : NAV.component_id;
       returnScope = componentRoute(sourceScope).at(-1)?.id || null;
       returnView = views.includes(query.get("return_view")) ? query.get("return_view") : "diagram";
+      const cell = Number(query.get("return_cell"));
+      returnCell = query.has("return_cell") && Number.isSafeInteger(cell) && cell >= 0 ? cell : null;
       const sourceSelection = query.get("return_selected");
       returnSelection = NAV.component_path.some((item) => item.id === sourceSelection)
         || NAV.module_ids.includes(sourceSelection) ? sourceSelection : null;
@@ -1599,6 +1609,8 @@
         umlSelection = { type: "node", id: selected };
     } else {
       const scope = query.get("scope");
+      if (scope && !ATLAS.levels.some((level) => level.parent_id === scope))
+        routeNotice = { field: "scope", requested: scope, message: "Requested component scope is not recorded in this snapshot." };
       umlPath = ATLAS.levels.some((level) => level.parent_id === scope)
         ? componentRoute(scope).map((item) => ({ id: item.id, origin: "observed" })) : [];
       const level = atlasLevel();
@@ -1619,12 +1631,14 @@
       query.set("return_scope", returnScope || "");
       query.set("return_view", returnView);
       if (returnSelection) query.set("return_selected", returnSelection);
+      if (returnCell !== null) query.set("return_cell", String(returnCell));
     } else if (umlPath.length) query.set("scope", umlPath.at(-1).id);
     query.set("view", viewMode);
     const selected = atlasModule || (umlSelection?.type === "node" ? umlSelection.id : null);
     if (selected) query.set("selected", selected);
     if (ATLAS && atlasCell !== null) query.set("cell", String(atlasCell));
     query.set("theme", document.documentElement.dataset.theme);
+    if (routeNotice) query.set(routeNotice.field, routeNotice.requested);
     const next = `${location.pathname}?${query}`;
     if (location.pathname + location.search !== next)
       if (replace) history.replaceState(null, "", next);
@@ -1653,7 +1667,7 @@
     });
     breadcrumb.innerHTML = [...links, ...lexical].join(" / ");
     breadcrumb.querySelectorAll("[data-lexical-depth]").forEach((button) => button.onclick = () => {
-      umlPath = umlPath.slice(0, Number(button.dataset.lexicalDepth)); umlSelection = null;
+      umlPath = umlPath.slice(0, Number(button.dataset.lexicalDepth)); umlSelection = null; routeNotice = null;
       focusLabel = null; relationshipKind = null; elementKind = null; positions = {}; render(); fit();
     });
     backButton.hidden = false;
@@ -1661,7 +1675,33 @@
       : "Back to architecture map";
   }
 
+  function renderRouteNotice() {
+    canvas.hidden = true; alternative.hidden = false; inspector.hidden = false;
+    filters.hidden = true; elementKindControl.hidden = true; legend.textContent = "";
+    openSelectedButton.disabled = true;
+    root.querySelector(".flow-explore").hidden = true;
+    root.dataset.view = viewMode;
+    viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === viewMode)));
+    flowHeading.textContent = "Requested scope unavailable";
+    alternative.innerHTML = `<div class="flow-scope-notice" role="status"><h3>${esc(routeNotice.message)}</h3><p>Requested ID: <code>${esc(routeNotice.requested)}</code></p><p>The requested URL is retained until you choose a recorded location.</p><button type="button">${SIDECAR && umlPath.length ? "Open recorded module" : "Open architecture map"}</button></div>`;
+    alternative.querySelector("button").onclick = () => {
+      if (SIDECAR && !umlPath.length) { location.href = mainHref(); return; }
+      routeNotice = null; render(); fit();
+    };
+    if (SIDECAR) {
+      sidecarNavigation();
+      const entry = umlPath.at(-1);
+      const graph = entry?.origin === "declared" ? DATA.target : DATA.observed;
+      if (entry && viewMode !== "target") architectureInspector({ graph, scope: entry.id }, { nodes: [], edges: [] });
+      else inspectorContent.innerHTML = '<div class="kicker">Fact sheet</div><p>No content is inferred for the rejected scope.</p>';
+    } else {
+      architectureNavigation({ base: null });
+      inspectorContent.innerHTML = '<div class="kicker">Fact sheet</div><p>Choose a recorded architecture scope.</p>';
+    }
+  }
+
   function renderSidecar() {
+    root.dataset.umlGraph = "true";
     root.querySelector(".flow-explore").hidden = true;
     const entry = umlPath.at(-1);
     const source = entry?.origin === "declared" ? DATA.target : DATA.observed;
@@ -1704,7 +1744,7 @@
       breadcrumb.innerHTML = `<button type="button" data-atlas-depth="0">${esc(ATLAS.repository)}</button>`
         + umlPath.map((entry, index) => `<span> / </span><button type="button" data-atlas-depth="${index + 1}">${esc(atlasComponent(entry.id)?.label || entry.id)}</button>`).join("");
       breadcrumb.querySelectorAll("button").forEach((button) => button.onclick = () => {
-        umlPath = umlPath.slice(0, Number(button.dataset.atlasDepth)); umlSelection = null;
+        umlPath = umlPath.slice(0, Number(button.dataset.atlasDepth)); umlSelection = null; routeNotice = null;
         atlasModule = null; atlasCell = null; atlasHint = null; positions = {}; render(); fit();
       });
       backButton.hidden = !umlPath.length; backButton.textContent = "Back to components"; return;
@@ -2372,13 +2412,19 @@
   function atlasReferences(item, field) {
     return (item[field] || []).map((index) => ATLAS.reference_ids[index]);
   }
-  function atlasDetailsHref(module, level) {
-    const assignment = level.modules.find((item) => item.id === module.id);
-    const href = atlasComponent(assignment?.component_id)?.detail_href || ATLAS.unassigned_detail_href;
-    const query = new URLSearchParams({ module: module.id, return_scope: level.parent_id || "",
+  function atlasEntryQuery(level) {
+    const query = new URLSearchParams({ return_scope: level.parent_id || "",
       return_view: viewMode, view: viewMode, theme: document.documentElement.dataset.theme });
     const selected = atlasModule || (umlSelection?.type === "node" ? umlSelection.id : null);
     if (selected) query.set("return_selected", selected);
+    if (atlasCell !== null && viewMode !== "target") query.set("return_cell", String(atlasCell));
+    return query;
+  }
+
+  function atlasDetailsHref(module, level) {
+    const assignment = level.modules.find((item) => item.id === module.id);
+    const href = atlasComponent(assignment?.component_id)?.detail_href || ATLAS.unassigned_detail_href;
+    const query = atlasEntryQuery(level); query.set("module", module.id);
     return `${href}?${query}`;
   }
 
@@ -2524,7 +2570,7 @@
         ${component.symbols_complete ? "" : "· partial lexical inventory"}</p><h3>Recorded checks</h3><p>${esc(component.status)} · ${esc(component.reason)}</p>
         <h3>Used by</h3><ul class="plain">${component.used_by.map((item) => `<li>${esc(atlasComponent(item.component_id)?.label || item.component_id)} · ${item.import_sites} imports</li>`).join("") || "No recorded component uses."}</ul>` : ""}
       <h3>Decision and source</h3><p>${esc(component.decided_by || "Not declared")} · <code>${esc(component.path || "Path not declared")}</code></p>
-      ${list("Provenance", component.provenance)}<p>${link(component.detail_href, "Open UML and source evidence")}</p>`;
+      ${list("Provenance", component.provenance)}<p>${link(`${component.detail_href}?${atlasEntryQuery(level)}`, "Open UML and source evidence")}</p>`;
   }
 
   function atlasQuestion(hint) {
@@ -2694,6 +2740,7 @@
 
   function render() {
     syncRoute();
+    if (routeNotice) { renderRouteNotice(); return; }
     if (SIDECAR) { renderSidecar(); return; }
     if (ATLAS) { renderAtlas(); return; }
     const context = architectureGraphContext();

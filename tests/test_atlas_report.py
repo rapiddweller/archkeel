@@ -221,7 +221,7 @@ def test_offline_module_drilldown_reaches_native_classifiers_and_returns(tmp_pat
         page.locator(".atlas-module-list").get_by_role(
             "link", name="sample.core", exact=True
         ).click()
-        assert page.url.startswith("file:") and "?module=" in page.url
+        assert page.url.startswith("file:") and "module=" in page.url
         for name, kind in (
             ("Client", "class"),
             ("transform", "function"),
@@ -575,6 +575,15 @@ def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_pat
         method = next(
             item for item in graph.entities if item.qualified_name == "sample.core.Client.run"
         )
+        page.get_by_role("button", name="Diff", exact=True).click()
+        assert page.locator(".flow-canvas").is_visible()
+        page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').press("Space")
+        assert (
+            page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').get_attribute(
+                "aria-pressed"
+            )
+            == "true"
+        )
         page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').press("Enter")
         assert "module=" + module.id in page.url and "scope=" + classifier.id in page.url
         page.reload()
@@ -586,6 +595,10 @@ def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_pat
         assert "scope=" + classifier.id in page.url
         assert page.locator(f'.flow-nodes [data-uml-id="{method.id}"]').count() == 1
         page.goto(page.url.replace(classifier.id, "unknown-native-id"))
+        assert "scope=unknown-native-id" in page.url
+        assert "not recorded inside this module" in page.locator(".flow-alternative").inner_text()
+        assert page.locator(".flow-canvas").is_hidden()
+        page.get_by_role("button", name="Open recorded module", exact=True).click()
         assert "scope=unknown-native-id" not in page.url
         assert page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').count() == 1
         assert not errors
@@ -670,6 +683,63 @@ def test_target_counterpart_and_planned_classifier_open_declared_members(tmp_pat
             assert page.locator(f'.flow-nodes [data-uml-id="{member}"]').count() == 1
             assert page.locator('.flow-nodes [data-uml-kind="component"]').count() == 0
             page.locator(".flow-back").click()
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_offline_import_cell_return_preserves_native_cell_and_source_lens(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    index, _ = _route_pages(tmp_path)
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        page.goto(index.as_uri() + "?view=diff&theme=dark")
+        page.locator('.flow-matrix [data-cell="0"]').click()
+        assert "cell=0" in page.url
+        before = page.locator(".flow-inspector-content").inner_text()
+        page.locator(".flow-inspector-content").get_by_role(
+            "link", name="Open UML and source evidence", exact=True
+        ).click()
+        assert "return_cell=0" in page.url
+        page.get_by_role("button", name="As-Is", exact=True).click()
+        page.get_by_role("link", name="Back to architecture map", exact=True).click()
+        assert "cell=0" in page.url and "view=diff" in page.url and "theme=dark" in page.url
+        assert page.locator(".flow-inspector-content").inner_text() == before
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_generic_uml_entry_keeps_theme_return_selection_and_has_no_fragment(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    index, _ = _route_pages(tmp_path)
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        page.goto(index.as_uri() + "?view=diff&theme=dark")
+        page.locator('.flow-nodes [data-uml-id="core"]').press("Space")
+        page.locator(".flow-inspector-content").get_by_role(
+            "link", name="Open UML and source evidence", exact=True
+        ).click()
+        assert "theme=dark" in page.url and "return_selected=core" in page.url
+        assert "#" not in page.url and "null" not in page.url
+        assert page.locator("html").get_attribute("data-theme") == "dark"
+        assert page.locator(".flow-canvas").is_visible()
+        page.reload()
+        page.get_by_role("link", name="Back to architecture map", exact=True).click()
+        assert "view=diff" in page.url and "theme=dark" in page.url
+        assert (
+            page.locator('.flow-nodes [data-uml-id="core"]').get_attribute("aria-pressed") == "true"
+        )
+        page.goto(index.as_uri() + "?scope=not-a-component&theme=dark")
+        assert "scope=not-a-component" in page.url
+        assert "not recorded in this snapshot" in page.locator(".flow-alternative").inner_text()
+        page.get_by_role("button", name="Open architecture map", exact=True).click()
+        assert "scope=not-a-component" not in page.url
+        assert page.locator('.flow-nodes [data-uml-id="core"]').is_visible()
         assert not errors
     finally:
         browser.close()
