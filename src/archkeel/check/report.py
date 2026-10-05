@@ -42,6 +42,7 @@ from archkeel.ir.model import (
     CallRow,
     Diagnostic,
     DiagnosticError,
+    EvidenceClass,
     FilteredViolation,
     Observation,
     ObservationResult,
@@ -485,15 +486,23 @@ def run_saved_report(
         model = parse_observation(decode_canonical_model(raw))
         validate_evidence_classes(model)
         module_paths: dict[str, str] = {}
+        module_packages: dict[str, str] = {}
         for module in model.records("modules") or ():
-            name, source_path = module.data.get("qualified_name"), module.data.get("file")
+            name, source_path, package = (
+                module.data.get("qualified_name"),
+                module.data.get("file"),
+                module.data.get("package"),
+            )
             if (
                 not isinstance(name, str)
                 or not isinstance(source_path, str)
+                or not isinstance(package, str)
                 or name in module_paths
             ):
-                raise ValueError("recorded modules need source paths and unique names")
+                raise ValueError("recorded modules need source paths, packages and unique names")
             module_paths[name] = source_path
+            module_packages[name] = package
+        # Core allowance receipts retain trace checks but have no collector source payload.
         validate_source_bindings(
             (
                 record
@@ -501,9 +510,16 @@ def run_saved_report(
                 if section.name == "modules"
                 or (section.name in get_args(SourceSectionName) and section.name != "unknowns")
                 for record in section.records
+                if not (
+                    section.name == "typing_signals"
+                    and record.kind in {"boundary_type_allowance", "type_ignore_allowance"}
+                    and record.evidence_class == EvidenceClass.FACT
+                )
             ),
             module_paths,
+            module_packages,
             {item.id: item for item in model.evidence},
+            import_ids={item.id for item in model.records("imports") or ()},
         )
         runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
         language = next(

@@ -7,13 +7,17 @@ import json
 import shutil
 
 import pytest
+from test_analyzer import _observe_one_rule
 from test_architecture_projection import _repository
+from test_boundary_type_allowances import _ALLOWANCE, _observe_app
 from test_dart_profile import _committed, _component
+from test_exact_type_ignore import RULE as TYPE_IGNORE_RULE
+from test_exact_type_ignore import SOURCE as TYPE_IGNORE_SOURCE
 from test_result_schema import validator as validator
 from test_target_graph import _nested_repository
 from test_typescript_onboarding import arguments, collector, repository
 
-from archkeel.check.report import run_report
+from archkeel.check.report import run_report, run_saved_report
 from archkeel.cli import build_parser, main
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, result_bytes
@@ -106,6 +110,10 @@ def test_saved_query_rejects_malformed_packet_with_named_diagnostic(tmp_path, ca
         "fact",
         "comparison_source",
         "source_scope",
+        "source_package",
+        "source_package_null",
+        "source_package_missing",
+        "shared_module_path",
         "source_file",
         "source_definition",
         "module_file",
@@ -121,6 +129,22 @@ def test_saved_query_rejects_dangling_or_foreign_source_references(tmp_path, cap
     if fault == "comparison_source":
         receipt = next(row for row in raw["scope_observations"] if row["data"].get("comparison"))
         receipt["data"]["comparison"]["assessments"][0]["observed_ids"] = ["OTHER-SOURCE"]
+    elif fault in {"source_package", "source_package_null", "source_package_missing"}:
+        if fault == "source_package_missing":
+            del raw["imports"][0]["data"]["source_package"]
+        else:
+            raw["imports"][0]["data"]["source_package"] = (
+                None if fault == "source_package_null" else "foreign"
+            )
+    elif fault == "shared_module_path":
+        module = next(
+            row for row in raw["modules"] if row["data"]["qualified_name"] == "sample.idle"
+        )
+        module["data"]["file"] = "sample/core.py"
+        for identifier in module["evidence_ids"]:
+            next(row for row in raw["evidence"] if row["id"] == identifier)["file"] = (
+                "sample/core.py"
+            )
     elif fault == "source_scope":
         raw["imports"][0]["data"]["source_module"] = "sample.other"
     elif fault == "source_definition":
@@ -146,6 +170,10 @@ def test_saved_query_rejects_dangling_or_foreign_source_references(tmp_path, cap
     assert payload["declared_rules"] == "UNKNOWN"
     assert payload["diagnostics"][0]["kind"] == "parse_error"
     assert payload.get("architecture_projection") is None
+    if fault in {"source_package", "source_package_null", "source_package_missing"}:
+        assert "import source package disagrees" in payload["diagnostics"][0]["unknown_claim"]
+    elif fault == "shared_module_path":
+        assert "duplicate module path" in payload["diagnostics"][0]["unknown_claim"]
 
 
 def test_saved_partial_coverage_retains_unknown_and_unmeasured_relationships(tmp_path, capsys):
@@ -157,7 +185,9 @@ def test_saved_partial_coverage_retains_unknown_and_unmeasured_relationships(tmp
     saved.write_bytes(packet)
     shutil.rmtree(root)
     assert main(["report", "--input", str(saved), "--only", "architecture", "--json"]) == 2
-    payload = json.loads(capsys.readouterr().out)
+    output = capsys.readouterr().out.encode()
+    assert output == result_bytes(live)
+    payload = json.loads(output)
     assert payload["observation_complete"] == "UNKNOWN"
     assert payload["coverage"] == json.loads(result_bytes(live))["coverage"]
     view = payload["architecture_projection"]
@@ -322,3 +352,32 @@ def test_saved_typescript_query_matches_native_cli_without_collector_or_reposito
     assert list(query_root.iterdir()) == [] and saved.read_bytes() == packet
     raw = decode_canonical_model(json.loads(packet))
     assert raw["calls"] is None and raw["symbols"] is None
+
+
+@pytest.mark.parametrize("kind", ["boundary_type_allowance", "type_ignore_allowance"])
+@pytest.mark.parametrize("fault", [None, "evidence", "rule", "fact", "source_kind"])
+def test_saved_core_allowance_keeps_trace_checks_without_raw_source_payload(tmp_path, kind, fault):
+    if kind == "boundary_type_allowance":
+        observed = _observe_app(tmp_path / "repo", _ALLOWANCE)
+    else:
+        (tmp_path / "repo").mkdir()
+        observed = _observe_one_rule(
+            tmp_path / "repo", TYPE_IGNORE_RULE, {"operations.py": TYPE_IGNORE_SOURCE}
+        )
+    raw = decode_canonical_model(json.loads(canonical_report_bytes(observed.observation)))
+    allowance = next(row for row in raw["typing_signals"] if row["kind"] == kind)
+    assert "owner" not in allowance["data"] and "source_module" not in allowance["data"]
+    if fault == "source_kind":
+        allowance["kind"] = "object_annotation"
+    elif fault is not None:
+        allowance[f"{fault}_ids"] = ["MISSING"]
+    saved = tmp_path / "allowance.json"
+    saved.write_bytes(canonical_report_bytes(raw))
+    shutil.rmtree(tmp_path / "repo")
+    result = run_saved_report(saved, only_architecture=True)
+    if fault is None:
+        assert result.exit_code == 0 and not result.diagnostics
+        assert result.coverage == observed.coverage
+    else:
+        assert result.exit_code == 2 and result.observation_complete == "UNKNOWN"
+        assert result.diagnostics[0].kind == "parse_error"

@@ -170,6 +170,24 @@ def test_import_source_module_must_match_observed_source_evidence(source_module:
         _decode(payload)
 
 
+def test_import_source_package_must_match_observed_source_module() -> None:
+    payload = _payload()
+    payload["facts"]["sections"][0]["records"][0]["data"]["source_package"] = "foreign"
+    with pytest.raises(ProtocolError, match="import source package disagrees"):
+        _decode(payload)
+
+
+def test_observed_module_paths_must_be_unique_even_with_matching_evidence() -> None:
+    payload = _payload()
+    module = next(item for item in payload["facts"]["files"] if item["module"] == "project.store")
+    module["rel_path"] = "src/app.py"
+    next(item for item in payload["facts"]["evidence"] if item["id"] == module["evidence_id"])[
+        "file"
+    ] = "src/app.py"
+    with pytest.raises(ProtocolError, match="duplicate module path"):
+        _decode(payload)
+
+
 @pytest.mark.parametrize("evidence_ids", [[], ["E-store"]])
 def test_import_evidence_must_name_its_actual_source_file(evidence_ids: list[str]) -> None:
     payload = _payload()

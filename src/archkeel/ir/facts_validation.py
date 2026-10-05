@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Cross-reference and source-payload invariants of the collection protocol."""
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from pathlib import PurePosixPath
 
 from .facts import (
@@ -321,9 +321,13 @@ def _member_inventory_bindings(records: list[Record]) -> None:
 def validate_source_bindings(
     records: Iterable[Record],
     module_paths: Mapping[str, str],
+    module_packages: Mapping[str, str],
     evidence: Mapping[str, Evidence],
+    *,
+    import_ids: Collection[str],
 ) -> None:
     """Bind source records and their evidence to the same observed module."""
+    _unique(module_paths.values(), "module path")
     modules_by_path = {path: module for module, path in module_paths.items()}
     for record in records:
         source_module = (
@@ -339,6 +343,11 @@ def validate_source_bindings(
         source_path = module_paths.get(source_module)
         if source_path is None:
             raise ValueError("source record names an unobserved module")
+        if (
+            record.id in import_ids
+            and record.data.get("source_package") != module_packages[source_module]
+        ):
+            raise ValueError("import source package disagrees with its module")
         for field in ("owner", "source_scope", "qualified_name", "declaration_scope"):
             identity = record.data.get(field)
             if identity is not None and (
@@ -371,7 +380,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         raise ValueError("selected input is outside selected coverage")
     file_ids = _unique((item.id for item in facts.files), "file id")
     _unique((item.module for item in facts.files), "module identity")
-    paths = _unique((item.rel_path for item in facts.files), "module path")
+    paths = {item.rel_path for item in facts.files}
     if not paths.issubset(selected_inputs):
         raise ValueError("observed module needs a selected input")
     if len(facts.files) > facts.coverage.files_parsed:
@@ -458,17 +467,10 @@ def validate_source_facts(facts: SourceFacts) -> None:
             for record in section.records
         ),
         {item.module: item.rel_path for item in facts.files},
+        {item.module: item.package for item in facts.files},
         base_by_id,
+        import_ids=imports,
     )
-    for section in facts.sections:
-        if section.name == "imports":
-            for record in section.records:
-                source_module = record.data.get("source_module")
-                if not isinstance(source_module, str):
-                    raise ValueError("import source module must be text")
-                source = file_by_module[source_module]
-                if record.data.get("source_package") != source.package:
-                    raise ValueError("import source package disagrees with its module")
     for target in facts.imports:
         data = record_by_id[target.import_id].data
         if isinstance(target, LocalTarget):
