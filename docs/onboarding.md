@@ -43,7 +43,8 @@ Record my reasons. Show unresolved findings and the file diff when finished.
    pass an executable and script path instead of a `.cmd` shim.
 2. Decide which directions are allowed. The agent records them as `requires` entries,
    with your rationale and `decided_by: "architect"`. `complete_requires` forbids all absent pairs.
-3. Run `archkeel validate --json`. Resolve `decision.open`, `rationale.placeholder`,
+3. Run `archkeel validate --json`. One `decision.open` diagnostic counts unresolved pairs;
+   `open_decisions` holds their evidence. Resolve `decision.open`, `rationale.placeholder`,
    and `rationale.repeated`. Then run `archkeel report` and review the generated files.
 
 Existing imports do not justify allowing them. `rule.violated` means code crosses a boundary

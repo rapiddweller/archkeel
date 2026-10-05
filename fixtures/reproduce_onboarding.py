@@ -105,7 +105,8 @@ def _refuses_the_draft(root: Path) -> Step:
     return Step(
         "Archkeel refuses the draft",
         "archkeel validate",
-        f"exit {result.exit_code}, {len(open_decisions)} x decision.open",
+        f"exit {result.exit_code}, {len(result.open_decisions)} open decisions, "
+        f"{len(open_decisions)} decision.open panel",
         (
             "In this interview-mode replay, a drafted contract is not the approved target.",
             "Its 20 pairs remain open until the pre-approved fixture is applied.",

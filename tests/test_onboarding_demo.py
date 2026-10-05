@@ -56,7 +56,7 @@ def test_init_reports_the_dependency_rule_count_from_its_draft(
 
 
 def test_validate_refuses_a_drafted_contract(steps: tuple[Step, ...]) -> None:
-    assert steps[1].outcome == "exit 2, 20 x decision.open"
+    assert steps[1].outcome == "exit 2, 20 open decisions, 1 decision.open panel"
 
 
 def test_the_decided_contract_passes(steps: tuple[Step, ...]) -> None:
