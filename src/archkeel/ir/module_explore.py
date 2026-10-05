@@ -8,7 +8,7 @@ from dataclasses import dataclass, replace
 from statistics import median
 from typing import Literal
 
-from .architecture_graph import ArchitectureReport, AssessmentStatus, Entity, Relationship
+from .architecture_graph import ArchitectureReport, AssessmentStatus, Coverage, Entity, Relationship
 from .interfaces import component_owners, owner_of
 from .levels import inside_levels
 from .model import ComponentOwnership, JsonValue, Observation, Record
@@ -30,6 +30,7 @@ class ModuleStatistic:
     fan_out: int | None
     rank: int | None
     evidence_ids: tuple[str, ...]
+    symbol_coverage: tuple[Coverage, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,7 +122,8 @@ def _cells(model: Observation, report: ArchitectureReport) -> tuple[ModuleImport
             ModuleImportCell(
                 source,
                 target,
-                weights.get((source, target)),
+                # Topology omits self edges; their resolved source sites still exist.
+                len(relationships) if source == target else weights.get((source, target)),
                 relationships,
                 tuple(
                     sorted(
@@ -153,6 +155,7 @@ def _statistic(
     members: tuple[str, ...],
     candidates: tuple[str, ...],
     complete: bool,
+    coverage: tuple[Coverage, ...],
 ) -> ModuleStatistic:
     owner = members[0] if len(members) == 1 and members == candidates else None
     return ModuleStatistic(
@@ -172,6 +175,7 @@ def _statistic(
         _count(record.data.get("fan_out")) if complete else None,
         _count(record.data.get("rank")),
         tuple(sorted(entity.evidence_ids)),
+        tuple(item for item in coverage if item.scope_id == entity.id and item.entity_kinds),
     )
 
 
@@ -199,7 +203,7 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
                 None,
                 (),
                 tuple(
-                    _statistic(item, records[item.id], (), (), False)
+                    _statistic(item, records[item.id], (), (), False, report.observed.coverage)
                     for item in sorted(report.observed.entities, key=lambda item: item.id)
                     if item.kind == "module" and item.presence == "defined"
                 ),
@@ -275,7 +279,11 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
                     if (label := owner_of(module.qualified_name, (candidate,))) is not None
                 )
             )
-            statistics.append(_statistic(module, records[module.id], members, candidates, complete))
+            statistics.append(
+                _statistic(
+                    module, records[module.id], members, candidates, complete, observed.coverage
+                )
+            )
         order = {identity: index for index, identity in enumerate(groups)}
         ordered = tuple(
             sorted(
@@ -398,7 +406,11 @@ def _hint_candidates(
             for item in hubs
         )
     sizes = [item.symbols for item in level.modules if item.symbols is not None]
-    if inventory_complete and sizes and len(sizes) == len(level.modules):
+    symbols_complete = all(
+        item.symbol_coverage and all(entry.status == "complete" for entry in item.symbol_coverage)
+        for item in level.modules
+    )
+    if inventory_complete and symbols_complete and sizes and len(sizes) == len(level.modules):
         threshold = max(40, 3 * median(sizes))
         heavy = sorted(
             (

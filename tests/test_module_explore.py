@@ -178,7 +178,38 @@ def test_incomplete_import_signals_keep_counts_unknown_and_suppress_absence_hint
 @pytest.mark.parametrize("change", ["unowned_importer", "own_importer"])
 def test_used_elsewhere_does_not_ignore_an_unowned_or_own_component_importer(tmp_path, change):
     level = _root(_sample(tmp_path, **{change: True}))
+    assert level.import_status == "PASS"
     assert not any(hint.kind == "used_elsewhere" for hint in level.hint_candidates)
+
+
+def test_resolved_self_import_keeps_unrelated_coverage_and_original_sites(tmp_path):
+    model = _sample(tmp_path, extra_files={"sample/unowned.py": "import sample.unowned\n"})
+    level = _root(model)
+    modules = {item.name: item for item in level.modules}
+    diagonal = next(cell for cell in level.cells if cell.source_id == cell.target_id)
+    assert level.import_status == "PASS"
+    assert diagonal.import_sites == len(diagonal.relationship_ids) == 1
+    assert diagonal.evidence_ids
+    assert modules["sample.unowned"].fan_in == modules["sample.unowned"].fan_out == 0
+    assert modules["sample.core"].fan_in == 1
+    assert any(hint.kind == "used_elsewhere" for hint in level.hint_candidates)
+
+
+def test_native_self_import_preserves_its_core_graph_failure(tmp_path):
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        uml=True,
+        extra_files={
+            "sample/peer.py": "import sample.core\nimport sample.peer\n",
+        },
+    )
+    level = _root(model)
+    diagonal = next(cell for cell in level.cells if cell.source_id == cell.target_id)
+    assert level.import_status == "PASS"
+    assert diagonal.import_sites == 1 and diagonal.status == "FAIL"
+    assert diagonal.finding_ids and diagonal.assessment_ids and diagonal.reasons
+    assert diagonal.evidence_ids and diagonal.permission == "UNKNOWN"
 
 
 def test_used_elsewhere_candidate_is_a_grouped_question_with_real_sites(tmp_path):
@@ -200,7 +231,7 @@ def test_used_elsewhere_candidate_is_a_grouped_question_with_real_sites(tmp_path
     assert hint.provisional is True
 
 
-def test_proposed_hub_and_heavy_thresholds_have_native_counts_and_stable_top_three(tmp_path):
+def test_proposed_hub_threshold_has_native_counts_and_stable_top_three(tmp_path):
     heavy = tuple(f"sample.h{index}" for index in range(4))
     users = tuple(f"sample.user{index}" for index in range(10))
     files = {
@@ -217,11 +248,11 @@ def test_proposed_hub_and_heavy_thresholds_have_native_counts_and_stable_top_thr
     )
     level = _root(_sample(tmp_path, extra_files=files, core_exact=heavy, peer_exact=users))
     modules = {item.id: item for item in level.modules}
-    for kind in ("hub", "heavy"):
-        hints = [item for item in level.hint_candidates if item.kind == kind]
-        assert [modules[hint.module_ids[0]].name for hint in hints] == list(heavy[:3])
-        assert [hint.count for hint in hints] == [10 if kind == "hub" else 40] * 3
-        assert all(hint.question.endswith("?") and hint.provisional for hint in hints)
+    hints = [item for item in level.hint_candidates if item.kind == "hub"]
+    assert [modules[hint.module_ids[0]].name for hint in hints] == list(heavy[:3])
+    assert [hint.count for hint in hints] == [10] * 3
+    assert all(hint.question.endswith("?") and hint.provisional for hint in hints)
+    assert not any(hint.kind == "heavy" for hint in level.hint_candidates)
     assert (
         modules[
             next(hint.module_ids[0] for hint in level.hint_candidates if hint.kind == "hub")
@@ -375,14 +406,33 @@ def test_a_missing_module_weight_does_not_turn_imports_into_zero_usage(tmp_path)
     assert not any(hint.kind == "used_elsewhere" for hint in level.hint_candidates)
 
 
-def test_unknown_symbols_in_one_module_make_the_level_median_unavailable(tmp_path):
+def test_partial_native_symbol_count_preserves_coverage_and_suppresses_heavy(tmp_path):
+    model = _sample(
+        tmp_path,
+        extra_files={
+            "sample/core.py": "\n".join(f"def function_{index}(): pass" for index in range(40)),
+        },
+    )
+    level = _root(model)
+    module = next(item for item in level.modules if item.name == "sample.core")
+    report = architecture_report(model)
+    coverage = tuple(
+        item
+        for item in report.observed.coverage
+        if item.scope_id == module.id and item.entity_kinds
+    )
+    assert module.symbols == 40 and module.symbol_coverage == coverage
+    assert any(item.status == "partial" and item.reason for item in module.symbol_coverage)
+    assert not any(hint.kind == "heavy" for hint in level.hint_candidates)
+
+
+def test_unknown_symbol_count_does_not_hide_other_observed_counts(tmp_path):
     model = _sample(
         tmp_path,
         extra_files={
             "sample/core.py": "\n".join(f"def f{index}(): pass" for index in range(40)),
         },
     )
-    assert any(hint.kind == "heavy" for hint in _root(model).hint_candidates)
     model = replace(
         model,
         sections=tuple(
@@ -408,4 +458,7 @@ def test_unknown_symbols_in_one_module_make_the_level_median_unavailable(tmp_pat
             for section in model.sections
         ),
     )
-    assert not any(hint.kind == "heavy" for hint in _root(model).hint_candidates)
+    level = _root(model)
+    modules = {item.name: item for item in level.modules}
+    assert modules["sample.core"].symbols == 40 and modules["sample.peer"].symbols is None
+    assert not any(hint.kind == "heavy" for hint in level.hint_candidates)
