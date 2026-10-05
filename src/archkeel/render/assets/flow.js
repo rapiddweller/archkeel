@@ -465,7 +465,7 @@
         - Math.abs(positions[a.target].x - positions[a.source].x)
       || positions[a.target].x - positions[b.target].x));
     const routes = [];
-    const occupied = { vertical: new Map(), horizontal: new Map(), clearance: new Map(), callFan };
+    const occupied = { vertical: new Map(), horizontal: new Map(), clearance: { vertical: new Map(), horizontal: new Map() }, callFan };
     edges.forEach((edge, index) => {
       const source = endpoints[index * 2], target = endpoints[index * 2 + 1];
       const out = ports.get(`${source.node}:${source.side}`);
@@ -742,13 +742,26 @@
       return { point: [at, y], lead: [at + (side === "left" ? -14 : 14), y], axis: "horizontal" };
     });
     const clearance = occupied.clearance;
+    const barriers = [...headers.map((header) => ({
+      left: header.left - 2, right: header.right + 2,
+      top: header.top - 2, bottom: header.bottom + 2,
+    })), ...cardBounds];
     const clearSegments = (points) => {
       for (let index = 1; index < points.length; index += 1) {
-        const pair = [points[index - 1], points[index]];
-        const key = `${pair[0][0]}:${pair[0][1]}:${pair[1][0]}:${pair[1][1]}`;
-        if (!clearance.has(key)) clearance.set(key,
-          routePointsClear(pair, headers, 2) && routePointsClear(pair, cardBounds, 0));
-        if (!clearance.get(key)) return false;
+        const [ax, ay] = points[index - 1], [bx, by] = points[index];
+        const vertical = ax === bx;
+        if (!vertical && ay !== by) continue;
+        const at = vertical ? ax : ay;
+        const axis = vertical ? clearance.vertical : clearance.horizontal;
+        // Fixed card/header bounds are shared by every route in this render.
+        if (!axis.has(at)) axis.set(at, barriers.filter((barrier) => vertical
+          ? at > barrier.left && at < barrier.right
+          : at > barrier.top && at < barrier.bottom));
+        const start = Math.min(vertical ? ay : ax, vertical ? by : bx);
+        const end = Math.max(vertical ? ay : ax, vertical ? by : bx);
+        if (axis.get(at).some((barrier) => vertical
+          ? end > barrier.top && start < barrier.bottom
+          : end > barrier.left && start < barrier.right)) return false;
       }
       return true;
     };
