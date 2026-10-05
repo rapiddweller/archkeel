@@ -1374,6 +1374,7 @@ class _Position(NamedTuple):
     violations: tuple[tuple[str, tuple[str, ...], str | None, int], ...] = ()
     mapping_occurrences: tuple[_MappingOccurrence, ...] = ()
     field_positions: tuple[_FieldPosition, ...] = ()
+    field_declarations: tuple[tuple[str, ...], ...] = ()
 
 
 class _FieldPosition(NamedTuple):
@@ -2195,6 +2196,7 @@ def _type_alias_verdict(
         nested_annotation=expanded.nested_annotation,
         violations=expanded.violations,
         field_positions=expanded.field_positions,
+        field_declarations=expanded.field_declarations,
         mapping_occurrences=tuple(
             _MappingOccurrence(
                 occurrence.annotation,
@@ -2383,6 +2385,7 @@ def _owned_type_verdict(
             violations=fields.violations,
             mapping_occurrences=fields.mapping_occurrences,
             field_positions=fields.field_positions,
+            field_declarations=fields.field_declarations,
         )
     if class_kind in _EXEMPT_CLASS_KINDS:
         return _Position(resolved=reached, named_origins=(resolved,))
@@ -2500,6 +2503,7 @@ def _mapping_container_verdict(
             for field in contents.field_positions
             for reason, path, nested, depth in (field.finding,)
         ),
+        field_declarations=contents.field_declarations,
         mapping_occurrences=(
             _MappingOccurrence(annotation, 0, value_annotation=parameters[1]),
             *(
@@ -2628,6 +2632,9 @@ def _field_position_verdict(
         violations=tuple(violations),
         mapping_occurrences=mapping_occurrences,
         field_positions=tuple(field_positions),
+        # One field can produce several findings; clean and UNKNOWN fields still count.
+        field_declarations=((field_name,),)
+        + tuple((field_name, *path) for path in verdict.field_declarations),
     )
 
 
@@ -2686,6 +2693,7 @@ def _collection_verdict(
             for field in verdict.field_positions
             for reason, path, nested, depth in (field.finding,)
         ),
+        field_declarations=verdict.field_declarations,
         mapping_occurrences=tuple(
             _MappingOccurrence(
                 occurrence.annotation,
@@ -2765,6 +2773,9 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
     field_positions = tuple(
         field for _parameter, verdict in decided for field in verdict.field_positions
     )
+    field_declarations = tuple(
+        path for _parameter, verdict in decided for path in verdict.field_declarations
+    )
     for _parameter, verdict in decided:
         if verdict.undecidable is not None:
             return _Position(
@@ -2776,6 +2787,7 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
                 violations=violations,
                 mapping_occurrences=mapping_occurrences,
                 field_positions=field_positions,
+                field_declarations=field_declarations,
             )
     if violations:
         reason, path, nested_annotation, _ = violations[0]
@@ -2787,9 +2799,13 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
             violations=violations,
             mapping_occurrences=mapping_occurrences,
             field_positions=field_positions,
+            field_declarations=field_declarations,
         )
     return _Position(
-        resolved=reached, mapping_occurrences=mapping_occurrences, field_positions=field_positions
+        resolved=reached,
+        mapping_occurrences=mapping_occurrences,
+        field_positions=field_positions,
+        field_declarations=field_declarations,
     )
 
 
@@ -4028,6 +4044,8 @@ def _boundary_type_allowance_fact(
 def _nested_field_allowance_matches(
     allowance: BoundaryTypeAllowance, data: RecordData, verdict: _Position
 ) -> bool:
+    if sum(".".join(path) == allowance.field_path for path in verdict.field_declarations) != 1:
+        return False
     finding = (data["reason"], data.get("nested_annotation"), data.get("container_depth", 0))
     fields = tuple(
         field

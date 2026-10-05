@@ -210,3 +210,50 @@ def test_same_field_path_in_distinct_dto_union_branches_stays_unallowed(tmp_path
         r.kind == "boundary_type_allowance"
         for r in result.observation.records("typing_signals") or ()
     )
+
+
+@pytest.mark.parametrize(
+    ("left", "right", "route", "remaining"),
+    [
+        (_NULLABLE, _NULLABLE, "Left | list[Right]", 2),
+        ("dict[str, int]", "dict[str, str]", "Left | Right", 2),
+        (_NULLABLE, "object", "Left | Right", 2),
+        (_NULLABLE, "str", "Left | Right", 1),
+        (_NULLABLE, "Missing", "Left | Right", 1),
+    ],
+)
+def test_field_allowance_requires_one_reached_declaration(
+    tmp_path: Path, left: str, right: str, route: str, remaining: int
+) -> None:
+    implementation = (
+        f"class Left:\n    counts: {left}\n\n"
+        f"class Right:\n    counts: {right}\n\n"
+        f"class Envelope:\n    result: {route}\n\n"
+        "def run() -> Envelope:\n    return Envelope()\n"
+    )
+    declared = (
+        "sample.app.impl:Left",
+        "sample.app.impl:Right",
+        "sample.app.impl:Envelope",
+        "sample.app.impl:run",
+    )
+    _write_app(tmp_path, implementation=implementation, declared=declared)
+    control = _observe(tmp_path)
+    assert control.observation is not None
+    original = trace_valid_violations(control.observation)
+    assert len(original) == remaining
+    _write_app(
+        tmp_path,
+        implementation=implementation,
+        declared=declared,
+        allowed_positions=({**_ALLOWANCE, "field_path": "result.counts", "annotation": left},),
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert result.diagnostics == ()
+    assert trace_valid_violations(result.observation) == original
+    assert result.observation.records("unknowns") == control.observation.records("unknowns")
+    assert not any(
+        r.kind == "boundary_type_allowance"
+        for r in result.observation.records("typing_signals") or ()
+    )
