@@ -116,7 +116,9 @@
         "archkeel.ir.source_records:is_public_method_name",
         "archkeel.ir.architecture_graph:ArchitectureReport",
         "archkeel.ir.graph_codec:report_bytes",
-        "archkeel.ir.report_graph:architecture_report"
+        "archkeel.ir.report_graph:architecture_report",
+        "archkeel.ir.architecture_projection:ArchitectureProjection",
+        "archkeel.ir.report_projection:architecture_projection"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."

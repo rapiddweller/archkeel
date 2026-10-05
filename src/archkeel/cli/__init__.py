@@ -143,13 +143,14 @@ def build_parser() -> _Parser:
     )
     report.add_argument(
         "--only",
-        choices=["violations", "calls"],
+        choices=["violations", "calls", "architecture"],
         help="violations: show only the declared-rule violations table, hiding component flow, "
         "component communication, review claims and size and coupling, for a small review "
         "surface on a large repository (AD-60). calls: list every unresolved and partially "
         "resolved call with its status, caller, path, line, expression, reason and component, "
         "as --json's filtered_calls and one HTML table; combines with --component, not --rule "
-        "(AD-100).",
+        "(AD-100). architecture: project authenticated ownership, permissions, use and "
+        "required relationships; combines with --component, not --rule.",
     )
     report.add_argument(
         "--rule",
@@ -408,9 +409,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             elif command == "report":
                 config = load_config(root, args.config)
                 subject = str(root)
-                if args.only == "calls" and args.rule is not None:
+                if args.only in {"calls", "architecture"} and args.rule is not None:
                     parser.error(
-                        "--rule narrows violations; --only calls lists calls, which cite no rule"
+                        "--rule narrows violations; --only calls or architecture "
+                        "cannot select a rule"
                     )
                 result, architecture = run_report(
                     root,
@@ -422,6 +424,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     ),
                     only_violations=args.only == "violations",
                     only_calls=args.only == "calls",
+                    only_architecture=args.only == "architecture",
                     rule=args.rule,
                     component=args.component,
                     baseline=args.baseline,
@@ -434,7 +437,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     resolved = artifact.resolve()
                     result = replace(
                         result,
-                        artifact=(
+                        artifact=None
+                        if args.only == "architecture"
+                        else (
                             str(resolved.relative_to(root))
                             if resolved.is_relative_to(root)
                             else str(resolved)

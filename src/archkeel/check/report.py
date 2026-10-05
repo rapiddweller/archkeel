@@ -44,6 +44,8 @@ from archkeel.ir.model import (
     RuleAssessment,
     RunResult,
 )
+from archkeel.ir.report_graph import architecture_report
+from archkeel.ir.report_projection import architecture_projection
 
 from .git import git_bytes
 from .ports import Analyzer, ScanConfig
@@ -52,6 +54,8 @@ from .run import inspect_observation
 from .snapshot import resolve_commit
 from .uml import assemble_uml
 from .uml_evaluation import evaluate_uml
+
+VIOLATION_REMEDY = "Change the code or amend the contract with owner approval."
 
 
 def _baseline_report(
@@ -248,10 +252,20 @@ def _selected_calls(model: Observation, report_filter: ReportFilter) -> tuple[Ca
 
 
 def _report_filter(
-    only_violations: bool, rule: str | None, component: str | None, only_calls: bool
+    only_violations: bool,
+    rule: str | None,
+    component: str | None,
+    only_calls: bool,
+    only_architecture: bool = False,
 ) -> ReportFilter | None:
-    if only_violations or only_calls or rule is not None or component is not None:
-        return ReportFilter(only_violations, rule, component, only_calls)
+    if (
+        only_violations
+        or only_calls
+        or only_architecture
+        or rule is not None
+        or component is not None
+    ):
+        return ReportFilter(only_violations, rule, component, only_calls, only_architecture)
     return None
 
 
@@ -284,10 +298,11 @@ def run_report(
     rule: str | None = None,
     component: str | None = None,
     only_calls: bool = False,
+    only_architecture: bool = False,
     baseline: Path | None = None,
 ) -> tuple[RunResult, bytes | None]:
     """Observe once; filters narrow report rows without changing verdicts or measurements."""
-    report_filter = _report_filter(only_violations, rule, component, only_calls)
+    report_filter = _report_filter(only_violations, rule, component, only_calls, only_architecture)
     result = observe_repository(root, config, analyzer)
     model = result.observation
     architecture = canonical_report_bytes(model) if model is not None else None
@@ -298,7 +313,7 @@ def run_report(
             measurements, declared = inspect_observation(model)
             filtered_violations = (
                 _selected_violations(model, report_filter)
-                if report_filter is not None and not only_calls
+                if report_filter is not None and not only_calls and not only_architecture
                 else None
             )
             filtered_calls = (
@@ -342,6 +357,44 @@ def run_report(
                 rule_assessments=assessments,
                 baseline_path=baseline_name,
                 baseline_comparisons=comparisons,
+            )
+    if only_architecture and model is not None:
+        try:
+            report = architecture_report(model)
+            projection = architecture_projection(
+                model,
+                report,
+                command_result.rule_assessments or (),
+                violation_remedy=VIOLATION_REMEDY,
+                component=component,
+            )
+            finding_ids = (
+                {identity for owner in projection.components for identity in owner.finding_ids}
+                if component is not None
+                else {item.id for item in report.findings}
+            )
+            command_result = replace(
+                command_result,
+                report_filter=report_filter,
+                architecture_projection=projection,
+                filtered_violations=tuple(
+                    FilteredViolation(
+                        record,
+                        tuple(
+                            ReportLocation(entry.file, entry.line)
+                            for entry in model.evidence
+                            if entry.id in record.evidence_ids
+                        ),
+                    )
+                    for record in model.records("violations") or ()
+                    if record.id in finding_ids
+                ),
+            )
+        except ValueError as error:
+            command_result = replace(
+                unknown_result("report", "architecture projection", error),
+                coverage=model.coverage,
+                python_version=model.python_version,
             )
     if only_violations and command_result.rule_assessments is not None:
         command_result = replace(

@@ -38,6 +38,8 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.target_graph import component_permissions, declared_tree_graph
 
+from .declarations import project_rule_declaration
+
 
 def _read_contract(root: Path, relative: str) -> tuple[bytes, str]:
     reference = contract_relative_path(relative)
@@ -236,9 +238,35 @@ def _unavailable_target_assessment(path: str, identity: str) -> Record:
     )
 
 
+def _authenticate_permission_rules(tree: InsideContractTree, known: dict[str, Record]) -> None:
+    expected = []
+    for contract, parent in (
+        (tree.root, None),
+        *((mount.contract, mount.parent_id) for mount in tree.mounts),
+    ):
+        for rule in contract.rules:
+            if rule.kind not in {"allowed_dependency", "forbidden_dependency", "complete_requires"}:
+                continue
+            raw = project_rule_declaration(rule)
+            if parent is not None:
+                raw = {**raw, "data": {**raw["data"], "parent_id": parent}}
+            expected.append(parse_record(raw))
+    actual = tuple(
+        item
+        for item in known.values()
+        if item.kind in {"allowed_dependency", "forbidden_dependency", "complete_requires"}
+        and item.evidence_class.value == "DECLARED_RULE"
+    )
+    if {item.id for item in expected} != {item.id for item in actual} or any(
+        known.get(item.id) != item for item in expected
+    ):
+        raise ValueError("dependency permissions differ from the authenticated contract")
+
+
 def _target_records(
     tree: InsideContractTree, path: str, known: dict[str, Record]
 ) -> tuple[Record, Record | None] | None:
+    _authenticate_permission_rules(tree, known)
     contracts = (tree.root, *(mount.contract for mount in tree.mounts))
     targets = tuple(
         contract.declarations.uml

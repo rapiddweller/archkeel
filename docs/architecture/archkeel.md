@@ -285,6 +285,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-203 | [Native map list values use proven coordinates](decisions/ad-203-native-map-list-values-use-proven-coordinates.md) |
 | AD-205 | [Class binding proofs use their AST owner](decisions/ad-205-class-binding-proofs-use-their-ast-owner.md) |
 | AD-206 | [Check families keep existing behavior](decisions/ad-206-check-families-keep-existing-behavior.md) |
+| AD-202 | [Focused architecture projection](decisions/ad-183-focused-architecture-projection.md) |
 
 ## Allowed dependencies
 

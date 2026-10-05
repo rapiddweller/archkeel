@@ -17,6 +17,7 @@ from .architecture_graph import ContractModuleTarget as ContractModuleTarget
 from .architecture_graph import ExternalDependencyScopeRule as ExternalDependencyScopeRule
 from .architecture_graph import RootLayoutRule as RootLayoutRule
 from .architecture_graph import contract_relative_path as contract_relative_path
+from .architecture_projection import ArchitectureProjection
 from .facts import (
     EVIDENCE_FIELDS as EVIDENCE_FIELDS,
 )
@@ -1199,6 +1200,7 @@ class ReportFilter:
     component: str | None = None
     # AD-100: list the unresolved and partially resolved calls instead of the violations.
     only_calls: bool = False
+    only_architecture: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -1336,6 +1338,7 @@ class RunResult:
     unresolved_call_note: str | None = None
     # AD-100: `report --only calls`, every unresolved and partially resolved call it selects.
     filtered_calls: tuple[CallRow, ...] | None = None
+    architecture_projection: ArchitectureProjection | None = None
     rule_assessments: tuple[RuleAssessment, ...] | None = None
     baseline_path: str | None = None
     baseline_comparisons: tuple[BaselineViolationComparison, ...] | None = None

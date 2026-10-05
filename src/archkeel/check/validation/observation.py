@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from archkeel.ir.model import ArchitectureContract, Diagnostic, Observation, text_value
 
+from ..report import VIOLATION_REMEDY
 from .closed_world import closed_world_diagnostics
 from .diagnostics import _diagnostic, _sorted
 from .graphs import graph_diagnostics

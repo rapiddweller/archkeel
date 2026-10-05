@@ -67,7 +67,7 @@ def load_contract(path: Path) -> tuple[ArchitectureContract, str]:
     return contract, hashlib.sha256(raw).hexdigest()
 
 
-def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
+def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
     subjects: list[str]
     data: RecordData
     if isinstance(rule, ForbiddenDependencyRule):
@@ -354,7 +354,7 @@ def project_inside_declarations(
         # The parent id says which level a rule decides; a reader that split it back off the
         # rule id would decide behaviour from a name (AD-36).
         {**record, "data": {**record["data"], "parent_id": parent}}
-        for record in map(_rule_declaration, contract.rules)
+        for record in map(project_rule_declaration, contract.rules)
     ]
     declarations = contract.declarations or ContractDeclarations()
     module_targets = _module_target_records(
@@ -524,7 +524,7 @@ def project_declarations(
                 data={"measurement": budget.name},
             )
         )
-    items.extend(_rule_declaration(rule) for rule in contract.rules)
+    items.extend(project_rule_declaration(rule) for rule in contract.rules)
     for api in sorted(declarations.public_api):
         items.append(
             classified(

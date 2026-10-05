@@ -20,6 +20,7 @@ from archkeel.ir.architecture_graph import (
     GraphComparison,
     TargetDefinition,
 )
+from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.facts import MemberInventory
 from archkeel.ir.model import ArchitectureContract
 
@@ -131,6 +132,17 @@ def report_schema() -> dict[str, object]:
     return _schema(ArchitectureReport, "architecture-report", "Shared architecture report boundary")
 
 
+def projection_schema() -> dict[str, object]:
+    schema = _schema(
+        ArchitectureProjection, "architecture-projection", "Focused architecture projection"
+    )
+    schema["$comment"] = (
+        "Generated from archkeel.ir.architecture_projection. Source authenticity "
+        "and Core verdicts belong to the shared report boundary."
+    )
+    return schema
+
+
 def member_inventory_schema() -> dict[str, object]:
     schema = _schema(MemberInventory, "source-member-inventory", "Source member inventory")
     schema["$comment"] = (
@@ -223,6 +235,7 @@ def main() -> None:
     parser.add_argument("--contract", type=Path)
     parser.add_argument("--comparison", type=Path)
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--projection", type=Path)
     parser.add_argument("--source-inventory", type=Path)
     parser.add_argument("--source-profile", type=Path)
     args = parser.parse_args()
@@ -233,6 +246,10 @@ def main() -> None:
     if args.comparison is not None:
         args.comparison.write_text(
             json.dumps(comparison_schema(), indent=2) + "\n", encoding="utf-8"
+        )
+    if args.projection is not None:
+        args.projection.write_text(
+            json.dumps(projection_schema(), indent=2) + "\n", encoding="utf-8"
         )
     if args.report is not None:
         args.report.write_text(json.dumps(report_schema(), indent=2) + "\n", encoding="utf-8")

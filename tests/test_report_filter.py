@@ -275,6 +275,7 @@ def test_cli_report_json_output_is_filtered(tmp_path: Path, capsys: pytest.Captu
         "component": None,
         # AD-100: the other --only value, off here.
         "only_calls": False,
+        "only_architecture": False,
     }
     assert len(result["filtered_violations"]) == 1
     assert result["filtered_violations"][0]["rule_ids"] == ["DEP-STORE-NO-MONEY"]

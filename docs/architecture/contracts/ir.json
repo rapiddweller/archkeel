@@ -154,6 +154,8 @@
         "archkeel.ir.trace",
         "archkeel.ir.type_fanin",
         "archkeel.ir.widening",
+        "archkeel.ir.architecture_projection",
+        "archkeel.ir.report_projection",
         "archkeel.ir.architecture_graph",
         "archkeel.ir.graph_codec",
         "archkeel.ir.source_graph",
@@ -217,7 +219,9 @@
         "archkeel.ir.source_graph",
         "archkeel.ir.target_graph",
         "archkeel.ir.target_records",
-        "archkeel.ir.report_graph"
+        "archkeel.ir.report_graph",
+        "archkeel.ir.architecture_projection:ArchitectureProjection",
+        "archkeel.ir.report_projection:architecture_projection"
       ]
     }
   ],
@@ -262,6 +266,14 @@
   ],
   "declarations": {
     "modules": [
+      {
+        "path": "src/archkeel/ir/architecture_projection.py",
+        "responsibility": "Define the typed focused architecture view."
+      },
+      {
+        "path": "src/archkeel/ir/report_projection.py",
+        "responsibility": "Project authenticated architecture records without evaluating policy."
+      },
       {
         "path": "src/archkeel/ir/facts.py",
         "responsibility": "Define shared source facts, identifiers, evidence, capabilities and coverage."
