@@ -96,11 +96,11 @@ def test_changed_coverage_is_rejected_even_when_top_level_digests_match(observat
 
 
 def test_added_valid_unknown_record_is_rejected(observation):
-    raw = json.loads(canonical_report_bytes(observation))
+    raw = decode_canonical_model(json.loads(canonical_report_bytes(observation)))
     raw["unknowns"] = [
         {**raw["modules"][0], "id": "unknown1", "evidence_class": "UNKNOWN", "kind": "unresolved"}
     ]
-    changed = parse_observation(decode_canonical_model(raw))
+    changed = parse_observation(raw)
     with pytest.raises(AssertionError, match=STALE):
         test_self._assert_self_provenance(changed, _provenance(observation))
 
