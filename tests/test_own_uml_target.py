@@ -552,7 +552,7 @@ def test_own_class_overview_keeps_distinct_routes_and_type_cues(
 
 
 @pytest.mark.parametrize("width", [1600, 1300])
-def test_own_ports_keep_mixed_relationship_routes_separate(width, self_observation: Observation):
+def test_own_ports_context_relationship_routes_keep_sites(width, self_observation: Observation):
     api = pytest.importorskip("playwright.sync_api")
     model = self_observation
     result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
@@ -570,12 +570,13 @@ def test_own_ports_keep_mixed_relationship_routes_separate(width, self_observati
         payload = page.locator("#flow-data").text_content()
         page.locator('.flow-nodes [data-label="SourceCollector"]').click()
         edges = page.locator(".flow-edges .edge")
-        assert page.locator('.flow-edges [data-relationship-kind="imports"]').count() > 0
-        assert page.locator('.flow-edges [data-relationship-kind="references"]').count() > 0
-        assert not _route_problems(edges)
-        assert edges.evaluate_all("""edges => edges.every(edge =>
-          edge.querySelector('.line').getAttribute('d')
-            === edge.querySelector('.hit').getAttribute('d'))""")
+        for kind in ("imports", "references"):
+            page.locator(f'.flow-legend button[data-relationship-kind="{kind}"]').click()
+            assert page.locator(f'.flow-edges [data-relationship-kind="{kind}"]').count() > 0
+            assert not _route_problems(edges)
+            assert edges.evaluate_all("""edges => edges.every(edge =>
+              edge.querySelector('.line').getAttribute('d')
+                === edge.querySelector('.hit').getAttribute('d'))""")
         assert page.locator("#flow-data").text_content() == payload
         assert not errors
     finally:
