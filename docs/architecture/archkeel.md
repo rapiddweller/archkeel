@@ -286,6 +286,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-205 | [Class binding proofs use their AST owner](decisions/ad-205-class-binding-proofs-use-their-ast-owner.md) |
 | AD-206 | [Check families keep existing behavior](decisions/ad-206-check-families-keep-existing-behavior.md) |
 | AD-202 | [Focused architecture projection](decisions/ad-202-focused-architecture-projection.md) |
+| AD-204 | [Report Atlas and offline details](decisions/ad-204-report-atlas-and-offline-details.md) |
 
 ## Allowed dependencies
 

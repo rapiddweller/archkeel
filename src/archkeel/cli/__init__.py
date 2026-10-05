@@ -23,7 +23,7 @@ from ..check.run import run_check
 from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
-from ..render.html import render_architecture_html, render_check_html
+from ..render.html import render_architecture_details, render_architecture_html, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
 from .config import (
@@ -446,11 +446,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                         ),
                     )
                     report_html = html_path(artifact, "report")
+                    repository = project_name(root, config)
+                    for name, payload in render_architecture_details(
+                        result,
+                        architecture,
+                        repository=repository,
+                        architecture_href=artifact.name,
+                    ).items():
+                        detail = artifact.parent / name
+                        detail.write_bytes(payload)
+                        artifacts.append(detail)
                     report_html.write_bytes(
                         render_architecture_html(
                             result,
                             architecture,
-                            repository=project_name(root, config),
+                            repository=repository,
                             architecture_href=artifact.name,
                         )
                     )
