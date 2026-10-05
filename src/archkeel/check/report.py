@@ -9,6 +9,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Literal as _Literal
 
+from archkeel.ir.architecture_graph import RuleAssessment
 from archkeel.ir.baseline import (
     ViolationFingerprint,
     cycle_contractions,
@@ -41,7 +42,6 @@ from archkeel.ir.model import (
     ObservationResult,
     ReportFilter,
     ReportLocation,
-    RuleAssessment,
     RunResult,
 )
 from archkeel.ir.report_graph import architecture_report

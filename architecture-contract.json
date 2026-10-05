@@ -129,7 +129,12 @@
         "archkeel.ir.architecture_projection:RequiredRelationshipProjection",
         "archkeel.ir.architecture_projection:OwnershipGap",
         "archkeel.ir.architecture_projection:UnknownProjection",
-        "archkeel.ir.report_projection:architecture_projection"
+        "archkeel.ir.report_projection:architecture_projection",
+        "archkeel.ir.module_explore:ModuleStatistic",
+        "archkeel.ir.module_explore:ModuleImportCell",
+        "archkeel.ir.module_explore:HintCandidate",
+        "archkeel.ir.module_explore:ModuleExploreLevel",
+        "archkeel.ir.module_explore:module_exploration"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
@@ -771,11 +776,19 @@
       "id": "RENDER-TYPES-DECLARED",
       "kind": "boundary_types",
       "source": "archkeel.render",
-      "rationale": "render's three summary functions return the projection the composition root prints; a caller cannot use the value without the type, so Summary belongs to the facade (AD-68).",
+      "rationale": "render's three summary functions return the projection the composition root prints; a caller cannot use the value without the type, so Summary belongs to the facade (AD-68). Offline detail output maps generated filenames to bytes; only that exact return position permits an open map.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "allowed_positions": [
+        {
+          "qualified_name": "archkeel.render.html.render_architecture_details",
+          "position": "return",
+          "field_path": "",
+          "annotation": "dict[str, bytes]"
+        }
+      ]
     }
   ]
 }

@@ -11,9 +11,10 @@ import json
 import re
 from dataclasses import replace
 from importlib.resources import files
-from pathlib import PurePosixPath
+from pathlib import PurePosixPath as _PurePosixPath
 from typing import TypeAlias
 
+from archkeel.ir.architecture_graph import RuleAssessment
 from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import agent_decisions, open_decisions
@@ -35,7 +36,6 @@ from archkeel.ir.model import (
     EvidenceClass,
     Observation,
     Record,
-    RuleAssessment,
     RunResult,
     stable_id,
 )
@@ -775,7 +775,7 @@ def render_architecture_details(
             f"<h1>{_text(repository)} · {_text(identity or 'Unassigned code')}</h1>"
             f"<p>Snapshot <code>{_text(observation.source.git_head)}</code>"
             f" · Scan {_text(result.observation_complete)}"
-            f' · <a href="{_text(PurePosixPath(architecture_href).stem)}.report.html">'
+            f' · <a href="{_text(_PurePosixPath(architecture_href).stem)}.report.html">'
             "Back to architecture map</a>"
             f' · <a href="{_text(architecture_href)}">Complete audit JSON</a></p>{flow}'
         )

@@ -175,7 +175,8 @@
       "decided_by": "agent",
       "exact_modules": [
         "archkeel.ir",
-        "archkeel.ir.report_graph"
+        "archkeel.ir.report_graph",
+        "archkeel.ir.module_explore"
       ],
       "requires": [
         {
@@ -231,7 +232,12 @@
         "archkeel.ir.architecture_projection:RequiredRelationshipProjection",
         "archkeel.ir.architecture_projection:OwnershipGap",
         "archkeel.ir.architecture_projection:UnknownProjection",
-        "archkeel.ir.report_projection:architecture_projection"
+        "archkeel.ir.report_projection:architecture_projection",
+        "archkeel.ir.module_explore:ModuleStatistic",
+        "archkeel.ir.module_explore:ModuleImportCell",
+        "archkeel.ir.module_explore:HintCandidate",
+        "archkeel.ir.module_explore:ModuleExploreLevel",
+        "archkeel.ir.module_explore:module_exploration"
       ]
     }
   ],
@@ -303,6 +309,10 @@
       {
         "path": "src/archkeel/ir/graph.py",
         "responsibility": "Shared pure SCC, path and rank algorithms."
+      },
+      {
+        "path": "src/archkeel/ir/module_explore.py",
+        "responsibility": "Derive sparse module statistics and evidence-backed review questions from shared Core records."
       }
     ],
     "uml": {
