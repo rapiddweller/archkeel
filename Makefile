@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: against gate ci ci-check ci-typescript ci-artifacts-clean mermaid check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema
+.PHONY: against gate ci ci-check ci-typescript ci-artifacts-clean mermaid check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing
 
 check: lint typecheck test
 
@@ -14,13 +14,13 @@ release-check: check build smoke
 
 ci: ci-check mermaid
 
-ci-check: gate ci-artifacts-clean ci-typescript browser-install report-browser
+ci-check: gate ci-artifacts-clean report-timing ci-typescript browser-install report-browser
 
 ci-typescript: OUTPUT := test-artifacts/typescript-demo
 ci-typescript: demo-typescript
 
 ci-artifacts-clean:
-	rm -rf test-artifacts/typescript-demo test-artifacts/report-browser
+	rm -rf test-artifacts/typescript-demo test-artifacts/report-browser test-artifacts/report-timing
 
 mermaid:
 	@set -eu; mermaid_dir=$$(mktemp -d); \
@@ -67,7 +67,11 @@ LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/r
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/reproduce_typescript.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
-	tools/architecture_graph_schema.py
+	tools/architecture_graph_schema.py tools/report_timing.py
+
+REPORT_MAX_SECONDS ?= 90
+report-timing:
+	$(UV) run --locked python -m tools.report_timing --max-seconds "$(REPORT_MAX_SECONDS)"
 
 architecture-graph-schema:
 	$(UV) run --locked python -m tools.architecture_graph_schema schema/architecture-graph.schema.json --contract schema/architecture-contract.schema.json --comparison schema/architecture-comparison.schema.json --report schema/architecture-report.schema.json --source-inventory schema/source-member-inventory.schema.json --source-profile schema/architecture-ir-python-decoded.schema.json
@@ -77,7 +81,7 @@ lint:
 	$(UV) run --locked ruff check $(LINT_PATHS)
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/github_pr_report.py tools/against.py tools/architecture_graph_schema.py
+	$(UV) run --locked mypy src/archkeel tools/github_pr_report.py tools/against.py tools/architecture_graph_schema.py tools/report_timing.py
 
 fixtures:
 	$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)")

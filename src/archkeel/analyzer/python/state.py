@@ -217,7 +217,7 @@ def collect_state(
     modules: Sequence[ParsedModule],
     symbols: Sequence[Record],
     symbol_nodes: Mapping[str, ast.AST],
-    symbol_owners: Mapping[str, ParsedModule],
+    symbol_owners: Mapping[ast.AST, ParsedModule],
 ) -> tuple[StateFacts, tuple[Evidence, ...]]:
     evidence: dict[str, RawEvidence] = {}
     symbols_by_name = {
@@ -227,7 +227,7 @@ def collect_state(
     }
     classes: list[ClassStateFacts] = []
     for qualified, node in symbol_nodes.items():
-        owner = symbol_owners.get(qualified)
+        owner = symbol_owners.get(node)
         if not isinstance(node, ast.ClassDef) or owner is None:
             continue
         symbol = symbols_by_name.get(qualified)
