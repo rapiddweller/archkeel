@@ -1048,21 +1048,7 @@ def rule_subject_failures(
     rule_failures: list[RawRecord] = []
     for rule in rules:
         if isinstance(rule, LayerOrderRule) and contract is not None:
-            for component in _layer_order_components(contract, rule):
-                if component.layer not in rule.layers:
-                    rule_failures.append(
-                        classified(
-                            item_id=stable_id("UNKNOWN-LAYER", rule.id, component.id),
-                            evidence_class=EvidenceClass.UNKNOWN,
-                            area="components",
-                            kind="layer_metadata_missing",
-                            title=f"{component.label} has no layer in {rule.id} order",
-                            subjects=[component.label],
-                            rule_ids=[rule.id],
-                            provenance=list(component.provenance),
-                            data={"reason": "The component layer is absent or outside the order."},
-                        )
-                    )
+            rule_failures.extend(_layer_metadata_failures(contract, rule))
         scopes = rule_scopes(rule)
         if isinstance(rule, ForbiddenDependencyRule) and rule.target in sdk_libraries:
             scopes = {"source": scopes["source"]}
@@ -5697,6 +5683,49 @@ def _layer_order_violations(contract: ArchitectureContract, scope: str) -> list[
     return violations
 
 
+def _layer_metadata_failures(
+    contract: ArchitectureContract, rule: LayerOrderRule
+) -> list[RawRecord]:
+    return [
+        classified(
+            item_id=stable_id("UNKNOWN-LAYER", rule.id, component.id),
+            evidence_class=EvidenceClass.UNKNOWN,
+            area="components",
+            kind="layer_metadata_missing",
+            title=f"{component.label} has no layer in {rule.id} order",
+            subjects=[component.label],
+            rule_ids=[rule.id],
+            provenance=list(component.provenance),
+            data={"reason": "The component layer is absent or outside the order."},
+        )
+        for component in _layer_order_components(contract, rule)
+        if component.layer not in rule.layers
+    ]
+
+
+def _layer_order_evaluation_facts(
+    contract: ArchitectureContract, rule: LayerOrderRule, scope: str
+) -> list[RawRecord]:
+    selected = _layer_order_components(contract, rule)
+    if not selected:
+        return []
+    return [
+        _rule_evaluation_receipt(
+            rule,
+            scope,
+            (),
+            subjects=[component.label for component in selected],
+            data={
+                "claim": "declared_requires",
+                "layers": list(rule.layers),
+                "assessment_complete": all(
+                    component.layer in rule.layers for component in selected
+                ),
+            },
+        )
+    ]
+
+
 def _collect_rule_violations(
     *,
     imports: Sequence[RawRecord],
@@ -6097,23 +6126,7 @@ def rule_evaluation_facts(
         ):
             continue
         if isinstance(rule, LayerOrderRule):
-            selected_components = _layer_order_components(contract, rule)
-            if selected_components:
-                facts.append(
-                    _rule_evaluation_receipt(
-                        rule,
-                        scope,
-                        (),
-                        subjects=[component.label for component in selected_components],
-                        data={
-                            "claim": "declared_requires",
-                            "layers": list(rule.layers),
-                            "assessment_complete": all(
-                                component.layer in rule.layers for component in selected_components
-                            ),
-                        },
-                    )
-                )
+            facts.extend(_layer_order_evaluation_facts(contract, rule, scope))
             continue
         if isinstance(rule, ExternalDependencyScopeRule):
             # allowed_sources is an exception list, not the rule's observed scope.
