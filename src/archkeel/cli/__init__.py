@@ -18,7 +18,7 @@ from rich_argparse import RawDescriptionRichHelpFormatter
 
 from ..check.git import read_blob
 from ..check.onboarding import run_init
-from ..check.report import render_result, run_report, unknown_result
+from ..check.report import render_result, run_report, run_saved_report, unknown_result
 from ..check.run import run_check
 from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
@@ -116,12 +116,16 @@ def build_parser() -> _Parser:
             "canonical architecture.json with an HTML report next to it. Report never rejects:\n"
             "a rule violation is a FAIL verdict with exit code 0. architecture.json always\n"
             "carries every violation; --only, --rule and --component narrow what the HTML page\n"
-            "and --json's own filtered_violations show, never what was judged (AD-60).\n\n"
+            "and --json's own filtered_violations show, never what was judged (AD-60).\n"
+            "--input queries a saved snapshot without scanning or writing files. Its source\n"
+            "identity describes recorded evidence, not the current working tree.\n\n"
             "Examples:\n"
             "  archkeel report\n"
             "  archkeel report --output build/architecture.json --json\n"
             "  archkeel report --only violations --rule DEP-STORE-NO-MONEY --json\n"
             "  archkeel report --component store\n"
+            "  archkeel report --input build/architecture.json --only architecture \\\n"
+            "    --component COMP-STORE --json\n"
             "  archkeel report --config archkeel-tests.toml \\\n"
             "    --output test-artifacts/tests/architecture.json\n\n"
             "Exit codes:\n"
@@ -135,6 +139,14 @@ def build_parser() -> _Parser:
         report,
         "Path of architecture.json; the HTML report is written next to it. "
         "Default: test-artifacts/architecture/architecture.json.",
+    )
+    report.set_defaults(root=None, config=None)
+    report.add_argument(
+        "--input",
+        type=Path,
+        help="Query a saved snapshot of architecture.json; no scan or file output. Recorded "
+        "source identity does not verify the current working tree. Conflicts with --root, "
+        "--config, --baseline and --output.",
     )
     report.add_argument(
         "--baseline",
@@ -161,7 +173,8 @@ def build_parser() -> _Parser:
         "--component",
         help="Narrow the violations, or with --only calls the calls, to this component: a "
         "violation whose crossing touches it as source or target, a call its modules make. "
-        "Unknown to this contract: exit 2.",
+        "With --only architecture, use an exact component id or scoped label from "
+        "architecture_projection.components. Unknown to this contract: exit 2.",
     )
 
     validate = commands.add_parser(
@@ -387,9 +400,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 else json.dumps({"command": "skill", "exit_code": 0, "path": str(path)})
             )
             return 0
-        root = args.root.resolve()
-        subject = str(root / args.config)
-        with progress(f"archkeel {command}: observing {root.name}"):
+        if args.config is None and (command != "report" or args.input is None):
+            args.config = CONFIG_PATH
+        root = (args.root or Path.cwd()).resolve()
+        subject = str(root / (args.config or CONFIG_PATH))
+        activity = (
+            f"reading recorded {args.input.name}"
+            if command == "report" and args.input is not None
+            else f"observing {root.name}"
+        )
+        with progress(f"archkeel {command}: {activity}"):
             if command == "init":
                 subject = str(root)
                 result, files = run_init(
@@ -406,8 +426,35 @@ def main(argv: Sequence[str] | None = None) -> int:
                     tsconfig=args.tsconfig,
                     collector_argv=tuple(args.collector_argv) if args.collector_argv else None,
                 )
+            elif command == "report" and args.input is not None:
+                if args.only in {"calls", "architecture"} and args.rule is not None:
+                    parser.error(
+                        "--rule narrows violations; --only calls or architecture "
+                        "cannot select a rule"
+                    )
+                subject = str(args.input)
+                conflicts = tuple(
+                    option
+                    for option, value in (
+                        ("--root", args.root),
+                        ("--config", args.config),
+                        ("--baseline", args.baseline),
+                        ("--output", args.output),
+                    )
+                    if value is not None
+                )
+                if conflicts:
+                    parser.error(f"--input cannot be combined with {', '.join(conflicts)}")
+                result = run_saved_report(
+                    args.input,
+                    only_violations=args.only == "violations",
+                    only_calls=args.only == "calls",
+                    only_architecture=args.only == "architecture",
+                    rule=args.rule,
+                    component=args.component,
+                )
             elif command == "report":
-                config = load_config(root, args.config)
+                config = load_config(root, args.config or CONFIG_PATH)
                 subject = str(root)
                 if args.only in {"calls", "architecture"} and args.rule is not None:
                     parser.error(
@@ -565,7 +612,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         remedy = (
             "For a new repository, run archkeel init; otherwise restore archkeel.toml "
             "or select the existing configuration with --config PATH."
-            if args.config == CONFIG_PATH
+            if args.config in {None, CONFIG_PATH}
             else "Restore the selected configuration or correct --config PATH and retry."
         )
         result = replace(
