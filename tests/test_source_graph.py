@@ -45,6 +45,24 @@ def _graph(observation) -> ArchitectureGraph:
     return graph
 
 
+@pytest.mark.parametrize("name,kind", [("Public", "public"), ("_Private", "private")])
+def test_type_alias_visibility_retains_its_python_convention(tmp_path, name, kind):
+    from test_member_inventory import _observation
+
+    observation = _observation(tmp_path, f"from typing import TypeAlias\n{name}: TypeAlias = int\n")
+    record = next(
+        r
+        for r in observation.records("symbols")
+        if r.data.get("qualified_name") == f"sample.model.{name}"
+    )
+    entity = next(e for e in _graph(observation).entities if e.id == record.id)
+    assert entity.kind == "type_alias"
+    assert entity.visibility.kind == kind
+    assert entity.visibility.basis == "convention"
+    assert entity.visibility.spelling == name
+    assert entity.evidence_ids == record.evidence_ids
+
+
 def test_source_graph_keeps_classifiers_private_attributes_and_operations(observation) -> None:
     graph = _graph(observation)
     by_name = {entity.qualified_name: entity for entity in graph.entities}
@@ -243,7 +261,7 @@ def test_legacy_public_attributes_survive_without_claiming_private_attribute_cov
                             tuple(
                                 (key, value)
                                 for key, value in record.data.entries
-                                if key != "attribute_declarations"
+                                if key not in {"attribute_declarations", "member_inventories"}
                             )
                         ),
                     )
@@ -274,6 +292,135 @@ def _source_observation(tmp_path: Path, source: str):
     result = _observe(tmp_path)
     assert result.observation is not None
     return result.observation
+
+
+@pytest.mark.parametrize("operation", ["def", "async def"])
+def test_operation_annotations_have_declaration_ownership_and_lexical_binding(
+    tmp_path: Path, operation: str
+) -> None:
+    observation = _source_observation(
+        tmp_path,
+        "class Payload: pass\n"
+        "class Service:\n"
+        " class Payload: pass\n"
+        f" {operation} run(self, value: Payload) -> Payload: return value\n",
+    )
+    references = observation.records("references")
+    annotations = [item for item in references if item.data.get("expression") == "Payload"]
+    assert len(annotations) == 2
+    operation_record = next(
+        item
+        for item in observation.records("symbols")
+        if item.data.get("qualified_name") == "sample.app.Service.run"
+    )
+    for item in annotations:
+        assert item.data.get("source_scope") == "sample.app.Service"
+        assert item.data.get("declaration_scope") == "sample.app.Service.run"
+        assert item.data.get("declaration_definition_id") == operation_record.id
+    graph = _graph(observation)
+    edges = [edge for edge in graph.relationships if edge.id in {item.id for item in annotations}]
+    assert len(edges) == 2
+    assert {edge.source_id for edge in edges} == {operation_record.id}
+    # A class binding shadows the module type while evaluating the header.
+    assert all(
+        graph_entity.qualified_name == "sample.app.Service.Payload"
+        for edge in edges
+        for graph_entity in graph.entities
+        if graph_entity.id == edge.target_id
+    )
+
+
+def test_header_defaults_keep_evaluation_ownership(tmp_path: Path) -> None:
+    observation = _source_observation(
+        tmp_path,
+        "class Payload: pass\ndef work(value: Payload = Payload) -> Payload: return Payload\n",
+    )
+    references = observation.records("references")
+    headers = [item for item in references if item.data.get("source_scope") == "sample.app"]
+    assert len(headers) == 3
+    assert sum(item.data.get("declaration_scope") == "sample.app.work" for item in headers) == 2
+    default = next(item for item in headers if item.data.get("declaration_scope") is None)
+    graph = _graph(observation)
+    entity_names = {entity.id: entity.qualified_name for entity in graph.entities}
+    assert (
+        entity_names[next(edge.source_id for edge in graph.relationships if edge.id == default.id)]
+        == "sample.app"
+    )
+
+
+@pytest.mark.parametrize(
+    "details",
+    [
+        {"declaration_scope": "sample.app.work"},
+        {"declaration_scope": "sample.app.work", "declaration_definition_id": "missing"},
+        {"declaration_scope": "sample.app.work", "declaration_definition_id": False},
+        {"declaration_scope": False, "declaration_definition_id": "missing"},
+    ],
+)
+def test_malformed_reference_declaration_is_rejected(tmp_path: Path, details) -> None:
+    observation = _source_observation(tmp_path, "class Payload: pass\ndef work(): return Payload\n")
+    references = tuple(
+        replace(item, data=RecordData(tuple({**dict(item.data.entries), **details}.items())))
+        for item in observation.records("references")
+    )
+    malformed = replace(
+        observation,
+        sections=tuple(
+            Section(section.name, references) if section.name == "references" else section
+            for section in observation.sections
+        ),
+    )
+    with pytest.raises(ValueError, match="reference declaration|expected text"):
+        _graph(malformed)
+
+
+def test_repeated_operation_headers_keep_definition_site_ownership(tmp_path: Path) -> None:
+    observation = _source_observation(
+        tmp_path,
+        "class Payload: pass\n"
+        "class Service:\n"
+        " def run(self, value: Payload) -> Payload: return value\n"
+        " def run(self, value: Payload) -> Payload: return value\n",
+    )
+    graph = _graph(observation)
+    methods = [
+        entity for entity in graph.entities if entity.qualified_name == "sample.app.Service.run"
+    ]
+    annotations = [edge for edge in graph.relationships if edge.kind == "references"]
+    assert len(methods) == 2
+    assert len(annotations) == 4
+    assert {edge.source_id for edge in annotations} == {entity.id for entity in methods}
+
+
+def test_legacy_reference_without_declaration_keeps_lexical_ownership(tmp_path: Path) -> None:
+    observation = _source_observation(
+        tmp_path, "class Payload: pass\ndef work(value: Payload) -> Payload: return value\n"
+    )
+    references = tuple(
+        replace(
+            item,
+            data=RecordData(
+                tuple(
+                    (key, value)
+                    for key, value in item.data.entries
+                    if key not in {"declaration_scope", "declaration_definition_id"}
+                )
+            ),
+        )
+        for item in observation.records("references")
+    )
+    legacy = replace(
+        observation,
+        sections=tuple(
+            Section(section.name, references) if section.name == "references" else section
+            for section in observation.sections
+        ),
+    )
+    graph = _graph(legacy)
+    module = next(entity for entity in graph.entities if entity.qualified_name == "sample.app")
+    assert {edge.source_id for edge in graph.relationships if edge.kind == "references"} == {
+        module.id
+    }
 
 
 def test_redefined_functions_keep_their_own_call_and_reference_sources(tmp_path: Path) -> None:

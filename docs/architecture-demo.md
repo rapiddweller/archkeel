@@ -27,8 +27,8 @@ Target hierarchy rows exercise declared physical frames, missing and ambiguous p
 requirement cycles. Frames describe layout, not semantic ownership. Placement is `declared`,
 `inferred`, `multiple`, `ambiguous` or `unmapped`; exact `public` and `requires.through` remain
 declaration details. A null dependency rank can mean a cycle or a dependent of one, so it does not
-name an SCC or change the architecture verdict. Browser acceptance checks 100% initial zoom, native
-scrolling, collapsed Details, and selection identity across Actual, Target and Diff. Ranked
+name an SCC or change the architecture verdict. Browser acceptance checks initial zoom, hidden
+scrollbar tracks, collapsed Details, and selection identity across Actual, Target and Diff. Ranked
 components share width-aware rows; owner Details holds rule metadata. Target Fit keeps readable
 names and scrolls larger scopes (AD-139). The report does not certify CE completion.
 
@@ -38,6 +38,24 @@ warning without changing architecture data. The `tour` capture exercises tight f
 `app` and `Violating edges only`. All seven violating edges retain selectable labels; labels moved
 beside the graph name their source and target. The clean root and nested `store` captures exercise
 the conforming case.
+
+Inner UML examples use fixtures/H-uml and one independently authored Contract 2.2 Target (graph
+format 1.1). Replay uml-match (PASS), uml-mismatch (return signature FAIL), and uml-partial (dynamic
+enum literal UNKNOWN). The Target stays unchanged across overlays. They cover classifiers, literals,
+public/private members, typed operations, static members, bindings and
+imports/calls/references/inheritance/realization/creation. make report-browser captures their shared
+As-Is, Target and Diff views and drill-downs. Open scopes do not claim exhaustive inventories. A
+successful report command does not mean declared_rules is PASS. Dart and TypeScript currently lack
+inner UML collection. Replay uml-dart and uml-typescript for independent native-language Target
+diagrams and UNKNOWN inner comparisons. make demo-uml OUTPUT=<fresh-directory> generates all three
+language reports; build the TypeScript collector with a supported Node runtime. Recorded unavailable
+profile coverage remains visible in Details. Track remaining demo acceptance in #339 and independent
+inner Target coverage in #340. Replay uml-complete for closed Python intent, including internal
+State and VERSION uses. make demo-uml also writes python-complete.report.html. An unlisted
+definition fails the closed inventory; exhaustive observation stays UNKNOWN. Architecture groups
+As-Is, Target and Diff. Structure, Review and Actual remain Evidence views. FAIL means a recorded
+failed rule or comparison; select the card for its checks. The status tooltip gives the first
+reasons.
 
 | Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |
 |---|---|---|---|---|---|---|
@@ -292,11 +310,16 @@ the conforming case.
 | class_c | ContractDeclarations.spot_owners | class-c-spot-owners | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.compat | class-c-compat | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.modules | class-c-modules | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
-| class_c | ContractDeclarations.uml | class-c-uml | tested only | - | - | tests/test_target_graph.py |
 | class_d | review_claims | class-d-review-claims | tested only | - | - | docs/rules.md |
 | class_d | unreferenced_symbols:enum-member-reference | class-d-enum-member-reference | tested only | - | - | tests/test_references.py |
 | class_d | oversized_inside | class-d-oversized-inside | tested only | - | - | docs/rules.md |
 | class_d | type_fanin | class-d-type-fanin | tested only | - | - | docs/rules.md |
+| class_c | ContractDeclarations.uml | uml-match | validate/report run | - | - | H-uml: clean sample |
+| class_c | ContractDeclarations.uml | uml-mismatch | validate/report run | UML-TARGET-a2e40c5592b1b06a | rule.violated | H-uml: demo/core.py |
+| class_c | ContractDeclarations.uml | uml-partial | validate/report run | - | - | H-uml: demo/core.py |
+| class_c | ContractDeclarations.uml | uml-complete | validate/report run | - | - | H-uml: architecture-contract.json, demo/core.py |
+| class_c | ContractDeclarations.uml | uml-dart | validate/report run | - | - | H-uml-dart: clean sample |
+| class_c | ContractDeclarations.uml | uml-typescript | validate/report run | - | - | H-uml-typescript: archkeel.toml |
 | class_d | exact_module_ownership:package initializer | ownership-exact-module-positive | validate/report run | - | - | shop/store/architecture-contract.json |
 | class_d | exact_module_ownership:sibling import remains separate | ownership-exact-module-not-recursive | validate/report run | store:STORE-REQUIRES-COMPLETE | rule.violated | shop/store/architecture-contract.json, shop/store/backend/probe.py |
 | class_d | exact_module_ownership:competing owner | ownership-exact-module-ambiguous | validate/report run | ASSIGNMENT-COMPLETE, DEP-STORE-NO-APP | reference.public_owner | architecture-contract.json |

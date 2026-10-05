@@ -28,6 +28,7 @@ from archkeel.ir.architecture_graph import (
     VisibilityBasis,
     VisibilityKind,
 )
+from archkeel.ir.facts import member_inventories
 from archkeel.ir.model import JsonValue, Observation, Record, RecordData, stable_id
 from archkeel.ir.profiles import PROFILES, profile_for
 
@@ -158,6 +159,34 @@ def _symbol(record: Record, language: str) -> Entity:
     )
 
 
+def _attribute_entities(item: Record, entity: Entity, language: str) -> list[Entity]:
+    fields = item.data.get("attribute_declarations", item.data.get("fields"))
+    literals = _texts(item.data.get("enum_members")) if entity.kind == "enum" else ()
+    result: list[Entity] = []
+    for field in _records(fields):
+        name = _text(field.get("name")) or ""
+        static = field.get("static")
+        if static is not None and not isinstance(static, bool):
+            raise ValueError("attribute static modifier must be boolean")
+        result.append(
+            Entity(
+                _text(field.get("definition_id")) or stable_id("ATTR", item.id, name),
+                "enum_literal" if name in literals else "attribute",
+                f"{entity.qualified_name}.{name}",
+                language,
+                parent_id=item.id,
+                visibility=_visibility(field.get("visibility")),
+                annotation=_text(field.get("annotation")),
+                modifiers=("static",) if static is True and name not in literals else (),
+                presence="defined",
+                evidence_ids=_texts(field.get("evidence_ids")) or item.evidence_ids,
+                record_ids=(item.id,),
+                definition_contexts=entity.definition_contexts,
+            )
+        )
+    return result
+
+
 def _source_entities(observation: Observation, language: str) -> list[Entity]:
     modules = observation.records("modules") or ()
     records = {item.id: item for item in modules}
@@ -217,24 +246,7 @@ def _source_entities(observation: Observation, language: str) -> list[Entity]:
                 raise ValueError("ambiguous lexical parent needs a definition-site identity")
             parent = parents[0] if parents else module_ids.get(_text(item.data.get("module")))
         entities.append(replace(entity, parent_id=parent))
-        fields = item.data.get("attribute_declarations", item.data.get("fields"))
-        for field in _records(fields):
-            name = _text(field.get("name")) or ""
-            entities.append(
-                Entity(
-                    _text(field.get("definition_id")) or stable_id("ATTR", item.id, name),
-                    "attribute",
-                    f"{entity.qualified_name}.{name}",
-                    language,
-                    parent_id=item.id,
-                    visibility=_visibility(field.get("visibility")),
-                    annotation=_text(field.get("annotation")),
-                    presence="defined",
-                    evidence_ids=_texts(field.get("evidence_ids")) or item.evidence_ids,
-                    record_ids=(item.id,),
-                    definition_contexts=entity.definition_contexts,
-                )
-            )
+        entities.extend(_attribute_entities(item, entity, language))
     return entities
 
 
@@ -489,6 +501,27 @@ def _namespace_memberships(observation: Observation, entities: list[Entity]) -> 
     return result
 
 
+def _declaration_endpoint(
+    record: Record, kind: str, lexical_owner: str, by_name: dict[str, list[Entity]]
+) -> str | None:
+    keys = {"declaration_scope", "declaration_definition_id"}
+    present = keys & {key for key, _ in record.data.entries}
+    if not present:
+        return None
+    name = _text(record.data.get("declaration_scope"))
+    identity = _text(record.data.get("declaration_definition_id"))
+    if kind != "references" or present != keys or not name or not identity:
+        raise ValueError("reference declaration needs a scope and definition identity")
+    if not any(
+        entity.id == identity
+        and entity.kind in {"method", "function"}
+        and entity.parent_id == lexical_owner
+        for entity in by_name.get(name, [])
+    ):
+        raise ValueError("reference declaration does not match an operation")
+    return identity
+
+
 def _relationships(
     observation: Observation, entities: list[Entity], language: str
 ) -> tuple[Relationship, ...]:
@@ -509,6 +542,9 @@ def _relationships(
             sources = _source_endpoint(record, source_name, by_name, entities, language)
             if len(sources) != 1:
                 raise ValueError("ambiguous source scope needs a definition-site identity")
+            declaration = _declaration_endpoint(record, kind, sources[0], by_name)
+            if declaration is not None:
+                sources = (declaration,)
             if kind == "imports":
                 target_name = _text(record.data.get("target_module")) or ""
                 targets = _endpoint(target_name, record, by_name, entities, language)
@@ -623,11 +659,52 @@ def _partial_inventory_coverage(
     result.append(
         Coverage(
             entity.id,
-            ("attribute",),
+            ("attribute", "enum_literal"),
             status="partial",
-            reason="only class-body annotations are recorded; instance assignments are absent",
+            reason="class-body declarations are recorded; instance assignments remain unmeasured",
         )
     )
+    return tuple(result)
+
+
+def _member_inventory_coverage(
+    observation: Observation, entities: list[Entity]
+) -> tuple[Coverage, ...]:
+    result: list[Coverage] = []
+    symbols = observation.records("symbols") or ()
+    for item in symbols:
+        for inventory in member_inventories(item.data.get("member_inventories")):
+            kinds: tuple[EntityKind, ...] = (
+                ("attribute", "enum_literal")
+                if inventory.kind == "attribute" and item.data.get("class_kind") == "enum"
+                else (inventory.kind,)
+            )
+            actual = {
+                entity.id
+                for entity in entities
+                if entity.parent_id == item.id and entity.kind in kinds
+            }
+            if item.kind != "class" or actual != set(inventory.definition_ids):
+                raise ValueError("member inventory identities disagree with their owner")
+            complete = (
+                inventory.status == "complete"
+                and observation.coverage.status == "PASS"
+                and "enum_literal" not in kinds
+            )
+            result.append(
+                Coverage(
+                    item.id,
+                    kinds,
+                    status="complete" if complete else "partial",
+                    reason=None
+                    if complete
+                    else (
+                        "only literal enum assignments are measured"
+                        if "enum_literal" in kinds
+                        else inventory.reason or "source observation is incomplete"
+                    ),
+                )
+            )
     return tuple(result)
 
 
@@ -660,6 +737,7 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
         if item.data.get("base_declarations") is not None
     }
     result: list[Coverage] = []
+    result.extend(_member_inventory_coverage(observation, entities))
     for item in symbols:
         if item.data.get("base_declarations") is None:
             continue

@@ -26,6 +26,12 @@ from fixtures.architecture_demo import replay
 
 def _make_reports(output: Path) -> dict[str, Path]:
     cases = {
+        "uml-match": ("uml-match", 0),
+        "uml-complete": ("uml-complete", 0),
+        "uml-dart": ("uml-dart", 0),
+        "uml-typescript": ("uml-typescript", 0),
+        "uml-mismatch": ("uml-mismatch", 2),
+        "uml-partial": ("uml-partial", 0),
         "tour": ("tour", 2),
         "clean": ("clean", 0),
         "open": ("class-a-decision-open", 2),
@@ -236,6 +242,115 @@ def _check_graph_views(page: Page) -> None:
         assert page.locator("#flow-data").text_content() == payload
 
 
+def _check_inner_uml(page: Page, name: str, output: Path) -> None:
+    payload = page.locator("#flow-data").text_content()
+    report = parse_report(json.loads(payload or "{}"))
+    expected = {
+        "uml-match": "PASS",
+        "uml-complete": "UNKNOWN",
+        "uml-mismatch": "FAIL",
+        "uml-partial": "UNKNOWN",
+        "uml-dart": "UNKNOWN",
+        "uml-typescript": "UNKNOWN",
+    }[name]
+    assert report.comparison.status == expected
+    language = next(e.language for e in report.target.entities if e.kind == "module")
+    annotation = {"python": "str", "dart": "String", "typescript": "string"}[language]
+    returns = "None" if language == "python" else "void"
+    for view in ("diagram", "target", "diff"):
+        page.reload(wait_until="load")
+        page.locator(f'[data-flow-view="{view}"]').click()
+        page.locator('.flow-nodes [data-label="demo"]').dblclick()
+        if language != "python" and view == "diagram":
+            assert not any(
+                e.kind in {"class", "method", "function"} for e in report.observed.entities
+            )
+            page.locator('.flow-nodes [data-label="core"]').press("Space")
+            _show_details(page)
+            details = page.locator(".flow-inspector-content").inner_text()
+            assert "Source file" in details and "Coverage" in details and "unavailable" in details
+            page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-modules.png"))
+            assert page.locator("#flow-data").text_content() == payload
+            continue
+        page.locator('.flow-nodes [data-label="core"]').dblclick()
+        nodes = page.locator(".flow-nodes [data-uml-id]")
+        assert {"class", "interface", "enum", "function"} <= set(
+            nodes.evaluate_all("nodes => nodes.map(n => n.dataset.umlKind)")
+        )
+        edges = page.locator(".flow-edges .edge")
+        assert edges.count() > 0
+        assert nodes.evaluate_all("""nodes => {
+          const boxes = nodes.map(n => n.querySelector('.card').getBoundingClientRect());
+          return boxes.every((a, i) => boxes.slice(i + 1).every(b =>
+            a.right <= b.left + 1 || b.right <= a.left + 1
+            || a.bottom <= b.top + 1 || b.bottom <= a.top + 1));
+        }""")
+        assert edges.evaluate_all("""edges => edges.every(edge => {
+          const line = edge.querySelector('.line'), hit = edge.querySelector('.hit');
+          return line.getAttribute('d') === hit.getAttribute('d')
+            && getComputedStyle(line).markerEnd !== 'none';
+        })""")
+        if name == "uml-complete":
+            page.locator('.flow-nodes [data-label="describe"]').press("Space")
+            related = page.locator(".flow-nodes .node.related").evaluate_all(
+                "nodes => nodes.map(n => n.dataset.label)"
+            )
+            assert {"State", "VERSION"} <= set(related)
+            assert (
+                page.locator(
+                    '.flow-edges .edge.related[data-relationship-kind="references"]'
+                ).count()
+                == 2
+            )
+            page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-internal-uses.png"))
+        page.get_by_role("button", name="Member previews", exact=True).click()
+        client = page.locator('.flow-nodes [data-label="Client"]')
+        assert f"− _token: {annotation}" in client.text_content()
+        assert client.locator(".uml-icon").count() > 0
+        client.press("Space")
+        page.mouse.move(0, 0)
+        assert client.evaluate("n => n.classList.contains('selected')")
+        assert page.locator(".flow-nodes .node.related").count() > 1
+        assert page.locator(".flow-nodes .node.dim").count() > 0
+        page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-core.png"))
+        client.dblclick()
+        reset = page.locator('.flow-nodes [data-label="reset"]')
+        assert reset.get_attribute("data-uml-kind") == "method"
+        assert (
+            reset.locator(".label").evaluate("n => getComputedStyle(n).textDecorationLine")
+            == "underline"
+        )
+        reset.press("Space")
+        _show_details(page)
+        assert f"+ reset(): {returns}" in page.locator(".flow-inspector-content").inner_text()
+        page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-members.png"))
+        page.locator(".flow-back").click()
+        page.locator('.flow-nodes [data-label="State"]').dblclick()
+        ready = page.locator('.flow-nodes [data-label="READY"][data-uml-kind="enum_literal"]')
+        if name == "uml-partial" and view == "diagram":
+            assert ready.count() == 0
+            for kind in ("attribute", "binding"):
+                assert (
+                    page.locator(
+                        f'.flow-nodes [data-label="READY"][data-uml-kind="{kind}"]'
+                    ).count()
+                    == 1
+                )
+        else:
+            assert ready.count() == 1
+            assert ready.locator(".stereotype").text_content() == "«enumeration literal»"
+        page.locator(".flow-back").click()
+        page.locator('.flow-nodes [data-label="build"]').dblclick()
+        item = page.locator('.flow-nodes [data-label="item"]')
+        assert item.get_attribute("data-uml-kind") == "binding"
+        assert "Unit()" in item.text_content()
+        assert page.locator('.flow-edges [data-relationship-kind="instance_of"]').count() > 0
+        item.press("Space")
+        _show_details(page)
+        assert "live object" in page.locator(".flow-inspector-content").inner_text()
+        assert page.locator("#flow-data").text_content() == payload
+
+
 def _check_wide_inventory(page: Page) -> None:
     report = parse_report(json.loads(page.locator("#flow-data").text_content() or "{}"))
     names = {
@@ -415,6 +530,9 @@ def main() -> int:
                     for width in (1440, 375):
                         page.set_viewport_size({"width": width, "height": 1000})
                         _check_graph_views(page)
+                    if name.startswith("uml-"):
+                        page.set_viewport_size({"width": 1440, "height": 1000})
+                        _check_inner_uml(page, name, output)
                     if name == "wide":
                         _check_wide_inventory(page)
                     if name == "mixed":

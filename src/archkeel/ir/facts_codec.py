@@ -66,6 +66,9 @@ from .source_records import (
     file_evidence as file_evidence,
 )
 from .source_records import (
+    member_inventory_data as member_inventory_data,
+)
+from .source_records import (
     record_evidence as record_evidence,
 )
 from .state_codec import parse_state_data, state_data

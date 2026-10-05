@@ -22,6 +22,7 @@ from .source import (
     ParsedModule,
     add_evidence,
     annotation_text,
+    definition_id,
     location,
     unique_direct_module_bindings,
 )
@@ -126,6 +127,7 @@ class ReferenceCollector(ast.NodeVisitor):
         evidence_id = add_evidence(self.evidence, self.module, node)
         line, _, column = location(node)
         text = annotation_text(node) or expression
+        declaration = self._annotation_declaration(node)
         self.items.append(
             classified(
                 item_id=stable_id("REF", self.module.rel_path, line, column, text),
@@ -145,9 +147,31 @@ class ReferenceCollector(ast.NodeVisitor):
                     "status": status,
                     "targets": sorted(internal),
                     "use": use,
+                    **declaration,
                 },
             )
         )
+
+    def _annotation_declaration(self, node: ast.AST) -> dict[str, str]:
+        annotated_argument = False
+        current = node
+        while current in self.scopes.parents:
+            parent = self.scopes.parents[current]
+            if isinstance(parent, ast.arg):
+                annotated_argument = parent.annotation is current
+            if isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef):
+                if parent.returns is current or (annotated_argument and parent.args is current):
+                    scope = self.scopes.by_node[parent]
+                    name = f"{scope.qualified_name}.{parent.name}"
+                    return {
+                        "declaration_scope": name,
+                        "declaration_definition_id": definition_id(self.module, parent, name),
+                    }
+                return {}
+            if isinstance(parent, ast.ClassDef | ast.Lambda):
+                return {}
+            current = parent
+        return {}
 
     def _enum_member_class(self, node: ast.expr) -> str | None:
         """Resolve only a member listed on one statically bound enum class."""

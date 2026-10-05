@@ -522,6 +522,24 @@ code {
   margin-bottom: var(--ck-space-4);
   border-bottom: 1px solid var(--ck-border);
 }
+.flow-view-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.flow-view-group + .flow-view-group {
+  margin-inline-start: auto;
+}
+.flow-view-group-label {
+  padding-inline: 10px;
+  color: var(--ck-muted);
+  font: 12px var(--ck-font-mono);
+}
+@media screen and (max-width: 760px) {
+  .flow-view-group + .flow-view-group {
+    margin-inline-start: 0;
+  }
+}
 .boundary-type-allowances-table th,
 .boundary-type-allowances-table td {
   overflow-wrap: anywhere;
@@ -1152,6 +1170,13 @@ code {
   margin: var(--ck-space-1) 0 var(--ck-space-2);
   font-size: 16px;
 }
+.flow-inspector pre {
+  white-space: pre-wrap;
+}
+.flow-inspector .flow-qualified-name {
+  margin: 0 0 var(--ck-space-3);
+  font-size: 12px;
+}
 .flow-inspector .kv {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -1442,9 +1467,20 @@ code {
   font: 11px var(--ck-font-mono);
 }
 .uml-card { --uml-kind-color: var(--uml-imports); }
+.uml-card.component { --uml-kind-color: #f1c777; }
+.uml-card.package { --uml-kind-color: #a7b2c2; }
+.uml-card.module,
+.uml-card.file { --uml-kind-color: #8dbfff; }
+.uml-kind-accent {
+  fill: none;
+  stroke: var(--uml-kind-color);
+  stroke-width: 3;
+  pointer-events: none;
+}
 .uml-card.class { --uml-kind-color: #c5b8ff; }
 .uml-card.interface { --uml-kind-color: var(--uml-instance_of); }
-.uml-card.enum { --uml-kind-color: #efa9df; }
+.uml-card.enum,
+.uml-card.enum_literal { --uml-kind-color: #efa9df; }
 .uml-card.method { --uml-kind-color: var(--uml-calls); }
 .uml-card.function { --uml-kind-color: var(--uml-creates); }
 .uml-card.attribute,
@@ -1689,6 +1725,9 @@ code {
 }
 .edge.dim {
   pointer-events: none;
+}
+[data-component-overview="true"] .edge:not(.related):not(.dim):not(.violation):not(.undecided) .line {
+  opacity: 0.32;
 }
 .edge.related .line {
   opacity: 1;

@@ -1022,10 +1022,15 @@ def _repository(tmp_path: Path) -> tuple[Path, ScanConfig]:
     return root, ScanConfig(("sample",), "sample", "contract.json", "0" * 64)
 
 
+@pytest.mark.parametrize("version", ["1.0.0", "1.1.0"])
 def test_core_records_known_signature_failure_and_unknown_unavailable_uml_facts(
     tmp_path: Path,
+    version: str,
 ) -> None:
     root, config = _repository(tmp_path)
+    contract = _contract()
+    contract["declarations"]["uml"]["schema_version"] = version
+    (root / "contract.json").write_text(json.dumps(contract))
     result, encoded = run_report(root, config=config, analyzer=observe)
     assert result.exit_code == 0
     assert result.observation_complete == "PASS"
@@ -1037,10 +1042,31 @@ def test_core_records_known_signature_failure_and_unknown_unavailable_uml_facts(
     )
     assert (
         parse_target(json.loads(value_bytes(intent.data.get("target"))))
-        == parse_contract(_contract()).declarations.uml
+        == parse_contract(contract).declarations.uml
     )
     assert any(item.kind == "uml_conformance" for item in observation.records("unknowns") or ())
     assert any(item.kind == "uml_conformance" for item in observation.records("violations") or ())
+
+
+@pytest.mark.parametrize("newest_level", [None, "contract.json", "inside.json", "leaf.json"])
+def test_core_uses_the_newest_declared_format_when_combining_inside_targets(tmp_path, newest_level):
+    root, config = _nested_repository(tmp_path)
+    root_contract = json.loads((root / config.contract).read_bytes())
+    root_contract.setdefault("declarations", {})["uml"] = {"schema_version": "1.0.0"}
+    (root / config.contract).write_text(json.dumps(root_contract))
+    path = root / (newest_level or config.contract)
+    contract = json.loads(path.read_bytes())
+    contract["declarations"]["uml"]["schema_version"] = "1.1.0" if newest_level else "1.0.0"
+    path.write_text(json.dumps(contract))
+    result, encoded = run_report(root, config=config, analyzer=observe)
+    assert result.exit_code == 0 and encoded is not None
+    observation = parse_observation(decode_canonical_model(json.loads(encoded)))
+    intent = next(
+        item for item in observation.records("declarations") or () if item.kind == "uml_target"
+    )
+    assert parse_target(json.loads(value_bytes(intent.data.get("target")))).schema_version == (
+        "1.1.0" if newest_level else "1.0.0"
+    )
 
 
 def test_snapshot_core_reads_target_from_the_materialized_declaration_revision(

@@ -33,6 +33,33 @@ def _schema(name: str) -> dict:
     return json.loads((ROOT / "schema" / name).read_bytes())
 
 
+@pytest.mark.parametrize(
+    "details,accepted",
+    [
+        ({}, True),
+        ({"declaration_scope": "sample.work", "declaration_definition_id": "operation-id"}, True),
+        ({"declaration_scope": "sample.work"}, False),
+        ({"declaration_definition_id": "operation-id"}, False),
+        ({"declaration_scope": "sample.work", "declaration_definition_id": False}, False),
+        ({"declaration_scope": "", "declaration_definition_id": "operation-id"}, False),
+    ],
+)
+def test_reference_annotation_ownership_schema(details, accepted):
+    data = _schema("architecture-ir-python-decoded.schema.json")["properties"]["references"][
+        "items"
+    ]["allOf"][1]["properties"]["data"]
+    reference = {
+        "source_scope": "sample",
+        "source_module": "sample",
+        "expression": "Payload",
+        "status": "resolved",
+        "targets": ["sample.Payload"],
+        "use": "value",
+        **details,
+    }
+    assert Draft202012Validator(data).is_valid(reference) == accepted
+
+
 def test_config_schema_accepts_the_parsed_repository_config() -> None:
     payload = (ROOT / "archkeel.toml").read_bytes()
     schema = _schema("archkeel.schema.json")

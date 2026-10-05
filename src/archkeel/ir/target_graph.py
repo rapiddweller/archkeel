@@ -6,13 +6,14 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Literal
+from typing import Literal, get_args
 
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ComponentIntent,
     Entity,
     ExternalDependencyScopeRule,
+    GraphSchemaVersion,
     ModuleInventory,
     PublicAPIEntry,
     Relationship,
@@ -27,6 +28,78 @@ from archkeel.ir.model import (
     public_api_id,
     stable_id,
 )
+
+
+def _link_references(graph: ArchitectureGraph) -> ArchitectureGraph:
+    definitions: dict[tuple[str, str, str], list[Entity]] = {}
+    for entity in graph.entities:
+        if entity.presence == "planned":
+            group: list[Entity] = definitions.setdefault(
+                (entity.language, entity.kind, entity.qualified_name), []
+            )
+            group.append(entity)
+    aliases: dict[str, Entity] = {}
+    for entity in graph.entities:
+        if entity.presence != "referenced":
+            continue
+        matches = definitions.get((entity.language, entity.kind, entity.qualified_name), ())
+        if len(matches) > 1:
+            raise ValueError("ambiguous Target reference")
+        if not matches:
+            continue
+        reference = Entity(
+            entity.id,
+            entity.kind,
+            entity.qualified_name,
+            entity.language,
+            parent_id=entity.parent_id,
+            presence="referenced",
+            provenance=entity.provenance,
+        )
+        if entity != reference:
+            raise ValueError("Target reference carries definition constraints")
+        aliases[entity.id] = matches[0]
+    if not aliases:
+        return graph
+    if any(scope.scope_id in aliases for scope in graph.target_scopes):
+        raise ValueError("Target reference cannot own a completeness scope")
+    identities = {
+        entity.id: aliases[entity.id].id if entity.id in aliases else entity.id
+        for entity in graph.entities
+    }
+    for entity in graph.entities:
+        if entity.id in aliases and entity.parent_id is not None:
+            parent_id = identities[entity.parent_id]
+            definition_parent = aliases[entity.id].parent_id
+            if definition_parent is None or parent_id != identities[definition_parent]:
+                raise ValueError("Target reference owner differs")
+    provenance = {entity.id: set(entity.provenance) for entity in graph.entities}
+    for reference_id, definition in aliases.items():
+        paths: set[str] = provenance[definition.id]
+        paths.update(provenance[reference_id])
+    linked: ArchitectureGraph = replace(
+        graph,
+        entities=tuple(
+            replace(
+                entity,
+                parent_id=identities[entity.parent_id] if entity.parent_id is not None else None,
+                provenance=tuple(sorted(provenance[entity.id])),
+            )
+            for entity in graph.entities
+            if entity.id not in aliases
+        ),
+        relationships=tuple(
+            replace(
+                edge,
+                source_id=identities[edge.source_id],
+                target_id=identities[edge.target_id] if edge.target_id is not None else None,
+                candidate_ids=tuple(identities[identity] for identity in edge.candidate_ids),
+            )
+            for edge in graph.relationships
+        ),
+    )
+    linked.validate()
+    return linked
 
 
 def intent_graph(
@@ -54,6 +127,7 @@ def intent_graph(
         "declared",
         (*owners, *target.entities),
         target.relationships,
+        schema_version=target.schema_version,
         target_scopes=target.scopes,
         component_intents=component_intents,
         module_inventories=module_inventories,
@@ -62,7 +136,7 @@ def intent_graph(
         external_scopes=external_scopes,
     )
     graph.validate()
-    return graph
+    return _link_references(graph)
 
 
 def component_permissions(
@@ -211,6 +285,7 @@ def declared_tree_graph(tree: InsideContractTree, *, root_path: str) -> Architec
     if tree.issues:
         raise ValueError("incomplete inside contract tree")
     root = declared_graph(tree.root, contract_path=root_path)
+    versions = [root.schema_version]
     entities = list(root.entities)
     relationships = list(root.relationships)
     scopes = list(root.target_scopes)
@@ -220,6 +295,7 @@ def declared_tree_graph(tree: InsideContractTree, *, root_path: str) -> Architec
     external_scopes = list(root.external_scopes)
     for mount in tree.mounts:
         inner = declared_graph(mount.contract, contract_path=mount.path)
+        versions.append(inner.schema_version)
         owner_id = mount.parent.id
         entities.extend(inner.entities)
         relationships.extend(inner.relationships)
@@ -243,6 +319,9 @@ def declared_tree_graph(tree: InsideContractTree, *, root_path: str) -> Architec
         external_scopes.extend(inner.external_scopes)
     graph = replace(
         root,
+        schema_version=next(
+            version for version in get_args(GraphSchemaVersion) if version in versions
+        ),
         entities=tuple(entity for entity in entities if entity.kind == "component")
         + tuple(entity for entity in entities if entity.kind != "component"),
         relationships=tuple(edge for edge in relationships if edge.kind == "requires")
@@ -254,7 +333,7 @@ def declared_tree_graph(tree: InsideContractTree, *, root_path: str) -> Architec
         external_scopes=tuple(external_scopes),
     )
     graph.validate()
-    return graph
+    return _link_references(graph)
 
 
 def scoped_target(target: TargetDefinition | None, prefix: str) -> TargetDefinition | None:

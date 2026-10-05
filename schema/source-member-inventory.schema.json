@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:source-member-inventory:1.0.0",
+  "title": "Source member inventory",
+  "$comment": "Generated from archkeel.ir.facts.MemberInventory. Status/reason, identity and owner checks also require the SourceFacts validators.",
+  "$ref": "#/$defs/MemberInventory",
+  "$defs": {
+    "MemberInventory": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "attribute",
+            "method"
+          ]
+        },
+        "status": {
+          "enum": [
+            "complete",
+            "partial"
+          ]
+        },
+        "definition_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schema_version": {
+          "enum": [
+            "1.0.0"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "status",
+        "definition_ids",
+        "schema_version"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

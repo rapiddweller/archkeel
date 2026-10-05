@@ -54,6 +54,9 @@ def _matches(graph: ArchitectureGraph, wanted: Entity) -> tuple[Entity, ...]:
         and (item.presence == "defined" or wanted.presence == "referenced")
         and (item.kind == wanted.kind if namespace else item.kind not in {"module", "package"})
     )
+    if wanted.kind == "enum_literal":
+        # A physical field or value binding alone does not prove enum membership.
+        return tuple(item for item in matches if item.kind not in {"attribute", "binding"})
     if wanted.kind in {"attribute", "binding"} and any(
         item.kind == wanted.kind for item in matches
     ):

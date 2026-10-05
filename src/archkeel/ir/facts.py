@@ -99,6 +99,75 @@ JsonValue: TypeAlias = str | int | float | bool | None | tuple["JsonValue", ...]
 
 
 @dataclass(frozen=True, slots=True)
+class MemberInventory:
+    """Direct static declarations; inherited and generated members stay outside proof."""
+
+    kind: Literal["attribute", "method"]
+    status: Literal["complete", "partial"]
+    definition_ids: tuple[str, ...]
+    reason: str | None = None
+    schema_version: Literal["1.0.0"] = "1.0.0"
+
+    def __post_init__(self) -> None:
+        if (
+            self.schema_version != "1.0.0"
+            or self.kind not in ("attribute", "method")
+            or self.status not in ("complete", "partial")
+        ):
+            raise ValueError("invalid member inventory vocabulary")
+        if (
+            not isinstance(self.definition_ids, tuple)
+            or any(not isinstance(item, str) or not item for item in self.definition_ids)
+            or len(set(self.definition_ids)) != len(self.definition_ids)
+        ):
+            raise ValueError("invalid member inventory identities")
+        if (self.status == "complete" and self.reason is not None) or (
+            self.status == "partial"
+            and (not isinstance(self.reason, str) or not self.reason.strip())
+        ):
+            raise ValueError("member inventory reason contradicts status")
+
+
+def member_inventories(value: JsonValue) -> tuple[MemberInventory, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, tuple):
+        raise ValueError("member inventory needs an array")
+    result: list[MemberInventory] = []
+    for item in value:
+        required = {"kind", "status", "definition_ids", "schema_version"}
+        if (
+            not isinstance(item, RecordData)
+            or not required <= {key for key, _ in item.entries}
+            or {key for key, _ in item.entries} - (required | {"reason"})
+        ):
+            raise ValueError("member inventory fields mismatch")
+        if item.get("schema_version") != "1.0.0":
+            raise ValueError("unsupported member inventory version")
+        kind, status = item.get("kind"), item.get("status")
+        ids, reason = item.get("definition_ids"), item.get("reason")
+        if (
+            not isinstance(ids, tuple)
+            or any(not isinstance(identifier, str) for identifier in ids)
+            or (reason is not None and not isinstance(reason, str))
+        ):
+            raise ValueError("invalid member inventory values")
+        if kind not in ("attribute", "method") or status not in ("complete", "partial"):
+            raise ValueError("invalid member inventory vocabulary")
+        result.append(
+            MemberInventory(
+                "attribute" if kind == "attribute" else "method",
+                "complete" if status == "complete" else "partial",
+                tuple(identifier for identifier in ids if isinstance(identifier, str)),
+                reason,
+            )
+        )
+    if len(result) != 2 or {item.kind for item in result} != {"attribute", "method"}:
+        raise ValueError("member inventory needs one receipt per member kind")
+    return tuple(result)
+
+
+@dataclass(frozen=True, slots=True)
 class Record:
     id: str
     evidence_class: EvidenceClass

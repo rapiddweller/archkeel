@@ -114,6 +114,7 @@
         },
         "schema_version": {
           "enum": [
+            "1.1.0",
             "1.0.0"
           ]
         },
@@ -174,6 +175,7 @@
             "class",
             "interface",
             "enum",
+            "enum_literal",
             "method",
             "function",
             "attribute",
@@ -583,6 +585,7 @@
               "class",
               "interface",
               "enum",
+              "enum_literal",
               "method",
               "function",
               "attribute",
@@ -696,6 +699,7 @@
               "class",
               "interface",
               "enum",
+              "enum_literal",
               "method",
               "function",
               "attribute",
