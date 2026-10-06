@@ -6,7 +6,6 @@
 import json
 import re
 from dataclasses import replace
-from pathlib import Path
 from typing import get_args
 
 import pytest
@@ -21,9 +20,9 @@ def _demo_report(output):
     payload = re.search(r'<script[^>]*id="flow-data"[^>]*>(.*?)</script>', main.read_text(), re.S)
     assert payload
     atlas = json.loads(payload.group(1))["atlas"]
-    href = next(item["detail_href"] for item in atlas["components"] if item["label"] == "demo")
-    assert Path(href).name == href
-    sidecar = main.with_name(href)
+    component = next(item for item in atlas["components"] if item["label"] == "demo")
+    assert component["id"]
+    sidecar = main.with_name(atlas["detail_page"])
     payload = re.search(
         r'<script[^>]*id="flow-data"[^>]*>(.*?)</script>', sidecar.read_text(), re.S
     )

@@ -944,10 +944,18 @@
             },
             "additionalProperties": false
           }
-        }
+        },
+        "owners": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1},
+        "remedy": {"type": "string", "minLength": 1}
       },
       "additionalProperties": false,
-      "allOf": [{"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record/allOf/1/then"}]
+      "allOf": [
+        {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record/allOf/1/then"},
+        {
+          "if": {"properties": {"kind": {"const": "complete_assignment"}}, "required": ["kind"]},
+          "then": {"required": ["owners", "remedy"]}
+        }
+      ]
     },
     "reportFilter": {
       "type": "object",
@@ -957,7 +965,8 @@
         "rule": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
         "component": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
         "only_calls": {"type": "boolean"},
-        "only_architecture": {"type": "boolean"}
+        "only_architecture": {"type": "boolean"},
+        "full_architecture": {"type": "boolean"}
       }
     },
     "call": {

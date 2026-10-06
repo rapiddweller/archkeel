@@ -125,7 +125,9 @@ def test_diff_shows_real_imports_with_original_findings_sites_and_filters(
             assert ("NO-UNDECLARED" in details) == (not permitted)
             assert "sample/a.py:1:" in details
             assert details.count("from sample.b import value") == imports
+            page.locator(".flow-filters > summary").click()
             page.locator(".flow-violations-only").check()
+            page.locator(".flow-filters > summary").click()
             assert edges.count() == (not permitted)
             page.locator("#flow").get_by_role("button", name="Reset filters", exact=True).click()
             page.locator('.flow-legend [data-relationship-kind="imports"]').click()

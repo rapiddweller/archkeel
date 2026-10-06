@@ -14,7 +14,7 @@ Use it in your coding-agent harness or CI. Checks run locally and deterministica
 without an LLM. They complement tests of runtime behavior.
 
 <p>
-  <img src="docs/assets/archkeel-shop-store-inside.png" alt="Architecture explorer showing observed dependencies and declared responsibilities" width="1000">
+  <img src="docs/assets/archkeel-shop-store-inside.png" alt="Dark-theme store report with component map, review hints, import matrix and findings" width="1000">
 </p>
 
 Explore observed code, declared architecture and their differences in one offline report.
@@ -56,7 +56,7 @@ published expectation. Use `archkeel <command> --help` for command options.
 ## Review the evidence
 
 <p>
-  <img src="docs/assets/archkeel-report-preview.png" alt="Shop report with scan status, failed rules and separate verdicts" width="1000">
+  <img src="docs/assets/archkeel-report-preview.png" alt="Dark-theme shop report with component map, review hints, module matrix and findings" width="1000">
 </p>
 
 Use the report to inspect findings and source locations, then explore the components.

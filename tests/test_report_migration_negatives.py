@@ -290,8 +290,18 @@ def test_hiding_all_failed_and_unknown_entities_does_not_change_the_report(tmp_p
         verdicts = page.locator(".verdict-grid").inner_text()
         unknowns = page.locator("#known-unknowns").inner_text()
         assert page.locator('.verdict-card[data-verdict="fail"]').count() > 0
+        page.locator(".flow-filters > summary").click()
         if width == 375:
-            page.locator(".flow-filters > summary").click()
+            controls = page.locator(".flow-filter-controls > *").evaluate_all("""nodes =>
+              nodes.filter(node => !node.hidden).map(node => {
+                const box = node.getBoundingClientRect();
+                return [box.left, box.top, box.right, box.bottom];
+              })""")
+            assert all(
+                a[0] >= b[2] or b[0] >= a[2] or a[1] >= b[3] or b[1] >= a[3]
+                for index, a in enumerate(controls)
+                for b in controls[index + 1 :]
+            )
         page.get_by_label("Element kind", exact=True).select_option("interface")
         assert page.locator(".flow-nodes [data-uml-id]").count() > 0
         assert page.locator('.flow-nodes [data-assessment-status="FAIL"]').count() == 0
@@ -300,6 +310,7 @@ def test_hiding_all_failed_and_unknown_entities_does_not_change_the_report(tmp_p
         assert page.locator(".verdict-grid").inner_text() == verdicts
         assert page.locator("#known-unknowns").inner_text() == unknowns
         assert page.locator("#flow-data").text_content() == data
+        page.locator(".flow-filters > summary").click()
         page.locator("#flow").get_by_role("button", name="Reset filters", exact=True).click()
         assert page.locator('.flow-nodes [data-assessment-status="FAIL"]').count() > 0
         assert page.locator('.flow-nodes [data-assessment-status="UNKNOWN"]').count() > 0
@@ -378,7 +389,7 @@ def test_long_target_names_paths_and_responsibilities_remain_accessible(tmp_path
 
 
 @pytest.mark.parametrize("width", [375, 1440])
-def test_target_atlas_root_inspector_ignores_observed_verdict_and_analysis_limits(tmp_path, width):
+def test_target_atlas_root_inspector_shows_declared_intent_and_recorded_evidence(tmp_path, width):
     html = _page(_sample(tmp_path, uml=True))
     match = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', html, re.S)
     assert match is not None
@@ -400,7 +411,6 @@ def test_target_atlas_root_inspector_ignores_observed_verdict_and_analysis_limit
     errors = []
     playwright, browser, page = _browser_page(api, html, width=width, errors=errors)
     try:
-        target_details = []
         for payload in variants:
             page.goto("about:blank")
             page.set_content(html.replace(match.group(1), json.dumps(payload), 1))
@@ -408,20 +418,26 @@ def test_target_atlas_root_inspector_ignores_observed_verdict_and_analysis_limit
             _open_details(page)
             details = page.locator(".flow-inspector-content")
             text = details.text_content()
-            assert "Core " not in text and "analysis limits" not in text
+            atlas = payload["atlas"]
+            assert f"Core projection: {atlas['status']} · {atlas['reason']}" in text
+            assert f"{atlas['unknown_count']} analysis limits" in text
+            for item in atlas["unknowns"]:
+                count = item["count"]
+                label = "analysis limit" if count == 1 else "analysis limits"
+                assert f"{count} {label} · {item['reason']}" in text
             assert "Declared intent" in text
             assert "import cell" not in text and "Every count refers" not in text
-            target_details.append(details.inner_html())
             for view in ("As-Is", "Diff"):
                 page.get_by_role("button", name=view, exact=True).click()
                 text = details.text_content()
                 atlas = payload["atlas"]
-                assert f"Core {atlas['status']}: {atlas['reason']}" in text
+                assert f"Core projection: {atlas['status']} · {atlas['reason']}" in text
                 assert f"{atlas['unknown_count']} analysis limits" in text
                 for item in atlas["unknowns"]:
-                    assert f"{item['count']} × {item['reason']}" in text
+                    count = item["count"]
+                    label = "analysis limit" if count == 1 else "analysis limits"
+                    assert f"{count} {label} · {item['reason']}" in text
             assert json.loads(page.locator("#flow-data").text_content()) == payload
-        assert target_details == [target_details[0]] * len(variants)
         assert not errors
     finally:
         browser.close()
@@ -467,7 +483,11 @@ def test_target_atlas_component_and_module_details_ignore_observed_measurements(
             _open_details(page)
             details = page.locator(".flow-inspector-content").text_content()
             assert "Responsibility" in details and "Provenance" in details
-            assert "Recorded checks" not in details and "Observed weight" not in details
+            if selection == "component":
+                assert "Recorded checks" in details
+            else:
+                assert "Recorded checks" not in details
+            assert "Observed weight" not in details
             assert "Changed recorded" not in details and "observed imports" not in details
             assert "fan-in" not in details and "fan-out" not in details
             target_details.append(details)

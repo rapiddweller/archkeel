@@ -102,7 +102,8 @@ def test_target_hierarchy_demo_reports_declared_targets(
     assert {item["id"] for item in atlas["components"]} == {
         item.component_id for item in graph.component_intents
     }
-    assert all(output.with_name(item["detail_href"]).is_file() for item in atlas["components"])
+    assert atlas["components"]
+    assert output.with_name(atlas["detail_page"]).is_file()
     intents = {item.component_id: item for item in graph.component_intents}
     assert {"COMP-APP", "COMP-CLI", "COMP-STORE"} <= intents.keys()
     if variant_id == "target-hierarchy-positive":
@@ -622,7 +623,7 @@ def _report_findings(
     if architecture is None:
         return (), (), report.declared_rules
     summary = report_summary(report)
-    expected = badge(report.declared_rules)
+    expected = badge("NOT CHECKED" if report.exit_code == 2 else report.declared_rules)
     assert summary.decision == expected
     assert (
         next(row.value for row in summary.verdicts if row.key == "declared_rules")

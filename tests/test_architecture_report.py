@@ -55,7 +55,13 @@ def test_browser_receives_only_the_standard_report(tmp_path):
     ).decode()
     start = page.index(">", page.index('id="flow-data"')) + 1
     wire = json.loads(page[start : page.index("</script>", start)])
-    assert parse_report(wire) == architecture_report(model)
+    expected = json.loads(report_bytes(architecture_report(model)))
+    for side in ("observed", "target"):
+        for collection in ("entities", "relationships"):
+            for item in expected[side][collection]:
+                del item["record_ids"]
+    assert wire == expected
+    assert parse_report(wire) == parse_report(expected)
     assert not {"components", "modules", "explorers", "uml"}.intersection(wire)
 
 

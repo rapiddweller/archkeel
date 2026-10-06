@@ -29,7 +29,12 @@ def test_saved_architecture_query_matches_live_bytes_without_repository(
 ):
     root, config = _repository(tmp_path)
     live, packet = run_report(
-        root, config=config, analyzer=observe, only_architecture=True, component=selector
+        root,
+        config=config,
+        analyzer=observe,
+        only_architecture=True,
+        component=selector,
+        full_architecture=True,
     )
     assert live.exit_code == 0 and live.declared_rules == "FAIL"
     saved = tmp_path / "architecture.json"
@@ -39,6 +44,7 @@ def test_saved_architecture_query_matches_live_bytes_without_repository(
     query_root.mkdir()
     monkeypatch.chdir(query_root)
     arguments = ["report", "--input", str(saved), "--only", "architecture", "--json"]
+    arguments.append("--full")
     if selector is not None:
         arguments += ["--component", selector]
     outputs = []

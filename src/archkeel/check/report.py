@@ -10,7 +10,13 @@ from pathlib import Path
 from typing import Literal as _Literal
 from typing import get_args
 
-from archkeel.ir.architecture_graph import RuleAssessment
+from archkeel.ir.architecture_graph import (
+    ArchitectureGraph,
+    ArchitectureReport,
+    ComponentIntent,
+    RuleAssessment,
+)
+from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.baseline import (
     ViolationFingerprint,
     cycle_contractions,
@@ -32,6 +38,7 @@ from archkeel.ir.decisions import (
     cycle_scope_receipt_covers,
     open_decisions,
     review_claims,
+    rule_assessment_applies_to_component,
     rule_assessments,
     violation_counts,
 )
@@ -267,15 +274,24 @@ def _report_filter(
     component: str | None,
     only_calls: bool,
     only_architecture: bool = False,
+    full_architecture: bool = False,
 ) -> ReportFilter | None:
     if (
         only_violations
         or only_calls
         or only_architecture
+        or full_architecture
         or rule is not None
         or component is not None
     ):
-        return ReportFilter(only_violations, rule, component, only_calls, only_architecture)
+        return ReportFilter(
+            only_violations,
+            rule,
+            component,
+            only_calls,
+            only_architecture,
+            full_architecture,
+        )
     return None
 
 
@@ -299,6 +315,90 @@ def _incomplete_report_result(result: ObservationResult) -> RunResult:
     )
 
 
+def _scope_report_assessments(
+    result: RunResult,
+    report_filter: ReportFilter | None,
+    component_rules: set[str],
+) -> RunResult:
+    if report_filter is None or result.rule_assessments is None:
+        return result
+    finding_rules = {
+        rule_id for item in result.filtered_violations or () for rule_id in item.record.rule_ids
+    }
+    if report_filter.rule is not None or report_filter.component is not None:
+        selected_rules = (
+            {report_filter.rule}
+            if report_filter.rule is not None and report_filter.component is None
+            else {report_filter.rule} & (finding_rules | component_rules)
+            if report_filter.rule is not None
+            else finding_rules | component_rules
+        )
+        assessments = tuple(
+            item
+            for item in result.rule_assessments
+            if item.id in selected_rules
+            and (not report_filter.only_violations or item.status in {"FAIL", "UNKNOWN"})
+        )
+        return replace(result, rule_assessments=assessments)
+    if report_filter.only_violations:
+        return replace(
+            result,
+            rule_assessments=tuple(
+                item for item in result.rule_assessments if item.status in {"FAIL", "UNKNOWN"}
+            ),
+        )
+    return result
+
+
+def _component_rule_assessment_ids(
+    target: ArchitectureGraph,
+    projection: ArchitectureProjection,
+    component_ids: tuple[str, ...],
+) -> set[str]:
+    intents = {item.component_id: item for item in target.component_intents}
+    scoped_components = tuple(
+        intent
+        for intent in target.component_intents
+        if any(
+            component_id in intents
+            and _component_is_within(intents, intent.component_id, component_id)
+            for component_id in component_ids
+        )
+    )
+    return {
+        rule.assessment.id
+        for rule in projection.permission_rules
+        if rule.assessment is not None
+        and any(
+            rule_assessment_applies_to_component(
+                rule.assessment,
+                rule.parent_id,
+                intent.parent_id,
+                intent.label,
+            )
+            for intent in scoped_components
+        )
+    }
+
+
+def _component_is_within(
+    intents: dict[str, ComponentIntent], component_id: str, ancestor_id: str
+) -> bool:
+    parent: str | None = component_id
+    while parent is not None and parent != ancestor_id:
+        parent = intents[parent].parent_id
+    return parent == ancestor_id
+
+
+def _selected_finding_rules(report: ArchitectureReport, finding_ids: set[str]) -> set[str]:
+    return {
+        rule_id
+        for finding in report.findings
+        if finding.id in finding_ids
+        for rule_id in finding.rule_ids
+    }
+
+
 def _architecture_result(
     model: Observation,
     command_result: RunResult,
@@ -310,6 +410,7 @@ def _architecture_result(
     only_architecture = report_filter is not None and report_filter.only_architecture
     component = report_filter.component if report_filter is not None else None
     complete = command_result.observation_complete == "PASS"
+    component_rules: set[str] = set()
     try:
         selected_violations = (
             _selected_violations(model, replace(report_filter, component=None))
@@ -327,11 +428,26 @@ def _architecture_result(
             component=component if only_architecture or only_violations else None,
             prefer_top_label=only_violations,
         )
+        selected_components = (
+            projection.components
+            if only_architecture or only_violations
+            else tuple(
+                item
+                for item in projection.components
+                if component is not None and item.parent_id is None and item.label == component
+            )
+        )
+        if component is not None and selected_components and report.target is not None:
+            component_rules = _component_rule_assessment_ids(
+                report.target, projection, tuple(item.id for item in selected_components)
+            )
         finding_ids = (
             {identity for owner in projection.components for identity in owner.finding_ids}
             if component is not None
             else {item.id for item in report.findings}
         )
+        if only_architecture or only_violations:
+            component_rules |= _selected_finding_rules(report, finding_ids)
         command_result = replace(
             command_result,
             report_filter=report_filter,
@@ -361,20 +477,7 @@ def _architecture_result(
             coverage=model.coverage,
             python_version=model.python_version,
         )
-    if (
-        report_filter is not None
-        and report_filter.only_violations
-        and command_result.rule_assessments is not None
-    ):
-        command_result = replace(
-            command_result,
-            rule_assessments=tuple(
-                item
-                for item in command_result.rule_assessments
-                if item.status in {"FAIL", "UNKNOWN"}
-            ),
-        )
-    return command_result
+    return _scope_report_assessments(command_result, report_filter, component_rules)
 
 
 def _report_result(
@@ -466,10 +569,18 @@ def run_report(
     component: str | None = None,
     only_calls: bool = False,
     only_architecture: bool = False,
+    full_architecture: bool = False,
     baseline: Path | None = None,
 ) -> tuple[RunResult, bytes | None]:
     """Observe once; filters narrow report rows without changing verdicts or measurements."""
-    report_filter = _report_filter(only_violations, rule, component, only_calls, only_architecture)
+    report_filter = _report_filter(
+        only_violations,
+        rule,
+        component,
+        only_calls,
+        only_architecture,
+        full_architecture,
+    )
     result = observe_repository(root, config, analyzer)
     architecture = (
         canonical_report_bytes(result.observation) if result.observation is not None else None
@@ -487,57 +598,31 @@ def run_saved_report(
     component: str | None = None,
     only_calls: bool = False,
     only_architecture: bool = False,
+    full_architecture: bool = False,
 ) -> RunResult:
     """Query recorded evidence without collecting, evaluating or writing a working tree."""
-    report_filter = _report_filter(only_violations, rule, component, only_calls, only_architecture)
+    report_filter = _report_filter(
+        only_violations,
+        rule,
+        component,
+        only_calls,
+        only_architecture,
+        full_architecture,
+    )
     try:
         raw = decode_json(path.read_bytes())
         if not isinstance(raw, dict):
             raise ValueError("architecture.json must be an object")
         model = parse_observation(decode_canonical_model(raw))
         validate_evidence_classes(model)
-        module_paths: dict[str, str] = {}
-        module_packages: dict[str, str] = {}
-        for module in model.records("modules") or ():
-            name, source_path, package = (
-                module.data.get("qualified_name"),
-                module.data.get("file"),
-                module.data.get("package"),
-            )
-            if (
-                not isinstance(name, str)
-                or not isinstance(source_path, str)
-                or not isinstance(package, str)
-                or name in module_paths
-            ):
-                raise ValueError("recorded modules need source paths, packages and unique names")
-            module_paths[name] = source_path
-            module_packages[name] = package
-        # Core allowance receipts retain trace checks but have no collector source payload.
-        validate_source_bindings(
-            (
-                record
-                for section in model.sections
-                if section.name == "modules"
-                or (section.name in get_args(SourceSectionName) and section.name != "unknowns")
-                for record in section.records
-                if not (
-                    section.name == "typing_signals"
-                    and record.kind in {"boundary_type_allowance", "type_ignore_allowance"}
-                    and record.evidence_class == EvidenceClass.FACT
-                )
-            ),
-            module_paths,
-            module_packages,
-            {item.id: item for item in model.evidence},
-            import_ids={item.id for item in model.records("imports") or ()},
-        )
+        _validate_saved_sources(model)
         runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
         language = next(
             language
             for language, profile in PROFILES.items()
             if profile.analyzer == model.analyzer.name
         )
+
         diagnostics = observation_diagnostics(model, runtime, language)
         return _report_result(
             ObservationResult(model, model.coverage, diagnostics),
@@ -553,3 +638,42 @@ def run_saved_report(
                 for item in result.diagnostics
             ),
         )
+
+
+def _validate_saved_sources(model: Observation) -> None:
+    module_paths: dict[str, str] = {}
+    module_packages: dict[str, str] = {}
+    for module in model.records("modules") or ():
+        name, source_path, package = (
+            module.data.get("qualified_name"),
+            module.data.get("file"),
+            module.data.get("package"),
+        )
+        if (
+            not isinstance(name, str)
+            or not isinstance(source_path, str)
+            or not isinstance(package, str)
+            or name in module_paths
+        ):
+            raise ValueError("recorded modules need source paths, packages and unique names")
+        module_paths[name] = source_path
+        module_packages[name] = package
+    # Core allowance receipts have trace checks but no collector source payload.
+    validate_source_bindings(
+        (
+            record
+            for section in model.sections
+            if section.name == "modules"
+            or (section.name in get_args(SourceSectionName) and section.name != "unknowns")
+            for record in section.records
+            if not (
+                section.name == "typing_signals"
+                and record.kind in {"boundary_type_allowance", "type_ignore_allowance"}
+                and record.evidence_class == EvidenceClass.FACT
+            )
+        ),
+        module_paths,
+        module_packages,
+        {item.id: item for item in model.evidence},
+        import_ids={item.id for item in model.records("imports") or ()},
+    )

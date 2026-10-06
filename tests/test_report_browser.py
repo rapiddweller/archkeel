@@ -34,14 +34,14 @@ def test_native_module_cards_match_local_cells_and_return_scope_theme(tmp_path, 
             _check_module_graph(page)
             assert page.get_by_role("group", name="Content", exact=True).is_hidden()
             assert page.locator(".atlas-summary").inner_text() == (
-                "2 observed modules · 1 local dependencies · 2 import sites"
+                "2 observed modules · 1 local dependency · 2 import sites"
             )
             page.locator(".atlas-summary").evaluate("n => n.textContent = '0 imports'")
             with pytest.raises(AssertionError):
                 _check_module_graph(page)
             page.reload()
             page.locator(f'.flow-nodes [data-uml-id="{module.id}"]').dblclick()
-            page.wait_for_url("**/*.detail-*.html?*")
+            page.wait_for_url("**/architecture.detail.html?*")
             assert page.locator('.flow-nodes [data-label="Client"]').is_visible()
             page.get_by_role("link", name="Back to architecture map", exact=True).click()
             assert parse_qs(urlsplit(page.url).query) == {
@@ -51,7 +51,7 @@ def test_native_module_cards_match_local_cells_and_return_scope_theme(tmp_path, 
                 "theme": ["dark"],
             }
             page.locator(f'.flow-nodes [data-uml-id="{empty.id}"]').press("Enter")
-            page.wait_for_url("**/*.detail-*.html?*")
+            page.wait_for_url("**/architecture.detail.html?*")
             assert "No direct declarations" in page.locator(".flow-alternative").inner_text()
             assert "sample/__init__.py" in page.locator(".flow-alternative").inner_text()
             page.get_by_role("link", name="Back to architecture map", exact=True).click()
@@ -62,7 +62,7 @@ def test_native_module_cards_match_local_cells_and_return_scope_theme(tmp_path, 
             _check_module_graph(page)
             assert page.get_by_role("group", name="Content", exact=True).is_visible()
             page.locator(f'.flow-nodes [data-uml-id="{module.id}"]').press("Enter")
-            page.wait_for_url("**/*.detail-*.html?*")
+            page.wait_for_url("**/architecture.detail.html?*")
             assert parse_qs(urlsplit(page.url).query)["return_content"] == ["modules"]
             page.get_by_role("link", name="Back to architecture map", exact=True).click()
             assert parse_qs(urlsplit(page.url).query)["content"] == ["modules"]
@@ -148,9 +148,10 @@ def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path):
             verdict = page.locator(".atlas-status").inner_text()
             page.get_by_role("button", name="Diff", exact=True).click()
             _check_inner_uml(page, "uml-complete", tmp_path)
-            assert "detail-component-" in page.url
+            assert page.url.split("?")[0].endswith("architecture.detail.html")
             data = json.loads(page.locator("#flow-data").text_content())
             module_id = parse_qs(urlsplit(page.url).query)["module"][0]
+            return_scope = parse_qs(urlsplit(page.url).query).get("return_scope", [None])[0]
             assert parse_qs(urlsplit(page.url).query)["return_selected"] == [module_id]
             assert "atlas" not in data
             assert page.locator(".atlas-heading").inner_text() == heading
@@ -179,7 +180,7 @@ def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path):
             page.locator(".flow-back").click()
             assert page.url.startswith(main + "?")
             assert parse_qs(urlsplit(page.url).query) == {
-                "scope": [data["navigation"]["component_id"]],
+                "scope": [return_scope],
                 "view": ["diff"],
                 "selected": [module_id],
                 "theme": ["dark"],

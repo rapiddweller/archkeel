@@ -11,7 +11,7 @@ import pytest
 from test_analyzer import _component
 from test_cycle_levels import _component as _cycle_component
 from test_html_report import _native_audit
-from test_inside_rule_coverage import _inside_rule_report
+from test_inside_rule_coverage import _assert_rule_status_card, _inside_rule_report
 
 from archkeel.cli import main
 from archkeel.cli.observe import observe
@@ -65,7 +65,7 @@ def test_unowned_package_initializer_is_exempt_only_when_it_has_no_statements(
     )
     assert initializer_record.data.get("file") == "sample/__init__.py"
     _native_audit(html, observation, "architecture.json")
-    assert f"Declared rules: {expected[0]}" in html
+    _assert_rule_status_card(html, expected[0], 2)
 
 
 def _cycle_report(
@@ -137,7 +137,7 @@ def test_dotted_python_stem_does_not_make_a_complete_module_cycle_scan_unknown(
         for item in observation.records("modules") or ()
     )
     _native_audit(html, observation, "architecture.json")
-    assert "Declared rules: PASS" in html
+    _assert_rule_status_card(html, "PASS", 1)
 
 
 def test_partial_nested_scan_with_dotted_python_stem_stays_unknown(
@@ -152,7 +152,7 @@ def test_partial_nested_scan_with_dotted_python_stem_stays_unknown(
     assert payload["declared_rules"] == "UNKNOWN"
     assert payload["rule_assessments"][0]["status"] == "UNKNOWN"
     _native_audit(html, observation, "architecture.json")
-    assert "Declared rules: UNKNOWN" in html
+    _assert_rule_status_card(html, "UNKNOWN", 1)
 
 
 def test_real_module_cycle_remains_fail_with_a_dotted_python_stem(
@@ -163,7 +163,7 @@ def test_real_module_cycle_remains_fail_with_a_dotted_python_stem(
     assert payload["declared_rules"] == "FAIL"
     assert any(item.kind == "module_cycle" for item in observation.records("violations") or ())
     _native_audit(html, observation, "architecture.json")
-    assert "Declared rules: FAIL" in html
+    _assert_rule_status_card(html, "FAIL", 1)
 
 
 def test_partial_scan_cannot_prove_cycle_scope_across_a_dotted_directory(

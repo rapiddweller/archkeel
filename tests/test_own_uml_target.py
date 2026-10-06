@@ -255,7 +255,9 @@ def test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints(
         graph_id = page.locator('.flow-nodes [data-label="ArchitectureGraph"]').get_attribute(
             "data-uml-id"
         )
+        page.locator(".flow-filters > summary").click()
         page.locator("#flow-focus").select_option(graph_id)
+        page.locator(".flow-filters > summary").click()
         page.locator('.flow-legend button[data-relationship-kind="calls"]').click()
         edges = page.locator(".flow-edges .edge")
         assert edges.count() > 10
@@ -533,7 +535,9 @@ def test_own_class_overview_keeps_distinct_routes_and_type_cues(
         for label in ("ir", "governance", module):
             page.locator(f'.flow-nodes [data-label="{label}"]').dblclick()
         complete = page.locator("#flow-data").text_content()
+        page.locator(".flow-filters > summary").click()
         page.get_by_label("Element kind", exact=True).select_option("class")
+        page.locator(".flow-filters > summary").click()
         cards = page.locator(".flow-nodes [data-uml-id]")
         assert cards.count() >= 12
         assert cards.evaluate_all('nodes => nodes.every(node => node.dataset.umlKind === "class")')

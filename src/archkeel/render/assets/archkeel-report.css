@@ -291,6 +291,9 @@ h3 {
 .verdict-grid-check {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
+.atlas-verdict-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
 .verdict-card {
   position: relative;
   min-height: 174px;
@@ -565,6 +568,7 @@ code {
 }
 
 .flow-toolbar[hidden],
+.flow-filters[hidden],
 .flow-views[hidden],
 .flow-alternative[hidden] {
   display: none;
@@ -747,14 +751,65 @@ code {
   min-height: 76px;
   align-content: start;
 }
-.flow-filters,
-.flow-filter-controls,
+.flow[data-uml-graph="true"] .flow-toolbar {
+  position: relative;
+  min-height: 0;
+  flex-wrap: nowrap;
+  gap: 5px;
+  overflow: visible;
+  margin-bottom: 38px;
+}
+.flow[data-uml-graph="true"] .flow-breadcrumb {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  flex: none;
+  min-width: 0;
+  overflow: visible;
+  white-space: normal;
+}
+.flow[data-uml-graph="true"] .flow-fit {
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+.flow[data-uml-graph="true"] .flow-zoom-controls { gap: 3px; }
 .flow-legend-panel {
   display: contents;
 }
-.flow-filters > summary,
 .flow-legend-panel > summary {
   display: none;
+}
+.flow-filters {
+  display: block;
+  position: relative;
+}
+.flow-filters > summary {
+  display: list-item;
+  padding: 6px 12px;
+  border: 1px solid var(--ck-border);
+  border-radius: 999px;
+  color: var(--ck-text);
+  cursor: pointer;
+}
+.flow-filter-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  position: absolute;
+  z-index: 10;
+  top: 100%;
+  left: 0;
+  width: min(320px, calc(100vw - 48px));
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  background: var(--ck-surface);
+}
+.flow-filter-controls > * {
+  max-width: 100%;
 }
 .flow-filters:not([open]) .flow-filter-controls {
   display: none;
@@ -763,16 +818,25 @@ code {
   display: none;
 }
 @media (max-width: 900px) {
+  .flow[data-uml-graph="true"] .flow-toolbar {
+    position: static;
+    flex-wrap: wrap;
+    overflow: visible;
+    margin-bottom: 0;
+  }
+  .flow[data-uml-graph="true"] .flow-breadcrumb {
+    position: static;
+    width: auto;
+    flex: 1 1 100%;
+  }
   .flow,
   .flow-toolbar {
     gap: 8px;
   }
-  .flow-filters,
   .flow-legend-panel {
     display: block;
     position: relative;
   }
-  .flow-filters > summary,
   .flow-legend-panel > summary {
     display: list-item;
     padding: 6px 12px;
@@ -780,25 +844,6 @@ code {
     border-radius: 999px;
     color: var(--ck-text);
     cursor: pointer;
-  }
-  .flow-filter-controls {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-    position: absolute;
-    z-index: 10;
-    top: 100%;
-    left: 0;
-    width: min(320px, calc(100vw - 48px));
-    box-sizing: border-box;
-    padding: 12px;
-    border: 1px solid var(--ck-border);
-    border-radius: var(--ck-radius);
-    background: var(--ck-surface);
-  }
-  .flow-filter-controls > * {
-    max-width: 100%;
   }
   .flow-legend-panel .flow-legend {
     position: absolute;
@@ -985,6 +1030,11 @@ code {
 .flow[data-expanded] .flow-toolbar > * {
   flex: 0 0 auto;
   max-width: 100%;
+}
+@media (min-width: 901px) {
+  .flow[data-expanded][data-uml-graph="true"] .flow-toolbar {
+    flex-wrap: nowrap;
+  }
 }
 .flow-canvas,
 .flow-inspector,
@@ -2098,7 +2148,7 @@ code {
 }
 .flow[data-atlas] .flow-toolbar {
   min-height: 0;
-  gap:8px
+  gap: 8px;
 }
 .flow[data-atlas] .flow-how-to-read {
   display:none
@@ -2121,6 +2171,17 @@ code {
 .flow[data-atlas] .flow-graph [data-assessment-status="UNKNOWN"] .card {
   stroke:var(--ck-unknown)
 }
+.flow[data-atlas] .flow-graph .atlas-undeclared .line {
+  stroke:var(--ck-fail);
+  stroke-dasharray:6 4
+}
+.flow[data-atlas] .flow-graph .atlas-permitted .line {
+  stroke:var(--ck-teal)
+}
+.flow[data-atlas] .flow-graph .atlas-allowed-unused .line {
+  stroke:var(--ck-muted);
+  stroke-dasharray:6 4
+}
 .flow[data-atlas] .flow-graph .meta {
   font-family:var(--ck-font-sans);
   font-size:12px
@@ -2131,6 +2192,15 @@ code {
 .atlas-weight {
   fill:var(--ck-muted);
   font:11px var(--ck-font-mono)
+}
+.atlas-finding-chip, .atlas-deviation-chip {
+  font:11px var(--ck-font-sans)
+}
+.atlas-finding-chip {
+  fill:var(--ck-fail)
+}
+.atlas-deviation-chip {
+  fill:var(--ck-teal)
 }
 .atlas-edge-label {
   fill:var(--ck-muted);
@@ -2221,12 +2291,24 @@ code {
   font:10px var(--ck-font-mono);
   cursor:pointer
 }
+.matrix-group-label {
+  fill:var(--ck-text);
+  font:9px var(--ck-font-sans);
+}
+.matrix-axis-heading {
+  fill:var(--ck-text);
+  font:9px var(--ck-font-sans);
+  font-weight:600;
+}
 .matrix-cell {
   cursor:pointer;
   fill:var(--ck-muted)
 }
 .matrix-cell.fail {
   fill:var(--ck-fail)
+}
+.matrix-cell.pass {
+  fill:var(--ck-muted)
 }
 .matrix-cell.unknown {
   fill:var(--ck-unknown)
@@ -2242,6 +2324,56 @@ code {
 .atlas-coverage {
   font-size:12px
 }
+.flow-element-index {
+  max-height: 360px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--ck-border);
+  border-radius: 8px;
+  background: var(--ck-surface);
+}
+.flow-element-index h3 { margin: 0 0 8px; }
+.flow-element-index ul { columns: 3; padding-left: 20px; }
+.flow-element-index button:not(.flow-fit) {
+  border: 0;
+  background: none;
+  color: var(--ck-teal);
+  cursor: pointer;
+}
+.uml-edge-label {
+  fill: var(--ck-text);
+  font: 10px var(--ck-font-mono);
+  paint-order: stroke;
+  stroke: var(--ck-surface);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.atlas-findings {
+  margin: 8px 0 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--ck-border);
+  border-radius: 6px;
+}
+.atlas-findings summary { cursor: pointer; color: var(--ck-teal); }
+.atlas-findings li { margin: 10px 0; overflow-wrap: anywhere; }
+.atlas-rule-assessments,
+.atlas-evidence {
+  margin: 12px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--ck-border);
+  border-radius: 6px;
+}
+.atlas-rule-status.fail { color: var(--ck-fail); }
+.atlas-rule-status.unknown { color: var(--ck-unknown); }
+.atlas-rule-status.pass { color: var(--ck-muted); }
+.atlas-balance {
+  margin: 8px 0 16px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--ck-teal);
+  background: var(--ck-surface-raised);
+}
+.atlas-balance p { margin: 4px 0; font: 12px var(--ck-font-mono); }
+.atlas-balance a { color: var(--ck-teal); }
 .atlas-source {
   margin-top:24px;
   overflow-wrap:anywhere
@@ -2301,8 +2433,10 @@ body:has(.atlas-heading) .report-header {
 body:has(.atlas-heading) .report-logo {
   width: 170px;
 }
-.flow[data-atlas] .flow-views,
 .flow[data-atlas] .flow-toolbar {
+  margin-bottom: 48px;
+}
+.flow[data-atlas] .flow-views {
   margin-bottom: 0;
 }
 .flow[data-atlas] .flow-views button {

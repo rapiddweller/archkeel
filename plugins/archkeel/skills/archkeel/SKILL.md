@@ -241,9 +241,12 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md.
   After one scan, query that packet with `archkeel report --input architecture.json --only architecture
   --component <id-or-scope> --json`. Omit `--component` to discover its exact ids and scopes.
   This reads recorded source identity and evidence; it does not verify the current working
-  tree or write files. Read `architecture_projection.required_relationships` and
-  `filtered_violations` for Target findings. For only violations, query the same packet with
+  tree or write files. Read `architecture_projection.required_relationships` for Target intent.
+  For findings, query the same packet with
   `--only violations --component <id-or-scope> --json`; add `--rule <id>` to intersect.
+  The compact query omits module lists and policy detail; add `--full` to retrieve the complete
+  `permission_rules`, `policy_context` and violation records: `archkeel report --input
+  architecture.json --only architecture --full --json`.
 - Revisit the physical structure review for changed packages and their parent boundaries;
   recheck related findings rather than repeating a whole-repository review for every edit.
 - Run `archkeel report --json` before submitting any change. A rule violation does not

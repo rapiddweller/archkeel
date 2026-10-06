@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 from test_architecture_demo import _prepare_repo
+from test_target_graph import _nested_repository
 
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
@@ -66,6 +67,67 @@ def test_component_facet_matches_either_side_of_a_crossing(tmp_path: Path) -> No
     }
 
 
+def test_component_facet_includes_applicable_root_and_nested_pass_assessments(tmp_path: Path):
+    root, config = _nested_repository(tmp_path)
+    for path, rule_id in (
+        (root / config.contract, "ROOT-PASS"),
+        (root / "inside.json", "INSIDE-PASS"),
+    ):
+        contract = json.loads(path.read_bytes())
+        contract["rules"].append(
+            {
+                "id": rule_id,
+                "kind": "complete_requires",
+                "rationale": "Every crossing has an explicit permission.",
+                "provenance": ["docs/target.md"],
+                "decided_by": "architect",
+            }
+        )
+        path.write_text(json.dumps(contract))
+
+    root_scope, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, component="core"
+    )
+    nested_scope, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, component="service"
+    )
+    intersection, _ = run_report(
+        root,
+        config=config,
+        analyzer=observe,
+        only_architecture=True,
+        rule="core:INSIDE-PASS",
+        component="service",
+    )
+    unrelated, _ = run_report(
+        root,
+        config=config,
+        analyzer=observe,
+        only_architecture=True,
+        rule="ROOT-PASS",
+        component="service",
+    )
+    violations_only, _ = run_report(
+        root,
+        config=config,
+        analyzer=observe,
+        only_violations=True,
+        component="core",
+    )
+
+    root_statuses = {item.id: item.status for item in root_scope.rule_assessments or ()}
+    nested_statuses = {item.id: item.status for item in nested_scope.rule_assessments or ()}
+    assert root_statuses["ROOT-PASS"] == root_statuses["core:INSIDE-PASS"] == "PASS"
+    assert nested_statuses["core:INSIDE-PASS"] == "PASS"
+    assert "ROOT-PASS" not in nested_statuses
+    assert [item.id for item in intersection.rule_assessments or ()] == ["core:INSIDE-PASS"]
+    assert intersection.rule_assessments[0].status == "PASS"
+    assert unrelated.rule_assessments == ()
+    assert all(
+        item.status in {"FAIL", "UNKNOWN"} for item in violations_only.rule_assessments or ()
+    )
+
+
 def test_rule_and_component_facets_combine_as_an_intersection(tmp_path: Path) -> None:
     root = _tour_root(tmp_path)
 
@@ -88,6 +150,21 @@ def test_only_violations_alone_selects_every_violation(tmp_path: Path) -> None:
     assert result.report_filter == ReportFilter(True, None, None)
     assert result.filtered_violations is not None
     assert len(result.filtered_violations) == 21
+
+
+def test_only_violations_scopes_rule_assessments_to_selected_findings(tmp_path: Path) -> None:
+    root = _tour_root(tmp_path)
+
+    result, _ = run_report(
+        root, config=CONFIG, analyzer=observe, only_violations=True, component="store"
+    )
+
+    assert result.filtered_violations is not None
+    assert result.rule_assessments is not None
+    assert result.architecture_projection is not None
+    scoped_rules = {item.declaration.id for item in result.architecture_projection.permission_rules}
+    assert {item.id for item in result.rule_assessments} <= scoped_rules
+    assert result.declared_rules == "FAIL"
 
 
 def test_architecture_json_bytes_are_identical_with_and_without_a_filter(tmp_path: Path) -> None:

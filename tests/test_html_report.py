@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
-from dataclasses import asdict, replace
+from dataclasses import replace
 from html.parser import HTMLParser
 from pathlib import Path
 from xml.etree import ElementTree
@@ -37,7 +37,7 @@ from archkeel.render.html import (
     render_check_html,
     render_html,
 )
-from archkeel.render.summary import check_decision_sentence, check_summary, report_summary
+from archkeel.render.summary import badge, check_decision_sentence, check_summary, report_summary
 from fixtures.architecture_demo import CATALOG
 from fixtures.demo_catalog_support import contract_rule_field, contract_without_rule
 
@@ -64,10 +64,11 @@ def _start_tags(page: str, tag: str) -> list[dict[str, str | None]]:
 def _native_audit(page: str, observation: Observation, architecture_href: str):
     start = page.index(">", page.index('id="flow-data"')) + 1
     atlas = json.loads(page[start : page.index("</script>", start)])["atlas"]
-    assert atlas["source"] == json.loads(json.dumps(asdict(observation.source)))
-    assert atlas["coverage"] == json.loads(json.dumps(asdict(observation.coverage)))
-    assert atlas["contract_digest"] == observation.contract.digest
-    assert atlas["analyzer_digest"] == observation.analyzer.code_digest
+    assert atlas["source"] == {
+        "git_head": observation.source.git_head,
+        "source_digest": observation.source.source_digest,
+    }
+    assert not {"coverage", "contract_digest", "analyzer_digest"} & atlas.keys()
     assert atlas["architecture_href"] == architecture_href
     assert "Snapshot and audit" in page
     assert observation.source.source_digest in page
@@ -78,9 +79,10 @@ def _native_audit(page: str, observation: Observation, architecture_href: str):
 
 def _native_details(output: Path, observation: Observation):
     atlas = _native_audit(output.with_suffix(".report.html").read_text(), observation, output.name)
-    links = [item["detail_href"] for item in atlas["components"]]
-    links.append(atlas["unassigned_detail_href"])
-    reports = tuple(_standard_report((output.parent / link).read_text()) for link in links)
+    routes = [f"?component={item['id']}" for item in atlas["components"]]
+    routes.append(atlas["unassigned_detail_href"])
+    assert all(route.startswith("?component=") for route in routes)
+    reports = (_standard_report((output.parent / atlas["detail_page"]).read_text()),)
     evidence = {item.id: item for item in observation.evidence}
     records = {
         item.id: item
@@ -754,7 +756,7 @@ def test_logo_wordmark_reads_archkeel(name: str) -> None:
 
 
 def test_a_check_that_could_not_decide_a_rule_does_not_claim_every_verdict_passed() -> None:
-    """AD-72 made `declared_rules` three-valued but left the banner reading the exit code alone.
+    """UNKNOWN stays distinct from NOT CHECKED and PASS in the independent verdicts.
 
     The page then said both things at once: a green PASS over "all five verdicts passed", and a
     card reading "Rules followed: NOT CHECKED". A human approves a merge from the banner.
@@ -762,17 +764,23 @@ def test_a_check_that_could_not_decide_a_rule_does_not_claim_every_verdict_passe
     result = RunResult(
         "check", 0, "PASS", "UNKNOWN", "PASS", git_predicate="PASS", host_order="PASS"
     )
-    assert check_summary(result).decision.label == "NOT CHECKED"
+    assert check_summary(result).decision.label == "UNKNOWN"
     assert "all five verdicts passed" not in check_decision_sentence(result)
     page = render_check_html(result, repository="sample", result_href="result.json").decode()
     assert "all five verdicts passed" not in page
+
+
+def test_verdict_badges_keep_unknown_and_not_checked_distinct() -> None:
+    assert badge("UNKNOWN").label == "UNKNOWN"
+    assert badge("n/a").label == "NOT APPLICABLE"
+    assert badge("unavailable").label == "NOT CHECKED"
 
 
 @pytest.mark.parametrize("command", ["report", "validate"])
 def test_a_completed_run_with_undecided_rules_does_not_claim_pass(command: str) -> None:
     result = RunResult(command, 0, "PASS", "UNKNOWN", "n/a")
     summary = report_summary(result)
-    assert summary.decision.label == "NOT CHECKED"
+    assert summary.decision.label == "UNKNOWN"
     assert "declared rules could not be evaluated completely" in summary.sentence
 
 

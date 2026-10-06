@@ -33,6 +33,7 @@ from archkeel.ir.architecture_projection import (
     UnknownProjection,
     UsageProjection,
 )
+from archkeel.ir.decisions import rule_assessment_applies_to_component
 from archkeel.ir.facts import Record, SourceInfo
 from archkeel.ir.model import (
     RULE_KINDS,
@@ -618,6 +619,7 @@ def _component_projections(
     components = []
     assessment_scopes: dict[str, set[str]] = {}
     declarations = {item.id: item for item in model.records("declarations") or ()}
+    scope_ids = {scope: identity for identity, scope in names.items()}
     for intent in sorted(target.component_intents, key=lambda item: item.component_id):
         owned = tuple(
             sorted(
@@ -627,21 +629,20 @@ def _component_projections(
         )
         scoped_modules = memberships.get(intent.component_id, set())
         subject_ids = _scope_subjects(report, scoped_modules)
+        claimed_modules = {
+            identity for identity, owners in ownership.items() if intent.component_id in owners
+        }
         findings = tuple(
             item
             for item in report.findings
             if set(item.graph_subject_ids) & subject_ids
             or intent.component_id in item.graph_subject_ids
+            or item.kind == "complete_assignment"
+            and bool(set(item.graph_subject_ids) & claimed_modules)
         )
         scoped_rows: list[RuleAssessment] = []
         for assessment in assessments:
-            declaration: Record | None = declarations.get(assessment.id)
-            if (
-                declaration is not None
-                and (text_value(declaration.data.get("parent_id")) or None)
-                == (names[intent.parent_id] if intent.parent_id else None)
-                and (not assessment.components or intent.label in assessment.components)
-            ):
+            if _assessment_applies_to_intent(assessment, declarations, scope_ids, intent):
                 scoped_rows.append(assessment)
         scoped = tuple(scoped_rows)
         for assessment in scoped:
@@ -676,6 +677,26 @@ def _component_projections(
             )
         )
     return tuple(components), assessment_scopes
+
+
+def _assessment_applies_to_intent(
+    assessment: RuleAssessment,
+    declarations: dict[str, Record],
+    scope_ids: dict[str, str],
+    intent: ComponentIntent,
+) -> bool:
+    declaration = declarations.get(assessment.id)
+    if declaration is None:
+        return False
+    parent_scope = text_value(declaration.data.get("parent_id")) or None
+    if parent_scope is not None and parent_scope not in scope_ids:
+        return False
+    return rule_assessment_applies_to_component(
+        assessment,
+        scope_ids.get(parent_scope) if parent_scope is not None else None,
+        intent.parent_id,
+        intent.label,
+    )
 
 
 def _level_projections(

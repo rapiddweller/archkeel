@@ -195,7 +195,7 @@ def test_report_lists_every_declared_rule_and_its_provenance(tmp_path: Path) -> 
         if item.evidence_class.value == "DECLARED_RULE" and item.kind in RULE_KINDS
     ]
 
-    assert "Declared rules: FAIL" in page
+    assert 'aria-label="Decision: FAIL"' in page
     for rule in rules:
         assert next(item for item in audit.records("declarations") if item.id == rule.id) == rule
 
@@ -228,7 +228,7 @@ def test_fail_and_unknown_evidence_coexist_without_downgrading_the_verdict(
     assert result.measurements.scalars.violations == observed_violations
     audit = _linked_audit(page, tmp_path)
     assert violation in audit.records("violations") and unknown in audit.records("unknowns")
-    assert "Declared rules: FAIL" in page
+    assert 'aria-label="Decision: FAIL"' in page
 
 
 def test_report_is_deterministic_and_keeps_unknown_context_when_focusing_violations(

@@ -16,6 +16,7 @@ from pathlib import PurePosixPath
 from typing import Any, Final, Literal, TypeGuard, get_args
 
 from archkeel.ir.architecture_graph import validate_layout_rule, validate_module_target
+from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.baseline import (
     BASELINE_SCHEMA_VERSION,
     LEGACY_BASELINE_SCHEMA_VERSION,
@@ -77,6 +78,7 @@ from archkeel.ir.model import (
     DimensionDelta,
     ExternalDependencyScopeRule,
     FacadeBudget,
+    FilteredViolation,
     ForbiddenConstructKind,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
@@ -90,6 +92,7 @@ from archkeel.ir.model import (
     RatchetObservations,
     Record,
     RecordData,
+    ReportFilter,
     RequiredComponent,
     RootLayoutRule,
     RunResult,
@@ -1944,7 +1947,25 @@ def _open_decision_payload(decision: OpenDecision) -> dict[str, RawJson]:
 
 def _architecture_component_payload(
     component: ArchitectureComponentView,
+    *,
+    compact: bool = False,
+    summary: bool = False,
 ) -> dict[str, RawJson]:
+    if compact:
+        component = replace(
+            component,
+            path=None,
+            provenance=(),
+            not_responsible_for=(),
+            modules={},
+            used_by={},
+            exact_modules=(),
+            finding_ids=(),
+            requires=tuple(
+                replace(item, through=(), observed_imports=None) for item in component.requires
+            ),
+            permissions=tuple(replace(item, rule_ids=()) for item in component.permissions),
+        )
     row = _raw_object(asdict(component))
     for name in ("parent_id", "namespace", "selector_prefix", "layer", "public", "planned"):
         if row[name] is None:
@@ -1961,24 +1982,64 @@ def _architecture_component_payload(
             del row[name]
     if row["role"] == "component":
         del row["role"]
-    permission_rows = []
+    permission_rows: list[dict[str, RawJson]] = []
     for permission in component.permissions:
-        item = _raw_object(asdict(permission))
-        if item["rule_ids"] == []:
-            del item["rule_ids"]
-        permission_rows.append(item)
+        if compact:
+            permission_rows.append(
+                {"status": permission.status, "target_ids": list(permission.target_ids)}
+            )
+        else:
+            item = _raw_object(asdict(permission))
+            if item["rule_ids"] == []:
+                del item["rule_ids"]
+            permission_rows.append(item)
     if permission_rows:
         row["permissions"] = permission_rows
+    if summary:
+        for name in (
+            "path",
+            "provenance",
+            "packages",
+            "not_responsible_for",
+            "namespace",
+            "selector_prefix",
+            "exact_modules",
+            "public",
+            "planned",
+            "modules",
+            "requires",
+            "permissions",
+            "used_by",
+            "finding_ids",
+        ):
+            if name in row:
+                del row[name]
     return row
 
 
 def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
     envelope = architecture_command_envelope(result)
     payload = _raw_object(asdict(envelope))
-    projection = _raw_object(asdict(envelope.architecture_projection))
+    if result.report_filter is not None:
+        payload["report_filter"] = _report_filter_payload(result.report_filter)
+    full_architecture = bool(result.report_filter and result.report_filter.full_architecture)
+    projection_view = envelope.architecture_projection
+    projection = _raw_object(asdict(projection_view))
+    component_selected = bool(result.report_filter and result.report_filter.component)
     projection["components"] = [
-        _architecture_component_payload(component)
-        for component in envelope.architecture_projection.components
+        {
+            **_architecture_component_payload(
+                component,
+                compact=not full_architecture,
+                summary=(
+                    not full_architecture
+                    and not component_selected
+                    and component.parent_id is not None
+                ),
+            ),
+            **({"finding_count": len(component.finding_ids)} if not full_architecture else {}),
+        }
+        for component in projection_view.components
     ]
     projection["permission_rules"] = [
         {
@@ -1990,6 +2051,9 @@ def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
         }
         for rule in envelope.architecture_projection.permission_rules
     ]
+    if not full_architecture:
+        del projection["permission_rules"]
+        del projection["policy_context"]
     payload["architecture_projection"] = projection
     if result.coverage is not None:
         payload["coverage"] = _coverage_payload(result.coverage)
@@ -2001,17 +2065,51 @@ def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
         }
         for item in result.diagnostics
     ]
-    payload["filtered_violations"] = [
-        {
-            **_record_payload(item.record),
-            "locations": [_raw_object(asdict(location)) for location in item.locations],
-        }
+    component_scopes, gaps, remedy = _violation_context(result.architecture_projection)
+    filtered_violations = [
+        _filtered_violation_payload(item, component_scopes, gaps, remedy)
         for item in envelope.filtered_violations
     ]
+    if full_architecture:
+        payload["filtered_violations"] = filtered_violations
+    else:
+        payload["filtered_violations"] = []
     for name in ("baseline_path", "baseline_comparisons", "baseline_new", "baseline_resolved"):
         if payload[name] is None:
             del payload[name]
     return payload
+
+
+def _violation_context(
+    projection: ArchitectureProjection | None,
+) -> tuple[dict[str, str], dict[str, tuple[str, ...]], str | None]:
+    if projection is None:
+        return {}, {}, None
+    return (
+        {item.id: item.scope for item in projection.components},
+        {item.module: item.candidate_ids for item in projection.ownership_gaps},
+        projection.violation_remedy,
+    )
+
+
+def _filtered_violation_payload(
+    item: FilteredViolation,
+    component_scopes: Mapping[str, str],
+    gaps: Mapping[str, tuple[str, ...]],
+    remedy: str | None,
+) -> dict[str, RawJson]:
+    row = {
+        **_record_payload(item.record),
+        "locations": [_raw_object(asdict(location)) for location in item.locations],
+    }
+    if item.record.kind == "complete_assignment" and remedy is not None:
+        module = item.record.data.get("module")
+        owner_ids = gaps.get(module, ()) if isinstance(module, str) else ()
+        row["owners"] = [component_scopes.get(identity, identity) for identity in owner_ids] or [
+            "none"
+        ]
+        row["remedy"] = remedy
+    return row
 
 
 def result_payload(result: RunResult) -> dict[str, RawJson]:
@@ -2023,6 +2121,8 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
     ):
         return _architecture_result_payload(result)
     payload = _raw_object(asdict(replace(result, architecture_projection=None)))
+    if result.report_filter is not None:
+        payload["report_filter"] = _report_filter_payload(result.report_filter)
     if result.provenance is not None and result.provenance.initial_pr is None:
         provenance = _raw_object(asdict(result.provenance))
         del provenance["initial_pr"]
@@ -2038,14 +2138,10 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
     payload["open_decisions"] = [
         _open_decision_payload(decision) for decision in result.open_decisions
     ]
-    # report_filter needs no rebuild: it holds no RecordData, so asdict's own recursion (null
-    # when unset) already matches every other optional RunResult field's JSON shape.
     if result.filtered_violations is not None:
+        component_scopes, gaps, remedy = _violation_context(result.architecture_projection)
         payload["filtered_violations"] = [
-            {
-                **_record_payload(item.record),
-                "locations": [_raw_object(asdict(location)) for location in item.locations],
-            }
+            _filtered_violation_payload(item, component_scopes, gaps, remedy)
             for item in result.filtered_violations
         ]
     if result.observation is not None:
@@ -2054,6 +2150,19 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
         payload["coverage"] = _coverage_payload(result.coverage)
     if result.delta is not None:
         payload["delta"] = delta_payload(result.delta)
+    return payload
+
+
+def _report_filter_payload(report_filter: ReportFilter) -> dict[str, RawJson]:
+    payload: dict[str, RawJson] = {
+        "only_violations": report_filter.only_violations,
+        "rule": report_filter.rule,
+        "component": report_filter.component,
+        "only_calls": report_filter.only_calls,
+        "only_architecture": report_filter.only_architecture,
+    }
+    if report_filter.full_architecture:
+        payload["full_architecture"] = True
     return payload
 
 

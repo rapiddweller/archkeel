@@ -221,6 +221,7 @@ def test_real_cli_answers_intent_permission_ownership_and_finding(tmp_path, caps
                 str(root),
                 "--only",
                 "architecture",
+                "--full",
                 "--output",
                 str(tmp_path / "output.json"),
                 "--json",
@@ -285,7 +286,9 @@ def test_component_slice_preserves_global_verdict_coverage_digests_and_unknowns(
     assert encoded == architecture
     assert sliced.declared_rules == full.declared_rules == "FAIL"
     assert sliced.coverage == full.coverage
-    assert sliced.rule_assessments == full.rule_assessments
+    assert sliced.rule_assessments is not None
+    assert {item.id for item in sliced.rule_assessments} == {"COMPLETE"}
+    assert sliced.rule_assessments[0].status == "FAIL"
     assert sliced.measurements == full.measurements
     assert sliced.architecture_projection.source == full.architecture_projection.source
     assert (
@@ -443,7 +446,7 @@ def test_native_self_architecture_envelopes_preserve_context_within_measured_bud
             observation_complete=native["observation_complete"],
             declared_rules=native["declared_rules"],
             coverage=model.coverage,
-            report_filter=ReportFilter(False, None, identity, False, True),
+            report_filter=ReportFilter(False, None, identity, False, True, True),
             architecture_projection=view,
             filtered_violations=tuple(
                 item for item in violations if identity is None or item.record.id in finding_ids
@@ -495,7 +498,11 @@ def test_native_self_architecture_envelopes_preserve_context_within_measured_bud
                 ]
             )
         )
-        sizes[identity] = len(encoded)
+        compact = replace(
+            result,
+            report_filter=ReportFilter(False, None, identity, False, True, False),
+        )
+        sizes[identity] = len(result_bytes(compact))
     assert sizes[None] <= 160 * 1024, sizes
     largest_id, largest_size = max(
         ((identity, size) for identity, size in sizes.items() if identity is not None),
@@ -543,7 +550,9 @@ def test_projection_retains_authenticated_layer_metadata(tmp_path):
     contract["components"][0]["layer"] = "domain"
     path.write_text(json.dumps(contract))
 
-    result, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    result, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, full_architecture=True
+    )
     assert result.architecture_projection is not None
     core = next(item for item in result.architecture_projection.components if item.label == "core")
     assert core.layer == "domain"
@@ -743,7 +752,9 @@ def test_native_parent_slice_retains_descendant_wiring_and_summaries(
     )
     for module in ("core", "peer"):
         (root / "sample" / f"{module}.py").write_text(native_source)
-    full, canonical = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    full, canonical = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, full_architecture=True
+    )
     whole = json.loads(result_bytes(full))["architecture_projection"]
     whole_details = {row["id"]: row for row in whole["required_relationships"]}
     whole_summaries = {row["scope"]: row for row in whole["required_summaries"]}
@@ -761,7 +772,12 @@ def test_native_parent_slice_retains_descendant_wiring_and_summaries(
         ("core:service:operations", {"core:service:implementation"}, {"core:service:operations"}),
     ):
         selected, encoded = run_report(
-            root, config=config, analyzer=observe, only_architecture=True, component=selector
+            root,
+            config=config,
+            analyzer=observe,
+            only_architecture=True,
+            full_architecture=True,
+            component=selector,
         )
         assert encoded == canonical
         assert (
@@ -772,6 +788,7 @@ def test_native_parent_slice_retains_descendant_wiring_and_summaries(
                     str(root),
                     "--only",
                     "architecture",
+                    "--full",
                     "--component",
                     selector,
                     "--output",
@@ -912,7 +929,7 @@ def test_compact_required_relationships_restore_exact_ids_names_and_core_results
     assert not list(validator.iter_errors(payload))
 
 
-def test_compact_components_restore_api_modules_and_all_permission_deciders(tmp_path):
+def test_full_components_restore_api_modules_and_all_permission_deciders(tmp_path):
     root, config = _repository(tmp_path)
     contract_path = root / config.contract
     contract = json.loads(contract_path.read_bytes())
@@ -924,7 +941,9 @@ def test_compact_components_restore_api_modules_and_all_permission_deciders(tmp_
     ]
     contract["components"][0]["planned"] = []
     contract_path.write_text(json.dumps(contract))
-    result, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    result, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, full_architecture=True
+    )
     wire = json.loads(result_bytes(result))["architecture_projection"]
     canonical = {item.id: item for item in result.architecture_projection.components}
     for item in wire["components"]:
@@ -1145,6 +1164,7 @@ def test_native_allowed_declaration_cannot_bypass_complete_requires(tmp_path, ca
                 str(root),
                 "--only",
                 "architecture",
+                "--full",
                 "--output",
                 str(tmp_path / "out.json"),
                 "--json",
@@ -1185,9 +1205,16 @@ def test_native_nested_slice_retains_governing_ancestor_policy_without_findings(
     path.write_text(json.dumps(contract))
     if not observed_violation:
         (root / "sample/core.py").write_text("import sample.store\n")
-    full, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    full, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, full_architecture=True
+    )
     selected, _ = run_report(
-        root, config=config, analyzer=observe, only_architecture=True, component="core:child"
+        root,
+        config=config,
+        analyzer=observe,
+        only_architecture=True,
+        full_architecture=True,
+        component="core:child",
     )
     wire = json.loads(result_bytes(selected))
     view = wire["architecture_projection"]
@@ -1275,9 +1302,16 @@ def test_native_parent_slice_retains_descendant_policy_and_endpoint_context(
             json.dumps({"schema_version": "2.1.0", "components": [leaf], "rules": [complete]})
         )
     path.write_text(json.dumps(contract))
-    full, canonical = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    full, canonical = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, full_architecture=True
+    )
     selected, encoded = run_report(
-        root, config=config, analyzer=observe, only_architecture=True, component="core"
+        root,
+        config=config,
+        analyzer=observe,
+        only_architecture=True,
+        full_architecture=True,
+        component="core",
     )
     assert encoded == canonical
     command = [
@@ -1286,6 +1320,7 @@ def test_native_parent_slice_retains_descendant_policy_and_endpoint_context(
         str(root),
         "--only",
         "architecture",
+        "--full",
         "--component",
         "core",
         "--output",
@@ -1406,7 +1441,9 @@ def test_native_forbidden_requires_pair_keeps_all_declarations_and_requirement_i
             }
         )
     path.write_text(json.dumps(contract))
-    result, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    result, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, full_architecture=True
+    )
     wire = json.loads(result_bytes(result))["architecture_projection"]
     core = next(row for row in wire["components"] if row["id"] == "CORE")
     permission = next(row for row in core["permissions"] if "STORE" in row["target_ids"])
@@ -1572,7 +1609,9 @@ def test_native_governing_policy_survives_before_and_after_violation(
     for violated in (False, True):
         if violated:
             (root / "sample/core.py").write_text(f"import {target}\n")
-        full, canonical = run_report(root, config=config, analyzer=observe, only_architecture=True)
+        full, canonical = run_report(
+            root, config=config, analyzer=observe, only_architecture=True, full_architecture=True
+        )
         assert (
             main(
                 [
@@ -1581,6 +1620,7 @@ def test_native_governing_policy_survives_before_and_after_violation(
                     str(root),
                     "--only",
                     "architecture",
+                    "--full",
                     "--component",
                     selector,
                     "--output",
@@ -1660,7 +1700,12 @@ def test_native_policy_type_checking_exception_is_exact(tmp_path, kind, include_
         f"from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import {target}\n"
     )
     result, _ = run_report(
-        root, config=config, analyzer=observe, only_architecture=True, component="core"
+        root,
+        config=config,
+        analyzer=observe,
+        only_architecture=True,
+        full_architecture=True,
+        component="core",
     )
     row = _policy_row(json.loads(result_bytes(result))["architecture_projection"])
     assert row["declaration"]["data"]["include_type_checking"] is include_type_checking
@@ -1673,14 +1718,21 @@ def test_native_external_scope_prefix_and_exact_exceptions_retain_their_boundary
     for name in ("__init__", "allowed", "denied"):
         (root / "sample/store" / f"{name}.py").write_text("import sqlite3\n")
     result, _ = run_report(
-        root, config=config, analyzer=observe, only_architecture=True, component="core"
+        root,
+        config=config,
+        analyzer=observe,
+        only_architecture=True,
+        full_architecture=True,
+        component="core",
     )
     row = _policy_row(json.loads(result_bytes(result))["architecture_projection"])
     assert row["assessment"]["count"] == 1
     assert row["declaration"]["data"]["allowed_sources"] == ["sample.store.allowed"]
     assert row["declaration"]["data"]["exact_sources"] == ["sample.store"]
     assert not result.filtered_violations
-    full, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    full, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, full_architecture=True
+    )
     assert result.declared_rules == full.declared_rules == "FAIL"
     assert result.coverage == full.coverage
     assert result.architecture_projection.unknowns == full.architecture_projection.unknowns
@@ -1698,7 +1750,12 @@ def test_native_module_cycle_selector_and_core_assessment_are_retained(tmp_path)
     path.write_text(json.dumps(contract))
     (root / "sample/core.py").write_text("import sample.store\n")
     result, _ = run_report(
-        root, config=config, analyzer=observe, only_architecture=True, component="core"
+        root,
+        config=config,
+        analyzer=observe,
+        only_architecture=True,
+        full_architecture=True,
+        component="core",
     )
     row = _policy_row(json.loads(result_bytes(result))["architecture_projection"])
     assert row["declaration"]["data"]["level"] == "module"

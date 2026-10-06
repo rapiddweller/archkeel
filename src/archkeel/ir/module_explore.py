@@ -1,9 +1,9 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Sparse module exploration from Core evidence; hint candidates decide no policy."""
+"""Sparse module exploration from Core evidence; hints stay provisional."""
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, replace
 from statistics import median
 from typing import Literal
@@ -15,11 +15,23 @@ from .architecture_graph import (
     ComponentIntent,
     Coverage,
     Entity,
+    GraphAssessment,
     Relationship,
+    ReportFinding,
+    RuleAssessment,
 )
+from .decisions import rule_assessments
 from .interfaces import component_owners, owner_of
 from .levels import inside_levels
-from .model import ComponentOwnership, JsonValue, Observation, Record
+from .model import (
+    ComponentOwnership,
+    JsonValue,
+    Observation,
+    Record,
+    in_scope,
+    module_in_ownership,
+    text_value,
+)
 from .report_graph import architecture_report
 from .structure import module_edges
 
@@ -88,7 +100,69 @@ def _count(value: JsonValue) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
 
 
-def _cells(model: Observation, report: ArchitectureReport) -> tuple[ModuleImportCell, ...]:
+def _rule_applies(
+    declaration: Record | None,
+    assessment: RuleAssessment,
+    source: str,
+    target: str,
+    source_owners: set[str],
+    target_owners: set[str],
+    intents: dict[str, ComponentIntent],
+    scope_ids: dict[str, str],
+) -> bool:
+    if declaration is None or assessment.kind not in {
+        "complete_requires",
+        "forbidden_dependency",
+        "interface_boundary",
+        "sibling_isolation",
+    }:
+        return False
+    parent_scope = text_value(declaration.data.get("parent_id")) or None
+    if parent_scope is not None and parent_scope not in scope_ids:
+        return False
+    parent = scope_ids[parent_scope] if parent_scope is not None else None
+    for source_id in source_owners:
+        source_intent = intents[source_id]
+        for target_id in target_owners:
+            target_intent = intents[target_id]
+            if (
+                source_id == target_id
+                or source_intent.parent_id != parent
+                or target_intent.parent_id != parent
+            ):
+                continue
+            if assessment.kind == "forbidden_dependency":
+                source_selector = text_value(declaration.data.get("source"))
+                target_selector = text_value(declaration.data.get("target"))
+                source_match = module_in_ownership(source, (source_selector,), ()) or (
+                    source_selector in {source_id, source_intent.label}
+                )
+                target_match = module_in_ownership(target, (target_selector,), ()) or (
+                    target_selector in {target_id, target_intent.label}
+                )
+                if source_match and target_match:
+                    return True
+            elif assessment.kind == "sibling_isolation":
+                source_member = next(
+                    (item for item in declaration.subjects if in_scope(source, item)), None
+                )
+                target_member = next(
+                    (item for item in declaration.subjects if in_scope(target, item)), None
+                )
+                if (
+                    source_member is not None
+                    and target_member is not None
+                    and source_member != target_member
+                ):
+                    return True
+            else:
+                return True
+    return False
+
+
+def _cells(
+    model: Observation, report: ArchitectureReport, scope_ids: dict[str, str]
+) -> tuple[ModuleImportCell, ...]:
     if report.observed is None:
         return ()
     modules = {
@@ -97,6 +171,27 @@ def _cells(model: Observation, report: ArchitectureReport) -> tuple[ModuleImport
         if item.kind == "module" and item.presence == "defined"
     }
     identities = {name: identity for identity, name in modules.items()}
+    intents = (
+        {item.component_id: item for item in report.target.component_intents}
+        if report.target
+        else {}
+    )
+    memberships = {
+        identity: {item.component_id for item in report.memberships if identity in item.module_ids}
+        for identity in modules
+    }
+    undecided = Counter(
+        rule_id for item in model.records("unknowns") or () for rule_id in item.rule_ids
+    )
+    core_assessments = {
+        item.id: item
+        for item in rule_assessments(
+            model,
+            undecided_by_rule=undecided,
+            complete=model.coverage.status == "PASS",
+        )
+    }
+    declarations = {item.id: item for item in model.records("declarations") or ()}
     weights = {
         (identities[source], identities[target]): count
         for source, target, count in module_edges(model)
@@ -111,54 +206,152 @@ def _cells(model: Observation, report: ArchitectureReport) -> tuple[ModuleImport
             and edge.target_id in modules
         ):
             sites[edge.source_id, edge.target_id].append(edge)
-    cells = []
-    for source, target in sorted(set(weights) | set(sites)):
-        relationships = tuple(sorted(item.id for item in sites[source, target]))
-        references = set(relationships)
-        findings = tuple(
-            item for item in report.findings if references.intersection(item.graph_subject_ids)
+    return tuple(
+        _import_cell(
+            source,
+            target,
+            modules,
+            weights,
+            sites,
+            model,
+            report,
+            core_assessments,
+            declarations,
+            memberships,
+            intents,
+            scope_ids,
         )
-        assessments = (
-            tuple(
-                item
-                for item in report.comparison.assessments
-                if references.intersection(item.observed_ids)
-            )
-            if report.comparison
-            else ()
+        for source, target in sorted(set(weights) | set(sites))
+    )
+
+
+def _import_cell(
+    source: str,
+    target: str,
+    modules: dict[str, str],
+    weights: dict[tuple[str, str], int],
+    sites: dict[tuple[str, str], list[Relationship]],
+    model: Observation,
+    report: ArchitectureReport,
+    core_assessments: dict[str, RuleAssessment],
+    declarations: dict[str, Record],
+    memberships: dict[str, set[str]],
+    intents: dict[str, ComponentIntent],
+    scope_ids: dict[str, str],
+) -> ModuleImportCell:
+    edges = sites[source, target]
+    relationships = tuple(sorted(item.id for item in edges))
+    references = set(relationships)
+    findings = tuple(
+        item for item in report.findings if references.intersection(item.graph_subject_ids)
+    )
+    graph_assessments = (
+        tuple(
+            item
+            for item in report.comparison.assessments
+            if references.intersection(item.observed_ids)
         )
-        failed = any(item.status == "FAIL" for item in findings) or any(
-            item.status == "FAIL" for item in assessments
+        if report.comparison
+        else ()
+    )
+    applicable = tuple(
+        item
+        for item in core_assessments.values()
+        if _rule_applies(
+            declarations.get(item.id),
+            item,
+            modules[source],
+            modules[target],
+            memberships[source],
+            memberships[target],
+            intents,
+            scope_ids,
         )
-        cells.append(
-            ModuleImportCell(
-                source,
-                target,
-                # Topology omits self edges; their resolved source sites still exist.
-                len(relationships) if source == target else weights.get((source, target)),
-                relationships,
-                tuple(
-                    sorted(
-                        {
-                            identity
-                            for item in sites[source, target]
-                            for identity in item.evidence_ids
-                        }
-                        | {identity for item in findings for identity in item.evidence_ids}
-                        | {identity for item in assessments for identity in item.evidence_ids}
-                    )
-                ),
-                tuple(sorted(item.id for item in findings)),
-                tuple(sorted(item.id for item in assessments)),
-                "FAIL" if failed else "UNKNOWN",
-                tuple(
-                    sorted(
-                        {item.title for item in findings} | {item.reason for item in assessments}
-                    )
-                ),
-            )
+    )
+    proven = {
+        item.id
+        for item in applicable
+        if item.evaluation_proven
+        and item.undecided == 0
+        and _cell_receipt_proven(model, item, modules[source], modules[target])
+    }
+    status = _cell_status(findings, graph_assessments, applicable, proven)
+    reasons = _cell_reasons(findings, graph_assessments, applicable, proven, core_assessments)
+    evidence = (
+        {identity for edge in edges for identity in edge.evidence_ids}
+        | {identity for item in findings for identity in item.evidence_ids}
+        | {identity for item in graph_assessments for identity in item.evidence_ids}
+    )
+
+    return ModuleImportCell(
+        source,
+        target,
+        len(relationships) if source == target else weights.get((source, target)),
+        relationships,
+        tuple(sorted(evidence)),
+        tuple(sorted(item.id for item in findings)),
+        tuple(sorted(item.id for item in graph_assessments)),
+        status,
+        tuple(sorted(reasons)),
+    )
+
+
+def _cell_status(
+    findings: tuple[ReportFinding, ...],
+    graph_assessments: tuple[GraphAssessment, ...],
+    applicable: tuple[RuleAssessment, ...],
+    proven: set[str],
+) -> AssessmentStatus:
+    evidence = findings + graph_assessments
+    if any(item.status == "FAIL" for item in evidence):
+        return "FAIL"
+    if (
+        any(item.status == "UNKNOWN" for item in evidence)
+        or not applicable
+        or len(proven) != len(applicable)
+    ):
+        return "UNKNOWN"
+    return "PASS"
+
+
+def _cell_reasons(
+    findings: tuple[ReportFinding, ...],
+    graph_assessments: tuple[GraphAssessment, ...],
+    applicable: tuple[RuleAssessment, ...],
+    proven: set[str],
+    core_assessments: dict[str, RuleAssessment],
+) -> set[str]:
+    reasons = {item.title for item in findings} | {item.reason for item in graph_assessments}
+    for item in applicable:
+        if item.id in proven:
+            reasons.add(f"{item.id}: complete evaluator receipt covers this import.")
+            continue
+        reason = (
+            item.reason
+            if not item.evaluation_proven or item.undecided
+            else "No complete evaluator receipt covers this import."
         )
-    return tuple(cells)
+        reasons.add(f"{item.id}: {reason}")
+    reasons.update(
+        f"{identity}: {core_assessments[identity].reason}"
+        for finding in findings
+        if finding.status == "UNKNOWN"
+        for identity in finding.rule_ids
+    )
+    return reasons or {"No complete applicable import-rule assessment establishes this cell."}
+
+
+def _cell_receipt_proven(
+    model: Observation, assessment: RuleAssessment, source: str, target: str
+) -> bool:
+    subjects = {source} if assessment.kind == "forbidden_dependency" else {source, target}
+    return any(
+        record.kind == "rule_evaluation"
+        and assessment.id in record.rule_ids
+        and subjects <= set(record.subjects)
+        and record.data.get("assessment_complete", True) is True
+        for record in model.records("scope_observations") or ()
+    )
 
 
 def _statistic(
@@ -194,7 +387,7 @@ def _statistic(
 def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
     """Read authenticated memberships; existing Core ownership helpers explain gaps.
 
-    Candidate hints are an unapproved review artifact. No production report consumes them.
+    Hints stay provisional and do not establish policy.
     """
     report = architecture_report(model)
     if report.observed is None:
@@ -219,7 +412,7 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
                     for item in sorted(report.observed.entities, key=lambda item: item.id)
                     if item.kind == "module" and item.presence == "defined"
                 ),
-                _cells(model, report),
+                _cells(model, report, {}),
                 "UNKNOWN",
                 "Authenticated Target is unavailable.",
             ),
@@ -232,7 +425,7 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
     )
     records = {item.id: item for item in model.records("modules") or ()}
     memberships = {item.component_id: set(item.module_ids) for item in report.memberships}
-    cells = _cells(model, report)
+    cells = _cells(model, report, scope_ids)
     complete = _imports_complete(model, observed, modules, cells)
     parents = (
         None,
@@ -277,30 +470,10 @@ def _hint_candidates(
     incoming: dict[str, list[ModuleImportCell]] = defaultdict(list)
     for cell in cells:
         incoming[cell.target_id].append(cell)
-    hints = []
+    hints: list[HintCandidate] = []
 
     if level.import_status == "PASS":
-        elsewhere: dict[tuple[str, str], list[ModuleStatistic]] = defaultdict(list)
-        for module in level.modules:
-            owner = root_modules[module.id].component_id
-            users = {root_modules[cell.source_id].component_id for cell in incoming[module.id]}
-            if owner is not None and len(users) == 1 and None not in users and owner not in users:
-                user = next(iter(users))
-                if user is not None:
-                    elsewhere[owner, user].append(module)
-        for pair, candidates in sorted(elsewhere.items()):
-            group = tuple(sorted(candidates, key=lambda item: item.name))
-            hints.append(
-                _hint(
-                    incoming,
-                    "used_elsewhere",
-                    group,
-                    pair,
-                    sum(cell.import_sites or 0 for item in group for cell in incoming[item.id]),
-                    "Do these modules belong to their only consumer, or are they the "
-                    "owner's intended interface for it?",
-                )
-            )
+        hints.extend(_used_elsewhere_hints(level, root_modules, incoming))
         hubs = sorted(
             (item for item in level.modules if item.fan_in is not None and item.fan_in >= 10),
             key=lambda item: (-(item.fan_in or 0), item.name),
@@ -339,6 +512,49 @@ def _hint_candidates(
             )
             for item in sorted(level.modules, key=lambda item: item.name)
             if not item.candidate_ids and item.component_id is None
+        )
+    kind_order = {"used_elsewhere": 0, "hub": 1, "heavy": 2, "no_owner": 3}
+    return tuple(
+        sorted(
+            hints,
+            key=lambda item: (
+                kind_order[item.kind],
+                -item.count,
+                item.component_ids,
+                tuple(root_modules[identity].name for identity in item.module_ids),
+            ),
+        )
+    )
+
+
+def _used_elsewhere_hints(
+    level: ModuleExploreLevel,
+    root_modules: dict[str, ModuleStatistic],
+    incoming: dict[str, list[ModuleImportCell]],
+) -> tuple[HintCandidate, ...]:
+    elsewhere: dict[tuple[str, str], list[ModuleStatistic]] = defaultdict(list)
+    for module in level.modules:
+        owner = root_modules[module.id].component_id
+        users = {root_modules[cell.source_id].component_id for cell in incoming[module.id]}
+        if owner is not None and len(users) == 1 and None not in users and owner not in users:
+            user = next(iter(users))
+            if user is not None:
+                elsewhere[owner, user].append(module)
+    hints = []
+    for owner, user in sorted(elsewhere):
+        group = tuple(sorted(elsewhere[owner, user], key=lambda item: item.name))
+        names = ", ".join(item.name for item in group)
+        sites = sum(cell.import_sites or 0 for item in group for cell in incoming[item.id])
+        hints.append(
+            _hint(
+                incoming,
+                "used_elsewhere",
+                group,
+                (owner, user),
+                sites,
+                f"Do {names} belong to {user}, or are they {owner}'s intended "
+                f"interface for {user}?",
+            )
         )
     return tuple(hints)
 

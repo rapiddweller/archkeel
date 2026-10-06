@@ -505,7 +505,7 @@ def test_report_heading_does_not_read_project_metadata_outside_the_repository(
 
 
 @pytest.mark.parametrize("only", [None, "architecture"])
-def test_native_report_publishes_only_its_linked_offline_component_pages(
+def test_native_report_publishes_one_linked_offline_detail_snapshot(
     tmp_path: Path,
     capsys: pytest.CaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
@@ -522,7 +522,7 @@ def test_native_report_publishes_only_its_linked_offline_component_pages(
     receipt = capsys.readouterr().out
     main_page = output.with_suffix(".report.html")
     assert output.exists() and main_page.exists()
-    details = tuple(output.parent.glob("architecture.detail-*.html"))
+    details = tuple(output.parent.glob("architecture.detail*.html"))
     if only is not None:
         assert not details
         return
@@ -530,20 +530,17 @@ def test_native_report_publishes_only_its_linked_offline_component_pages(
     match = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', page, re.S)
     assert match is not None
     atlas = json.loads(match.group(1))["atlas"]
-    links = {item["detail_href"] for item in atlas["components"]}
-    links.add(atlas["unassigned_detail_href"])
-    assert links and {item.name for item in details} == links
-    for name in links:
-        assert Path(name).name == name
-        detail = (output.parent / name).read_text()
-        navigation = _flow_data(detail)["navigation"]
-        assert navigation["main_href"] == main_page.name
-        assert (output.parent / navigation["main_href"]).is_file()
-        if navigation["component_id"] is not None:
-            assert navigation["component_path"][-1]["id"] == navigation["component_id"]
-        assert f'href="{output.name}"' in detail
-        assert "default-src 'none'" in detail and "fetch(" not in detail
-        assert name in receipt
+    assert atlas["components"] and atlas["unassigned_detail_href"] == "?component=unassigned"
+    assert {item.name for item in details} == {atlas["detail_page"]}
+    detail_path = output.parent / atlas["detail_page"]
+    detail = detail_path.read_text()
+    navigation = _flow_data(detail)["navigation"]
+    assert navigation["main_href"] == main_page.name
+    assert (output.parent / navigation["main_href"]).is_file()
+    assert navigation["component_id"] is None
+    assert f'href="{output.name}"' in detail
+    assert "default-src 'none'" in detail and "fetch(" not in detail
+    assert detail_path.name in receipt
 
 
 def test_check_heading_symlink_loop_preserves_saved_and_stdout_verdicts(

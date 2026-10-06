@@ -1223,6 +1223,7 @@ class ReportFilter:
     # AD-100: list the unresolved and partially resolved calls instead of the violations.
     only_calls: bool = False
     only_architecture: bool = False
+    full_architecture: bool = False
 
 
 @dataclass(frozen=True, slots=True)

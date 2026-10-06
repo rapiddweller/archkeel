@@ -23,7 +23,16 @@ def test_equal_root_diagram_uses_one_viewport_alignment_in_every_architecture_vi
             page.get_by_role("button", name=name, exact=True).click()
             card = page.locator('.flow-nodes [data-label="core"] .card')
             assert card.count() == 1
-            geometry.append(card.bounding_box())
+            box = card.bounding_box()
+            canvas = page.locator(".flow-canvas").bounding_box()
+            geometry.append(
+                {
+                    "x": box["x"] - canvas["x"],
+                    "y": box["y"] - canvas["y"],
+                    "width": box["width"],
+                    "height": box["height"],
+                }
+            )
         for box in geometry[1:]:
             assert box == pytest.approx(geometry[0], abs=1)
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
@@ -147,7 +156,11 @@ def test_native_card_drag_reroutes_all_hits_and_keeps_architecture_unchanged(tmp
     playwright, browser, page = _browser_page(api, html)
     try:
         _open_module(page, view)
-        page.get_by_role("button", name="Set zoom to 100%").click()
+        page.locator(".flow-toolbar").get_by_role(
+            "button", name="Reset filters", exact=True
+        ).click()
+        canvas = page.locator(".flow-canvas")
+        canvas.scroll_into_view_if_needed()
         payload = page.locator("#flow-data").text_content()
         card = page.locator('.flow-nodes [data-label="Client"]')
         box = card.bounding_box()
@@ -182,14 +195,16 @@ def test_left_up_drag_keeps_other_cards_fixed_and_small_scope_starts_unscrolled(
     playwright, browser, page = _browser_page(api, html, errors=errors)
     try:
         _open_module(page, view)
-        page.get_by_role("button", name="Set zoom to 100%").click()
+        page.locator(".flow-toolbar").get_by_role(
+            "button", name="Reset filters", exact=True
+        ).click()
         for _ in range(zoom_steps):
             page.get_by_role("button", name="Zoom in", exact=True).click()
         payload = page.locator("#flow-data").text_content()
         client = page.locator('.flow-nodes [data-label="Client"]')
         other = page.locator('.flow-nodes [data-label="Other"]')
         canvas = page.locator(".flow-canvas")
-        client.scroll_into_view_if_needed()
+        canvas.scroll_into_view_if_needed()
         before = client.get_attribute("transform")
         anchor = other.bounding_box()
         box = client.bounding_box()
@@ -325,7 +340,10 @@ def test_blocked_route_keeps_accessible_warning_endpoints_and_evidence(tmp_path,
     playwright, browser, page = _browser_page(api, html, has_touch=touch)
     try:
         _open_module(page, "Target")
-        page.get_by_role("button", name="Set zoom to 100%").click()
+        page.locator(".flow-toolbar").get_by_role(
+            "button", name="Reset filters", exact=True
+        ).click()
+        page.locator(".flow-canvas").scroll_into_view_if_needed()
         payload = page.locator("#flow-data").text_content()
         for label, dx, dy in (("Base", 10, 20), ("Port", -10, -20)):
             client = page.locator('.flow-nodes [data-label="Client"] .card').bounding_box()

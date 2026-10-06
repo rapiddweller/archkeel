@@ -1101,6 +1101,22 @@ def test_outside_callers_use_their_recorded_module_and_keep_every_site(tmp_path)
     try:
         _open_module(page, "As-Is")
         assert page.locator('.flow-nodes [data-label="other"]').count() == 0
+        uses = page.locator(".flow-use-summary")
+        assert (
+            uses.is_visible()
+            and uses.inner_text() == "Uses: 4 elements"
+            and "1 module" in uses.get_attribute("title")
+            and "3 symbols" in uses.get_attribute("title")
+            and "1 module" in uses.get_attribute("aria-label")
+            and "3 symbols" in uses.get_attribute("aria-label")
+        )
+        uses.click()
+        assert uses.get_attribute("aria-expanded") == "true"
+        assert uses.get_attribute("aria-label").startswith("Hide outside uses:")
+        assert page.locator('.flow-nodes [data-label="other"]').count() == 1
+        uses.click()
+        assert uses.get_attribute("aria-expanded") == "false"
+        assert page.locator('.flow-nodes [data-label="other"]').count() == 0
         page.locator('.flow-legend button[data-relationship-kind="calls"]').click()
         outside = page.locator('.flow-nodes [data-label="other"]')
         assert outside.get_attribute("data-uml-kind") == "module"
@@ -1170,7 +1186,9 @@ def test_module_overview_keeps_referenced_symbols_in_explicit_relationship_views
         payload = page.locator("#flow-data").text_content()
         assert page.locator('.flow-nodes [data-label="runner"]').count() == 1
         assert page.locator('.flow-nodes [data-label="print"]').count() == 0
+        page.locator(".flow-filters > summary").click()
         assert "referenced symbols" in page.locator(".flow-filter-status").inner_text()
+        page.locator(".flow-filters > summary").click()
         page.locator('.flow-legend button[data-relationship-kind="calls"]').click()
         referenced = page.locator('.flow-nodes [data-label="print"]')
         assert referenced.count() == 1
