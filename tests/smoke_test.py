@@ -119,5 +119,48 @@ def main() -> None:
         ], diagnostics
 
 
+def typescript() -> None:
+    """A TypeScript scan needs only the installed distribution: no Node, no adapter package."""
+    with TemporaryDirectory(prefix="archkeel-smoke-ts-") as temporary:
+        root = Path(temporary)
+        (root / "src").mkdir()
+        (root / "src/a.ts").write_text('import { b } from "./b";\nexport const a = b;\n')
+        (root / "src/b.ts").write_text("export const b = 1;\n")
+        (root / "tsconfig.json").write_text(
+            '{"compilerOptions": {"module": "esnext", "moduleResolution": "bundler"},'
+            ' "include": ["src"]}\n'
+        )
+        (root / "architecture-contract.json").write_text(
+            '{"schema_version": "2.1.0", "components": [], "rules": []}\n'
+        )
+        (root / "archkeel.toml").write_text(
+            '[scan]\nlanguage = "typescript"\nroots = ["src"]\nnamespace = "app"\n'
+            'contract = "architecture-contract.json"\ntsconfig = "tsconfig.json"\n'
+        )
+        for args in (
+            ("init", "-q"),
+            ("config", "user.email", "smoke@example.invalid"),
+            ("config", "user.name", "Archkeel smoke test"),
+            ("add", "."),
+            ("commit", "-qm", "smoke fixture"),
+        ):
+            subprocess.run(["git", *args], cwd=root, check=True)
+        output = root / "architecture.json"
+        run = subprocess.run(
+            [sys.executable, "-m", "archkeel.cli", "report", "--root", str(root)]
+            + ["--output", str(output)],
+            capture_output=True,
+            text=True,
+        )
+        assert run.returncode == 0, (run.stdout, run.stderr)
+        assert json.loads(run.stdout)["observation_complete"] == "PASS"
+        report = json.loads(output.read_text())
+        assert len(report["dependency_edges"]) == 1, report["dependency_edges"]
+        # The collector that ran is the installed Python one, not an npm adapter on Node.
+        assert report["runtime"]["name"] == "python", report["runtime"]
+        assert report["producer"]["name"] == "archkeel-typescript-imports", report["producer"]
+
+
 if __name__ == "__main__":
     main()
+    typescript()
