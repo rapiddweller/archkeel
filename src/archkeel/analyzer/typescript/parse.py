@@ -156,13 +156,17 @@ def parse(rel_path: str, data: bytes) -> Syntax:
     ]
     trusted = [item for node, item in candidates if not (root.has_error and _in_error(node))]
     concerns: list[Concern] = []
-    shadows = _require_concerns(source, concerns) if b"require" in data else False
+    # `module[name]` can reach `require` without spelling it.
+    needed = b"require" in data or b"module" in data
+    shadows = _require_concerns(source, concerns) if needed else False
+    loaders = [item.span for item in trusted if item.specifier in _LOADER_MODULES]
     if b"createRequire" in data:
-        names = source.captures("create_require").get("name", [])
-        concerns.extend(Concern(_LOADER, source.span(node)) for node in names)
-    concerns.extend(
-        Concern(_LOADER, item.span) for item in trusted if item.specifier in _LOADER_MODULES
-    )
+        loaders.extend(
+            source.span(node) for node in source.captures("create_require").get("name", [])
+        )
+    # One gap per file: the first use already makes every later `require` unprovable.
+    if loaders:
+        concerns.append(Concern(_LOADER, min(loaders, key=lambda span: (span.line, span.column))))
     if b"/**" in data or b"///" in data:
         concerns.extend(_comment_concerns(source))
     errors = sorted(source.captures("errors").get("error", []), key=lambda item: item.start_byte)

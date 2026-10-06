@@ -120,7 +120,7 @@ class _Collection:
             ),
             Capabilities(_SECTIONS, _FEATURES),
             inputs,
-            tuple(self.files),
+            tuple(sorted(self.files, key=lambda item: item.rel_path)),
             tuple(self.targets),
             tuple(FactSection(name, records[name]) for name in _SECTIONS),
             CollectionCoverage(
