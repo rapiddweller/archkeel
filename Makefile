@@ -65,6 +65,7 @@ collector-safety:
 typescript-native:
 	$(UV) run --locked python -m pytest -q tests/test_typescript_parse.py \
 		tests/test_typescript_collect.py tests/test_typescript_config.py \
+		tests/test_typescript_config_reference.py \
 		tests/test_typescript_resolve.py tests/test_typescript_provenance.py \
 		tests/test_typescript_init_acceptance.py tests/test_typescript_demo.py
 

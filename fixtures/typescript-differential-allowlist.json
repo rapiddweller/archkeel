@@ -54,6 +54,7 @@
     "runtime-alias/package-import/hidden": "package.json imports, exports and self-references are UNKNOWN (AD-210); the oracle's local alias is itself runtime-unproven.",
     "runtime-alias/self-reference/first": "package.json imports, exports and self-references are UNKNOWN (AD-210); the oracle's local alias is itself runtime-unproven.",
     "runtime-alias/self-reference/hidden": "package.json imports, exports and self-references are UNKNOWN (AD-210); the oracle's local alias is itself runtime-unproven.",
+    "scenario/config/case-insensitive-option-names": "TypeScript rejects Module and ModuleResolution as unknown option names. The frontend now leaves their import targets UNKNOWN instead of resolving with invented default settings; configuration diagnostics are retained.",
     "scenario/create-require-ordinary": "Any import of node:module and any createRequire name is one UNKNOWN gap per file; the oracle's type checker proved this use harmless.",
     "scenario/extends/package-absent": "TSConfig extends through a package is UNKNOWN (AD-210), even when the package is installed in the snapshot.",
     "scenario/extends/package-installed": "TSConfig extends through a package is UNKNOWN (AD-210), even when the package is installed in the snapshot.",

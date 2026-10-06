@@ -41,6 +41,9 @@ _ENUMS: Final = {
     "target": "es3 es5 es6 es2015 es2016 es2017 es2018 es2019 es2020 es2021 es2022 es2023 "
     "es2024 esnext".split(),
 }
+_BOOLEAN_OPTIONS: Final = frozenset("allowJs checkJs resolveJsonModule".split())
+_STRING_OPTIONS: Final = frozenset("baseUrl declarationDir outDir".split())
+_STRING_LIST_OPTIONS: Final = frozenset("customConditions moduleSuffixes rootDirs".split())
 # The compiler's option names (TypeScript 5.9.3); an unknown one is a configuration error.
 _KNOWN_OPTIONS: Final = frozenset(
     "all allowArbitraryExtensions allowImportingTsExtensions allowJs allowSyntheticDefaultImports "
@@ -269,7 +272,7 @@ class _Layer:
     # `files`, `include` and `exclude` of the nearest config that sets each.
     specs: dict[str, list[str]]
     # The `outDir` and `declarationDir` of the config being read, which exclude by default.
-    outputs: list[str]
+    outputs: dict[str, str | None]
     partial: bool
 
 
@@ -277,10 +280,10 @@ def _overlay(low: _Layer, high: _Layer) -> _Layer:
     """`high` wins key by key; `paths` carries the directory of the config that set it."""
     return _Layer(
         {**low.compiler, **high.compiler},
-        high.base_url if high.base_url is not None else low.base_url,
+        high.base_url if "baseUrl" in high.compiler else low.base_url,
         high.paths_directory if "paths" in high.compiler else low.paths_directory,
         {**low.specs, **high.specs},
-        high.outputs,
+        {**low.outputs, **high.outputs},
         low.partial or high.partial,
     )
 
@@ -321,11 +324,18 @@ def _layer(
     directory = posixpath.dirname(rel) or "."
     if raw is None:
         problems.append(error or f"Cannot read file '{rel}'.")
-        return _Layer({}, None, directory, {}, [], True)
+        return _Layer({}, None, directory, {}, {}, True)
     declared = raw.get("compilerOptions")
     compiler = dict(declared) if isinstance(declared, dict) else {}
-    problems.extend(_invalid(compiler))
-    partial = False
+    partial = declared is not None and not isinstance(declared, dict)
+    if partial:
+        problems.append("Compiler option 5024: 'compilerOptions' must be an object.")
+    invalid = _invalid(compiler)
+    problems.extend(invalid)
+    partial = partial or bool(invalid)
+    before_paths = len(problems)
+    _paths(compiler, problems)
+    partial = partial or len(problems) > before_paths
     specs: dict[str, list[str]] = {}
     for key in ("files", "include", "exclude"):
         value = raw.get(key)
@@ -337,12 +347,13 @@ def _layer(
             ]
         elif value is not None:
             problems.append(f"Compiler option 5024: '{key}' must be a list of strings.")
+            partial = True
     base_url = compiler.get("baseUrl")
-    outputs = [
-        _under(str(compiler[name]), directory, final)
-        for name in ("outDir", "declarationDir")
-        if isinstance(compiler.get(name), str) and compiler[name]
-    ]
+    outputs: dict[str, str | None] = {}
+    for name in ("outDir", "declarationDir"):
+        if name in compiler:
+            value = compiler[name]
+            outputs[name] = _under(value, directory, final) if isinstance(value, str) else None
     own = _Layer(
         compiler,
         _under(base_url, directory, final) if isinstance(base_url, str) else None,
@@ -353,7 +364,7 @@ def _layer(
     )
     parents = raw.get("extends")
     entries = parents if isinstance(parents, list) else [] if parents is None else [parents]
-    inherited = _Layer({}, None, directory, {}, [], False)
+    inherited = _Layer({}, None, directory, {}, {}, False)
     for entry in entries:
         path = _extended(snapshot, entry, directory, problems) if isinstance(entry, str) else None
         if not isinstance(entry, str):
@@ -364,14 +375,14 @@ def _layer(
             problems.append(f"Circularity detected while resolving configuration: {path}")
             path = None
         if path is None:
-            inherited = _overlay(inherited, _Layer({}, None, directory, {}, [], True))
+            inherited = _overlay(inherited, _Layer({}, None, directory, {}, {}, True))
         else:
             inherited = _overlay(inherited, _layer(snapshot, path, final, problems, [rel, *stack]))
     return _overlay(inherited, own)
 
 
 def _invalid(options: dict[str, object]) -> list[str]:
-    """TS5023 for a name the compiler does not know, and TS6046 for a value it refuses."""
+    """Name unknown options and refuse malformed values used by selection or resolution."""
     unknown = [
         f"Unknown compiler option '{name}'." for name in options if name not in _KNOWN_OPTIONS
     ]
@@ -380,7 +391,20 @@ def _invalid(options: dict[str, object]) -> list[str]:
         for name in _ENUMS
         if options.get(name) is not None and _lowered(options, name) is None
     ]
-    return [*unknown, *refused]
+    malformed: list[str] = []
+    booleans = _BOOLEAN_OPTIONS | (frozenset(_UNMODELED) - _STRING_LIST_OPTIONS)
+    for name, value in options.items():
+        if value is None:
+            continue
+        if name in booleans and not isinstance(value, bool):
+            malformed.append(f"Compiler option 5024: '{name}' must be a boolean.")
+        elif name in _STRING_OPTIONS and not isinstance(value, str):
+            malformed.append(f"Compiler option 5024: '{name}' must be a string.")
+        elif name in _STRING_LIST_OPTIONS and not (
+            isinstance(value, list) and all(isinstance(item, str) for item in value)
+        ):
+            malformed.append(f"Compiler option 5024: '{name}' must be a list of strings.")
+    return [*unknown, *refused, *malformed]
 
 
 def _lowered(options: dict[str, object], key: str) -> str | None:
@@ -419,7 +443,7 @@ def _options(layer: _Layer, problems: list[str]) -> Options:
         _lowered(raw, "module"),
         _RESOLUTIONS.get(resolution, resolution) if resolution is not None else None,
         _lowered(raw, "target"),
-        raw.get("allowJs", raw.get("checkJs")) is True,
+        (raw.get("allowJs") if raw.get("allowJs") is not None else raw.get("checkJs")) is True,
         layer.base_url,
         paths,
         layer.base_url if layer.base_url is not None else layer.paths_directory,
@@ -510,7 +534,9 @@ def _discover(
         include = [join(own, "**/*")]
     # An exclusion outside the snapshot excludes nothing in it.
     exclude = (
-        [spec for spec in layer.outputs if not is_outside(spec)] if exclude is None else exclude
+        [spec for spec in layer.outputs.values() if spec and not is_outside(spec)]
+        if exclude is None
+        else exclude
     )
     exclude = [spec for spec in exclude if not is_outside(spec)]
     for spec in include or []:
@@ -578,7 +604,9 @@ def load_config(snapshot: Snapshot, tsconfig: str, roots: tuple[str, ...]) -> Co
     references = raw is not None and "references" in raw
     if references:
         problems.append("Project references require separately observed projects")
+    options_before = len(problems)
     options = _options(layer, problems)
+    options_partial = len(problems) > options_before
     listed = _discover(snapshot, layer, own, options, problems)
     if not listed and not references:
         problems.append("No inputs were found in config file.")
@@ -600,4 +628,4 @@ def load_config(snapshot: Snapshot, tsconfig: str, roots: tuple[str, ...]) -> Co
     if not chosen:
         problems.append("No selected source files")
     snapshot.problems.update(problems)
-    return Config(options, tuple(sorted(chosen)), layer.partial)
+    return Config(options, tuple(sorted(chosen)), layer.partial or options_partial)

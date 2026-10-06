@@ -62,9 +62,11 @@ replacement = '](https://github.com/rapiddweller/archkeel/blob/main/\1)'
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/archkeel"]
+exclude = ["src/archkeel/cli/assets/SKILL.md"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "schema" = "archkeel/schema"
+"skills/archkeel/SKILL.md" = "archkeel/cli/assets/SKILL.md"
 
 [tool.hatch.build.targets.sdist]
 # The sdist ships what rebuilds the wheel, not the test suite: pytest needs a Git checkout

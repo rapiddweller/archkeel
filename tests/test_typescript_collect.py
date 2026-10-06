@@ -97,6 +97,21 @@ def _files(facts: SourceFacts) -> list[str]:
     return [item.rel_path for item in facts.files]
 
 
+@pytest.mark.parametrize(
+    "options", [{"allowJs": "true"}, {"resolveJsonModule": "true"}, {"baseUrl": 42}, "invalid"]
+)
+def test_invalid_configuration_cannot_prove_import_targets(tmp_path: Path, options: object) -> None:
+    facts = _facts(
+        tmp_path,
+        {"src/main.ts": "import './value.js';", "src/value.ts": "export {};"},
+        config={"compilerOptions": options},
+    )
+    assert not facts.coverage.full_scope
+    assert facts.imports
+    assert all(isinstance(target, UnresolvedTarget) for target in facts.imports)
+    assert any("Compiler option" in gap for gap in _gaps(facts))
+
+
 def test_forms_resolve_through_aliases_and_the_commonjs_runtime_closure(tmp_path: Path) -> None:
     facts = _facts(
         tmp_path,

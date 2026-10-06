@@ -188,10 +188,10 @@ class Resolver:
         return self.options.resolution in ("node16", "nodenext", "bundler")
 
     def _blocked(self) -> Unknown | None:
-        if self.partial:
-            return Unknown("TSConfig settings are not fully observed")
         if self.options.unmodeled:
             return Unknown(f"Compiler option is not observed: {', '.join(self.options.unmodeled)}")
+        if self.partial:
+            return Unknown("TSConfig settings are not fully observed")
         if self.options.resolution not in ("node10", "node16", "nodenext", "bundler"):
             return Unknown(f"moduleResolution {self.options.resolution} is not observed")
         return None

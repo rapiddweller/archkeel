@@ -36,10 +36,16 @@ Whatever it cannot prove is a `collection_gap` with `full_scope` false, never PA
 The old Node collector and its source are removed. Its output, captured from commit
 [`4e215679`](https://github.com/rapiddweller/archkeel/tree/4e215679be7ae063ab1de7da189e4565e7851727),
 is preserved as `fixtures/typescript-reference.json`. `make typescript-differential` compares
-the native frontend with this immutable reference across 576 cases: 504 equivalent, 72
-conservative, and 0 defects. The conservative outcomes remain explicitly allow-listed with
+the native frontend with this immutable reference across 576 cases: 503 equivalent, 73
+conservative, and 0 defects within that corpus. This does not prove correctness outside its
+modeled cases or compiler parity. The conservative outcomes remain explicitly allow-listed with
 reasons; stale entries and unexpected differences fail. The real-world corpus was low-resolution
 and remains a limit of this evidence.
+
+An additional 25-case TypeScript 5.9.3 reference checks inherited output directories,
+include/exclude overrides, `checkJs` defaults and malformed configuration. Native tests read
+`fixtures/typescript-config-reference.json` without Node. Recapture it explicitly with
+`node fixtures/capture_typescript_config_reference.cjs /path/to/typescript/lib/typescript.js`.
 
 ## Consequences
 

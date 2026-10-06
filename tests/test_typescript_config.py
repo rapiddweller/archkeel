@@ -275,6 +275,76 @@ def test_own_settings_win_and_a_later_extends_entry_wins_over_an_earlier(tmp_pat
     assert config.files == ("src/a.ts",)
 
 
+def test_output_directories_merge_per_option_and_keep_their_declaring_config(
+    tmp_path: Path,
+) -> None:
+    files = {
+        "configs/base.json": json.dumps(
+            {
+                "compilerOptions": {
+                    "outDir": "../build/base",
+                    "declarationDir": "../types/base",
+                },
+            }
+        ),
+        "configs/second.json": json.dumps({"compilerOptions": {"outDir": "../build/second"}}),
+        "src/main.ts": "",
+        "build/base/generated.ts": "",
+        "build/second/generated.ts": "",
+        "types/base/generated.ts": "",
+    }
+    config, _ = _config(
+        tmp_path,
+        files,
+        '{"extends": ["./configs/base.json", "./configs/second.json"]}',
+    )
+    assert config.files == ("build/base/generated.ts", "src/main.ts")
+
+
+@pytest.mark.parametrize(
+    ("tsconfig", "files", "problem"),
+    [
+        ('{"compilerOptions": "bad"}', {"src/a.ts": ""}, "compilerOptions"),
+        (
+            '{"compilerOptions": {"allowJs": "yes"}}',
+            {"src/a.ts": "", "src/a.js": ""},
+            "allowJs",
+        ),
+        ('{"compilerOptions": {"baseUrl": []}}', {"src/a.ts": ""}, "baseUrl"),
+        ('{"compilerOptions": {"outDir": true}}', {"src/a.ts": ""}, "outDir"),
+        ('{"include": "src"}', {"src/a.ts": ""}, "include"),
+        (
+            '{"extends": "./base.json", "compilerOptions": {"target": "ES5"}}',
+            {"base.json": '{"compilerOptions": {"allowJs": "yes"}}', "src/a.js": ""},
+            "allowJs",
+        ),
+    ],
+)
+def test_malformed_selection_options_are_problems_and_make_config_partial(
+    tmp_path: Path, tsconfig: str, files: dict[str, str], problem: str
+) -> None:
+    config, snapshot = _config(tmp_path, files, tsconfig)
+    assert config.partial is True
+    assert any(problem in item for item in snapshot.problems), snapshot.problems
+
+
+def test_null_boolean_option_uses_the_compilers_false_default(tmp_path: Path) -> None:
+    config, snapshot = _config(
+        tmp_path,
+        {"src/a.ts": "", "src/a.js": ""},
+        '{"compilerOptions": {"allowJs": null}}',
+    )
+    assert config.files == ("src/a.ts",)
+    assert config.partial is False
+    assert snapshot.problems == set()
+
+
+def test_null_compiler_options_container_is_an_absent_options_object(tmp_path: Path) -> None:
+    config, snapshot = _config(tmp_path, {"src/a.ts": ""}, '{"compilerOptions": null}')
+    assert config.partial is False
+    assert snapshot.problems == set()
+
+
 def test_paths_are_relative_to_the_config_that_sets_them_unless_base_url_does(
     tmp_path: Path,
 ) -> None:

@@ -6,7 +6,10 @@
   `collector_argv = ["archkeel-typescript"]` from `archkeel.toml`; observations recorded with
   the npm adapter name another producer and runtime, so comparing them with a new one fails
   `incomparable_runtime` until both revisions are observed again. The old collector is removed;
-  a frozen 576-case reference retains 504 equivalent, 72 conservative and 0 defective outcomes.
+  a frozen 576-case reference retains 503 equivalent, 73 conservative and 0 defective outcomes
+  within that corpus; this does not establish compiler parity.
+  Inherited output directories keep their declaring paths; malformed selection/resolution
+  settings remain UNKNOWN. A separate 25-case compiler reference covers these TSConfig cases.
 - Agents can query the shared architecture projection with `report --only architecture`
   and reuse a recorded snapshot with `--input`. Focused queries retain global verdicts,
   coverage and UNKNOWNs. Native component ids/scopes select local Target findings;
