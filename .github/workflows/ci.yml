@@ -331,7 +331,7 @@ jobs:
           version: "0.12.13"
 
       - name: Check Mermaid source labels
-        run: uv run --isolated --no-project --with pytest==8.4.2 python -m pytest -q tests/test_mermaid.py
+        run: PYTHONPATH=src uv run --isolated --no-project --with pytest==8.4.2 --with filelock==4.0.10 python -m pytest -q tests/test_mermaid.py
 
       - name: Render every Mermaid block
         run: make mermaid
