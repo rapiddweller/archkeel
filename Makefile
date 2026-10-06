@@ -61,15 +61,20 @@ collector-safety:
 		tests/test_collector_interrupt.py tests/test_windows_launcher_startup.py \
 		tests/test_collector_safety_acceptance.py tests/test_collector_liveness_observer.py \
 		tests/test_inheritance_proof_transport.py
-.PHONY: typescript-adapter
+.PHONY: typescript-adapter typescript-differential
 typescript-adapter:
 	$(MAKE) -C packages/typescript-adapter install pack
+
+# The Node adapter stays the reference until the in-package frontend has run in CI beside it.
+typescript-differential: typescript-adapter
+	ARCHKEEL_DIFFERENTIAL_OUTPUT="$(or $(OUTPUT),test-artifacts/typescript-differential)" \
+		$(UV) run --locked python -m pytest -q tests/test_typescript_differential.py
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py tools/ci_changes.py \
 	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
-	fixtures/reproduce_typescript.py \
+	fixtures/reproduce_typescript.py fixtures/typescript_differential.py fixtures/typescript_scenarios.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
 	tools/architecture_graph_schema.py tools/report_timing.py
 

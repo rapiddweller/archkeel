@@ -118,6 +118,8 @@ class Result:
     findings: tuple[Finding, ...]
     # (rule id, oracle status, frontend status) of every rule whose Core status differs.
     rules: tuple[tuple[str, str, str], ...] = ()
+    # How many Core statuses were compared, for the report.
+    compared: int = 0
 
     @property
     def klass(self) -> Klass:
@@ -444,9 +446,9 @@ def _statuses(outcome: Outcome) -> dict[str, str]:
     }
 
 
-def _verdicts(case: Case, workspace: Path) -> tuple[list[Finding], list[tuple[str, str, str]]]:
+def _verdicts(case: Case, workspace: Path) -> tuple[list[Finding], list[tuple[str, str, str]], int]:
     if case.variant is None:
-        return [], []
+        return [], [], 0
     old = _statuses(run_variant(workspace / "core-old", case.variant, ORACLE))
     new = _statuses(run_variant(workspace / "core-new", case.variant, FRONTEND))
     findings, rules = [], []
@@ -469,7 +471,7 @@ def _verdicts(case: Case, workspace: Path) -> tuple[list[Finding], list[tuple[st
         else:
             klass = "defect"
         findings.append(Finding(klass, f"Core verdict {rule}", before, after))
-    return findings, rules
+    return findings, rules, len(old.keys() | new.keys())
 
 
 def evaluate(case: Case, workspace: Path) -> Result:
@@ -489,8 +491,8 @@ def evaluate(case: Case, workspace: Path) -> Result:
             findings.append(
                 Finding("defect", "module identity", case.module, ", ".join(sorted(modules)))
             )
-    verdicts, rules = _verdicts(case, workspace)
-    return Result(case, (*findings, *verdicts), tuple(rules))
+    verdicts, rules, compared = _verdicts(case, workspace)
+    return Result(case, (*findings, *verdicts), tuple(rules), compared)
 
 
 def run(workspace: Path) -> list[Result]:
@@ -533,6 +535,8 @@ def judge(results: list[Result], allowlist: dict[str, dict[str, str]]) -> Verdic
     )
     report: dict[str, object] = {
         "counts": {klass: counts.get(klass, 0) for klass in ORDER},
+        "allowlist_entries": {klass: len(entries) for klass, entries in sorted(allowlist.items())},
+        "core_statuses_compared": sum(result.compared for result in results),
         "groups": dict(sorted(groups.items())),
         "fail_to_unknown": {
             rule: n for (rule, before), n in sorted(lost.items()) if before == "FAIL"
