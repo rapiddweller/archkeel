@@ -53,6 +53,7 @@ def repository(workspace: Path, variant: Variant) -> Path:
         ("init", "-q", "-b", "main"),
         ("config", "user.email", "typescript-demo@example.invalid"),
         ("config", "user.name", "TypeScript demo"),
+        ("config", "core.autocrlf", "false"),
         ("add", "-A"),
         ("add", "--force", "node_modules"),
         ("-c", "commit.gpgsign=false", "commit", "-q", "-m", variant.id),
@@ -119,10 +120,11 @@ def command(root: Path, output: Path, label: str, *args: str) -> dict:
         env=environment,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=False,
     )
-    (output / f"{label}.stdout.json").write_text(result.stdout)
-    (output / f"{label}.stderr").write_text(result.stderr)
+    (output / f"{label}.stdout.json").write_text(result.stdout, encoding="utf-8")
+    (output / f"{label}.stderr").write_text(result.stderr, encoding="utf-8")
     assert result.stdout, (args, result.returncode, result.stderr)
     payload = json.loads(result.stdout)
     assert payload["exit_code"] == result.returncode

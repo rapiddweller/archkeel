@@ -370,11 +370,12 @@ def test_replacement_executable_is_actually_called(tmp_path: Path) -> None:
 
     marker = tmp_path / "collector-called"
     replacement = tmp_path / "collector.py"
-    entry = ["-I", "-B", "-m", "archkeel.analyzer.typescript.entry"]
     replacement.write_text(
-        "import os\nimport sys\nfrom pathlib import Path\n"
+        "from pathlib import Path\n"
+        "from archkeel.analyzer.typescript.entry import main\n"
         f"Path({str(marker)!r}).write_text('called')\n"
-        f"os.execv(sys.executable, [sys.executable, *{entry!r}])\n"
+        "raise SystemExit(main())\n",
+        encoding="utf-8",
     )
     root = repository(tmp_path, VARIANTS[0])
     config_path = root / "archkeel.toml"
@@ -396,7 +397,7 @@ def test_replacement_executable_is_actually_called(tmp_path: Path) -> None:
     )
     result, artifact = run_report(root, config=config, analyzer=configured)
     assert marker.read_text() == "called"
-    assert result.declared_rules == "PASS"
+    assert result.declared_rules == "PASS", result.diagnostics
     assert artifact is not None
 
 

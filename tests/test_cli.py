@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+import io
 import json
 import re
 import shutil
@@ -27,6 +28,19 @@ _PROBE = (
     "def read(box: object) -> object:\n"
     '    return getattr(box, "value")\n'
 )
+
+
+def test_json_stdout_preserves_unicode_on_a_legacy_encoded_stream(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "project-↔-🚀"
+    output = io.BytesIO()
+    stream = io.TextIOWrapper(output, encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", stream)
+    assert main(["report", "--root", str(root), "--json"]) == 2
+    stream.flush()
+    result = json.loads(output.getvalue().decode("utf-8"))
+    assert str(root) in result["diagnostics"][0]["subject"]
 
 
 def test_check_requires_explicit_inputs(capsys: pytest.CaptureFixture) -> None:

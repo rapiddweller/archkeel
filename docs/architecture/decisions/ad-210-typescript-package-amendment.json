@@ -1,9 +1,9 @@
 {
-  "after_baseline_digest": "d124786a1190a5e1c465f9ec3c2959263085aa2bbf47dc21bad01207f6c2360d",
+  "after_baseline_digest": "cb5989a1580c9fffecb1bdf5eede69d8fa8bbb9a713edb9330e6d261873fcd0d",
   "after_digest": "de2c55b8ab485dfcbb260056d1e70dcbf21e99183f346c1c447485e267b9de22",
   "before_baseline_digest": "7c648f599c341e6d36c24d503fdd822572e1820a3572abde5bfe4e11b926a816",
   "before_digest": "6e67a47ce712df627e16b3d7e2e6c2802d751f2afbada05de2939e2781921acf",
   "decided_by": "Codex (agent; user-authorized TypeScript package migration)",
-  "rationale": "Move TypeScript parsing into the existing isolated analyzer process, confine tree-sitter dependencies to its parse module, and declare only the shared identity import and inner analyzer components needed by this migration. Tighten unresolved calls from 668 to 662; no violation or UNKNOWN budget is increased.",
+  "rationale": "Move TypeScript parsing into the existing isolated analyzer process, confine tree-sitter dependencies to its parse module, and declare only the shared identity import and inner analyzer components needed by this migration. Tighten unresolved calls from 668 to 661; no violation or UNKNOWN budget is increased.",
   "schema_version": "2.0.0"
 }

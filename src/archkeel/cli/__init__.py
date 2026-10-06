@@ -4,6 +4,7 @@
 """Run repository observations and declaration checks."""
 
 import argparse
+import io
 import json
 import os
 import re
@@ -657,5 +658,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print_result(result, summary, artifacts=tuple(str(path) for path in artifacts))
     else:
-        print(render_result(result).decode(), end="")
+        payload = render_result(result)
+        if isinstance(sys.stdout, io.TextIOWrapper):
+            sys.stdout.buffer.write(payload)
+        else:
+            sys.stdout.write(payload.decode("utf-8"))
     return result.exit_code

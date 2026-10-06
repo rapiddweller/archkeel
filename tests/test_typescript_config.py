@@ -21,7 +21,7 @@ def _config(
 ) -> tuple[Config, Snapshot]:
     for rel, text in {name: tsconfig, **files}.items():
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
-        (root / rel).write_text(text)
+        (root / rel).write_text(text, encoding="utf-8")
     snapshot = Snapshot(str(root))
     return load_config(snapshot, name, roots), snapshot
 

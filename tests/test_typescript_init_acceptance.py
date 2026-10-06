@@ -81,6 +81,7 @@ def _invoke(root: Path, *args: str, env: dict[str, str] | None = None):
         env=environment,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=20,
     )
 
@@ -182,12 +183,28 @@ def test_untracked_typescript_init_uses_physical_directories_and_path_identity(
 def test_default_collector_keeps_configuration_portable(tmp_path: Path) -> None:
     root = _repository(tmp_path / "project")
     _typescript(root)
-    # Only Git is on PATH: no Node, no npm package, no installed collector command.
-    git = shutil.which("git")
-    assert git is not None
-    (tmp_path / "bin").mkdir()
-    (tmp_path / "bin/git").symlink_to(git)
-    env = {"PATH": str(tmp_path / "bin")}
+    # Keep Git available while excluding Node, npm and the old collector command.
+    if os.name == "nt":
+        path = os.pathsep.join(
+            item
+            for item in os.environ["PATH"].split(os.pathsep)
+            if all(
+                shutil.which(name, path=item) is None
+                for name in ("node", "npm", "archkeel-typescript")
+            )
+        )
+        assert shutil.which("git", path=path), "Git must remain available on PATH"
+        assert all(
+            shutil.which(name, path=path) is None for name in ("node", "npm", "archkeel-typescript")
+        )
+    else:
+        git = shutil.which("git")
+        assert git is not None
+        git_only = tmp_path / "bin"
+        git_only.mkdir()
+        (git_only / "git").symlink_to(git)
+        path = str(git_only)
+    env = {"PATH": path}
     result = _init(root, env=env)
     assert result.returncode == 0, result.stdout + result.stderr
     config_text = (root / "archkeel.toml").read_text()

@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The in-package frontend against the Node oracle: no defect, no unexplained difference."""
+"""The in-package frontend against the frozen Node reference: no unexplained difference."""
 
 import json
 import os
