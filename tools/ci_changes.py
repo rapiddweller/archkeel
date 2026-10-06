@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Classify changed paths into the CI capabilities they need."""
 
 from __future__ import annotations
@@ -18,21 +21,16 @@ class Areas:
 
 
 ALL_AREAS = Areas(core=True, report=True, mermaid=True)
-_SCREENSHOT_SUFFIXES = {
-    ".avif",
-    ".bmp",
-    ".gif",
-    ".heic",
-    ".ico",
-    ".jpeg",
-    ".jpg",
-    ".png",
-    ".svg",
-    ".tif",
-    ".tiff",
-    ".webp",
+_SCREENSHOT_PATHS = {
+    "docs/assets/archkeel-component-flow.png",
+    "docs/assets/archkeel-empty-responsibility.png",
+    "docs/assets/archkeel-module-target.png",
+    "docs/assets/archkeel-report-preview.png",
+    "docs/assets/archkeel-rule-evidence.png",
+    "docs/assets/archkeel-shop-components.png",
+    "docs/assets/archkeel-shop-store-inside.png",
+    "docs/assets/archkeel-target-store.png",
 }
-_SCREENSHOT_ROOTS = ("docs/assets/", "docs/evidence/")
 _REPORT_PATTERNS = (
     "src/archkeel/render/*",
     "src/archkeel/check/report.py",
@@ -100,10 +98,10 @@ def classify_path(path: str) -> Areas:
     if any(fnmatchcase(path, pattern) for pattern in _REPORT_PATTERNS):
         return Areas(core=True, report=True, mermaid=path.endswith(".md"))
 
-    suffix = PurePosixPath(path).suffix.lower()
-    if suffix in _SCREENSHOT_SUFFIXES and path.startswith(_SCREENSHOT_ROOTS):
+    if path in _SCREENSHOT_PATHS:
         return Areas()
 
+    suffix = PurePosixPath(path).suffix.lower()
     if path in {"tools/mermaid_blocks.py", "tests/test_mermaid.py"}:
         return Areas(core=True, mermaid=True)
 

@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Routing rules for the lightweight CI change classifier."""
 
 from __future__ import annotations
@@ -37,8 +40,11 @@ class ChangeClassificationTests(unittest.TestCase):
             ("src/archkeel/check/analyzer.py", Areas(core=True)),
             ("unmapped/product/contract.yaml", Areas(core=True)),
             ("unmapped/notes.md", Areas(core=True, mermaid=True)),
-            ("docs/assets/report.PNG", Areas()),
-            ("docs/evidence/internal-service/report.png", Areas()),
+            ("docs/assets/archkeel-report-preview.png", Areas()),
+            ("docs/assets/archkeel-onboarding-loop.svg", Areas(core=True)),
+            ("docs/assets/archkeel-shop-inside-violation.svg", Areas(core=True)),
+            ("docs/assets/unlisted.png", Areas(core=True)),
+            ("docs/evidence/internal-service/report-auto-flow.png", Areas(core=True)),
             ("assets/archkeel-mark.svg", Areas(core=True)),
             ("plugins/archkeel/assets/archkeel-mark.svg", Areas(core=True)),
         )
