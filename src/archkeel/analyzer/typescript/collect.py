@@ -8,7 +8,6 @@ from __future__ import annotations
 import hashlib
 import json
 import posixpath
-import re
 from typing import Final
 
 from archkeel.analyzer.runtime import collector_provenance
@@ -47,9 +46,9 @@ from .parse import Reference, Span, Syntax, parse
 from .resolve import Format, Found, Resolver, Unknown, is_builtin, is_relative, package_name
 
 _SECTIONS: tuple[SourceSectionName, ...] = ("imports", "unknowns")
-_SOURCE: Final = re.compile(r"\.(?:[cm]?ts|tsx|[cm]?js|jsx)$")
-_DECLARATION: Final = re.compile(r"\.d\.[cm]?ts$")
-_EXPLICIT_RUNTIME: Final = re.compile(r"\.(?:cjs|mjs|js)$")
+_SOURCE: Final = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
+_DECLARATION: Final = (".d.ts", ".d.mts", ".d.cts")
+_EXPLICIT_RUNTIME: Final = (".cjs", ".mjs", ".js")
 # What the compiler's `trim()` removes, which Python's `strip()` does not match exactly.
 _WHITESPACE: Final = " \t\n\v\f\r                 　﻿"
 _FEATURES: Final = (
@@ -58,6 +57,10 @@ _FEATURES: Final = (
     "node-builtins",
     "local-runtime-closure",
 )
+
+
+def _package_of(module: str) -> str:
+    return module.rpartition(".")[0]
 
 
 def collect(request: CollectionRequest) -> SourceFacts:
@@ -99,7 +102,7 @@ class _Collection:
             parse_record(item) for item in sorted(self.imports, key=lambda item: item["id"])
         )
         adapter, runtime = collector_provenance("typescript")
-        listing = json.dumps(
+        listing: str = json.dumps(
             [{"path": item.path, "digest": item.digest, "role": item.role} for item in inputs],
             separators=(",", ":"),
             ensure_ascii=False,
@@ -160,7 +163,7 @@ class _Collection:
     def _observe(self, rel: str) -> bytes | None:
         """Read a local dependency; it joins the walk when it is a source file in scope."""
         content = self.snapshot.read(rel)
-        if content is not None and self._selected(rel) and _SOURCE.search(rel):
+        if content is not None and self._selected(rel) and rel.endswith(_SOURCE):
             if rel not in self.queue:
                 self.queue.append(rel)
         elif content is not None:
@@ -173,20 +176,20 @@ class _Collection:
             self._gap(f"Unreadable selected source: {rel}")
             return
         try:
-            module = module_identity(self.namespace, rel)
+            module: str = module_identity(self.namespace, rel)
         except ValueError:
             self._gap(f"Source path has no module identity: {rel}")
             return
         self.read += 1
         self.snapshot.select(rel)
-        text = str(content, "utf-8", "replace")
+        text: str = str(content, "utf-8", "replace")
         evidence = file_evidence(self.evidence, rel, (text.partition("\n")[0],))
         self.files.append(
             FileFact(
                 stable_id("FILE", module),
                 rel,
                 module,
-                module.rpartition(".")[0],
+                _package_of(module),
                 frozenset(),
                 False,
                 False,
@@ -230,14 +233,14 @@ class _Collection:
         evidence: str,
         form: Format | Unknown | None,
     ) -> None:
-        specifier = reference.specifier or ""
+        specifier: str = reference.specifier or ""
         identity = stable_id(
             "IMP", module, reference.span.line, reference.span.column, reference.form
         )
         target = self._target(rel, module, reference, identity, form)
         self.targets.append(target)
         if isinstance(target, LocalTarget):
-            target_module, target_package = target.module, target.module.rpartition(".")[0]
+            target_module, target_package = target.module, _package_of(target.module)
         elif isinstance(target, BuiltinTarget):
             target_module = target_package = target.name
         elif isinstance(target, ExternalPackageTarget):
@@ -255,7 +258,7 @@ class _Collection:
                 evidence_ids=[evidence],
                 data={
                     "source_module": module,
-                    "source_package": module.rpartition(".")[0],
+                    "source_package": _package_of(module),
                     "target_module": target_module,
                     "target_package": target_package,
                     "symbol": None,
@@ -283,7 +286,7 @@ class _Collection:
         identity: str,
         form: Format | Unknown | None,
     ) -> ImportTarget:
-        specifier = reference.specifier or ""
+        specifier: str = reference.specifier or ""
         if not reference.type_only and specifier.startswith("node:") and is_builtin(specifier):
             return BuiltinTarget(identity, specifier)
         if reference.mode_override:
@@ -314,8 +317,8 @@ class _Collection:
     def _local(
         self, rel: str, module: str, reference: Reference, identity: str, found: Found
     ) -> ImportTarget:
-        specifier = reference.specifier or ""
-        path = found.path
+        specifier: str = reference.specifier or ""
+        path: str = found.path
         if self.snapshot.read(path) is None:
             return self._unresolved(
                 module, identity, specifier, f"Unavailable local target: {specifier}"
@@ -331,9 +334,9 @@ class _Collection:
         type_only = reference.type_only
         relative = specifier.startswith(("./", "../"))
         lookup = join(posixpath.dirname(rel) or ".", specifier)
-        declaration = path if _DECLARATION.search(path) else None
+        declaration = path if path.endswith(_DECLARATION) else None
         runtime = None if declaration else path
-        explicit = relative and _EXPLICIT_RUNTIME.search(specifier) is not None
+        explicit = relative and specifier.endswith(_EXPLICIT_RUNTIME)
         direct = reference.form in ("require", "import_equals")
         common_lookup = relative and direct and not explicit
         if not type_only:

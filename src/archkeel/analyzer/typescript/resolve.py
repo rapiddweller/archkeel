@@ -16,7 +16,7 @@ import re
 from dataclasses import dataclass
 from typing import Final, Literal
 
-from .config import Config, Json, Snapshot, join
+from .config import Config, Json, Snapshot, decode, join
 
 Format = Literal["esm", "cjs"]
 Kinds = tuple[str, ...]
@@ -97,9 +97,9 @@ def package_name(specifier: str) -> str:
     return "/".join(parts[:2]) if specifier.startswith("@") else parts[0]
 
 
-def _truthy(value: object) -> bool:
-    """JavaScript truthiness for a JSON value: an empty object still counts."""
-    return value not in (None, False, 0, "")
+def _declares_exports(manifest: Json) -> bool:
+    """Whether `exports` is truthy in JavaScript, where an empty object still counts."""
+    return manifest.get("exports") not in (None, False, 0, "")
 
 
 def _best_pattern(
@@ -200,7 +200,7 @@ class Resolver:
             return None
         self._reads.add(manifest)
         try:
-            value = json.loads(str(raw, "utf-8", "replace").lstrip("﻿"))
+            value = json.loads(decode(raw))
         except ValueError:
             return Unknown(f"Package metadata is not valid JSON: {manifest}")
         return (
@@ -304,7 +304,7 @@ class Resolver:
         return (
             isinstance(manifest, dict)
             and manifest.get("name") == name
-            and _truthy(manifest.get("exports"))
+            and _declares_exports(manifest)
         )
 
     def _modules(
@@ -329,7 +329,7 @@ class Resolver:
             return root
         if root is not None and "typesVersions" in root:
             return Unknown(f"Package typesVersions are not observed: {name}")
-        if root is not None and self._exports_aware and _truthy(root.get("exports")):
+        if root is not None and self._exports_aware and _declares_exports(root):
             return Unknown(f"Package exports are not observed: {specifier}")
         candidate = join(modules, specifier)
         # An ECMAScript import of the package root never infers an extension.
@@ -340,7 +340,7 @@ class Resolver:
         if isinstance(nested, Unknown):
             return nested
         found = self._worker(candidate, nested or root, esm, kinds)
-        defaulted = esm and not rest and root is not None and not _truthy(root.get("exports"))
+        defaulted = esm and not rest and root is not None and not _declares_exports(root)
         if found is None and defaulted:
             return self._file(join(candidate, "index.js"), esm, kinds)
         return found

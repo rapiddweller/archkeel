@@ -80,8 +80,9 @@ _PRIORITY: Final = (
     (".cts", ".d.cts", ".cjs"),
     (".mts", ".d.mts", ".mjs"),
 )
-_STRINGS: Final = re.compile(r'"(?:[^"\\]|\\.)*"|//[^\n]*|/\*[\s\S]*?\*/')
-_TRAILING_COMMA: Final = re.compile(r'"(?:[^"\\]|\\.)*"|,(?=\s*[}\]])')
+# A string is captured so that a comment or a comma inside it survives.
+_STRINGS: Final = r'("(?:[^"\\]|\\.)*")|//[^\n]*|/\*[\s\S]*?\*/'
+_TRAILING_COMMA: Final = r'("(?:[^"\\]|\\.)*")|,(?=\s*[}\]])'
 _NOT_EXCLUDED: Final = r"(?!(?:node_modules|bower_components|jspm_packages)(?:/|\Z))"
 _DEEP: Final = rf"(?:/{_NOT_EXCLUDED}[^/.][^/]*)*?"
 # Per usage: the text a lone `*` stands for and the text `**` stands for.
@@ -171,7 +172,8 @@ class Snapshot:
 
     def _contained(self, absolute: str) -> str | None:
         """The snapshot-relative POSIX path of `absolute`, or None when it is outside."""
-        rel = os.path.relpath(absolute, self.root).replace(os.sep, "/")
+        relative: str = os.path.relpath(absolute, self.root)
+        rel: str = relative.replace(os.sep, "/")
         return None if is_outside(rel) or os.path.isabs(rel) else rel
 
     def real(self, rel: str) -> str | None:
@@ -223,19 +225,27 @@ class Snapshot:
             return files, directories
         for name in sorted(os.listdir(self._absolute(real))):
             child = join(rel, name)
-            (directories if self.is_dir(child) else files if self.is_file(child) else []).append(
-                name
-            )
+            if self.is_dir(child):
+                directories.append(name)
+            elif self.is_file(child):
+                files.append(name)
         return files, directories
 
     def installed(self, rel: str) -> bool:
-        return "node_modules" in (self.real(rel) or rel).split("/")
+        real: str = self.real(rel) or rel
+        return "node_modules" in real.split("/")
+
+
+def decode(raw: bytes) -> str:
+    """A JSON file's text without its byte order mark, as the compiler reads it."""
+    text: str = str(raw, "utf-8", "replace")
+    return text.lstrip("\ufeff")
 
 
 def _strip(text: str) -> str:
     """Remove JSONC comments and trailing commas, which the compiler's reader accepts."""
-    plain = _STRINGS.sub(lambda found: found[0] if found[0].startswith('"') else " ", text)
-    return _TRAILING_COMMA.sub(lambda found: "" if found[0] == "," else found[0], plain)
+    plain = re.sub(_STRINGS, lambda found: found[1] or " ", text)
+    return re.sub(_TRAILING_COMMA, lambda found: found[1] or "", plain)
 
 
 def _read_json(snapshot: Snapshot, rel: str) -> tuple[Json | None, str | None]:
@@ -243,7 +253,7 @@ def _read_json(snapshot: Snapshot, rel: str) -> tuple[Json | None, str | None]:
     if raw is None:
         return None, f"Cannot read file '{rel}'."
     try:
-        value = json.loads(_strip(str(raw, "utf-8", "replace").lstrip("\ufeff")))
+        value = json.loads(_strip(decode(raw)))
     except ValueError:
         return None, f"Cannot parse '{rel}' as JSON."
     return (value, None) if isinstance(value, dict) else (None, f"'{rel}' is not an object.")
@@ -275,26 +285,32 @@ def _overlay(low: _Layer, high: _Layer) -> _Layer:
     )
 
 
+def _slashes(spec: str) -> str:
+    """Config specs may use backslashes, which the compiler reads as separators."""
+    return spec.replace("\\", "/")
+
+
 def _under(value: str, directory: str, final: str) -> str:
     """A spec of a config in `directory`; `${configDir}` is the directory of the root config."""
     marker = "${configDir}"
     if value.startswith(marker):
-        return join(final, value[len(marker) :].lstrip("/") or ".")
+        tail: str = value[len(marker) :]
+        return join(final, tail.lstrip("/") or ".")
     return join(directory, value)
 
 
 def _extended(snapshot: Snapshot, entry: str, directory: str, problems: list[str]) -> str | None:
     """The TSConfig file an `extends` entry names; a package is not looked up."""
-    entry = entry.replace("\\", "/")
-    if not entry.startswith(("./", "../")):
-        problems.append(f"TSConfig extends through a package is not observed: {entry}")
+    named = _slashes(entry)
+    if not named.startswith(("./", "../")):
+        problems.append(f"TSConfig extends through a package is not observed: {named}")
         return None
-    path = join(directory, entry)
+    path: str = join(directory, named)
     if not snapshot.is_file(path) and not path.endswith(".json"):
-        path += ".json"
+        path = f"{path}.json"
     if snapshot.is_file(path):
         return path
-    problems.append(f"File '{entry}' not found.")
+    problems.append(f"File '{named}' not found.")
     return None
 
 
@@ -314,7 +330,7 @@ def _layer(
     for key in ("files", "include", "exclude"):
         value = raw.get(key)
         if isinstance(value, list) and all(isinstance(item, str) for item in value):
-            items = [item.replace("\\", "/") for item in value]
+            items = [_slashes(item) for item in value]
             partial = partial or any(posixpath.isabs(item) for item in items)
             specs[key] = [
                 _under(item, directory, final) for item in items if not posixpath.isabs(item)
@@ -441,7 +457,7 @@ def _wildcard_text(single: str) -> Callable[[re.Match[str]], str]:
 def _wildcard(spec: str, base: str, usage: str) -> str | None:
     """The compiler's regular expression for one file spec, over absolute-looking paths."""
     single, deep = _WILDCARDS[usage]
-    path = posixpath.normpath(posixpath.join("/", base, spec))
+    path: str = posixpath.normpath(posixpath.join("/", base, spec))
     components = [""] if path == "/" else path.split("/")
     if usage != "exclude" and components[-1] == "**":
         return None
@@ -476,7 +492,7 @@ def _supported(path: str, options: Options) -> bool:
 
 def _base_path(spec: str) -> str:
     """The directory a spec's walk starts from: everything before its first wildcard."""
-    path = "/" + spec if not spec.startswith("/") else spec
+    path: str = "/" + spec if not spec.startswith("/") else spec
     found = re.search(r"[*?]", path)
     if found is None:
         return path if "." not in posixpath.basename(path) else posixpath.dirname(path) or "/"
