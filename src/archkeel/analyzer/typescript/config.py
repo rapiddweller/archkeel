@@ -30,7 +30,6 @@ _UNMODELED: Final = (
     "customConditions",
     "resolvePackageJsonExports",
     "resolvePackageJsonImports",
-    "resolveJsonModule",
     "preserveSymlinks",
     "allowArbitraryExtensions",
     "noDtsResolution",
@@ -66,7 +65,20 @@ class Options:
     module_resolution: str | None = None
     target: str | None = None
     allow_js: bool = False
+    # Snapshot-relative directory of `baseUrl`, the `paths` patterns with their targets, and the
+    # directory those targets are relative to: `baseUrl`, else the TSConfig that sets them.
+    base_url: str | None = None
+    paths: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    paths_base: str = "."
     unmodeled: tuple[str, ...] = ()
+    json_modules: bool | None = None
+
+    @property
+    def resolve_json(self) -> bool:
+        """Whether `.json` files resolve: set explicitly, else on for NodeNext and Bundler."""
+        if self.json_modules is not None:
+            return self.json_modules
+        return self.emit_module in ("node20", "nodenext") or self.resolution == "bundler"
 
     @property
     def emit_module(self) -> str:
@@ -196,7 +208,7 @@ def _read_json(snapshot: Snapshot, rel: str) -> tuple[Json | None, str | None]:
     if raw is None:
         return None, f"Cannot read file '{rel}'."
     try:
-        value = json.loads(_strip(str(raw, "utf-8", "replace").lstrip("﻿")))
+        value = json.loads(_strip(str(raw, "utf-8", "replace").lstrip("\ufeff")))
     except ValueError:
         return None, f"Cannot parse '{rel}' as JSON."
     return (value, None) if isinstance(value, dict) else (None, f"'{rel}' is not an object.")
@@ -207,14 +219,38 @@ def _lowered(options: Json, key: str) -> str | None:
     return value.lower() if isinstance(value, str) else None
 
 
-def _options(raw: Json, problems: list[str]) -> Options:
+def _paths(raw: Json, problems: list[str]) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    value = raw.get("paths")
+    if value is None:
+        return ()
+    if not isinstance(value, dict):
+        problems.append("Compiler option 5024: 'paths' must be an object.")
+        return ()
+    patterns = []
+    for pattern, targets in value.items():
+        if pattern.count("*") > 1 or not (
+            isinstance(targets, list) and all(isinstance(item, str) for item in targets)
+        ):
+            problems.append(f"Compiler option 5061: paths pattern '{pattern}' is not valid.")
+        else:
+            patterns.append((pattern, tuple(str(item) for item in targets)))
+    return tuple(patterns)
+
+
+def _options(raw: Json, base: str, problems: list[str]) -> Options:
     resolution = _lowered(raw, "moduleResolution")
+    base_url = raw.get("baseUrl")
+    url = join(base, base_url) if isinstance(base_url, str) else None
     options = Options(
         _lowered(raw, "module"),
         _RESOLUTIONS.get(resolution, resolution) if resolution is not None else None,
         _lowered(raw, "target"),
         raw.get("allowJs") is True,
+        url,
+        _paths(raw, problems),
+        url or base,
         tuple(name for name in _UNMODELED if raw.get(name) not in (None, False, [])),
+        json_flag if isinstance(json_flag := raw.get("resolveJsonModule"), bool) else None,
     )
     emit, kind = options.emit_module, options.resolution
     # TS5110 and TS5095: the compiler refuses these pairs, so it observes no resolution.
@@ -366,8 +402,8 @@ def load_config(snapshot: Snapshot, tsconfig: str, roots: tuple[str, ...]) -> Co
     if "references" in raw:
         problems.append("Project references require separately observed projects")
     declared = raw.get("compilerOptions")
-    options = _options(declared if isinstance(declared, dict) else {}, problems)
     base = posixpath.dirname(tsconfig) or "."
+    options = _options(declared if isinstance(declared, dict) else {}, base, problems)
     listed = _discover(snapshot, base, raw, options, problems)
     if not listed and "references" not in raw:
         problems.append("No inputs were found in config file.")

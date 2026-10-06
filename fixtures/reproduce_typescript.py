@@ -35,6 +35,7 @@ from fixtures.demo_catalog_support import Variant, apply_overlay
 from fixtures.demo_catalog_typescript import VARIANTS, appended
 
 ADAPTER = Path(__file__).resolve().parents[1] / "packages/typescript-adapter/dist/entry.js"
+ORACLE = ("node", str(ADAPTER))
 
 
 @dataclass(frozen=True)
@@ -45,7 +46,10 @@ class Outcome:
     observation: Observation | None
 
 
-def repository(workspace: Path, variant: Variant, adapter: Path = ADAPTER) -> Path:
+def repository(
+    workspace: Path, variant: Variant, collector_argv: tuple[str, ...] | None = ORACLE
+) -> Path:
+    """Materialize one variant as a Git repository; None keeps the product's default collector."""
     root = workspace / variant.id
     shutil.copytree(variant.fixture, root)
     apply_overlay(root, variant.files)
@@ -57,9 +61,8 @@ def repository(workspace: Path, variant: Variant, adapter: Path = ADAPTER) -> Pa
             for line in config.read_text().splitlines()
             if not line.startswith("collector_argv")
         )
-        + "\ncollector_argv = "
-        + json.dumps(["node", str(adapter.resolve())])
         + "\n"
+        + (f"collector_argv = {json.dumps(list(collector_argv))}\n" if collector_argv else "")
     )
     for args in (
         ("init", "-q", "-b", "main"),
@@ -83,8 +86,10 @@ def repository(workspace: Path, variant: Variant, adapter: Path = ADAPTER) -> Pa
     return root
 
 
-def run_variant(workspace: Path, variant: Variant, adapter: Path = ADAPTER) -> Outcome:
-    root = repository(workspace, variant, adapter)
+def run_variant(
+    workspace: Path, variant: Variant, collector_argv: tuple[str, ...] | None = ORACLE
+) -> Outcome:
+    root = repository(workspace, variant, collector_argv)
     config = load_config(root)
     baseline = root / variant.baseline if variant.baseline else None
     observe = observer_for(
@@ -141,7 +146,9 @@ def command(root: Path, output: Path, label: str, *args: str) -> dict:
     return payload
 
 
-def check_revisions(workspace: Path, output: Path, adapter: Path = ADAPTER) -> dict:
+def check_revisions(
+    workspace: Path, output: Path, collector_argv: tuple[str, ...] | None = ORACLE
+) -> dict:
     root = repository(
         workspace,
         replace(
@@ -155,7 +162,7 @@ def check_revisions(workspace: Path, output: Path, adapter: Path = ADAPTER) -> d
                 ),
             },
         ),
-        adapter,
+        collector_argv,
     )
     path = output / "accepted.json"
     reported = command(root, output, "accepted-report", "report", "--output", str(path))
@@ -257,7 +264,7 @@ def main(argv: list[str] | None = None) -> int:
         output = args.output or Path(temporary)
         output.mkdir(parents=True, exist_ok=True)
         for variant in VARIANTS:
-            root = repository(output, variant, args.adapter)
+            root = repository(output, variant, ("node", str(args.adapter.resolve())))
             artifact = root / "architecture.json"
             commands = (
                 ("validate",),
@@ -334,7 +341,7 @@ def main(argv: list[str] | None = None) -> int:
                         for name, value in result["measurements"]["scalars"].items()
                     )
                 )
-        checked = check_revisions(output, output, args.adapter)
+        checked = check_revisions(output, output, ("node", str(args.adapter.resolve())))
         print(f"typescript-revisions: {checked['expectation_fulfilled']} (simulated host ordering)")
         if args.output:
             print(f"Artifacts: {output.resolve()}")

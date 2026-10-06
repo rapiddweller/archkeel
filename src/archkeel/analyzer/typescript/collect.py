@@ -17,6 +17,7 @@ from archkeel.ir.facts import (
     Capabilities,
     CollectionCoverage,
     EvidenceClass,
+    ExternalPackageTarget,
     FactSection,
     FileFact,
     ImportTarget,
@@ -43,7 +44,7 @@ from archkeel.ir.protocol import CollectionRequest, TypeScriptSettings
 
 from .config import Snapshot, join, load_config, within
 from .parse import Reference, Span, Syntax, parse
-from .resolve import Format, Resolver, Unknown, is_builtin
+from .resolve import Format, Found, Resolver, Unknown, is_builtin, is_relative, package_name
 
 _SECTIONS: tuple[SourceSectionName, ...] = ("imports", "unknowns")
 _SOURCE: Final = re.compile(r"\.(?:[cm]?ts|tsx|[cm]?js|jsx)$")
@@ -73,7 +74,8 @@ class _Collection:
         self.snapshot = Snapshot(request.snapshot.root)
         self.config = load_config(self.snapshot, settings.tsconfig, self.roots)
         self.resolver = Resolver(self.snapshot, self.config)
-        self.queue: dict[str, None] = dict.fromkeys(self.config.files)
+        # Every file to read, in discovery order; an entry added while walking is walked too.
+        self.queue: list[str] = list(self.config.files)
         self.evidence: dict[str, RawEvidence] = {}
         self.imports: list[RawRecord] = []
         self.gaps: dict[str, RawRecord] = {}
@@ -82,9 +84,10 @@ class _Collection:
         self.read = 0
 
     def facts(self) -> SourceFacts:
-        # The queue grows while it is walked: every local dependency is read, in scope or not.
-        for rel in self.queue:
-            self._file(rel)
+        index = 0
+        while index < len(self.queue):
+            self._file(self.queue[index])
+            index += 1
         for problem in sorted(self.snapshot.problems):
             self._gap(problem)
         inputs = tuple(
@@ -158,7 +161,8 @@ class _Collection:
         """Read a local dependency; it joins the walk when it is a source file in scope."""
         content = self.snapshot.read(rel)
         if content is not None and self._selected(rel) and _SOURCE.search(rel):
-            self.queue.setdefault(rel)
+            if rel not in self.queue:
+                self.queue.append(rel)
         elif content is not None:
             self._gap(f"Local dependency outside selected source scope: {rel}")
         return content
@@ -236,6 +240,8 @@ class _Collection:
             target_module, target_package = target.module, target.module.rpartition(".")[0]
         elif isinstance(target, BuiltinTarget):
             target_module = target_package = target.name
+        elif isinstance(target, ExternalPackageTarget):
+            target_module = target_package = target.package
         else:
             target_module = target_package = specifier
         self.imports.append(
@@ -306,22 +312,27 @@ class _Collection:
         return self._local(rel, module, reference, identity, found)
 
     def _local(
-        self, rel: str, module: str, reference: Reference, identity: str, found: str
+        self, rel: str, module: str, reference: Reference, identity: str, found: Found
     ) -> ImportTarget:
         specifier = reference.specifier or ""
-        if "node_modules" in found.split("/"):
-            return self._unresolved(
-                module, identity, specifier, f"Package files are not observed: {specifier}"
-            )
-        if self.snapshot.read(found) is None:
+        path = found.path
+        if self.snapshot.read(path) is None:
             return self._unresolved(
                 module, identity, specifier, f"Unavailable local target: {specifier}"
             )
+        if "node_modules" in path.split("/") or (not self._selected(path) and found.external):
+            if specifier.startswith("#"):
+                reason = f"External package alias identity is not observed: {specifier}"
+            elif is_relative(specifier):
+                reason = f"Unidentified external package: {specifier}"
+            else:
+                return ExternalPackageTarget(identity, package_name(specifier))
+            return self._unresolved(module, identity, specifier, reason)
         type_only = reference.type_only
         relative = specifier.startswith(("./", "../"))
         lookup = join(posixpath.dirname(rel) or ".", specifier)
-        declaration = found if _DECLARATION.search(found) else None
-        runtime = None if declaration else found
+        declaration = path if _DECLARATION.search(path) else None
+        runtime = None if declaration else path
         explicit = relative and _EXPLICIT_RUNTIME.search(specifier) is not None
         direct = reference.form in ("require", "import_equals")
         common_lookup = relative and direct and not explicit
@@ -333,22 +344,22 @@ class _Collection:
                     runtime = real
             elif declaration or (explicit and direct):
                 runtime = None
-                reason = (
-                    f"Runtime implementation unavailable for declaration: {found}"
+                self._gap(
+                    f"Runtime implementation unavailable for declaration: {path}"
                     if declaration
                     else f"CommonJS runtime file is unavailable: {specifier}"
                 )
-                self._gap(reason)
-        self._observe(found)
-        if not type_only and (not relative or common_lookup):
+        self._observe(path)
+        if not type_only and (not relative or found.directory_package or common_lookup):
             runtime = None
-            reason = (
-                f"CommonJS runtime target is not proven: {specifier}"
-                if common_lookup
-                else f"Local alias runtime conditions are not proven: {specifier}"
-            )
+            if common_lookup:
+                reason = f"CommonJS runtime target is not proven: {specifier}"
+            elif found.directory_package:
+                reason = f"Local directory runtime metadata is not proven: {specifier}"
+            else:
+                reason = f"Local alias runtime conditions are not proven: {specifier}"
             self._gap(reason, (), module)
-        file = runtime if not type_only and runtime else found
+        file = runtime if not type_only and runtime else path
         return LocalTarget(
             identity, module_identity(self.namespace, file), file, runtime, declaration
         )

@@ -311,10 +311,12 @@ def _require_concerns(source: _Source, concerns: list[Concern]) -> bool:
     modules = bool(source.captures("module_names").get("name"))
     for node in found.get("pair", []):
         key = node.children[0]
-        name = _literal(key) if key.type == "string" else _text(key)
+        computed = key.type == "computed_property_name"
+        inner = key.named_children[0] if computed and key.named_children else key
+        name = _literal(inner) if inner.type == "string" else _text(inner)
         # A computed key may select `require` from the module object by a name built at runtime.
-        unknown = key.type == "computed_property_name" and _literal(key.named_children[0]) is None
-        if name == "require" or (unknown and modules):
+        runtime_name = computed and inner.type != "string"
+        if name == "require" or (runtime_name and modules):
             concerns.append(Concern("Indirect require binding is not resolved", source.span(node)))
     return shadows
 
