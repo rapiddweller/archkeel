@@ -14,10 +14,10 @@ import pytest
 ROOT = Path(__file__).parents[1]
 GATE_STEPS = ["self-validate", "check", "build", "smoke"]
 CI_CHECK_STEPS = [
-    *GATE_STEPS,
     "ci-artifacts-clean",
-    "report-timing",
+    *GATE_STEPS,
     "demo-typescript",
+    "report-timing",
     "browser-install",
     "report-browser",
 ]
@@ -145,7 +145,8 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     check = workflow.split("  check:\n", 1)[1].split("\n  collector-safety-windows:", 1)[0]
     assert "BASE: ${{ github.event.pull_request.base.sha }}" in check
-    assert "run: make ci-check\n" in check
+    assert "run: make ci-core-check\n" in check
+    assert "run: make ci-report-check\n" in check
     assert "continue-on-error" not in check
     assert "timeout-minutes: 60" in check
     assert "Observe Archkeel" not in check
