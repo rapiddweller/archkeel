@@ -1,13 +1,12 @@
 # AD-199 Nested permissions pin the complete field
 
-Issue #342: a union member cannot stand in for its field declaration. The typed verdict retains
-both, correlated by finding before deduplication. Parent DTOs prefix paths without replacing leaf
-annotations. Exact matching uses collected text, including proven Optional spellings.
+Match nested permissions against the complete field declaration, not one union
+member. Correlate declarations and findings before deduplication; parent paths
+must retain leaf annotations and proven Optional spelling.
 
-A field selector must reach one declaration before matching members or container depth, including
-clean and UNKNOWN declarations. A compound-field permission selects one outer map. Multiple maps,
-ambiguous same-path fields and alias expansions stay unallowed; other bad members and UNKNOWN
-remain visible. Allowance FACTs retain the selected member when it differs from the declaration. Finding IDs stay unchanged.
+Resolve one declaration before selecting members or depth, including clean and
+UNKNOWN declarations. One compound-field allowance selects one outer map.
+Ambiguous same-path fields, aliases and multiple maps stay unallowed; neighboring
+findings and UNKNOWN survive. Facts retain selected members; IDs stay stable.
 
-No contract or wire-schema migration. Core semantics advance to 0.72.0 under AD-3.
-Check: `tests/test_boundary_type_nullable_fields.py`; existing direct/contained allowance tests.
+[Field-selector proof](../../../tests/test_boundary_type_nullable_fields.py).

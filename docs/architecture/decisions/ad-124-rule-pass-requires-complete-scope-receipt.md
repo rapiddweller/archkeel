@@ -1,21 +1,13 @@
 # AD-124 A rule PASS requires a complete scope receipt
 
-`complete_requires` and `interface_boundary` receive PASS only when their evaluator
-records a receipt for a non-empty scope with complete scan coverage and unique
-ownership. A single component with no crossings still has a completed evaluation.
-Empty scopes, missing declared packages, partial containing scopes, ambiguous owners,
-and unowned modules have no receipt. A Python package initializer with no AST
-statements (empty, comment-only, or whitespace-only) is the sole unowned-module
-exception. Docstrings and imports are statements and keep their ownership
-obligation; lack of recorded static imports alone does not prove that an
-initializer has no runtime side effects or dynamic imports.
+A rule PASS requires an evaluator receipt for a nonempty, completely scanned scope
+with unique ownership. Empty or missing packages, partial containing scopes and
+ambiguous or unowned modules cannot supply it. Physical paths and recorded module
+identity both participate; unmappable domains cannot be omitted.
 
-The aggregate `declared_rules` verdict is UNKNOWN when any non-declaration rule
-assessment is UNKNOWN, even when no counted unknown position explains the missing
-receipt. A known violation remains FAIL, and incomplete observations remain UNKNOWN.
+Only AST-empty Python initializers are exempt from ownership. Docstrings and imports
+retain that obligation; no static imports does not prove absence of runtime effects.
+Any undecidable non-declaration rule makes `declared_rules` UNKNOWN unless a known
+violation proves FAIL.
 
-Python scope proof follows physical directories and the recorded module identity.
-An unmappable observed domain cannot be omitted from completeness checks.
-
-Initial receipt support used analyzer `0.60.0`; AST-empty and physical-path
-corrections use `0.62.0` (#232, #233; AD-3).
+[Coverage proof](../../../tests/test_inside_rule_coverage.py).

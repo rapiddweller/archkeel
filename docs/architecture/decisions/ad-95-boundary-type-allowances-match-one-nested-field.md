@@ -1,29 +1,14 @@
 # AD-95 A boundary type allowance names one nested field finding
 
-`boundary_types.allowed_positions` is an exact exception for an owned DTO field that crosses a
-declared facade. Its four coordinates are the facade function's `qualified_name`, signature
-`position`, relative `field_path`, and field `annotation`. It does not exempt a function or
-source. The outer signature annotation remains on the violation; an exact match removes only
-that nested finding and emits a `FACT` in `typing_signals` with the rule and function evidence.
-An unmatched allowance changes nothing and emits no fact.
+A boundary allowance identifies one finding by facade function, signature position, field path and
+exact collected annotation. It exempts neither the function nor the source. A match emits a FACT;
+unmatched allowances do nothing. Other findings and UNKNOWN survive.
 
-AD-199 preserves the complete leaf declaration beside each member finding. Nullable and proven
-Optional spellings match their own collected text, without semantic normalization. One outer map
-may be selected; other findings and UNKNOWN survive. Ambiguous declarations and multiple outer
-maps remain unallowed. Member-only permissions cannot pin a nullable field or union alias.
+[AD-199](ad-199-nested-permissions-pin-the-complete-field.md) pins complete nested declarations;
+[AD-123](ad-123-proven-mappings-are-broad-boundary-types.md) permits one exact top-level broad
+finding. Bare mappings cannot gain root permission.
+[AD-135](ad-135-exact-native-payloads-accept-opacity.md) permits explicitly declared object opacity
+without proving closure. Ambiguous or multiple matching maps remain unallowed.
 
-AD-123 later permits `field_path: ""` for an exact top-level parameter or
-return finding. It matches the complete signature annotation and exempts one
-top-level broad finding, including one inside an optional union. Nested maps,
-undeclared members, and UNKNOWN evidence remain visible. If there are multiple
-top-level broad findings, the root allowance matches none. A root allowance cannot name a
-bare `Dict`, `Mapping` or `MutableMapping`: the parser and schema reject it.
-AD-135 permits an exact `object` / `object | None` payload as accepted opacity, with explicit provenance;
-it does not prove type closure. Other bare mapping spellings never match a root allowance.
-
-The contract parser rejects malformed and duplicate entries. Adding an allowance widens the
-contract and `--against` requires an amendment; removing one narrows it. A bare `dict` remains a
-violation when the allowance names `dict[str, JsonValue]`.
-
-Check: `tests/test_boundary_types_nested_dtos.py`, `tests/test_contract_model.py`,
-`tests/test_widening.py`, `make self-observation`, and the self ratchet.
+Adding an allowance widens; removing it narrows. Proof:
+[test_boundary_type_allowances.py](../../../tests/test_boundary_type_allowances.py).

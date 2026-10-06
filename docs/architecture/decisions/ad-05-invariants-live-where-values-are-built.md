@@ -1,9 +1,8 @@
 # AD-5 Invariants live where values are built
 
-A value whose fields depend on each other
-checks that dependency in `__post_init__`, for example `ObservationResult` (no diagnostics means
-a complete observation) and `RatchetObservations` (measurements exist exactly when the status
-is `SUPPORTED`). Consumers narrow with ordinary control flow. Reason: `assert` disappears
-under `python -O` and hides the invariant from its owner. Check: the `CONSTRUCT-NO-ASSERT`
-rule in `architecture-contract.json`.
+Enforce dependent-field invariants in constructors. For example, completeness must agree with
+diagnostics, and a supported measurement must carry a value. Invalid objects should fail at
+creation; `assert` is unsuitable because optimized Python removes it.
 
+Proof: [test_model.py](../../../tests/test_model.py) and
+[test_diagnostics.py](../../../tests/test_diagnostics.py).

@@ -139,8 +139,7 @@ scan and contract.
 
 Exit meanings are defined [per command](docs/reference.md#exit-codes).
 
-Details: [rules](docs/rules.md) · [known limits](docs/known-limits.md) ·
-[command reference](docs/reference.md) · [roadmap](docs/roadmap.md).
+Read the [docs](docs/README.md).
 
 ## Development
 

@@ -1,17 +1,11 @@
 # AD-174 UML focus retains complete evidence
 
-The existing Focus control also filters standard UML scenes. It selects one exact
-entity ID and draws its incoming and outgoing neighbors. All typed connections
-between that entity and its neighbors remain visible, including uncertain sites.
+Focus standard UML scenes by exact entity ID, retaining every incoming/outgoing
+neighbor and typed connection, including uncertain sites. Show subset and full-level
+counts; Reset and navigation preserve the intended identities.
 
-Counts show the focused subset and the complete level. Reset restores the level;
-back navigation and view switching retain the chosen focus. Hover changes styling
-only. An isolated entity has no connection hit areas.
+This is a rendering filter. Graphs, evidence, Target intent and Core status remain
+complete, including Diff FAIL. Isolated entities have no connection hit areas.
+Readable zoom and scrolling do not prove global layout quality.
 
-This is a rendering filter. It changes no graph values, evidence, Target intent,
-Core assessment or verdict. Diff keeps its complete Core status visible.
-Automatic fit keeps focused views at least at 100% zoom; larger views scroll.
-Focus is not a global layout proof.
-
-Proof: `tests/test_uml_visual_acceptance.py` exercises Source, Target and Diff,
-an unrelated classifier, a Core FAIL, actual route geometry and restored identities.
+[Focus proof](../../../tests/test_uml_visual_acceptance.py).

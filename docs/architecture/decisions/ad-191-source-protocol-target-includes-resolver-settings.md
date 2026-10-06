@@ -1,18 +1,11 @@
 # AD-191 Source protocol Target includes resolver settings
 
-The independent IR Target includes PythonSettings, DartSettings and
-TypeScriptSettings, their public fields, ResolverSettings and PROTOCOL_VERSION.
-Requests reference the resolver union. Requests and responses reference the shared version.
-The module references each union variant at its evaluation scope.
+Declare resolver settings, their union and protocol version in the independent
+Source protocol Target. Requests and responses reference shared types and version;
+settings carry language/configuration, never policy, verdicts or rendering state.
 
-Settings select a language and resolver configuration. They carry no architecture rules,
-Target intent, verdicts or rendering state. Existing dataclasses and graph types are reused.
-No Analyzer or renderer change is required.
+Require known entities and relationships without adding closed scopes.
+Existing closed inventories remain in force; incomplete creation or mutation
+retains UNKNOWN. Constant identity and visibility do not prove its runtime value.
 
-These declarations require known entities and relationships. They add no closed scopes.
-Existing closed SourceFacts and protocol inventories remain in force; incomplete creation
-or mutation evidence stays UNKNOWN. The constant declaration checks identity and visibility,
-not its runtime value.
-
-Proof: independent intent against saved source facts, a deliberately changed language
-annotation, schema validation and As-Is/Target/Diff browser navigation.
+[Protocol Target proof](../../../tests/test_protocol_uml_target.py).

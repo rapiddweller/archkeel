@@ -1,15 +1,9 @@
 # AD-93 `boundary_types` follows owned declared DTO fields
 
-`boundary_types` recursively checks the fields of an owned declared DTO, including types reached
-through known collection and union members. It tracks origins on the active field path, so cycles
-stop while the same DTO reached through sibling fields is checked once per path.
+Recursively check fields of owned declared DTOs through supported collections and unions. Track
+origins on the active path to stop cycles; sibling paths remain independently checked. Preserve the
+signature annotation, field path and actual nested annotation on findings.
 
-Nested violations and undecidable positions retain the signature's `annotation`. Their `path`
-starts at the signature parameter or `return`, and `nested_annotation` names the field annotation
-that produced the finding. Contract schema stays unchanged; the analyzer version rises to
-`0.44.0` because observations change.
-
-Unsupported shapes and unresolved or ambiguous names remain UNKNOWN. This extends AD-84's bounded
-field read without adding runtime reflection or guessing at Python types.
-
-Check: `tests/test_boundary_types_facades.py`, `make self-observation`, and the self ratchet.
+Unsupported, unresolved and ambiguous shapes stay UNKNOWN. This extends
+[AD-84](ad-84-boundary-types-follow-declared-facade-reexports.md) without runtime reflection. Proof:
+[test_boundary_types_facades.py](../../../tests/test_boundary_types_facades.py).

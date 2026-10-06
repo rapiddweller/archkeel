@@ -1,15 +1,12 @@
 # AD-146 Analyzer identity selects the observation profile
 
-An observation's analyzer name selects exactly one profile. The published identities are
-`archkeel-python-analyzer`, `archkeel-dart-directives` and `archkeel-typescript-imports`;
-every other identity is rejected.
-The Python profile requires every section to be an array. The Dart profile emits `null` only
-for `symbols`, `references` and `bindings`.
-The TypeScript import profile also leaves `calls`, `typing_signals` and `constructs` null.
+Select exactly one observation profile from the published analyzer identity.
+Unknown identities are invalid; never infer Python capabilities from an unfamiliar
+producer. Unmeasured sections stay null according to that profile, rather than
+empty arrays suggesting a clean measurement.
 
-The decoder must not infer Python capabilities from an unfamiliar name. Doing so could turn a
-signal the producer never measured into a clean result. Synthetic observations use the same
-published identity as the profile they model.
+Python requires arrays throughout. Dart omits symbol/reference/binding measurements;
+TypeScript additionally omits call, typing and construct measurements. Synthetic
+observations follow the same identity contract.
 
-Check: `tests/test_codec.py` covers identity selection, required arrays, Dart null sections and
-canonical encoding/decoding.
+[Codec proof](../../../tests/test_codec.py).

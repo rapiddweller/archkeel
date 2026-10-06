@@ -1,42 +1,14 @@
 # AD-117 Report verdicts require evaluator evidence
 
-An empty finding list does not prove a rule ran (#159, #160).
+Render rule verdicts from evaluator receipts, violations and UNKNOWN evidence.
+An empty finding list does not prove that a rule ran; missing receipts cannot yield PASS.
+Permissions remain declarations. Known violations stay FAIL alongside undecided positions.
 
-The analyzer records each supported evaluator's actual scope and selected facts. The report
-projects those receipts, violations and shared UNKNOWN counts into typed rule rows. No receipt
-means UNKNOWN, not PASS. Permissions remain declarations. A failed rule retains its undecided
-positions; filtering UNKNOWN includes that mixed result without hiding its failure.
-AD-124 closes the earlier gap: an UNKNOWN non-declaration rule makes the aggregate UNKNOWN,
-not PASS. A known violation remains FAIL.
+An explicit read-only baseline classifies debt without changing the verdict.
+Resolution requires complete current evaluation of old subjects, including cycle members;
+narrowed scope cannot resolve omitted debt. Mixed fingerprints retain counts without
+assigning old debt to individual occurrences. Resolved means absent under current
+rules, not proven repair; use `validate --against` for policy widening.
 
-Analyzer profile `0.57.0` identifies the new evaluation facts. Observation and contract schemas
-stay unchanged; older observations without receipts cannot prove per-rule PASS.
-
-Cycle-scope completeness currently needs recursively covered Python roots. Module-cycle
-receipts require the full namespace, even when a smaller component scan may be closed.
-Dart and explicit `source_paths` scans retain observed cycle findings but cannot prove this
-completeness. Their per-rule result stays UNKNOWN unless a violation proves FAIL.
-
-An explicit, read-only baseline reuses the existing fingerprints, occurrence counts and cycle
-contraction logic. It never changes the observation or overall verdict. Resolution requires
-complete evaluation of the old subjects under the current rule, with no undecided positions.
-Narrowing a rule or scan cannot resolve debt outside that scope. Cycle contraction also needs
-coverage of the old cycle's members. A package's own receipt does not cover omitted descendants.
-Repeated occurrences share a group count; a mixed fingerprint assigns no old/new line identity.
-Only a fully shared fingerprint gets muted rows with KNOWN and FAIL markers. Mixed groups
-retain known/new counts without assigning old debt to a particular occurrence.
-
-Resolved means absent under currently evaluated rules, not proof that code was repaired.
-Baselines do not store historical rule definitions. Use `validate --against` to check contract
-widening; the report does not introduce a second history system.
-
-Keep the diagram primary. Reuse native tables, details and filters; no second report framework.
-Focused CLI views remain focused. Without JavaScript, all static evidence stays readable.
-
-The architect approved the self call budget change 536 → 562.
-`validate --against ce089cf` identifies 26 added source operations: analyzer 10
-(receipt/physical-scope lookups), check 7 (counting and baseline access), CLI 1 (the explicit
-baseline option), IR 2 (subject coverage), render 6 (grouping, filter options and assets).
-This is new code, not improved detection on unchanged code. The self scan retains 41 UNKNOWN
-positions, 53 typing positions, 0 violations, 0 cycle edges and 0 private crossings. No rule or
-violation exemption changes.
+[Receipt proof](../../../tests/test_inside_rule_coverage.py) and
+[baseline proof](../../../tests/test_baseline.py).

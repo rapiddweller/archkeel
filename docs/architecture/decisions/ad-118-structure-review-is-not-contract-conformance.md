@@ -1,16 +1,12 @@
 # AD-118 Structure review is not contract conformance
 
-Green top-level rules did not expose the CE experiment's overloaded interiors (#172).
-The shipped skill therefore reviews maintained physical packages recursively within the
-agreed scope, including folders without a contract.
+Review physical packages recursively within the agreed scope, including folders
+without contracts. Green rules cannot prove coherent interior responsibilities.
 
-More than seven direct children triggers a cohesion review, not a checker failure or an
-automatic split. Smaller mixed-responsibility packages need review too. Keep justified
-larger groups; do not create arbitrary buckets, wrapper packages or diagram-only boundaries.
+More than seven children triggers review, not failure or automatic splitting.
+Review smaller mixed packages too; keep justified larger groups. Avoid arbitrary
+buckets and diagram-only boundaries. Explicit contracts govern policy; folders
+remain structure. Record reviewed/deferred scope, exceptions and UNKNOWNs.
+Assessment authorizes no edits and proves no design quality.
 
-Explicit `inside` contracts govern deliberate boundaries. They do not replace physical
-review, and folders do not implicitly become contracts. Record reviewed and deferred areas,
-exceptions, uncertain decisions and enforcement limits. Assessment does not authorize edits.
-
-This is agent guidance, not a deterministic guarantee of design quality. Installer tests
-check distribution; independent scenario review checks the guidance's interpretation.
+[Agent guidance](../../../skills/archkeel/SKILL.md).

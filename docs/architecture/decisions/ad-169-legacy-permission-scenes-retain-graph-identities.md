@@ -1,18 +1,12 @@
 # AD-169 Legacy permission scenes retain graph identities
 
-Fresh report scenes read component details and import permissions from Core's
-authenticated `ArchitectureGraph`. Permission IDs, endpoint IDs, rationale,
-`through`, provenance and approval survive projection. Repeated permissions to
-the same component remain distinct. A dependency endpoint is its real component,
-including peers outside the opened level; it is not a placeholder rule card.
+Project legacy report permissions from Core's authenticated graph, retaining IDs,
+real endpoints, selectors, rationale and approval. Repeated declarations remain
+distinct; outside peers cannot become placeholder rule cards. Root and nested scenes
+share one ID-based projector.
 
-Root and nested scenes reuse one edge projector. Canonical endpoints resolve by
-ID. Older snapshots without a graph descriptor keep their compatibility path.
-Component roles and published/planned API intent remain inspectable. Permissions
-allow imports; they do not assert an import, call or UML conformance verdict.
+Older snapshots without descriptors retain their compatibility path. Published and
+planned APIs remain inspectable. Permissions allow imports without asserting observed
+use or UML conformance. Geometry and focus add no policy or verdict.
 
-The shared renderer still owns arrows, routes, focus and hit geometry. Core,
-analyzer policy and PR #277's process boundary are unchanged. Physical navigation,
-legacy Diff and the remaining legacy payload migration stay open.
-
-Proof: `tests/test_legacy_graph_rendering.py`; `make report-browser`.
+[Legacy-scene proof](../../../tests/test_legacy_graph_rendering.py).

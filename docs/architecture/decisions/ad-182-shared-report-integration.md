@@ -1,10 +1,11 @@
 # AD-182 Shared report integration
 
-One authenticated report replaces separate observed/Target renderer projections.
-IR owns its graph, codec and pure projections; Core owns comparison and uncertainty.
-The added facades and local render boundaries follow those responsibilities.
+Integrate one authenticated report instead of separate observed/Target projections.
+IR owns values, codecs and pure projections; Core owns comparison and uncertainty.
+Published facades follow those responsibilities.
 
-The [agent amendment](ad-182-shared-report-amendment.json) binds the exact contracts
-and baseline policies against `5eb67dc`. Bounded permission changes cover these facades and boundaries;
-measurement ceilings tighten. New receipt, classifier and navigation negatives
-must pass before 0.9.0 publication (#331).
+Approve only the amendment's bounded interfaces and dependency changes.
+The amendment binds exact contracts and baseline policy; it grants no broader API
+or completed architecture proof.
+
+[Bound amendment](ad-182-shared-report-amendment.json).

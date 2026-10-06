@@ -1,17 +1,12 @@
 # AD-158 Onboarding guidance keeps drafts neutral
 
-Successful init shows DRAFT while observation_complete stays PASS and exit stays 0.
-Existing measurements expose cycle edge positions; the terminal asks for cycle review
-without adding diagnostics or changing which rules init drafts.
+Successful init shows DRAFT while command completion remains PASS and exit zero.
+Cycle-review guidance changes neither diagnostics nor drafted rules. A completed
+draft is not architecture conformance.
 
-Missing contained config files have a typed failure. Only the default missing config
-suggests initialization for a new repository; existing setups restore their policy.
-Malformed, custom and unsafe paths retain corrective failures. SnapshotError during
-init names the Git-history prerequisite. Skill installation prints host invocation
-only in interactive output.
+Only a missing default config suggests initialization; existing policy must be
+restored. Malformed, custom and unsafe paths retain corrective failures.
+Snapshot failure names the Git-history prerequisite. Interactive skill output names
+host invocation. Replay permissions come from approved decisions, never observed imports.
 
-Onboarding and the canonical skill include executable requires/complete_requires
-fragments and distinguish declared_rules from command completion. The replay derives
-requires from pre-approved fixture decisions, retains narrow exclusions, explicitly
-owns the repository namespace facade and displays actual PASS and FAIL results.
-Shared fixtures and command-result schema scope remain unchanged.
+[Guidance proof](../../../tests/test_onboarding_guidance.py).

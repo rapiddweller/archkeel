@@ -1,35 +1,12 @@
 # AD-123 Proven mappings are broad boundary types
 
-`boundary_types` already rejects `dict[K, V]`: naming an open record's key and
-value types does not make its fields a declared model (AD-58). The same rule now
-applies to proven standard-library `Mapping[K, V]` and `MutableMapping[K, V]` bindings.
-Bare `Mapping` and `MutableMapping` with the same proven bindings produce that finding
-in parameters, returns, `Optional`/`| None` members and collection elements.
-Neither renaming `dict` nor dropping its
-parameters declares a record shape.
+Treat proven standard-library `Mapping` and `MutableMapping` like `dict`:
+key and value annotations do not declare record fields. Bare mappings also produce
+broad-type findings. Resolve members independently, retaining violations and UNKNOWN.
 
-The shared annotation reader still resolves both member types. An undeclared
-member remains a separate violation; an undecidable member remains UNKNOWN.
-Malformed arity remains UNKNOWN. A shadowed parameterized `dict`, `Dict` or `object` whose
-binding cannot be resolved remains UNKNOWN; a known bare local type can violate by evidence.
-A known violation and an undecidable member can coexist; an exact allowance removes only the
-violation, never the UNKNOWN.
-`allowed_positions` uses an omitted or empty `field_path` for a direct signature position and a named
-path for a nested field. The direct selector matches the complete outer annotation;
-neither selector exempts sibling or member-type findings.
-Container depth is retained in each finding, so identical type text at the
-root and inside a map or collection cannot make one allowance remove both.
+Allowances select exact positions, annotations and container depth; they cannot
+exempt siblings or member findings. Malformed or unresolved bindings remain UNKNOWN.
+Existing fingerprints may gain occurrences, so review baselines before accepting
+increased debt with `--write-baseline --accept-new`.
 
-Archkeel itself keeps three reviewed open maps: `FilesToWrite` accepts arbitrary
-paths and `run_check`/`Host` accept arbitrary environment names. Its own contract
-names each signature position exactly. The self-baseline drops from 48 to 40
-UNKNOWN positions; it gains no violation budget. A root allowance cannot name a bare `Dict`,
-`Mapping` or `MutableMapping` (AD-95); exact opaque `object` payloads are separate (AD-135).
-
-This changes analyzer results, so `ANALYZER_VERSION` rises to `0.59.0`. The
-DATAMIMIC CE demographic override exposed the gap: its public type correctly
-permits a weighted map, but the old analyzer reported only `generic` UNKNOWN.
-
-Upgrading: the new analyzer can report more violations under an existing baseline fingerprint
-(`dict[str, UndeclaredModel]` now counts the map and the member). Review existing baselines and
-re-accept them with `--write-baseline --accept-new`.
+[Mapping proof](../../../tests/test_boundary_types_mappings.py).

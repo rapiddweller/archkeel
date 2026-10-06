@@ -1,22 +1,12 @@
 # AD-150 TypeScript imports use a pinned npm collector
 
-The external npm package uses TypeScript Compiler API 5.9.3 for parsing and
-resolution. Its four source modules emit facts; Core retains policy and verdicts.
-`package.json` owns supported Node versions. Analysis installs nothing and never
-executes project code or scripts.
+Use a pinned npm collector using the TypeScript Compiler API.
+It emits facts; Core owns verdicts. Analysis installs nothing and executes
+no project code or scripts. Digests bind source and resolver bytes.
 
-Selected source and resolver inputs bind exact bytes to the revision. Explicit
-JavaScript runtime closure remains distinct from TypeScript and declarations.
-Non-explicit CommonJS targets, including extensionless, dotted-stem and directory
-specifiers, stay UNKNOWN. Compiler resolution does not prove Node runtime lookup.
-Direct CommonJS loads of explicit JavaScript also stay UNKNOWN when that physical
-file is absent. Static TypeScript imports keep compiler source semantics.
-Computed, indirect and incomplete imports stay UNKNOWN. Local value aliases and
-unproved runtime targets keep compiler evidence, null runtime_file and UNKNOWN
-coverage; unread runtime bytes are not claimed in the digest. Type-only aliases
-retain compiler resolution. Unavailable call, type, construct and private-use
-measurements stay null.
+Compiler resolution cannot prove Node runtime lookup. Non-explicit CommonJS targets
+and missing explicit JavaScript files remain UNKNOWN. Unproved value targets keep
+compiler evidence without a runtime file or unread-byte claim.
+Unavailable measurements stay null; publication requires separate proof.
 
-The package has its own source contract. Locked package verification and the CLI
-rule/revision demo have Make entry points. CI and publication require separate
-proof. See [the decision](../typescript-foundation-proposal.md).
+[Collector proof](../../../packages/typescript-adapter/test/adapter.test.mjs).

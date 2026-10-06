@@ -1,20 +1,12 @@
 # AD-196: Closed demo intent retains observation limits
 
-The open matching demo proved listed intent, not complete inventories.
-uml-complete extends the independently authored Python Target with closed scopes,
-the initializer, namespaces, external symbols, file inventory and internal
-State/VERSION uses. It never reads SourceFacts to construct Target intent.
+Extend the independent Python demo Target with closed scopes instead of merely
+matching listed intent. Target authoring never reads SourceFacts.
 
-Core rejects an unlisted definition. Complete static intent still yields UNKNOWN
-where the collector cannot prove exhaustive inventories. Neither the renderer nor
-the fixture changes Core policy or coverage to obtain PASS.
+Core rejects known unlisted definitions, but complete intent still yields UNKNOWN
+where collection cannot prove exhaustive inventory. Neither fixtures nor renderer
+may weaken coverage or policy to obtain PASS. Architecture views share projection;
+selected Details retains complete recorded checks. This demo proves no complete
+self-Target or cross-language parity.
 
-The shared renderer groups As-Is, Target and Diff as Architecture diagrams.
-Structure, Review and Actual remain Evidence views. Card status tooltips name
-recorded reasons; selected Details retains the complete checks.
-All architecture views share viewport alignment; identical overview geometry must remain
-identical on screen.
-
-Proof: tests/test_uml_demo.py, tests/test_report_interactions.py,
-tests/test_uml_visual_acceptance.py and make report-browser.
-Own Target completion, Dart/TypeScript parity and dense routing remain open.
+[Closed-demo proof](../../../tests/test_uml_demo.py).

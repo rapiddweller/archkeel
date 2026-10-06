@@ -1,15 +1,11 @@
 # AD-159: Reports use reader-facing copy and native colors
 
-HTML follows the system light/dark scheme through CSS. Inline code wraps on small screens;
-wide evidence tables retain their own scroll areas. Diagram and status colors stay readable.
+Use plain report labels and system light/dark colors, retaining identifiers,
+verdicts, provenance and handoff contents. Wrap code on small screens; wide evidence
+tables scroll independently. Put guidance beside the decision, not in empty failures.
 
-Visible labels use plain words. Finding IDs, assessments, verdicts, provenance and handoff
-contents keep their existing meaning. Report-mode guidance belongs beside the decision,
-not in an empty Failures list. Module counts use the singular for one module.
+Display a valid Python project name, falling back to namespace. Unreadable metadata
+cannot change a verdict. Rule help lists assessment IDs even without findings.
+This changes presentation only, with no new configuration or IR field.
 
-The CLI displays a valid raw Python `[project].name`, falling back to the configured namespace.
-Unreadable metadata, including symlink loops, cannot change a check verdict.
-This changes presentation only; no configuration or IR field is added. Other languages use
-the namespace. Invalid-rule help lists `rule_assessments[].id`, including rules with no failures.
-
-Checks: report HTML, real report/check CLI, filter remedy, mobile wrapping and themed UML.
+[Report proof](../../../tests/test_html_report.py).

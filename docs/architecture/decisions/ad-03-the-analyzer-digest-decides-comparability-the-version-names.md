@@ -1,7 +1,7 @@
 # AD-3 The analyzer digest decides comparability; the version names it
 
-Two observations are
-comparable only with equal `analyzer.code_digest`. `ANALYZER_VERSION` is the human label: its minor
-number rises when the same input yields different records, such as new rule kinds or signals.
-Check: `check/delta.py` compares digests; the version is reviewed with the D-self fixture.
+Comparable observations require equal analyzer `code_digest`. Equal version labels cannot prove
+equal behavior; the version is a human label and changes when record meaning changes. Comparisons
+must reject different digests rather than reinterpret old evidence.
 
+Proof: [test_delta.py](../../../tests/test_delta.py).
