@@ -16,7 +16,7 @@ import re
 from dataclasses import dataclass
 from typing import Final, Literal
 
-from .config import Config, Json, Snapshot, decode, join
+from .config import Config, Json, Options, Snapshot, decode, join
 
 Format = Literal["esm", "cjs"]
 Kinds = tuple[str, ...]
@@ -174,17 +174,20 @@ def _ancestors(rel: str) -> list[str]:
 
 class Resolver:
     def __init__(self, snapshot: Snapshot, config: Config) -> None:
+        options: Options = config.options
         self.snapshot = snapshot
-        self.options = config.options
+        self.options = options
         self.partial = config.partial
+        # A reason nothing can be resolved, when the settings in force are not all understood.
+        self.blocked = self._blocked()
+        self._json = options.resolve_json
         self._reads: set[str] = set()
 
     @property
     def _exports_aware(self) -> bool:
         return self.options.resolution in ("node16", "nodenext", "bundler")
 
-    def blocked(self) -> Unknown | None:
-        """A reason nothing can be resolved, when the settings in force are not all understood."""
+    def _blocked(self) -> Unknown | None:
         if self.partial:
             return Unknown("TSConfig settings are not fully observed")
         if self.options.unmodeled:
@@ -244,7 +247,7 @@ class Resolver:
         node10 = self.options.resolution == "node10"
         # Under Node10 the compiler looks for TypeScript everywhere before it looks for JavaScript.
         # JSON modules are tried with the JavaScript files, which come last.
-        last = ("js", "json") if self.options.resolve_json else ("js",)
+        last = ("js", "json") if self._json else ("js",)
         passes: tuple[Kinds, ...] = (("ts", "dts"), last) if node10 else (("ts", "dts", *last),)
         if is_relative(specifier):
             candidate = join(posixpath.dirname(importer) or ".", specifier)

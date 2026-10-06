@@ -334,7 +334,7 @@ def test_absolute_specifiers_are_unknown(
 def test_settings_the_resolver_does_not_apply_block_every_resolution(
     tmp_path: Path, options: dict[str, object], reason: str
 ) -> None:
-    blocked = _resolver(tmp_path, {"src/x.ts": _EMPTY}, options).blocked()
+    blocked = _resolver(tmp_path, {"src/x.ts": _EMPTY}, options).blocked
     assert blocked is not None
     assert reason in blocked.reason
 

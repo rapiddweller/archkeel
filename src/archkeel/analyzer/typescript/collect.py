@@ -171,7 +171,9 @@ class _Collection:
         return content
 
     def _file(self, rel: str) -> None:
-        content = self.snapshot.read(rel)
+        # A typed local lets the self-scan attribute these calls to the methods they reach.
+        snapshot: Snapshot = self.snapshot
+        content = snapshot.read(rel)
         if content is None:
             self._gap(f"Unreadable selected source: {rel}")
             return
@@ -181,7 +183,7 @@ class _Collection:
             self._gap(f"Source path has no module identity: {rel}")
             return
         self.read += 1
-        self.snapshot.select(rel)
+        snapshot.select(rel)
         text: str = str(content, "utf-8", "replace")
         evidence = file_evidence(self.evidence, rel, (text.partition("\n")[0],))
         self.files.append(
@@ -210,7 +212,8 @@ class _Collection:
 
     def _references(self, rel: str, module: str, syntax: Syntax) -> None:
         options = self.config.options
-        form = self.resolver.format_of(rel)
+        resolver: Resolver = self.resolver
+        form = resolver.format_of(rel)
         cjs = (
             rel.endswith((".cjs", ".cts"))
             or options.module == "commonjs"
@@ -296,7 +299,7 @@ class _Collection:
                 specifier,
                 f"Resolution mode override is not observed: {specifier}",
             )
-        if (blocked := self.resolver.blocked()) is not None:
+        if (blocked := self.resolver.blocked) is not None:
             return self._unresolved(module, identity, specifier, blocked.reason)
         if isinstance(form, Unknown):
             return self._unresolved(module, identity, specifier, form.reason)
