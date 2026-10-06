@@ -58,7 +58,12 @@ def test_architecture_json_is_compact_by_default_and_full_query_restores_details
     full_projection = full_payload["architecture_projection"]
     assert "permission_rules" not in compact_projection
     assert "policy_context" not in compact_projection
-    assert compact_payload["filtered_violations"] == []
+    assert "filtered_violations" not in compact_payload
+    assert compact_payload["filtered_violation_count"] == len(compact.filtered_violations or ())
+    assert compact_payload["violation_details_included"] is False
+    contradictory_compact = copy.deepcopy(compact_payload)
+    contradictory_compact["violation_details_included"] = True
+    assert list(validator.iter_errors(contradictory_compact))
     assert all("finding_count" in component for component in compact_projection["components"])
     assert full_projection["permission_rules"]
     assert "policy_context" in full_projection
@@ -69,10 +74,101 @@ def test_architecture_json_is_compact_by_default_and_full_query_restores_details
     assert {item["id"] for item in full_payload["filtered_violations"]} == {
         item.record.id for item in complete.filtered_violations or ()
     }
+    assert full_payload["filtered_violation_count"] == len(complete.filtered_violations or ())
+    assert full_payload["violation_details_included"] is True
+    contradictory_full = copy.deepcopy(full_payload)
+    contradictory_full["violation_details_included"] = False
+    assert list(validator.iter_errors(contradictory_full))
     assert compact_payload["declared_rules"] == full_payload["declared_rules"]
     assert compact.exit_code == complete.exit_code
     assert not list(validator.iter_errors(compact_payload))
     assert not list(validator.iter_errors(full_payload))
+
+
+def test_architecture_json_reports_selected_scope_violation_count(tmp_path, validator):
+    root = _root(tmp_path, "tour")
+    scoped_full, _ = run_report(
+        root,
+        config=CONFIG,
+        analyzer=observe,
+        only_architecture=True,
+        full_architecture=True,
+        component="store",
+    )
+    scoped, _ = run_report(
+        root, config=CONFIG, analyzer=observe, only_architecture=True, component="store"
+    )
+    full_payload = result_payload(scoped_full)
+    payload = result_payload(scoped)
+    global_count = scoped.measurements.scalars.violations
+    assert scoped.filtered_violations is not None
+    assert len(scoped.filtered_violations) < global_count
+    assert "filtered_violations" not in payload
+    assert payload["filtered_violation_count"] == len(scoped.filtered_violations)
+    assert payload["filtered_violation_count"] != global_count
+    assert payload["violation_details_included"] is False
+    assert payload["declared_rules"] == "FAIL"
+    assert not list(validator.iter_errors(payload))
+    assert len(full_payload["filtered_violations"]) == len(scoped_full.filtered_violations or ())
+    assert full_payload["filtered_violation_count"] == len(scoped_full.filtered_violations or ())
+    assert full_payload["violation_details_included"] is True
+    assert not list(validator.iter_errors(full_payload))
+
+
+def test_architecture_json_full_empty_and_unavailable_details_are_distinct(tmp_path, validator):
+    root = _root(tmp_path, "clean")
+    measured, _ = run_report(
+        root,
+        config=CONFIG,
+        analyzer=observe,
+        only_architecture=True,
+        full_architecture=True,
+    )
+    measured_payload = result_payload(measured)
+    assert measured.filtered_violations == ()
+    assert measured_payload["filtered_violations"] == []
+    assert measured_payload["filtered_violation_count"] == 0
+    assert measured_payload["violation_details_included"] is True
+    assert not list(validator.iter_errors(measured_payload))
+    contradictory_empty = copy.deepcopy(measured_payload)
+    contradictory_empty["violation_details_included"] = False
+    assert list(validator.iter_errors(contradictory_empty))
+    compact_measured, _ = run_report(root, config=CONFIG, analyzer=observe, only_architecture=True)
+    compact_measured_payload = result_payload(compact_measured)
+    assert "filtered_violations" not in compact_measured_payload
+    assert compact_measured_payload["filtered_violation_count"] == 0
+    assert compact_measured_payload["violation_details_included"] is False
+    leaked_details = copy.deepcopy(compact_measured_payload)
+    leaked_details["filtered_violations"] = []
+    assert list(validator.iter_errors(leaked_details))
+    assert not list(validator.iter_errors(compact_measured_payload))
+
+    broken_root = _root(tmp_path / "broken", "class-a-forbidden-dependency-pair")
+    (broken_root / "shop/app/broken.py").write_text("def broken(:\n")
+    unavailable, _ = run_report(
+        broken_root,
+        config=CONFIG,
+        analyzer=observe,
+        only_architecture=True,
+        full_architecture=True,
+    )
+    unavailable_payload = result_payload(unavailable)
+    assert unavailable.filtered_violations is None
+    assert unavailable_payload["filtered_violations"] is None
+    assert unavailable_payload["filtered_violation_count"] is None
+    assert unavailable_payload["violation_details_included"] is False
+    assert not list(validator.iter_errors(unavailable_payload))
+    contradictory_unavailable = copy.deepcopy(unavailable_payload)
+    contradictory_unavailable["violation_details_included"] = True
+    assert list(validator.iter_errors(contradictory_unavailable))
+    compact_unavailable, _ = run_report(
+        broken_root, config=CONFIG, analyzer=observe, only_architecture=True
+    )
+    compact_unavailable_payload = result_payload(compact_unavailable)
+    assert "filtered_violations" not in compact_unavailable_payload
+    assert compact_unavailable_payload["filtered_violation_count"] is None
+    assert compact_unavailable_payload["violation_details_included"] is False
+    assert not list(validator.iter_errors(compact_unavailable_payload))
 
 
 def test_nested_architecture_json_compact_and_full_schema_variants(tmp_path, validator):

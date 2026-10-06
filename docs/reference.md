@@ -73,16 +73,20 @@ archkeel report --input test-artifacts/architecture/architecture.json --only arc
 The compact Core projection keeps top-level intent and reduces nested components
 to identity, parent, responsibility, layer and finding count. Select an exact ID
 or scope with `--component` for that component's contract. Global verdicts,
-coverage, UNKNOWNs and baseline comparisons remain visible.
+coverage, UNKNOWNs and baseline comparisons remain visible. Compact JSON omits
+`filtered_violations`, reports the selected-scope `filtered_violation_count`
+(`null` when unavailable), and sets `violation_details_included` to `false`.
 
 ```bash
 archkeel report --input architecture.json --only architecture --full --json
 ```
 
 `--full` restores `permission_rules`, `policy_context` and complete violation records;
-it also works with live reports and `--component`. `--only violations` queries full
-finding rows directly. Assignment findings name candidate `owners` (or `none`) and
-`remedy`. Observed imports never establish permission.
+it also works with live reports and `--component`. Full JSON includes the selected
+`filtered_violations` array, including `[]` when the measured count is zero, and sets
+`violation_details_included` to `true`; unavailable rows remain `null` with a null count
+and `false`. `--only violations` queries full finding rows directly. Assignment findings
+name candidate `owners` (or `none`) and `remedy`. Observed imports never establish permission.
 
 Saved queries read recorded evidence without rescanning, verifying current files
 or writing artifacts. `--input` cannot combine with `--root`, `--config`,

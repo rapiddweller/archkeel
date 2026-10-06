@@ -2019,7 +2019,7 @@ def _architecture_component_payload(
 
 def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
     envelope = architecture_command_envelope(result)
-    payload = _raw_object(asdict(envelope))
+    payload = _raw_object(asdict(replace(envelope, filtered_violations=())))
     if result.report_filter is not None:
         payload["report_filter"] = _report_filter_payload(result.report_filter)
     full_architecture = bool(result.report_filter and result.report_filter.full_architecture)
@@ -2065,15 +2065,19 @@ def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
         }
         for item in result.diagnostics
     ]
-    component_scopes, gaps, remedy = _violation_context(result.architecture_projection)
-    filtered_violations = [
-        _filtered_violation_payload(item, component_scopes, gaps, remedy)
-        for item in envelope.filtered_violations
-    ]
+    rows = result.filtered_violations
+    payload["filtered_violation_count"] = len(rows) if rows is not None else None
+    payload["violation_details_included"] = full_architecture and rows is not None
     if full_architecture:
-        payload["filtered_violations"] = filtered_violations
+        if rows is None:
+            payload["filtered_violations"] = None
+        else:
+            component_scopes, gaps, remedy = _violation_context(result.architecture_projection)
+            payload["filtered_violations"] = [
+                _filtered_violation_payload(item, component_scopes, gaps, remedy) for item in rows
+            ]
     else:
-        payload["filtered_violations"] = []
+        del payload["filtered_violations"]
     for name in ("baseline_path", "baseline_comparisons", "baseline_new", "baseline_resolved"):
         if payload[name] is None:
             del payload[name]

@@ -58,10 +58,17 @@
           "$ref": "#/$defs/ArchitectureCommandView"
         },
         "filtered_violations": {
-          "type": "array",
-          "items": {
-            "$ref": "urn:archkeel:command-result:5.0.0#/$defs/filteredViolation"
-          }
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:5.0.0#/$defs/filteredViolation"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "command": {
           "enum": [
@@ -120,6 +127,20 @@
               "type": "null"
             }
           ]
+        },
+        "filtered_violation_count": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "violation_details_included": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -130,8 +151,9 @@
         "diagnostics",
         "report_filter",
         "architecture_projection",
-        "filtered_violations",
-        "schema_version"
+        "schema_version",
+        "filtered_violation_count",
+        "violation_details_included"
       ],
       "additionalProperties": false,
       "allOf": [
@@ -154,6 +176,9 @@
             ]
           },
           "then": {
+            "required": [
+              "filtered_violations"
+            ],
             "properties": {
               "architecture_projection": {
                 "required": [
@@ -194,6 +219,52 @@
                     }
                   }
                 }
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "filtered_violations": {
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "filtered_violations"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "filtered_violation_count": {
+                      "type": "integer"
+                    },
+                    "violation_details_included": {
+                      "const": true
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "filtered_violation_count": {
+                      "type": "null"
+                    },
+                    "violation_details_included": {
+                      "const": false
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "filtered_violations"
+              ]
+            },
+            "properties": {
+              "violation_details_included": {
+                "const": false
               }
             }
           }

@@ -358,6 +358,8 @@ def test_cli_report_json_output_is_filtered(tmp_path: Path, capsys: pytest.Captu
     }
     assert len(result["filtered_violations"]) == 1
     assert result["filtered_violations"][0]["rule_ids"] == ["DEP-STORE-NO-MONEY"]
+    assert "filtered_violation_count" not in result
+    assert "violation_details_included" not in result
     # Unfiltered totals still name every violation (AD-60): the filter narrows what is shown.
     assert result["measurements"]["scalars"]["violations"] == 21
     assert result["declared_rules"] == "FAIL"

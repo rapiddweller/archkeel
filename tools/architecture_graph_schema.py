@@ -217,6 +217,29 @@ def command_schema() -> dict[str, object]:
     definitions_envelope = definitions["ArchitectureCommandEnvelope"]
     if not isinstance(definitions_envelope, dict):
         raise TypeError("generated command schema has invalid envelope")
+    envelope_properties = definitions_envelope["properties"]
+    envelope_required = definitions_envelope["required"]
+    if not isinstance(envelope_properties, dict) or not isinstance(envelope_required, list):
+        raise TypeError("generated command schema has invalid envelope fields")
+    envelope_properties["filtered_violation_count"] = {
+        "anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]
+    }
+    envelope_properties["violation_details_included"] = {"type": "boolean"}
+    envelope_properties["filtered_violations"] = {
+        "anyOf": [
+            {
+                "type": "array",
+                "items": {"$ref": "urn:archkeel:command-result:5.0.0#/$defs/filteredViolation"},
+            },
+            {"type": "null"},
+        ]
+    }
+    envelope_required[:] = [name for name in envelope_required if name != "filtered_violations"]
+    envelope_required.extend(
+        name
+        for name in ("filtered_violation_count", "violation_details_included")
+        if name not in envelope_required
+    )
     definitions_envelope["allOf"] = [
         {
             "if": {
@@ -229,6 +252,7 @@ def command_schema() -> dict[str, object]:
                 "required": ["report_filter"],
             },
             "then": {
+                "required": ["filtered_violations"],
                 "properties": {
                     "architecture_projection": {
                         "required": ["permission_rules", "policy_context"],
@@ -246,7 +270,31 @@ def command_schema() -> dict[str, object]:
                             }
                         },
                     }
-                }
+                },
+                "allOf": [
+                    {
+                        "if": {
+                            "properties": {"filtered_violations": {"type": "array"}},
+                            "required": ["filtered_violations"],
+                        },
+                        "then": {
+                            "properties": {
+                                "filtered_violation_count": {"type": "integer"},
+                                "violation_details_included": {"const": True},
+                            }
+                        },
+                        "else": {
+                            "properties": {
+                                "filtered_violation_count": {"type": "null"},
+                                "violation_details_included": {"const": False},
+                            }
+                        },
+                    }
+                ],
+            },
+            "else": {
+                "not": {"required": ["filtered_violations"]},
+                "properties": {"violation_details_included": {"const": False}},
             },
         }
     ]

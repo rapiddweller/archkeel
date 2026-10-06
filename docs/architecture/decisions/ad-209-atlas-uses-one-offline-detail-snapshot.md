@@ -4,4 +4,6 @@ Atlas publishes one self-contained detail page beside the report. A component or
 
 The Atlas payload carries Core-derived rule findings and dependency balances. UI counts reference those records rather than reconstructing policy from diagram edges.
 
+This supersedes AD-204's per-component sidecars; the shared detail snapshot is the only HTML detail payload.
+
 HTML omits unused source-record ID lists and duplicated audit metadata. Canonical JSON retains those records and references; displayed entities, relationships, findings and evidence remain unchanged.
