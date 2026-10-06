@@ -377,15 +377,15 @@ def _cell_reasons(
             continue
         for item in applicable:
             if item.id in proven:
-                reasons.add(f"{item.id}: complete evaluator receipt covers this import.")
-                continue
-            reason = (
-                core_assessments[item.id].reason
-                if not item.evaluation_proven
-                else "Core left this import site undecided."
-                if item.id in undecided
-                else "No complete evaluator receipt covers every import site."
-            )
+                reason = "complete evaluator receipt covers this import."
+            else:
+                reason = (
+                    core_assessments[item.id].reason
+                    if not item.evaluation_proven
+                    else "Core left this import site undecided."
+                    if item.id in undecided
+                    else "No complete evaluator receipt covers every import site."
+                )
             reasons.add(f"{item.id}: {reason}")
     if uncovered:
         reasons.add("Complete evidence is missing for one or more import sites.")
