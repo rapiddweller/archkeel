@@ -173,7 +173,7 @@ commit, candidate. Fetched refs, ancestry and unchanged bound inputs are require
 E must be published before H submission; commit dates prove no host ordering.
 Trusted host receipts are required. Local/synthetic replays do not prove authenticity;
 GitHub event history alone cannot prove first publication. [Protocol tests](../tests/test_git_lock.py)
-and [host adapters](../src/archkeel/host/) define supported evidence.
+and [host evidence boundaries](architecture/archkeel.md#host-evidence) define supported evidence.
 
 Plugins reuse the CLI skill. See [plugin instructions](../plugins/archkeel/README.md)
 for installation; listing and publication remain separate acceptance steps.
