@@ -47,6 +47,25 @@ flowchart LR
 
 Graphs do not prove complete Target conformance. Read the native report's coverage and UNKNOWNs.
 
+## Host evidence
+
+The packaged CLI injects the GitLab [Host adapter](../../src/archkeel/host/gitlab.py).
+GitHub collection is repository CI tooling: [`make github-pr-report`](../../tools/github_pr_report.py)
+runs through `gh` in this repository's workflow. It is not a packaged GitHub Host adapter.
+Recent events remain UNKNOWN; only an authenticated initial-PR receipt can prove
+the scoped ordering described in [AD-143](decisions/ad-143-initial-pr-head-proves-scoped-order.md).
+Caller-supplied `--host-records` require caller authentication.
+
+## Evidence boundaries
+
+Component `layer` values are contract intent; `layer_order` checks declared permissions
+([AD-201](decisions/ad-201-layers-assess-declared-permissions.md)). A `requires` permission
+does not prove structural Protocol conformance.
+The Node [TypeScript collector](../../packages/typescript-adapter/) has its own scan contract;
+it is outside the root scan and is not a declared external component on the root map.
+Missing source evidence remains UNKNOWN. Proposed contract extensions are tracked in
+[#356](https://github.com/rapiddweller/archkeel/issues/356).
+
 ## Decisions
 
 [Internal decision archive](decisions/README.md). Read individual records when reviewing a specific change.
