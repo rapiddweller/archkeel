@@ -20,7 +20,7 @@ from .architecture_graph import (
     ReportFinding,
     RuleAssessment,
 )
-from .decisions import rule_assessments
+from .decisions import _rule_receipt_complete, rule_assessments
 from .interfaces import component_owners, owner_of
 from .levels import inside_levels
 from .model import (
@@ -105,6 +105,8 @@ def _rule_applies(
     assessment: RuleAssessment,
     source: str,
     target: str,
+    site: Record,
+    site_findings: tuple[ReportFinding, ...],
     source_owners: set[str],
     target_owners: set[str],
     intents: dict[str, ComponentIntent],
@@ -117,6 +119,15 @@ def _rule_applies(
         "sibling_isolation",
     }:
         return False
+    if (
+        site.data.get("under_type_checking") is True
+        and declaration.data.get("include_type_checking", True) is False
+    ):
+        return False
+    if assessment.kind == "forbidden_dependency":
+        allowed_sources = declaration.data.get("allowed_sources")
+        if isinstance(allowed_sources, tuple) and site.data.get("source_module") in allowed_sources:
+            return False
     parent_scope = text_value(declaration.data.get("parent_id")) or None
     if parent_scope is not None and parent_scope not in scope_ids:
         return False
@@ -141,6 +152,11 @@ def _rule_applies(
                     target_selector in {target_id, target_intent.label}
                 )
                 if source_match and target_match:
+                    return True
+            elif assessment.kind == "interface_boundary":
+                if target_intent.public is not None and not any(
+                    item.kind == "forbidden_dependency" for item in site_findings
+                ):
                     return True
             elif assessment.kind == "sibling_isolation":
                 source_member = next(
@@ -192,6 +208,7 @@ def _cells(
         )
     }
     declarations = {item.id: item for item in model.records("declarations") or ()}
+    imports = {item.id: item for item in model.records("imports") or ()}
     weights = {
         (identities[source], identities[target]): count
         for source, target, count in module_edges(model)
@@ -217,6 +234,7 @@ def _cells(
             report,
             core_assessments,
             declarations,
+            imports,
             memberships,
             intents,
             scope_ids,
@@ -235,6 +253,7 @@ def _import_cell(
     report: ArchitectureReport,
     core_assessments: dict[str, RuleAssessment],
     declarations: dict[str, Record],
+    imports: dict[str, Record],
     memberships: dict[str, set[str]],
     intents: dict[str, ComponentIntent],
     scope_ids: dict[str, str],
@@ -254,29 +273,56 @@ def _import_cell(
         if report.comparison
         else ()
     )
-    applicable = tuple(
-        item
-        for item in core_assessments.values()
-        if _rule_applies(
-            declarations.get(item.id),
-            item,
-            modules[source],
-            modules[target],
-            memberships[source],
-            memberships[target],
-            intents,
-            scope_ids,
+    site_results: list[tuple[tuple[RuleAssessment, ...], frozenset[str], frozenset[str]]] = []
+    for edge in edges:
+        site_records = tuple(
+            imports[identity] for identity in edge.record_ids if identity in imports
         )
-    )
-    proven = {
-        item.id
-        for item in applicable
-        if item.evaluation_proven
-        and item.undecided == 0
-        and _cell_receipt_proven(model, item, modules[source], modules[target])
-    }
-    status = _cell_status(findings, graph_assessments, applicable, proven)
-    reasons = _cell_reasons(findings, graph_assessments, applicable, proven, core_assessments)
+        if not site_records or len(site_records) != len(edge.record_ids):
+            site_results.append(((), frozenset(), frozenset()))
+            continue
+        for site in site_records:
+            site_findings = tuple(item for item in findings if edge.id in item.graph_subject_ids)
+            applicable = tuple(
+                assessment
+                for assessment in core_assessments.values()
+                if (declaration := declarations.get(assessment.id)) is not None
+                and _rule_applies(
+                    declaration,
+                    assessment,
+                    modules[source],
+                    modules[target],
+                    site,
+                    site_findings,
+                    memberships[source],
+                    memberships[target],
+                    intents,
+                    scope_ids,
+                )
+            )
+            undecided_sites = frozenset(
+                assessment.id
+                for assessment in applicable
+                if _site_undecided(model, assessment.id, site.id)
+            )
+            proven = frozenset(
+                assessment.id
+                for assessment in applicable
+                if assessment.evaluation_proven
+                and assessment.id not in undecided_sites
+                and _cell_receipt_proven(
+                    model,
+                    assessment,
+                    declarations[assessment.id],
+                    modules[source],
+                    modules[target],
+                )
+            )
+            site_results.append((applicable, proven, undecided_sites))
+    if source != target and weights.get((source, target)) != len(edges):
+        site_results.append(((), frozenset(), frozenset()))
+    status = _cell_status(findings, graph_assessments, site_results)
+    reasons = _cell_reasons(findings, graph_assessments, site_results, core_assessments)
     evidence = (
         {identity for edge in edges for identity in edge.evidence_ids}
         | {identity for item in findings for identity in item.evidence_ids}
@@ -299,16 +345,18 @@ def _import_cell(
 def _cell_status(
     findings: tuple[ReportFinding, ...],
     graph_assessments: tuple[GraphAssessment, ...],
-    applicable: tuple[RuleAssessment, ...],
-    proven: set[str],
+    site_results: list[tuple[tuple[RuleAssessment, ...], frozenset[str], frozenset[str]]],
 ) -> AssessmentStatus:
     evidence = findings + graph_assessments
     if any(item.status == "FAIL" for item in evidence):
         return "FAIL"
     if (
         any(item.status == "UNKNOWN" for item in evidence)
-        or not applicable
-        or len(proven) != len(applicable)
+        or not site_results
+        or any(
+            not applicable or len(proven) != len(applicable)
+            for applicable, proven, _ in site_results
+        )
     ):
         return "UNKNOWN"
     return "PASS"
@@ -317,40 +365,61 @@ def _cell_status(
 def _cell_reasons(
     findings: tuple[ReportFinding, ...],
     graph_assessments: tuple[GraphAssessment, ...],
-    applicable: tuple[RuleAssessment, ...],
-    proven: set[str],
+    site_results: list[tuple[tuple[RuleAssessment, ...], frozenset[str], frozenset[str]]],
     core_assessments: dict[str, RuleAssessment],
 ) -> set[str]:
     reasons = {item.title for item in findings} | {item.reason for item in graph_assessments}
-    for item in applicable:
-        if item.id in proven:
-            reasons.add(f"{item.id}: complete evaluator receipt covers this import.")
+    uncovered = False
+    for applicable, proven, undecided in site_results:
+        if not applicable or len(proven) != len(applicable):
+            uncovered = True
+        if not applicable:
             continue
-        reason = (
-            item.reason
-            if not item.evaluation_proven or item.undecided
-            else "No complete evaluator receipt covers this import."
-        )
-        reasons.add(f"{item.id}: {reason}")
+        for item in applicable:
+            if item.id in proven:
+                reasons.add(f"{item.id}: complete evaluator receipt covers this import.")
+                continue
+            reason = (
+                core_assessments[item.id].reason
+                if not item.evaluation_proven
+                else "Core left this import site undecided."
+                if item.id in undecided
+                else "No complete evaluator receipt covers every import site."
+            )
+            reasons.add(f"{item.id}: {reason}")
+    if uncovered:
+        reasons.add("Complete evidence is missing for one or more import sites.")
     reasons.update(
         f"{identity}: {core_assessments[identity].reason}"
         for finding in findings
         if finding.status == "UNKNOWN"
         for identity in finding.rule_ids
+        if identity in core_assessments
     )
     return reasons or {"No complete applicable import-rule assessment establishes this cell."}
 
 
 def _cell_receipt_proven(
-    model: Observation, assessment: RuleAssessment, source: str, target: str
+    model: Observation,
+    assessment: RuleAssessment,
+    declaration: Record,
+    source: str,
+    target: str,
 ) -> bool:
     subjects = {source} if assessment.kind == "forbidden_dependency" else {source, target}
     return any(
         record.kind == "rule_evaluation"
         and assessment.id in record.rule_ids
         and subjects <= set(record.subjects)
-        and record.data.get("assessment_complete", True) is True
+        and _rule_receipt_complete(declaration, record)
         for record in model.records("scope_observations") or ()
+    )
+
+
+def _site_undecided(model: Observation, rule_id: str, import_id: str) -> bool:
+    return any(
+        rule_id in item.rule_ids and (not item.fact_ids or import_id in item.fact_ids)
+        for item in model.records("unknowns") or ()
     )
 
 

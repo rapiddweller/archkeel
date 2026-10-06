@@ -2,9 +2,10 @@
 
 Module import cells report local import evidence separately from component permission.
 
-An observed import is `FAIL` when an applicable Core finding names that edge. It is `PASS` only
-when every applicable import rule has a complete evaluator receipt and no local finding names the
-edge. Otherwise it is `UNKNOWN`, with the undecided rule named when available.
+An observed import cell is `FAIL` when an applicable Core finding names an edge. It is `PASS` only
+when every contributing import site has at least one applicable rule and every applicable rule has
+a complete evaluator receipt. A skipped or unproven site keeps the cell `UNKNOWN` unless a finding
+makes it `FAIL`.
 Receipt subjects follow evaluator scope: `forbidden_dependency` covers the importer;
 boundary-wide rules cover both modules. Sibling selectors use the evaluator's package scopes.
 

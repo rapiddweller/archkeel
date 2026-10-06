@@ -31,12 +31,17 @@ def _sample(
     other_component=False,
     other_requires_core=False,
     extra_rules=(),
+    complete_requires=True,
+    rule_include_type_checking=True,
+    core_public=None,
 ):
     root, config = _repository(tmp_path)
     contract = json.loads((root / config.contract).read_bytes())
     contract.pop("declarations")
     contract["components"][0]["requires"] = []
     contract["components"][0]["exact_modules"] = list(core_exact)
+    if core_public is not None:
+        contract["components"][0]["public"] = list(core_public)
     peer = dict(contract["components"][0])
     peer.update(id="peer", label="peer", packages=["sample.peer"], namespace="sample.peer")
     peer["requires"] = [{"component": "core", "rationale": "Read the core interface."}]
@@ -64,15 +69,19 @@ def _sample(
         contract["components"].append(
             dict(contract["components"][0], id="overlap", label="overlap")
         )
-    contract["rules"] = [
-        {
+    rules = []
+    if complete_requires:
+        rule = {
             "id": "dependencies",
             "kind": "complete_requires",
             "rationale": "Each crossing must be explicitly granted.",
             "provenance": ["docs/target.md"],
             "decided_by": "architect",
         }
-    ] + list(extra_rules)
+        if not rule_include_type_checking:
+            rule["include_type_checking"] = False
+        rules.append(rule)
+    contract["rules"] = rules + list(extra_rules)
     if uml:
         contract["declarations"] = {
             "uml": {
@@ -107,6 +116,7 @@ def _sample(
     if own_importer:
         (root / "sample/core.py").write_text("import sample.core\n")
     for path, text in (extra_files or {}).items():
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
         (root / path).write_text(text)
     _, encoded = run_report(root, config=config, analyzer=observe)
     assert encoded is not None
@@ -141,6 +151,247 @@ def test_no_failure_does_not_authenticate_module_permission(tmp_path):
     cell = _root(model).cells[0]
     assert cell.status == cell.permission == "UNKNOWN"
     assert not cell.finding_ids
+
+
+@pytest.mark.parametrize(
+    ("include_type_checking", "expected"), [(True, "PASS"), (False, "UNKNOWN")]
+)
+def test_mixed_import_sites_require_evaluation_for_each_site(
+    tmp_path, include_type_checking, expected
+):
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        core_exact=("sample.unowned",),
+        rule_include_type_checking=include_type_checking,
+        extra_files={
+            "sample/peer.py": (
+                "import sample.core\n"
+                "from typing import TYPE_CHECKING\n"
+                "if TYPE_CHECKING:\n    import sample.core\n"
+            )
+        },
+    )
+    (cell,) = _root(model).cells
+    imports = {item.id: item for item in model.records("imports") or ()}
+    typed_sites = [
+        identity
+        for identity in cell.relationship_ids
+        if imports[identity].data.get("under_type_checking") is True
+    ]
+    runtime_sites = [
+        identity
+        for identity in cell.relationship_ids
+        if imports[identity].data.get("under_type_checking") is False
+    ]
+    assert cell.import_sites == len(cell.relationship_ids) == 2
+    assert len(runtime_sites) == len(typed_sites) == 1
+    assert cell.status == expected, cell.reasons
+
+
+def test_runtime_finding_still_fails_cell_with_skipped_type_only_site(tmp_path):
+    model = _sample(
+        tmp_path,
+        core_exact=("sample.unowned",),
+        rule_include_type_checking=False,
+        extra_files={
+            "sample/peer.py": (
+                "import sample.core\n"
+                "from typing import TYPE_CHECKING\n"
+                "if TYPE_CHECKING:\n    import sample.core\n"
+            )
+        },
+    )
+    (cell,) = _root(model).cells
+    assert cell.import_sites == 2
+    assert cell.status == "FAIL"
+    assert cell.finding_ids
+
+
+def test_missing_observed_site_cannot_borrow_weighted_pair_receipt(tmp_path, monkeypatch):
+    import archkeel.ir.module_explore as module_explore
+
+    model = _sample(tmp_path, permitted=True, core_exact=("sample.unowned",))
+    report = architecture_report(model)
+    assert report.observed is not None
+    observed = replace(
+        report.observed,
+        relationships=tuple(
+            item for item in report.observed.relationships if item.kind != "imports"
+        ),
+    )
+    monkeypatch.setattr(
+        module_explore, "architecture_report", lambda _: replace(report, observed=observed)
+    )
+    (cell,) = _root(model).cells
+    assert cell.import_sites == 2
+    assert cell.status == "UNKNOWN"
+
+
+def test_forbidden_allowed_source_cannot_cover_skipped_import_sites(tmp_path):
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        complete_requires=False,
+        extra_rules=[
+            {
+                "id": "source-rule",
+                "kind": "forbidden_dependency",
+                "source": "sample.peer",
+                "target": "sample.core",
+                "include_type_checking": True,
+                "allowed_sources": ["sample.peer"],
+                "rationale": "Record the allowed source exception.",
+                "provenance": ["docs/target.md"],
+                "decided_by": "architect",
+            }
+        ],
+    )
+    (cell,) = _root(model).cells
+    assert cell.status == "UNKNOWN"
+
+
+def test_interface_without_target_public_scope_cannot_prove_import_site(tmp_path):
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        complete_requires=False,
+        extra_rules=[
+            {
+                "id": "interface",
+                "kind": "interface_boundary",
+                "include_type_checking": True,
+                "rationale": "Imports use the target interface.",
+                "provenance": ["docs/target.md"],
+                "decided_by": "architect",
+            }
+        ],
+    )
+    (cell,) = _root(model).cells
+    assert cell.status == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    ("kind", "include_type_checking", "expected"),
+    [
+        ("complete_requires", True, "PASS"),
+        ("complete_requires", False, "UNKNOWN"),
+        ("forbidden_dependency", True, "PASS"),
+        ("forbidden_dependency", False, "UNKNOWN"),
+        ("interface_boundary", True, "PASS"),
+        ("interface_boundary", False, "UNKNOWN"),
+        ("sibling_isolation", True, "FAIL"),
+        ("sibling_isolation", False, "UNKNOWN"),
+    ],
+)
+def test_native_rule_evidence_tracks_type_only_site_applicability(
+    tmp_path, kind, include_type_checking, expected
+):
+    rule = {
+        "id": "site-rule",
+        "kind": kind,
+        "include_type_checking": include_type_checking,
+        "rationale": "Evaluate the import sites under this rule.",
+        "provenance": ["docs/target.md"],
+        "decided_by": "architect",
+    }
+    options = {
+        "complete_requires": {},
+        "forbidden_dependency": {
+            "source": "sample.peer",
+            "target": "sample.core",
+            "target_symbol": "OTHER",
+        },
+        "interface_boundary": {},
+        "sibling_isolation": {"members": ["sample.peer", "sample.core"]},
+    }[kind]
+    rule.update(options)
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        complete_requires=kind == "complete_requires",
+        rule_include_type_checking=include_type_checking,
+        extra_rules=[] if kind == "complete_requires" else [rule],
+        extra_files={
+            "sample/peer.py": (
+                "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import sample.core\n"
+            )
+        },
+        core_exact=("sample.unowned",),
+        **({"core_public": ["sample.core"]} if kind == "interface_boundary" else {}),
+    )
+    cell = _root(model).cells[0]
+    assert cell.import_sites == 1
+    assert cell.status == expected, cell.reasons
+
+
+def test_nested_interface_receipt_survives_ancestor_membership(tmp_path):
+    root, config = _nested_repository(tmp_path)
+    outer = json.loads((root / config.contract).read_bytes())
+    outer["components"][0].update(packages=["sample"], namespace="sample")
+    (root / config.contract).write_text(json.dumps(outer))
+    inner = json.loads((root / "inside.json").read_bytes())
+    inner.pop("declarations")
+    service = inner["components"][0]
+    service.pop("inside")
+    service["public"] = ["sample.core"]
+    inner["components"].append(
+        dict(
+            service,
+            id="PEER",
+            label="peer",
+            packages=["sample.peer"],
+            namespace="sample.peer",
+            public=None,
+            requires=[],
+        )
+    )
+    inner["rules"] = [
+        {
+            "id": "interface",
+            "kind": "interface_boundary",
+            "rationale": "Imports use the target interface.",
+            "provenance": ["docs/target.md"],
+            "decided_by": "architect",
+        }
+    ]
+    (root / "inside.json").write_text(json.dumps(inner))
+    (root / "sample/peer.py").write_text("import sample.core\n")
+    result, encoded = run_report(root, config=config, analyzer=observe)
+    assert encoded is not None and not result.diagnostics
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    report = architecture_report(model)
+    memberships = {item.component_id: set(item.module_ids) for item in report.memberships}
+    level = next(item for item in module_exploration(model) if item.parent_id == "ROOT")
+    (cell,) = level.cells
+    assert sum(cell.target_id in module_ids for module_ids in memberships.values()) > 1
+    assert cell.status == "PASS", cell.reasons
+
+
+def test_sibling_rule_excluding_type_only_site_cannot_prove_it(tmp_path):
+    model = _sample(
+        tmp_path,
+        complete_requires=False,
+        extra_rules=[
+            {
+                "id": "siblings",
+                "kind": "sibling_isolation",
+                "members": ["sample.peer", "sample.core"],
+                "include_type_checking": False,
+                "rationale": "Keep these packages isolated.",
+                "provenance": ["docs/target.md"],
+                "decided_by": "architect",
+            }
+        ],
+        extra_files={
+            "sample/peer.py": (
+                "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import sample.core\n"
+            )
+        },
+    )
+    (cell,) = _root(model).cells
+    assert cell.import_sites == 1
+    assert cell.status == "UNKNOWN"
 
 
 def test_complete_applicable_rule_receipt_proves_cell_status_without_permission(tmp_path):
@@ -299,6 +550,7 @@ def test_forbidden_rule_receipt_scoped_to_source_proves_import_cell(tmp_path):
     model = _sample(
         tmp_path,
         permitted=True,
+        complete_requires=False,
         core_exact=("sample.unowned",),
         extra_rules=[
             {
@@ -307,12 +559,16 @@ def test_forbidden_rule_receipt_scoped_to_source_proves_import_cell(tmp_path):
                 "source": "sample.peer",
                 "target": "sample.core",
                 "include_type_checking": True,
-                "allowed_sources": ["sample.peer"],
+                "target_symbol": "OTHER",
                 "rationale": "Record the allowed source exception.",
                 "provenance": ["docs/target.md"],
                 "decided_by": "architect",
             }
         ],
+        extra_files={
+            "sample/peer.py": "from sample.core import VALUE\n",
+            "sample/core.py": "VALUE = 1\n",
+        },
     )
     level = _root(model)
     (cell,) = level.cells
@@ -330,6 +586,7 @@ def test_forbidden_rule_cell_stays_unknown_without_complete_source_receipt(tmp_p
     model = _sample(
         tmp_path,
         permitted=True,
+        complete_requires=False,
         core_exact=("sample.unowned",),
         extra_rules=[
             {
@@ -338,12 +595,16 @@ def test_forbidden_rule_cell_stays_unknown_without_complete_source_receipt(tmp_p
                 "source": "sample.peer",
                 "target": "sample.core",
                 "include_type_checking": True,
-                "allowed_sources": ["sample.peer"],
+                "target_symbol": "OTHER",
                 "rationale": "Record the allowed source exception.",
                 "provenance": ["docs/target.md"],
                 "decided_by": "architect",
             }
         ],
+        extra_files={
+            "sample/peer.py": "from sample.core import VALUE\n",
+            "sample/core.py": "VALUE = 1\n",
+        },
     )
     sections = []
     for section in model.sections:
