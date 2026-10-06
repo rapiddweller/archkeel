@@ -1,14 +1,14 @@
 # AD-7 Determinism is measured, not assumed
 
-The inputs of one observation are source bytes at a
-commit, contract bytes, the installed Archkeel (analyzer and checker digests), `archkeel.toml`,
-the Python version and the repository directory name. Everything else is environment, and the
-emitted bytes must not depend on it. Three `report` runs on two clones with different parent
-paths, working directories, `PYTHONHASHSEED`, `TZ` and `LC_ALL`, plus one verbatim repeat, must
-produce byte-identical `architecture.json`, HTML report and stdout JSON without normalization. A
-field that would need normalization is a violation of this decision, not a probe adjustment.
-Reason: determinism is Archkeel's core promise, so it needs evidence like any other claim. Limit:
-equal bytes on one machine and Python build do not prove equality across Python versions,
-operating systems or inputs the probe does not vary. Check: `tests/test_determinism.py`, proven
-by an unsorted record subject list and an absolute source path, each of which fails it.
+One observation depends on source bytes at a commit, contract bytes, analyzer and checker digests,
+`archkeel.toml`, Python version and repository directory name. Output bytes must not
+depend on other environment values.
 
+Three `report` runs on two clones vary parent paths, working directories,
+`PYTHONHASHSEED`, `TZ` and `LC_ALL`; a fourth repeats one run verbatim.
+`architecture.json`, HTML and stdout JSON must match byte for byte. Normalization
+would hide a violation. This probe covers one machine and Python build, not other
+versions, operating systems or unvaried inputs.
+
+Check: `tests/test_determinism.py`. An unsorted record subject list and an absolute
+source path each fail it.

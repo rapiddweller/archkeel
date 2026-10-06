@@ -1,9 +1,9 @@
 # AD-111 Explicit inside contracts form one revision-bound tree
 
-One-level loading could leave a deeper declared rule unread while the report looked complete.
-One shared loader now follows every explicit `inside` reference for observation, validation,
-snapshots and comparison. It does not discover contracts from folders or impose a seven-item
-limit. A physical group is navigation; a mounted contract is a policy boundary.
+One-level loading could leave deeper declared rules unread. One shared loader follows every explicit
+`inside` reference for observation, validation, snapshots and comparison. It never discovers
+contracts from folders or imposes a seven-item limit. Physical groups provide navigation;
+mounted contracts define policy boundaries.
 
 ```mermaid
 flowchart LR

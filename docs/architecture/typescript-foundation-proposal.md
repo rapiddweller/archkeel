@@ -12,16 +12,9 @@ resolver this target needs. Python plus tree-sitter would add grammar/native
 dependencies and require a second module resolver; regex cannot resolve the
 observed syntax.
 
-The TypeScript adapter owns parsing, project resolution and its local IR. It emits
-validated `SourceFacts` through the configured process port. Python Core owns
-ownership, rule availability, evaluation, metrics and verdicts. Adapters receive
-revision, scope and resolver inputs; they never receive policy or decide PASS.
-See the [target](language-adapter-target.md) for physical ownership, contracts
-and interfaces.
-
-The package is under `packages/typescript-adapter/`. Its source is split across
-`entry.ts`, `project.ts`, `collect.ts` and `protocol.ts`; the Python scanner does
-not inspect `.ts`, so the npm package has its own architecture contract.
+The adapter emits validated `SourceFacts` through the configured process port;
+Python Core owns policy and verdicts. See the [target](language-adapter-target.md)
+for ownership, source layout, contracts and interfaces.
 
 ## Evidence and limits
 
@@ -60,11 +53,9 @@ this adapter adds no HTTP/broker observer or cross-language rule.
 
 ## Delivery and verification
 
-The work is split by dependency: active-profile validation (#274), language-aware
-revision evidence (#275), the TypeScript vertical slice (#276), then extension
-onboarding. Python and Dart use the same process port and retain their own parser,
-resolver and local IR. Replacement acceptance must prove the configured executable
-can return valid and invalid facts while Core retains all policy decisions.
+Replacement acceptance must prove the configured executable can return valid
+and invalid facts while Core retains policy decisions. Extension onboarding follows
+active-profile validation (#274), revision evidence (#275) and the vertical slice (#276).
 
 Acceptance requires the integrated local gate, independent review and exact-head
 Linux, native Windows and Node 22/24/26 CI. Package checks include a strict build,

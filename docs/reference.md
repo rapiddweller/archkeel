@@ -55,9 +55,7 @@ D-self verifies the checker and complete observation against two saved digests i
 Optional [`make rule-yield`](rule-yield.md) measures pinned rule findings and warm
 evaluator replays. Missing pass evidence remains unavailable; timings are outside IR.
 
-`string_literal_compare` also follows a module or class name bound exactly once to a `str` literal,
-including `Final`; imported, dynamic, conditional and reassigned names remain unknown, and Enum
-members are excluded (AD-80).
+Rule selectors and construct behavior are in the [rule catalog](rules.md).
 
 Collectors emit `runtime: {name, version, required}`. Core checks the actual runtime
 against comparator ranges such as `>=3.11,<4`; `||` separates alternatives. Missing,
@@ -97,32 +95,18 @@ including reached model fields (AD-137). Ambiguous substitutions remain UNKNOWN.
 An observation written before a section existed no longer
 decodes and fails closed with the missing section named (AD-3).
 
-`datetime.datetime` is a scalar leaf only when its explicit import binding is proven. Aliases
-and single module-member annotations use the same proof. Shadowed bindings and arbitrary
-external classes retain UNKNOWN; `object` remains a violation (AD-132).
-
-For `boundary_types`, an imported entry from an ordinary module is followed only when one
-unchanged literal `__all__` explicitly exports its unique import binding (AD-109). Other or
-ambiguous export forms remain UNKNOWN rather than being inferred from an import alone. A named
-type may be published through its owner's proven facade export. An uncertain route is not proof
-of publication, and another component's export does not make that type public for its owner.
+Facade annotation/re-export limits are in
+[the rule catalog](rules.md#class-a-deterministic-rules) and
+[known limits](known-limits.md#a-facade-type-position-is-not-always-decidable).
 
 The checker hashes its installed Python package separately from the analyzer digest.
 Delta schema 1.4.0 and expectation schema 1.2.0 bind `checker_digest`;
 the evaluator verifies the running package.
 Underscore-private imports belong to the Python decoded-IR profile in `check/python_profile.py`.
 
-`root_layout` is an exact allow-list for the immediate package or module children below its
-`root`. The parser requires each `allowed_children` entry to add exactly one name segment below
-`root`; the root itself, nested descendants, and entries under another root are contract-invalid
-(exit 2). The root module is ignored; missing allowed children are target work, not findings. An
-observed child outside the list is a baselineable violation.
-
-`declarations.compat` declares a moved-module shim as `{module, target, lifetime}`. The module
-and target must differ. The module must be scanned and contain only imports plus one literal
-`__all__`; every exported name must resolve only to the target, and product imports of
-the shim are invalid. `migration` entries produce a deterministic remaining-work count and list in
-ArchitectureIR and the HTML report; `permanent` entries do not.
+[`root_layout` and compatibility shims](rules.md#class-a-deterministic-rules)
+retain their contract rules. `declarations.compat` records migration work in IR/HTML;
+permanent shims do not add remaining-work counts.
 
 ## Git predicate
 
@@ -274,9 +258,7 @@ references retain their own constraints.
 Schema validation checks shape, not source authenticity, count arithmetic or conformance.
 
 `report` and `check --output` write `<output-stem>.report.html` and `<output-stem>.check.html`. The suffix separates commands; the stem separates runs.
-The `report` headline follows `declared_rules`: FAIL and UNKNOWN stay visible even on exit 0.
-Open decisions remain context. Use `archkeel validate --baseline architecture-baseline.json`
-with your existing baseline to gate changes; see onboarding to create a baseline.
+Use validation with your existing baseline to gate changes; reports remain read-only.
 Diff shows recorded imports through component ownership without requiring UML intent.
 Its inspector limits findings to the selected subject or opened scope. Expand
 **Global or unmapped findings** for evidence without a known graph subject (AD-200).
@@ -293,50 +275,45 @@ target is `budget.exceeded`; with one, only a new or removed name fails. A count
 complete - a whole-module facade whose `__all__` is not one untouched non-empty literal, a
 whole-module import of a facade module, a star import of a non-enumerated facade, or a name a
 non-enumerated facade does not list - is `budget.unknown` at exit 2 (AD-99).
-Without `--source` and `--namespace`, `init` scans the only top-level Python package under `src/`, or under the root when there is no `src/`; when several sit side by side it scans the one whose name matches `pyproject.toml`'s `[project] name` in wheel file-name form (runs of `-`, `_` and `.` become `_`, compared case-insensitively), and otherwise exits 2 with `scope_empty`, naming the packages it found and the name it compared (AD-47).
-`init --json` adds `open_decisions`, heaviest observed pair first, as evidence for choosing component `requires`; `validate --json` carries them only until the contract adds `complete_requires`, whose closed-world absence rule decides every unlisted pair (AD-15, AD-32). `validate` and `report` add `agent_decisions` as `[agent, total]` decisions: one rule declaration, one `requires` entry or one declared `public` list each, at either level, and one nobody attributed counts in the total alone (AD-16, AD-50), and `violations_by_rule` as `[rule, count]` pairs with `violations_by_component_pair` as `[source, target, count]` triples, heaviest first (AD-51); a violation that crosses no component pair, such as a construct or a cycle, appears only in the first. `init --json` also adds `draft_sizes`, one `{label, modules, inner_edges}` entry per drafted component, from the same aggregation `report`'s structure metrics use (AD-38); the terminal names whichever one uniquely leads by modules, or that none does.
-`validate --write-graph` rewrites the edges of the one marked component graph, `<!--
-archkeel-component-graph -->`, from the observed imports, and, where a page also carries `<!--
-archkeel-target-graph -->`, that marked target graph from `target_component_edges`: every pair a
-`requires` entry or an `allowed_dependency` rule permits (AD-57). Both are sorted the way `init`
-writes them (AD-46), and each is rewritten independently: a page may carry either marker, both, or
-neither, and only markers actually present are checked or written. The rest of the page stays as
-it was, and so do a rewritten block's diagram declaration, such as a `flowchart LR`, and its `%%`
-comments, ahead of the edges; a block without a declaration gets `graph TD`. It writes only a page
-that changes and names it in `artifact`; the observed marker still requires exactly one across the
-contract's provenance documents, or `graph.count` remains, while the target marker is silent when
-absent and `graph.count` only if it appears more than once. A block holding any other line, such as
-a `subgraph`, a labeled edge or a `classDef`, is not rewritten: `graph.drift` remains for that
-marker, and its remedy names the line and asks for the edges to be edited by hand; the diagnostic's
-subject always names which marker, for example `docs/architecture/shop.md (target graph)`. The page
-is read and written as UTF-8 with `\n` line endings. The demo rows `validation-graph-drift-write-graph`
-and `validation-graph-drift-subgraph` show both remedies for the observed marker on the shop sample,
-whose own page draws both graphs and (today) has them agree; `validation-target-graph-drift-write-graph`
-and `validation-target-graph-drift-subgraph` show the same two remedies isolated to the target marker,
-with the observed marker still passing.
+Without explicit Python scope, `init` selects the sole top-level package under
+`src/` (or the root if no `src/`). Multiple packages require one match with normalized
+`[project].name`: runs of `-`, `_`, `.` become `_`, case-insensitively. Otherwise
+`scope_empty` names packages and the compared name (AD-47).
 
-`validate --baseline <file>` holds the run against a file of known violations and selected
-measurement values, for a contract that states the target architecture and so is violated by
-the code that has yet to reach it
-(AD-52). Each entry names one violation by fingerprint — the rule ids it cites and its sorted
-`subjects`, the modules, construct owner or cycle members it is about — with the number of
-violations sharing it. No position enters a fingerprint, so an unrelated edit above a violating
-line leaves it alone, while the `VIO-` id in `architecture.json` still moves. Both lists are read in
-any order, so an entry whose subjects a text replace reordered still matches (AD-106). Counts must
-match the observation exactly: a higher one is reported as `new violation`, a lower one as `resolved
-violation`, both in `failures` with exit 1, so the budget only shrinks. A cycle whose members are a
-strict subset of a baselined cycle is `contracted violation`, written back like a resolved one
-(AD-98). A run whose baseline is exactly right exits 0 with `declared_rules: FAIL`. Results expose
-deterministic `baseline_new` and `baseline_resolved` counts. `baseline_new` counts fingerprints
-whose occurrence count rose, except a contracted cycle; `baseline_resolved` counts fingerprints
-whose occurrence count fell, so the baselined cycle a contraction shrank from counts there. Each
-changed fingerprint contributes one, not its occurrence-count delta. Only `rule.violated` is
-answered this way; every other diagnostic still exits 2, as does a baseline that cannot be read
-or lies outside the root (`baseline.invalid`). `--write-baseline` writes the observed violations to that same path only after
-comparing an existing file: resolved-only drift and contracted cycles may be written, while new or
-increased fingerprints refuse the write unless `--accept-new` is explicit; the refused run's last
-failure says so and names `--accept-new`, and none of its lines advises `--write-baseline` (AD-106).
-It writes nothing from a run that exited 2.
+`init --json` adds open pairs, heaviest first, and `{label, modules, inner_edges}`
+`draft_sizes`. Validation retains open pairs until `complete_requires` decides absence.
+Validation/report results count agent-owned rule declarations, `requires` entries
+and public lists at each level as `[agent, total]`; unattributed decisions count only
+in total. `violations_by_rule` uses `[rule, count]` and `violations_by_component_pair`
+uses `[source, target, count]`, heaviest first. Non-crossing violations appear only
+in the first (AD-15, AD-16, AD-38, AD-50, AD-51).
+
+`validate --write-graph` updates marked provenance diagrams from observed imports
+(`<!--
+archkeel-component-graph -->`) and permissions (`<!--
+archkeel-target-graph -->`).
+Each marker is checked/written independently. Provenance requires exactly one observed
+marker; Target is optional and duplicate markers produce `graph.count`.
+
+Sorted edge writing preserves the diagram declaration and leading `%%` comments;
+missing declarations default to `graph TD`. Other lines such as subgraphs, labeled
+edges or `classDef` prevent rewriting and keep `graph.drift` with a manual remedy.
+Diagnostics name the affected marker. Only changed pages are written, listed in
+`artifact`, as UTF-8 with `\n` line endings (AD-46, AD-57).
+See [the catalog](architecture-demo.md) for observed/Target write and subgraph cases.
+
+`validate --baseline <file>` compares known violation fingerprints and selected
+measurements with current evidence (AD-52). Fingerprints contain sorted rule IDs
+and subjects without positions; list ordering is irrelevant (AD-106). Counts must
+match exactly: rises are `new violation`, falls `resolved violation`, both exit 1.
+A strict subset of a baselined cycle is contracted debt, not a new cycle (AD-98).
+`baseline_new` and `baseline_resolved` count changed fingerprints, not occurrences.
+
+An exact baseline exits 0 even with `declared_rules: FAIL`. It answers only
+`rule.violated`; other diagnostics retain exit 2. Unreadable/outside-root baselines
+are `baseline.invalid`. Writes first compare existing files: resolved-only drift
+and contracted cycles can be written, while new/increased fingerprints require
+explicit `--accept-new`. Exit 2 writes nothing (AD-106).
 
 `declarations.measurement_budgets` may select `cycle_edges`, `private_crossings`,
 `typing_positions`, `calls_unresolved`, `untyped_private_accesses` and `unknown_positions`. Each
@@ -378,31 +355,22 @@ reach of one exact `public` module or symbol. `validate --baseline` then keeps t
 baseline failure and reports the required interface narrowing; it does not make unrelated or
 unroled entries valid (AD-85).
 
-Archkeel never turns missing or ambiguous evidence into a clean result. A seen position without
-one deterministic answer stays `UNKNOWN`; `PASS` covers only decided positions. Coverage reports
-decided and UNKNOWN positions separately (AD-90).
+`validate --against <ref>` compares the historical contract and optional baseline.
+New permissions or removed restrictions widen; their reverse narrows (AD-61):
 
-`validate --against <ref>` classifies every difference between the contract at that Git
-revision and the one being validated - and, with `--baseline`, the baseline file there too - as
-a widening (a new permission or a dropped restriction) or a narrowing, its harmless reverse
-(AD-61, #11). Enumerated per rule kind and per component field: a new `allowed_dependency` rule,
-a removed `forbidden_dependency`/`forbidden_construct`/`external_dependency_scope`/
-`complete_assignment`/`complete_external_scope`/`complete_requires`/`no_component_cycles`/
-`interface_boundary`/`sibling_isolation` rule, a gained `allowed_sources` or `exact_sources`
-entry, `include_type_checking` relaxed from true to false, a gained component `public` or
-`requires` entry, and a component added or removed, are each widening; every reverse is
-narrowing. Adding a component `namespace` is a narrowing placement restriction; removing or
-changing it is a widening. A `no_component_cycles` rule's `level` changing either way, a new
-`components` scope and a component dropped from it are widenings (AD-98). A padded violation
-entry, a raised measurement budget or a removed budget value is a widening too, compared against
-the baseline file at `--against`; a cycle that replaces the baselined cycle it lies inside is a
-narrowing (AD-98). Only a rule's
-or a `requires` entry's `rationale`, and every `provenance`, are neutral. Adding a measurement
-budget declaration narrows; removing one widens. Raising a facade or coupling budget's
-`max_names`, or removing the entry, widens, and so does a baseline that accepts a name its
-`--against` revision did not; lowering or adding one narrows (AD-99). Any other
-difference - an unrecognised rule kind's presence, a field no classifier names, `declarations`,
-`$schema` - fails closed as a widening. A package rename is compared away first (AD-105): the
+- New `allowed_dependency`, removed restriction rules, gained `allowed_sources`/
+  `exact_sources`, relaxed `include_type_checking`, added `public`/`requires`, and
+  added/removed components widen. `boundary_types` and `symbol_placement` are restrictions.
+- Adding component `namespace` narrows; removing/changing it widens.
+- Changing cycle `level` either way, adding a `components` scope or dropping its
+  member widens; removing the scope or extending it narrows (AD-98).
+- Padded violation counts, raised/removed measurement values, raised/removed name
+  ceilings and expanded accepted names widen. Contracted cycles narrow. Adding
+  measurement declarations narrows; removing them widens (AD-99).
+- Only rule/`requires` rationale and provenance are neutral. Unclassified differences,
+  including declarations and `$schema`, fail closed as widening.
+
+A package rename is compared away first (AD-105): the
 component packages that moved, such as `shop.render` to `shop.view`, propose a prefix
 substitution. It holds when every prefix relation among the old contract's and baseline's
 module names and the renamed prefixes survives it, when no module the scan reads or an import
@@ -588,10 +556,8 @@ chain, preserving overrides and bare named generic substitutions (AD-131). Priva
 implementation methods and known framework bases are excluded. Unresolved or ambiguous
 inheritance, multiple-base precedence and unsupported substitutions retain `api_surface_limit`
 UNKNOWN with source evidence. Builtins and external types are not package promises.
-It is one call because the two it replaced only ever composed, and the `Observation` between
-them was `ir`'s own model crossing the boundary this module exists to keep stable (AD-70); `ir`
-itself performs no I/O (AD-17), so the read lives in the facade, not in `ir.codec` as AD-54
-first placed it. A row carries `fingerprint`, `source_module`, `target_module`, `symbol`,
+The facade reads files and delegates decoding/derivation to `ir`; `ir` performs no I/O
+(AD-17, AD-64). A row carries `fingerprint`, `source_module`, `target_module`, `symbol`,
 `source_component`, `target_component` and `evidence_ids` instead of a positional record. A field a violation kind
 does not carry, such as a forbidden construct's `source_module`, is `None`, never a guessed
 value.
@@ -610,15 +576,10 @@ rows = [
 `row.fingerprint` is AD-52's `(rules, subjects)` pair, the stable key that survives an edit
 that moves the violating line without changing what the violation is; a stored baseline or a
 CI gate keys on it, not on the record `id` in `architecture.json`, which moves with the line.
-Not promised: the columnar file format `decode_canonical_model` inflates, and the internals of
-every `ir` module, `ir.baseline` and `ir.codec` included - `archkeel.api` is what stays stable
-across an `ir` refactor, not a shorthand for importing `ir` directly. `architecture-contract.json`'s
-`COMP-API` `requires` entry names *this* repository's own crossing into `ir` (AD-9, AD-32); it
-says nothing about what an outside reader may use, which is `archkeel.api.__all__` alone (AD-64).
-`archkeel.ir.codec.load_observation`, the pre-AD-64 path, is removed, not deprecated: the
-surface was days old at 0.4.x, so there is one supported way in, never two. `ViolationFingerprint`
-is declared beside `ViolationRow` because `row.fingerprint` hands it out, and a promise whose
-type is undeclared is the leak this declaration exists to prevent (AD-70).
+`archkeel.api` is the supported external surface. Columnar encoding and `ir`
+internals are private. The former `archkeel.ir.codec.load_observation` entry is
+removed; use `load_violations`. `ViolationFingerprint` is public because rows expose
+it (AD-64, AD-70).
 
 ## Regression checks
 

@@ -10,7 +10,7 @@ This guard preserves local proof and UNKNOWN; it adds no cross-run cache.
 The existing bound-name inventory also proves an absent name without another
 statement scan. Wildcard imports disable this absence proof.
 
-One complete self report records wall time and fails its measured CI budget.
+A complete self report records wall time; exceeding its measured CI budget fails.
 Report errors still fail. The budget measures observation, evaluation, and
 rendering together; fact validation remains at every existing boundary.
 

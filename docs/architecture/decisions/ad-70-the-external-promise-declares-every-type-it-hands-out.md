@@ -2,7 +2,7 @@
 
 ## What changes
 
-`archkeel.api` promised three names and handed out two types it never declared:
+The original API exposed undeclared `Observation` and `ViolationFingerprint` types:
 
 | Before | Type crossing the boundary | Declared? |
 |---|---|---|
@@ -10,7 +10,7 @@
 | `violation_rows(observation) -> tuple[ViolationRow, ...]` | `ir.model.Observation` | no |
 | `ViolationRow.fingerprint` | `ir.baseline.ViolationFingerprint` | no |
 
-The surface is now one call and three declared names:
+Replace the composed calls with:
 
 ```python
 from archkeel.api import load_violations
@@ -22,37 +22,23 @@ rows = load_violations(Path("architecture.json"))   # tuple[ViolationRow, ...]
 
 ## Why
 
-AD-64 promises `archkeel.api` stays stable while `ir` is free to change. A facade returning
-`ir`'s own `Observation` promises the whole model instead, which is the leak `boundary_types`
-reports inside this repository (AD-58, AD-63): a declared facade must not hand out a type no
-one declared. The external surface was held to a weaker standard than any internal component.
-
-The two functions only ever composed: nobody called `violation_rows` on an `Observation` they
-did not just load. Collapsing them removes the `Observation` from the boundary entirely rather
-than declaring it, which would have promised `ir.model` to consumers forever.
-
-`ViolationFingerprint` is declared rather than flattened into the row, because AD-52's row
-deliberately carries no second copy of `rules` and `subjects` -- one place to drift, not two.
+AD-64 leaves `ir` free to change. Returning its `Observation` would promise that
+model externally. Existing callers only composed load and row derivation; merge
+them to remove the leaked model. Declare the fingerprint rather than duplicate
+AD-52's rules and subjects on each row.
 
 ## Rejected
 
-| Alternative | Why not |
-|---|---|
-| Re-export and declare `Observation` | Promises `ir`'s whole model externally, the opposite of what AD-64 bought. |
-| Keep `load_observation` beside `load_violations` | Two supported ways in, one of them the leak. |
-| Copy `rules`/`subjects` onto the row | Two places for one identity to drift (AD-52). |
+Declaring `Observation` promises internal IR. Keeping the old load function retains
+the leak and two entry paths. Flattening fingerprints duplicates identity.
 
 ## Limit
 
-A consumer who wants more than violations has no entry now; adding one later is cheap, and it
-would carry its own declared types. This is free today because `archkeel.api` is unreleased:
-it arrived after 0.4.x, so no published promise is broken. That the declared *symbol* exists,
-not just its module, is checked by
-[AD-71](ad-71-a-promised-name-is-checked-against-the-modules-own-all.md).
+Consumers needing other evidence have no entry yet; a future entry must declare
+its types. The facade was unreleased after 0.4.x, so this breaks no published promise.
+[AD-71](ad-71-a-promised-name-is-checked-against-the-modules-own-all.md) checks declared names.
 
 ## Check
 
-`tests/test_violations.py::test_api_all_matches_the_names_reference_md_documents` reads the
-three names from the contract and asserts `archkeel.api.ViolationFingerprint` is the type
-`row.fingerprint` hands out; `test_load_violations_reads_the_canonical_report_bytes_back`
-proves the one call returns typed rows with no `Observation` in between.
+Violation tests compare contract exports, verify fingerprint identity and load
+typed rows with no intermediate `Observation` in the public call.

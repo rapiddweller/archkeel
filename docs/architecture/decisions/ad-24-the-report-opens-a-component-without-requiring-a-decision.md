@@ -1,12 +1,13 @@
 # AD-24 The report opens a component without requiring a decision
 
-The flow view may open a
-component and show its modules and the imports between them, derived from the same observation and
-from no contract field. Where the component declares no inside, nothing there is decided, so those
-edges are drawn as observed, never as conforming; a declared inside is recorded in that same
-observation and decides the pairs that cross its sub-components ([AD-34](ad-34-a-declared-inside-is-recorded-so-the-report-draws-it.md)). Reason: the data is already measured and never shown: 142 module edges, 74 of
-them inside a single component, with full module names. Looking inside costs nothing, while deciding
-inside is [AD-20](ad-20-a-level-is-its-own-contract-never-a-nesting-inside-one.md) and costs a contract of its own. Limit: a further step into a module can only use
-`symbols` and `calls`, and about one call in five stays unresolved, so such a view would show
-structure without proving relations. Check: the opened view renders from `architecture.json` alone.
+The flow view opens a component's modules and imports from the same observation,
+without a contract field. Without a declared inside, edges are observed, never
+conforming. A recorded inside decides pairs between its sub-components
+([AD-34](ad-34-a-declared-inside-is-recorded-so-the-report-draws-it.md)).
 
+The data already contained 142 module edges, 74 inside one component. Viewing them
+needs no decision; deciding them requires a contract
+([AD-20](ad-20-a-level-is-its-own-contract-never-a-nesting-inside-one.md)).
+A module view can use `symbols` and `calls`, but about one call in five remained
+unresolved, so it cannot prove every relation.
+Check: the opened view renders from `architecture.json` alone.

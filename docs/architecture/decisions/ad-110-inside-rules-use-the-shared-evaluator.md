@@ -30,16 +30,15 @@ only when all its displayed import sites were checked, with no relevant UNKNOWN 
 edge violation. Excluded `TYPE_CHECKING` sites are not checked. A module-cycle finding
 marks its implicated edges red. Green does not certify every property of a component.
 
-This changes rule evaluation, not contract depth or publication. Only one inside
-level is loaded; recursive contracts (#169) and child-local APIs (#170) are separate.
+This decision covers one inside level. Recursive contracts (#169) and child-local APIs (#170)
+are separate.
 Physical folder navigation is not a declaration of architecture boundaries.
 
 Approved on 2026-09-26: the self-baseline's unresolved-call budget moves 505 → 513.
 The implementation adds ten unresolved call sites and removes two; it does not change
 the call resolver. These are receiver methods and calls to a local error helper, not
-newly detected positions in unchanged code. A duplicate blank-module calculation was
-removed first. UNKNOWN stays 41; no rule violation is exempted. The higher count records
-the reviewed implementation's remaining analysis limits, not proof of runtime safety.
+newly detected positions in unchanged code. UNKNOWN stays 41; no rule violation is exempted.
+The higher count records analysis limits, not proof of runtime safety.
 
 Evidence: `test_inside_rule_parity.py`, `test_inside_rule_coverage.py` and
 `test_inside_rule_evidence_regressions.py`; the demo catalog includes clean and

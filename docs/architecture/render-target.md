@@ -26,8 +26,7 @@ carry their observed file paths. Target files remain independent file intent.
 External permissions and open dependency decisions retain their original meaning.
 Missing authenticated Target data cannot produce a Target diagram.
 
-The replaced Python flow/Target/Diff projections are removed. Core tests inspect
-original graph sites and findings; browser tests exercise the shared renderer.
+Core tests inspect original graph sites and findings; browser tests exercise the shared renderer.
 The component overview aggregates imports and permissions. External sites remain in Details
 and module drill-down. Module overviews keep definitions and type context. Relationship filters and
 Focus expose referenced operations. This changes the scene, never the graph or verdict.

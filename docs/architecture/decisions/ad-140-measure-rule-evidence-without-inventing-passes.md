@@ -5,14 +5,14 @@
 An optional `make rule-yield` tool measures clean pinned Python repositories.
 Reuse the existing scan and evaluators. Keep timings outside canonical IR.
 Report findings, UNKNOWN causes and existing aggregate assessment statuses.
-Capture boundary producer verdicts and population receipts. A reconciled ledger
-counts true passes only when violation and undecidability are both absent;
+Capture boundary producer verdicts and population receipts. Count passes only when
+the population reconciles and violation and undecidability are both absent;
 accepted allowances count separately. A violation and UNKNOWN can share a position.
 Keep symbol/occurrence and inherited origin identities; add receipt-only ambiguity.
 Non-boundary or unreconciled positional passes remain `null`.
 Existing dependency/interface generators and requires predicates expose import verdicts.
 Keep import IDs and scope; require generator completion and published evidence.
-Requires calls bind their existing import FACT receipts after the original filters.
+Requires binds existing import FACT receipts after the original filters.
 Observed passes never close an unowned facade scope or alter its UNKNOWN assessment.
 Per-rule import predicates are not unique repository import counts.
 An empty observed import population has zero passes, never an aggregate PASS count.
@@ -32,8 +32,7 @@ to invent exclusive or additive time.
 ## Why and limits
 
 UNKNOWN counts and resolver size alone do not measure useful decisions or cost.
-A global resolver API, new IR schema and metric CI gate add unevidenced complexity.
-This observational tool adds none of them. It supports Python only.
+The tool supports Python only, without a global resolver API, new IR schema or metric CI gate.
 
 The baseline and candidate retain source, policy and Python identity. The released
 0.8.4 analyzer and the chosen base have identical digests. EE's current contract

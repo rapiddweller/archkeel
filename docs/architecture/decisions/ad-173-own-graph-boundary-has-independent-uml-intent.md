@@ -15,11 +15,9 @@ responsibility or provenance does not create distinct intent. Different overload
 and observed definition-site IDs remain valid. Component owners retain separate architectural
 containment. Python signatures cannot repeat parameter names.
 
-Twelve declared class dependencies connect the shared value types. A signature
-uses parameters; an entity uses visibility and signatures; Target and graph
-values use entities, relationships, coverage and scopes. Comparison uses
-assessments and correspondences. These are UML dependencies, not assertions
-about runtime ownership or lifetime.
+Twelve declared class dependencies connect shared types: signatures use parameters; entities use
+visibility and signatures; Target and graph values use entities, relationships, coverage and scopes;
+Comparison uses assessments and correspondences. They assert no runtime ownership or lifetime.
 
 This first inner Target covers the shared graph boundary. Other IR helpers and
 components remain open work. No closed inventory or full-target claim is added.

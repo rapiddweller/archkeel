@@ -51,19 +51,17 @@ Current self measurements live in [`fixtures/D-self/result.json`](../fixtures/D-
 The historical internal 13-component service fixture (`docs/evidence/internal-service/`)
 recorded 998 unresolved (23.1%) and 380 partially resolved calls out of 4,318 analyzed.
 
-The resolver follows indexed names, import aliases, builtins and simple attribute chains. Since
-AD-37 it also follows a receiver whose type a literal or an annotation makes statically obvious,
-against a hand-written table of `list`/`dict`/`set`/`frozenset`/`tuple`/`str`/`Path` methods; a
-literal-typed receiver resolves, an annotated one only `partially_resolved`, because Python never
-checks an annotation at runtime. Since AD-40 a call result is typed too, but only from a closed
-table of documented library types: a constructor the import binding names (`hashlib.sha256()`,
-`argparse.ArgumentParser(...)`, Rich's `Console(...)` and `Table(...)`, `Path(...)`) and a method
-whose documented return is in that table (`add_subparsers`, `add_parser`, `relative_to`); such a
-receiver is `partially_resolved`, never `resolved`. It does not read return annotations in the
-analysed source or follow a value across a conditional reassignment, so a call on a project
-call result (`Repository(root).save(...)`), a receiver two attributes deep (`self.items.append`)
-and an attribute of an awaited value stay unresolved. An unresolved call is not proven dynamic
-at runtime.
+The resolver follows indexed names, imports, builtins and simple attribute chains.
+A closed method table covers `list`, `dict`, `set`, `frozenset`, `tuple`, `str` and
+`Path` receivers (AD-37). Literal-typed receivers can resolve; annotated receivers
+are only `partially_resolved` because annotations do not enforce runtime types.
+A second closed table types documented constructors and method results, including
+`hashlib.sha256`, `ArgumentParser`, Rich `Console`/`Table`, `Path`, `add_subparsers`,
+`add_parser` and `relative_to` (AD-40). These remain `partially_resolved`.
+
+Project return annotations, conditional reassignment, `Repository(root).save(...)`,
+`self.items.append` and attributes of awaited values remain unresolved.
+An unresolved call does not prove dynamic runtime behavior.
 
 `report --only calls --json` lists every unresolved and partially resolved call with its reason
 and owning component. A change in unresolved calls is named by file, caller and expression, not
@@ -78,94 +76,59 @@ leaves Git's listing unreadable; either way the field stays `null`, with a note.
 
 ## A facade type position is not always decidable
 
-`boundary_types` reads one annotation string per parameter and return of a declared facade
-function, plus direct public methods of a narrowly proven inherited generic base (AD-121). It
-decides a builtin, a bare `dict`/`object`, a bare name its module's import bindings or
-own class definitions resolve, and supported collections, unions and owned model fields
-recursively (AD-93). Supported collections include `list`, `tuple`, `set`, `frozenset`,
-`Sequence`, `Iterable`, `Iterator`, `Collection` and `AbstractSet`.
-Inherited proof covers one resolvable direct generic base with explicit `Generic[T]` parameters
-and bare class arguments; substitutions inside supported method annotations such as `list[T]` are
-followed. It does not prove inherited fields, constructors, or the full MRO. Class-local rebinding,
-imports, deletes, repeated bindings, or class-body control flow keep the effective inherited
-surface UNKNOWN rather than producing a definitive finding.
-Proven inherited findings retain `T` or `list[T]` as their source annotation and show the
-walk's concrete origins in the title and `resolved_types`; IDs and fingerprints do not change
-(AD-137). This reports existing proof and does not extend inheritance resolution.
-An imported facade entry in an ordinary module is followed only when one unchanged literal
-`__all__` explicitly exports its unique import binding (AD-109); other export forms remain
-undecidable.
-An unresolved, missing or unscanned public alias endpoint emits `boundary_type_route` UNKNOWN
-without inventing a function signature or parameter positions. Stable constants and classes are
-not facade functions; deletion, rebinding or an unsupported endpoint kind prevents that proof.
-A type's proven facade export counts as public only for its own component. Without a proven public
-route, an uncertain matching export is UNKNOWN; it does not hide a different private type's violation.
-It cannot decide arbitrary dotted names, unsupported generic shapes, unresolved forward references,
-missing annotations or types owned by no declared component. Since AD-67 the undecided part is
-reported rather than silent: each rule files one `boundary_type_limit` record in `unknowns` naming
-the positions it saw, the positions it decided and a count per undecidable kind. The record reports
-and never gates: it does not move `coverage.rules`, the diagnostics or the exit code. It does move
-`declared_rules`, the reported verdict a run's rules earned: a violation-free observation reads
-UNKNOWN there, not PASS, if an undecided position's reason is a real checker limit (a missing
-annotation, an unresolved dotted name and the like), but stays PASS when every undecided position is a
-type owned by no declared component (`external_type`), since that question never applied to begin
-with. A `public_api` entry the scan could not settle (`api_surface_limit`) moves it the same way,
-for the same reason: the contract declared something and nothing could decide it. Since AD-92 every
-other `unknowns` kind does too, except the standing disclaimers `dynamic_call_limit`,
-`context_alias_limit` and `private_attribute_access_limit`, and the same count is the
-`unknown_positions` scalar.
-An exact native `object` payload may be accepted as opaque (AD-135). Its allowance fact
-records that decision and provenance; it supplies no proof of static type closure.
-`datetime.datetime` is the only imported stdlib scalar leaf decided here (AD-132).
-Other external classes and uncertain bindings remain UNKNOWN.
-Proven standard-library mappings are broad boundary findings (AD-123), but unproven or
-malformed subscripted mapping annotations remain UNKNOWN; a bare name not proven to be a
-standard-library mapping (`from mylib import Mapping`) is judged like any other external type.
-An empty-path allowance can select one unique parameterized mapping contained in a collection or
-union only when its annotation matches the whole signature. Selection among multiple contained
-maps is unsupported; named aliases on the route to a contained map also remain unsupported. An
-allowed map does not clear UNKNOWN from an unresolved member or another branch.
+See [`boundary_types`](rules.md#class-a-deterministic-rules) for supported annotations, field
+walks, allowances and re-export rules. Checker limits remain explicit:
 
-A package or module facade may re-export a function. The analyzer follows the recorded
-re-export chain to the definition, but keeps the declared facade as the violation subject. Alias
-paths to one exact origin are decidable; distinct possible origins are reported as
-`ambiguous_facade` UNKNOWN. For an owned declared request or result class, it recursively checks
-declared fields and known collection or union members. A repeated class on the current path ends
-that branch. Ambiguous bindings, unresolved names and unsupported annotation shapes stay UNKNOWN;
-their records include the signature-rooted field path and the nested annotation.
+- Inherited methods and constructors follow a uniquely resolved local single-base
+  chain, including stable aliases and supported generic substitutions (AD-145).
+  Inherited fields and full MRO remain unproved. Missing/external bases, multiple
+  inheritance, cycles, rebinding, deletes and control flow retain UNKNOWN. Findings keep
+  source annotations and concrete `resolved_types` without changing IDs (AD-137).
+- Ordinary-module re-exports require one unchanged literal `__all__` and a unique
+  import binding (AD-109). Exact origin aliases are decidable; distinct origins are
+  `ambiguous_facade` UNKNOWN. Missing/unscanned alias endpoints produce
+  `boundary_type_route` without invented signature positions. Constants/classes
+  are not facade functions; unsupported or unstable endpoints prevent proof.
+- Public type routes apply only at their own component boundary. An uncertain
+  export remains UNKNOWN and cannot hide another private type's violation.
+- Arbitrary dotted names, unsupported generic shapes, unresolved forward references,
+  missing annotations and unowned types cannot be decided. Owned request/result
+  fields recurse through supported collections/unions; repeated classes end a branch.
+  Nested UNKNOWN records retain the signature-rooted field path and annotation.
+- `datetime.datetime` is the only imported stdlib scalar leaf (AD-132). Proven
+  stdlib mappings are broad findings (AD-123); malformed mappings and unresolved
+  external bindings remain UNKNOWN.
+- A contained-map allowance needs one unique parameterized mapping and the whole
+  signature annotation. Multiple contained maps and aliases on the route are
+  unsupported. An allowed map cannot clear UNKNOWN in another member or branch.
+- An exact native `object` allowance records accepted opacity and provenance,
+  not static type closure (AD-135).
 
-Historical measurement for AD-67, with the rule widened to the whole `archkeel` namespace:
-88 declared facade functions carried 258 positions. These are not current release counts.
+`boundary_type_limit` reports observed/decided positions and undecidable causes.
+It changes `declared_rules`, not diagnostics, `coverage.rules` or exit status.
+Real checker limits prevent PASS; positions owned by no component (`external_type`)
+are exempt because the rule does not apply there. `api_surface_limit` and other
+non-exempt UNKNOWN kinds likewise affect the aggregate (AD-92). Standing disclaimers
+`dynamic_call_limit`, `context_alias_limit` and `private_attribute_access_limit` are
+exempt. The `unknown_positions` scalar counts non-exempt uncertainty.
 
-| Outcome | Positions |
-|---|---:|
-| Decided: a violation | 39 |
-| Decided: a pass (79 builtin, 102 a declared type, directly or in a collection) | 181 |
-| Undecidable: a union | 18 |
-| Undecidable: a type owned by no declared component | 10 |
-| Undecidable: a nested or otherwise unentered subscript | 9 |
-| Undecidable: a bare name nothing resolves | 1 |
-
-A dotted name, a forward-reference string and an unannotated position were identifiable reasons
-for uncertainty in that measurement, not proven types. What a builtin is comes from
-`dir(builtins)` on the analyzer's own interpreter, so it is that Python build's answer, not a list
-kept by hand.
+[AD-67's historical measurement](architecture/decisions/ad-67-an-undecidable-boundary-position-is-unknown-not-silence.md)
+is not a current release count. Builtin names come from `dir(builtins)` on the
+analyzer's interpreter, so their vocabulary depends on that Python build.
 
 ## A facade budget needs names it can list
 
-A whole-module `public` entry is enumerated only when its `__all__` is one non-empty literal
-assignment and nothing else in the module touches `__all__`; `+=`, `.append`, `.extend`, a
-starred element, a second assignment or an import bound to `__all__` make it UNKNOWN, as does no
-`__all__` at all, since imports and computed assignments are public names the scan records no
-symbol for. `__all__ = []` is UNKNOWN too, because `interface_boundary` reads it as no `__all__`
-and lets every name through. The check is static: `globals()["__all__"] = ...` or
-`sys.modules[__name__].__all__.append(...)` changes `__all__` unseen. A whole-module import of a
-facade module, a star import of a non-enumerated facade, and a name a non-enumerated facade does
-not list prove no name, so a pair budget that sees one is UNKNOWN until its lower bound already
-exceeds. A name reachable through two declared modules
-counts once per module, and `TYPE_CHECKING` imports count toward a pair. Declare `__all__` or
-`module:Name` entries, and import names explicitly (AD-99). Archkeel's own facades are whole
-modules without `__all__`, so its contract pins pair budgets only.
+Whole-module `public` names require one non-empty literal `__all__` assignment.
+Mutation, starred elements, imports bound to `__all__`, repeated assignments,
+missing `__all__` or `__all__ = []` leave enumeration UNKNOWN. Runtime writes via
+`globals()` or `sys.modules` are unseen.
+
+Whole-module imports, non-enumerated star imports and unnamed facade uses cannot
+prove a name count. Pair budgets remain UNKNOWN unless their lower bound already
+exceeds the ceiling. A name reachable through two facade modules counts once per
+module; `TYPE_CHECKING` imports count. Declare literal `__all__` or `module:Name`
+entries and import names explicitly (AD-99). Own whole-module facades lack
+`__all__`, so the contract pins pair budgets only.
 
 ## Imports and constructs
 
@@ -276,11 +239,9 @@ tests cover those.
 
 ## One run observes one scope
 
-A run scans the roots and the one namespace its configuration names, and nothing else. A test
-tree beside the product is outside the product scan: a green product run names the roots it
-read (`All source files under shop were read and parsed; no source file beside them was
-read.`) and proves nothing about the tests. A second configuration governs them as their own
-scope (AD-101), which leaves these limits:
+A run observes only its configured roots and namespace. Product results prove
+nothing about an adjacent test tree. Use a second configuration for that scope
+(AD-101), with these limits:
 
 - Inside the test scope the product is an external package. `external_dependency_scope` decides
   which suites import it, by its top-level name only. A `forbidden_dependency` that targets one

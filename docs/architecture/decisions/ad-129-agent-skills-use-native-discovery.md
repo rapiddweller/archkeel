@@ -28,8 +28,7 @@ Manifest checks do not prove host activation, directory approval or a human pilo
 
 ## Evidence
 
-`tests/test_skill.py` checks native paths, canonical content, idempotency, byte preservation,
-malformed/duplicate markers, bundle overwrite rejection and compact-folder drift, regular loaded
-files, README prose and component limits. `tests/smoke_test.py` checks
-native installation from both built distributions. Codex 0.153.2 and Claude Code 2.1.257
-load one namespaced skill from the repository; no personal plugin installation is needed.
+`tests/test_skill.py` checks native installation, canonical bytes, idempotency, invalid markers,
+overwrite rejection, compact-folder drift and bundle contents. `tests/smoke_test.py` checks both
+built distributions. Codex 0.153.2 and Claude Code 2.1.257 loaded one namespaced repository skill
+without a personal plugin installation.

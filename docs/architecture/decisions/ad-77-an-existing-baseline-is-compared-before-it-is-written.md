@@ -2,34 +2,25 @@
 
 ## Decision
 
-`validate --baseline <path> --write-baseline` has two cases:
+`validate --baseline <path> --write-baseline` writes initial or resolved-only debt.
+New/increased fingerprints in an existing file exit 1 without an artifact unless
+`--accept-new` explicitly approves them. Exit 2 never writes a baseline.
+Validation without writing retains its comparison behavior.
 
-- A missing path is an initial baseline. Write the observed fingerprints.
-- An existing path is first compared with the observation. Resolved-only drift may be written.
-  New or increased fingerprints fail with exit 1 and produce no baseline artifact.
-- `--accept-new` is required to write new or increased fingerprints deliberately.
-
-The result carries deterministic counts of changed fingerprints as `baseline_new` and
-`baseline_resolved`. Each fingerprint contributes one regardless of its occurrence-count delta.
-Exit 2 diagnostics always produce no baseline artifact. `validate --baseline` without
-`--write-baseline` keeps the existing comparison behavior.
+`baseline_new` and `baseline_resolved` count changed fingerprints once each,
+regardless of occurrence-count differences.
 
 ## Why
 
-`--write-baseline` used to skip the comparison and overwrite an existing budget. A typo in a
-write command could therefore approve new debt. The baseline already has the comparison logic;
-the writer now uses that result before producing bytes.
+Writing had bypassed comparison and could accidentally overwrite the debt budget.
+Reuse baseline comparison before producing bytes.
 
 ## Rejected
 
-| Alternative | Why not |
-|---|---|
-| Always overwrite | Turns an accidental command into approval. |
-| Add a second baseline format | The existing fingerprint and count format is enough. |
-| Accept new findings implicitly | New debt needs an explicit reviewer-visible decision. |
+Implicit acceptance hides approval; a second baseline format adds no needed behavior.
 
 ## Check
 
-`tests/test_baseline.py` covers initial creation, resolved-only updates, refused new fingerprints,
-explicit `accept_new`, deterministic counts and exit-2 write refusal. The CLI test covers the
-same refusal and JSON counts. The validation demo catalog has a `baseline.accept_new` row.
+Baseline and CLI tests cover creation, resolution, refused additions, explicit
+acceptance, deterministic counts and exit-2 refusal. The demo catalog includes
+`baseline.accept_new`.

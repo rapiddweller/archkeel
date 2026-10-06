@@ -1,11 +1,9 @@
 # AD-107 A module's file is its evidence, even when the file is empty
 
-`root_layout`, `complete_assignment` and a component `namespace` judge a module by its own file.
-Their violation cites the module fact, and that fact's evidence is the file: line 1 with its text
-when line 1 holds text, otherwise line 0, which cites the file itself with `end_line` 0, column 0
-and an empty excerpt. `file_evidence` in `analyzer/embedded/source.py` writes it for the Python
-and the Dart profile. The trace check in `ir/trace.py` accepts exactly that form of line 0; a
-cited line from 1 on must still carry its text.
+`root_layout`, `complete_assignment` and component `namespace` findings cite the module's file.
+Use line 1 with its text, or line 0 with `end_line` 0, column 0 and an empty excerpt when line 1
+is blank. `file_evidence` in `analyzer/embedded/source.py` writes this for Python and Dart.
+`ir/trace.py` accepts exactly this line-0 form; positive line numbers still require source text.
 
 ## Why
 
@@ -51,10 +49,8 @@ with their license header, so its self-observation keeps every evidence entry.
 
 ## Check
 
-`tests/test_file_evidence.py` pins the same `root_layout` violation, and FAIL from
-`inspect_observation`, for an `__init__.py` holding a docstring, nothing, one newline, or a blank
-line before code; a blank-first-line module under `complete_assignment`; an empty module outside
-its `namespace`; and an empty Dart library. `tests/test_trace.py` still rejects a cited line
-without text and a malformed line 0. The AD-11 rows `class-a-root-layout-empty-package` and
-`class-a-root-layout-blank-first-line` run it on the shop sample, and `tests/test_html_report.py`
-reads the first row's location as the file alone. The IR schemas accept only that line-0 form.
+`tests/test_file_evidence.py` covers docstring, empty, newline-only and blank-first-line modules,
+namespace violations and an empty Dart library. `tests/test_trace.py` rejects positive lines
+without text and malformed line 0. AD-11 rows `class-a-root-layout-empty-package` and
+`class-a-root-layout-blank-first-line` exercise the shop sample. `tests/test_html_report.py`
+checks file-only locations. The IR schemas accept only that line-0 form.

@@ -1,17 +1,15 @@
 # AD-106: A baseline entry names its violation in any subject order
 
-A violation's fingerprint (AD-52) is its sorted rule ids and its sorted subjects, whatever order
-they arrive in. `canonical_fingerprint` is the one place both a violation record and a baseline
-entry become a fingerprint:
+A violation's fingerprint (AD-52) uses sorted rule ids and subjects.
+`canonical_fingerprint` constructs both observation and baseline fingerprints:
 
 ```python
 def canonical_fingerprint(rules: Iterable[str], subjects: Iterable[str]) -> ViolationFingerprint:
     return ViolationFingerprint(tuple(sorted(rules)), tuple(sorted(subjects)))
 ```
 
-A `--write-baseline` that refuses new or increased debt (AD-77) ends its `failures` with one line
-that says so, after any widening or narrowing line, and no line of that run advises
-`--write-baseline`:
+A refused `--write-baseline` (AD-77) ends `failures` with this line, after widening or narrowing.
+No line in that run advises `--write-baseline`:
 
 ```
 --write-baseline refused: writing would accept the new or increased debt above; fix the code, or add --accept-new once an architect has decided to accept it
@@ -58,10 +56,6 @@ before and still are; the count keeps both visible, and `--against` still reject
 
 ## Check
 
-`tests/test_baseline.py`: a reversed entry passes and is written back sorted; a record read in
-another order has the sorted fingerprint; a repeated subject still counts; two entries differing
-only in order are rejected by name, with and without `--write-baseline`, and no remedy advises
-it; a reversed entry for `a -> b` does not absorb `b -> a`, and a role change still widens; a
-refused run names the new and the resolved entry without advice, then the refusal, which stays
-last beside an `--against` widening. `tests/test_measurement_budgets.py` covers the budget lines.
-`tests/test_architecture_demo.py` runs the two catalog rows.
+`tests/test_baseline.py` covers sorting, multiplicity, duplicate rejection, directional roles
+and refusal ordering, including `--against` widening. `tests/test_measurement_budgets.py` covers
+budget lines. `tests/test_architecture_demo.py` runs both catalog rows.

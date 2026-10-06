@@ -16,23 +16,19 @@ nodes unranked, retain every node and edge and say: “Dependency order unresolv
 dependency on a cycle.” An unranked dependent is not thereby cyclic. A null rank is presentation
 metadata; it does not change a verdict or mean UNKNOWN.
 
-The shared explorer uses one Details panel. A single activation selects; Enter, double-click, or
-Open selected drills one level. Fullscreen uses the browser API when available and a bounded
-window fallback otherwise. Both preserve explorer state; the fallback also restores page scroll
-and focus. Measured text stays inside cards and package headers. A compact header may abbreviate
-an overflowing label; Details retains the full identity and responsibility for pointer, keyboard,
-and touch users. Relationship paths try bounded detours around the visible header instead of being
-masked underneath it. An unsolved route stays visible with a separate renderer warning; it does not
-change architecture evidence or status.
+The explorer uses one Details panel. One activation selects; Enter, double-click or Open selected
+drills one level. Fullscreen uses the browser API or a bounded window fallback. Both preserve
+state; the fallback restores page scroll and focus. Text stays inside cards and headers.
+Overflowing headers may abbreviate labels; Details retains full identity and responsibility
+for pointer, keyboard and touch users. Routes try bounded detours around headers. An unsolved
+route stays visible with a renderer warning, without changing architecture evidence or status.
 
-Diagram may show populated physical frames for navigation, but placement is proven from observed
-module names: every module in a card must lie within the frame's declared namespace. Only the
-uniquely resolved frame and its populated ancestors render. This never imports Target-only
-components, absent children, requires edges, or dependency ranks into Diagram; its cards and edges
-remain observed evidence, and unassigned inventory stays independently reachable. Target retains
-declared placement and responsibilities. Responsibility text is shown unchanged as an annotation,
-not observed behavior or a verdict input. Existing declared Diagram cards with zero observed
-modules remain visible but do not prove observed existence or populate physical frames. Diff
-remains the evidence for absent declarations.
+Diagram placement requires every observed module in a card to lie within the frame's declared
+namespace. Only uniquely resolved frames and their populated ancestors render. Target-only
+components, absent children, requires edges and dependency ranks never enter Diagram. Its cards
+and edges retain observed evidence; unassigned inventory remains reachable. Target retains declared
+placement and unchanged responsibility annotations, which prove no behavior and affect no verdict.
+Declared Diagram cards with zero observed modules remain visible but prove no existence and populate
+no frames. Diff retains absent declarations.
 
 Refresh screenshots from merged source and run integrated release gates before publication.

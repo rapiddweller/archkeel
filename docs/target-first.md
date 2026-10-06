@@ -1,12 +1,9 @@
 # The target-first loop
 
-[Onboarding](https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md) ends once
-the contract is decided and `archkeel report` shows the architecture's own distance from that
-decision as violations. It says a remaining `rule.violated` is follow-up code work and stops
-there. This page is that follow-up: how to run a repository whose target states more than the
-code does, on purpose, for as long as the refactoring it describes takes — gate CI on the
-difference, keep the target from drifting toward the code instead of the other way round, work
-the backlog down, and land the interfaces the target already names.
+[Onboarding](https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md)
+ends with a decided contract. Remaining `rule.violated` findings are code work.
+Use this loop to baseline that debt, gate new violations and contract widening,
+then reduce the baseline as refactoring reaches the target.
 
 Every command below runs on a working copy of `fixtures/F-architecture`, the shop sample, with
 one addition already in flight and the diffs shown inline, so the whole page is reproducible.
@@ -18,22 +15,15 @@ below then show a refactoring in progress before it converges on its target.
 
 ## 1. Write the target, not a description
 
-`archkeel init` drafts a contract that describes the code: one component per subpackage,
-`public` entries for what another component already imports, no dependency decided. A
-target-first contract goes further, once the architect decides it: a `requires` or
-`allowed_dependency` entry for an edge the refactoring will need before any module crosses it,
-and a `public` entry only for an interface that already exists. An interface the refactoring has
-not built yet belongs in `planned` instead — the same `pkg.module`/`pkg.module:Name` shape as
-`public`, disjoint from it. `validate` stays silent until a caller reaches the entry, even if the
-module already exists (AD-56, AD-79). Declaring it `public` before it exists is a worse mistake than it looks:
-`interface.missing` reads identically whether the entry is a typo or a facade nobody has written
-yet. A violation baseline cannot hide either validation diagnostic.
+`archkeel init` drafts observed components and interfaces, leaving dependencies
+undecided. The architect can approve future edges with `requires` or
+`allowed_dependency`. Existing interfaces belong in `public`; unbuilt interfaces
+belong in disjoint `planned` entries with the same selector shape.
 
-Facade entries may point at a package re-export. `boundary_types` follows the recorded export
-chain to the function definition, keeps the facade entry as the subject, and recursively inspects
-owned declared DTO fields, including fields inside known collections and unions. Recursive model
-graphs stop at a repeated class on the current field path. An undecidable nested field reports its
-signature-rooted path and field annotation (AD-93).
+A planned entry remains quiet until reached, even if its module already exists
+(AD-56, AD-79). An unscanned public entry produces `interface.missing`, whether
+it is a typo or future work; violation baselines cannot hide diagnostics.
+Re-export and DTO field checks follow the [rule catalog](rules.md#class-a-deterministic-rules).
 
 When a refactoring moves a module, declare the old path in `declarations.compat` with its target
 and lifetime. A `migration` shim is visible remaining work while it protects callers; promote it
@@ -60,13 +50,10 @@ unresolved. Missing files also appear under `Diff` as absent targets. Keep seman
 }
 ```
 
-A facade or a coupling can carry a target the same way: `declarations.facade_budgets` sets
-`max_names` for the names a component's `public` modules export, and
-`declarations.coupling_budgets` for the facade names one component imports from another. The
-target may sit below today's count. `--write-baseline` then records today's accepted names, the
-run passes with the distance reported as `over_target`, and any name outside the accepted set
-fails, so the gap can only close. Raising `max_names` or accepting a new name is a widening
-under `--against` (AD-99).
+Facade and coupling budgets can target fewer names than today's interfaces expose.
+`--write-baseline` records accepted names; `over_target` reports the gap and changed
+name sets fail. Raising `max_names` or accepting a new name widens `--against`.
+See [budget syntax](rules.md#class-b-regression-checks) (AD-99).
 
 The architect decides `app` will eventually expose a small report facade the refactoring has not
 written yet:
@@ -141,14 +128,9 @@ exact-module mechanism on the shop sample.
 
 ## 2. Get the first red report, and read it without drowning
 
-Once the target states more than the code has reached, `report` is red by design. On a repository
-of any size the full page — component flow, communication, review claims, size and coupling
-alongside the violations — is not something a reviewer or an agent reads start to end every
-time. `report --only violations` drops everything but the violations table; `--rule <id>` and
-`--component <label>` narrow that table further and combine as an intersection (AD-60). None of
-the three change what was judged: `declared_rules`, the violation counts and the exit code stay
-computed from every violation, filtered or not
-([reference.md](https://github.com/rapiddweller/archkeel/blob/main/docs/reference.md#narrowing-a-report)).
+Use `report --only violations`, optionally intersected with `--rule <id>` and
+`--component <label>`, to review one slice. Filters retain global verdicts,
+counts and exit status ([reference](reference.md#narrowing-a-report), AD-60).
 
 The refactoring in progress has moved a report use case into `OrderRepository` ahead of the
 use-case layer the target says should own it, reaching directly for `Money`:
@@ -187,8 +169,7 @@ is a named `filter_unknown` at exit 2, never a silently empty page.
 
 ## 3. Freeze what is there
 
-Do not describe the code in the contract to make `validate` pass — that is what a target-first
-contract exists not to do. Freeze the violations instead (AD-52):
+Keep the target; baseline existing violations (AD-52):
 
 ```
 $ archkeel validate --baseline known-violations.json --write-baseline
@@ -210,18 +191,12 @@ the repository root, freezes its own debt with `archkeel validate --root mobile 
 known-violations.json --write-baseline`, which writes `mobile/known-violations.json`. An absolute
 path inside the root works too; one outside it is `baseline.invalid`, exit 2 (AD-103).
 
-Review this file the way a diff of the contract itself is reviewed, and commit it. Counts must
-match the observation exactly: a higher one is a new violation, a lower one a violation someone
-already fixed, both failing the gate. When updating an existing file, `--write-baseline` compares
-first: resolved-only drift may be written, while new or increased fingerprints refuse the write
-unless `--accept-new` is explicit, and the refusal names that flag as the way on (AD-106). A
-cycle that shrank inside a baselined cycle is not new: it is written like resolved drift (AD-98).
-Results expose deterministic `baseline_new` and `baseline_resolved` counts of changed fingerprints,
-not violation occurrences. One fingerprint contributes one even when its occurrence count changes by
-more than one. A budget allowed to *exceed* the code — "no more than N violations of this rule" —
-would be worse than exact counting: it lets a violation someone removed go unreported, the same way
-an unbounded margin hides a regression a stricter one would catch. Exactness is what makes shrinking
-the file part of the change that shrinks it, not a separate bookkeeping step (AD-52).
+Review and commit the baseline. Counts must match exactly: increased counts are
+new violations; decreased counts require cleanup. `--write-baseline` compares an
+existing file before writing. Resolved-only drift and contracted cycles can be
+written; new/increased fingerprints need explicit `--accept-new` (AD-98, AD-106).
+`baseline_new` and `baseline_resolved` count changed fingerprints, not occurrences.
+Shrink the baseline in the same change that removes its debt.
 
 ## 4. Gate CI
 
@@ -234,26 +209,16 @@ declared_rules: FAIL
 failures: []
 ```
 
-Exit 0 with `declared_rules: FAIL` is not a bug to work around: the violations are still there
-and still reported, and the baseline is what says they are the ones already accounted for.
-The gate fails — exit 1, named in `failures` — only on a violation the file does not state, or
-one it states that nobody violates any more. Every other diagnostic still exits 2, exactly as
-without `--baseline`. A CI job needs nothing beyond the command already in the repository's own
-`check` job:
-
-The confirmed `private_crossings` ratchet remains private cross-package imports. Named UNKNOWN
-private-attribute accesses from untyped, unresolved, or top-level `Any` parameters are measured
-separately as `untyped_private_accesses` and in `unknowns`; nested `Any` does not erase the outer
-owner, and no runtime component owner is inferred (AD-83, AD-91).
+Exit 0 accepts the recorded debt while `declared_rules: FAIL` still reports it.
+New or resolved debt fails with exit 1; other diagnostics retain exit 2.
+Add this command to the existing CI check:
 
 ```yaml
 - name: Hold the architecture to its target
   run: uv run --locked archkeel validate --baseline known-violations.json
 ```
 
-For a project gate, keep the same fail-closed shape in the repository's `Makefile`: one target
-names the project's checks and the architecture check as prerequisites. There is no pipe to hide a
-status and no generic Archkeel command configuration:
+One Make target should require project checks and architecture validation:
 
 ```make
 .PHONY: gate
@@ -307,15 +272,10 @@ archkeel report --config archkeel-tests.toml --output test-artifacts/tests/archi
 
 ## 5. Keep the target from moving
 
-The easiest way to make a violation disappear is to widen the rule that names it instead of
-fixing the code — add an `allowed_sources` entry, a `requires` edge, drop a rule — in the same
-change. `--against <ref>` classifies every difference from the contract at that Git revision as a
-widening (a new permission or a dropped restriction) or a narrowing, its harmless reverse; a
-widening fails unless `--amendment` names a file that an architect wrote, binding its exact
-before/after contract digests (AD-61, #11). A package renamed together with every module name
-the contract gives it is not such a difference: it is compared under the new names and listed as
-`renames`, so only a widening beside it fails (AD-105). Point it at the branch's own base, the
-commit CI would otherwise diff against.
+`validate --against <ref>` rejects new permissions or removed restrictions unless
+an architect's amendment binds the exact policy change (AD-61). Pure recognized
+package renames compare under their new names; additional widening still fails
+(AD-105). Compare with the branch's base commit.
 
 Instead of removing the `Money` reach above, an agent under time pressure could "fix" the
 violation like this:
@@ -333,12 +293,8 @@ exit_code: 1
 failures: ["rule DEP-STORE-NO-MONEY.allowed_sources gained 'shop.store.repository'"]
 ```
 
-The run fails, naming exactly the field it found — an unrecognised or unenumerated difference
-would fail the same way rather than pass silently (the module and `label`/`role` on a component,
-`through` on a `requires` entry, all of `declarations`). The right response is almost always to
-revert the contract and fix the code instead, which is step 7. When the architect genuinely
-decides the exemption belongs in the target — a transitional read, kept only until the next
-change lands — the decision is recorded, not waved through:
+The failure names the changed field. Unclassified changes also fail closed.
+Fix the code, or record the architect's transitional permission:
 
 ```
 $ archkeel validate --against <base> --amendment widening.json \
@@ -361,10 +317,8 @@ $ archkeel validate --against <base> --amendment widening.json
 exit_code: 0
 ```
 
-An amendment written for one change does not verify against a different one — its digests will
-not match — so it cannot be reused to wave through an unrelated later widening. Never widen the
-contract in the same change that removes the violation it names: fix the code, or get an
-amendment from the architect who owns the target.
+The amendment applies only to its bound change. A different change needs a new
+architect decision and matching digests.
 
 ### A new contract is one widening
 
@@ -389,18 +343,13 @@ $ archkeel validate --root mobile --against <base> --amendment mobile/introduced
 exit_code: 0
 ```
 
-So CI runs the same `--against` command for every scope, the new one included. It needs no
-`git cat-file -e "$base:mobile/architecture-contract.json" || continue` step to skip a scope
-the base does not have yet, and a moved contract cannot slip past the gate that way either.
+Run the same `--against` gate for new and moved scopes; do not skip missing base contracts.
 
 ## 6. Draw the target
 
-A contract page's marked graph, `<!-- archkeel-component-graph -->`, draws what the code does.
-Under a target-first contract, what the code does always includes the edges the target still
-forbids — known debt that graph would draw as if it belonged. A second marker,
-`<!-- archkeel-target-graph -->`, draws what the contract permits instead: every pair a
-`requires` entry or an `allowed_dependency` rule decides (AD-57). The shop sample's page carries
-both, and today they agree — the target has no headroom the code has not used yet.
+`<!-- archkeel-component-graph -->` draws observed imports.
+`<!-- archkeel-target-graph -->` draws permissions from `requires` and
+`allowed_dependency` (AD-57). The shop page carries both; they currently agree.
 
 Deciding a pair ahead of the code that will use it is exactly when they stop agreeing. The
 architect decides `cli` may construct a default order directly, ahead of the use case that will
@@ -430,8 +379,7 @@ call it:
 }
 ```
 
-The observed graph is untouched — the diagnostic's subject names the target marker, not the
-observed one — and `--write-graph` regenerates only that block:
+The diagnostic names the Target marker; `--write-graph` updates that block:
 
 ```
 $ archkeel validate --write-graph --json
@@ -477,10 +425,7 @@ declared_rules: PASS
 { "schema_version": "1.3.0", "budgets": {}, "violations": [] }
 ```
 
-An overstated baseline fails the gate exactly as an understated one does, symmetrically: running
-the old, one-entry file against the now-fixed code is a `resolved violation`, not silence. A
-resolved-only update may rewrite the file with `--write-baseline`; accepting a new or increased
-fingerprint requires `--write-baseline --accept-new` —
+The stale baseline still fails after the fix:
 
 ```
 $ archkeel validate --baseline known-violations.json   # the stale file, not rewritten
@@ -488,8 +433,8 @@ exit_code: 1
 failures: ["resolved violation: DEP-STORE-NO-MONEY | shop.model.entities.Money shop.store.repository (0 observed, 1 in the baseline); rewrite the baseline with --write-baseline"]
 ```
 
-— because a budget allowed to run ahead of the code is exactly the hole a padded baseline
-exploits (AD-52, AD-61): the file must state today's debt, not yesterday's.
+Rewrite resolved-only drift with `--write-baseline`. New/increased fingerprints
+require `--write-baseline --accept-new` after an explicit decision.
 
 If the resolved row is schema 1.1 and carries a `source`/`target` role, its subjects prove the
 importer and the exact public module or symbol it reached. `validate --baseline` keeps the
@@ -497,13 +442,9 @@ resolved failure but suppresses only that matching `interface.unused` twin, and 
 the now-unreached entry. A 1.0 baseline or an unrelated role cannot prove the narrowing, so the
 normal diagnostic remains (AD-85, #80).
 
-On a backlog larger than one entry, `violations_by_rule` and `violations_by_component_pair` in
-`report --json` rank it by weight without decoding anything else (AD-51); `--rule` and
-`--component` then isolate one slice to work, the same flags used to read the first report in
-step 2. An agent building its own dashboard on top of `architecture.json` reads typed rows with
-`archkeel.api.load_violations`, the one supported facade instead of decoding the columnar file
-directly (AD-54, AD-64;
-[reference.md](https://github.com/rapiddweller/archkeel/blob/main/docs/reference.md#reading-a-reports-violations)).
+Rank larger backlogs with `violations_by_rule` or `violations_by_component_pair`,
+then filter one slice. External consumers use typed `archkeel.api.load_violations`
+instead of decoding the columnar file ([reference](reference.md#reading-a-reports-violations), AD-64).
 
 ## 8. Land a planned interface
 
@@ -544,15 +485,11 @@ does not produce this diagnostic; it is still target work (AD-79).
 }
 ```
 
-This is not particular to landing a planned entry — it is `interface_boundary`'s ordinary reading
-of any declared `public` name nothing yet reaches (AD-9), and it clears the same way any such
-entry does: once a caller actually crosses, or once one of the component's own declared facade
-signatures names the type, which exposes it to every consumer of that signature without an
-import of its own (AD-65).
+A public name needs a cross-component caller or a declared facade signature that
+exposes its type (AD-9, AD-65). Promotion alone does not prove use.
 
 ## The loop repeats
 
-Fixing one violation and shrinking the baseline by one entry is the whole cycle: return to step 2
-for the next slice — by rule, by component, or by weight from `violations_by_rule` — until
-`validate --baseline` passes on an empty file. At that point the target and the code are the same
-thing, and the target contract is free to state the next place they should differ.
+Return to step 2 for the next slice. Fix its code and update the baseline together
+until no accepted violation debt remains. Read UNKNOWN and review unmeasured intent
+before declaring the target complete.

@@ -1,7 +1,7 @@
 # AD-136 Regression checks hold independent ceilings
 
-Keep the existing conservative policy: every measured regression count and unresolved-call
-share must not increase. Neither offsets the other. This checks declared change limits;
+Every measured regression count and unresolved-call share must not increase. Neither offsets
+the other. This checks declared change limits;
 it does not rank architectures or claim that a refactor is worse overall (#215).
 
 The observations must have complete coverage and matching schema, scope, analyzer digest
@@ -9,7 +9,7 @@ and contract. Missing or inconsistent evidence stays UNKNOWN. A profile's unmeas
 and its ratio stay `n/a`, even when a call total exists. New undecided positions cannot be
 hidden by fewer calls; existing UNKNOWNs do not become proven closure.
 
-Both historical counterexamples deliberately reject under this policy:
+Both historical counterexamples reject:
 
 | Source change | Before | After | Rejecting ceiling |
 |---|---|---|---|

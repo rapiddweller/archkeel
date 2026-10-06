@@ -2,9 +2,8 @@
 
 ## Purpose
 
-The report must make one thing obvious within five seconds: what Archkeel
-could verify, what failed, and what remains unknown. It is an evidence surface,
-not a dashboard and not a scorecard.
+Within five seconds, readers should see what passed, failed and remains unknown.
+Show evidence, never an architecture score.
 
 ## Brand idea
 
@@ -145,167 +144,119 @@ unless the check has already classified them as a failure.
 
 ### Component dependencies
 
-- Verdicts precede exploration; findings and analysis limits follow it. Section links provide direct access.
-  Finding links reveal collapsed or filtered records. Each finding retains all cited source evidence
-  and a copyable packet bound to the analyzed commit, source digest and contract. Native disclosure
-  and text selection work without JavaScript; clipboard failure falls back to selection.
-  Actual/Target Diff compares code with a contract; the check page compares accepted and candidate
-  states. An unavailable comparison must not claim that no changes occurred (AD-130).
-  Human effectiveness is tested with the [review pilot](review-pilot.md).
-- The observed flow has three views at the same breadcrumb level: focused UML diagram to explain
-  interfaces, physical structure map to find modules, and a connection-first review queue.
-  The diagram starts with every group and connection at the current level. Selecting a focus
-  keeps every direct neighbor and all violated edges, not an arbitrary number of neighbors.
-  Review shows every violated or undecided connection before the busiest conforming ones;
-  the matrix is optional and shows up to twelve high-traffic entries. Focus can be reset to
-  “All components and groups”; each view reports shown and total entries for its current scope.
-- As-Is, Actual, Target, and Diff share one explorer shell and navigation contract while keeping
-  their evidence distinct. Actual lists every observed module, including unassigned ones. Target shows
-  declared components, package scopes, physical layout, allowed children, and requirements; its
-  edges are declarations, not import evidence or conformance claims. Diff retains violations,
-  UNKNOWN evidence, unmapped modules, and declared targets absent from the observation. Folder
-  grouping does not silently drop entries. Diff retains nested scope and filters recorded evidence;
-  empty scopes do not imply PASS. Missing counterparts offer explicit nearest-scope navigation
-  (AD-144). Declared modules outside component ownership remain
-  visible under “Modules outside components”.
-- As-Is's physical frames require every actual module in a card to match the uniquely
-  resolved declared namespace. Only populated frames and ancestors appear; they do not add
-  target-only cards, edges, or ranks to the observed graph. Existing declared cards with zero
-  observed modules remain visible but never prove observed existence or populate frames.
-- The explorer follows Independent verdicts, before rule and violation lists.
-- As-Is modules and Contract 2.2 Target/Diff draw standard graph entities (AD-160).
-- Root Contract 2.2 file inventories and layout permissions appear in expandable details
-  (AD-162). Allowed children are permissions; file intent defines no classes or calls.
-  Nested explicit UML keeps component parents and labels; Details scopes inventories and
-  layout permissions to their declaring component (AD-163). Names do not define hierarchy.
-  `requires` edges name allowed component imports (AD-164). Details retains each selector,
-  rationale and decider; these permissions are not required calls or UML comparison verdicts.
-  Class/interface compartments show attributes, operations and visibility. Inheritance uses a
-  solid line with a hollow triangle; realization uses a dashed line with a hollow triangle.
-  Calls, imports and references retain separate kinds and source sites. Diff shows Core's
-  recorded statuses as text, puts differences first and collapses matched assessments.
-  Unlisted relationships use Core's typed correspondences (AD-165). Ambiguous endpoints keep
-  separate observed cards. Grouped edges retain every site and the graph that owns its IDs.
-  Observed-only classes and operation call graphs open through the same renderer (AD-166).
-  Navigation retains origin and raw identity. Unassessed scopes say so; unresolved sites stay
-  inspectable without invented endpoint cards.
-  Missing endpoints remain inspectable evidence; they never create invisible clickable cards.
-  Component cards show their declared role. Details retains typed ownership and published/planned
-  API selectors (AD-161), separate from language visibility. Undeclared and explicitly empty
-  APIs remain distinguishable. A selector does not invent a class or a call.
-  Global published API selectors and their provenance appear in root Target/Diff
-  Details (AD-168). Source-derived exposed types stay outside Target intent.
-  Legacy component details and import permissions also read the authenticated graph (AD-169).
-  Repeated permissions retain separate IDs and real endpoint cards. Permission is not execution.
-- As-Is and Target use one plain render scene and one renderer for card metrics, package layout,
-  UML shapes, routing and relationship emphasis. Source projections supply IDs, kinds, labels,
-  metadata, package memberships and typed relationships; the controller owns navigation/evidence.
-  Component, package, file artifact and observed class symbols carry semantic meaning.
-  Dependencies never imply inheritance or composition; declared interfaces remain in Details.
-  A single outer package keeps its header without a redundant outline; nested boundaries remain.
-- As-Is and Target cards keep names, kind and counts; complete responsibilities remain in Details.
-  Target uses UML component and package symbols, blue declarations and dashed dependency arrows.
-  Arrowheads keep a readable fixed size and a solid terminal stem in both graphs.
-  A component's interior omits its parent card and containment lines; its breadcrumb owns the scope.
-  An explicit relationship to a lexical scope may draw its endpoint card in the normal layout.
-  Declared dependency levels shape its vertical layout; cycles stay explicitly unranked.
-  Hover or keyboard focus previews direct neighbors without moving cards or replacing the pinned
-  selection. Leaving the preview restores selection emphasis. Touch selects directly.
-  Connected cards and lines gain contrast; unrelated cards and lines recede.
-  Dimmed lines cannot intercept background clicks. Every hit path has two drawn endpoints.
-- Select once to open and update Details. Incoming and outgoing rows select the connection and
-  expose its counts, rules and source locations. Enter, double-click, or Open selected drills one level. The shared
-  Details pane and searchable declaration list expose complete declared responsibilities in every
-  view. A correspondence requires stable declaration identity, exact module-file identity, or a
-  unique package match; otherwise Details says no declaration matches. This is target information,
-  not observed behavior. Fullscreen and Restore preserve the current explorer state.
-- Package headers use a compact role and name. Abbreviate only measured overflow, with the full
-  identity available in Details by pointer, keyboard and touch. Relationship paths stay visibly
-  clear of header text when a bounded detour exists. If not, keep the relationship and expose a
-  renderer layout warning in its accessible label and selected Details; architecture status is
-  unchanged. Keep the legend compact, allowing wrapped rows on narrow screens.
-- Never infer a symbol kind from a missing definition. A whole-module import is `module`, a star
-  import is `star import`, and an unresolved named import is `unknown`, not `constant`.
-- Shared UML cards distinguish component tabs, package folders, module files, class compartments,
-  interface circles and enumeration compartments. Operations show `()` for methods and `ƒ` for
-  functions. Type labels retain the meaning when colors cannot be seen.
-  Calls use blue, imports violet, references grey, construction teal and instance types cyan.
-  The line, arrowhead and legend share one color token. Core FAIL/UNKNOWN takes priority.
-  Measured card widths keep ordinary operation names on one line; full signatures stay in Details.
-  Each card uses its own content height. Rows reserve the tallest card in that row;
-  arrow ports and obstacles use the same measured bounds. Large unframed levels use
-  more columns to balance the overview against the viewport's aspect ratio.
-  Class overviews start with field and method counts. Member previews can reveal compact
-  attribute and operation compartments. Both modes retain every card, relationship and
-  source site. Full signatures stay in Details and the opened class; preview changes
-  recalculate card positions without changing navigation or architecture evidence.
-  Focus draws one exact entity and its direct incoming/outgoing neighbors. Counts show
-  the subset and complete level; Reset filters restores all elements and connections.
-  Automatic fit keeps focused views at least at 100% zoom; larger views scroll.
-  Details and Core status retain complete evidence. Hover does not change the layout.
-  The UML legend selects one relationship kind or all kinds. It shows complete-level
-  counts; the filter status names the visible subset. Hidden edges have no hit areas.
-  Diff retains its complete Core status even when a filter hides failed relationships.
-  Element kind selects the standard graph's kinds in the same scene filter.
-  Connections require two visible endpoints; Reset restores all identities.
-  Complete counts, Details, Core status and navigation remain intact (AD-177).
-  Dependencies use ordered ports and one collision-checked router in every view.
-  Incoming and outgoing edges share one port allocation per card side.
-  Reciprocal edges share one row-pair lane allocation. Detours prefer free straight stretches
-  before shorter paths; their arrival heights keep final rails separate. Outer targets get
-  earlier lanes to reduce crossings within one caller's outgoing connections. Cyclic, recursive
-  and own-model browser tests check the actual SVG geometry.
-  A remaining shared stretch triggers a second search with more intermediate
-  lanes and arrival heights inside the existing row gap. Other routes keep the
-  first search. Retries require measured cards to fit within the canvas area;
-  larger levels need filtering. No architectural evidence or status changes.
-  Dense graphs still require visual review; crossings can remain.
-  Unfiltered Fit overview includes every card. It may reduce text below reading size
-  in large levels;
-  Reset returns to 100%, and drill-down or Details exposes readable content.
-- Long lists of imported names and facade measurements use native disclosure controls. The
-  summary keeps counts visible and the complete evidence accessible without JavaScript.
-- Level 2 uses UML component boxes. A circle marks a declared provided interface; a socket
-  marks declared `requires`. Only a conforming observed edge with `through` gets an assembly
-  marker. An unrestricted or undecided edge must not imply a specific interface connection.
-- Modules with no unique declared owner appear in an “Unassigned modules” navigation-only group.
-  It is not a component and carries no component-level verdict or permission.
-- Level 3 groups physical subpackages as folders, not new semantic components. Package
-  initializers stay openable module cards, including import-only initializers; folder navigation
-  reaches every observed module, including those without symbols or a unique owner. Group edges
-  sum import locations and preserve rule ids; hidden same-folder edges reappear when the folder
-  opens.
-- One provided interface marker per component keeps large APIs legible; the inspector expands
-  the exact entries. Breadcrumbs return through component, package, and module levels.
-- An observed import governed by `external_dependency_scope` draws a `«library»` card and
-  a dashed `«use»` dependency. One card represents each external dependency even when multiple
-  scope rules name it; all rule details and violating rule ids stay inspectable.
-- Start at 100% zoom and threshold zero. A bounded native scroll area keeps labels readable;
-  opening a large level must not silently shrink it. Zoom and Fit are explicit controls.
-  A chosen threshold hides only non-violating edges, with shown/total counts beside it.
-  Arrange resets card positions, not focus, threshold or zoom. Resize preserves the chosen zoom.
-  The explorer has no visible scrollbar tracks. Dragging empty diagram background pans without
-  moving cards or replacing the selection; wheel and keyboard navigation remain available.
-  Toolbars and breadcrumbs wrap; narrow screens place filters and the legend in native disclosures.
-- Import edges carry their observed import-location counts. Module call/reference edges are marked
-  as symbol-use relationships, not import locations. A conforming edge is solid teal; a violated
-  edge is dashed red with a chip naming the rule id.
-- Inside edges stay observed unless an inside rule decides them; absence of a finding alone is
-  not conformance.
-- Drilled component and package diagrams retain directly connected outside neighbors as dashed
-  `«outside»` cards. Exact module crossings preserve import counts, rule ids and source samples;
-  another crossing's violation is not copied. Local module counts exclude outside cards. Opening
-  a neighbor records the original scope for Back. This adds no boundary or permission (AD-180).
-- Rule chips take priority over weight badges. Measured chips avoid cards, frame headers and
-  other chips; when none of
-  the sampled positions fits, a selectable gutter row names the source, target and rule summary.
-  Dense levels can still need filtering or manual arrangement.
-- Switching from Target restores the observed legend. The legend is drawn from the same edge states that style the graph, and the overview lists the
-  five heaviest connections.
-- Structure and Review work by keyboard as well as pointer. Without script, the component
-  communication table and nested inventory remain readable; interactive flow controls stay hidden.
-- Level 1 is not drawn until the observation can state cross-repository interfaces.
-- No gradients, glow, shadows or decorative icons; the UML glyph is semantic notation.
+- Put the explorer after verdicts and before rule/violation lists. Section links
+  jump to findings and limits; finding links reveal collapsed or filtered records.
+  Each finding retains cited source and a copyable packet bound to commit, source
+  digest and contract. Native disclosure and selection work without JavaScript;
+  clipboard failure falls back to selection. Actual/Target Diff compares a snapshot
+  with a contract; Check compares accepted and candidate revisions. Missing comparison
+  never means no change. Human effectiveness needs the [review pilot](review-pilot.md).
+- As-Is, Actual, Target and Diff share navigation while keeping evidence distinct.
+  Actual retains every module, including unassigned ones. Target shows independent
+  declarations, permissions and file intent. Diff retains findings, UNKNOWN,
+  unmapped modules and absent targets. Empty scopes do not imply PASS. Missing
+  counterparts offer nearest-scope navigation (AD-144); declared unowned modules
+  stay visible under “Modules outside components”.
+- Physical frames require every contained module to match a unique declared namespace.
+  Only populated frames and ancestors appear. They add no target-only cards, edges
+  or ranks. Declared cards with zero observed modules remain visible without proving
+  existence. Folders are navigation groups, not components or inferred directories.
+- Diagram, Structure and Review share breadcrumbs. Start with every group and connection
+  at the level. Review lists violated/undecided connections before busy conforming ones;
+  the optional matrix shows up to twelve high-traffic entries. Each view reports shown
+  and total entries. Reset focus returns to all groups and components.
+- Standard entities and relationships use the
+  [shared UML model](architecture/uml-model-target.md). Class/interface compartments
+  show fields, operations and visibility. Inheritance uses a solid line/hollow triangle;
+  realization uses a dashed line/hollow triangle. Calls, imports and references remain
+  distinct with original sites. Never infer inheritance, composition or a symbol kind
+  from missing facts. Whole-module imports are `module`, stars are `star import`, and
+  unresolved named imports are `unknown`.
+- Details retains roles, responsibilities, typed ownership, public/planned selectors,
+  rationale, decider, file inventories and layout permissions. Undeclared and explicitly
+  empty intent remain distinct. Allowed children need not exist; file/API selectors
+  invent no classes or calls. Global API intent retains independent provenance and
+  excludes source-derived exposed types. `requires` means allowed imports, not mandatory
+  calls. Repeated permissions keep separate IDs and actual endpoints.
+- Diff puts differences first and collapses matched Core assessments. Endpoints use
+  Core correspondences; ambiguous identities keep separate observed cards. Grouped edges
+  retain every site and originating graph. Observed-only classes and operation graphs
+  open in the same renderer; navigation retains origin and raw ID. Unassessed scopes
+  say so. Unresolved/missing endpoints stay in Details without invented cards or PASS.
+- Use one scene and renderer for metrics, layout, shapes, routes and emphasis. Projection
+  supplies recorded IDs, kinds, labels, membership and relationships; the controller
+  owns navigation and evidence. An outer package keeps its header without a redundant
+  outline; nested boundaries remain. Interior views omit the parent card/containment
+  lines because breadcrumbs identify the scope. Explicit relationships to lexical
+  scopes can still draw those endpoints. Declared dependency ranks shape layout;
+  cycles remain unranked.
+- Select once to update Details; connection rows expose counts, rules and source sites.
+  Enter, double-click or Open selected drills one level. Searchable declarations retain
+  full responsibilities. Matching requires stable declaration ID, exact module/file
+  identity or a unique package match; otherwise say no declaration matches.
+  Fullscreen/Restore preserves explorer state.
+- Hover/keyboard focus previews direct neighbors without moving cards or replacing
+  selection. Leaving restores selection emphasis; touch selects directly. Connected
+  cards/lines gain contrast and unrelated ones recede. Dimmed lines cannot intercept
+  background clicks. Every hit area belongs to a visible element with drawn endpoints.
+- Package headers use a compact role/name. Abbreviate measured overflow only; full
+  identities remain accessible through pointer, keyboard, touch and Details. Bounded
+  detours avoid header text when possible. Otherwise keep the edge and expose a separate
+  renderer layout warning in its accessible label and Details. Architecture status stays
+  unchanged. Legends wrap on narrow screens.
+- Shared glyphs distinguish component tabs, package folders, module files, class
+  compartments, interface circles and enums. Methods use `()`, functions `ƒ`.
+  Text labels preserve meaning without color. Calls use blue, imports violet,
+  references grey, construction teal and instance types cyan; lines, arrowheads and
+  legend share tokens. Core FAIL/UNKNOWN styling takes priority.
+- Cards use measured widths and individual content heights; row bounds, ports and
+  obstacles share those measurements. Balance large unframed levels against viewport
+  proportions. Class overviews start with field/method counts; optional member previews
+  retain every card, edge and site. Full signatures remain in Details/opened classes.
+  Preview changes recalculate positions without changing scope or evidence.
+- Focus shows one exact entity and direct incoming/outgoing neighbors, retaining violated
+  edges. Show subset and complete-level counts. Focused Fit stays at least 100%; larger
+  views scroll. Relationship and element-kind filters share scene filtering across all
+  views. Hidden edges have no hit areas; edges need two visible endpoints. Details and
+  Core status remain complete. Reset restores all identities and connections.
+- One router allocates ordered ports and collision-checked routes in every view.
+  Reciprocal edges share lane allocation. Keep fixed readable arrowheads and solid
+  terminal stems. Browser tests inspect actual cyclic, recursive and own-model SVG
+  geometry. Dense graphs can still cross or need filtering/manual arrangement; filtering
+  and routing never change architecture evidence. Full Fit may shrink text below reading
+  size; Reset restores 100%, while drill-down and Details retain readable content.
+- Long name lists and facade measurements use native disclosures with complete counts
+  and evidence accessible without JavaScript.
+- Component-level diagrams use UML boxes, one provided-interface circle and declared
+  `requires` sockets. Only a conforming observed `through` edge gets an assembly marker.
+  Unrestricted or undecided edges cannot imply a specific interface connection.
+- Unassigned modules form a navigation-only group with no component verdict/permission.
+  Package folders retain openable initializers and every module, including symbol-free
+  ones. Group edges sum sites and retain rule IDs; same-folder edges reappear on opening.
+  Breadcrumbs return through component, package and module levels.
+- External imports governed by `external_dependency_scope` use one `«library»` card per
+  dependency and dashed `«use»` edges. Multiple scope rules remain inspectable on that
+  card, including all violating IDs.
+- Start at 100% zoom and threshold zero in a bounded native scroll area. Zoom and Fit
+  are explicit. Threshold hides only non-violating edges and reports shown/total counts.
+  Arrange resets positions while retaining focus, threshold and zoom; Resize retains zoom.
+  Hide scrollbar tracks. Background drag pans without moving cards or selection; wheel
+  and keyboard remain available. Narrow toolbars/breadcrumbs wrap and filters/legend use
+  native disclosures.
+- Import weights count source sites; module calls/references are symbol-use edges.
+  Conforming edges are solid teal; violations are dashed red with rule IDs. Inside
+  edges stay observed unless an inside rule decides them. No finding does not prove
+  conformance. Rule chips take priority over weights; if sampled positions cannot clear
+  cards, headers and other chips, use a selectable gutter row naming endpoints/rules.
+- Drilled scopes retain connected outside neighbors as dashed `«outside»` cards. Exact
+  crossings retain their own counts, rules and source samples; no other crossing's finding
+  is copied. Local counts exclude outside cards. Opening one records the original scope
+  for Back, adding no ownership or permission (AD-180).
+- Switching from Target restores the observed legend from actual edge states; the overview
+  lists the five heaviest connections. Structure and Review support keyboard navigation.
+  Without script, communication tables and inventories stay readable; interactive controls
+  stay hidden. Cross-repository level 1 waits for observed interfaces.
+- Use semantic UML glyphs, without gradients, glow, shadows or decorative icons.
 
 ## Shared report geometry
 
@@ -341,11 +292,9 @@ directory for each run. It writes the eight README report PNGs into that directo
 verify the new images.
 For the terminal SVGs, run `make demo OUTPUT=<new-directory>` and
 `uv run --locked python -m tools.terminal_svg <new-directory>`; copy the reviewed exports too.
-The 0.8.2 PNG refresh uses `PLAYWRIGHT_CHANNEL=chromium` with the existing capture command.
 Terminal exports use SVG glyph scaling to keep measured columns aligned with fallback fonts.
-Independent browser tests cover a native dragged no-route case: complete inventory and evidence
-stay unchanged, and selected Details exposes the separate warning. These checks are
-separate from the Python gate; static HTML assertions alone do not prove browser behavior.
+Browser acceptance includes a dragged no-route case that retains inventory and evidence
+while Details exposes a layout warning. Static HTML assertions cannot prove browser behavior.
 
 ## Accessibility and print
 
@@ -359,15 +308,9 @@ separate from the Python gate; static HTML assertions alone do not prove browser
 
 ## Non-negotiable rules
 
-- No single architecture score.
-- No green fallback when evidence is incomplete.
-- No verdict represented only by color.
-- No rounded percentages when an exact ratio exists.
-- No gradients, glow, drop shadows, illustrations, or stock imagery inside the
-  report.
-- No repeated hero graphic. The report uses the compact logo and evidence.
-- No more than one accent color per evidence row, unless two compared states
-  require it.
+Keep exact evidence and explicit UNKNOWN, independent verdicts, accessible status,
+and semantic notation. Apply the rules above consistently. Limit each evidence row
+to one accent color unless two compared states require separate colors.
 
 ## Implementation assets
 

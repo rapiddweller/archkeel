@@ -12,8 +12,8 @@ the fixture changes Core policy or coverage to obtain PASS.
 The shared renderer groups As-Is, Target and Diff as Architecture diagrams.
 Structure, Review and Actual remain Evidence views. Card status tooltips name
 recorded reasons; selected Details retains the complete checks.
-All architecture views use the same viewport alignment. A Target-only centering
-branch was removed; identical overview geometry must remain identical on screen.
+All architecture views share viewport alignment; identical overview geometry must remain
+identical on screen.
 
 Proof: tests/test_uml_demo.py, tests/test_report_interactions.py,
 tests/test_uml_visual_acceptance.py and make report-browser.

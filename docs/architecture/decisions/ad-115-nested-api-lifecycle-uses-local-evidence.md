@@ -35,8 +35,8 @@ Independent tests cover repeated labels, constants, ancestor facades, re-exporte
 unrelated signatures and partial profiles. Four recursive demo variants show public/planned
 entries with and without a consumer.
 
-Under the architect's evidence-backed budget authorization, the self call budget moves
-531 → 536. `validate --against 704e364` attributes the net five to added source operations:
+The architect approved the self call budget change 531 → 536.
+`validate --against 704e364` attributes the net five to added source operations:
 scoped evidence lookup, parent-publication lookup, two string operations over recorded names,
 and parent-component accumulation. A renamed target accumulator appears once as added and
 once as removed. This is changed code, not improved detection. Self-validation retains

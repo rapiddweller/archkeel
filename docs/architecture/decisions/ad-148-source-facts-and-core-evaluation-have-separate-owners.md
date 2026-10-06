@@ -21,9 +21,8 @@ Coverage PASS requires every applicable dimension and complete, comparable snaps
 Expectations cannot select an unavailable dimension or grant it support through a supplied delta.
 Historical delta 1.3 remains readable; scoped comparison requires reobservation.
 
-The process port makes collectors replaceable. It does not prove Python/Dart parity,
-TypeScript package completion or runtime isolation. Each remains subject to its
-own acceptance evidence.
+Replaceable collectors do not prove Python/Dart parity, TypeScript package completion
+or runtime isolation. Each needs its own acceptance evidence.
 
 The CLI-to-Core coupling ceiling moves from 10 to 14 names. The four additions are
 `Observer`, `analyze_source_snapshot`, `Language` and `ObservationResult`. They
