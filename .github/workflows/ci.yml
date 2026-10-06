@@ -14,20 +14,12 @@ concurrency:
 
 jobs:
   report-pages:
-    name: Publish current architecture report
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Build architecture report site
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
-      pages: write
-      id-token: write
-    concurrency:
-      group: github-pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      pages: read
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -52,6 +44,23 @@ jobs:
         with:
           path: test-artifacts/pages
 
+  deploy-report-pages:
+    name: Publish current architecture report
+    needs: report-pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       # An older rerun must not replace a newer Main report.
       - name: Read current Main revision
         id: main

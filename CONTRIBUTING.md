@@ -28,7 +28,9 @@ The Windows/Python/Node matrices remain separate CI checks. Obsolete PR runs can
 main runs stay independent. The main check has a 60-minute cap, not a performance guarantee.
 
 Every push to `main` also builds and publishes the [current architecture report](https://rapiddweller.github.io/archkeel/).
-This job runs independently of the test jobs and path filters; PRs never deploy.
+PRs run the same report build, Pages configuration check and artifact upload as Main.
+Only the separate Main deployment job receives publishing permissions and consumes that artifact.
+Both jobs run independently of the test jobs and path filters; PRs never deploy.
 Reports retain FAIL and UNKNOWN findings. A failed report build leaves the published report intact.
 Pages jobs run serially, and superseded revisions do not replace the current Main report.
 GitHub Pages must use **GitHub Actions** as its publishing source.
