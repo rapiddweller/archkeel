@@ -12,17 +12,39 @@
   const SIDECAR = Boolean(NAV?.module_ids);
   let routeReady = false, returnScope = null, returnView = "diagram", returnSelection = null, returnCell = null, returnContent = null, routeNotice = null;
   if (ATLAS) {
-    ATLAS.cells = ATLAS.cells.map(([source, target, count, status, permission, reason, evidence, findings, reasons]) => ({
+    ATLAS.rule_assessments = (ATLAS.rule_assessments || []).map(([id, kind, status, count, undecided, reason, scope]) => ({
+      id: ATLAS.reference_ids[id], kind: ATLAS.reference_ids[kind], status, count, undecided,
+      reason: ATLAS.reference_ids[reason], scope: ATLAS.reference_ids[scope],
+    }));
+    ATLAS.cells = ATLAS.cells.map(([source, target, count, status, evidence, findings, reasons]) => ({
       source_id: ATLAS.modules[source].id, target_id: ATLAS.modules[target].id, import_sites: count,
-      status, permission, permission_reason: reason, evidence_ids: evidence, finding_ids: findings, reasons,
+      status, permission: "UNKNOWN", permission_reason: ATLAS.reference_ids[ATLAS.cell_permission_reason_ref],
+      evidence_ids: evidence, finding_ids: findings,
+      reasons: reasons.map((index) => ATLAS.reference_ids[index]),
     }));
     ATLAS.assignments = ATLAS.assignments.map(([module, owner, candidates, status, reason]) => ({
-      id: ATLAS.modules[module].id, component_id: owner, candidate_ids: candidates,
+      id: ATLAS.modules[module].id, component_id: owner === null ? null : ATLAS.reference_ids[owner],
+      candidate_ids: candidates.map((index) => ATLAS.reference_ids[index]),
       ownership_status: status, ownership_reason: ATLAS.reference_ids[reason],
     }));
     for (const module of ATLAS.modules) module.symbol_coverage = ATLAS.symbol_coverages[module.symbol_coverage]
       .map((entry) => ({ ...entry, scope_id: module.id }));
     for (const level of ATLAS.levels) level.modules = level.modules.map((index) => ATLAS.assignments[index]);
+    for (const component of ATLAS.components) {
+      component.reason = ATLAS.reference_ids[component.reason_ref];
+      component.provenance = component.provenance.map((index) => ATLAS.reference_ids[index]);
+      if (component.public !== null) component.public = component.public.map((index) => ATLAS.reference_ids[index]);
+      component.used_by = component.used_by.map(([index, import_sites]) => ({
+        component_id: ATLAS.components[index].id, import_sites,
+      }));
+      component.requires = component.requires.map((edge) => ({
+        ...edge, target_id: ATLAS.components[edge.target_id].id,
+        rationale: ATLAS.reference_ids[edge.rationale_ref],
+      }));
+    }
+    for (const finding of ATLAS.findings) {
+      if (Number.isInteger(finding.remedy_ref)) finding.remedy = ATLAS.reference_ids[finding.remedy_ref];
+    }
   }
   let atlasModule = null, atlasCell = null, atlasHint = null, atlasAllHints = false, atlasContent = null;
   const graphIndexes = new WeakMap();
@@ -32,7 +54,8 @@
   }
   let positions = {}, diagramOrigin = null, sizedPositions = positions;
   let scrollRemainderX = 0, scrollRemainderY = 0;
-  let viewMode = DATA.initial_view || "diagram", renderedScene = null, focusLabel = null, relationshipKind = null, elementKind = null;
+  let viewMode = DATA.initial_view || "diagram", renderedScene = null, renderedRoutes = [], focusLabel = null, relationshipKind = null, elementKind = null;
+  let showAllModuleElements = false, showExternalSymbols = false;
   let transform = { k: 1 }, umlPath = !SIDECAR && DATA.initial_scope ? [{ id: DATA.initial_scope, origin: "observed" }] : [], umlSelection = null, scopeNotice = null;
   let dragState = null, panState = null, expansionRestore = null;
   let lastPointerTap = null, skipSvgClick = false;
@@ -73,10 +96,10 @@
   const filters = root.querySelector(".flow-filters");
   const legendPanel = root.querySelector(".flow-legend-panel");
   const compactControls = window.matchMedia("(max-width: 900px)");
-  filters.open = !compactControls.matches;
+  filters.open = false;
   legendPanel.open = !compactControls.matches;
   compactControls.addEventListener("change", () => {
-    filters.open = !compactControls.matches;
+    filters.open = false;
     legendPanel.open = !compactControls.matches;
   });
   const legend = root.querySelector(".flow-legend");
@@ -90,6 +113,20 @@
   const zoomValue = root.querySelector(".flow-zoom-value");
   const resetFiltersButton = root.querySelector(".flow-reset-filters");
   const filterStatus = root.querySelector(".flow-filter-status");
+  const elementIndex = document.createElement("section");
+  elementIndex.className = "flow-element-index";
+  elementIndex.hidden = true;
+  const useSummary = document.createElement("button");
+  useSummary.type = "button";
+  useSummary.className = "flow-fit flow-use-summary flow-graph-filter";
+  useSummary.hidden = true;
+  toolbar.appendChild(useSummary);
+  canvas.before(elementIndex);
+  useSummary.addEventListener("click", () => {
+    showExternalSymbols = !showExternalSymbols;
+    positions = {};
+    render(); fit();
+  });
   const focusInput = root.querySelector(".flow-focus");
   const elementKindControl = document.createElement("label");
   elementKindControl.className = "flow-diagram-control flow-diagram-filter flow-graph-filter";
@@ -148,6 +185,8 @@
 
   const esc = (value) =>
     String(value).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const countLabel = (value, singular, plural = `${singular}s`) =>
+    `${value ?? "UNKNOWN"} ${value === 1 ? singular : plural}`;
 
   function el(tag, attrs, ...children) {
     const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
@@ -527,7 +566,7 @@
   function drawUmlEdge(edge, route) {
     edge.routingWarning = Boolean(route.routingWarning);
     const warning = edge.routingWarning ? ` ${ROUTING_WARNING}` : "";
-    const group = el("g", { class: `edge ${edge.state}`, "data-uml-id": edge.id,
+    const group = el("g", { class: `edge ${edge.state}${edge.edgeClass ? ` ${edge.edgeClass}` : ""}`, "data-uml-id": edge.id,
       "data-uml-kind": edge.kind, "data-uml-source": edge.source, "data-uml-target": edge.target });
     const line = el("path", { class: "line", d: route.d, "stroke-width": "2",
       ...(edge.state !== "declared" ? dashFor(edge.state, 2) : {}) });
@@ -568,6 +607,7 @@
       bindings.frame(group, frame);
     }
     const routes = umlRoutes(scene);
+    renderedRoutes = routes;
     for (const route of routes) {
       const drawn = drawUmlEdge(route.edge, route);
       edgeLayer.appendChild(drawn.group);
@@ -581,6 +621,19 @@
       bindings.node(group, node);
     }
     return routes;
+  }
+
+  function renderSelectedEdgeLabels() {
+    edgeLayer.querySelectorAll(".uml-edge-label").forEach((label) => label.remove());
+    if (umlSelection?.type !== "node" || renderedScene?.atlas) return;
+    for (const route of renderedRoutes) {
+      if (route.edge.source !== umlSelection.id && route.edge.target !== umlSelection.id) continue;
+      const label = el("text", { class: "uml-edge-label", x: String(route.mid[0]),
+        y: String(route.mid[1] - 5), "text-anchor": "middle", "aria-hidden": "true",
+        title: route.edge.tooltip });
+      label.textContent = route.edge.relationshipKind;
+      route.group.appendChild(label);
+    }
   }
 
   function laneKey(edge) {
@@ -770,10 +823,12 @@
     const targetBlocked = !routePointsClear(
       [normalTarget.lead, normalTarget.point], headers, 2,
     ) || !routePointsClear([normalTarget.lead, normalTarget.point], cardBounds, 0);
-    const sidePorts = (card, height, x) => ["left", "right"].map((side) => {
+    const sidePorts = (card, height, x) => ["left", "right"].flatMap((side) => {
       const at = side === "left" ? card.x : card.x + CARD.w;
       const y = card.y + 14 + (height - 28) * (x - card.x) / CARD.w;
-      return { point: [at, y], lead: [at + (side === "left" ? -GAP / 2 : GAP / 2), y], axis: "horizontal" };
+      // Opposite turns from nearby side ports need separate vertical lanes.
+      return [GAP / 2, GAP / 2 + LANE_GAP].map((distance) => ({ point: [at, y],
+        lead: [at + (side === "left" ? -distance : distance), y], axis: "horizontal" }));
     });
     const sourcePorts = sourceBlocked && sourceCard
       ? sidePorts(sourceCard, sourceHeight, sx) : [normalSource];
@@ -1168,7 +1223,14 @@
   function architectureEntities(graph) {
     if (graphIndexes.has(graph)) return graphIndexes.get(graph).entities;
     const entities = buildArchitectureEntities(graph);
-    graphIndexes.set(graph, { entities, byId: new Map(entities.map((entity) => [entity.id, entity])) });
+    const parents = new Map(), children = new Map();
+    graphIndexes.set(graph, { entities, byId: new Map(entities.map((entity) => [entity.id, entity])), parents, children });
+    for (const entity of entities) {
+      const parent = architectureParent(entity, graph);
+      parents.set(entity.id, parent);
+      if (!children.has(parent)) children.set(parent, []);
+      children.get(parent).push(entity);
+    }
     return entities;
   }
 
@@ -1191,13 +1253,17 @@
   }
 
   function architectureHasInterior(entity, graph) {
-    return architectureEntities(graph).some((child) => architectureParent(child, graph) === entity.id)
+    architectureEntities(graph);
+    if (DATA.observed) architectureEntities(DATA.observed);
+    return graphIndexes.get(graph).children.has(entity.id)
       || viewMode === "diff" && graph.origin === "declared" && DATA.observed
-        && architectureEntities(DATA.observed).some((child) => architectureParent(child, DATA.observed) === entity.id)
+        && graphIndexes.get(DATA.observed).children.has(entity.id)
       || graph.relationships.some((site) => site.source_id === entity.id && site.kind !== "owns");
   }
 
   function architectureParent(entity, graph) {
+    const parents = graphIndexes.get(graph)?.parents;
+    if (parents?.has(entity.id)) return parents.get(entity.id);
     if (entity.kind === "component") return (graph.origin === "observed" ? DATA.target : graph).component_intents
       .find((item) => item.component_id === entity.id)?.parent_id ?? entity.parent_id;
     if (graph.origin === "observed" && entity.kind === "module") {
@@ -1409,7 +1475,7 @@
       if (entity && assessment.subject_id === scope) entries.set(`observed:${id}`, observedEntry(id, true));
     }
     const nodes = [...entries.values()].map(({ id, entity, sourceGraph, local }) => {
-      const children = architectureEntities(sourceGraph).filter((child) => architectureParent(child, sourceGraph) === entity.id);
+      const children = graphIndexes.get(sourceGraph).children.get(entity.id) || [];
       const boundary = (sourceGraph.origin === "observed" ? DATA.target?.component_intents || [] : sourceGraph.component_intents)
         .find((item) => item.component_id === entity.id);
       const assessments = sourceGraph === graph ? architectureAssessments(context, entity.id)
@@ -1476,6 +1542,7 @@
     edgeLayer.querySelectorAll(".hit").forEach((hit) => hit.setAttribute("aria-pressed",
       String(type === "edge" && hit.parentElement.dataset.umlId === id)));
     emphasizeUmlScene(umlSelection);
+    renderSelectedEdgeLabels();
     syncRoute();
     if (ATLAS) atlasSheet(atlasLevel());
     else architectureInspector(architectureGraphContext(), renderedScene);
@@ -1572,6 +1639,21 @@
     return path;
   }
 
+  function targetModuleComponent(moduleId) {
+    const entities = DATA.target?.entities || [];
+    const components = DATA.target?.component_intents || [];
+    let entity = entities.find((item) => item.id === moduleId);
+    while (entity && entity.kind !== "module") entity = entities.find((item) => item.id === entity.parent_id);
+    let parentId = entity?.parent_id;
+    while (parentId) {
+      const component = components.find((item) => item.component_id === parentId);
+      if (component) return component.component_id;
+      parentId = entities.find((item) => item.id === parentId)?.parent_id
+        || components.find((item) => item.component_id === parentId)?.parent_id;
+    }
+    return null;
+  }
+
   function mainHref(scope = returnScope, selection = returnSelection) {
     const query = new URLSearchParams();
     if (scope) query.set("scope", scope);
@@ -1595,17 +1677,37 @@
     const selected = query.get("selected");
     if (SIDECAR) {
       const origin = query.get("origin") === "declared" ? "declared" : "observed";
-      const module = query.get("module") || NAV.module_ids[0];
+      const requestedComponent = query.get("component");
+      const moduleIds = origin === "declared" ? NAV.target_module_ids : NAV.module_ids;
+      const componentModules = origin === "declared"
+        ? moduleIds.filter((id) => requestedComponent === "unassigned"
+          ? targetModuleComponent(id) === null || targetModuleComponent(id) === "unassigned"
+          : !requestedComponent || targetModuleComponent(id) === requestedComponent)
+        : requestedComponent === "unassigned"
+          ? NAV.unassigned_module_ids_by_scope?.[query.get("return_scope") || ""] || []
+          : requestedComponent ? NAV.component_module_ids?.[requestedComponent] || []
+          : moduleIds;
+      const requestedModule = query.get("module");
+      const module = requestedModule || componentModules[0];
       const requestedScope = query.get("scope");
-      umlPath = lexicalRoute(requestedScope || module, module, origin);
-      if (!umlPath.length) {
-        const recordedModule = lexicalRoute(module, null, origin);
-        routeNotice = recordedModule.length
-          ? { field: "scope", requested: requestedScope, message: "Requested scope is not recorded inside this module." }
-          : { field: "module", requested: module, message: "Requested module is not recorded in this component snapshot." };
-        umlPath = recordedModule;
+      if (requestedComponent && !componentRoute(requestedComponent).length && requestedComponent !== "unassigned") {
+        routeNotice = { field: "component", requested: requestedComponent, message: "Requested component is not recorded in this snapshot." };
+      } else if (requestedComponent && module && !componentModules.includes(module)) {
+        routeNotice = { field: "module", requested: module, message: "Requested module is not recorded inside this component." };
       }
-      const sourceScope = query.has("return_scope") ? query.get("return_scope") : NAV.component_id;
+      umlPath = routeNotice ? [] : lexicalRoute(requestedScope || module, module, origin);
+      if (!umlPath.length) {
+        if (!routeNotice) {
+          const recordedModule = lexicalRoute(module, null, origin);
+          routeNotice = recordedModule.length
+            ? { field: "scope", requested: requestedScope, message: "Requested scope is not recorded inside this module." }
+            : { field: "module", requested: module, message: "Requested module is not recorded in this component snapshot." };
+          umlPath = recordedModule;
+        }
+      }
+      const sourceScope = query.has("return_scope") ? query.get("return_scope")
+        : requestedComponent === "unassigned" && !componentRoute(requestedComponent).length
+          ? null : requestedComponent || NAV.component_id;
       returnScope = componentRoute(sourceScope).at(-1)?.id || null;
       returnView = views.includes(query.get("return_view")) ? query.get("return_view") : "diagram";
       returnContent = ["components", "modules"].includes(query.get("return_content")) ? query.get("return_content") : null;
@@ -1617,15 +1719,18 @@
       if (selected && lexicalRoute(selected, umlPath[0]?.id, umlPath[0]?.origin).length)
         umlSelection = { type: "node", id: selected };
     } else {
-      const scope = query.get("scope");
+      const component = query.get("component");
+      const scope = query.get("scope") || (component === "unassigned" ? null : component) || query.get("module");
       if (scope && !ATLAS.levels.some((level) => level.parent_id === scope))
         routeNotice = { field: "scope", requested: scope, message: "Requested component scope is not recorded in this snapshot." };
       umlPath = ATLAS.levels.some((level) => level.parent_id === scope)
         ? componentRoute(scope).map((item) => ({ id: item.id, origin: "observed" })) : [];
       const level = atlasLevel();
-      atlasContent = atlasHasChoice(level) && ["components", "modules"].includes(query.get("content")) ? query.get("content") : null;
-      if (level.component_ids.includes(selected) || atlasModules(level).some((item) => item.id === selected)) umlSelection = { type: "node", id: selected };
-      if (viewMode !== "target" && level.modules.some((item) => item.id === selected)) atlasModule = selected;
+      atlasContent = atlasHasChoice(level) && ["components", "modules"].includes(query.get("content"))
+        ? query.get("content") : component === "unassigned" || query.has("module") ? "modules" : null;
+      const requestedSelection = selected || query.get("module");
+      if (level.component_ids.includes(requestedSelection) || atlasModules(level).some((item) => item.id === requestedSelection)) umlSelection = { type: "node", id: requestedSelection };
+      if (viewMode !== "target" && level.modules.some((item) => item.id === requestedSelection)) atlasModule = requestedSelection;
       const cell = Number(query.get("cell"));
       if (query.has("cell") && viewMode !== "target" && level.cells.includes(cell)) atlasCell = cell;
     }
@@ -2003,15 +2108,29 @@
     const directScope = ["module", "class", "interface", "enum"].includes(
       architectureEntity(context.scope, context.graph)?.kind);
     const directOverview = directScope && !focusLabel && !relationshipKind
-      && !violationsOnly.checked;
-    const scopeElements = complete.nodes.filter((node) => !directOverview
-      || !node.outside && node.entity?.id !== context.scope);
+      && !violationsOnly.checked && !showExternalSymbols;
+    const scopeElements = complete.nodes.filter((node) => (!directOverview
+      || !node.outside && node.entity?.id !== context.scope)
+      && (showExternalSymbols || !directOverview || !node.outside));
     const elementKinds = [...new Set(scopeElements.map((node) => node.kind))].sort();
     if (!elementKinds.includes(elementKind)) elementKind = null;
     elementKindInput.innerHTML = '<option value="">All kinds</option>' + elementKinds.map((kind) =>
       `<option value="${esc(kind)}">${esc(kind)} · ${scopeElements.filter((node) => node.kind === kind).length}</option>`).join("");
     elementKindInput.value = elementKind || "";
-    const elements = scopeElements.filter((node) => !elementKind || node.kind === elementKind);
+    const allElements = scopeElements.filter((node) => !elementKind || node.kind === elementKind);
+    const innerElements = allElements.filter((node) => !node.outside && node.entity?.id !== context.scope);
+    const largeModuleScope = architectureEntity(context.scope, context.graph)?.kind === "module"
+      && innerElements.length > 30;
+    const degree = new Map(allElements.map((node) => [node.id, 0]));
+    complete.edges.forEach((edge) => {
+      if (degree.has(edge.source)) degree.set(edge.source, degree.get(edge.source) + 1);
+      if (degree.has(edge.target)) degree.set(edge.target, degree.get(edge.target) + 1);
+    });
+    const topThirty = largeModuleScope && !showAllModuleElements && !focusLabel;
+    const elements = topThirty
+      ? allElements.slice().sort((left, right) => degree.get(right.id) - degree.get(left.id)
+        || left.label.localeCompare(right.label) || left.id.localeCompare(right.id)).slice(0, 30)
+      : allElements;
     const elementIds = new Set(elements.map((node) => node.id));
     if (!elementIds.has(focusLabel)) focusLabel = null;
     focusInput.innerHTML = '<option value="">All elements</option>' + [...complete.nodes.filter((node) => !elementKind || node.kind === elementKind)]
@@ -2025,6 +2144,41 @@
       && (!relationshipKind || edge.relationshipKind === relationshipKind)
       && elementIds.has(edge.source) && elementIds.has(edge.target)
       && (!focusLabel || edge.source === focusLabel || edge.target === focusLabel));
+    const outsideNodes = complete.nodes.filter((node) => node.outside);
+    useSummary.hidden = !directScope || !outsideNodes.length;
+    if (outsideNodes.length) {
+      const byKind = new Map();
+      outsideNodes.forEach((node) => byKind.set(node.kind, (byKind.get(node.kind) || 0) + 1));
+      const uses = [...byKind].sort(([left], [right]) => left.localeCompare(right))
+        .map(([kind, count]) => countLabel(count, kind,
+          ({ class: "classes", enum: "enums", interface: "interfaces", module: "modules" })[kind] || `${kind}s`)).join(" · ");
+      useSummary.textContent = `${showExternalSymbols ? "Hide" : "Uses"}: ${countLabel(outsideNodes.length, "element")}`;
+      useSummary.title = `Outside uses: ${uses}`;
+      useSummary.setAttribute("aria-label", `${showExternalSymbols ? "Hide" : "Show"} outside uses: ${uses}`);
+      useSummary.setAttribute("aria-expanded", String(showExternalSymbols));
+    }
+    elementIndex.hidden = !largeModuleScope;
+    if (largeModuleScope) {
+      const groups = new Map();
+      innerElements.forEach((node) => {
+        if (!groups.has(node.kind)) groups.set(node.kind, []);
+        groups.get(node.kind).push(node);
+      });
+      elementIndex.innerHTML = `<h3>${esc(architectureLabel(architectureEntity(context.scope, context.graph), context.graph))}: ${innerElements.length} inner elements</h3>
+        <p>Grouped by kind.${topThirty ? " The diagram shows the 30 most connected elements." : ""}</p>
+        ${[...groups].sort(([left], [right]) => left.localeCompare(right)).map(([kind, nodes]) =>
+          `<details><summary>${esc(kind)} · ${nodes.length}</summary><ul>${nodes.map((node) =>
+            `<li><button type="button" data-index-element="${esc(node.id)}">${esc(node.label)}</button></li>`).join("")}</ul></details>`).join("")}
+        <button type="button" class="flow-fit" data-show-all-elements>${showAllModuleElements ? "Show top 30" : `Show all ${allElements.length}`}</button>`;
+      elementIndex.querySelectorAll("[data-index-element]").forEach((button) => button.addEventListener("click", () => {
+        const id = button.dataset.indexElement;
+        if (!elementIds.has(id)) showAllModuleElements = true;
+        umlSelection = { type: "node", id }; setTargetDetails(true); render(); fit();
+      }));
+      elementIndex.querySelector("[data-show-all-elements]").addEventListener("click", () => {
+        showAllModuleElements = !showAllModuleElements; umlSelection = null; render(); fit();
+      });
+    }
     const neighbors = new Set([focusLabel, ...edges.flatMap((edge) => [edge.source, edge.target])]);
     const scene = { ...complete, edges,
       nodes: elements.filter((node) => focusLabel ? neighbors.has(node.id)
@@ -2115,6 +2269,7 @@
         });
       },
     });
+    renderSelectedEdgeLabels();
     emphasize();
     for (const item of viewMode === "target" ? [] : [...scene.nodes, ...scene.edges]) {
       const findings = item.entity ? (DATA.findings || []).filter((finding) => finding.graph_subject_ids.includes(item.entity.id)) : item.findings || [];
@@ -2250,7 +2405,8 @@
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height || !canvas.clientWidth || !canvas.clientHeight) return;
     // Member compartments need readable text; oversized content stays pannable.
-    transform.k = Math.max(focusLabel || memberPreviews || umlSelection?.type === "node" ? 1 : overview ? 0 : 0.85, Math.min(
+    const minimumScale = ATLAS ? 0.1 : focusLabel || memberPreviews || umlSelection?.type === "node" ? 1 : overview ? 0 : 0.85;
+    transform.k = Math.max(minimumScale, Math.min(
       1.4,
       canvas.clientWidth / (bounds.width + 48),
       canvas.clientHeight / (bounds.height + 48),
@@ -2429,6 +2585,146 @@
   function atlasReferences(item, field) {
     return (item[field] || []).map((index) => ATLAS.reference_ids[index]);
   }
+  function atlasFindings(level) {
+    const ids = new Set((level.finding_ids || []).map((reference) => Number.isInteger(reference)
+      ? ATLAS.findings[reference]?.id : reference));
+    return (ATLAS.findings || []).filter((finding) => ids.has(finding.id));
+  }
+  function atlasBalanceLine(title, balance) {
+    return `${title}: ${balance?.declared ?? "UNKNOWN"} declared · ${balance?.used ?? "UNKNOWN"} used · ${balance?.allowed_unused ?? "UNKNOWN"} allowed but unused · ${balance?.undeclared ?? "UNKNOWN"} undeclared`;
+  }
+  function atlasDeviationHref(deviation) {
+    const query = new URLSearchParams(location.search);
+    query.delete("scope");
+    if (deviation.level_id) query.set("component", deviation.level_id);
+    else query.delete("component");
+    query.set("view", "diff");
+    query.set("selected", deviation.source_id);
+    query.delete("content");
+    return `${location.pathname}?${query}`;
+  }
+  function atlasBalanceMarkup(level) {
+    if (viewMode !== "diff") return "";
+    const own = new Set(level.deviation_ids || []);
+    const deviations = (ATLAS.deviations || []).filter((item) => own.has(item.id));
+    return `<section class="atlas-balance"><p>${esc(atlasBalanceLine("This level", level.balance))}</p>
+      <p>${esc(atlasBalanceLine("Whole system", ATLAS.balance))}</p>
+      ${deviations.length ? `<ul class="plain">${deviations.map((item) => {
+        const source = atlasComponent(item.source_id)?.label || item.source_id;
+        const target = atlasComponent(item.target_id)?.label || item.target_id;
+        const kind = item.kind === "allowed_unused" ? "Allowed but unused" : "Undeclared";
+        return `<li><a href="${esc(atlasDeviationHref(item))}">${esc(kind)} · ${esc(source)} → ${esc(target)}</a></li>`;
+      }).join("")}</ul>` : ""}</section>`;
+  }
+  function atlasInsideDeviationCount(componentId) {
+    const ids = new Set();
+    for (const level of ATLAS.levels) {
+      if (level.parent_id === componentId || componentRoute(level.parent_id).some((item) => item.id === componentId)) {
+        (level.deviation_ids || []).forEach((id) => ids.add(id));
+      }
+    }
+    return ids.size;
+  }
+  function atlasComponentFindingCount(componentId) {
+    const level = ATLAS.levels.find((item) => item.parent_id === componentId);
+    return level ? atlasFindings(level).length : 0;
+  }
+  function atlasGlobalSymbolsComplete() {
+    if (typeof ATLAS.symbols_complete === "boolean") return ATLAS.symbols_complete;
+    return ATLAS.modules.length > 0 && ATLAS.modules.every((module) =>
+      module.symbol_coverage.length > 0 && module.symbol_coverage.every((item) => item.status === "complete"));
+  }
+  function atlasFindingsMarkup(level, modules) {
+    const findings = atlasFindings(level), groups = new Map();
+    findings.forEach((finding) => {
+      for (const rule of finding.rule_ids.length ? finding.rule_ids : [""]) {
+        const key = `${rule}\0${finding.kind}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(finding);
+      }
+    });
+    return `<details class="atlas-findings" open><summary>Findings · ${findings.length}</summary>
+      ${[...groups].map(([key, entries]) => {
+      const [rule, kind] = key.split("\0");
+      const sharedRemedy = entries.length > 1 && entries.every((finding) =>
+        finding.remedy && finding.remedy === entries[0].remedy) ? entries[0].remedy : null;
+      return `<details id="atlas-rule-${esc(rule)}" class="atlas-finding-group"><summary>${esc(rule)} · ${esc(kind)} · ${countLabel(entries.length, "finding")}</summary>${sharedRemedy ? `<p class="atlas-shared-remedy">${esc(sharedRemedy)}</p>` : ""}<ul class="plain">${entries.map((finding) => {
+      const recorded = ATLAS.modules.find((item) => item.path === finding.path);
+      const assignment = level.modules.find((item) => item.id === recorded?.id);
+      const module = modules.find((item) => item.path === finding.path)
+        || (recorded ? { ...recorded, ...assignment } : null);
+      const source = finding.path ? `${finding.path}${finding.line ? `:${finding.line}` : ""}` : "Source not recorded";
+        let href = null;
+        if (module) {
+          const [path, search = ""] = atlasDetailsHref(module, level).split("?");
+          const query = new URLSearchParams(search);
+          query.set("view", "diagram"); query.set("content", "modules");
+          href = `${path}?${query}`;
+        }
+        const remedy = finding.remedy && finding.remedy !== sharedRemedy
+          ? `<p class="atlas-finding-remedy">${esc(finding.remedy)}</p>` : "";
+        const nested = finding.nested_annotation
+          ? `<p class="atlas-nested-annotation">Nested type: <code>${esc(finding.nested_annotation)}</code></p>` : "";
+        return `<li id="atlas-finding-${esc(finding.id)}-${esc(encodeURIComponent(rule))}"><strong>${esc(finding.title)}</strong>${nested}<p>${href ? `<a href="${esc(href)}">${esc(source)}</a>` : `<code>${esc(source)}</code>`}</p>${remedy}</li>`;
+      }).join("")}</ul></details>`;
+      }).join("") || "<p>No recorded findings at this level.</p>"}</details>`;
+  }
+  function openAtlasFindingHash() {
+    let id;
+    try { id = decodeURIComponent(location.hash.slice(1)); } catch { return; }
+    if (!id.startsWith("atlas-rule-") && !id.startsWith("atlas-finding-")) return;
+    const target = document.getElementById(id);
+    if (!target) return;
+    for (let ancestor = target; ancestor; ancestor = ancestor.parentElement) {
+      if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+    }
+    requestAnimationFrame(() => target.scrollIntoView());
+  }
+  window.addEventListener("hashchange", openAtlasFindingHash);
+  function atlasRuleScopeHref(level, ruleId) {
+    const query = new URLSearchParams(location.search);
+    query.delete("component");
+    if (level.parent_id) query.set("scope", level.parent_id);
+    else query.delete("scope");
+    query.set("view", viewMode);
+    return `${location.pathname}?${query}#atlas-rule-${encodeURIComponent(ruleId)}`;
+  }
+  function atlasRuleAssessmentMarkup(level, component = null) {
+    const assessments = ATLAS.rule_assessments || [];
+    const scopedLevel = component ? ATLAS.levels.find((item) => item.parent_id === component.id) : level;
+    const findings = scopedLevel ? atlasFindings(scopedLevel) : [];
+    const failureGroups = new Map();
+    findings.forEach((finding) => finding.rule_ids.forEach((rule) =>
+      failureGroups.set(rule, (failureGroups.get(rule) || 0) + 1)));
+    const statuses = ["PASS", "FAIL", "UNKNOWN"].map((status) =>
+      `${status} ${assessments.filter((item) => item.status === status).length}`).join(" · ");
+    const notChecked = ATLAS.declared_rules === "NOT CHECKED" ? " · NOT CHECKED" : "";
+    const recordedChecks = `<section class="atlas-scoped-findings"><h3>Recorded checks${component ? ` · ${esc(component.label)}` : ""}</h3>
+      <p>${findings.length ? `${countLabel(findings.length, "recorded failing finding")} · no component-level verdict is inferred.` : "No recorded findings in this scope; no scoped PASS is inferred."}</p>
+      ${failureGroups.size ? `<ul class="plain">${[...failureGroups].map(([ruleId, count]) =>
+      `<li><a href="${esc(atlasRuleScopeHref(scopedLevel || level, ruleId))}">${esc(ruleId)}</a> · ${countLabel(count, "finding")}</li>`).join("")}</ul>` : ""}</section>`;
+    return `${recordedChecks}<details class="atlas-rule-assessments"><summary>Rules · whole run ${esc(ATLAS.declared_rules || "NOT CHECKED")} · ${statuses}${notChecked}</summary>
+      <p>Whole-run rule assessments; local findings are scoped separately above.</p>
+      ${assessments.length ? `<ul class="plain">${assessments.map((item) => {
+      const localCount = failureGroups.get(item.id) || 0;
+      const rule = localCount
+        ? `<a href="${esc(atlasRuleScopeHref(scopedLevel || level, item.id))}">${esc(item.id)}</a>`
+        : `<code>${esc(item.id)}</code>`;
+      return `<li><strong class="atlas-rule-status ${esc(item.status.toLowerCase())}">${esc(item.status)}</strong> · ${rule} (${esc(item.kind)}) · ${esc(item.scope)} · ${esc(item.reason)}`
+        + `${item.count ? ` · ${countLabel(item.count, "recorded result")}` : ""}`
+        + `${item.undecided ? ` · ${countLabel(item.undecided, "undecided result")}` : ""}</li>`;
+      }).join("")}</ul>` : "<p>Rule assessments were not recorded.</p>"}</details>`;
+  }
+  function atlasEvidenceMarkup() {
+    const status = ATLAS.observation_complete || "UNKNOWN";
+    const reason = status === "PASS" ? "The source observation completed."
+      : status === "UNKNOWN" ? "The source observation could not establish complete evidence."
+        : "The source observation reported this status.";
+    return `<section class="atlas-evidence"><h3>Evidence</h3>
+      <p>Source observation: <strong>${esc(status)}</strong> · ${reason}</p>
+      <p>Core projection: ${esc(ATLAS.status)} · ${esc(ATLAS.reason)} · ${countLabel(ATLAS.unknown_count, "analysis limit")} in the complete audit.</p>
+      ${ATLAS.unknowns.length ? `<ul class="plain">${ATLAS.unknowns.map((item) => `<li>${countLabel(item.count, "analysis limit")} · ${esc(item.reason)}</li>`).join("")}</ul>` : ""}</section>`;
+  }
   function atlasEntryQuery(level) {
     const query = new URLSearchParams({ return_scope: level.parent_id || "",
       return_view: viewMode, view: viewMode, theme: document.documentElement.dataset.theme });
@@ -2441,10 +2737,13 @@
 
   function atlasDetailsHref(module, level) {
     const assignment = viewMode === "target" ? module : level.modules.find((item) => item.id === module.id);
-    const href = atlasComponent(assignment?.component_id)?.detail_href || ATLAS.unassigned_detail_href;
+    const route = assignment?.component_id && ATLAS.detail_page
+      ? `${ATLAS.detail_page}?component=${encodeURIComponent(assignment.component_id)}`
+      : `${ATLAS.detail_page || "architecture.detail.html"}?component=unassigned`;
+    const href = route.startsWith("?") ? `${ATLAS.detail_page || "architecture.detail.html"}${route}` : route;
     const query = atlasEntryQuery(level); query.set("module", module.id);
     if (viewMode === "target") query.set("origin", "declared");
-    return `${href}?${query}`;
+    return `${href}${href.includes("?") ? "&" : "?"}${query}`;
   }
 
   function openAtlasComponent(id, content = null) {
@@ -2480,7 +2779,7 @@
   }
 
   function atlasRoutes(scene) {
-    return scene.edges.map((edge) => {
+    const routes = scene.edges.map((edge) => {
       const a = positions[edge.source], b = positions[edge.target];
       const height = cardHeight(edge.source), targetHeight = cardHeight(edge.target);
       const sx = a.x + CARD.w / 2, tx = b.x + CARD.w / 2;
@@ -2495,6 +2794,27 @@
       return { edge, d: `M${sx},${sy} C${sx},${mid} ${tx},${mid} ${tx},${ty}`,
         lx: (sx + tx) / 2, ly: mid - 7 };
     });
+    const occupied = scene.nodes.map((node) => {
+      const position = positions[node.id];
+      return { left: position.x, right: position.x + CARD.w,
+        top: position.y, bottom: position.y + cardHeight(node.id) };
+    });
+    for (const route of routes) {
+      const width = Math.min(208, Math.max(24, (route.edge.label || "").length * 6.2));
+      const height = 16;
+      const labelDescent = 4;
+      const base = route.ly;
+      const candidates = [base, ...Array.from({ length: 48 }, (_, index) =>
+        base + (index % 2 ? 1 : -1) * (Math.ceil(index / 2) * 18))];
+      const clear = candidates.find((candidate) => !occupied.some((box) =>
+        route.lx - width / 2 < box.right && route.lx + width / 2 > box.left
+        && candidate - height < box.bottom && candidate + labelDescent > box.top));
+      const lowestOccupied = occupied.reduce((lowest, box) => Math.max(lowest, box.bottom), base);
+      route.ly = clear ?? lowestOccupied + height + LANE_GAP;
+      occupied.push({ left: route.lx - width / 2, right: route.lx + width / 2,
+        top: route.ly - height, bottom: route.ly + labelDescent });
+    }
+    return routes;
   }
 
   function atlasModuleScene(level) {
@@ -2511,7 +2831,7 @@
     })) : level.cells.filter((index) => ids.has(ATLAS.cells[index].source_id) && ids.has(ATLAS.cells[index].target_id))
       .map((index) => { const cell = ATLAS.cells[index]; return { ...cell, id: `module-cell:${index}`, cell: index,
         source: cell.source_id, target: cell.target_id, kind: "dependency", relationshipKind: "imports",
-        state: cell.status === "FAIL" ? "violation" : cell.status === "UNKNOWN" ? "undecided" : "observed", label: `${cell.import_sites ?? "?"} imports`,
+        state: cell.status === "FAIL" ? "violation" : cell.status === "UNKNOWN" ? "undecided" : "observed", label: countLabel(cell.import_sites, "import"),
         tooltip: `${cell.import_sites ?? "UNKNOWN"} import sites; Core ${cell.status}; permission ${cell.permission}.`,
       }; });
     return { nodes, edges, declared, frames: [], atlas: true, moduleOverview: true };
@@ -2532,18 +2852,39 @@
     const declaredEdges = declared.map((edge) => ({
       id: edge.id, source: edge.source_id, target: edge.target_id,
       kind: "dependency", relationshipKind: "requires", state: "declared", declaration: edge,
-      tooltip: edge.rationale, label: edge.rationale.length > 32 ? edge.rationale.slice(0, 30) + "…" : edge.rationale,
+      tooltip: edge.rationale, label: (() => {
+        const clause = edge.rationale.split(/[.;\n]/, 1)[0].trim();
+        return clause.length > 32 ? `${clause.slice(0, 31).trimEnd()}…` : clause;
+      })(),
     }));
-    const observedEdges = level.edges.map((edge) => ({
+    const pairKey = (source, target) => `${source}\0${target}`;
+    const deviations = new Map((ATLAS.deviations || []).filter((item) => item.level_id === level.parent_id)
+      .map((item) => [pairKey(item.source_id, item.target_id), item.kind]));
+    const permitted = new Set(declared.map((edge) => pairKey(edge.source_id, edge.target_id)));
+    const observedEdges = level.edges.map((edge) => {
+      const deviation = deviations.get(pairKey(edge.source_id, edge.target_id));
+      const allowed = permitted.has(pairKey(edge.source_id, edge.target_id));
+      const isDiff = viewMode === "diff";
+      return ({
       ...edge, id: `observed:${edge.source_id}>${edge.target_id}`,
       source: edge.source_id, target: edge.target_id, kind: "dependency", relationshipKind: "imports",
-      state: edge.status === "FAIL" ? "violation" : "observed",
-      tooltip: `Observed imports: ${edge.import_sites ?? "UNKNOWN"}. Core ${edge.status}; permission UNKNOWN.`,
-      label: `${edge.import_sites ?? "?"} imports`,
-    }));
-    // Diff displays authentic failures/uncertainty, never absence-as-FAIL or requires-as-PASS.
-    const unused = declaredEdges.filter((edge) => edge.declaration.observed_imports === 0)
-      .map((edge) => ({ ...edge, state: "declared", unused: true, label: "declared · 0 observed imports" }));
+      state: isDiff ? deviation === "undeclared" ? "violation" : edge.status === "UNKNOWN" ? "undecided" : "observed"
+        : edge.status === "FAIL" ? "violation" : edge.status === "UNKNOWN" ? "undecided" : "observed",
+      edgeClass: isDiff ? deviation === "undeclared" ? "atlas-undeclared" : allowed ? "atlas-permitted" : "atlas-observed" : "",
+      tooltip: `Observed imports: ${edge.import_sites ?? "UNKNOWN"}. Core ${edge.status}; ${deviation === "undeclared" ? "recorded as undeclared." : allowed ? "declared dependency in use." : "no deviation recorded."}`,
+      label: countLabel(edge.import_sites, "import"),
+    });
+    });
+    const unusedPairs = [...deviations].filter(([, kind]) => kind === "allowed_unused").map(([pair]) => pair);
+    const unused = unusedPairs.map((pair) => {
+      const [source, target] = pair.split("\0");
+      const declaration = declaredEdges.find((edge) => edge.source === source && edge.target === target);
+      return {
+        ...(declaration || { id: `unused:${source}>${target}`, source, target, kind: "dependency", relationshipKind: "requires" }),
+        state: "declared", edgeClass: "atlas-allowed-unused", unused: true, label: "allowed · unused",
+        tooltip: declaration?.tooltip || "Allowed dependency with no observed use.",
+      };
+    });
     const edges = viewMode === "target" ? declaredEdges : viewMode === "diff" ? [...observedEdges, ...unused] : observedEdges;
     return { nodes, edges, frames: [], componentOverview: true, atlas: true, declared };
   }
@@ -2560,7 +2901,7 @@
       inspectorContent.innerHTML = `<div class="kicker">Observed import cell</div><h2>${esc(source.name)} → ${esc(target.name)}</h2>
         <p>${link(atlasDetailsHref(source, level), "Open UML and source evidence")}</p>
         <p>${cell.import_sites ?? "UNKNOWN"} import sites · Core finding status: <strong>${esc(cell.status)}</strong></p>
-        <p>Permission: <strong>${esc(cell.permission)}</strong></p><p>${esc(ATLAS.reference_ids[cell.permission_reason])}</p>
+        <p>Permission: <strong>${esc(cell.permission)}</strong></p><p>${esc(cell.permission_reason)}</p>
         ${list("Recorded reasons", cell.reasons)}${list("Finding IDs", atlasReferences(cell, "finding_ids"))}
         ${list("Evidence IDs", atlasReferences(cell, "evidence_ids"))}`;
       return;
@@ -2578,13 +2919,13 @@
           const binding = level.modules.find((item) => item.id === id);
           const name = atlasComponent(binding?.component_id)?.label || "UNKNOWN owner / outside this level";
           if (!groups.has(name)) groups.set(name, []);
-          groups.get(name).push(`<li>${esc(other.name)} · ${cell.import_sites ?? "UNKNOWN"} sites</li>`);
+          groups.get(name).push(`<li>${esc(other.name)} · ${countLabel(cell.import_sites, "site")}</li>`);
         }
         return [...groups].map(([name, items]) => `<h4>${esc(name)}</h4><ul class="plain">${items.join("")}</ul>`).join("") || "No recorded module cells.";
       };
       inspectorContent.innerHTML = `<div class="kicker">Observed module · counts over the observed source scope</div>
         <h2>${esc(module.name)}</h2><p>${link(atlasDetailsHref(module, level), "Open UML and source evidence")}</p><p><code>${esc(module.path || "Path unavailable")}</code></p>
-        <p>${module.symbols ?? "UNKNOWN"} observed symbols · fan-in ${module.fan_in ?? "UNKNOWN"} · fan-out ${module.fan_out ?? "UNKNOWN"}</p>
+        <p>${countLabel(module.symbols, "observed symbol")} · fan-in ${module.fan_in ?? "UNKNOWN"} · fan-out ${module.fan_out ?? "UNKNOWN"}</p>
         ${list("Symbol coverage", module.symbol_coverage.map((item) => `${item.status}: ${item.reason || "Recorded source inventory"}`))}
         <h3>Owner</h3><p>${esc(owner?.label || "UNKNOWN")} · ${esc(assignment?.ownership_reason || "No assignment receipt")}</p>
         ${owner ? list("Responsibility", owner.responsibilities) + list("Not responsible for", owner.not_responsible_for) : list("Candidate owners", assignment?.candidate_ids || [])}
@@ -2597,7 +2938,7 @@
       if (module) {
         inspectorContent.innerHTML = `<div class="kicker">Declared module</div><h2>${esc(module.name)}</h2>
           <p>${link(atlasDetailsHref(module, level), "Open UML and source evidence")}</p><p><code>${esc(module.path || "File path not declared")}</code></p>
-          <p>${module.declarations} direct declared definitions</p>${list("Responsibility", module.responsibilities)}${list("Provenance", module.provenance)}
+          <p>${countLabel(module.declarations, "direct declared definition")}</p>${list("Responsibility", module.responsibilities)}${list("Provenance", module.provenance)}
           ${list("Authored module relationships", renderedScene.edges.filter((edge) => edge.source === module.id || edge.target === module.id)
             .map((edge) => `${edge.id} · ${edge.relationshipKind}: ${edge.source} → ${edge.target} · ${edge.declaration.evidence_ids.join(", ")}`))}`;
         return;
@@ -2606,30 +2947,33 @@
     if (!component) {
       inspectorContent.innerHTML = `<div class="kicker">Fact sheet${viewMode === "target" ? " · Declared intent" : ""}</div><h2>${esc(ATLAS.repository)}</h2>
         <p>${viewMode === "target" ? "Select a component or declared module." : "Select a component, module, import cell or question."}</p>
-        ${viewMode !== "target" ? `<p>Every count refers to the recorded snapshot.</p>
-        <p>Core ${esc(ATLAS.status)}: ${esc(ATLAS.reason)} · ${ATLAS.unknown_count} analysis limits in the complete audit</p>${list("Recorded analysis limits (most frequent reasons)", ATLAS.unknowns.map((item) => `${item.count} × ${item.reason}`))}` : ""}
+        ${viewMode === "target" ? "" : `${atlasRuleAssessmentMarkup(level)}${atlasEvidenceMarkup()}`}
         <p>${link(ATLAS.architecture_href, "Complete audit JSON")}</p>`;
       return;
     }
     const componentLevel = ATLAS.levels.find((item) => item.parent_id === component.id);
     const moduleCount = componentLevel ? atlasModules(componentLevel).length : 0;
     inspectorContent.innerHTML = `<div class="kicker">Component fact sheet · ${viewMode === "target" ? "Declared intent" : "Core facts"}</div>
-      <h2>${esc(component.label)}</h2><p><button type="button" class="flow-fit" data-browse-component>${moduleCount ? `Browse ${moduleCount} modules` : `Browse ${esc(component.label)}`}</button></p>${component.layer ? `<p>Declared layer: ${esc(component.layer)}</p>` : ""}${list("Responsibility", component.responsibilities)}
+      <h2>${esc(component.label)}</h2><p><button type="button" class="flow-fit" data-browse-component>${moduleCount ? `Browse ${countLabel(moduleCount, "module")}` : `Browse ${esc(component.label)}`}</button></p>${component.layer ? `<p>Declared layer: ${esc(component.layer)}</p>` : ""}${list("Responsibility", component.responsibilities)}
       ${list("Not responsible for", component.not_responsible_for)}${list("Provides", component.public)}
       ${list("Planned interface", component.planned)}<h3>Requires · declared permission, not an obligation</h3>
       <ul class="plain">${component.requires.map((edge) => `<li><strong>${esc(atlasComponent(edge.target_id)?.label || edge.target_id)}</strong>
         <p>${esc(edge.rationale)}</p>${edge.through.length ? `<p>Through: ${edge.through.map(esc).join(", ")}</p>` : ""}
-        <p>Decided by ${esc(edge.decided_by || "Not declared")}${viewMode !== "target" ? ` · ${edge.observed_imports ?? "UNKNOWN"} observed imports` : ""}</p></li>`).join("") || "Not declared"}</ul>
-      ${viewMode !== "target" ? `<h3>Observed weight</h3><p>${component.observed_modules} modules · ${component.observed_symbols ?? "UNKNOWN"} observed symbols
-        ${component.symbols_complete ? "" : "· partial lexical inventory"}</p><h3>Recorded checks</h3><p>${esc(component.status)} · ${esc(component.reason)}</p>
-        <h3>Used by</h3><ul class="plain">${component.used_by.map((item) => `<li>${esc(atlasComponent(item.component_id)?.label || item.component_id)} · ${item.import_sites} imports</li>`).join("") || "No recorded component uses."}</ul>` : ""}
-      <h3>Decision and source</h3><p>${esc(component.decided_by || "Not declared")} · <code>${esc(component.path || "Path not declared")}</code></p>
+        <p>Decided by ${esc(edge.decided_by || "Not declared")}${viewMode !== "target" ? ` · ${countLabel(edge.observed_imports, "observed import")}` : ""}</p></li>`).join("") || "Not declared"}</ul>
+      ${viewMode === "target" ? "" : `${atlasRuleAssessmentMarkup(level, component)}${atlasEvidenceMarkup()}`} ${viewMode !== "target" ? `<h3>Observed weight</h3><p>${countLabel(component.observed_modules, "module")} · ${countLabel(component.observed_symbols, "observed symbol")}
+        ${component.symbols_complete === atlasGlobalSymbolsComplete() ? "" : component.symbols_complete ? "· complete lexical inventory" : "· partial lexical inventory"}</p><h3>Component evidence status</h3><p>${esc(component.status)} · ${esc(component.reason)}</p>
+        <h3>Used by</h3><ul class="plain">${component.used_by.map((item) => `<li>${esc(atlasComponent(item.component_id)?.label || item.component_id)} · ${countLabel(item.import_sites, "import")}</li>`).join("") || "No recorded component uses."}</ul>` : ""}
+      <h3>${viewMode === "target" ? "Decision" : "Decision and source"}</h3><p>${esc(component.decided_by || "Not declared")}${viewMode === "target" ? "" : ` · <code>${esc(component.path || "Path not declared")}</code>`}</p>
       ${list("Provenance", component.provenance)}`;
     inspectorContent.querySelector("[data-browse-component]").onclick = () => openAtlasComponent(component.id, "modules");
   }
 
   function atlasQuestion(hint) {
-    return `Repository: ${ATLAS.repository}\nCommit: ${ATLAS.source.git_head}\nSource digest: ${ATLAS.source.source_digest}\nModules: ${hint.module_ids.map((id) => atlasModuleById(id).name).join(", ")}\nObserved count: ${hint.count} (${hint.kind === "hub" ? "importing modules" : hint.kind === "heavy" ? "symbols" : hint.kind === "no_owner" ? "authenticated owners" : "import sites"})\nEvidence IDs: ${atlasReferences(hint, "evidence_ids").join(", ")}\nRelationship IDs: ${atlasReferences(hint, "relationship_ids").join(", ")}\nQuestion: ${hint.question}\nProvisional hint, not a verdict.`;
+    const subject = hint.kind === "hub" ? ["importing module", "importing modules"]
+      : hint.kind === "heavy" ? ["symbol", "symbols"]
+        : hint.kind === "no_owner" ? ["authenticated owner", "authenticated owners"]
+          : ["import site", "import sites"];
+    return `Repository: ${ATLAS.repository}\nCommit: ${ATLAS.source.git_head}\nSource digest: ${ATLAS.source.source_digest}\nModules: ${hint.module_ids.map((id) => atlasModuleById(id).name).join(", ")}\nObserved count: ${countLabel(hint.count, ...subject)}\nEvidence IDs: ${atlasReferences(hint, "evidence_ids").join(", ")}\nRelationship IDs: ${atlasReferences(hint, "relationship_ids").join(", ")}\nQuestion: ${hint.question}\nProvisional hint, not a verdict.`;
   }
 
   async function copyAtlasQuestion(hint, button) {
@@ -2656,9 +3000,9 @@
 
   function atlasModuleList(level) {
     const modules = atlasModules(level);
-    return `<section class="atlas-module-list"><h3>${viewMode === "target" ? "Declared" : "Observed"} modules · ${modules.length}</h3><ul class="plain">
+    return `<section class="atlas-module-list"><h3>${viewMode === "target" ? "Declared" : "Observed"} ${countLabel(modules.length, "module")}</h3><ul class="plain">
       ${modules.map((module) => `<li><a href="${esc(atlasDetailsHref(module, level))}">${esc(module.path?.split("/").at(-1) || module.name)}</a>
-        · ${viewMode === "target" ? `${module.declarations} direct declared definitions` : `${module.symbols ?? "UNKNOWN"} observed symbols`}
+        · ${viewMode === "target" ? countLabel(module.declarations, "direct declared definition") : countLabel(module.symbols, "observed symbol")}
         <p><code>${esc(module.path || module.name)}</code>${module.path ? "" : " · File path not declared"}</p></li>`).join("")}</ul></section>`;
   }
 
@@ -2678,7 +3022,7 @@
   function atlasExplore(level) {
     const explore = root.querySelector(".flow-explore");
     if (viewMode === "target") {
-      explore.innerHTML = '<h3>Explore</h3><p>Target shows declarations only. Switch to As-Is or Diff for observed modules and question candidates.</p>';
+      explore.innerHTML = `${atlasFindingsMarkup(level, atlasModules(level))}<h3>Explore</h3><p>Target shows declarations only. Switch to As-Is or Diff for observed modules and question candidates.</p>`;
       return;
     }
     const componentOrder = new Map(renderedScene.nodes.slice().sort((a, b) => positions[a.id].y - positions[b.id].y
@@ -2688,18 +3032,23 @@
         || (a.rank ?? Infinity) - (b.rank ?? Infinity) || a.name.localeCompare(b.name));
     const shown = atlasAllHints ? level.questions : level.questions.slice(0, 5);
     const titles = { used_elsewhere: "Used elsewhere", hub: "Hub", heavy: "Heavy", no_owner: "No owner" };
-    explore.innerHTML = `<div class="atlas-explore-heading"><h3>Worth a look</h3><span>${modules.length} modules · ${level.cells.length} module dependencies</span></div>
+    explore.innerHTML = `${atlasBalanceMarkup(level)}${atlasFindingsMarkup(level, modules)}
+      <div class="atlas-explore-heading"><h3>Worth a look</h3><span>${countLabel(modules.length, "module")} · ${countLabel(level.cells.length, "module dependency", "module dependencies")}</span></div>
       <p>Deterministic question candidates from Core, not verdicts. Thresholds remain provisional.</p>
       <ul class="atlas-questions">${shown.map((index) => {
         const hint = ATLAS.questions[index];
-        return `<li><span class="atlas-chip">${titles[hint.kind]}</span> ${hint.count} ${hint.kind === "hub" ? "importing modules" : hint.kind === "heavy" ? "observed symbols" : hint.kind === "no_owner" ? "authenticated owners" : "observed import sites"}
+        const subject = hint.kind === "hub" ? ["importing module", "importing modules"]
+          : hint.kind === "heavy" ? ["observed symbol", "observed symbols"]
+            : hint.kind === "no_owner" ? ["authenticated owner", "authenticated owners"]
+              : ["observed import site", "observed import sites"];
+        return `<li><span class="atlas-chip">${titles[hint.kind]}</span> ${countLabel(hint.count, ...subject)}
           <p>${hint.module_ids.map((id) => `<code>${esc(atlasModuleById(id).name)}</code>`).join(", ")}</p><p>${esc(hint.question)}</p>
           <button type="button" data-show-question="${index}">Show in matrix</button> <button type="button" data-copy-question="${index}">Copy as question</button></li>`;
       }).join("") || '<li>No question candidates at this level.</li>'}</ul>
       ${level.questions.length > 5 ? `<button type="button" data-all-questions>${atlasAllHints ? "Show fewer" : `Show all ${level.questions.length} questions`}</button>` : ""}
-      <h3>Module matrix</h3><p>Row imports column. Neutral: observed import · Red: recorded Core FAIL · Amber: permission UNKNOWN.
+      <h3>Module matrix</h3><p>Row imports column. Neutral: Core PASS · Red: Core FAIL · Amber: Core UNKNOWN.
       Module permission is never inferred from a declared requires edge.</p>
-      <p class="atlas-coverage">${esc(level.import_status)}: ${esc(level.import_reason)} Fan-in/out refer to the whole observed source scope. Symbols are observed lexical declarations, including nested declarations.</p>
+      <p class="atlas-coverage">${esc(level.import_status)}: ${esc(level.import_reason)}</p>
       <div class="flow-matrix" role="region" aria-label="Module import matrix" tabindex="0"></div>
       <details class="atlas-module-list"><summary>Modules and UML · ${modules.length}</summary>${atlasModuleList(level)}</details>`;
     if (!level.questions.length) {
@@ -2707,26 +3056,60 @@
       explore.querySelector(".atlas-questions").previousElementSibling.remove();
       explore.querySelector(".atlas-questions").remove();
     }
-    const n = modules.length, size = Math.max(2.4, Math.min(16, 720 / Math.max(1, n)));
-    const margin = size >= 9 ? 154 : 26;
+    const n = modules.length, requestedSize = Math.max(2.4, Math.min(16, 720 / Math.max(1, n)));
+    const size = requestedSize >= 9 && requestedSize < 12 ? 12 : requestedSize;
     const indexes = new Map(modules.map((module, index) => [module.id, index]));
-    const matrix = el("svg", { width: String(margin + n * size + 12), height: String(margin + n * size + 12),
-      role: "img", "aria-label": `${n} modules. A row imports a column.` });
-    let start = 0;
-    while (start < n) {
+    const groups = [];
+    for (let start = 0; start < n;) {
       let end = start + 1;
       while (end < n && modules[end].component_id === modules[start].component_id) end++;
-      matrix.appendChild(el("rect", { class: "matrix-block", x: String(margin + start * size), y: String(margin + start * size),
-        width: String((end - start) * size), height: String((end - start) * size) }));
+      groups.push({ start, end, name: modules[start].component_id
+        ? `${atlasComponent(modules[start].component_id)?.label || "Component"} · inside` : "Root" });
       start = end;
     }
+    const matrix = el("svg", {
+      role: "img", "aria-label": `${countLabel(n, "module")}. A row imports a column.` });
+    explore.querySelector(".flow-matrix").appendChild(matrix);
+    const probe = el("text", { class: "matrix-group-label" });
+    matrix.appendChild(probe);
+    measureText.font = getComputedStyle(probe).font;
+    const labelWidth = Math.max(120, ...groups.map((group, index) => {
+      const range = `${group.start + 1}–${group.end}`;
+      return Math.max(
+        measureText.measureText(`${index + 1}. ${group.name} · columns ${range}`).width,
+        measureText.measureText(`${index + 1}. ${group.name} · rows ${range}`).width,
+      );
+    }));
+    probe.setAttribute("class", "matrix-label");
+    measureText.font = getComputedStyle(probe).font;
+    const margin = size < 9 ? 54 : Math.max(154, ...modules.map((module) =>
+      measureText.measureText(module.name.split(".").slice(-2).join(".")).width + 12));
+    probe.remove();
+    const bandHeight = 28 + groups.length * 14, gridTop = margin + bandHeight;
+    matrix.setAttribute("width", String(Math.max(margin + n * size + 12, margin + labelWidth * 2 + 20)));
+    matrix.setAttribute("height", String(gridTop + n * size + 12));
+    const columnHeading = el("text", { class: "matrix-axis-heading", x: String(margin), y: "14" });
+    columnHeading.textContent = "Column groups · left to right"; matrix.appendChild(columnHeading);
+    const rowHeading = el("text", { class: "matrix-axis-heading", x: String(margin + labelWidth + 20), y: "14" });
+    rowHeading.textContent = "Row groups · top to bottom"; matrix.appendChild(rowHeading);
+    groups.forEach((group, index) => {
+      const y = String(28 + index * 14), range = `${group.start + 1}–${group.end}`;
+      for (const [axis, x] of [["column", margin], ["row", margin + labelWidth + 20]]) {
+        const label = el("text", { class: "matrix-group-label", "data-axis": axis, x: String(x), y });
+        label.textContent = `${index + 1}. ${group.name} · ${axis === "column" ? "columns" : "rows"} ${range}`;
+        matrix.appendChild(label);
+      }
+      matrix.appendChild(el("rect", { class: "matrix-block",
+        x: String(margin + group.start * size), y: String(gridTop + group.start * size),
+        width: String((group.end - group.start) * size), height: String((group.end - group.start) * size) }));
+    });
     modules.forEach((module, index) => {
       if (size < 9) return;
       for (const column of [false, true]) {
         const label = el("text", { class: "matrix-label", "data-module": module.id, tabindex: "0", role: "button",
-          x: String(column ? margin + (index + .7) * size : margin - 6),
-          y: String(column ? margin - 6 : margin + (index + .7) * size), "text-anchor": "end",
-          ...(column ? { transform: `rotate(-65 ${margin + (index + .7) * size} ${margin - 6})` } : {}) });
+          x: String(column ? margin + (index + .5) * size : margin - 6),
+          y: String(column ? gridTop - 6 : gridTop + (index + .7) * size), "text-anchor": column ? "start" : "end",
+          ...(column ? { transform: `rotate(-90 ${margin + (index + .5) * size} ${gridTop - 6})` } : {}) });
         label.textContent = module.name.split(".").slice(-2).join(".");
         label.appendChild(el("title")); label.lastChild.textContent = module.name;
         matrix.appendChild(label);
@@ -2736,15 +3119,13 @@
     for (const index of level.cells) {
       const cell = ATLAS.cells[index], row = indexes.get(cell.source_id), column = indexes.get(cell.target_id);
       if (row === undefined || column === undefined) continue;
-      const same = modules[row].component_id !== null && modules[row].component_id === modules[column].component_id;
-      const state = cell.status === "FAIL" ? "fail" : same ? "observed" : "unknown";
+      const state = cell.status === "FAIL" ? "fail" : cell.status === "UNKNOWN" ? "unknown" : "pass";
       const rect = el("rect", { class: `matrix-cell ${state}${viewMode === "diff" && cell.status !== "FAIL" ? " quiet" : ""}${highlighted.includes(cell.source_id) || highlighted.includes(cell.target_id) ? " highlighted" : ""}`,
         "data-cell": String(index), tabindex: "0", role: "button",
-        "aria-label": `${modules[row].name} imports ${modules[column].name}: ${cell.import_sites ?? "UNKNOWN"} sites; Core ${cell.status}; permission ${cell.permission}`,
-        x: String(margin + column * size), y: String(margin + row * size), width: String(Math.max(2.4, size - 1)), height: String(Math.max(2.4, size - 1)) });
+        "aria-label": `${modules[row].name} imports ${modules[column].name}: ${countLabel(cell.import_sites, "site")}; Core ${cell.status}; permission ${cell.permission}`,
+        x: String(margin + column * size), y: String(gridTop + row * size), width: String(Math.max(2.4, size - 1)), height: String(Math.max(2.4, size - 1)) });
       const title = el("title"); title.textContent = rect.getAttribute("aria-label"); rect.appendChild(title); matrix.appendChild(rect);
     }
-    explore.querySelector(".flow-matrix").appendChild(matrix);
     const choose = (event) => {
       const cell = event.target.closest("[data-cell]"), module = event.target.closest("[data-module]");
       if (!cell && !module) return;
@@ -2784,12 +3165,16 @@
     const agentEdges = scene.declared.filter((edge) => edge.decided_by === "agent").length;
     const observed = scene.edges.filter((edge) => !edge.declaration);
     root.querySelector(".atlas-summary").textContent = scene.moduleOverview
-      ? viewMode === "target" ? `${scene.nodes.length} declared modules · ${scene.edges.length} authored module relationships`
-        : `${scene.nodes.length} observed modules · ${observed.length} local dependencies · ${observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : "UNKNOWN"} import sites`
+      ? viewMode === "target" ? `${countLabel(scene.nodes.length, "declared module")} · ${countLabel(scene.edges.length, "authored module relationship")}`
+        : `${countLabel(scene.nodes.length, "observed module")} · ${countLabel(observed.length, "local dependency", "local dependencies")} · ${countLabel(observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : null, "import site")}`
       : viewMode === "target"
-      ? `${scene.declared.length} declared requires at this level · agent decisions: ${agentComponents}/${scene.nodes.length} components, ${agentEdges}/${scene.declared.length} dependencies`
-      : `${observed.length} observed dependencies · ${observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : "UNKNOWN"} imports at this level · ${viewMode === "diff" ? "recorded failures highlighted; unproven permission UNKNOWN" : "source facts"}`;
-    cardHeights.clear(); scene.nodes.forEach((node) => cardHeights.set(node.id, 144)); CARD.h = 144;
+      ? `${countLabel(scene.declared.length, "declared requirement")} at this level · agent decisions: ${agentComponents}/${countLabel(scene.nodes.length, "component")}, ${agentEdges}/${countLabel(scene.declared.length, "dependency", "dependencies")}`
+      : `${countLabel(observed.length, "observed dependency", "observed dependencies")} · ${countLabel(observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : null, "import")} at this level · ${viewMode === "diff" ? "recorded failures highlighted; unproven permission UNKNOWN" : "source facts"}`;
+    cardHeights.clear(); scene.nodes.forEach((node) => {
+      const chips = viewMode !== "target" && !scene.moduleOverview && node.component
+        ? Number(atlasComponentFindingCount(node.id) > 0) + Number(atlasInsideDeviationCount(node.id) > 0) : 0;
+      cardHeights.set(node.id, scene.moduleOverview ? 144 : 164 + Math.max(0, chips - 1) * 14);
+    }); CARD.h = Math.max(144, ...cardHeights.values());
     positions = atlasLayout(scene.nodes, scene.moduleOverview ? scene.edges : scene.declared);
     renderUmlScene(scene, {
       frame() {},
@@ -2807,8 +3192,26 @@
         if (viewMode !== "target") {
           if (node.component) group.dataset.assessmentStatus = node.component.status;
           const weight = el("text", { class: "atlas-weight", x: "16", y: "129" });
-          weight.textContent = node.module ? `${node.module.symbols ?? "UNKNOWN"} observed symbols` : `${node.component.observed_modules} mod · ${node.component.observed_symbols ?? "?"} sym${node.component.symbols_complete ? "" : " · partial"}`;
+          const inventoryComplete = atlasGlobalSymbolsComplete();
+          weight.textContent = node.module ? `${node.module.symbols ?? "UNKNOWN"} observed symbols`
+            : `${node.component.observed_modules} mod · ${node.component.observed_symbols ?? "?"} sym${node.component.symbols_complete === inventoryComplete ? "" : node.component.symbols_complete ? " · complete" : " · partial"}`;
           group.appendChild(weight);
+        }
+        if (viewMode !== "target" && !scene.moduleOverview && node.component) {
+          const findingCount = atlasComponentFindingCount(node.id);
+          let chipY = 151;
+          if (findingCount) {
+            const findings = el("text", { class: "atlas-finding-chip", x: "16", y: String(chipY) });
+            findings.textContent = `${countLabel(findingCount, "finding")} inside`;
+            group.appendChild(findings);
+            chipY += 14;
+          }
+          const count = atlasInsideDeviationCount(node.id);
+          if (count) {
+            const deviations = el("text", { class: "atlas-deviation-chip", x: "16", y: String(chipY) });
+            deviations.textContent = `${countLabel(count, "deviation")} inside`;
+            group.appendChild(deviations);
+          }
         }
         group.addEventListener("click", (event) => { event.stopPropagation(); selectArchitectureSubject("node", node.id); });
         group.addEventListener("dblclick", (event) => { event.preventDefault(); openArchitectureEntity(node.id); });
@@ -2836,7 +3239,12 @@
     const neighbors = new Set(scene.edges.filter((edge) => edge.source === selected || edge.target === selected).flatMap((edge) => [edge.source, edge.target]));
     nodeLayer.querySelectorAll("[data-uml-id]").forEach((node) => node.classList.toggle("dim", Boolean(selected && node.dataset.umlId !== selected && !neighbors.has(node.dataset.umlId))));
     edgeLayer.querySelectorAll("[data-uml-id]").forEach((edge) => edge.classList.toggle("dim", Boolean(selected && edge.dataset.umlSource !== selected && edge.dataset.umlTarget !== selected)));
-    legend.textContent = scene.moduleOverview ? "Native modules · local directed relationships · Enter opens direct definitions" : "Directed dependencies · card positions come from the Target · counts are observed import sites";
+    legend.textContent = scene.moduleOverview ? viewMode === "target"
+      ? "Target modules · authored relationships · Enter opens direct definitions"
+      : "Observed modules · local directed relationships · Enter opens direct definitions"
+      : viewMode === "target" ? "Target edges · declared permissions · labels show rationale"
+        : viewMode === "diff" ? "Diff edges · red: undeclared · solid: permitted and used · dashed: allowed but unused"
+          : "Directed dependencies · card positions come from the Target · counts are observed import sites";
     atlasExplore(level); atlasSheet(level); updateOpenSelected(); sizeDiagram();
   }
 
@@ -2902,16 +3310,20 @@
     positions = {};
     render(); fit();
   });
-  resetFiltersButton.addEventListener("click", () => {
+  const resetFlow = () => {
     focusLabel = null; relationshipKind = null; elementKind = null; umlSelection = null; positions = {};
+    showExternalSymbols = false; showAllModuleElements = false;
     violationsOnly.checked = false;
+    transform.k = 1;
     render(); fit();
-  });
+  };
+  resetFiltersButton.remove();
+  zoom100Button.setAttribute("aria-label", "Reset filters");
+  zoom100Button.addEventListener("click", resetFlow);
   fitButton.addEventListener("click", () => { positions = {}; render(); fit(); });
   overviewButton.addEventListener("click", () => { positions = {}; render(); fit(true); });
   zoomOutButton.addEventListener("click", () => zoomBy(1 / 1.2));
   zoomInButton.addEventListener("click", () => zoomBy(1.2));
-  zoom100Button.addEventListener("click", () => { transform.k = 1; diagramOrigin = null; sizeDiagram(); });
   svg.addEventListener("pointerdown", (event) => {
     if (!event.isPrimary || event.button !== 0 || event.target.closest(".node, .hit")) return;
     capturePointer(svg, event);
@@ -3026,6 +3438,7 @@
     });
   }
   render();
+  if (ATLAS) openAtlasFindingHash();
   if (!NAV) {
     const moduleId = new URLSearchParams(location.search).get("module");
     const module = DATA.observed?.entities.find((entity) => entity.id === moduleId && entity.kind === "module");

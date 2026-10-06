@@ -30,7 +30,86 @@ def test_failed_card_explains_its_recorded_assessment(tmp_path):
         assert badge.get_attribute("aria-label").startswith("FAIL ·")
         assert "Return annotation differs" in client.locator("title").text_content()
         client.press("Space")
+        assert set(page.locator(".uml-edge-label").all_text_contents()) == {"inherits", "realizes"}
         assert "Return annotation differs" in page.locator(".flow-inspector-content").inner_text()
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_selected_element_labels_each_edge_by_relationship_kind(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    html, _ = _uml_report(tmp_path)
+    playwright, browser, page = _browser_page(api, html)
+    try:
+        _open_module(page, "As-Is")
+        page.locator('.flow-nodes [data-label="Client"]').press("Space")
+        assert set(page.locator(".uml-edge-label").all_text_contents()) == {"inherits", "realizes"}
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_large_module_opens_grouped_list_and_limits_diagram_to_thirty(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    context = {
+        "presence": "planned",
+        "provenance": ("docs/target.md",),
+        "responsibilities": ("Represent a native element.",),
+    }
+    entities = tuple(
+        Entity(f"item-{index}", "class", f"sample.core.Item{index}", "python", "module", **context)
+        for index in range(31)
+    )
+    source = "".join(f"class Item{index}: pass\n" for index in range(31))
+    html, _ = _uml_report(tmp_path, extra_source=source, extra_target_entities=entities)
+    errors = []
+    playwright, browser, page = _browser_page(api, html, width=1440, errors=errors)
+    try:
+        _open_module(page, "As-Is")
+        assert page.locator(".flow-element-index").is_visible()
+        assert "35 inner elements" in page.locator(".flow-element-index").inner_text()
+        assert (
+            page.locator(".flow-element-index summary").filter(has_text="class · 34").count() == 1
+        )
+        assert page.locator(".flow-nodes [data-uml-id]").count() == 30
+        visible = set(
+            page.locator(".flow-nodes [data-uml-id]").evaluate_all(
+                "nodes => nodes.map(node => node.dataset.umlId)"
+            )
+        )
+        hidden = next(
+            identity
+            for identity in page.locator("[data-index-element]").evaluate_all(
+                "nodes => nodes.map(node => node.dataset.indexElement)"
+            )
+            if identity not in visible
+        )
+        page.locator(".flow-filters > summary").click()
+        page.locator("#flow-focus").select_option(hidden)
+        assert page.locator("#flow-focus").input_value() == hidden
+        assert page.locator(f'.flow-nodes [data-uml-id="{hidden}"]').count() == 1
+        assert "30 most connected" not in page.locator(".flow-element-index").inner_text()
+        page.locator("#flow-focus").select_option("")
+        page.locator(".flow-filters > summary").click()
+        assert page.locator(".flow-nodes [data-uml-id]").count() == 30
+        page.get_by_role("button", name="Show all 35", exact=True).click()
+        assert page.locator(".flow-nodes [data-uml-id]").count() == 35
+        assert "30 most connected" not in page.locator(".flow-element-index").inner_text()
+        toolbar = page.locator(".flow-toolbar")
+        assert toolbar.evaluate("node => node.scrollWidth <= node.clientWidth")
+        controls = toolbar.locator("button, select, input, summary").evaluate_all("""nodes =>
+          nodes.filter(node => !node.closest('.flow-breadcrumb'))
+            .map(node => node.getBoundingClientRect())
+            .filter(box => box.width && box.height)
+            .map(box => ({top: box.top, bottom: box.bottom}))""")
+        assert max(box["top"] for box in controls) < min(box["bottom"] for box in controls)
+        assert toolbar.get_by_role("button", name="Reset filters", exact=True).count() == 1
+        assert toolbar.locator(".flow-reset-filters").count() == 0
+        page.locator(".flow-use-summary").click()
+        assert "35 inner elements" in page.locator(".flow-element-index").inner_text()
+        assert page.locator(".flow-element-index [data-index-element]").count() == 35
+        assert not errors
     finally:
         browser.close()
         playwright.stop()
@@ -111,6 +190,7 @@ def test_uml_focus_keeps_direct_neighbors_and_restores_the_complete_scope(
         base = page.locator('.flow-nodes [data-label="Base"]')
         base_id = base.get_attribute("data-uml-id")
         focus = page.locator("#flow-focus")
+        page.locator(".flow-filters > summary").click()
         assert focus.is_visible()
         focus.select_option(base_id)
         assert (
@@ -135,6 +215,7 @@ def test_uml_focus_keeps_direct_neighbors_and_restores_the_complete_scope(
         assert not _route_problems(edges)
         if view == "Diff":
             assert "Core: FAIL" in page.locator(".flow-legend").inner_text()
+        page.locator(".flow-filters > summary").click()
         client = page.locator('.flow-nodes [data-label="Client"]')
         before = client.get_attribute("transform")
         client.hover()
@@ -159,6 +240,7 @@ def test_uml_focus_keeps_direct_neighbors_and_restores_the_complete_scope(
             edges.evaluate_all("edges => edges.map(edge => edge.dataset.umlId).sort()") == all_edges
         )
         other_id = page.locator('.flow-nodes [data-label="Other"]').get_attribute("data-uml-id")
+        page.locator(".flow-filters > summary").click()
         focus.select_option(other_id)
         assert nodes.count() == 1 and nodes.get_attribute("data-uml-id") == other_id
         assert page.locator(".flow-edges .hit").count() == 0
@@ -190,6 +272,7 @@ def test_relationship_filter_keeps_evidence_and_restores_scope_state(tmp_path, v
         all_edges = edges.evaluate_all("edges => edges.map(edge => edge.dataset.umlId).sort()")
         client_id = page.locator('.flow-nodes [data-label="Client"]').get_attribute("data-uml-id")
         focus = page.locator("#flow-focus")
+        page.locator(".flow-filters > summary").click()
         focus.select_option(client_id)
         page.locator('.flow-legend button[data-relationship-kind="inherits"]').click()
         assert edges.count() == 1 and edges.get_attribute("data-relationship-kind") == "inherits"
@@ -207,6 +290,7 @@ def test_relationship_filter_keeps_evidence_and_restores_scope_state(tmp_path, v
             )
             == "inherits"
         )
+        page.locator(".flow-filters > summary").click()
         page.locator('.flow-nodes [data-label="Client"]').click()
         assert "realizes" in page.locator(".flow-inspector-content").inner_text()
         if view == "Diff":
@@ -268,8 +352,10 @@ def test_cyclic_component_connections_do_not_share_stretches(tmp_path):
     playwright, browser, page = _browser_page(api, html)
     try:
         app = page.locator('.flow-nodes [data-uml-kind="component"][data-label="app"]')
+        page.locator(".flow-filters > summary").click()
         page.locator("#flow-focus").select_option(app.get_attribute("data-uml-id"))
         page.locator("#flow-violations-only").check()
+        page.locator(".flow-filters > summary").click()
         page.get_by_role("button", name="Fit overview", exact=True).click()
         edges = page.locator(".flow-edges .edge")
         assert edges.count() > 0
@@ -302,6 +388,7 @@ def test_element_kind_filter_retains_evidence_and_navigation(tmp_path, view):
             ".map(node => node.dataset.umlId).sort()"
         )
         kinds = page.get_by_label("Element kind", exact=True)
+        page.locator(".flow-filters > summary").click()
         kinds.select_option("class")
         assert (
             nodes.evaluate_all("nodes => nodes.map(node => node.dataset.umlId).sort()")
@@ -310,6 +397,8 @@ def test_element_kind_filter_retains_evidence_and_navigation(tmp_path, view):
         assert nodes.evaluate_all('nodes => nodes.every(node => node.dataset.umlKind === "class")')
         assert "Elements: class" in page.locator(".flow-filter-status").inner_text()
         assert f"of {complete_count} elements" in page.locator(".flow-filter-status").inner_text()
+        assert page.locator(".flow-filter-status").is_visible()
+        page.locator(".flow-filters > summary").click()
         assert edges.evaluate_all("""edges => edges.every(edge =>
           document.querySelector(`.flow-nodes [data-uml-id="${edge.dataset.umlSource}"]`)
           && document.querySelector(`.flow-nodes [data-uml-id="${edge.dataset.umlTarget}"]`))""")
@@ -330,7 +419,9 @@ def test_element_kind_filter_retains_evidence_and_navigation(tmp_path, view):
         ).click()
         page.get_by_role("button", name=view, exact=True).click()
         assert kinds.input_value() == "class"
+        page.locator(".flow-filters > summary").click()
         kinds.select_option("interface")
+        page.locator(".flow-filters > summary").click()
         assert nodes.count() == 1 and nodes.get_attribute("data-uml-kind") == "interface"
         assert page.locator(".flow-edges .hit").count() == 0
         page.locator("#flow").get_by_role("button", name="Reset filters", exact=True).click()

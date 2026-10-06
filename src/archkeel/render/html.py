@@ -14,7 +14,8 @@ from importlib.resources import files
 from pathlib import PurePosixPath as _PurePosixPath
 from typing import TypeAlias
 
-from archkeel.ir.architecture_graph import RuleAssessment
+from archkeel.ir.architecture_graph import ArchitectureReport, RuleAssessment
+from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import agent_decisions, open_decisions
@@ -39,7 +40,7 @@ from archkeel.ir.model import (
     RunResult,
     stable_id,
 )
-from archkeel.ir.module_explore import module_exploration
+from archkeel.ir.module_explore import ModuleExploreLevel, module_exploration
 from archkeel.ir.references import SymbolReferences, unreferenced_symbols
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.structure import (
@@ -50,7 +51,7 @@ from archkeel.ir.structure import (
 )
 from archkeel.ir.type_fanin import MINIMUM_CROSSINGS, TypeFanin, type_fanin
 
-from .atlas import atlas_payload, detail_name, detail_report
+from .atlas import atlas_payload
 from .summary import (
     Comparison,
     VerdictRow,
@@ -80,9 +81,23 @@ def _verdict_card(row: VerdictRow) -> str:
       <article class="verdict-card" data-verdict="{state.state}">
         <div class="verdict-state"><span aria-hidden="true">{state.symbol}</span>{state.label}</div>
         <h3>{_text(row.label)}</h3>
-        <code class="verdict-key">{_text(row.key)}</code>
+        {f'<code class="verdict-key">{_text(row.key)}</code>' if row.key else ""}
         <p>{_text(row.reason)}</p>
       </article>"""
+
+
+def _html_report_bytes(report: ArchitectureReport) -> bytes:
+    """Keep source-record IDs in canonical JSON, not the duplicate HTML graph snapshot."""
+    payload = json.loads(report_bytes(report))
+    for side in ("observed", "target"):
+        graph = payload[side]
+        if graph is None:
+            continue
+        for collection in ("entities", "relationships"):
+            for item in graph[collection]:
+                del item["record_ids"]
+    encoded: str = json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n"
+    return encoded.encode("utf-8")
 
 
 def _document(*, repository: str, kind: str, title: str, content: str) -> bytes:
@@ -656,7 +671,7 @@ def _flow_section(observation: Observation) -> str:
     """Render the validated report boundary through one UML scene renderer."""
     # Canonical, sorted-key JSON keeps report bytes deterministic; `<` is escaped because this
     # value is embedded inside a <script> element, where a literal "</script" would close it.
-    encoded: bytes = report_bytes(architecture_report(observation))
+    encoded: bytes = _html_report_bytes(architecture_report(observation))
     payload: str = encoded.decode("utf-8")
     payload = payload.replace("<", "\\u003c")
     script = _asset("flow.js").decode("utf-8")
@@ -706,6 +721,34 @@ def _atlas_section(payload: dict[str, object]) -> str:
     )
 
 
+def _atlas_rule_status_cards(result: RunResult) -> str:
+    meanings = (
+        ("PASS", "Required evaluator evidence is complete; decided positions have no violations."),
+        ("FAIL", "A rule violation was found. Undecided evidence can coexist with that failure."),
+        (
+            "UNKNOWN",
+            "Available evidence does not establish the result. Missing scope proof is not a pass.",
+        ),
+        (
+            "NOT CHECKED",
+            "A check was not performed or could not be completed. Read its scope and explanation. "
+            "No separate count is recorded.",
+        ),
+    )
+    cards = []
+    for status, reason in meanings:
+        count = (
+            sum(item.status == status for item in result.rule_assessments)
+            if result.rule_assessments is not None and status != "NOT CHECKED"
+            else None
+        )
+        label = (
+            f"{count} rule{'s' if count != 1 else ''}" if count is not None else "Count unavailable"
+        )
+        cards.append(_verdict_card(VerdictRow(label, "", status, reason)))
+    return "".join(cards)
+
+
 def _atlas_content(
     result: RunResult,
     observation: Observation,
@@ -713,9 +756,40 @@ def _atlas_content(
     *,
     repository: str,
     architecture_href: str,
+    detail_page: bool = False,
 ) -> str:
     components = (
         len(result.architecture_projection.components) if result.architecture_projection else 0
+    )
+    atlas = data.get("atlas")
+    navigation = data.get("navigation")
+    symbols_complete = (
+        atlas.get("symbols_complete") is True
+        if isinstance(atlas, dict)
+        else isinstance(navigation, dict) and navigation.get("symbols_complete") is True
+    )
+    summary = report_summary(result)
+    inventory_status = "complete" if symbols_complete else "partial"
+    overview_href = (
+        navigation.get("main_href") if isinstance(navigation, dict) else None
+    ) or "architecture.report.html"
+    status_header = (
+        f'<p class="atlas-detail-status">Whole-run rules: {_text(result.declared_rules)}'
+        f" · Source observation: {_text(result.observation_complete)}"
+        f" · Symbol inventory: {_text(inventory_status)}"
+        f' · <a href="{_text(overview_href)}">Architecture overview</a></p>'
+        if detail_page
+        else f'''<section class="decision-banner" data-decision="{summary.decision.state}"
+        aria-label="Decision: {_text(summary.decision.label)}">
+        <span class="decision-symbol" aria-hidden="true">{summary.decision.symbol}</span>
+        <div><h2>{_text(summary.decision.label)}</h2><p>{_text(summary.sentence)}</p></div>
+      </section>
+      <section aria-labelledby="atlas-verdicts-heading">
+        <h2 id="atlas-verdicts-heading">Rule assessments · whole run</h2>
+        <div class="verdict-grid atlas-verdict-grid">{_atlas_rule_status_cards(result)}</div>
+      </section>
+      <p class="atlas-status">Source observation: {_text(result.observation_complete)}
+      · Symbol inventory: {_text(inventory_status)}</p>'''
     )
     return f"""<section class="report-heading atlas-heading">
       <div><span class="eyebrow">Architecture Atlas</span><h1>{_text(repository)}</h1>
@@ -723,8 +797,8 @@ def _atlas_content(
       · {observation.coverage.files_parsed} observed files
       · {components} components</p></div>
       <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
-      </section><p class="atlas-status">Scan: {_text(result.observation_complete)}
-      · Declared rules: {_text(result.declared_rules)}</p>
+      </section>
+      {status_header}
       {_atlas_section(data)}
       <details class="atlas-source"><summary>Snapshot and audit</summary>
       <p>Source digest <code>{_text(observation.source.source_digest)}</code>
@@ -750,7 +824,12 @@ def _atlas_document(
         raise ValueError("Atlas requires its matching authenticated Core projection")
     data: dict[str, object] = {"schema_version": report.schema_version}
     data["atlas"] = atlas_payload(
-        observation, report, projection, repository=repository, architecture_href=architecture_href
+        observation,
+        report,
+        projection,
+        result,
+        repository=repository,
+        architecture_href=architecture_href,
     )
     data["navigation"] = {
         "repository": repository,
@@ -767,37 +846,53 @@ def _atlas_document(
 
 
 def _component_navigation(
-    result: RunResult,
-    identity: str | None,
-    members: tuple[str, ...],
+    projection: ArchitectureProjection,
+    levels: tuple[ModuleExploreLevel, ...],
+    observed_modules: tuple[str, ...],
     target_modules: tuple[str, ...],
     *,
     repository: str,
     architecture_href: str,
 ) -> dict[str, object]:
-    projection = result.architecture_projection
-    if projection is None:
-        raise ValueError("Component navigation requires its Core projection")
-    component = next((item for item in projection.components if item.id == identity), None)
-    path: list[dict[str, str | None]] = []
-    while component is not None:
-        parent_id = component.parent_id
-        path.insert(
-            0, {"id": component.id, "label": component.label, "parent_id": component.parent_id}
+    unassigned_module_ids_by_scope = {
+        level.parent_id or "": tuple(
+            sorted(module.id for module in level.modules if module.component_id is None)
         )
-        component = next((item for item in projection.components if item.id == parent_id), None)
-    if identity is None:
-        path = [
-            {"id": item.id, "label": item.label, "parent_id": item.parent_id}
-            for item in projection.components
-        ]
+        for level in levels
+    }
+    component_module_ids = {
+        component.id: tuple(
+            sorted(
+                {
+                    module.id
+                    for level in levels
+                    for module in level.modules
+                    if module.component_id == component.id
+                }
+            )
+        )
+        for component in projection.components
+    }
     return {
         "repository": repository,
         "main_href": f"{_PurePosixPath(architecture_href).stem}.report.html",
-        "component_id": identity,
-        "component_path": path,
-        "module_ids": members,
+        "component_id": None,
+        "component_path": [
+            {"id": item.id, "label": item.label, "parent_id": item.parent_id}
+            for item in projection.components
+        ],
+        "module_ids": observed_modules,
+        "symbols_complete": bool(levels)
+        and bool(levels[0].modules)
+        and all(
+            module.symbols is not None
+            and module.symbol_coverage
+            and all(entry.status == "complete" for entry in module.symbol_coverage)
+            for module in levels[0].modules
+        ),
         "target_module_ids": target_modules,
+        "unassigned_module_ids_by_scope": unassigned_module_ids_by_scope,
+        "component_module_ids": component_module_ids,
     }
 
 
@@ -808,47 +903,35 @@ def render_architecture_details(
     repository: str,
     architecture_href: str,
 ) -> dict[str, bytes]:
-    """Return adjacent offline component pages; publication belongs to the CLI."""
+    """Return one shared offline detail page; publication belongs to the CLI."""
     if result.report_filter is not None or result.architecture_projection is None:
         return {}
     observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
     if result.architecture_projection.source != observation.source:
         raise ValueError("Atlas requires its matching authenticated Core projection")
     report = architecture_report(observation)
-    identities = (
-        [item.component_id for item in report.target.component_intents] if report.target else []
+    target_modules = (
+        tuple(item.id for item in report.target.entities if item.kind == "module")
+        if report.target
+        else ()
     )
-    unknown_modules = frozenset(
-        item.id
-        for level in module_exploration(observation)
-        for item in level.modules
-        if item.component_id is None
+    data = json.loads(_html_report_bytes(report))
+    data["initial_view"] = "diagram"
+    data["navigation"] = _component_navigation(
+        result.architecture_projection,
+        module_exploration(observation),
+        tuple(
+            item.id
+            for item in (report.observed.entities if report.observed else ())
+            if item.kind == "module" and item.presence == "defined"
+        ),
+        target_modules,
+        repository=repository,
+        architecture_href=architecture_href,
     )
-    pages = {}
-    for identity in (*identities, None):
-        scoped = detail_report(report, identity, unknown_module_ids=unknown_modules)
-        data = json.loads(report_bytes(scoped))
-        data["initial_scope"] = identity
-        data["initial_view"] = "diagram"
-        members = (
-            tuple(sorted(unknown_modules))
-            if identity is None
-            else next(
-                (item.module_ids for item in report.memberships if item.component_id == identity),
-                (),
-            )
-        )
-        data["navigation"] = _component_navigation(
-            result,
-            identity,
-            members,
-            tuple(item.id for item in scoped.target.entities if item.kind == "module")
-            if scoped.target
-            else (),
-            repository=repository,
-            architecture_href=architecture_href,
-        )
-        pages[detail_name(architecture_href, identity)] = _document(
+    filename = f"{_PurePosixPath(architecture_href).stem}.detail.html"
+    return {
+        filename: _document(
             repository=repository,
             kind="Architecture report",
             title="Architecture Atlas",
@@ -858,9 +941,10 @@ def render_architecture_details(
                 data,
                 repository=repository,
                 architecture_href=architecture_href,
+                detail_page=True,
             ),
         )
-    return pages
+    }
 
 
 def _measurements(measurements: Measurements | None) -> str:

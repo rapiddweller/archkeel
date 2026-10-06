@@ -4,6 +4,7 @@
 """Inside declarations must be evaluated, or must not claim conformance."""
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -22,6 +23,16 @@ from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import Observation
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
+
+
+def _assert_rule_status_card(html: str, status: str, count: int) -> None:
+    card = next(
+        fragment
+        for fragment in re.findall(r'<article class="verdict-card"[^>]*>.*?</article>', html, re.S)
+        if f'data-verdict="{status.lower()}"' in fragment
+    )
+    label = f"{count} rule{'s' if count != 1 else ''}"
+    assert f"<h3>{label}</h3>" in card
 
 
 def _write_inside_case(
@@ -868,7 +879,7 @@ def test_single_owner_inside_rules_have_cli_receipts_and_render_as_pass(
         "app:REQUIRES": ("PASS", True),
     }
     _native_audit(html, artifact, "architecture.json")
-    assert "Declared rules: PASS" in html
+    _assert_rule_status_card(html, "PASS", 2)
 
 
 @pytest.mark.parametrize(
@@ -1102,7 +1113,7 @@ def test_inside_cli_receipts_require_every_physical_package_domain(
     else:
         assert not trace_valid_violations(artifact)
     _native_audit(html, artifact, "architecture.json")
-    assert f"Declared rules: {status}" in html
+    _assert_rule_status_card(html, status, 2)
 
 
 def test_complete_and_incomplete_nested_scopes_preserve_outer_violation_in_cli_report(

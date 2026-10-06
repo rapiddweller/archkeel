@@ -12,7 +12,7 @@ from test_target_graph import _nested_repository, _repository
 from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.facts import RecordData
+from archkeel.ir.facts import EvidenceClass, Record, RecordData
 from archkeel.ir.module_explore import module_exploration
 from archkeel.ir.report_graph import architecture_report
 
@@ -28,12 +28,20 @@ def _sample(
     core_exact=(),
     peer_exact=(),
     uml=False,
+    other_component=False,
+    other_requires_core=False,
+    extra_rules=(),
+    complete_requires=True,
+    rule_include_type_checking=True,
+    core_public=None,
 ):
     root, config = _repository(tmp_path)
     contract = json.loads((root / config.contract).read_bytes())
     contract.pop("declarations")
     contract["components"][0]["requires"] = []
     contract["components"][0]["exact_modules"] = list(core_exact)
+    if core_public is not None:
+        contract["components"][0]["public"] = list(core_public)
     peer = dict(contract["components"][0])
     peer.update(id="peer", label="peer", packages=["sample.peer"], namespace="sample.peer")
     peer["requires"] = [{"component": "core", "rationale": "Read the core interface."}]
@@ -41,20 +49,39 @@ def _sample(
         peer["requires"] = []
     peer["exact_modules"] = list(peer_exact)
     contract["components"].append(peer)
+    if other_component:
+        other = dict(contract["components"][0])
+        other.update(
+            id="other",
+            label="other",
+            packages=["sample.other"],
+            namespace="sample.other",
+            exact_modules=[],
+            requires=(
+                [{"component": "core", "rationale": "Read the core interface."}]
+                if other_requires_core
+                else []
+            ),
+        )
+        contract["components"].append(other)
     if ambiguous:
         contract["components"][0].pop("namespace")
         contract["components"].append(
             dict(contract["components"][0], id="overlap", label="overlap")
         )
-    contract["rules"] = [
-        {
+    rules = []
+    if complete_requires:
+        rule = {
             "id": "dependencies",
             "kind": "complete_requires",
             "rationale": "Each crossing must be explicitly granted.",
             "provenance": ["docs/target.md"],
             "decided_by": "architect",
         }
-    ]
+        if not rule_include_type_checking:
+            rule["include_type_checking"] = False
+        rules.append(rule)
+    contract["rules"] = rules + list(extra_rules)
     if uml:
         contract["declarations"] = {
             "uml": {
@@ -89,6 +116,7 @@ def _sample(
     if own_importer:
         (root / "sample/core.py").write_text("import sample.core\n")
     for path, text in (extra_files or {}).items():
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
         (root / path).write_text(text)
     _, encoded = run_report(root, config=config, analyzer=observe)
     assert encoded is not None
@@ -123,6 +151,515 @@ def test_no_failure_does_not_authenticate_module_permission(tmp_path):
     cell = _root(model).cells[0]
     assert cell.status == cell.permission == "UNKNOWN"
     assert not cell.finding_ids
+
+
+@pytest.mark.parametrize(
+    ("include_type_checking", "expected"), [(True, "PASS"), (False, "UNKNOWN")]
+)
+def test_mixed_import_sites_require_evaluation_for_each_site(
+    tmp_path, include_type_checking, expected
+):
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        core_exact=("sample.unowned",),
+        rule_include_type_checking=include_type_checking,
+        extra_files={
+            "sample/peer.py": (
+                "import sample.core\n"
+                "from typing import TYPE_CHECKING\n"
+                "if TYPE_CHECKING:\n    import sample.core\n"
+            )
+        },
+    )
+    (cell,) = _root(model).cells
+    imports = {item.id: item for item in model.records("imports") or ()}
+    typed_sites = [
+        identity
+        for identity in cell.relationship_ids
+        if imports[identity].data.get("under_type_checking") is True
+    ]
+    runtime_sites = [
+        identity
+        for identity in cell.relationship_ids
+        if imports[identity].data.get("under_type_checking") is False
+    ]
+    assert cell.import_sites == len(cell.relationship_ids) == 2
+    assert len(runtime_sites) == len(typed_sites) == 1
+    assert cell.status == expected, cell.reasons
+
+
+def test_runtime_finding_still_fails_cell_with_skipped_type_only_site(tmp_path):
+    model = _sample(
+        tmp_path,
+        core_exact=("sample.unowned",),
+        rule_include_type_checking=False,
+        extra_files={
+            "sample/peer.py": (
+                "import sample.core\n"
+                "from typing import TYPE_CHECKING\n"
+                "if TYPE_CHECKING:\n    import sample.core\n"
+            )
+        },
+    )
+    (cell,) = _root(model).cells
+    assert cell.import_sites == 2
+    assert cell.status == "FAIL"
+    assert cell.finding_ids
+
+
+def test_missing_observed_site_cannot_borrow_weighted_pair_receipt(tmp_path, monkeypatch):
+    import archkeel.ir.module_explore as module_explore
+
+    model = _sample(tmp_path, permitted=True, core_exact=("sample.unowned",))
+    report = architecture_report(model)
+    assert report.observed is not None
+    observed = replace(
+        report.observed,
+        relationships=tuple(
+            item for item in report.observed.relationships if item.kind != "imports"
+        ),
+    )
+    monkeypatch.setattr(
+        module_explore, "architecture_report", lambda _: replace(report, observed=observed)
+    )
+    (cell,) = _root(model).cells
+    assert cell.import_sites == 2
+    assert cell.status == "UNKNOWN"
+
+
+def test_forbidden_allowed_source_cannot_cover_skipped_import_sites(tmp_path):
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        complete_requires=False,
+        extra_rules=[
+            {
+                "id": "source-rule",
+                "kind": "forbidden_dependency",
+                "source": "sample.peer",
+                "target": "sample.core",
+                "include_type_checking": True,
+                "allowed_sources": ["sample.peer"],
+                "rationale": "Record the allowed source exception.",
+                "provenance": ["docs/target.md"],
+                "decided_by": "architect",
+            }
+        ],
+    )
+    (cell,) = _root(model).cells
+    assert cell.status == "UNKNOWN"
+
+
+def test_interface_without_target_public_scope_cannot_prove_import_site(tmp_path):
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        complete_requires=False,
+        extra_rules=[
+            {
+                "id": "interface",
+                "kind": "interface_boundary",
+                "include_type_checking": True,
+                "rationale": "Imports use the target interface.",
+                "provenance": ["docs/target.md"],
+                "decided_by": "architect",
+            }
+        ],
+    )
+    (cell,) = _root(model).cells
+    assert cell.status == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    ("kind", "include_type_checking", "expected"),
+    [
+        ("complete_requires", True, "PASS"),
+        ("complete_requires", False, "UNKNOWN"),
+        ("forbidden_dependency", True, "PASS"),
+        ("forbidden_dependency", False, "UNKNOWN"),
+        ("interface_boundary", True, "PASS"),
+        ("interface_boundary", False, "UNKNOWN"),
+        ("sibling_isolation", True, "FAIL"),
+        ("sibling_isolation", False, "UNKNOWN"),
+    ],
+)
+def test_native_rule_evidence_tracks_type_only_site_applicability(
+    tmp_path, kind, include_type_checking, expected
+):
+    rule = {
+        "id": "site-rule",
+        "kind": kind,
+        "include_type_checking": include_type_checking,
+        "rationale": "Evaluate the import sites under this rule.",
+        "provenance": ["docs/target.md"],
+        "decided_by": "architect",
+    }
+    options = {
+        "complete_requires": {},
+        "forbidden_dependency": {
+            "source": "sample.peer",
+            "target": "sample.core",
+            "target_symbol": "OTHER",
+        },
+        "interface_boundary": {},
+        "sibling_isolation": {"members": ["sample.peer", "sample.core"]},
+    }[kind]
+    rule.update(options)
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        complete_requires=kind == "complete_requires",
+        rule_include_type_checking=include_type_checking,
+        extra_rules=[] if kind == "complete_requires" else [rule],
+        extra_files={
+            "sample/peer.py": (
+                "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import sample.core\n"
+            )
+        },
+        core_exact=("sample.unowned",),
+        **({"core_public": ["sample.core"]} if kind == "interface_boundary" else {}),
+    )
+    cell = _root(model).cells[0]
+    assert cell.import_sites == 1
+    assert cell.status == expected, cell.reasons
+
+
+def test_nested_interface_receipt_survives_ancestor_membership(tmp_path):
+    root, config = _nested_repository(tmp_path)
+    outer = json.loads((root / config.contract).read_bytes())
+    outer["components"][0].update(packages=["sample"], namespace="sample")
+    (root / config.contract).write_text(json.dumps(outer))
+    inner = json.loads((root / "inside.json").read_bytes())
+    inner.pop("declarations")
+    service = inner["components"][0]
+    service.pop("inside")
+    service["public"] = ["sample.core"]
+    inner["components"].append(
+        dict(
+            service,
+            id="PEER",
+            label="peer",
+            packages=["sample.peer"],
+            namespace="sample.peer",
+            public=None,
+            requires=[],
+        )
+    )
+    inner["rules"] = [
+        {
+            "id": "interface",
+            "kind": "interface_boundary",
+            "rationale": "Imports use the target interface.",
+            "provenance": ["docs/target.md"],
+            "decided_by": "architect",
+        }
+    ]
+    (root / "inside.json").write_text(json.dumps(inner))
+    (root / "sample/peer.py").write_text("import sample.core\n")
+    result, encoded = run_report(root, config=config, analyzer=observe)
+    assert encoded is not None and not result.diagnostics
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    report = architecture_report(model)
+    memberships = {item.component_id: set(item.module_ids) for item in report.memberships}
+    level = next(item for item in module_exploration(model) if item.parent_id == "ROOT")
+    (cell,) = level.cells
+    assert sum(cell.target_id in module_ids for module_ids in memberships.values()) > 1
+    assert cell.status == "PASS", cell.reasons
+
+
+def test_sibling_rule_excluding_type_only_site_cannot_prove_it(tmp_path):
+    model = _sample(
+        tmp_path,
+        complete_requires=False,
+        extra_rules=[
+            {
+                "id": "siblings",
+                "kind": "sibling_isolation",
+                "members": ["sample.peer", "sample.core"],
+                "include_type_checking": False,
+                "rationale": "Keep these packages isolated.",
+                "provenance": ["docs/target.md"],
+                "decided_by": "architect",
+            }
+        ],
+        extra_files={
+            "sample/peer.py": (
+                "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import sample.core\n"
+            )
+        },
+    )
+    (cell,) = _root(model).cells
+    assert cell.import_sites == 1
+    assert cell.status == "UNKNOWN"
+
+
+def test_complete_applicable_rule_receipt_proves_cell_status_without_permission(tmp_path):
+    model = _sample(tmp_path, permitted=True)
+    section = next(item for item in model.sections if item.name == "scope_observations")
+    evidence_id = model.evidence[0].id
+    receipt = Record(
+        "RULE-EVALUATION-test",
+        EvidenceClass.FACT,
+        "rules",
+        "rule_evaluation",
+        "dependencies evaluator completed",
+        ("sample.peer", "sample.core"),
+        (evidence_id,),
+        ("dependencies",),
+        (),
+        (),
+        RecordData((("scope", "root"),)),
+    )
+    sections = tuple(
+        replace(item, records=(*item.records, receipt)) if item.name == section.name else item
+        for item in model.sections
+    )
+    cell = _root(replace(model, sections=sections)).cells[0]
+    assert cell.status == "PASS"
+    assert cell.permission == "UNKNOWN"
+    assert cell.evidence_ids == _root(model).cells[0].evidence_ids
+    assert any("dependencies: complete evaluator receipt" in item for item in cell.reasons)
+    assert receipt.id not in cell.assessment_ids
+
+
+def test_cell_status_uses_local_finding_when_global_rule_fails_elsewhere(tmp_path):
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        other_component=True,
+        extra_files={
+            "sample/other.py": "value = 1\n",
+            "sample/peer.py": "import sample.core\nimport sample.other\n",
+        },
+    )
+    section = next(item for item in model.sections if item.name == "scope_observations")
+    receipt = Record(
+        "RULE-EVALUATION-test",
+        EvidenceClass.FACT,
+        "rules",
+        "rule_evaluation",
+        "dependencies evaluator completed",
+        ("sample.peer", "sample.core"),
+        (),
+        ("dependencies",),
+        (),
+        (),
+        RecordData((("scope", "root"),)),
+    )
+    model = replace(
+        model,
+        sections=tuple(
+            replace(item, records=(*item.records, receipt)) if item.name == section.name else item
+            for item in model.sections
+        ),
+    )
+    report = architecture_report(model)
+    assert report.observed is not None
+    cells = _root(model).cells
+    modules = {item.id: item.name for item in _root(model).modules}
+    by_target = {modules[item.target_id]: item for item in cells}
+    assert by_target["sample.core"].status == "PASS"
+    assert by_target["sample.other"].status == "FAIL"
+    assert any(
+        item.kind == "complete_requires" and item.status == "FAIL" for item in report.findings
+    )
+
+
+def test_one_native_fixture_keeps_pass_fail_and_unknown_cells(tmp_path):
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        other_component=True,
+        other_requires_core=True,
+        extra_rules=[
+            {
+                "id": "other-core-check",
+                "kind": "forbidden_dependency",
+                "source": "sample.other",
+                "target": "sample.core",
+                "include_type_checking": True,
+                "allowed_sources": ["sample.other"],
+                "rationale": "Record the exception for the undecided pair.",
+                "provenance": ["docs/target.md"],
+                "decided_by": "architect",
+            }
+        ],
+        extra_files={
+            "sample/other.py": "import sample.core\n",
+            "sample/peer.py": "import sample.core\nimport sample.other\n",
+        },
+    )
+    receipt = Record(
+        "RULE-EVALUATION-test",
+        EvidenceClass.FACT,
+        "rules",
+        "rule_evaluation",
+        "dependencies evaluator completed for sample.peer to sample.core",
+        ("sample.peer", "sample.core"),
+        (),
+        ("dependencies",),
+        (),
+        (),
+        RecordData((("scope", "root"),)),
+    )
+    model = replace(
+        model,
+        sections=tuple(
+            replace(section, records=(*section.records, receipt))
+            if section.name == "scope_observations"
+            else section
+            for section in model.sections
+        ),
+    )
+    level = _root(model)
+    names = {item.id: item.name for item in level.modules}
+    statuses = {(names[cell.source_id], names[cell.target_id]): cell.status for cell in level.cells}
+    assert statuses["sample.peer", "sample.core"] == "PASS"
+    assert statuses["sample.peer", "sample.other"] == "FAIL"
+    assert statuses["sample.other", "sample.core"] == "UNKNOWN"
+    cell = next(
+        item
+        for item in level.cells
+        if names[item.source_id] == "sample.other" and names[item.target_id] == "sample.core"
+    )
+    assert any(reason.startswith("dependencies:") for reason in cell.reasons)
+
+
+def test_requires_alone_does_not_prove_module_cell_when_rule_receipt_is_missing(tmp_path):
+    model = _sample(tmp_path, permitted=True)
+    sections = tuple(
+        replace(
+            section,
+            records=tuple(
+                record
+                for record in section.records
+                if not (record.kind == "rule_evaluation" and record.rule_ids == ("dependencies",))
+            ),
+        )
+        if section.name == "scope_observations"
+        else section
+        for section in model.sections
+    )
+    cell = _root(replace(model, sections=sections)).cells[0]
+    assert cell.status == "UNKNOWN"
+    assert any(reason.startswith("dependencies:") for reason in cell.reasons)
+
+
+def test_forbidden_rule_receipt_scoped_to_source_proves_import_cell(tmp_path):
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        complete_requires=False,
+        core_exact=("sample.unowned",),
+        extra_rules=[
+            {
+                "id": "source-rule",
+                "kind": "forbidden_dependency",
+                "source": "sample.peer",
+                "target": "sample.core",
+                "include_type_checking": True,
+                "target_symbol": "OTHER",
+                "rationale": "Record the allowed source exception.",
+                "provenance": ["docs/target.md"],
+                "decided_by": "architect",
+            }
+        ],
+        extra_files={
+            "sample/peer.py": "from sample.core import VALUE\n",
+            "sample/core.py": "VALUE = 1\n",
+        },
+    )
+    level = _root(model)
+    (cell,) = level.cells
+    receipt = next(
+        record
+        for record in model.records("scope_observations")
+        if record.kind == "rule_evaluation" and record.rule_ids == ("source-rule",)
+    )
+    assert receipt.subjects == ("sample.peer",)
+    assert cell.status == "PASS", cell.reasons
+
+
+@pytest.mark.parametrize("receipt_state", ["missing", "incomplete"])
+def test_forbidden_rule_cell_stays_unknown_without_complete_source_receipt(tmp_path, receipt_state):
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        complete_requires=False,
+        core_exact=("sample.unowned",),
+        extra_rules=[
+            {
+                "id": "source-rule",
+                "kind": "forbidden_dependency",
+                "source": "sample.peer",
+                "target": "sample.core",
+                "include_type_checking": True,
+                "target_symbol": "OTHER",
+                "rationale": "Record the allowed source exception.",
+                "provenance": ["docs/target.md"],
+                "decided_by": "architect",
+            }
+        ],
+        extra_files={
+            "sample/peer.py": "from sample.core import VALUE\n",
+            "sample/core.py": "VALUE = 1\n",
+        },
+    )
+    sections = []
+    for section in model.sections:
+        if section.name != "scope_observations":
+            sections.append(section)
+            continue
+        records = []
+        for record in section.records:
+            if record.kind != "rule_evaluation" or record.rule_ids != ("source-rule",):
+                records.append(record)
+            elif receipt_state == "incomplete":
+                records.append(
+                    replace(
+                        record,
+                        data=RecordData((*record.data.entries, ("assessment_complete", False))),
+                    )
+                )
+        sections.append(replace(section, records=tuple(records)))
+    cell = _root(replace(model, sections=tuple(sections))).cells[0]
+    assert cell.status == "UNKNOWN"
+    assert any(reason.startswith("source-rule:") for reason in cell.reasons)
+
+
+def test_sibling_rule_uses_module_selectors_when_import_evaluation_is_incomplete(tmp_path):
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        core_exact=("sample.unowned",),
+        extra_rules=[
+            {
+                "id": "siblings",
+                "kind": "sibling_isolation",
+                "members": ["sample.peer", "sample.core"],
+                "rationale": "Keep these packages isolated.",
+                "provenance": ["docs/target.md"],
+                "decided_by": "architect",
+            }
+        ],
+    )
+    sections = []
+    for section in model.sections:
+        records = []
+        for record in section.records:
+            if record.evidence_class == EvidenceClass.VIOLATION and "siblings" in record.rule_ids:
+                continue
+            if record.kind == "rule_evaluation" and record.rule_ids == ("siblings",):
+                record = replace(
+                    record,
+                    data=RecordData((*record.data.entries, ("assessment_complete", False))),
+                )
+            records.append(record)
+        sections.append(replace(section, records=tuple(records)))
+    cell = _root(replace(model, sections=tuple(sections))).cells[0]
+    assert cell.status == "UNKNOWN", cell.reasons
+    assert any(reason.startswith("siblings:") for reason in cell.reasons)
 
 
 def test_recorded_native_graph_assessment_keeps_fail_reason_and_evidence(tmp_path):
@@ -228,7 +765,39 @@ def test_used_elsewhere_candidate_is_a_grouped_question_with_real_sites(tmp_path
     assert len(hint.module_ids) == 2
     assert hint.count == 5 and len(hint.relationship_ids) == 5
     assert hint.evidence_ids and hint.question.endswith("?")
+    assert hint.question == (
+        "Do sample.core, sample.extra belong to peer, or are they core's intended "
+        "interface for peer?"
+    )
     assert hint.provisional is True
+
+
+def test_used_elsewhere_hint_uses_intent_labels_and_singular_grammar(tmp_path):
+    from archkeel.check.ports import ScanConfig
+
+    _sample(tmp_path, extra_files={"sample/peer.py": "import sample.core\n"})
+    repository = tmp_path / "repo"
+    contract_path = repository / "contract.json"
+    contract = json.loads(contract_path.read_text())
+    contract["components"][0].update(id="COMP-CORE", label="Core API")
+    peer = contract["components"][1]
+    peer.update(id="COMP-PEER", label="Peer clients")
+    peer["requires"] = [{"component": "Core API", "rationale": "Use the API."}]
+    contract_path.write_text(json.dumps(contract))
+    _, encoded = run_report(
+        repository,
+        config=ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        analyzer=observe,
+    )
+    assert encoded is not None
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    level = _root(model)
+    hint = next(hint for hint in level.hint_candidates if hint.kind == "used_elsewhere")
+    assert hint.component_ids == ("COMP-CORE", "COMP-PEER")
+    assert hint.question == (
+        "Does sample.core belong to Peer clients, or is it Core API's intended "
+        "interface for Peer clients?"
+    )
 
 
 def test_proposed_hub_threshold_has_native_counts_and_stable_top_three(tmp_path):
@@ -344,6 +913,50 @@ def test_level_modules_come_from_authenticated_parent_membership(tmp_path):
                 if component.component_id in level.component_ids
             )
     assert {level.parent_id for level in levels} == {None, "ROOT", "core:core"}
+
+
+@pytest.mark.parametrize("unowned, status", [(False, "PASS"), (True, "UNKNOWN")])
+def test_inner_import_rule_matches_scope_label_to_native_parent_id(tmp_path, unowned, status):
+    root, config = _nested_repository(tmp_path)
+    outer = json.loads((root / config.contract).read_bytes())
+    outer["components"][0].update(packages=["sample"], namespace="sample")
+    (root / config.contract).write_text(json.dumps(outer))
+    inner = json.loads((root / "inside.json").read_bytes())
+    inner.pop("declarations")
+    service = inner["components"][0]
+    service.pop("inside")
+    service["requires"] = [{"component": "peer", "rationale": "Use the peer boundary."}]
+    inner["components"].append(
+        dict(
+            service,
+            id="PEER",
+            label="peer",
+            packages=["sample.peer"],
+            namespace="sample.peer",
+            requires=[],
+        )
+    )
+    inner["rules"] = [
+        {
+            "id": "dependencies",
+            "kind": "complete_requires",
+            "rationale": "Evaluate each inner crossing.",
+            "provenance": ["docs/target.md"],
+            "decided_by": "architect",
+        }
+    ]
+    (root / "inside.json").write_text(json.dumps(inner))
+    (root / "sample/core.py").write_text("import sample.peer\n")
+    (root / "sample/peer.py").write_text("VALUE = 1\n")
+    if unowned:
+        (root / "sample/extra.py").write_text("VALUE = 1\n")
+    result, encoded = run_report(root, config=config, analyzer=observe)
+    assert encoded is not None and not result.diagnostics
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    level = next(level for level in module_exploration(model) if level.parent_id == "ROOT")
+    assert len(level.cells) == 1
+    assert level.cells[0].status == status
+    assert any("core:dependencies:" in reason for reason in level.cells[0].reasons)
 
 
 def test_output_is_byte_identical_when_record_order_changes(tmp_path):

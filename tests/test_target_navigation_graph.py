@@ -4,6 +4,7 @@
 """The standard Target preserves independent intent and render direction."""
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -14,7 +15,7 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.graph_codec import parse_report
+from archkeel.ir.graph_codec import parse_report, report_bytes
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.target_records import recorded_target_graph
 from archkeel.render.html import render_html
@@ -31,8 +32,17 @@ def test_target_navigation_receives_only_the_authenticated_graph(tmp_path, versi
     html = render_html(result, model, repository="sample", architecture_href=None).decode()
     start = html.index(">", html.index('id="flow-data"')) + 1
     report = parse_report(json.loads(html[start : html.index("</script>", start)]))
-    assert report == architecture_report(model)
-    assert report.target == graph
+    expected = json.loads(report_bytes(architecture_report(model)))
+    for side in ("observed", "target"):
+        for collection in ("entities", "relationships"):
+            for item in expected[side][collection]:
+                del item["record_ids"]
+    assert report == parse_report(expected)
+    assert report.target == replace(
+        graph,
+        entities=tuple(replace(item, record_ids=()) for item in graph.entities),
+        relationships=tuple(replace(item, record_ids=()) for item in graph.relationships),
+    )
     assert graph.component_intents and graph.layout_rules and graph.module_inventories
     assert '"explorers"' not in html and '"target_diagrams"' not in html
 

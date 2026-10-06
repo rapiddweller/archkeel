@@ -41,7 +41,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     started = time.perf_counter()
     result = subprocess.run(command, check=False)
     elapsed = time.perf_counter() - started
+    generated = (
+        output,
+        output.parent / f"{output.stem}.report.html",
+        *output.parent.glob(f"{output.stem}.detail*.html"),
+    )
+    report_bytes = sum(path.stat().st_size for path in set(generated) if path.is_file())
+    canonical_bytes = output.stat().st_size if output.is_file() else 0
+    output_budget_passed = canonical_bytes > 0 and report_bytes <= canonical_bytes * 3
     passed = result.returncode == 0 and elapsed <= args.max_seconds
+    passed = passed and output_budget_passed
     receipt = {
         "command": command,
         "python": platform.python_version(),
@@ -50,6 +59,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "max_seconds": args.max_seconds,
         "report_exit": result.returncode,
         "budget_passed": passed,
+        "output_bytes": report_bytes,
+        "canonical_bytes": canonical_bytes,
+        "max_output_bytes": canonical_bytes * 3,
+        "output_budget_passed": output_budget_passed,
     }
     output.with_suffix(".timing.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(json.dumps(receipt))

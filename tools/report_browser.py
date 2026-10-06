@@ -13,7 +13,7 @@ import os
 import sys
 from dataclasses import asdict
 from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 try:
     from playwright.sync_api import Browser, Page, sync_playwright
@@ -71,8 +71,17 @@ def _make_reports(output: Path) -> dict[str, Path]:
     return reports
 
 
-def _visit(browser: Browser, report: Path, name: str, output: Path) -> tuple[Page, list[str]]:
-    context = browser.new_context(viewport={"width": 1440, "height": 1000})
+def _visit(
+    browser: Browser,
+    report: Path,
+    name: str,
+    output: Path,
+    *,
+    device_scale_factor: float = 1,
+) -> tuple[Page, list[str]]:
+    context = browser.new_context(
+        viewport={"width": 1440, "height": 1000}, device_scale_factor=device_scale_factor
+    )
     context.tracing.start(screenshots=True, snapshots=True, sources=False)
     page = context.new_page()
     errors: list[str] = []
@@ -129,29 +138,56 @@ def _check_atlas(page: Page, architecture: Path) -> None:
     projection = architecture_projection(
         model, report, assessments, violation_remedy=VIOLATION_REMEDY
     )
-    assert data["source"]["source_digest"] == model.source.source_digest
-    assert data["source"]["git_head"] == model.source.git_head
-    assert data["contract_digest"] == projection.contract_digest
+    assert str(model.source.git_head) in page.locator(".atlas-heading").inner_text()
+    audit_text = page.locator(".atlas-source").text_content() or ""
+    assert model.source.source_digest in audit_text
+    assert model.contract.digest in audit_text
+    assert data["source"] == {
+        "git_head": model.source.git_head,
+        "source_digest": model.source.source_digest,
+    }
     assert data["status"] == projection.status and data["reason"] == projection.reason
     assert data["unknown_count"] == len(projection.unknowns)
     expected = {item.id: item for item in projection.components}
     assert set(expected) == {item["id"] for item in data["components"]}
     for item in data["components"]:
         native = expected[item["id"]]
-        assert (item["status"], item["reason"]) == (native.status, native.reason)
+        assert (item["status"], data["reference_ids"][item["reason_ref"]]) == (
+            native.status,
+            native.reason,
+        )
         intent = json.loads(json.dumps(asdict(native)))
         for field in (
             "responsibilities",
             "not_responsible_for",
-            "public",
             "planned",
-            "requires",
-            "used_by",
         ):
             assert item[field] == intent[field]
-        href = item["detail_href"]
-        assert Path(href).name == href and (architecture.parent / href).is_file()
-        sidecar = (architecture.parent / href).read_text()
+        assert [data["reference_ids"][index] for index in item["provenance"]] == intent[
+            "provenance"
+        ]
+        assert (
+            None
+            if item["public"] is None
+            else [data["reference_ids"][index] for index in item["public"]]
+        ) == intent["public"]
+        assert [
+            {
+                **{key: value for key, value in edge.items() if key != "rationale_ref"},
+                "target_id": data["components"][edge["target_id"]]["id"],
+                "rationale": data["reference_ids"][edge["rationale_ref"]],
+            }
+            for edge in item["requires"]
+        ] == intent["requires"]
+        assert [
+            {"component_id": data["components"][index]["id"], "import_sites": count}
+            for index, count in item["used_by"]
+        ] == intent["used_by"]
+        href = data["detail_page"] + "?" + urlencode({"component": item["id"]})
+        filename = urlsplit(href).path
+        assert Path(filename).name == filename and (architecture.parent / filename).is_file()
+        assert parse_qs(urlsplit(href).query)["component"] == [native.id]
+        sidecar = (architecture.parent / filename).read_text()
         assert "default-src 'none'" in sidecar and "fetch(" not in sidecar
         assert "Back to architecture map" in sidecar
     exploration = module_exploration(model)
@@ -171,11 +207,11 @@ def _check_atlas(page: Page, architecture: Path) -> None:
             data["modules"][row[1]]["id"],
             row[2],
             row[3],
-            row[4],
-            data["reference_ids"][row[5]],
+            "UNKNOWN",
+            data["reference_ids"][data["cell_permission_reason_ref"]],
+            tuple(data["reference_ids"][index] for index in row[4]),
+            tuple(data["reference_ids"][index] for index in row[5]),
             tuple(data["reference_ids"][index] for index in row[6]),
-            tuple(data["reference_ids"][index] for index in row[7]),
-            tuple(row[8]),
         )
         for row in data["cells"]
     ] == [
@@ -205,7 +241,7 @@ def _check_atlas(page: Page, architecture: Path) -> None:
     assert hints == json.loads(
         json.dumps([asdict(hint) for level in exploration for hint in level.hint_candidates])
     )
-    unknown_href = data["unassigned_detail_href"]
+    unknown_href = urlsplit(data["detail_page"] + data["unassigned_detail_href"]).path
     assert (
         Path(unknown_href).name == unknown_href and (architecture.parent / unknown_href).is_file()
     )
@@ -234,7 +270,8 @@ def _check_atlas_interactions(page: Page) -> None:
             assert not page.locator(".atlas-module-list").count()
             assert not page.locator("[data-copy-question]").count()
             text = page.locator(".flow-inspector-content").inner_text().lower()
-            assert "observed weight" not in text and "recorded checks" not in text
+            assert "observed weight" not in text
+            assert "recorded checks" not in text
             assert "observed import cell" not in text
     module = page.locator(".matrix-label[data-module]").first
     if module.count():
@@ -251,6 +288,8 @@ def _check_atlas_interactions(page: Page) -> None:
         question.click()
         receipt = page.get_by_role("textbox", name="Question and recorded evidence").input_value()
         assert "Source digest:" in receipt and "Evidence IDs:" in receipt
+        source = json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"]["source"]
+        assert source["source_digest"] in receipt and str(source["git_head"]) in receipt
         assert "Provisional hint, not a verdict." in receipt
     theme = page.locator(".theme-toggle")
     before = page.evaluate("getComputedStyle(document.body).backgroundColor")
@@ -292,7 +331,7 @@ def _check_module_graph(page: Page) -> None:
         assert edge.get_attribute("data-uml-source") == data["modules"][cell[0]]["id"]
         assert edge.get_attribute("data-uml-target") == data["modules"][cell[1]]["id"]
         assert edge.locator(".atlas-edge-label").text_content() == (
-            f"{cell[2] if cell[2] is not None else '?'} imports"
+            f"{cell[2] if cell[2] is not None else '?'} import{'s' if cell[2] != 1 else ''}"
         )
         state = (
             "violation"
@@ -302,7 +341,7 @@ def _check_module_graph(page: Page) -> None:
             else "observed"
         )
         assert edge.evaluate("(edge, state) => edge.classList.contains(state)", state)
-        assert f"Core {cell[3]}; permission {cell[4]}" in edge.locator(".hit").get_attribute(
+        assert f"Core {cell[3]}; permission UNKNOWN" in edge.locator(".hit").get_attribute(
             "aria-label"
         )
     sites = (
@@ -311,7 +350,9 @@ def _check_module_graph(page: Page) -> None:
         else "UNKNOWN"
     )
     assert page.locator(".atlas-summary").inner_text() == (
-        f"{len(ids)} observed modules · {len(cells)} local dependencies · {sites} import sites"
+        f"{len(ids)} observed module{'s' if len(ids) != 1 else ''} · "
+        f"{len(cells)} local {'dependency' if len(cells) == 1 else 'dependencies'} · "
+        f"{sites} import site{'s' if sites != 1 else ''}"
     )
 
 
@@ -325,8 +366,8 @@ def _open_uml_details(page: Page) -> None:
     page.locator(f'.flow-nodes [data-uml-id="{component["id"]}"]').press("Enter")
     _check_module_graph(page)
     page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').dblclick()
-    page.wait_for_url("**/*.detail-*.html?*")
-    assert page.url.startswith("file:") and ".detail-component-" in page.url
+    page.wait_for_url("**/*.detail.html?*")
+    assert page.url.startswith("file:") and ".detail.html" in page.url
     query = parse_qs(urlsplit(page.url).query)
     assert query["module"] == [module["id"]]
     assert query["return_selected"] == [module["id"]]
@@ -400,6 +441,7 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
         })""")
         if name == "uml-complete":
             page.locator('.flow-nodes [data-label="describe"]').press("Space")
+            page.mouse.move(0, 0)
             related = page.locator(".flow-nodes .node.related").evaluate_all(
                 "nodes => nodes.map(n => n.dataset.label)"
             )
@@ -490,19 +532,39 @@ def _check_wide_inventory(page: Page) -> None:
     card = page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]')
     assert card.is_visible()
     card.press("Enter")
-    page.wait_for_url("**/*.detail-*.html?*")
-    assert page.url.startswith("file:") and "?module=" in page.url
+    page.wait_for_url("**/*.detail.html?*")
+    assert page.url.startswith("file:")
+    assert parse_qs(urlsplit(page.url).query)["module"] == [module["id"]]
     assert page.locator("#flow-data").text_content()
 
 
 def _capture_assets(browser: Browser, reports: dict[str, Path], output: Path) -> None:
-    page, errors = _visit(browser, reports["tour"], "assets-atlas", output)
+    # Keep published PNGs under 400 KB without changing the CSS layout.
+    page, errors = _visit(browser, reports["tour"], "assets-atlas", output, device_scale_factor=0.9)
     try:
-        page.screenshot(path=str(output / "archkeel-report-preview.png"))
+        page.goto(reports["tour"].as_uri() + "?theme=dark", wait_until="load")
+        assert page.locator("html").get_attribute("data-theme") == "dark"
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        for heading in ("Worth a look", "Module matrix"):
+            assert page.get_by_role("heading", name=heading, exact=True).is_visible()
+        assert page.locator(".flow-nodes [data-uml-kind=component]").count()
+        page.locator(".atlas-findings").evaluate("node => node.open = false")
+        assert page.locator(".atlas-findings").is_visible()
+        assert page.locator(".atlas-verdict-grid .verdict-card").count() == 4
+        assert not page.locator(".atlas-status-key").count()
+        page.screenshot(path=str(output / "archkeel-report-preview.png"), full_page=True)
         page.locator("#flow").screenshot(path=str(output / "archkeel-component-flow.png"))
         page.locator('.flow-nodes [data-label="store"]').dblclick()
+        page.locator(".atlas-findings").evaluate("node => node.open = true")
+        page.locator(".atlas-finding-group").first.locator("summary").click()
+        assert page.locator(".atlas-findings li").first.is_visible()
         page.locator("#flow").screenshot(path=str(output / "archkeel-shop-store-inside.png"))
         _check_module_graph(page)
+        for name in ("archkeel-report-preview.png", "archkeel-shop-store-inside.png"):
+            assert (output / name).stat().st_size <= 400_000, f"{name} exceeds 400 KB"
+        for width in (1440, 375):
+            page.set_viewport_size({"width": width, "height": 1000})
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         assert not errors
     finally:
         _finish(page, "assets-atlas", output)
@@ -515,9 +577,17 @@ def _check_report_verdicts(browser: Browser, reports: dict[str, Path], output: P
             page = browser.new_page(java_script_enabled=javascript)
             try:
                 page.goto(reports[name].as_uri(), wait_until="load")
-                verdict = page.locator(".atlas-status").inner_text()
-                assert f"Scan: {result['observation_complete']}" in verdict
-                assert f"Declared rules: {result['declared_rules']}" in verdict
+                for index, status in enumerate(("PASS", "FAIL", "UNKNOWN", "NOT CHECKED")):
+                    card = page.locator(".atlas-verdict-grid .verdict-card").nth(index)
+                    assert card.locator(".verdict-state").inner_text().endswith(status)
+                    if status == "NOT CHECKED" or result["rule_assessments"] is None:
+                        assert card.locator("h3").inner_text() == "Count unavailable"
+                    else:
+                        count = sum(item["status"] == status for item in result["rule_assessments"])
+                        assert (
+                            card.locator("h3").inner_text()
+                            == f"{count} rule{'s' if count != 1 else ''}"
+                        )
                 for width in (1440, 375):
                     page.set_viewport_size({"width": width, "height": 1000})
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")

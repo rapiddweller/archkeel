@@ -58,10 +58,17 @@
           "$ref": "#/$defs/ArchitectureCommandView"
         },
         "filtered_violations": {
-          "type": "array",
-          "items": {
-            "$ref": "urn:archkeel:command-result:5.0.0#/$defs/filteredViolation"
-          }
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:5.0.0#/$defs/filteredViolation"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "command": {
           "enum": [
@@ -120,6 +127,20 @@
               "type": "null"
             }
           ]
+        },
+        "filtered_violation_count": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "violation_details_included": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -130,10 +151,125 @@
         "diagnostics",
         "report_filter",
         "architecture_projection",
-        "filtered_violations",
-        "schema_version"
+        "schema_version",
+        "filtered_violation_count",
+        "violation_details_included"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "report_filter": {
+                "properties": {
+                  "full_architecture": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "full_architecture"
+                ]
+              }
+            },
+            "required": [
+              "report_filter"
+            ]
+          },
+          "then": {
+            "required": [
+              "filtered_violations"
+            ],
+            "properties": {
+              "architecture_projection": {
+                "required": [
+                  "permission_rules",
+                  "policy_context"
+                ],
+                "properties": {
+                  "components": {
+                    "items": {
+                      "required": [
+                        "id",
+                        "scope",
+                        "path",
+                        "provenance",
+                        "packages",
+                        "responsibilities",
+                        "not_responsible_for",
+                        "status",
+                        "reason",
+                        "decided_by"
+                      ],
+                      "properties": {
+                        "permissions": {
+                          "items": {
+                            "required": [
+                              "status",
+                              "reason",
+                              "target_ids"
+                            ]
+                          }
+                        }
+                      },
+                      "not": {
+                        "required": [
+                          "finding_count"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "filtered_violations": {
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "filtered_violations"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "filtered_violation_count": {
+                      "type": "integer"
+                    },
+                    "violation_details_included": {
+                      "const": true
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "filtered_violation_count": {
+                      "type": "null"
+                    },
+                    "violation_details_included": {
+                      "const": false
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "filtered_violations"
+              ]
+            },
+            "properties": {
+              "violation_details_included": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
     },
     "ReportFilter": {
       "type": "object",
@@ -165,6 +301,9 @@
           "type": "boolean"
         },
         "only_architecture": {
+          "type": "boolean"
+        },
+        "full_architecture": {
           "type": "boolean"
         }
       },
@@ -275,9 +414,7 @@
         "contract_digest",
         "analyzer_digest",
         "components",
-        "policy_context",
         "levels",
-        "permission_rules",
         "required_relationships",
         "required_summaries",
         "ownership_gaps",
@@ -514,16 +651,16 @@
           "items": {
             "type": "string"
           }
+        },
+        "finding_count": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [
         "id",
         "scope",
-        "path",
-        "provenance",
-        "packages",
         "responsibilities",
-        "not_responsible_for",
         "status",
         "reason",
         "decided_by"
@@ -610,7 +747,6 @@
       },
       "required": [
         "status",
-        "reason",
         "target_ids"
       ],
       "additionalProperties": false

@@ -49,6 +49,8 @@ def badge(value: str) -> Badge:
         return Badge("pass", "✓", "PASS")
     if value == "FAIL":
         return Badge("fail", "×", "FAIL")
+    if value == "UNKNOWN":
+        return Badge("unknown", "?", "UNKNOWN")
     if value == "n/a":
         return Badge("info", "i", "NOT APPLICABLE")
     return Badge("unknown", "?", "NOT CHECKED")
@@ -272,9 +274,9 @@ def report_summary(result: RunResult) -> Summary:
             more = f" (+{len(rules) - 3} more)" if len(rules) > 3 else ""
             sentence += f"\n\n{status} rules: {shown}{more}."
     rules_reason = {
-        "PASS": "No declared-rule violation was found.",
-        "FAIL": "At least one declared rule was violated.",
-        "UNKNOWN": "Declared rules could not be evaluated completely.",
+        "PASS": "Required evaluator evidence is complete; decided positions have no violations.",
+        "FAIL": "At least one rule violation was recorded; undecided positions may remain.",
+        "UNKNOWN": "Available evidence does not establish the rule outcome.",
     }[result.declared_rules]
     expectation_reason = {
         "PASS": "The candidate matches its published expectation.",

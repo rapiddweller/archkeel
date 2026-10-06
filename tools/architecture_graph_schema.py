@@ -184,6 +184,120 @@ def command_schema() -> dict[str, object]:
         "Policy context retains ancestor levels/rules and peer ownership/public/planned selectors. "
         "Coverage and Core verdicts remain global under component filters."
     )
+    definitions = schema["$defs"]
+    if not isinstance(definitions, dict):
+        raise TypeError("generated command schema has no definitions")
+    component = definitions["ArchitectureComponentView"]
+    view = definitions["ArchitectureCommandView"]
+    if not isinstance(component, dict) or not isinstance(view, dict):
+        raise TypeError("generated command schema has invalid architecture definitions")
+    component_properties = component["properties"]
+    component_required = component["required"]
+    view_required = view["required"]
+    permission_group = definitions["PermissionGroup"]
+    if not isinstance(component_properties, dict) or not isinstance(component_required, list):
+        raise TypeError("generated command schema has invalid component fields")
+    if not isinstance(view_required, list):
+        raise TypeError("generated command schema has invalid view fields")
+    if not isinstance(permission_group, dict) or not isinstance(permission_group["required"], list):
+        raise TypeError("generated command schema has invalid permission fields")
+
+    # Compact JSON deliberately omits source detail from nested/filtered rows. Keep
+    # the complete dataclass shape mandatory in the explicit --full variant.
+    full_component_required = list(component_required)
+    full_permission_required = list(permission_group["required"])
+    permission_group["required"] = [name for name in full_permission_required if name != "reason"]
+    component_properties["finding_count"] = {"type": "integer", "minimum": 0}
+    compact_omissions = {"path", "provenance", "packages", "not_responsible_for"}
+    component["required"] = [name for name in component_required if name not in compact_omissions]
+    view["required"] = [
+        name for name in view_required if name not in {"permission_rules", "policy_context"}
+    ]
+
+    definitions_envelope = definitions["ArchitectureCommandEnvelope"]
+    if not isinstance(definitions_envelope, dict):
+        raise TypeError("generated command schema has invalid envelope")
+    envelope_properties = definitions_envelope["properties"]
+    envelope_required = definitions_envelope["required"]
+    if not isinstance(envelope_properties, dict) or not isinstance(envelope_required, list):
+        raise TypeError("generated command schema has invalid envelope fields")
+    envelope_properties["filtered_violation_count"] = {
+        "anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]
+    }
+    envelope_properties["violation_details_included"] = {"type": "boolean"}
+    envelope_properties["filtered_violations"] = {
+        "anyOf": [
+            {
+                "type": "array",
+                "items": {"$ref": "urn:archkeel:command-result:5.0.0#/$defs/filteredViolation"},
+            },
+            {"type": "null"},
+        ]
+    }
+    envelope_required[:] = [name for name in envelope_required if name != "filtered_violations"]
+    envelope_required.extend(
+        name
+        for name in ("filtered_violation_count", "violation_details_included")
+        if name not in envelope_required
+    )
+    definitions_envelope["allOf"] = [
+        {
+            "if": {
+                "properties": {
+                    "report_filter": {
+                        "properties": {"full_architecture": {"const": True}},
+                        "required": ["full_architecture"],
+                    }
+                },
+                "required": ["report_filter"],
+            },
+            "then": {
+                "required": ["filtered_violations"],
+                "properties": {
+                    "architecture_projection": {
+                        "required": ["permission_rules", "policy_context"],
+                        "properties": {
+                            "components": {
+                                "items": {
+                                    "required": full_component_required,
+                                    "properties": {
+                                        "permissions": {
+                                            "items": {"required": full_permission_required}
+                                        }
+                                    },
+                                    "not": {"required": ["finding_count"]},
+                                }
+                            }
+                        },
+                    }
+                },
+                "allOf": [
+                    {
+                        "if": {
+                            "properties": {"filtered_violations": {"type": "array"}},
+                            "required": ["filtered_violations"],
+                        },
+                        "then": {
+                            "properties": {
+                                "filtered_violation_count": {"type": "integer"},
+                                "violation_details_included": {"const": True},
+                            }
+                        },
+                        "else": {
+                            "properties": {
+                                "filtered_violation_count": {"type": "null"},
+                                "violation_details_included": {"const": False},
+                            }
+                        },
+                    }
+                ],
+            },
+            "else": {
+                "not": {"required": ["filtered_violations"]},
+                "properties": {"violation_details_included": {"const": False}},
+            },
+        }
+    ]
     return schema
 
 

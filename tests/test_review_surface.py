@@ -22,14 +22,13 @@ def test_explorer_follows_verdicts_and_preserves_finding_links(tmp_path: Path) -
     audit = _linked_audit(page, tmp_path)
     assert audit == observation
     data = _flow_data(page)["atlas"]
-    hrefs = {item["detail_href"] for item in data["components"]}
-    hrefs.add(data["unassigned_detail_href"])
-    findings = {}
-    for href in hrefs:
-        assert Path(href).name == href
-        sidecar = (tmp_path / href).read_text()
-        assert "architecture.json" in {link.get("href") for link in _start_tags(sidecar, "a")}
-        findings.update((item["id"], item) for item in _flow_data(sidecar)["findings"])
+    routes = {f"?component={item['id']}" for item in data["components"]}
+    routes.add(data["unassigned_detail_href"])
+    assert all(route.startswith("?component=") for route in routes)
+    detail_page = data["detail_page"]
+    sidecar = (tmp_path / detail_page).read_text()
+    assert "architecture.json" in {link.get("href") for link in _start_tags(sidecar, "a")}
+    findings = {item["id"]: item for item in _flow_data(sidecar)["findings"]}
     native = architecture_report(observation)
     assert findings.keys() >= {item.id for item in native.findings if item.graph_subject_ids}
     for item in native.findings:

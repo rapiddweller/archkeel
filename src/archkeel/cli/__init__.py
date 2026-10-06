@@ -165,6 +165,11 @@ def build_parser() -> _Parser:
         "required relationships; combines with --component, not --rule.",
     )
     report.add_argument(
+        "--full",
+        action="store_true",
+        help="With --only architecture, include every projection and violation detail row in JSON.",
+    )
+    report.add_argument(
         "--rule",
         help="Show only violations naming this rule id - top-level, or <component>:<rule id> "
         "for one an inside declares (AD-36). Unknown to this contract: exit 2.",
@@ -429,6 +434,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     collector_argv=tuple(args.collector_argv) if args.collector_argv else None,
                 )
             elif command == "report" and args.input is not None:
+                if args.full and args.only != "architecture":
+                    parser.error("--full requires --only architecture")
                 if args.only in {"calls", "architecture"} and args.rule is not None:
                     parser.error(
                         "--rule narrows violations; --only calls or architecture "
@@ -454,6 +461,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     only_architecture=args.only == "architecture",
                     rule=args.rule,
                     component=args.component,
+                    full_architecture=args.full,
                 )
             elif command == "report":
                 config = load_config(root, args.config or CONFIG_PATH)
@@ -463,6 +471,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "--rule narrows violations; --only calls or architecture "
                         "cannot select a rule"
                     )
+                if args.full and args.only != "architecture":
+                    parser.error("--full requires --only architecture")
                 result, architecture = run_report(
                     root,
                     config=config,
@@ -476,6 +486,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     only_architecture=args.only == "architecture",
                     rule=args.rule,
                     component=args.component,
+                    full_architecture=args.full,
                     baseline=args.baseline,
                 )
                 result = replace(result, scan_roots=config.roots)
@@ -496,12 +507,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                     )
                     report_html = html_path(artifact, "report")
                     repository = project_name(root, config)
-                    for name, payload in render_architecture_details(
+                    details = render_architecture_details(
                         result,
                         architecture,
                         repository=repository,
                         architecture_href=artifact.name,
-                    ).items():
+                    )
+                    for name, payload in details.items():
                         detail = artifact.parent / name
                         detail.write_bytes(payload)
                         artifacts.append(detail)
@@ -513,6 +525,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                             architecture_href=artifact.name,
                         )
                     )
+                    if details:
+                        obsolete = (
+                            rf"{re.escape(artifact.stem)}\.detail-"
+                            r"(?:component-[0-9a-f]{16}|unknown)\.html"
+                        )
+                        for previous in artifact.parent.glob(f"{artifact.stem}.detail-*.html"):
+                            if re.fullmatch(obsolete, previous.name):
+                                previous.unlink()
                     artifacts.extend((artifact, report_html))
             elif command == "validate":
                 config = load_config(root, args.config)

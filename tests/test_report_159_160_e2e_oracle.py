@@ -35,6 +35,7 @@ from archkeel.cli import main
 from archkeel.ir.baseline import KnownViolation, observed_violations
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
 from archkeel.ir.model import Observation, Record
+from archkeel.ir.module_explore import module_exploration
 from fixtures.architecture_demo import CATALOG
 from fixtures.architecture_demo import main as demo_main
 from fixtures.demo_catalog_dependencies import module_cycle_rule
@@ -869,7 +870,7 @@ def test_html_banner_discloses_unknown_rule_in_aggregate_verdict(tmp_path: Path,
     ]
     assert not result["open_decisions"]
     page = (tmp_path / "unknown-cycle-report" / "architecture.report.html").read_text()
-    assert "Declared rules: UNKNOWN" in page
+    assert 'aria-label="Decision: UNKNOWN"' in page
     atlas = _flow_data(page)["atlas"]
     assert atlas["status"] == "UNKNOWN" and atlas["unknown_count"] > 0
     assert _linked_audit(page, tmp_path / "unknown-cycle-report") == observation
@@ -915,7 +916,7 @@ def test_replay_reports_mixed_boundary_failure_and_unknown_without_double_counti
 
     page = output.with_name("mixed-evidence.report.html").read_text()
     assert _linked_audit(page, output.parent) == observation
-    assert "Declared rules: FAIL" in page
+    assert 'aria-label="Decision: FAIL"' in page
     atlas = _flow_data(page)["atlas"]
     # Architecture scope stays undecided while this boundary-type rule fails.
     assert atlas["status"] == "UNKNOWN" and atlas["unknown_count"] > 0
@@ -1002,7 +1003,7 @@ def test_real_html_keeps_mixed_fail_and_unknown_evidence_available_without_javas
     views = next(item for item in _start_tags(page, "nav") if item.get("class") == "flow-views")
     assert "hidden" in views
     assert result["declared_rules"] == "FAIL"
-    assert "Declared rules: FAIL" in page
+    assert 'aria-label="Decision: FAIL"' in page
     _assert_assessment(result, "APP-TYPES-NOT-DICT", "FAIL", 1, 1, _PROVENANCE)
     _assert_assessment(result, "DEP-APP-NO-CLI", "PASS", 0, 0, _PROVENANCE)
     assert _unknown_positions(observation, "APP-TYPES-NOT-DICT")
@@ -1017,7 +1018,7 @@ def test_real_html_marks_failure_explicitly_and_permission_as_neutral(
     result, observation = _cli_report(root, tmp_path, capsys)
     page = (tmp_path / "architecture.report.html").read_text()
     audit = _linked_audit(page, tmp_path)
-    assert audit == observation and "Declared rules: FAIL" in page
+    assert audit == observation and 'aria-label="Decision: FAIL"' in page
     _assert_assessment(result, "APP-TYPES-NOT-DICT", "FAIL", 0, 1, _PROVENANCE)
     _assert_assessment(result, "DEP-APP-ALLOWS-MODEL", "DECLARATION", 0, 0, _PROVENANCE)
     permission = _declared(audit, "DEP-APP-ALLOWS-MODEL")
@@ -1027,7 +1028,10 @@ def test_real_html_marks_failure_explicitly_and_permission_as_neutral(
     assert not any(permission.id in item.rule_ids for item in audit.records("unknowns"))
     atlas = _flow_data(page)["atlas"]
     assert any(cell[3] == "FAIL" for cell in atlas["cells"])
-    assert all(cell[4] == "UNKNOWN" for cell in atlas["cells"])
+    assert all(cell.permission == "UNKNOWN" for cell in module_exploration(audit)[0].cells)
+    assert atlas["reference_ids"][atlas["cell_permission_reason_ref"]] == (
+        "ArchitectureReport has no authenticated per-module import permission receipt."
+    )
 
 
 def test_real_html_keeps_each_native_scope_filter_label_with_its_control(

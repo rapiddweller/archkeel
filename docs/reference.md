@@ -70,9 +70,24 @@ archkeel report --only architecture --json
 archkeel report --input test-artifacts/architecture/architecture.json --only architecture --json
 ```
 
-The Core projection includes ownership, responsibilities, permissions, use and
-findings. Select an exact component ID or scope with `--component`. Global
-verdicts, coverage, UNKNOWNs and baseline comparisons remain visible.
+The compact Core projection keeps top-level intent and reduces nested components
+to identity, parent, responsibility, layer and finding count. Select an exact ID
+or scope with `--component` for that component's contract. Global verdicts,
+coverage, UNKNOWNs and baseline comparisons remain visible. Compact JSON omits
+`filtered_violations`, reports the selected-scope `filtered_violation_count`
+(`null` when unavailable), and sets `violation_details_included` to `false`.
+
+```bash
+archkeel report --input architecture.json --only architecture --full --json
+```
+
+`--full` restores `permission_rules`, `policy_context` and complete violation records;
+it also works with live reports and `--component`. Full JSON includes the selected
+`filtered_violations` array, including `[]` when the measured count is zero, and sets
+`violation_details_included` to `true`; unavailable rows remain `null` with a null count
+and `false`. `--only violations` queries full finding rows directly. Assignment findings
+name candidate `owners` (or `none`) and `remedy`. Observed imports never establish permission.
+
 Saved queries read recorded evidence without rescanning, verifying current files
 or writing artifacts. `--input` cannot combine with `--root`, `--config`,
 `--baseline` or `--output`. Unknown/ambiguous selectors exit 2.
@@ -83,8 +98,10 @@ See the [projection schema](../schema/architecture-command.schema.json).
 `--only violations` shows findings; `--rule ID` and `--component LABEL` intersect.
 Inside rule IDs retain their scoped prefix. Violation-only component filters also
 accept authenticated nested IDs/scopes; ordinary facets retain top-level behavior.
-A valid empty selection succeeds. Filters preserve verdicts, totals and canonical
-bytes; locations refer to the analyzed snapshot, not current remote files.
+A valid empty selection succeeds. Rule assessments follow the selected scope;
+`--only violations` keeps FAIL and UNKNOWN assessments. Filters preserve global
+verdicts, totals and canonical bytes; locations refer to the analyzed snapshot,
+not current remote files.
 
 `--only calls` lists unresolved/partially resolved calls. Component filtering keeps
 calls made by that component; `--rule` is refused. Unmeasured call profiles exit 2

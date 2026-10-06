@@ -459,6 +459,20 @@ def rule_assessments(
     return tuple(sorted(rows, key=lambda item: (item.scope, item.id)))
 
 
+def rule_assessment_applies_to_component(
+    assessment: RuleAssessment,
+    rule_parent_id: str | None,
+    component_parent_id: str | None,
+    component_label: str | None,
+) -> bool:
+    """Whether Core's evaluated rule scope includes one authenticated component."""
+    return rule_parent_id == component_parent_id and (
+        not assessment.components
+        or component_label is not None
+        and component_label in assessment.components
+    )
+
+
 def cycle_scope_receipt_covers(
     fingerprint: _ViolationFingerprint, rule_id: str, observation: Observation
 ) -> bool:
