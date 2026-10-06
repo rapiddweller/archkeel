@@ -12,17 +12,35 @@ class ChangeClassificationTests(unittest.TestCase):
         cases = (
             ("src/archkeel/check/report.py", Areas(core=True, report=True)),
             ("src/archkeel/render/html.py", Areas(core=True, report=True)),
+            (
+                "src/archkeel/render/assets/archkeel-logo-dark.svg",
+                Areas(core=True, report=True),
+            ),
+            (
+                "src/archkeel/render/assets/archkeel-logo-light.svg",
+                Areas(core=True, report=True),
+            ),
+            ("src/archkeel/render/assets/archkeel-mark.png", Areas(core=True, report=True)),
             ("Makefile", Areas(core=True, report=True, mermaid=True)),
             (".github/workflows/ci.yml", Areas(core=True, report=True, mermaid=True)),
-            ("README.md", Areas(mermaid=True)),
-            ("docs/architecture/archkeel.md", Areas(mermaid=True)),
+            ("README.md", Areas(core=True, mermaid=True)),
+            ("docs/architecture/archkeel.md", Areas(core=True, mermaid=True)),
+            ("docs/architecture/decisions/README.md", Areas(core=True, mermaid=True)),
+            ("docs/architecture-demo.md", Areas(core=True, mermaid=True)),
+            ("docs/onboarding.md", Areas(core=True, mermaid=True)),
+            ("docs/reference.md", Areas(core=True, mermaid=True)),
+            ("docs/report-visual-system.md", Areas(core=True, report=True, mermaid=True)),
+            ("docs/roadmap.md", Areas(mermaid=True)),
             ("skills/archkeel/SKILL.md", Areas(core=True, mermaid=True)),
             ("tools/mermaid_blocks.py", Areas(core=True, mermaid=True)),
             ("tests/test_mermaid.py", Areas(core=True, mermaid=True)),
             ("src/archkeel/check/analyzer.py", Areas(core=True)),
             ("unmapped/product/contract.yaml", Areas(core=True)),
             ("unmapped/notes.md", Areas(core=True, mermaid=True)),
-            ("docs/screenshots/report.PNG", Areas()),
+            ("docs/assets/report.PNG", Areas()),
+            ("docs/evidence/internal-service/report.png", Areas()),
+            ("assets/archkeel-mark.svg", Areas(core=True)),
+            ("plugins/archkeel/assets/archkeel-mark.svg", Areas(core=True)),
         )
         for path, expected in cases:
             with self.subTest(path=path):

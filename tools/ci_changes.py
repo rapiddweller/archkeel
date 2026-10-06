@@ -32,10 +32,12 @@ _SCREENSHOT_SUFFIXES = {
     ".tiff",
     ".webp",
 }
+_SCREENSHOT_ROOTS = ("docs/assets/", "docs/evidence/")
 _REPORT_PATTERNS = (
     "src/archkeel/render/*",
     "src/archkeel/check/report.py",
     "src/archkeel/check/uml*.py",
+    "docs/report-visual-system.md",
     "tools/report_*.py",
     "tools/terminal_svg.py",
     "fixtures/architecture_demo.py",
@@ -65,6 +67,19 @@ _DOC_MARKDOWN_FILES = {
     "CONTRIBUTING.md",
     "README.md",
     "RELEASE_NOTES.md",
+    "docs/README.md",
+    "docs/known-limits.md",
+    "docs/review-pilot.md",
+    "docs/roadmap.md",
+    "docs/target-first.md",
+}
+_CORE_MARKDOWN_FILES = {
+    "README.md",
+    "docs/architecture-demo.md",
+    "docs/onboarding.md",
+    "docs/reference.md",
+    "docs/rule-yield.md",
+    "docs/rules.md",
 }
 
 
@@ -82,20 +97,23 @@ def classify_path(path: str) -> Areas:
     if _is_ci_path(path):
         return ALL_AREAS
 
-    suffix = PurePosixPath(path).suffix.lower()
-    if suffix in _SCREENSHOT_SUFFIXES:
-        return Areas()
-
     if any(fnmatchcase(path, pattern) for pattern in _REPORT_PATTERNS):
-        return Areas(core=True, report=True)
+        return Areas(core=True, report=True, mermaid=path.endswith(".md"))
+
+    suffix = PurePosixPath(path).suffix.lower()
+    if suffix in _SCREENSHOT_SUFFIXES and path.startswith(_SCREENSHOT_ROOTS):
+        return Areas()
 
     if path in {"tools/mermaid_blocks.py", "tests/test_mermaid.py"}:
         return Areas(core=True, mermaid=True)
 
     if suffix == ".md":
-        product_markdown = path.startswith(_PRODUCT_MARKDOWN_ROOTS)
-        known_docs = path.startswith("docs/") or path in _DOC_MARKDOWN_FILES
-        return Areas(core=product_markdown or not known_docs, mermaid=True)
+        core_markdown = (
+            path.startswith((*_PRODUCT_MARKDOWN_ROOTS, "docs/architecture/"))
+            or path in _CORE_MARKDOWN_FILES
+        )
+        known_docs = path in _DOC_MARKDOWN_FILES or path.startswith("docs/evidence/")
+        return Areas(core=core_markdown or not known_docs, mermaid=True)
 
     # Unknown paths fail closed so new product or configuration files keep the gate.
     return Areas(core=True)
