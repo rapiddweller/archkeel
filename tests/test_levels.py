@@ -20,6 +20,7 @@ def test_the_inside_of_check_carries_its_sub_components_and_their_edges(
         "analyzer",
         "analyzer:dart",
         "analyzer:python",
+        "analyzer:typescript",
         "check",
         "ir",
         "render",

@@ -47,6 +47,7 @@ ANALYZER_PUBLIC_IR = frozenset(
     {
         "archkeel.ir.facts",
         "archkeel.ir.facts_codec",
+        "archkeel.ir.identity",
         "archkeel.ir.protocol",
         "archkeel.ir.state_facts",
         "archkeel.ir.type_shapes",
@@ -284,10 +285,18 @@ def test_self_public_guard_rejects_unsupported_surface(
 def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) -> None:
     """AD-148: the process host and each language adapter own the modules they observe."""
     levels = {level.parent: level for level in inside_levels(self_observation)}
-    assert set(levels) == {"analyzer", "analyzer:dart", "analyzer:python", "check", "ir", "render"}
+    assert set(levels) == {
+        "analyzer",
+        "analyzer:dart",
+        "analyzer:python",
+        "analyzer:typescript",
+        "check",
+        "ir",
+        "render",
+    }
     analyzer = levels["analyzer"]
     modules_by_component = {item.label: set(item.modules) for item in analyzer.components}
-    assert set(modules_by_component) == {"dart", "process", "python"}
+    assert set(modules_by_component) == {"dart", "process", "python", "typescript"}
     assert modules_by_component["process"] == {
         "archkeel.analyzer",
         "archkeel.analyzer.process",
@@ -321,9 +330,18 @@ def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) 
         "archkeel.analyzer.dart.lexer",
         "archkeel.analyzer.dart.resolve",
     }
+    assert modules_by_component["typescript"] == {
+        "archkeel.analyzer.typescript",
+        "archkeel.analyzer.typescript.collect",
+        "archkeel.analyzer.typescript.config",
+        "archkeel.analyzer.typescript.entry",
+        "archkeel.analyzer.typescript.parse",
+        "archkeel.analyzer.typescript.resolve",
+    }
     assert analyzer.unassigned == ()
     assert levels["analyzer:python"].unassigned == ()
     assert levels["analyzer:dart"].unassigned == ()
+    assert levels["analyzer:typescript"].unassigned == ()
     assert levels["ir"].unassigned == ()
     assert all(
         ".embedded" not in module for modules in modules_by_component.values() for module in modules

@@ -15,7 +15,7 @@ from test_exact_type_ignore import RULE as TYPE_IGNORE_RULE
 from test_exact_type_ignore import SOURCE as TYPE_IGNORE_SOURCE
 from test_result_schema import validator as validator
 from test_target_graph import _nested_repository
-from test_typescript_onboarding import arguments, collector, repository
+from test_typescript_onboarding import arguments, repository
 
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.cli import build_parser, main
@@ -328,7 +328,7 @@ def test_saved_typescript_query_matches_native_cli_without_collector_or_reposito
     root = repository(
         tmp_path / "repo", {"src/main.ts": "import './store.js';", "src/store.ts": "export {};"}
     )
-    assert main([*arguments(root), *collector()]) == 0
+    assert main(arguments(root)) == 0
     capsys.readouterr()
     saved = tmp_path / "typescript.json"
     assert (
