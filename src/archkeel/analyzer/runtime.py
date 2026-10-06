@@ -12,7 +12,14 @@ from typing import Literal
 
 from archkeel.ir.facts import AnalyzerInfo, RuntimeInfo
 
-Language = Literal["python", "dart"]
+Language = Literal["python", "dart", "typescript"]
+_ANALYZERS: dict[Language, str] = {
+    "python": "archkeel-python-analyzer",
+    "dart": "archkeel-dart-directives",
+    "typescript": "archkeel-typescript-imports",
+}
+# A parser change can change facts without changing a line of this package.
+_PARSERS = ("tree-sitter", "tree-sitter-typescript")
 
 
 def collector_provenance(
@@ -29,6 +36,7 @@ def collector_provenance(
             shared / name
             for name in (
                 "facts.py",
+                "identity.py",
                 "facts_codec.py",
                 "facts_validation.py",
                 "protocol.py",
@@ -46,16 +54,16 @@ def collector_provenance(
         digest.update(b"\0")
         digest.update(path.read_bytes())
         digest.update(b"\0")
+    if language == "typescript":
+        for parser in _PARSERS:
+            digest.update(f"{parser}=={importlib.metadata.version(parser)}".encode())
+            digest.update(b"\0")
     try:
         version = importlib.metadata.version("archkeel")
     except importlib.metadata.PackageNotFoundError:
         version = "0+unknown"
     return (
-        AnalyzerInfo(
-            "archkeel-python-analyzer" if language == "python" else "archkeel-dart-directives",
-            version,
-            digest.hexdigest(),
-        ),
+        AnalyzerInfo(_ANALYZERS[language], version, digest.hexdigest()),
         RuntimeInfo("python", platform.python_version(), required),
     )
 
