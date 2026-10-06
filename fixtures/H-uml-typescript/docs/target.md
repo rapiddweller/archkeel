@@ -15,8 +15,7 @@ Diff must retain unsupported inner observations as UNKNOWN, never PASS or absenc
 This demo does not certify language UML parity or exhaustive inventories.
 
 Replay with make demo-architecture VARIANT=uml-typescript OUTPUT=demo-output/uml-typescript.json.
-Use a fresh output path. For TypeScript, first run make typescript-adapter with a
-supported Node runtime. make demo-uml generates all three language reports.
+Use a fresh output path. make demo-uml generates all three language reports.
 
 Tracked in #339 (demos) and #340 (complete ArchKeel Target).
 

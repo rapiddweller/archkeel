@@ -1,5 +1,11 @@
 # Unreleased
 
+- TypeScript imports are read by a frontend inside the Python package. No Node runtime or
+  separately built adapter is needed. Anything it cannot prove stays UNKNOWN, including
+  `extends` through a package and `exports` maps (AD-210). Migration: drop
+  `collector_argv = ["archkeel-typescript"]` from `archkeel.toml`; observations recorded with
+  the npm adapter name another producer and runtime, so comparing them with a new one fails
+  `incomparable_runtime` until both revisions are observed again.
 - Agents can query the shared architecture projection with `report --only architecture`
   and reuse a recorded snapshot with `--input`. Focused queries retain global verdicts,
   coverage and UNKNOWNs. Native component ids/scopes select local Target findings;

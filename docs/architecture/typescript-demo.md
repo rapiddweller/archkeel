@@ -1,9 +1,8 @@
 # TypeScript import-graph demo
 
-Build the pinned collector, then replay the committed shop fixture:
+Replay the committed shop fixture with the collector that ships in the package:
 
 ```bash
-make -C packages/typescript-adapter install build
 make demo-typescript OUTPUT=test-artifacts/typescript-demo-results
 ```
 
