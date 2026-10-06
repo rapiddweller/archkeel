@@ -823,10 +823,12 @@
     const targetBlocked = !routePointsClear(
       [normalTarget.lead, normalTarget.point], headers, 2,
     ) || !routePointsClear([normalTarget.lead, normalTarget.point], cardBounds, 0);
-    const sidePorts = (card, height, x) => ["left", "right"].map((side) => {
+    const sidePorts = (card, height, x) => ["left", "right"].flatMap((side) => {
       const at = side === "left" ? card.x : card.x + CARD.w;
       const y = card.y + 14 + (height - 28) * (x - card.x) / CARD.w;
-      return { point: [at, y], lead: [at + (side === "left" ? -GAP / 2 : GAP / 2), y], axis: "horizontal" };
+      // Opposite turns from nearby side ports need separate vertical lanes.
+      return [GAP / 2, GAP / 2 + LANE_GAP].map((distance) => ({ point: [at, y],
+        lead: [at + (side === "left" ? -distance : distance), y], axis: "horizontal" }));
     });
     const sourcePorts = sourceBlocked && sourceCard
       ? sidePorts(sourceCard, sourceHeight, sx) : [normalSource];
