@@ -65,7 +65,6 @@ jobs:
                 ;;
               Makefile|.github/workflows/ci.yml)
                 core=true
-                report=true
                 mermaid=true
                 continue
                 ;;
