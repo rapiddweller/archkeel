@@ -81,10 +81,11 @@ def test_native_list_leaf_keeps_the_fixed_control_and_accepted_opacity(
 
 
 @pytest.mark.parametrize("facade", [False, True], ids=["direct", "facade"])
+@pytest.mark.parametrize("depth", [2, 1], ids=["exact", "wrong-depth"])
 def test_native_list_leaf_survives_the_ordinary_cli_and_report(
-    tmp_path: Path, facade: bool
+    tmp_path: Path, facade: bool, depth: int
 ) -> None:
-    _fixture(tmp_path, facade=facade)
+    _fixture(tmp_path, facade=facade, change={"container_depth": depth})
     _observe(tmp_path)
     _commit_report_fixture(tmp_path)
     output = tmp_path / "architecture.json"
@@ -110,16 +111,27 @@ def test_native_list_leaf_survives_the_ordinary_cli_and_report(
     assert summary["coverage"]["status"] == "PASS" and summary["diagnostics"] == []
     assert summary["declared_rules"] == "FAIL"
     observation = parse_observation(decode_canonical_model(json.loads(output.read_text())))
-    [sibling] = trace_valid_violations(observation)
-    assert str(sibling.data.get("qualified_name")).endswith(".fixed_control")
-    [fact] = [
+    findings = trace_valid_violations(observation)
+    [sibling] = [
+        item for item in findings if str(item.data.get("qualified_name")).endswith(".fixed_control")
+    ]
+    facts = [
         item
         for item in observation.records("typing_signals") or ()
         if item.kind == "boundary_type_allowance" and item.data.get("accepted_opacity") is True
     ]
-    assert fact.data.get("container_depth") == 2 and fact.provenance
     html = output.with_suffix(".report.html").read_text()
     _native_audit(html, observation, output.name)
+    if depth != 2:
+        assert facts == []
+        [leaf] = [item for item in findings if item != sibling]
+        assert str(leaf.data.get("qualified_name")).endswith(".get_result")
+        assert leaf.data.get("nested_annotation") == "object"
+        assert leaf.data.get("container_depth") == 2
+        return
+    assert findings == (sibling,)
+    [fact] = facts
+    assert fact.data.get("container_depth") == 2 and fact.provenance
     assert "accepted opacity" in fact.title and "type closure remains unproven" in fact.title
     assert "container depth 2" in fact.title
 

@@ -18,6 +18,7 @@ without an LLM. They complement tests of runtime behavior.
 </p>
 
 Explore observed code, declared architecture and their differences in one offline report.
+See [ArchKeel's current Main report](https://rapiddweller.github.io/archkeel/), updated by CI.
 
 ## Start here
 
