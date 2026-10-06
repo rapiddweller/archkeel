@@ -255,14 +255,15 @@ class Resolver:
             return None
         if posixpath.isabs(specifier):
             return Unknown(f"Absolute specifiers are not observed: {specifier}")
-        if self._exports_aware and specifier.startswith("#"):
-            return Unknown(f"Package imports are not observed: {specifier}")
-        if self._exports_aware and self._self_reference(importer, package_name(specifier)):
-            return Unknown(f"Package self-reference is not observed: {specifier}")
         for kinds in passes:
             mapped = self._mapped(specifier, esm, kinds)
             if mapped is not None:
                 return self._found(mapped, False, None)
+            # The project's own names come first, then `imports`, then the package itself.
+            if self._exports_aware and specifier.startswith("#"):
+                return Unknown(f"Package imports are not observed: {specifier}")
+            if self._exports_aware and self._self_reference(importer, package_name(specifier)):
+                return Unknown(f"Package self-reference is not observed: {specifier}")
             for directory in _ancestors(importer):
                 found = self._modules(directory, specifier, esm, kinds)
                 if found is not None:

@@ -34,6 +34,41 @@ _UNMODELED: Final = (
     "allowArbitraryExtensions",
     "noDtsResolution",
 )
+_ENUMS: Final = {
+    "module": "none commonjs amd system umd es6 es2015 es2020 es2022 esnext node16 node18 "
+    "node20 nodenext preserve".split(),
+    "moduleResolution": "node10 node classic node16 nodenext bundler".split(),
+    "target": "es3 es5 es6 es2015 es2016 es2017 es2018 es2019 es2020 es2021 es2022 es2023 "
+    "es2024 esnext".split(),
+}
+# The compiler's option names (TypeScript 5.9.3); an unknown one is a configuration error.
+_KNOWN_OPTIONS: Final = frozenset(
+    "all allowArbitraryExtensions allowImportingTsExtensions allowJs allowSyntheticDefaultImports "
+    "allowUmdGlobalAccess allowUnreachableCode allowUnusedLabels alwaysStrict "
+    "assumeChangesOnlyAffectDirectDependencies baseUrl charset checkJs composite customConditions "
+    "declaration declarationDir declarationMap diagnostics disableReferencedProjectLoad "
+    "disableSizeLimit disableSolutionSearching disableSourceOfProjectReferenceRedirect "
+    "downlevelIteration emitBOM emitDeclarationOnly emitDecoratorMetadata erasableSyntaxOnly "
+    "esModuleInterop exactOptionalPropertyTypes experimentalDecorators explainFiles "
+    "extendedDiagnostics forceConsistentCasingInFileNames generateCpuProfile generateTrace "
+    "ignoreDeprecations importHelpers importsNotUsedAsValues incremental init inlineSourceMap "
+    "inlineSources isolatedDeclarations isolatedModules jsx jsxFactory jsxFragmentFactory "
+    "jsxImportSource keyofStringsOnly lib libReplacement listEmittedFiles listFiles mapRoot "
+    "maxNodeModuleJsDepth module moduleDetection moduleResolution moduleSuffixes newLine noCheck "
+    "noEmit noEmitHelpers noEmitOnError noErrorTruncation noFallthroughCasesInSwitch noImplicitAny "
+    "noImplicitOverride noImplicitReturns noImplicitThis noImplicitUseStrict noLib "
+    "noPropertyAccessFromIndexSignature noResolve noStrictGenericChecks noUncheckedIndexedAccess "
+    "noUncheckedSideEffectImports noUnusedLocals noUnusedParameters out outDir outFile paths "
+    "plugins preserveConstEnums preserveSymlinks preserveValueImports preserveWatchOutput pretty "
+    "project reactNamespace removeComments resolveJsonModule resolvePackageJsonExports "
+    "resolvePackageJsonImports rewriteRelativeImportExtensions rootDir rootDirs "
+    "skipDefaultLibCheck "
+    "skipLibCheck sourceMap sourceRoot strict strictBindCallApply strictBuiltinIteratorReturn "
+    "strictFunctionTypes strictNullChecks strictPropertyInitialization stripInternal "
+    "suppressExcessPropertyErrors suppressImplicitAnyIndexErrors target traceResolution "
+    "tsBuildInfoFile typeRoots types useDefineForClassFields useUnknownInCatchVariables "
+    "verbatimModuleSyntax version".split()
+)
 _ESM_MODULES: Final = frozenset({"es6", "es2015", "es2020", "es2022", "esnext"})
 _NODE16_MODULES: Final = frozenset({"node16", "node18", "node20"})
 _RESOLUTIONS: Final = {"node": "node10", "node10": "node10", "node16": "node16"}
@@ -214,12 +249,131 @@ def _read_json(snapshot: Snapshot, rel: str) -> tuple[Json | None, str | None]:
     return (value, None) if isinstance(value, dict) else (None, f"'{rel}' is not an object.")
 
 
-def _lowered(options: Json, key: str) -> str | None:
+@dataclass(frozen=True, slots=True)
+class _Layer:
+    """One TSConfig with what it inherits, its paths made relative to the snapshot root."""
+
+    compiler: dict[str, object]
+    base_url: str | None
+    paths_directory: str
+    # `files`, `include` and `exclude` of the nearest config that sets each.
+    specs: dict[str, list[str]]
+    # The `outDir` and `declarationDir` of the config being read, which exclude by default.
+    outputs: list[str]
+    partial: bool
+
+
+def _overlay(low: _Layer, high: _Layer) -> _Layer:
+    """`high` wins key by key; `paths` carries the directory of the config that set it."""
+    return _Layer(
+        {**low.compiler, **high.compiler},
+        high.base_url if high.base_url is not None else low.base_url,
+        high.paths_directory if "paths" in high.compiler else low.paths_directory,
+        {**low.specs, **high.specs},
+        high.outputs,
+        low.partial or high.partial,
+    )
+
+
+def _under(value: str, directory: str, final: str) -> str:
+    """A spec of a config in `directory`; `${configDir}` is the directory of the root config."""
+    marker = "${configDir}"
+    if value.startswith(marker):
+        return join(final, value[len(marker) :].lstrip("/") or ".")
+    return join(directory, value)
+
+
+def _extended(snapshot: Snapshot, entry: str, directory: str, problems: list[str]) -> str | None:
+    """The TSConfig file an `extends` entry names; a package is not looked up."""
+    entry = entry.replace("\\", "/")
+    if not entry.startswith(("./", "../")):
+        problems.append(f"TSConfig extends through a package is not observed: {entry}")
+        return None
+    path = join(directory, entry)
+    if not snapshot.is_file(path) and not path.endswith(".json"):
+        path += ".json"
+    if snapshot.is_file(path):
+        return path
+    problems.append(f"File '{entry}' not found.")
+    return None
+
+
+def _layer(
+    snapshot: Snapshot, rel: str, final: str, problems: list[str], stack: list[str]
+) -> _Layer:
+    raw, error = _read_json(snapshot, rel)
+    directory = posixpath.dirname(rel) or "."
+    if raw is None:
+        problems.append(error or f"Cannot read file '{rel}'.")
+        return _Layer({}, None, directory, {}, [], True)
+    declared = raw.get("compilerOptions")
+    compiler = dict(declared) if isinstance(declared, dict) else {}
+    problems.extend(_invalid(compiler))
+    partial = False
+    specs: dict[str, list[str]] = {}
+    for key in ("files", "include", "exclude"):
+        value = raw.get(key)
+        if isinstance(value, list) and all(isinstance(item, str) for item in value):
+            items = [item.replace("\\", "/") for item in value]
+            partial = partial or any(posixpath.isabs(item) for item in items)
+            specs[key] = [
+                _under(item, directory, final) for item in items if not posixpath.isabs(item)
+            ]
+        elif value is not None:
+            problems.append(f"Compiler option 5024: '{key}' must be a list of strings.")
+    base_url = compiler.get("baseUrl")
+    outputs = [
+        _under(str(compiler[name]), directory, final)
+        for name in ("outDir", "declarationDir")
+        if isinstance(compiler.get(name), str) and compiler[name]
+    ]
+    own = _Layer(
+        compiler,
+        _under(base_url, directory, final) if isinstance(base_url, str) else None,
+        directory,
+        specs,
+        outputs,
+        partial,
+    )
+    parents = raw.get("extends")
+    entries = parents if isinstance(parents, list) else [] if parents is None else [parents]
+    inherited = _Layer({}, None, directory, {}, [], False)
+    for entry in entries:
+        path = _extended(snapshot, entry, directory, problems) if isinstance(entry, str) else None
+        if not isinstance(entry, str):
+            problems.append(
+                "Compiler option 5024: 'extends' must be a string or a list of strings."
+            )
+        if path is not None and path in (rel, *stack):
+            problems.append(f"Circularity detected while resolving configuration: {path}")
+            path = None
+        if path is None:
+            inherited = _overlay(inherited, _Layer({}, None, directory, {}, [], True))
+        else:
+            inherited = _overlay(inherited, _layer(snapshot, path, final, problems, [rel, *stack]))
+    return _overlay(inherited, own)
+
+
+def _invalid(options: dict[str, object]) -> list[str]:
+    """TS5023 for a name the compiler does not know, and TS6046 for a value it refuses."""
+    unknown = [
+        f"Unknown compiler option '{name}'." for name in options if name not in _KNOWN_OPTIONS
+    ]
+    refused = [
+        f"Compiler option 6046: argument for '{name}' is not valid."
+        for name in _ENUMS
+        if options.get(name) is not None and _lowered(options, name) is None
+    ]
+    return [*unknown, *refused]
+
+
+def _lowered(options: dict[str, object], key: str) -> str | None:
+    """An enum option's value, which the compiler matches without regard to case."""
     value = options.get(key)
-    return value.lower() if isinstance(value, str) else None
+    return value.lower() if isinstance(value, str) and value.lower() in _ENUMS[key] else None
 
 
-def _paths(raw: Json, problems: list[str]) -> tuple[tuple[str, tuple[str, ...]], ...]:
+def _paths(raw: dict[str, object], problems: list[str]) -> tuple[tuple[str, tuple[str, ...]], ...]:
     value = raw.get("paths")
     if value is None:
         return ()
@@ -237,20 +391,24 @@ def _paths(raw: Json, problems: list[str]) -> tuple[tuple[str, tuple[str, ...]],
     return tuple(patterns)
 
 
-def _options(raw: Json, base: str, problems: list[str]) -> Options:
+def _options(layer: _Layer, problems: list[str]) -> Options:
+    raw = layer.compiler
     resolution = _lowered(raw, "moduleResolution")
-    base_url = raw.get("baseUrl")
-    url = join(base, base_url) if isinstance(base_url, str) else None
+    paths = _paths(raw, problems)
+    unmodeled = [name for name in _UNMODELED if raw.get(name) not in (None, False, [])]
+    if any("${configDir}" in target for _, targets in paths for target in targets):
+        unmodeled.append("paths with ${configDir}")
+    json_flag = raw.get("resolveJsonModule")
     options = Options(
         _lowered(raw, "module"),
         _RESOLUTIONS.get(resolution, resolution) if resolution is not None else None,
         _lowered(raw, "target"),
         raw.get("allowJs") is True,
-        url,
-        _paths(raw, problems),
-        url or base,
-        tuple(name for name in _UNMODELED if raw.get(name) not in (None, False, [])),
-        json_flag if isinstance(json_flag := raw.get("resolveJsonModule"), bool) else None,
+        layer.base_url,
+        paths,
+        layer.base_url if layer.base_url is not None else layer.paths_directory,
+        tuple(unmodeled),
+        json_flag if isinstance(json_flag, bool) else None,
     )
     emit, kind = options.emit_module, options.resolution
     # TS5110 and TS5095: the compiler refuses these pairs, so it observes no resolution.
@@ -269,16 +427,6 @@ def _options(raw: Json, base: str, problems: list[str]) -> Options:
     ):
         problems.append(f"Compiler option 5110: 'moduleResolution' must follow 'module' {emit}.")
     return options
-
-
-def _strings(raw: Json, key: str, problems: list[str]) -> list[str] | None:
-    value = raw.get(key)
-    if value is None:
-        return None
-    if isinstance(value, list) and all(isinstance(item, str) for item in value):
-        return [str(item).replace("\\", "/") for item in value]
-    problems.append(f"Compiler option 5024: '{key}' must be a list of strings.")
-    return None
 
 
 def _wildcard_text(single: str) -> Callable[[re.Match[str]], str]:
@@ -326,34 +474,50 @@ def _supported(path: str, options: Options) -> bool:
     return path.endswith(_SUPPORTED + (_SUPPORTED_JS if options.allow_js else ()))
 
 
+def _base_path(spec: str) -> str:
+    """The directory a spec's walk starts from: everything before its first wildcard."""
+    path = "/" + spec if not spec.startswith("/") else spec
+    found = re.search(r"[*?]", path)
+    if found is None:
+        return path if "." not in posixpath.basename(path) else posixpath.dirname(path) or "/"
+    return path[: path.rindex("/", 0, found.start())] or "/"
+
+
 def _discover(
-    snapshot: Snapshot, base: str, raw: Json, options: Options, problems: list[str]
+    snapshot: Snapshot, layer: _Layer, own: str, options: Options, problems: list[str]
 ) -> list[str]:
     """Files named by `files` and `include`, minus `exclude`, as the compiler lists them."""
-    listed = _strings(raw, "files", problems)
-    include = _strings(raw, "include", problems)
-    exclude = _strings(raw, "exclude", problems)
-    declared = raw.get("compilerOptions")
+    listed = layer.specs.get("files")
+    include = layer.specs.get("include")
+    exclude = layer.specs.get("exclude")
     if listed is None and include is None:
-        include = ["**/*"]
-    if exclude is None:
-        exclude = [
-            value
-            for key in ("outDir", "declarationDir")
-            if isinstance(declared, dict) and isinstance(value := declared.get(key), str)
-        ]
+        include = [join(own, "**/*")]
+    # An exclusion outside the snapshot excludes nothing in it.
+    exclude = (
+        [spec for spec in layer.outputs if not is_outside(spec)] if exclude is None else exclude
+    )
+    exclude = [spec for spec in exclude if not is_outside(spec)]
     for spec in include or []:
         if spec.rstrip("/").endswith("**"):
             problems.append(f"Compiler option 5010: '{spec}' cannot end in a recursive wildcard.")
     # A pattern that climbs out of the snapshot can select nothing the collector may read.
-    inside = [spec for spec in include or [] if not is_outside(join(base, spec))]
-    files = _matching(inside, base, "files")
-    directories = _matching(inside, base, "directories")
-    excluded = _matching(exclude, base, "exclude")
+    inside = [spec for spec in include or [] if not is_outside(spec)]
+    files = _matching(inside, ".", "files")
+    directories = _matching(inside, ".", "directories")
+    excluded = _matching(exclude, ".", "exclude")
+    # The config's own directory is walked first; a spec elsewhere adds its own start.
+    starts = [join("/", own)]
+    for start in sorted(_base_path(spec) for spec in inside):
+        if not any(within(known, start) for known in starts):
+            starts.append(start)
     found: set[str] = set()
-    pending = [(base, join("/", base))]
+    seen: set[str] = set()
+    pending = [(start.lstrip("/") or ".", start) for start in starts]
     while pending and files:
         rel, absolute = pending.pop()
+        if absolute in seen:
+            continue
+        seen.add(absolute)
         names, children = snapshot.entries(rel)
         for name in names:
             path = posixpath.join(absolute, name)
@@ -365,7 +529,7 @@ def _discover(
             reachable = any(re.fullmatch(pattern, path) for pattern in directories)
             if reachable and not _is_excluded(excluded, path):
                 pending.append((join(rel, name), path))
-    literal = [join(base, name) for name in listed or []]
+    literal = listed or []
     known = {*literal, *found}
     return [*literal, *sorted(rel for rel in found if not _shadowed(rel, known))]
 
@@ -391,21 +555,15 @@ def _shadowed(rel: str, known: set[str]) -> bool:
 
 def load_config(snapshot: Snapshot, tsconfig: str, roots: tuple[str, ...]) -> Config:
     problems: list[str] = []
-    raw, error = _read_json(snapshot, tsconfig)
-    if raw is None:
-        problems.append(error or "Cannot read the TSConfig.")
-        raw = {}
-    partial = bool(problems)
-    if "extends" in raw:
-        problems.append("TSConfig extends is not observed.")
-        partial = True
-    if "references" in raw:
+    own = posixpath.dirname(tsconfig) or "."
+    layer = _layer(snapshot, tsconfig, own, problems, [])
+    raw, _ = _read_json(snapshot, tsconfig)
+    references = raw is not None and "references" in raw
+    if references:
         problems.append("Project references require separately observed projects")
-    declared = raw.get("compilerOptions")
-    base = posixpath.dirname(tsconfig) or "."
-    options = _options(declared if isinstance(declared, dict) else {}, base, problems)
-    listed = _discover(snapshot, base, raw, options, problems)
-    if not listed and "references" not in raw:
+    options = _options(layer, problems)
+    listed = _discover(snapshot, layer, own, options, problems)
+    if not listed and not references:
         problems.append("No inputs were found in config file.")
     scopes = [join(".", root) for root in roots]
     for scope in scopes:
@@ -425,4 +583,4 @@ def load_config(snapshot: Snapshot, tsconfig: str, roots: tuple[str, ...]) -> Co
     if not chosen:
         problems.append("No selected source files")
     snapshot.problems.update(problems)
-    return Config(options, tuple(sorted(chosen)), partial)
+    return Config(options, tuple(sorted(chosen)), layer.partial)

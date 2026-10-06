@@ -698,3 +698,218 @@ def matrix() -> tuple[Scenario, ...]:
                     )
                 )
     return tuple(scenarios)
+
+
+def _selection(name: str, config: dict[str, object], files: tuple[str, ...]) -> Scenario:
+    """A TSConfig that selects among `files`; the whole snapshot is the source root."""
+    return Scenario(
+        f"selection/{name}",
+        {path: "export {};\n" for path in files},
+        {"compilerOptions": {**NODENEXT, "allowJs": True}, **config},
+        roots=(".",),
+    )
+
+
+_TREE: Final = (
+    "src/a.ts",
+    "src/b.tsx",
+    "src/c.d.ts",
+    "src/d.mts",
+    "src/e.cts",
+    "src/e.cjs",
+    "src/f.js",
+    "src/f.ts",
+    "src/g.js",
+    "src/g.d.ts",
+    "src/h.min.js",
+    "src/gen/i.ts",
+    "src/legacy/j.ts",
+    "src/deep/k/l.ts",
+    "src/deep/k/l.test.ts",
+    "src/.hidden/m.ts",
+    "src/.dot.ts",
+    "src/node_modules/n/index.d.ts",
+    "lib/o.ts",
+    "outdir/p.ts",
+    "node_modules/q/index.d.ts",
+    "top.ts",
+)
+_BASE: Final = {"compilerOptions": {"module": "CommonJS", "moduleResolution": "Node"}}
+
+
+def configurations() -> tuple[Scenario, ...]:
+    """TSConfig features: which files are selected, and which options a chain of configs sets."""
+    selections = {
+        "default": {"include": None},
+        "src-directory": {"include": ["src"]},
+        "recursive-ts": {"include": ["src/**/*.ts"]},
+        "shallow": {"include": ["src/*.ts"]},
+        "tsx-only": {"include": ["src/**/*.tsx"]},
+        "question-mark": {"include": ["src/?.ts"]},
+        "exclude-tests": {"include": ["src"], "exclude": ["**/*.test.ts"]},
+        "exclude-directory": {"include": ["src"], "exclude": ["src/legacy", "src/gen"]},
+        "exclude-empty": {"include": ["src", "node_modules/q"], "exclude": []},
+        "default-excludes": {"include": ["**/*"]},
+        "out-dir": {"include": ["**/*"], "compilerOptions": {**NODENEXT, "outDir": "outdir"}},
+        "files-and-include": {"files": ["top.ts"], "include": ["lib"]},
+        "files-only": {"files": ["top.ts", "src/a.ts"]},
+        "outside-include": {"include": ["../elsewhere/**/*.ts", "lib"]},
+        "dotted-include": {"include": ["src/.hidden", "src/.dot.ts"]},
+        "no-allow-js": {"include": ["src"], "compilerOptions": NODENEXT},
+    }
+    cases = [
+        _selection(
+            name,
+            {k: v for k, v in config.items() if v is not None},
+            _TREE,
+        )
+        for name, config in selections.items()
+    ]
+    chain = {
+        "tsconfig.base.json": json.dumps(_BASE),
+        "tsconfig.json": '{"extends": "./tsconfig.base", "include": ["src"]}',
+        "src/main.ts": "import './x';",
+        "src/x/index.ts": "export {};",
+    }
+    return (
+        *cases,
+        Scenario("extends/relative-options", chain, raw_config=chain["tsconfig.json"]),
+        Scenario(
+            "extends/array-later-wins",
+            {
+                "a.json": json.dumps({"compilerOptions": NODENEXT}),
+                "b.json": json.dumps(_BASE),
+                "src/main.ts": "import './x';",
+                "src/x/index.ts": "export {};",
+            },
+            raw_config='{"extends": ["./a.json", "./b.json"], "include": ["src"]}',
+        ),
+        Scenario(
+            "extends/include-from-base-directory",
+            {
+                "config/base.json": json.dumps({**_BASE, "include": ["../src"]}),
+                "src/main.ts": "import './y';",
+                "src/y.ts": "export {};",
+            },
+            raw_config='{"extends": "./config/base.json"}',
+        ),
+        Scenario(
+            "extends/own-include-wins",
+            {
+                "base.json": json.dumps({**_BASE, "include": ["nowhere"]}),
+                "src/main.ts": "export {};",
+            },
+            raw_config='{"extends": "./base.json", "include": ["src"]}',
+        ),
+        Scenario(
+            "extends/paths-relative-to-base",
+            {
+                "configs/base.json": json.dumps(
+                    {
+                        "compilerOptions": {
+                            **_BASE["compilerOptions"],
+                            "paths": {"@l/*": ["../lib/*"]},
+                        }
+                    }
+                ),
+                "src/main.ts": "import '@l/a';",
+                "lib/a.ts": "export {};",
+            },
+            raw_config='{"extends": "./configs/base", "include": ["src", "lib"]}',
+            roots=("src", "lib"),
+        ),
+        Scenario(
+            "extends/base-url-from-base",
+            {
+                "configs/base.json": json.dumps(
+                    {"compilerOptions": {**_BASE["compilerOptions"], "baseUrl": "../src"}}
+                ),
+                "src/main.ts": "import 'lib/a';",
+                "src/lib/a.ts": "export {};",
+            },
+            raw_config='{"extends": "./configs/base", "include": ["src"]}',
+        ),
+        Scenario(
+            "extends/config-dir-template",
+            {
+                "configs/base.json": json.dumps({**_BASE, "include": ["${configDir}/src"]}),
+                "src/main.ts": "export {};",
+            },
+            raw_config='{"extends": "./configs/base.json"}',
+        ),
+        Scenario(
+            "extends/missing",
+            {"src/main.ts": "export {};"},
+            raw_config='{"extends": "./absent", "include": ["src"]}',
+        ),
+        Scenario(
+            "extends/circular",
+            {
+                "a.json": '{"extends": "./b.json"}',
+                "b.json": '{"extends": "./a.json"}',
+                "src/main.ts": "export {};",
+            },
+            raw_config='{"extends": "./a.json", "include": ["src"]}',
+        ),
+        *(
+            Scenario(
+                f"extends/package-{state}",
+                {
+                    **(
+                        {
+                            "node_modules/@tsconfig/base/tsconfig.json": json.dumps(
+                                {"compilerOptions": NODENEXT}
+                            )
+                        }
+                        if state == "installed"
+                        else {}
+                    ),
+                    "src/main.ts": "import './x.js';",
+                    "src/x.ts": "export {};",
+                },
+                raw_config='{"extends": "@tsconfig/base/tsconfig.json", "include": ["src"]}',
+            )
+            for state in ("installed", "absent")
+        ),
+        Scenario(
+            "config/nested-location",
+            {
+                "config/tsconfig.json": json.dumps({**_BASE, "include": ["../src"]}),
+                "src/main.ts": "import './x';",
+                "src/x.ts": "export {};",
+            },
+            tsconfig="config/tsconfig.json",
+        ),
+        Scenario(
+            "config/comments-and-trailing-commas",
+            {"src/main.ts": "import './x';", "src/x.ts": "export {};"},
+            raw_config=(
+                '{\n  // comment\n  "compilerOptions": {"module": "CommonJS", /* x */ '
+                '"moduleResolution": "Node",},\n  "include": ["src",],\n}\n'
+            ),
+        ),
+        Scenario(
+            "config/case-insensitive-option-names",
+            {"src/main.ts": "import './x';", "src/x/index.ts": "export {};"},
+            raw_config=(
+                '{"compilerOptions": {"Module": "CommonJS", "ModuleResolution": "node"}, '
+                '"include": ["src"]}'
+            ),
+        ),
+        Scenario(
+            "config/paths-before-self-reference",
+            {
+                "package.json": manifest(name="app", exports={".": "./src/main.ts"}),
+                "src/main.ts": "import 'app';",
+                "src/lib.ts": "export {};",
+            },
+            {
+                "compilerOptions": {
+                    "module": "ESNext",
+                    "moduleResolution": "Bundler",
+                    "baseUrl": ".",
+                    "paths": {"app": ["src/lib.ts"]},
+                }
+            },
+        ),
+    )

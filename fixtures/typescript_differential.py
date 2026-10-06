@@ -250,7 +250,11 @@ def _variants(workspace: Path) -> list[Case]:
 
 def _scenarios(workspace: Path) -> list[Case]:
     cases = []
-    for scenario in (*typescript_scenarios.SCENARIOS, *typescript_scenarios.matrix()):
+    for scenario in (
+        *typescript_scenarios.SCENARIOS,
+        *typescript_scenarios.configurations(),
+        *typescript_scenarios.matrix(),
+    ):
         root = workspace / "scenarios" / scenario.name.replace("/", "-") / "root"
         typescript_scenarios.write(root, scenario)
         request = request_for(root, scenario.roots, "app", scenario.tsconfig)

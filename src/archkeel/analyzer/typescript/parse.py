@@ -260,18 +260,27 @@ def _in_type(node: Node) -> bool:
     return False
 
 
+def _query_start(node: Node) -> Node | None:
+    """The `typeof` query an import type opens, which the compiler counts as part of it."""
+    parent = node.parent
+    while (
+        parent is not None
+        and parent.type in ("member_expression", "call_expression", "subscript_expression")
+        and parent.start_byte == node.start_byte
+    ):
+        parent = parent.parent
+    return parent if parent is not None and parent.type == "type_query" else None
+
+
 def _dynamic(node: Node, source: _Source) -> Reference:
     typed = _in_type(node)
-    parent = node.parent
-    # The compiler's import type starts at a leading `typeof`.
-    start = parent if typed and parent is not None and parent.type == "type_query" else None
     return Reference(
         "import_type" if typed else "dynamic_import",
         _literal(_argument(node)),
         typed,
         False,
         "resolution-mode" in _text(node),
-        source.span(node, start),
+        source.span(node, _query_start(node) if typed else None),
     )
 
 
