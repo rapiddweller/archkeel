@@ -1,11 +1,9 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""TypeScript onboarding through the actual installed source process."""
+"""TypeScript onboarding through the in-package source process."""
 
 import json
-import os
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -15,8 +13,6 @@ from archkeel.cli import main
 from archkeel.cli.config import load_config
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
 from archkeel.ir.identity import module_identity
-
-ADAPTER = Path(__file__).parents[1] / "packages/typescript-adapter/dist/entry.js"
 
 
 def repository(root: Path, files: dict[str, str]) -> Path:
@@ -61,12 +57,6 @@ def arguments(root: Path) -> list[str]:
     ]
 
 
-def collector() -> list[str]:
-    assert ADAPTER.is_file(), "Build packages/typescript-adapter before running onboarding tests"
-    assert shutil.which("node") is not None
-    return ["--collector-argv", "node", str(ADAPTER)]
-
-
 def test_typescript_init_groups_untracked_physical_files_and_persists_settings(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -83,7 +73,7 @@ def test_typescript_init_groups_untracked_physical_files_and_persists_settings(
         },
     )
     assert subprocess.check_output(["git", "ls-files"], cwd=root) == b""
-    assert main([*arguments(root), "--source", "workers", *collector()]) == 0
+    assert main([*arguments(root), "--source", "workers"]) == 0
     result = json.loads(capsys.readouterr().out)
     assert result["observation_complete"] == "PASS"
     config = load_config(root)
@@ -91,7 +81,7 @@ def test_typescript_init_groups_untracked_physical_files_and_persists_settings(
     assert config.roots == ("src", "workers")
     assert config.namespace == "client.app"
     assert config.tsconfig == "config/project.json"
-    assert config.collector_argv == ("node", str(ADAPTER))
+    assert config.collector_argv is None
     contract = parse_contract(decode_json((root / config.contract).read_bytes()))
     feature = module_identity(config.namespace, "src/feature")
     assert any(
@@ -111,22 +101,18 @@ def test_typescript_init_groups_untracked_physical_files_and_persists_settings(
     assert json.loads(capsys.readouterr().out)["observation_complete"] == "PASS"
 
 
-def test_typescript_init_uses_installed_binary_without_persisting_host_paths(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+def test_typescript_init_uses_the_in_package_collector_without_persisting_host_paths(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = repository(tmp_path, {"src/main.ts": "export {};"})
-    collector()
-    binary = root / "bin/archkeel-typescript"
-    binary.parent.mkdir()
-    binary.write_text(f"#!/usr/bin/env node\nimport({json.dumps(ADAPTER.as_uri())});\n")
-    binary.chmod(0o755)
-    monkeypatch.setenv("PATH", str(binary.parent) + os.pathsep + os.environ["PATH"])
     assert main(arguments(root)) == 0
     capsys.readouterr()
     config = load_config(root)
     assert config.collector_argv is None
-    assert str(root) not in (root / "archkeel.toml").read_text()
-    assert "npx" not in (root / "archkeel.toml").read_text()
+    text = (root / "archkeel.toml").read_text()
+    assert str(root) not in text
+    assert "collector_argv" not in text
+    assert "node" not in text
 
 
 def test_typescript_init_supports_explicit_runtime_and_declaration_file_roots(
@@ -142,7 +128,7 @@ def test_typescript_init_supports_explicit_runtime_and_declaration_file_roots(
         },
     )
     roots = ("src", "supportedHosts.cjs", "supportedHosts.d.cts")
-    assert main([*arguments(root), "--source", roots[1], "--source", roots[2], *collector()]) == 0
+    assert main([*arguments(root), "--source", roots[1], "--source", roots[2]]) == 0
     result = json.loads(capsys.readouterr().out)
     assert sum(item["modules"] for item in result["draft_sizes"]) == 3
     config = load_config(root)
@@ -173,7 +159,7 @@ def test_typescript_file_root_cannot_escape_snapshot(
     outside.write_text("module.exports = [];")
     root = repository(tmp_path / "project", {"src/main.ts": "export {};"})
     (root / "host.cjs").symlink_to(outside)
-    assert main([*arguments(root), "--source", "host.cjs", *collector()]) == 2
+    assert main([*arguments(root), "--source", "host.cjs"]) == 2
     assert json.loads(capsys.readouterr().out)["diagnostics"]
     assert not (root / "archkeel.toml").exists()
 
@@ -208,7 +194,7 @@ def test_typescript_init_refuses_incomplete_observation(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = repository(tmp_path, {"src/main.ts": "import './missing.js';"})
-    assert main([*arguments(root), *collector()]) == 2
+    assert main([*arguments(root)]) == 2
     result = json.loads(capsys.readouterr().out)
     assert result["diagnostics"]
     assert not (root / "archkeel.toml").exists()
@@ -225,7 +211,7 @@ def test_typescript_init_rejects_invalid_project_paths(
     root = repository(tmp_path, {"src/main.ts": "export {};"})
     argv = arguments(root)
     argv[argv.index(option) + 1] = value
-    assert main([*argv, *collector()]) == 2
+    assert main([*argv]) == 2
     assert json.loads(capsys.readouterr().out)["diagnostics"]
     assert not (root / "archkeel.toml").exists()
     assert not (root / "architecture-contract.json").exists()
@@ -239,7 +225,7 @@ def test_typescript_init_requires_explicit_inputs(
     argv = arguments(root)
     index = argv.index(removed)
     del argv[index : index + 2]
-    assert main([*argv, *collector()]) == 2
+    assert main([*argv]) == 2
     result = json.loads(capsys.readouterr().out)
     assert result["diagnostics"]
     assert not (root / "archkeel.toml").exists()

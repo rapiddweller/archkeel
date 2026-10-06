@@ -183,18 +183,6 @@ VARIANTS += (
 
 for language in ("dart", "typescript"):
     fixture = UML_FIXTURE_DIR.with_name("H-uml-" + language)
-    files = {}
-    if language == "typescript":
-        adapter = UML_FIXTURE_DIR.parents[1] / "packages/typescript-adapter/dist/entry.js"
-        config = fixture.joinpath("archkeel.toml").read_text()
-        files = {
-            "archkeel.toml": "\n".join(
-                line for line in config.splitlines() if not line.startswith("collector_argv")
-            )
-            + "\ncollector_argv = "
-            + json.dumps(["node", str(adapter.resolve())])
-            + "\n"
-        }
     VARIANTS += (
         Variant(
             id="uml-" + language,
@@ -203,7 +191,7 @@ for language in ("dart", "typescript"):
             summary="Independent "
             + language
             + " intent; unsupported inner observation stays UNKNOWN.",
-            files=files,
+            files={},
             expected_violations=(),
             expected_codes=(),
             expected_declared_rules="UNKNOWN",

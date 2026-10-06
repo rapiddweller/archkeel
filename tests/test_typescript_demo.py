@@ -32,7 +32,7 @@ from fixtures.demo_catalog_typescript import (
     UNMEASURED,
     VARIANTS,
 )
-from fixtures.reproduce_typescript import ADAPTER, Outcome, check_revisions, run_variant
+from fixtures.reproduce_typescript import Outcome, check_revisions, run_variant
 
 
 def test_catalog_exhausts_rule_and_measurement_vocabulary() -> None:
@@ -60,9 +60,6 @@ def test_catalog_exhausts_rule_and_measurement_vocabulary() -> None:
 
 @pytest.fixture(scope="module")
 def outcomes(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Outcome]:
-    assert ADAPTER.is_file(), (
-        "run make -C packages/typescript-adapter install build before TypeScript acceptance"
-    )
     workspace = tmp_path_factory.mktemp("typescript-demo")
     return {variant.id: run_variant(workspace, variant) for variant in VARIANTS}
 
@@ -364,7 +361,6 @@ def test_missing_configured_process_has_no_language_fallback(tmp_path: Path) -> 
 
 def test_replacement_executable_is_actually_called(tmp_path: Path) -> None:
     import json
-    import shutil
     import sys
 
     from archkeel.check.report import run_report
@@ -372,14 +368,13 @@ def test_replacement_executable_is_actually_called(tmp_path: Path) -> None:
     from archkeel.cli.observe import observer_for
     from fixtures.reproduce_typescript import repository
 
-    node = shutil.which("node")
-    assert node is not None
     marker = tmp_path / "collector-called"
     replacement = tmp_path / "collector.py"
+    entry = ["-I", "-B", "-m", "archkeel.analyzer.typescript.entry"]
     replacement.write_text(
-        "import os\nfrom pathlib import Path\n"
+        "import os\nimport sys\nfrom pathlib import Path\n"
         f"Path({str(marker)!r}).write_text('called')\n"
-        f"os.execv({node!r}, [{node!r}, {str(ADAPTER)!r}])\n"
+        f"os.execv(sys.executable, [sys.executable, *{entry!r}])\n"
     )
     root = repository(tmp_path, VARIANTS[0])
     config_path = root / "archkeel.toml"

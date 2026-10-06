@@ -34,6 +34,7 @@ from archkeel.ir.trace import trace_valid_violations
 from fixtures.demo_catalog_support import Variant, apply_overlay
 from fixtures.demo_catalog_typescript import VARIANTS, appended
 
+# The Node reference collector, kept until the in-package frontend has run beside it in CI.
 ADAPTER = Path(__file__).resolve().parents[1] / "packages/typescript-adapter/dist/entry.js"
 ORACLE = ("node", str(ADAPTER))
 
@@ -47,9 +48,9 @@ class Outcome:
 
 
 def repository(
-    workspace: Path, variant: Variant, collector_argv: tuple[str, ...] | None = ORACLE
+    workspace: Path, variant: Variant, collector_argv: tuple[str, ...] | None = None
 ) -> Path:
-    """Materialize one variant as a Git repository; None keeps the product's default collector."""
+    """Materialize one variant as a Git repository; None keeps the in-package collector."""
     root = workspace / variant.id
     shutil.copytree(variant.fixture, root)
     apply_overlay(root, variant.files)
@@ -87,7 +88,7 @@ def repository(
 
 
 def run_variant(
-    workspace: Path, variant: Variant, collector_argv: tuple[str, ...] | None = ORACLE
+    workspace: Path, variant: Variant, collector_argv: tuple[str, ...] | None = None
 ) -> Outcome:
     root = repository(workspace, variant, collector_argv)
     config = load_config(root)
@@ -147,7 +148,7 @@ def command(root: Path, output: Path, label: str, *args: str) -> dict:
 
 
 def check_revisions(
-    workspace: Path, output: Path, collector_argv: tuple[str, ...] | None = ORACLE
+    workspace: Path, output: Path, collector_argv: tuple[str, ...] | None = None
 ) -> dict:
     root = repository(
         workspace,
@@ -254,17 +255,20 @@ def check_revisions(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--adapter", type=Path, default=ADAPTER)
+    parser.add_argument(
+        "--oracle",
+        action="store_true",
+        help="replay with the Node reference collector instead of the in-package one",
+    )
     args = parser.parse_args(argv)
-    if not args.adapter.is_file():
-        parser.error(
-            "adapter not built; run make -C packages/typescript-adapter install build first"
-        )
+    if args.oracle and not ADAPTER.is_file():
+        parser.error("adapter not built; run make -C packages/typescript-adapter install build")
+    collector = ORACLE if args.oracle else None
     with TemporaryDirectory(prefix="archkeel-typescript-") as temporary:
         output = args.output or Path(temporary)
         output.mkdir(parents=True, exist_ok=True)
         for variant in VARIANTS:
-            root = repository(output, variant, ("node", str(args.adapter.resolve())))
+            root = repository(output, variant, collector)
             artifact = root / "architecture.json"
             commands = (
                 ("validate",),
@@ -341,7 +345,7 @@ def main(argv: list[str] | None = None) -> int:
                         for name, value in result["measurements"]["scalars"].items()
                     )
                 )
-        checked = check_revisions(output, output, ("node", str(args.adapter.resolve())))
+        checked = check_revisions(output, output, collector)
         print(f"typescript-revisions: {checked['expectation_fulfilled']} (simulated host ordering)")
         if args.output:
             print(f"Artifacts: {output.resolve()}")

@@ -4,4 +4,3 @@ roots = ["src"]
 namespace = "shop"
 contract = "architecture-contract.json"
 tsconfig = "tsconfig.json"
-collector_argv = ["node", "../../packages/typescript-adapter/dist/entry.js"]

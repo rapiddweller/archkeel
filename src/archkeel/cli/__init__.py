@@ -354,8 +354,8 @@ def build_parser() -> _Parser:
         "--collector-argv",
         nargs="+",
         metavar="ARG",
-        help="Collector command and arguments. TypeScript defaults to archkeel-typescript. "
-        "On Windows, pass node and the collector entry file instead of an npm .cmd shim.",
+        help="Collector command and arguments. Every language defaults to its own collector "
+        "inside this package. On Windows, pass an executable and its script, not a .cmd shim.",
     )
     init.add_argument("--force", action="store_true", help="Replace existing onboarding files.")
 
