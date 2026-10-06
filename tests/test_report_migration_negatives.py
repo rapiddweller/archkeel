@@ -3,9 +3,14 @@
 # SPDX-License-Identifier: MIT
 """Ownership, independent Target and report verdicts survive presentation changes."""
 
+import json
+import re
+
 import pytest
 from browser_report_support import _browser_page, _open_details, _tour_report_page
+from test_atlas_report import _page
 from test_exact_module_ownership import _component, _contract, _report
+from test_module_explore import _sample
 from test_uml_rendering import _open_module, _uml_report
 
 from archkeel.ir.architecture_graph import Entity
@@ -367,6 +372,108 @@ def test_long_target_names_paths_and_responsibilities_remain_accessible(tmp_path
         row = details.locator(f'[data-file-intent="{path}"]').inner_text()
         assert path in row and responsibility.strip() in row
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.parametrize("width", [375, 1440])
+def test_target_atlas_root_inspector_ignores_observed_verdict_and_analysis_limits(tmp_path, width):
+    html = _page(_sample(tmp_path, uml=True))
+    match = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', html, re.S)
+    assert match is not None
+    original = json.loads(match.group(1))
+    assert original["atlas"]["unknown_count"] > 0
+    variants = [original]
+    for status, count in (("PASS", 0), ("FAIL", 17), ("UNKNOWN", 37)):
+        changed = json.loads(match.group(1))
+        changed["atlas"].update(
+            status=status,
+            reason="Changed recorded verdict",
+            unknown_count=count,
+            unknowns=[{"reason": "Changed recorded analysis limit", "count": count}]
+            if count
+            else [],
+        )
+        variants.append(changed)
+    api = pytest.importorskip("playwright.sync_api")
+    errors = []
+    playwright, browser, page = _browser_page(api, html, width=width, errors=errors)
+    try:
+        target_details = []
+        for payload in variants:
+            page.goto("about:blank")
+            page.set_content(html.replace(match.group(1), json.dumps(payload), 1))
+            page.get_by_role("button", name="Target", exact=True).click()
+            _open_details(page)
+            details = page.locator(".flow-inspector-content")
+            text = details.text_content()
+            assert "Core " not in text and "analysis limits" not in text
+            assert "Declared intent" in text
+            assert "import cell" not in text and "Every count refers" not in text
+            target_details.append(details.inner_html())
+            for view in ("As-Is", "Diff"):
+                page.get_by_role("button", name=view, exact=True).click()
+                text = details.text_content()
+                atlas = payload["atlas"]
+                assert f"Core {atlas['status']}: {atlas['reason']}" in text
+                assert f"{atlas['unknown_count']} analysis limits" in text
+                for item in atlas["unknowns"]:
+                    assert f"{item['count']} × {item['reason']}" in text
+            assert json.loads(page.locator("#flow-data").text_content()) == payload
+        assert target_details == [target_details[0]] * len(variants)
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.parametrize("selection", ["component", "module"])
+def test_target_atlas_component_and_module_details_ignore_observed_measurements(
+    tmp_path, selection
+):
+    html = _page(_sample(tmp_path, uml=True))
+    match = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', html, re.S)
+    assert match is not None
+    original = json.loads(match.group(1))
+    changed = json.loads(match.group(1))
+    for component in changed["atlas"]["components"]:
+        component.update(
+            status="FAIL",
+            reason="Changed recorded component check",
+            observed_modules=91,
+            observed_symbols=93,
+            symbols_complete=False,
+            used_by=[],
+        )
+        for edge in component["requires"]:
+            edge["observed_imports"] = 97
+    for module in changed["atlas"]["modules"]:
+        module.update(symbols=101, fan_in=103, fan_out=107)
+    api = pytest.importorskip("playwright.sync_api")
+    errors = []
+    playwright, browser, page = _browser_page(api, html, errors=errors)
+    try:
+        target_details = []
+        for payload in (original, changed):
+            page.goto("about:blank")
+            page.set_content(html.replace(match.group(1), json.dumps(payload), 1))
+            page.get_by_role("button", name="Target", exact=True).click()
+            component = page.locator('.flow-nodes [data-uml-id="core"]')
+            component.press("Space")
+            if selection == "module":
+                component.press("Enter")
+                page.locator('.flow-nodes [data-uml-id="core-module"]').press("Space")
+            _open_details(page)
+            details = page.locator(".flow-inspector-content").text_content()
+            assert "Responsibility" in details and "Provenance" in details
+            assert "Recorded checks" not in details and "Observed weight" not in details
+            assert "Changed recorded" not in details and "observed imports" not in details
+            assert "fan-in" not in details and "fan-out" not in details
+            target_details.append(details)
+            assert json.loads(page.locator("#flow-data").text_content()) == payload
+        assert target_details[0] == target_details[1]
+        assert not errors
     finally:
         browser.close()
         playwright.stop()
