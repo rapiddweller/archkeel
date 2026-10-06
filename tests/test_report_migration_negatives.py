@@ -389,7 +389,7 @@ def test_long_target_names_paths_and_responsibilities_remain_accessible(tmp_path
 
 
 @pytest.mark.parametrize("width", [375, 1440])
-def test_target_atlas_root_inspector_shows_declared_intent_and_recorded_evidence(tmp_path, width):
+def test_target_atlas_root_inspector_ignores_observed_evidence(tmp_path, width):
     html = _page(_sample(tmp_path, uml=True))
     match = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', html, re.S)
     assert match is not None
@@ -411,6 +411,7 @@ def test_target_atlas_root_inspector_shows_declared_intent_and_recorded_evidence
     errors = []
     playwright, browser, page = _browser_page(api, html, width=width, errors=errors)
     try:
+        target_details = []
         for payload in variants:
             page.goto("about:blank")
             page.set_content(html.replace(match.group(1), json.dumps(payload), 1))
@@ -418,15 +419,10 @@ def test_target_atlas_root_inspector_shows_declared_intent_and_recorded_evidence
             _open_details(page)
             details = page.locator(".flow-inspector-content")
             text = details.text_content()
-            atlas = payload["atlas"]
-            assert f"Core projection: {atlas['status']} · {atlas['reason']}" in text
-            assert f"{atlas['unknown_count']} analysis limits" in text
-            for item in atlas["unknowns"]:
-                count = item["count"]
-                label = "analysis limit" if count == 1 else "analysis limits"
-                assert f"{count} {label} · {item['reason']}" in text
+            assert "Core " not in text and "analysis limits" not in text
             assert "Declared intent" in text
             assert "import cell" not in text and "Every count refers" not in text
+            target_details.append(details.inner_html())
             for view in ("As-Is", "Diff"):
                 page.get_by_role("button", name=view, exact=True).click()
                 text = details.text_content()
@@ -438,6 +434,7 @@ def test_target_atlas_root_inspector_shows_declared_intent_and_recorded_evidence
                     label = "analysis limit" if count == 1 else "analysis limits"
                     assert f"{count} {label} · {item['reason']}" in text
             assert json.loads(page.locator("#flow-data").text_content()) == payload
+        assert target_details == [target_details[0]] * len(variants)
         assert not errors
     finally:
         browser.close()
@@ -483,10 +480,7 @@ def test_target_atlas_component_and_module_details_ignore_observed_measurements(
             _open_details(page)
             details = page.locator(".flow-inspector-content").text_content()
             assert "Responsibility" in details and "Provenance" in details
-            if selection == "component":
-                assert "Recorded checks" in details
-            else:
-                assert "Recorded checks" not in details
+            assert "Recorded checks" not in details
             assert "Observed weight" not in details
             assert "Changed recorded" not in details and "observed imports" not in details
             assert "fan-in" not in details and "fan-out" not in details
