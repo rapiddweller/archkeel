@@ -26,6 +26,9 @@ jobs:
           fetch-depth: 2
           persist-credentials: false
 
+      - name: Test change classifier
+        run: python3 -m unittest discover -s tests -p 'test_ci_changes.py'
+
       - name: Classify changed files
         id: filter
         env:
@@ -33,61 +36,15 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           if [[ "$BASE" =~ ^0+$ ]]; then
-            echo "core=true" >> "$GITHUB_OUTPUT"
-            echo "report=true" >> "$GITHUB_OUTPUT"
-            echo "mermaid=true" >> "$GITHUB_OUTPUT"
+            python3 tools/ci_changes.py --all >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          core=false
-          report=false
-          mermaid=false
           if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             git fetch --no-tags --depth=1 origin "$BASE"
           fi
           git cat-file -e "$HEAD^{commit}"
-          changed_files=$(git diff --no-renames --name-only "$BASE" "$HEAD")
-          while IFS= read -r path; do
-            case "$path" in
-              *.md|*.MD)
-                mermaid=true
-                continue
-                ;;
-              *.png|*.jpg|*.jpeg|*.gif|*.webp|*.avif|*.bmp|*.ico|*.svg)
-                continue
-                ;;
-            esac
-
-            case "$path" in
-              tools/mermaid_blocks.py|tests/test_mermaid.py)
-                mermaid=true
-                continue
-                ;;
-              Makefile|.github/workflows/ci.yml)
-                core=true
-                mermaid=true
-                continue
-                ;;
-            esac
-
-            case "$path" in
-              src/archkeel/render/*|src/archkeel/check/report.py|src/archkeel/check/uml*.py|tools/report_*.py|tools/terminal_svg.py|fixtures/architecture_demo.py|fixtures/demo_catalog_*.py|tests/*report*.py|tests/*uml*.py|tests/*flow*.py|tests/test_secondary_table_acceptance.py|tests/test_legacy_graph_rendering.py|tests/test_diff_import_rendering.py|tests/browser_report_support.py|tests/graph_report_support.py)
-                report=true
-                continue
-                ;;
-            esac
-
-            case "$path" in
-              src/*|tests/*|tools/*|fixtures/*|packages/*|schema/*|plugins/*|.agents/*|.claude-plugin/*|.github/workflows/*|.github/actions/*|Makefile|*/Makefile|pyproject.toml|uv.lock|.python-version|.node-version|architecture-accepted.json|architecture-baseline.json|architecture-contract.json|archkeel.toml|plugin.json)
-                core=true
-                ;;
-            esac
-
-          done <<< "$changed_files"
-
-          echo "core=$core" >> "$GITHUB_OUTPUT"
-          echo "report=$report" >> "$GITHUB_OUTPUT"
-          echo "mermaid=$mermaid" >> "$GITHUB_OUTPUT"
+          git diff --no-renames --name-only -z "$BASE" "$HEAD" | python3 tools/ci_changes.py >> "$GITHUB_OUTPUT"
 
   check:
     needs: changes
