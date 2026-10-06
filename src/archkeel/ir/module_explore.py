@@ -300,29 +300,12 @@ def _import_cell(
                     scope_ids,
                 )
             )
-            undecided_sites = frozenset(
-                assessment.id
-                for assessment in applicable
-                if _site_undecided(model, assessment.id, site.id)
-            )
-            proven = frozenset(
-                assessment.id
-                for assessment in applicable
-                if assessment.evaluation_proven
-                and assessment.id not in undecided_sites
-                and _cell_receipt_proven(
-                    model,
-                    assessment,
-                    declarations[assessment.id],
-                    modules[source],
-                    modules[target],
-                )
+            proven, undecided_sites = _import_site_proof(
+                model, site.id, applicable, declarations, modules[source], modules[target]
             )
             site_results.append((applicable, proven, undecided_sites))
     if source != target and weights.get((source, target)) != len(edges):
         site_results.append(((), frozenset(), frozenset()))
-    status = _cell_status(findings, graph_assessments, site_results)
-    reasons = _cell_reasons(findings, graph_assessments, site_results, core_assessments)
     evidence = (
         {identity for edge in edges for identity in edge.evidence_ids}
         | {identity for item in findings for identity in item.evidence_ids}
@@ -337,9 +320,36 @@ def _import_cell(
         tuple(sorted(evidence)),
         tuple(sorted(item.id for item in findings)),
         tuple(sorted(item.id for item in graph_assessments)),
-        status,
-        tuple(sorted(reasons)),
+        _cell_status(findings, graph_assessments, site_results),
+        tuple(sorted(_cell_reasons(findings, graph_assessments, site_results, core_assessments))),
     )
+
+
+def _import_site_proof(
+    model: Observation,
+    site_id: str,
+    applicable: tuple[RuleAssessment, ...],
+    declarations: dict[str, Record],
+    source: str,
+    target: str,
+) -> tuple[frozenset[str], frozenset[str]]:
+    undecided_sites = frozenset(
+        assessment.id for assessment in applicable if _site_undecided(model, assessment.id, site_id)
+    )
+    proven = frozenset(
+        assessment.id
+        for assessment in applicable
+        if assessment.evaluation_proven
+        and assessment.id not in undecided_sites
+        and _cell_receipt_proven(
+            model,
+            assessment,
+            declarations[assessment.id],
+            source,
+            target,
+        )
+    )
+    return proven, undecided_sites
 
 
 def _cell_status(
