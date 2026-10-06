@@ -1,17 +1,15 @@
 # AD-24a A module opens the same way, and its interface is what crosses its edge
 
-The third
-level shows the functions and classes one module declares and the calls and references between
-them, with methods listed inside the class that owns them rather than as cards of their own. What
-counts as the module's external interface is the one genuinely new question here, and the answer is
-already in the observation: the names other modules import from it, and the names it imports from
-elsewhere. Neither is a decision, so no rule and no contract field appears; the level is read the
-way the component level is read. Cards, edges and the selection model keep the shape `level()`
-already returns, because layout, ranking, routing and the inspector all consume that shape and a
-third level that invented its own would rewrite them. Check: opening `archkeel.ir.codec` shows 71
-symbols and the 165 edges between them. The module inventory comes from every observed module,
-including empty or import-only package initializers. Modules with no unique declared owner remain
-reachable from a clearly labeled navigation-only root group; that group is not a component and
-adds no boundary verdict or permission. Physical folders are only navigation, and every inventory
-card opens the corresponding module even when it has no recorded symbols. Call and reference edges
-are symbol-use relationships; they do not claim import-site counts.
+A module opens its functions, classes, calls and references. Methods stay inside
+their owning class. Its observed interface is the names other modules import from
+it and the names it imports. This adds no decision, rule or contract field.
+Reuse `level()`'s card, edge and selection shape, already consumed by layout,
+ranking, routing and the inspector.
+
+Every observed module is reachable, including empty and import-only initializers.
+Modules without a unique owner use a labeled navigation-only root group. This
+group adds no component, verdict or permission; physical folders are navigation.
+Every card opens its module, including those without symbols. Call and reference
+edges show symbol use, not import-site counts.
+
+Check: `archkeel.ir.codec` opened 71 symbols and 165 edges.

@@ -10,9 +10,8 @@ descriptor references canonical declaration IDs. Independent and recorded Target
 producers agree, including set-like ordering. API-only contracts also publish a
 graph. Existing API identities, rules and assessments keep their meaning.
 
-The legacy declaration's source-derived `types` field does not enter Target intent.
-A selector does not define a class, signature or language visibility. Explicit UML
-intent still owns those declarations. No API existence rule is added.
+Source-derived `types` do not enter Target intent. Selectors define no class, signature
+or language visibility; explicit UML intent owns those declarations. No API existence rule is added.
 Missing provenance remains an error. Global API declarations remain unsupported
 inside an inside contract; they cannot silently become component API intent.
 

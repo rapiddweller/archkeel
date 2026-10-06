@@ -22,8 +22,7 @@ Protocol fixtures prepare accepted and planned observations through the existing
 Core workflow. Lock verification stays strict; a raw adapter result is not the
 canonical observation a check verifies.
 
-This step establishes the legacy graph boundary. Global API declarations and
-replacement of the legacy browser projections remain open. The language adapter
+Global API declarations and replacement of legacy browser projections remain open. The language adapter
 and process protocol from PR #277 stay unchanged.
 
 Proof: `tests/test_target_graph.py`; `tests/test_uml_evaluation.py`.

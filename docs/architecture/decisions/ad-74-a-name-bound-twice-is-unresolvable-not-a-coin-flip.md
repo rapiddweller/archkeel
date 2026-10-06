@@ -2,11 +2,9 @@
 
 ## What changes
 
-`boundary_type_indexes` built its two lookups with last-write-wins over lists sorted by
-content-hash id. Python binds the textually last definition or import; the index kept whichever
-record the hash order left last. Distinct targets or definitions now resolve to a sentinel,
-including collisions split across the import and symbol indexes. Repeating one import target
-remains one binding.
+`boundary_type_indexes` marks distinct same-name bindings ambiguous, including
+collisions across import and symbol indexes. Repeated identical import targets
+remain one binding. Previously content-hash ordering picked an arbitrary winner.
 
 | Module | Live binding | Before | Now |
 |---|---|---|---|
@@ -18,45 +16,26 @@ remains one binding.
 
 ## Why
 
-Two defects, one cause. The crash: `_resolve_class_kinds` keys its fixpoint by qualified name,
-so of two same-named classes only one record ever gets a `class_kind`; when the index kept the
-other, `origin_symbol["class_kind"]` raised and `observe` returned exit 2 with no observation at
-all. The silent one is worse: with the declared and the undeclared candidate both in scope, the
-index could keep the declared one while the live binding was undeclared, and the position passed
-clean -- a wrong PASS, the verdict this tool exists not to give.
-
-Picking the right record is not available: `symbols` and `imports` carry no source order the
-index can read, and reconstructing it would make two lookups depend on a third derivation. What
-is available is the knowledge that the name is bound twice, and [AD-26](ad-26-a-quality-claim-is-a-signal-a-derivation-and-a-claim-and.md)
-already says what to do with that. An undecidable position is reported, counted in the
-denominator, and moves `declared_rules` to UNKNOWN ([AD-72](ad-72-a-rule-that-could-not-decide-everything-reports-unknown.md))
-without gating.
-
-Its own kind, not `unresolved_name`: a reader must be able to tell "I could not read this
-annotation" from "this name means two things here", because the second is a defect in the code
-under test and the first is a limit of the checker.
+The class-kind fixpoint populated only one same-name record; choosing another
+raised `KeyError`. Choosing a declared target over an undeclared live binding
+could also give false PASS. Records lack source order to select the runtime winner.
+Report a distinct ambiguity limit, count the position and produce UNKNOWN
+([AD-26](ad-26-a-quality-claim-is-a-signal-a-derivation-and-a-claim-and.md),
+[AD-72](ad-72-a-rule-that-could-not-decide-everything-reports-unknown.md)).
 
 ## Rejected
 
-| Alternative | Why not |
-|---|---|
-| Guard the subscript with `.get` | Fixes the crash and keeps the coin flip, which is the worse half. |
-| Leave the ambiguous key out of the index | Then "bound twice" reads as "never defined", and the breakdown cannot tell them apart. |
-| Reconstruct source order in the index | A third derivation of what the scan already knows, to answer a question the honest answer is UNKNOWN to. |
-| Report the ambiguity as a violation | Two definitions of one name is legal Python. The rule was asked about a boundary type, and about that it cannot decide. |
+`.get` hides only the crash. Removing the key loses ambiguity evidence.
+Reconstructing order adds another derivation. Legal duplicate Python bindings
+are not themselves boundary-type violations.
 
 ## Limit
 
-Ambiguity is per module and per name. A conditional definition under `if` is not seen at all
-(the collector does not descend into it), so it is not ambiguous here and never was. A name
-shadowed across modules is unaffected: only same-module collisions collapse.
-Import records carry no lexical scope; repeated identical targets collapse, while distinct
-same-name targets across scopes conservatively remain ambiguous.
-`ANALYZER_VERSION` rises to 0.32.0, because a `boundary_type_limit` breakdown can now carry a
-kind no earlier analyzer emitted.
+Ambiguity is per module/name. Conditional definitions remain unseen. Imports have
+no lexical scope, so distinct targets across scopes conservatively collide;
+identical targets collapse. Analyzer version rises to 0.32.0 for the new limit kind.
 
 ## Check
 
-`tests/test_boundary_type_ambiguous_bindings.py` pins the collisions through `observe`, the
-missing `class_kind` that made the crash possible, identical repeated imports, and -- the guard
-against the cause returning -- that reversing record order leaves the index entry identical.
+`tests/test_boundary_type_ambiguous_bindings.py` covers collisions through observation,
+missing class kinds, repeated imports and invariance under reversed record order.

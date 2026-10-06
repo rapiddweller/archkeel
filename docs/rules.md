@@ -31,15 +31,12 @@ Archkeel does not infer correctness. A position it sees but cannot resolve from 
 evidence stays `UNKNOWN`, with its reason measured. `PASS` means no violation was found among
 the positions the rule decided; decided coverage and UNKNOWN counts remain separate (AD-90).
 
-Each published analyzer identity selects exactly one profile in `src/archkeel/ir/profiles.py`;
-unknown identities are rejected (AD-146). Each profile declares which rule kinds it decides,
-which it decides partly and which it cannot decide, and which scalars it does not measure. The
-Python profile decides and measures everything. The Dart profile (`language = "dart"`) decides the
-import-graph rules, `no_component_cycles` with `level: "module"` and `components` included, because
-a library is a module and every directive edge is a FACT (AD-98); `interface_boundary` and a
-`target_symbol` rule report UNKNOWN for an import without `show`; `symbol_placement`,
-`boundary_types`, `forbidden_construct`, `context_roots` and a budget on an unmeasured scalar exit 2
-with `rule_unsupported_by_profile` (AD-97).
+Each analyzer identity selects one profile in `src/archkeel/ir/profiles.py`;
+unknown identities are rejected (AD-146). Profiles declare supported, partial and
+unavailable rule kinds and scalars. Python supports all kinds and scalars, subject
+to evidence limits. Dart and TypeScript support import-graph rules; unavailable
+capabilities cannot PASS. See [profile limits](known-limits.md#dart-profile) and
+[the TypeScript decision](architecture/typescript-foundation-proposal.md#evidence-and-limits).
 
 The same symbol limits apply inside recursively mounted contracts (AD-114). Their counts cover
 only the valid source scope and retain mounted rule IDs and import evidence. A complete scan
@@ -47,15 +44,17 @@ may still have an UNKNOWN rule; known violations remain visible beside undecided
 
 ## Class A: deterministic rules
 
+Complete PASS proof requires fixed source bytes, analyzer identity/runtime, complete
+relevant coverage and unique ownership. Known violations survive partial coverage.
+Static imports do not prove dynamic-import absence.
+
 `complete_requires` is the compact closed-world invariant Archkeel uses itself (AD-32): each
 component lists its permitted outbound component edges under `requires`, and one
 `complete_requires` rule makes every absent pair forbidden. An observed crossing no entry covers
 is a violation. Contracts without that rule retain AD-15's pair-by-pair form: an undecided pair is
 `decision.open`, duplicate pair rules are `closed_world.duplicate`, and an observed pair also
 forbidden is `closed_world.observed_forbidden`. Ownership can use recursive `packages` and exact
-`exact_modules`; exactly one component must claim each observed module. A complete scan and exact
-module assignment make either form deterministic; dynamic imports remain a blind spot (AD-128).
-Exact-involved open pairs retain every package and exact selector in the report. Archkeel does not
+`exact_modules`; exactly one component must claim each observed module. Exact-involved open pairs retain every package and exact selector in the report. Archkeel does not
 generate automatic rule suggestions for these pairs. An unqualified rule between uniquely declared
 package endpoints still decides a mixed package/exact pair; a submodule, exact-member or
 `target_symbol` rule remains partial. Exact-only pairs stay open under member rules unless an
@@ -74,27 +73,20 @@ remains an explicit closed-world alternative. No exact module is promoted to a r
 `external_dependency_scope` match their `allowed_sources` by prefix and take exact names as
 `exact_sources` (AD-49). Pair-level `allowed_sources` or `include_type_checking: false` do not
 grant an allowed component edge or exempt an observed edge from closed-world validation. A
-`target_symbol` or submodule rule remains visibly partial. A complete scan, fixed source bytes,
-analyzer digest and Python version make the result deterministic. Unresolved dynamic imports remain
-a blind spot. Importing `sample.cli` from `sample.core` is an example violation.
+`target_symbol` or submodule rule remains visibly partial.
 
 `allowed_dependency` fields are `source`, `target` and `rationale`: the architect's decision that a
 component pair may depend, recorded with its reason. It adds no report violation and is evaluated
 only by closed-world validation, never by the analyzer. Declaring `sample.core` allowed to depend
 on `sample.cli` when no code observes that edge is valid; it simply decides the pair.
 
-A contract page's marked graph draws what the code does; a second, optional marker,
-`<!-- archkeel-target-graph -->`, draws what the contract permits, beside the always-required `<!--
-archkeel-component-graph -->` (AD-57). A pair permits an edge by an `allowed_dependency` rule or by
-a `requires` entry (below); the two together, never redefining either marker, since that would
-silently change what a page already asserts. The target graph may differ from the component graph
-- a permission not yet used, or debt the code has not yet shed - without either being wrong; only a
-marker whose own edges disagree with its own source is `graph.drift`, and the diagnostic's subject
-names which marker. The component claim calls drawn-but-unobserved edges **edges gone from code** and
-observed-but-undrawn edges **edges new in code**. The target claim uses **edges gone from contract**
-and **edges new in contract**, because it compares permissions, not imports. Both directions are
-stated explicitly. A page may carry either marker, both or neither; `init` never writes the target
-marker, since it drafts no dependency decision for `--write-graph` to draw (AD-15).
+`<!-- archkeel-target-graph -->` compares drawn edges with `requires` and
+`allowed_dependency` permissions; `<!--
+archkeel-component-graph -->` compares them with observed imports (AD-57). Their edges may differ without drift.
+`graph.drift` names the marker and both missing/extra edge sets relative to its own
+source. Pages can carry either marker, both or neither; the contract's provenance
+still requires exactly one observed marker. `init` writes no Target marker because
+its draft decides no dependencies. See [graph writing](reference.md#results).
 
 `forbidden_construct` fields are `source`, `constructs` and optional `allowed_sources` and
 `exact_sources`, which exempt owners the way `external_dependency_scope` exempts modules. An
@@ -144,10 +136,9 @@ typing-signal records from direct AST calls, type-ignore comments and
 `except` handlers with no type or with `Exception` or `BaseException`, alone, in a tuple or as
 `builtins.Exception` (`except Exception: raise` counts), empty bodies, and the reflection and
 string-literal forms above. One record is one violation, so an
-annotation repeated across a serialisation boundary reports once per position. Fixed source bytes,
-analyzer digest and Python version make the result deterministic. Aliasing first, such as
+annotation repeated across a serialisation boundary reports once per position. Aliasing first, such as
 `f = getattr; f(value, name)` or `E = Exception; except E:`, is not resolved and remains a blind
-spot. Calling `eval()` below the configured source is an example violation.
+spot.
 
 `complete_external_scope` fields are `source` and `rationale`. Every import below `source` whose
 target is neither a scanned module nor part of the standard library must be covered by an
@@ -158,8 +149,7 @@ contract never mentions — including one that does not exist anywhere — stops
 observation records, so a version change can move a module into or out of the exempt set.
 Relative imports are internal by construction and are never counted. A dependency only the
 package root imports is covered by a rule whose `exact_sources` names that root, so covering it
-does not allow it in every module below (AD-49). Importing `helpers` with no rule naming it is
-an example violation.
+does not allow it in every module below (AD-49).
 
 `complete_requires` has no selector fields. Every import that crosses from one component to another
 must be covered by a `requires` entry of the importing component, and an import no entry covers is a
@@ -238,10 +228,7 @@ and `exact_sources`, at least one of the two non-empty. It matches import record
 the dependency or one of its submodules, including `TYPE_CHECKING` imports, and allows those whose
 source module falls under an `allowed_sources` prefix or equals an `exact_sources` entry. A
 package root is a prefix of every module in its package, so only `exact_sources: ["sample"]`
-allows `sample/__init__.py` a dependency that `sample.core` may not import (AD-49). Fixed source
-bytes and analyzer digest make the result deterministic. Imports through `importlib` remain a
-blind spot. Importing `rich` from `archkeel.check` when only `archkeel.cli` is allowed is an
-example violation.
+allows `sample/__init__.py` a dependency that `sample.core` may not import (AD-49).
 
 `complete_assignment` has the field `source`. Every scanned module below `source` must belong to
 exactly one component; a module matched by two different components counts as unowned, while
@@ -249,11 +236,9 @@ one component may list nested packages. AST-empty files are exempt; a non-empty 
 module needs an owner, including a docstring, version assignment or re-export initializer.
 For compatibility, assignment exempts blank ordinary modules too. Boundary scope proof
 (`complete_requires` and `interface_boundary`) exempts only unowned AST-empty Python
-`__init__.py` files: ordinary module identities must still have exactly one owner. A complete scan
-makes the result deterministic. A module fact cites its file: line 1 when that line holds text,
+`__init__.py` files: ordinary module identities must still have exactly one owner. A module fact cites its file: line 1 when that line holds text,
 otherwise the file itself as line 0, so a module whose first line is blank is still a traceable
-violation (AD-107). Adding `archkeel/extra.py` without a component package is an example
-violation.
+violation (AD-107).
 
 `root_layout` has `root` and an exact `allowed_children` list. Each allowed entry must be exactly
 one name segment below `root`; the root itself, nested descendants, and entries under another root
@@ -272,10 +257,8 @@ special case; adding it narrows `--against`, while removing or changing it widen
 
 `no_component_cycles` has two optional fields, `level` and `components` (AD-98). Without them it
 projects import records, including `TYPE_CHECKING` imports, onto components and reports each
-strongly connected component with two or more members. A complete scan and exact package
-assignment make the result deterministic. Imports between unowned modules are invisible; combine
-it with `complete_assignment`. Importing `sample.cli` from `sample.core` while `sample.cli` imports
-`sample.core` is an example violation.
+strongly connected component with two or more members. Unowned-module imports are invisible;
+combine it with `complete_assignment`.
 
 `level: "module"` judges the module graph instead: each `module_scc` record the report measures is
 one `module_cycle` violation. It names the SCC's members, its `edges` and, as facts and evidence,
@@ -293,8 +276,7 @@ no `--accept-new` for it, and under `--against` the replacement narrows the base
 `{a, b, c}` into `{a, b}` contracts; `{a, b, c}` into `{a, b}` and `{c, d}` makes `{c, d}` new.
 Under `--against`, changing `level` in either direction, adding a `components` scope and dropping
 a listed component widen the contract; removing the scope and listing another component narrow
-it. Two `sample.core` modules importing each other is an example module-level violation that the
-component level passes.
+it.
 
 The report's `package_scc` records roll modules up by their first two dotted segments, so two
 packages can form a cycle that no import cycle closes. Each record's `backed_by` names the module
@@ -319,8 +301,7 @@ type to every consumer of the signature without an import of its own. The second
 inherited generic method surface (AD-121), resolved by `boundary_types`' own resolution below,
 so the rule that asks for such a type to be declared and
 the check that asks whether declaring it was worth it read one answer, not two. An import a `forbidden_dependency` rule already
-rejects is reported once, as that violation, and never also as `interface_boundary` (AD-18). A
-complete scan, fixed source bytes and analyzer digest make the result deterministic. An empty
+rejects is reported once, as that violation, and never also as `interface_boundary` (AD-18). An empty
 `__all__` reads the same as no `__all__` at all, and aliasing during a re-export is not resolved;
 these remain blind spots. `from pkg import name` follows Python's own precedence (AD-53): a
 top-level `def`, `class`, assignment, aliased import, or `from` import in `pkg/__init__.py` that
@@ -371,10 +352,7 @@ projected into the observation, so it earns no `agent_decisions` count and grant
 `include_type_checking` (default `true`). Peers reach shared modules and are reached from outside,
 but never each other: the analyzer reports every import whose source and target lie in two
 different members. One rule replaces the n*(n-1) `forbidden_dependency` rules the same intent would
-otherwise need, and it stays inside a component, where no component pair decision applies. A
-complete scan and fixed source bytes make the result deterministic; dynamic imports remain a blind
-spot. Archkeel applies it to the eight analyzer collectors (AD-1, AD-25). Importing
-`sample.core.first` from `sample.core.second` when both are members is an example violation.
+otherwise need, and it stays inside a component, where no component pair decision applies. Archkeel applies it to the eight analyzer collectors (AD-1, AD-25).
 
 `symbol_placement` fields are `source`, `class_kinds` and, matching `forbidden_construct`,
 `allowed_sources` and `exact_sources`, at least one of the two non-empty. It states that a class
@@ -384,8 +362,7 @@ more of `protocol`, `enum`, `pydantic_model`, `dataclass` and `class`, the same 
 rule is a selector over records the analyzer already carries. It matches every `class` symbol
 record whose `class_kind` is named and whose qualified name falls under `source`, and allows one
 whose own module falls under an `allowed_sources` prefix or equals an `exact_sources` entry
-(AD-49); every other one is a violation. A complete scan and the same fixpoint that resolves
-`class_kind` make the result deterministic; a class whose base is an unresolved alias inherits
+(AD-49); every other one is a violation. A class whose base is an unresolved alias inherits
 `class_kind` through the same blind spot `class_kind` itself carries. Declaring a `Coupon`
 dataclass in `shop.model.promotions` when `MODEL-TYPES-IN-ENTITIES` allows only
 `shop.model.entities` for a dataclass below `shop.model` is an example violation (AD-58).
@@ -394,14 +371,13 @@ default owner for domain enums or models. Set `source` to the package and use `e
 for the chosen module. The [target-first guide](target-first.md) has the complete contract
 fragment. `init` does not infer this decision.
 
-`boundary_types` fields are `source` and, matching `forbidden_construct`, optional
-`allowed_sources` and `exact_sources`. It states that a component's declared facade function
-below `source` takes and returns no bare `dict`/`object`, and no named type outside a builtin, an
-enum, a Pydantic model, or a type some component -- whichever one actually owns it -- already
-declares public: a target architecture where a component's own types are the only thing that
-crosses its boundary rules out a broad container, and an undeclared type, standing in for one.
-A proven `datetime.datetime` import is a scalar leaf, including aliases and a single module
-member. Shadowed or unproven imports retain UNKNOWN (AD-132).
+`boundary_types` has `source`, optional prefix `allowed_sources` and optional
+`exact_sources`. It checks declared facade parameter/return types for broad
+`dict`/`object` containers and unpublished owned types. Builtins, enums, Pydantic
+models and types published by their actual owner qualify. A proven
+`datetime.datetime` import is a scalar leaf; shadowed/unproven imports remain
+UNKNOWN (AD-132).
+
 Only a function `component.public` itself covers is inspected -- a module-level entry makes every
 non-underscore name of that module a facade function, or its `__all__` when it declares one, and a
 `pkg.module:Name` entry makes exactly that one, the same reading `interface_boundary` gives
@@ -447,11 +423,8 @@ decided as its members; `dict[...]` remains a broad container under this rule.
 Unsupported annotation shapes, unresolved names, missing annotations and externally owned types remain
 undecidable. Each rule files one UNKNOWN `boundary_type_limit` record
 in `unknowns`, carrying the positions it saw, the positions it decided and a count of each
-undecidable kind, so a reader sees how much of the facade the rule actually decided instead of
-reading no violation as proof of none (AD-67, issue #59). That record reports and does not gate --
-`coverage.rules`, the diagnostics and the exit code do not move -- because a rule that decided
-nothing at all is already `rule_without_subjects`, below, and a rule that decided some of its
-positions holds the verdict those positions earned. It does move `declared_rules`: a violation-free
+undecidable kind, with explicit coverage (AD-67, issue #59). It changes no diagnostic,
+`coverage.rules` or exit status. It does move `declared_rules`: a violation-free
 observation reads UNKNOWN there, not PASS, if an undecided position's reason is a real checker limit,
 but stays PASS when every undecided position is `external_type` (a type owned by no declared
 component), since a rule with no `public` list to check that type against never had the question to
@@ -462,20 +435,12 @@ part here, the same as everywhere else in the analyzer. A module named by an exa
 is declared target work even before it is scanned; it avoids `rule_without_subjects` without
 becoming an observed public interface (AD-79). A scope with no matching planned entry remains no subject. A
 `source` that matches a scanned module but whose declared facade covers no function of it reports
-`rule_without_subjects`, UNKNOWN, not a clean pass: a rule that can only pass by finding nothing to check is the same defect a declared
-rule that cannot fail is everywhere else in this tool (AD-63, issue #56). Measured on Archkeel's own facades, the
-restricted-string match alone still fires 26 times inside `archkeel.ir`, all of it the codec's own
-untyped-JSON boundary and narrowing helpers such as `text_value(value: object) -> str`; a `source`
-scoped to a component whose facade really is typed throughout, such as `archkeel.analyzer`, is how
-Archkeel's own contract adopts the rule against itself (AD-63) without a growing
-`allowed_sources` list carrying architecture knowledge it does not own. The answer a violation
-asks for — declare the type in the owning component's `public` list — is a legal answer: the
-declaration is reached by the very signature that exposed it, so `interface_boundary` no longer
-calls it unused (AD-65). Fixed source bytes and
-analyzer digest make the result deterministic. Adding a `snapshot(context: dict) -> str` function
-declared in `shop.app`'s own `public` list, which `APP-TYPES-NOT-DICT` scopes to `shop.app`, is an
-example violation, and so is `summarize_all(extras: list[Extra]) -> Money`, where wrapping the
-undeclared `Extra` in a list is no longer a way out of the same finding (AD-67).
+`rule_without_subjects`, UNKNOWN, not PASS (AD-63, issue #56).
+
+Publishing a type in its owner's `public` list can resolve a finding: the same
+facade signature proves its use (AD-65). For runnable positive and negative cases,
+see [the demo catalog](architecture-demo.md).
+
 Proven standard-library `Mapping[K, V]` and `MutableMapping[K, V]`, and a bare `Mapping` or
 `MutableMapping`, are also broad map findings: changing `dict` to an abstract mapping does not
 declare a record shape (AD-123). Their member types are still checked. Unproven or malformed
@@ -542,32 +507,21 @@ archkeel validate --baseline known-violations.json --write-baseline   # resolved
 archkeel validate --baseline known-violations.json --write-baseline --accept-new  # deliberate widening
 ```
 
-The baseline path, like `--amendment`'s below, is relative to `--root`, as the contract is, or
-absolute; one that resolves outside the root is `baseline.invalid`, exit 2 (AD-103).
+Paths resolve inside `--root`; invalid/unreadable baselines produce
+`baseline.invalid`, exit 2. Fingerprints use rule IDs and subjects, without line
+positions. Counts must match exactly; new/resolved drift exits 1. An exact baseline
+can exit 0 with `declared_rules: FAIL`. Other diagnostics remain exit 2.
 
-Each entry names one violation by fingerprint — the rule ids it cites and its sorted `subjects`,
-which per rule kind are the modules, the construct owner or the members of a cycle — plus the
-number of violations sharing it, since two `getattr` calls in one function are one fingerprint.
-A fingerprint holds no line or column, so an unrelated edit above a violating line leaves it
-alone. Both lists are read in any order, so an entry whose subjects a text replace reordered still
-names its violation (AD-106). Baseline schema `1.3.0` also carries contract-selected measurement
-budgets, the accepted names of each facade and coupling budget, and may carry sorted `roles` objects
-(`source` and `target`) for directional violation rows; they explain every crossing and never change
-fingerprint identity. They are semantic evidence: `validate --against` rejects any role-only change
-unless an amendment accepts it. Multiple roles are retained. Rows without a resolved direction,
-including construct rows, omit `roles`. Schemas `1.0.0`, `1.1.0` and `1.2.0` remain readable. Counts
-must match the observation exactly: a higher one is a `new violation`, a lower one a `resolved
-violation`, both reported in `failures` with exit 1, so the budget only shrinks. An existing
-baseline is compared before a write: resolved-only drift may be written, while new or increased
-fingerprints refuse the write unless `--accept-new` is explicit. The refused run's last failure says
-so and names `--accept-new`, for after an architect's decision. A run whose baseline is exactly
-right exits 0, with `declared_rules: FAIL` still naming the debt. Only `rule.violated` is answered
-this way: `decision.open`, `graph.drift` and every other diagnostic still exit 2. A baseline that
-cannot be read is `baseline.invalid`, exit 2; an existing one is corrected by hand, since a write
-reads it first. In JSON, `baseline_new` and `baseline_resolved` count fingerprints whose occurrence
-count rose or fell. Each changed fingerprint contributes one, not its occurrence-count delta. The
-file's shape is
-[`schema/violation-baseline.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/violation-baseline.schema.json).
+Existing baselines are compared before writes. Resolved-only drift can be written;
+new/increased fingerprints require `--accept-new` after a decision. `baseline_new`
+and `baseline_resolved` count changed fingerprints, not occurrences.
+
+Schema 1.3.0 holds violations, selected measurements, accepted facade/coupling names
+and optional directional `roles`. Roles are protected evidence without changing
+fingerprint identity. Schemas 1.0/1.1/1.2 remain readable. See
+[the reference](reference.md#results) and
+[baseline schema](https://github.com/rapiddweller/archkeel/blob/main/schema/violation-baseline.schema.json)
+for fields and resolved-import narrowing.
 
 ### Project gate
 
@@ -636,7 +590,7 @@ integer cross-multiplied ratios and semantic fingerprints.
 
 - **Measurement:** `calls_unresolved`, `unresolved_ratio`, typing positions, cycles, private
   crossings, `untyped_private_accesses`, `unknown_positions`, violations and coverage failures.
-- **Determinism:** both observations must use comparable Python and analyzer versions.
+- **Compatibility:** both observations need comparable Python and analyzer versions.
 - **Blind spots:** a stable count can hide replacement of one finding by another; fingerprints
   cover supported semantic changes, not intent.
 - **Example:** reject a candidate whose unresolved call count rises from 0 to 1.
@@ -676,37 +630,20 @@ the old `max_names` for a key the old baseline did not hold widens under `--agai
 
 ## Class C: declarations
 
-Fields under `declarations` preserve capabilities, review scopes, a package's external public
-API, commands, context roots, paths, owners, measurement budgets and facade and coupling
-budgets. Archkeel decodes every one of them and reports all but the facade and coupling budgets,
-which only `validate` reads. It checks every one for two structural facts: a declared name
-resolves inside the configured namespace (`reference.namespace`) and a declared provenance file
-exists (`reference.provenance`).
-`public_api` names the surface a consumer *outside* this package may rely on - a different thing
-from the component `public` field, which names one component's promise to another component of
-the *same* package and is held to `interface_boundary` at every crossing (AD-9). Nothing inside
-the scan crosses into `public_api` the way one component imports another, so there is no
-crossing to prove a `public_api` entry unused. Archkeel still checks that its module exists and,
-when the module declares a non-empty literal `__all__`, that the promised name is exported. An
-empty `__all__` is not inspected. A module with no inspected export list and no scanned top-level
-class or function of that name is `UNKNOWN`, not a silent pass.
-For an unambiguous declared function or class, every resolvable scanned type in its parameters,
-return or own public fields must also appear in `public_api`; builtins and external types do not.
-Ambiguous same-named bindings and annotation forms the shared type walk cannot resolve are never
-guessed (AD-66, AD-70-AD-74).
+Fields under `declarations` preserve capabilities, review scopes, external API,
+commands, context roots, paths, owners and budgets. Names must resolve within the
+configured namespace (`reference.namespace`); provenance files must exist
+(`reference.provenance`). All fields are decoded; facade/coupling budgets are read
+only by `validate`.
 
-- **Measurement:** none; declaration records mirror the contract.
-- **Determinism:** decoding is deterministic for a valid Contract 2.0 document.
-- **Blind spots:** Archkeel does not prove that an outside consumer uses the declaration, and it
-  does not enforce types the shared annotation walk cannot resolve.
-- **Example:** record `sample.api:load` as a name a consumer outside the package may rely on.
+Component `public` governs internal crossings. `public_api` promises names to
+external consumers, so it has no unused-entry check. Its scanned modules, literal
+exports and resolvable exposed types are validated. Ambiguous bindings/types stay
+UNKNOWN. See [external API checks](reference.md#reading-a-reports-violations).
 
-Most class-C entries record a judgment: a responsibility, an intended interface, a path or an
-owner that a person decided. Archkeel stores and reports those verbatim. `public_api` is also
-validated where its promise reduces to scanned facts: existence, literal exports and resolvable
-exposed types. A broader judgment that needs testing becomes a class-D claim bound to an evidence
-digest, and its outcome stays HYPOTHESIS, never PASS or FAIL. A judgment that reduces to a fact
-visible in one observation belongs in class A instead.
+Responsibilities, paths and ownership judgments are recorded verbatim; their truth
+is not proved. A judgment that reduces to an observed fact belongs in class A.
+A broader evidence-bound review claim belongs in class D and remains HYPOTHESIS.
 
 ## Class D: review claims
 
@@ -715,7 +652,8 @@ analyzer records, a pure derivation in `ir`, and a report section without a verd
 whose signal is missing reports UNKNOWN and lists nothing, so an analyzer that cannot produce the
 signal costs the other claims nothing.
 
-Every command that derives a claim also names it: `report` and `validate` print the counts in the
+Claim derivations are deterministic for one observation, but never produce rule
+verdicts or exit status. Every command that derives a claim also names it: `report` and `validate` print the counts in the
 terminal and carry them under `claims` in `--json`, where a missing signal is `null` rather than
 zero, while the HTML report lists the candidates themselves (AD-35). None of this reaches an exit
 code.
@@ -738,15 +676,11 @@ existing meaning.
 
 - **Measurement:** candidates, symbols examined, symbols set aside, and the unresolved-call share
   beside them.
-- **Determinism:** the candidate list is deterministic for one observation; whether a candidate is
-  truly dead is not, and never becomes a verdict or an exit code.
 - **Blind spots:** a consumer outside the scan scope, such as a test, is invisible; so is a name
   reached through a string, a registry or a plugin entry point. The resolver limits in
   `known-limits.md` reach the claim as false candidates: a method invoked on a call result, as in
   `Repository(root).save(...)`, names nothing the claim can see. That is why the unresolved-call
   share is printed beside the candidates — it is the size of that blind spot.
-- **Example:** on Archkeel itself the signal removed four of six candidates that a call graph alone
-  had reported, and the remainder are public API used only by tests.
 
 `unread binding` is the second claim. Its signal is the `bindings` section, which records every
 parameter or local whose name no expression in its own function reads. This is a lexical fact, not
@@ -760,13 +694,8 @@ do not prove that a method overrides another or satisfies a structural interface
 - **Measurement:** lexical candidates, and the functions examined beside them. The bindings set
   aside are not counted, because the signal records only what it names. An empty list means no
   candidates were recorded; it does not establish that every parameter is read.
-- **Determinism:** the candidate list is deterministic for one observation; it never becomes a
-  verdict or an exit code.
 - **Blind spots:** a name bound by an import inside the function, by `except ... as` or by a
   `match` pattern is not recorded, and a read through `locals()` is invisible.
-- **Example:** on Archkeel itself the claim names nothing, because `ARG` and `RUF059` already
-  reject such a binding at lint time; the demo tour carries one unread parameter and one
-  unread local.
 
 `repeated logic` is the third claim, and the only one that reads a class-C declaration. Its signal
 is the `shape` each function and method symbol carries: the node types of the body in walk order,
@@ -775,8 +704,6 @@ still matches its original. The derivation groups functions by shape and, for ev
 `spot_owner`, names each function outside the owner whose shape matches one inside it.
 
 - **Measurement:** candidates, the declared owners examined, and the functions compared.
-- **Determinism:** the shape is an exact digest, not a similarity score, so the candidate list is
-  the same on every machine; it never becomes a verdict or an exit code.
 - **Blind spots:** a copy that changed one operator or split a loop has a different shape and is
   invisible. Only exact structural twins of at least ten nodes count, a floor measured so that
   shapes the language forces — `ast.NodeVisitor` demanding two visit methods, an empty `Protocol`
@@ -795,19 +722,15 @@ claim removes that ambiguity without turning it into a verdict.
 
 - **Measurement:** the components named, beside the top level's own component and edge counts, so
   a reader can check every comparison.
-- **Determinism:** both quantities come from one observation and one derivation, so the claim and
-  the size table can never disagree; it never becomes a verdict or an exit code.
 - **Blind spots:** the claim measures what a component holds, not how tangled it is — a component
   of many independent modules is named alongside one that is genuinely knotted. Physical
   navigation exposes the observed modules, but does not invent rules for undeclared boundaries.
   Explicit nested contracts are recorded, judged and drawn from the same observation (AD-34).
   Missing either signal reports UNKNOWN, because a
   comparison against zero component edges would name every component.
-- **Historical example:** on Archkeel itself the top level held 7 components and 9 edges, and the claim named
-  `analyzer` (22 modules, 50 inner edges), `check` (13 and 24) and `ir` (18 and 32), while `cli`,
-  `render` and `host` stayed below on both. Review the physical subtree before introducing an
-  `inside` contract. Do not rerun root `init --source` to create it: that command targets the
-  standard onboarding files. Follow the [boundary review guidance](onboarding.md#choose-the-boundaries).
+Review physical subtrees before adding `inside`. Do not rerun root `init --source`:
+it targets standard onboarding files. Follow the
+[boundary review guidance](onboarding.md#choose-the-boundaries).
 
 `cross-component type fan-in` is the fifth claim (issue #9, AD-59). Its signals are the `symbols`
 and `imports` sections: `imports` for which function or method a cross-component call reaches,
@@ -818,19 +741,11 @@ every annotation string that is passed across two or more distinct component pai
 first.
 
 - **Measurement:** the annotated positions examined, and the candidates beside them.
-- **Determinism:** both signals come from one observation and one derivation, so the claim is
-  deterministic wherever the analyzer ran; it never becomes a verdict or an exit code.
 - **Blind spots:** the annotation is the raw string a function declares, not a resolved type, so
   `Order` from one module and an unrelated `Order` from another are the same candidate; a call
   reached only through a re-export whose chain the scan cannot expand is invisible the way
   `interface_boundary`'s own blind spot is. A type that crosses many boundaries is not itself a
   problem, only the material a broad-context smell would show up in.
-- **Example:** on the shop sample `Order` and `str` each cross two component pairs. On Archkeel
-  itself `str`, `bool`, `bytes` and `object` are the widest, all builtins or `ir.codec`'s own
-  untyped-JSON boundary, and `Observation` and `RunResult` follow at three: Archkeel's shared IR
-  model crossing widely is the architecture working as declared, not a service-locator context
-  smuggled through a facade, which is the reading the claim leaves to the architect (AD-26).
-
 ## Migrating from 1.1.0
 
 Contract 2.0 keeps `components` and `rules` at the top level. Move every class-C declaration

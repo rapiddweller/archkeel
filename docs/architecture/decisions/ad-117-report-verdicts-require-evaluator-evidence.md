@@ -33,8 +33,8 @@ widening; the report does not introduce a second history system.
 Keep the diagram primary. Reuse native tables, details and filters; no second report framework.
 Focused CLI views remain focused. Without JavaScript, all static evidence stays readable.
 
-Under the architect's evidence-backed budget authorization, the self call budget moves
-536 → 562. `validate --against ce089cf` identifies 26 added source operations: analyzer 10
+The architect approved the self call budget change 536 → 562.
+`validate --against ce089cf` identifies 26 added source operations: analyzer 10
 (receipt/physical-scope lookups), check 7 (counting and baseline access), CLI 1 (the explicit
 baseline option), IR 2 (subject coverage), render 6 (grouping, filter options and assets).
 This is new code, not improved detection on unchanged code. The self scan retains 41 UNKNOWN

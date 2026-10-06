@@ -4,7 +4,7 @@ The issue owner accepts the used #355/#358 projection interfaces, their physical
 owners, `workflows -> declarations`, and authored #356 layers. No blanket API grant.
 Offline output permits `dict[str, bytes]` only at the detail renderer return position.
 
-Final native Self reads all 117 files with zero violations. Exact budgets are
+The reviewed native Self read all 117 files with zero violations. Exact budgets are
 670 unresolved calls and 53 UNKNOWN positions, without headroom. UNKNOWNs comprise
 25 render boundary positions, 19 check boundary positions/routes, one analyzer
 position, and eight independent UML Target findings. New saved-query limits include

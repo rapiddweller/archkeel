@@ -2,17 +2,16 @@
 
 `boundary_types` already rejects `dict[K, V]`: naming an open record's key and
 value types does not make its fields a declared model (AD-58). The same rule now
-applies to `Mapping[K, V]` and `MutableMapping[K, V]` when their standard-library
-binding is proven. Renaming `dict` must not turn a violation into PASS. A bare `Mapping` or
-`MutableMapping` with the same proof is the same finding, in a parameter, a return, an
-`Optional`/`| None` member or a collection element: dropping the parameters does not declare a
-record shape either.
+applies to proven standard-library `Mapping[K, V]` and `MutableMapping[K, V]` bindings.
+Bare `Mapping` and `MutableMapping` with the same proven bindings produce that finding
+in parameters, returns, `Optional`/`| None` members and collection elements.
+Neither renaming `dict` nor dropping its
+parameters declares a record shape.
 
 The shared annotation reader still resolves both member types. An undeclared
 member remains a separate violation; an undecidable member remains UNKNOWN.
 Malformed arity remains UNKNOWN. A shadowed parameterized `dict`, `Dict` or `object` whose
 binding cannot be resolved remains UNKNOWN; a known bare local type can violate by evidence.
-Imports the analyzer cannot prove remain UNKNOWN.
 A known violation and an undecidable member can coexist; an exact allowance removes only the
 violation, never the UNKNOWN.
 `allowed_positions` uses an omitted or empty `field_path` for a direct signature position and a named

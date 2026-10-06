@@ -20,10 +20,9 @@ owner's private type public. Without a proven public route, a matching uncertain
 An unrelated uncertain route does not suppress a known private-type violation. Declared fields are
 still checked through the same type evaluator; a public export is not an exemption for broad fields.
 
-Reason: package `__init__.py` is not the only place a component can declare a public facade.
-Rejected: treating every ordinary import as a re-export, which would guess intent and can choose
-the wrong origin after rebinding. A missing or ambiguous proof remains UNKNOWN; this does not
-resolve dynamic exports, local/conditional `__all__`, or arbitrary module attributes.
+A component can declare a public facade outside package `__init__.py`. Treating every import
+as a re-export would guess intent and choose wrong origins after rebinding. Dynamic exports,
+local/conditional `__all__` and arbitrary module attributes remain unresolved.
 
 Check: `tests/test_boundary_types_non_init_facades.py`,
 `tests/test_boundary_types_reexport_proofs.py`, `tests/test_boundary_types_chain_proof.py`,

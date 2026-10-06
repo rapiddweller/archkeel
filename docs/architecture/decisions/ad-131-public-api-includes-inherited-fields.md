@@ -34,8 +34,6 @@ proof. Runtime model behavior is not evaluated.
 
 ## Verification
 
-`tests/test_public_api_boundary.py` covers local and aliased entries and bases,
-overrides, generic chains, Pydantic, direct-field controls, UNKNOWN evidence,
-CLI results and canonical/HTML reports. `public-api-inherited-missing`,
-`public-api-inherited-declared` and `public-api-inherited-unknown` are runnable
-catalog demos.
+`tests/test_public_api_boundary.py` covers inherited fields, aliases, overrides, generics,
+Pydantic, UNKNOWN evidence and CLI/JSON/HTML results. Catalog demos:
+`public-api-inherited-missing`, `public-api-inherited-declared` and `public-api-inherited-unknown`.

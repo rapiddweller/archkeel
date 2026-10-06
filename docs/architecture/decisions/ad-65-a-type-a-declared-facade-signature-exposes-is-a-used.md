@@ -2,10 +2,10 @@
 
 ## What changes
 
-One notion of `public`, reached two ways. An entry is used when a cross-component import
-resolves to it ([AD-9](ad-09-components-declare-their-interface.md),
-[AD-56](ad-56-a-public-entry-the-scan-never-saw-is-missing-and-planned.md)) **or** when a
-declared facade signature names it.
+A public entry is used by a cross-component import
+([AD-9](ad-09-components-declare-their-interface.md),
+[AD-56](ad-56-a-public-entry-the-scan-never-saw-is-missing-and-planned.md)) or by a declared
+facade signature.
 
 ```
 check.public += archkeel.check.ports:Analyzer
@@ -14,57 +14,38 @@ exit 2   interface.unused | archkeel.check.ports:Analyzer     # before
 exit 0                                                        # now
 ```
 
-`interface_boundary`'s own reading is untouched, and so is `boundary_types`
-([AD-63](ad-63-boundarytypes-reads-a-components-declared-public-list-not-a.md)). What changed is
-what counts as *reaching* an entry, in the unused-entry check alone.
+Only unused-entry checking changes; import boundaries and `boundary_types` stay
+unchanged ([AD-63](ad-63-boundarytypes-reads-a-components-declared-public-list-not-a.md)).
 
 ## Why
 
-AD-63 measured ten findings in `check` and `render`, and the first answer a reader reaches for
-is to declare the type. Declaring one earned `interface.unused` in the same run: `cli` never
-imports the name, it passes values through. The rule that asks for a type to be declared and
-the check that asks whether declaring it was worth it disagreed about the same position.
+AD-63's ten check/render findings asked for types to be declared, but declaring
+them produced `interface.unused`: consumers passed values without importing names.
+The analyzer publishes resolved `facade_types` on function symbols; `check` reads
+that key without importing the analyzer or repeating resolution.
 
-The resolution is computed once, by the analyzer, and published as a `facade_types` key on the
-facade function's own `symbols` record. `check` reads it. That is AD-4's channel, not a
-convenience: `check` reaches the analyzer through a port precisely so it never imports it, and
-a second resolution inside `check` would decide the same annotation differently the first time
-either improved.
-
-The record is written whether or not a `boundary_types` rule is declared, because the question
-belongs to every component with a facade -- otherwise `check` and `render` could not adopt the
-rule without already having it.
-
-Measured when this was decided: 64 declared facade functions exposing 26 distinct types, of
-which five were undeclared -- the three AD-63 named, plus `datetime.datetime` and `pathlib.Path`,
-which belong to no component. No diagnostic anywhere changed, so no finding was silenced to make
-an entry legal. Later decisions added facades, so the count moves; what does not move is that a
-type a signature exposes is reached whether or not an import names it.
+Record it even without a boundary rule, allowing later adoption. The original
+measurement found 64 facade functions exposing 26 types; five were undeclared,
+including the three AD-63 findings and unowned `datetime.datetime`/`pathlib.Path`.
+No diagnostic was suppressed. These counts are historical.
 
 ## Rejected
 
-| Alternative | Why not |
-|---|---|
-| A second list, `exposed_types` | Its own ownership, underscore and namespace checks, plus a rule keeping it in step with `public` -- two lists drift, one cannot (AD-56 rejected `planned_public` the same way). |
-| Derive the positions again inside `check` | One piece of knowledge in two places, the defect this repository names most often. |
-| Move the resolution into `ir` | Puts rule evaluation in the component whose responsibility is I/O-free derivation, and widens `analyzer`'s `requires` past what AD-4 binds it to. |
-| Record every function's annotations, filter in the reader | An internal helper's parameter is not an exposure; the filter is the substance. |
-| Count only another component's facade | `run_report` is `check`'s own facade and `Analyzer` is `check`'s own type -- the whole case. |
-| Count any import inside the component | An internal import is not an exposure; nearly every entry would read used. |
+- A separate `exposed_types` list would duplicate public ownership and checks.
+- Resolution in `check` would duplicate knowledge; in `ir` it would move evaluation
+  and widen the analyzer boundary.
+- Internal signatures/imports are not facade exposure; restricting to another
+  component would miss the defining `run_report`/`Analyzer` case.
 
 ## Limit
 
-Only a bare identifier resolves, so a type exposed through `list[Widget]` still reads as unused
--- closed later by [AD-69](ad-69-one-annotation-is-read-once-for-both-readers.md). A component
-with no `public` records no facade types. `planned` takes no part. The reach is a presence
-check, not an attribution: it says a signature exposes the type, not that anyone depends on it,
-which is honest -- a facade promising a type has made the promise regardless.
-`ANALYZER_VERSION` rises to 0.28.0 (AD-3).
+Only bare names resolved initially; [AD-69](ad-69-one-annotation-is-read-once-for-both-readers.md)
+closes generic exposure. No public means no facade types; planned entries do not
+count. Exposure proves a promise, not an observed consumer. Analyzer version rises
+to 0.28.0 (AD-3).
 
 ## Check
 
-`tests/test_analyzer.py::test_a_declared_facade_records_the_types_its_signature_exposes` is red
-without the key; `tests/test_validation.py::test_public_entry_a_declared_facade_signature_exposes_is_used`
-is red with `interface.unused`. `test_public_entry_only_an_internal_signature_names_is_still_unused`
-holds the facade filter, and the demo catalog still produces `interface.unused` for a type no
-shop facade names.
+Analyzer and validation probes cover recorded facade types, used exposed entries
+and unused internal-only types. The shop catalog retains unused findings for
+unexposed types.

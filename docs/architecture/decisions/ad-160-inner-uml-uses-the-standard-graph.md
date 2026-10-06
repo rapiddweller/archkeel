@@ -14,11 +14,10 @@ hollow triangle; realization uses a dashed line and hollow triangle. Other direc
 relationships retain their kinds and sites. Selection dims unrelated elements. Visible
 paths and hit paths share geometry. Package navigation has no invisible frame targets.
 Cycles and their downstream nodes stay unranked instead of creating false layout depth.
-Cards abbreviate long signatures to two lines; Details retains the complete values.
-Fit keeps text readable and centers the selection; larger graphs remain pannable.
-Outside methods/functions fold into their recorded class/module. The connection retains
-every original site and endpoint in Details. Referenced symbols without lexical parents
-remain separate; labels do not invent ownership.
+Cards limit long signatures to two lines; Details retains complete values.
+Fit centers the selection with readable text; larger graphs remain pannable.
+Outside methods/functions fold into their recorded class/module, retaining every site
+and endpoint in Details. Symbols without lexical parents stay separate; labels prove no ownership.
 
 Core assessments remain separate from source resolution. Diff displays known unlisted
 definitions and retains UNKNOWN. Source sites without endpoints stay in Details.

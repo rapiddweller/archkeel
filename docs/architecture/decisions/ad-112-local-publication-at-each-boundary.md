@@ -31,10 +31,9 @@ type evidence. Reusing the root's global usage index would misclassify parent fa
 unrelated usage. Those lifecycle diagnostics remain root-only; local private imports are still
 checked by the declared interface rule. Missing symbol records do not prove a missing constant.
 
-Migration: keep outward publication explicit. Review copied child entries rather than
-promoting every local API. ArchKeel's analyzer inside wrongly listed `archkeel.analyzer` under
-orchestration, which does not own that parent module. Remove that duplicate; the root contract
-continues to publish `archkeel.analyzer`. No package ownership or dependency permission is widened.
+Migration: review copied child entries; keep outward publication explicit. ArchKeel's analyzer
+inside listed `archkeel.analyzer` under orchestration, which does not own it. Remove the duplicate;
+the root still publishes `archkeel.analyzer`. Ownership and dependency permissions do not widen.
 
 Evidence: `test_inside_publication.py`, `test_inside_rule_parity.py` and the executable
 local-publication demo. Recursive loading and rule evaluation remain AD-110/AD-111.

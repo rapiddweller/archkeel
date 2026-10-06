@@ -1,95 +1,45 @@
 # AD-61 A widening fails unless an amendment binds its exact before and after digest
 
-`archkeel validate --against <ref>` reads the contract at that Git revision with
-`check/git.py`'s `read_blob`, and `ir.widening.contract_widenings` (before, after) - a pure
-function over two `ArchitectureContract` values, beside AD-52's baseline derivation - classifies
-every difference as widening or narrowing. Widening is a new permission or a dropped
-restriction: an `allowed_dependency` rule added, a `forbidden_dependency`, `forbidden_construct`,
-`external_dependency_scope`, `complete_assignment`, `complete_external_scope`,
-`complete_requires`, `no_component_cycles`, `interface_boundary`, `sibling_isolation`,
-`symbol_placement` or `boundary_types` rule removed; an `allowed_sources` or `exact_sources`
-entry gained; a `forbidden_construct` losing a
-forbidden kind; `include_type_checking` relaxed from true to false; a component's `public` or
-`requires` gaining an entry; a component added or removed. Narrowing is each reverse, and passes
-without question. Only a rule's or a `requires` entry's `rationale`, and every `provenance`, are
-neutral - free text the design calls out as such, not architecture. Everything else this module
-does not name - an unrecognised rule kind's presence in either direction, a field no classifier
-enumerates such as `target_symbol` or a `requires` entry's `through`, the whole of
-`declarations`, the `$schema` pointer, a component's `label` or `role` - is reported as a
-widening rather than passed over, because a silent "neutral" here is the exact hole issue #11
-was filed against: the easiest way to make a target-first refactor "pass" is to widen the target
-in the same change. `--against` composes with `--baseline` (AD-52): when both are given, the
-baseline file at the compared revision is read the same way, and `ir.widening.baseline_widenings`
-compares it against the one being validated (or, with `--write-baseline`, the violations about
-to be written) by fingerprint - a higher count or a new fingerprint is a widening, a lower or
-removed one passes silently. A baseline is exactly the file an agent would pad to make a new
-violation disappear, so it is checked, not assumed clean. A widening is reported in `failures`
-with exit 1, exactly the way AD-52's baseline drift is, unless `--amendment <path>` names a file
-that binds this exact before/after pair: `schema/contract-amendment.schema.json`'s
-`before_digest` and `after_digest` bind `InsideContractTree.comparison_digest`, covering the root
-and recursively mounted inside contracts. Without inside contracts this is
-`ir.codec.contract_digest`, SHA-256 of canonical `contract_bytes`; an absent prior contract
-uses `absent_contract_digest`, bound to its repository path (AD-104). `decided_by` and
-`rationale` are free text, checked for non-emptiness only, the way a rule's own `rationale` is.
-`--write-amendment`, with `--decided-by` and `--rationale`, writes that file instead of checking
-it, the way `--write-baseline` does; an amendment written for one change does not verify against
-a different one, because its digests will not match. A missing or malformed `--amendment` file,
-or an `--against` revision or its contract that cannot be read, is exit 2 with a diagnostic -
-`amendment.invalid` or `against.invalid` - the way an unreadable baseline is `baseline.invalid`;
-a contract that revision does not hold at all is its introduction instead (AD-104).
-`validate` without `--against` is unchanged.
+`validate --against <ref>` compares the Git revision's contract with the working
+contract through pure `ir.widening` derivations. New permissions, dropped restrictions,
+relaxed type-checking scope, added public/required entries and component additions
+or removals are widenings; modeled reversals are narrowings. Removed restrictive
+rules and added `allowed_dependency` rules widen. Rationale and provenance are neutral.
+Unmodeled fields or rule kinds fail closed as widening, including `target_symbol`,
+`through`, declarations, labels and roles.
 
-Reason: a contract that states the target architecture is only a specification for as long as it
-cannot quietly move toward the code. In the target-first workflow this repository already
-supports - a baseline freezes today's violations while the contract states tomorrow's shape - the
-easiest way for an agent to "fix" a violation is to widen the rule that names it, or the
-component field it crosses, in the same change that touches the code; today only review
-convention catches that, and review convention is exactly what an agent under time pressure, or
-a reviewer skimming a large diff, is worst at holding. Classifying the difference itself, against
-the branch's own base, moves that judgement into the tool. Binding the amendment to both digests,
-not only the contract being validated, is what AD-52's baseline does not do for itself and says
-so: the baseline is compared, never authenticated, and nothing stops a change from widening it
-silently; an amendment for a five-line exemption must not also authorise an unrelated
-hundred-line one two commits later, so it names the exact shape of what it approved.
+With `--baseline`, compare its Git version too: new fingerprints or higher counts
+widen; removed/lower counts narrow. `--write-baseline` compares the proposed contents.
+[AD-103](ad-103-baseline-and-amendment-paths-are-relative-to-root.md) now rejects baselines
+outside the root, superseding the original unchecked-external-file exception.
 
-Rejected: modeling every rule kind and component field's narrowing direction exhaustively before
-shipping, because the fail-closed default already makes an unmodeled field behave safely - as a
-widening - and the cost of getting a narrowing direction wrong is only ever an amendment asked
-for that a narrower reading would not have needed, never a widening let through. Hashing the
-whole contract into one opaque "changed" flag instead of enumerating findings, because a reviewer
-approving an amendment needs to see what it is approving, the same reason AD-52 rejected hashing
-the violation fingerprint. Authenticating the amendment against `--against`'s Git revision
-itself (a commit trailer, a signed tag), because the digest binding already proves it answers
-this exact contract pair without adding a second, host-specific trust mechanism `check`'s Git
-predicate does not need for this question. Comparing `--baseline` only when `--against` also
-compares a baseline path outside the repository root, because that file has no Git history in
-this repository to compare against, and refusing the run over a file `--against` cannot see would
-make `--baseline` and `--against` unusable together in that one configuration for no gain; it is
-simply not checked there instead. [AD-103](ad-103-baseline-and-amendment-paths-are-relative-to-root.md)
-supersedes this: a baseline outside the root is `baseline.invalid`, exit 2. Threading the widening check through `check`'s M -> B -> E -> H
-protocol, because that protocol already rejects a contract change between the accepted commit and
-the candidate; this answers a different question, a branch against its base, that the protocol
-was never asked.
+Widening yields failures and exit 1 unless `--amendment` binds the exact before/after
+`InsideContractTree.comparison_digest`, including recursively mounted contracts.
+Without insides, this is the canonical contract digest. An absent prior contract
+uses a path-bound absent digest (AD-104). Nonempty `decided_by` and `rationale` record
+the decision. `--write-amendment` with those fields writes the approval instead.
+Unreadable revisions/contracts and missing/malformed amendments exit 2 with
+`against.invalid` or `amendment.invalid`; introduction of an absent contract is
+handled by AD-104. Validation without `--against` is unchanged.
 
-Limit: only rationale and provenance text are neutral; a component's `label`, `role` or `inside`
-changing, or any change inside `declarations`, is reported even when it is plainly cosmetic,
-because this module has no classifier that could tell cosmetic from architectural there and
-fail-closed forbids guessing. `through` on a `requires` entry is never modeled directionally
-either, so narrowing it to fewer modules still asks for an amendment. Renaming a rule or a
-component's `id` reads as one entity removed and a different one added, at whatever cost that
-kind implies, rather than as the same entity renamed. The amendment carries no expiry and no
-scope narrower than "this exact before/after pair": one valid amendment covers every widening
-finding between those two contracts, not each finding individually.
+Issue #11 concerned agents making code pass by widening its target or baseline.
+Digest pairs bind approval to one change while explicit findings let reviewers see
+what they approve. Unknown narrowing can ask for an unnecessary amendment, but
+cannot silently authorize widening. Git signatures add no needed pair identity.
+This branch/base question stays outside the M → B → E → H protocol, which already
+rejects candidate contract changes.
 
-Check: `tests/test_widening.py::test_rule_kind_widening_table`,
-`tests/test_widening.py::test_component_field_widening_table`,
-`tests/test_widening.py::test_rationale_and_provenance_are_neutral`,
-`tests/test_widening.py::test_an_unenumerated_difference_is_treated_as_widening`,
-`tests/test_widening.py::test_a_widening_with_a_valid_amendment_passes`,
-`tests/test_widening.py::test_the_same_amendment_against_a_different_change_fails`,
-`tests/test_widening.py::test_a_padded_baseline_entry_widens_the_contract`,
-`tests/test_widening.py::test_a_shrunk_baseline_entry_is_narrowing_and_passes`,
-`tests/test_widening.py::test_validate_without_against_is_unchanged` and
-`tests/test_architecture_demo.py::test_against_variant_produces_the_catalogued_verdict`.
+Limits: cosmetic unmodeled changes still need amendments; renames appear as removal
+and addition. An amendment has no expiry and covers the whole exact pair, not
+individual findings. Attribution text is not authenticated.
 
-#310: v2 also binds canonical original-before and actual-after baseline policies, including roles, debt counts and named budgets. Null means no baseline comparison; absence is path-bound and differs from an empty file. Rename classification does not change the bound original policy. Legacy v1 remains readable for contract-only comparisons. Explicit stale records fail even without widening; refused baseline rewrites emit no amendment. PR CI runs `make against` against the pinned event base before the full gate.
+#310 v2 also binds canonical original-before and actual-after baseline policy:
+roles, counts and named budgets. Null means no comparison; path-bound absence
+differs from an empty file. Rename classification does not alter the original
+bound policy. Legacy v1 remains readable for contract-only comparisons. Explicit
+stale records fail even without widening; refused rewrites emit no amendment.
+PR CI runs `make against` on the pinned event base before the full gate.
+
+Checks: `tests/test_widening.py` covers rule/component directions, neutral text,
+unmodeled changes, exact/stale amendments and padded/shrunk debt; the against
+catalog covers command verdicts and unchanged validation without comparison.

@@ -2,10 +2,9 @@
 
 ## What changes
 
-`_boundary_type_verdict` is the only place an annotation is read. Its `_Position` carries what
-the walk resolved beside the verdict, and `_resolved_position_types` reads that field. It read
-only bare names of its own, so the two readers disagreed the moment [AD-67](ad-67-an-undecidable-boundary-position-is-unknown-not-silence.md)
-taught the rule to enter a collection.
+`_boundary_type_verdict` owns annotation reading. Its `_Position` carries resolved
+types; `_resolved_position_types` reuses them for exposure instead of resolving
+bare names separately ([AD-67](ad-67-an-undecidable-boundary-position-is-unknown-not-silence.md)).
 
 | Reader | `Payload` | `tuple[Payload, ...]` |
 |---|---|---|
@@ -15,45 +14,32 @@ taught the rule to enter a collection.
 
 ## Why
 
-The combination judges a type and then calls the entry that declares it unused. Measured on this
-repository, 18 types across 18 facade functions were resolved by the rule and invisible to the
-reachability reading:
+Eighteen types across eighteen self facade functions were judged but not reached:
 
 ```python
 def open_decisions(observation: Observation) -> tuple[OpenDecision, ...]: ...
 #                                                     ^ judged, but never counted as reached
 ```
 
-`KnownViolation`, `InterfaceEdge`, `InsideLevel`, `StructureMetric`, `HostRecord`, `RunResult`,
-`Record`, `ViolationRow` and `OpenDecision` are all in that list. Declaring any of them would have
-produced the `interface.unused` that [AD-65](ad-65-a-type-a-declared-facade-signature-exposes-is-a-used.md)
-exists to remove, one subscript deeper.
-
-A type inside a `list[...]` crosses the boundary exactly as the bare one does. One reading, one
-helper, no second definition to keep in step.
+Declaring those types could still yield `interface.unused`, recreating
+[AD-65](ad-65-a-type-a-declared-facade-signature-exposes-is-a-used.md)'s conflict inside
+collections. One walk keeps judgments and usage consistent.
 
 ## Rejected
 
-| Alternative | Why not |
-|---|---|
-| Leave the readings apart | The drift is the defect AD-65 names, and it is measurable today: 18 types. |
-| Teach reachability its own collection walk, matching the rule's | Agreement by copy, which is what had just failed: the first revision of this decision did exactly that, and review rejected it. Two call sites stay equal only until the next shape is taught to one. |
-| Enter unions and mappings here too | AD-67 left both undecidable for the rule; the two readers must agree, so this follows it rather than overtaking it. |
+Separate collection walks already failed review; copies drift when only one gains
+a shape. Do not add unions or mappings to exposure ahead of rule resolution.
 
 ## Limit
 
-Both readers now enter one level. A nested subscript, a union, a mapping, a dotted name and a
-forward reference stay unresolved on both sides, which is the point: they are unresolved
-*together*. Reachability now needs the contract passed to it, although resolution does not
-depend on it -- the price of reading the verdict's walk rather than repeating it.
-`ANALYZER_VERSION` rises to 0.30.0, because a facade function's `facade_types` record gains the
-elements it always exposed; merging the two readers adds nothing further, and the output is
-byte-identical on a fixed sample.
+Both readers enter one level. Nested subscripts, unions, mappings, dotted names
+and forward references remain unresolved together. Exposure receives the contract
+because it uses the verdict walk, though resolution itself does not depend on it.
+Analyzer version rises to 0.30.0 for collection elements; merging readers adds no
+further byte changes on a fixed sample.
 
 ## Check
 
-`tests/test_analyzer.py::test_facade_types_resolve_a_collection_element` fails on the unmerged
-readings. Two structural tests hold the merge itself: exactly one function may call
-`_resolve_named_type`, and reachability may not walk collection parameters of its own.
-`test_boundary_types_and_facade_types_agree_across_annotation_shapes` compares the two readings
-over nine shapes, silence included, and fails when either side alone is taught a new one.
+`test_facade_types_resolve_a_collection_element` catches the old mismatch.
+Structural tests require one `_resolve_named_type` caller and forbid a separate
+exposure collection walk. A nine-shape parity test includes unresolved cases.

@@ -1,344 +1,313 @@
 # Architecture demo catalog
 
-Generated from `fixtures/architecture_demo.py`'s `CATALOG`. Every checkable item in the decision
-records under `docs/architecture/decisions/` (indexed by `docs/architecture/archkeel.md`, AD-11) has
-one row below: a named variant, the rule ids and diagnostic codes (AD-12) it must produce, and
-either the shop sample files it changes or the existing evidence that demonstrates it instead.
-Regenerate with `python -m fixtures.architecture_demo --markdown`.
+Generated from [CATALOG](../fixtures/architecture_demo.py), which owns fixture overlays and expected
+outcomes (AD-11). Rows use `fixtures/F-architecture` unless they name another sample or existing
+test evidence. Regenerate with `python -m fixtures.architecture_demo --markdown`.
 
-The `showcase` row below (`tour`) is the default demo view: it applies many overlays at once so one
-run shows many violations together; every other row isolates one item.
+`tour` and `dart-tour` combine violations.
 
-Replay a report-capable row with `python -m fixtures.architecture_demo --replay <variant> --output
-<new-path>`; it emits a `validate` result, then writes the ordinary report JSON and HTML sidecar.
-Report generation is always attempted; the command exit is the higher of validation and report
-exits. A failed validation does not suppress a report whose own inputs are valid; an invalid
-explicit baseline also rejects the report. Baseline flags are used only when the row declares one,
-and a declared baseline is passed to both commands; only `deepest_inside_changed` replays its
-`--against` history. Check-protocol and tested-only rows are excluded. The destination files must
-not exist. `make demo-architecture VARIANT=<variant> OUTPUT=<new-path>` delegates to the same
-command.
+Replay with `make demo-architecture VARIANT=<variant> OUTPUT=<new-path>`. It validates the fixture
+and writes report JSON and HTML; the exit is the higher of both command exits. A validation failure
+still permits a report with valid inputs. An invalid explicit baseline rejects both commands.
+Catalog baselines apply to both; only `deepest_inside_changed` replays `--against`. Check-protocol
+and tested-only rows cannot replay as reports. Destination files must not exist.
 
-Rows whose item starts with `dart:` run on `fixtures/G-dart`, a Flutter-style package scanned with
-`language = "dart"` (AD-97); `dart-tour` is their showcase. Replay them as one story with `make
-demo-dart`.
+`make demo-dart` replays the Dart story from `fixtures/G-dart`.
 
-Target hierarchy rows exercise declared physical frames, missing and ambiguous placement, and
-requirement cycles. Frames describe layout, not semantic ownership. Placement is `declared`,
-`inferred`, `multiple`, `ambiguous` or `unmapped`; exact `public` and `requires.through` remain
-declaration details. A null dependency rank can mean a cycle or a dependent of one, so it does not
-name an SCC or change the architecture verdict. Browser acceptance checks initial zoom, hidden
-scrollbar tracks, collapsed Details, and selection identity across Actual, Target and Diff. Ranked
-components share width-aware rows; owner Details holds rule metadata. Target Fit keeps readable
-names and scrolls larger scopes (AD-139). The report does not certify CE completion.
+Target frames describe layout; component ownership and permissions remain contract decisions. A null
+dependency rank does not identify a cycle. See [Target semantics](target-first.md).
 
-`make report-browser OUTPUT=<fresh-directory>` captures the current README views. The independent
-browser tests also cover a native dragged no-route case: selected Details exposes a separate layout
-warning without changing architecture data. The `tour` capture exercises tight focused rows: choose
-`app` and `Violating edges only`. All seven violating edges retain selectable labels; labels moved
-beside the graph name their source and target. The clean root and nested `store` captures exercise
-the conforming case.
+`make report-browser OUTPUT=<fresh-directory>` captures the README views and verifies navigation,
+filters and evidence preservation. Browser tests do not prove human usability.
 
-Inner UML examples use fixtures/H-uml and one independently authored Contract 2.2 Target (graph
-format 1.1). Replay uml-match (PASS), uml-mismatch (return signature FAIL), and uml-partial (dynamic
-enum literal UNKNOWN). The Target stays unchanged across overlays. They cover classifiers, literals,
-public/private members, typed operations, static members, bindings and
-imports/calls/references/inheritance/realization/creation. make report-browser captures their shared
-As-Is, Target and Diff views and drill-downs. Open scopes do not claim exhaustive inventories. A
-successful report command does not mean declared_rules is PASS. Dart and TypeScript currently lack
-inner UML collection. Replay uml-dart and uml-typescript for independent native-language Target
-diagrams and UNKNOWN inner comparisons. make demo-uml OUTPUT=<fresh-directory> generates all three
-language reports; build the TypeScript collector with a supported Node runtime. Recorded unavailable
-profile coverage remains visible in Details. Track remaining demo acceptance in #339 and independent
-inner Target coverage in #340. Replay uml-complete for closed Python intent, including internal
-State and VERSION uses. make demo-uml also writes python-complete.report.html. An unlisted
-definition fails the closed inventory; exhaustive observation stays UNKNOWN. Architecture groups
-As-Is, Target and Diff. Structure, Review and Actual remain Evidence views. FAIL means a recorded
-failed rule or comparison; select the card for its checks. The status tooltip gives the first
-reasons.
+`make demo-uml OUTPUT=<fresh-directory>` generates Python, Dart and TypeScript reports. Python
+variants cover matching intent, signature failures, unknown enum literals and closed inventories.
+Target stays independent across overlays. Dart and TypeScript inner UML observation remains
+unavailable and comparisons stay UNKNOWN. A successful command does not imply `declared_rules` PASS.
+See [UML scope](architecture/uml-model-target.md).
 
-| Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |
-|---|---|---|---|---|---|---|
-| showcase | tour | tour | validate/report run | APP-TYPES-NOT-DICT, ASSIGNMENT-COMPLETE, COMPONENT-NO-CYCLES, CONSTRUCT-NO-ANY, CONSTRUCT-NO-ASSERT, CONSTRUCT-NO-BROAD-EXCEPT, CONSTRUCT-NO-DYNAMIC, CONSTRUCT-NO-DYNAMIC, DEP-APP-NO-STORE-BACKEND, DEP-APP-NO-STORE-SQLITE, DEP-MODEL-NO-RENDER, DEP-RENDER-NO-STORE, DEP-STORE-NO-MONEY, EXTERNAL-COMPLETE, EXTERNAL-JSON-STORE, INTERFACE-BOUNDARY, LAYERS-MODEL, MODEL-TYPES-IN-ENTITIES, ROOT-LAYOUT, STORE-PEERS-ISOLATED, store:STORE-REQUIRES-COMPLETE | closed_world.observed_forbidden, closed_world.observed_forbidden, graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/app/analytics.py, shop/app/maintenance.py, shop/app/orders.py, shop/cli/main.py, shop/extra.py, shop/model/entities.py, shop/model/promotions.py, shop/render/text.py, shop/store/architecture-contract.json, shop/store/repository.py, shop/store/sqlite.py |
-| clean | shop sample | clean | validate/report run | - | - | clean sample |
-| clean | compatibility:clean | class-a-compatibility-clean | validate/report run | - | - | architecture-contract.json, shop/model/legacy.py |
-| class_a | compatibility:migration-work | class-a-compatibility-migration | validate/report run | - | - | architecture-contract.json, shop/model/legacy.py |
-| class_a | compatibility:effectful-shim | class-a-compatibility-effectful | validate/report run | - | compatibility.invalid, compatibility.invalid | architecture-contract.json, shop/model/legacy.py |
-| class_a | compatibility:product-import | class-a-compatibility-product-import | validate/report run | - | compatibility.invalid | architecture-contract.json, shop/model/legacy.py, shop/model/legacy_user.py |
-| class_a | compatibility:wrong-export | class-a-compatibility-wrong-export | validate/report run | - | compatibility.invalid | architecture-contract.json, shop/model/legacy.py, shop/model/other.py |
-| validation | against:compatibility-added | against-compatibility-added | validate --against run | - | - | architecture-contract.json, shop/model/legacy.py |
-| validation | against:compatibility-promoted | against-compatibility-promoted | validate --against run | - | - | architecture-contract.json, shop/model/legacy.py |
-| class_a | forbidden_construct:getattr | class-a-construct-getattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_getattr.py |
-| class_a | forbidden_construct:hasattr | class-a-construct-hasattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_hasattr.py |
-| class_a | forbidden_construct:cast | class-a-construct-cast | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_cast.py |
-| class_a | forbidden_construct:eval | class-a-construct-eval | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_eval.py |
-| class_a | forbidden_construct:exec | class-a-construct-exec | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_exec.py |
-| class_a | forbidden_construct:dynamic_import | class-a-construct-dynamic_import | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_dynamic_import.py |
-| class_a | forbidden_construct:type_ignore | class-a-construct-type_ignore | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_type_ignore.py |
-| class_a | forbidden_construct:any_annotation | class-a-construct-any_annotation | validate/report run | CONSTRUCT-NO-ANY, CONSTRUCT-NO-ANY | rule.violated, rule.violated | shop/model/probe_any_annotation.py |
-| class_a | forbidden_construct:placeholder_body | class-a-construct-placeholder_body | validate/report run | CONSTRUCT-NO-PLACEHOLDER | rule.violated | shop/model/probe_placeholder_body.py |
-| class_a | forbidden_construct:assert | class-a-construct-assert | validate/report run | CONSTRUCT-NO-ASSERT | rule.violated | shop/model/probe_assert.py |
-| class_a | forbidden_construct:broad_except | class-a-construct-broad_except | validate/report run | CONSTRUCT-NO-BROAD-EXCEPT | rule.violated | shop/model/probe_broad_except.py |
-| class_a | forbidden_construct:setattr | class-a-construct-setattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_setattr.py |
-| class_a | forbidden_construct:delattr | class-a-construct-delattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_delattr.py |
-| class_a | forbidden_construct:vars | class-a-construct-vars | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_vars.py |
-| class_a | forbidden_construct:dunder_dict | class-a-construct-dunder_dict | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_dunder_dict.py |
-| class_a | forbidden_construct:string_literal_compare | class-a-construct-string_literal_compare | validate/report run | CONSTRUCT-NO-STRING-LITERAL-COMPARE, CONSTRUCT-NO-STRING-LITERAL-COMPARE, CONSTRUCT-NO-STRING-LITERAL-COMPARE | rule.violated, rule.violated, rule.violated | shop/model/probe_string_literal_compare.py |
-| class_a | forbidden_construct:exact_sources | class-a-broad-except-exact | validate/report run | CONSTRUCT-NO-BROAD-EXCEPT | rule.violated | shop/cli/main.py |
-| class_a | forbidden_construct:allowed_sources | class-a-broad-except-prefix | validate/report run | - | - | architecture-contract.json, shop/cli/main.py |
-| class_a | forbidden_construct:allowed_type_ignores | class-a-type-ignore-exact | validate/report run | - | - | architecture-contract.json, shop/model/probe_sql.py |
-| class_a | forbidden_construct:type_ignore_neighbors | class-a-type-ignore-neighbors | validate/report run | CONSTRUCT-NO-ANY, CONSTRUCT-NO-DYNAMIC, CONSTRUCT-NO-DYNAMIC, CONSTRUCT-NO-DYNAMIC, CONSTRUCT-NO-DYNAMIC | rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | architecture-contract.json, shop/model/probe_sql.py |
-| class_a | layer_order | class-a-layer-order | validate/report run | LAYERS-MODEL | rule.violated | architecture-contract.json, docs/architecture/shop.md |
-| class_a | complete_requires | class-a-complete-requires | validate/report run | REQUIRES-COMPLETE | rule.violated | architecture-contract.json |
-| class_a | complete_requires:include_type_checking | class-a-complete-requires-type-checking | validate/report run | REQUIRES-COMPLETE, REQUIRES-COMPLETE, REQUIRES-COMPLETE, REQUIRES-COMPLETE | rule.violated, rule.violated, rule.violated, rule.violated | architecture-contract.json |
-| class_a | complete_requires:inside | class-a-complete-requires-inside | validate/report run | store:STORE-REQUIRES-COMPLETE, store:STORE-REQUIRES-COMPLETE, store:STORE-REQUIRES-COMPLETE | rule.violated, rule.violated, rule.violated | shop/store/architecture-contract.json |
-| class_a | forbidden_construct:inside_clean | class-a-forbidden-construct-inside-clean | validate/report run | - | - | architecture-contract.json, shop/store/architecture-contract.json, shop/store/repository.py |
-| class_a | forbidden_construct:inside_violation | class-a-forbidden-construct-inside-violation | validate/report run | store:STORE-NO-EVAL | interface.usage_unknown, rule.violated | architecture-contract.json, shop/store/architecture-contract.json, shop/store/repository.py |
-| class_a | complete_requires:recursive_inside_clean | class-a-recursive-inside-clean | validate/report run | - | - | shop/store/architecture-contract.json, shop/store/backend/architecture-contract.json, shop/store/backend/tasks/__init__.py, shop/store/backend/tasks/architecture-contract.json, shop/store/backend/tasks/source.py, shop/store/backend/tasks/target.py |
-| class_a | complete_requires:recursive_inside_violation | class-a-recursive-inside-violation | validate/report run | store:backend:tasks:DEEP-REQUIRES-COMPLETE | rule.violated | shop/store/architecture-contract.json, shop/store/backend/architecture-contract.json, shop/store/backend/tasks/__init__.py, shop/store/backend/tasks/architecture-contract.json, shop/store/backend/tasks/source.py, shop/store/backend/tasks/target.py |
-| showcase | recursive_inside:wide_package | class-a-recursive-wide-package | validate/report run | - | - | shop/store/architecture-contract.json, shop/store/backend/architecture-contract.json, shop/store/backend/tasks/__init__.py, shop/store/backend/tasks/alpha.py, shop/store/backend/tasks/architecture-contract.json, shop/store/backend/tasks/bravo.py, shop/store/backend/tasks/charlie.py, shop/store/backend/tasks/delta.py, shop/store/backend/tasks/echo.py, shop/store/backend/tasks/foxtrot.py, shop/store/backend/tasks/isolated.py, shop/store/backend/tasks/source.py, shop/store/backend/tasks/target.py |
-| class_a | interface_boundary:recursive_deep | class-a-recursive-deep-interface | validate/report run | store:backend:tasks:DEEP-INTERFACE | interface.planned_built, rule.violated | shop/store/architecture-contract.json, shop/store/backend/architecture-contract.json, shop/store/backend/tasks/__init__.py, shop/store/backend/tasks/alpha.py, shop/store/backend/tasks/architecture-contract.json, shop/store/backend/tasks/bravo.py, shop/store/backend/tasks/charlie.py, shop/store/backend/tasks/delta.py, shop/store/backend/tasks/echo.py, shop/store/backend/tasks/foxtrot.py, shop/store/backend/tasks/isolated.py, shop/store/backend/tasks/source.py, shop/store/backend/tasks/target.py |
-| validation | inside.child_contract:missing | validation-recursive-child-missing | validate/report run | - | contract.invalid | shop/store/architecture-contract.json, shop/store/backend/architecture-contract.json, shop/store/backend/tasks/__init__.py, shop/store/backend/tasks/alpha.py, shop/store/backend/tasks/bravo.py, shop/store/backend/tasks/charlie.py, shop/store/backend/tasks/delta.py, shop/store/backend/tasks/echo.py, shop/store/backend/tasks/foxtrot.py, shop/store/backend/tasks/isolated.py, shop/store/backend/tasks/source.py, shop/store/backend/tasks/target.py |
-| validation | inside.child_contract:cycle | validation-recursive-child-cycle | validate/report run | - | contract.invalid | shop/store/architecture-contract.json, shop/store/backend/architecture-contract.json, shop/store/backend/tasks/__init__.py, shop/store/backend/tasks/alpha.py, shop/store/backend/tasks/architecture-contract.json, shop/store/backend/tasks/bravo.py, shop/store/backend/tasks/charlie.py, shop/store/backend/tasks/delta.py, shop/store/backend/tasks/echo.py, shop/store/backend/tasks/foxtrot.py, shop/store/backend/tasks/isolated.py, shop/store/backend/tasks/source.py, shop/store/backend/tasks/target.py |
-| validation | inside.child_contract:unsupported | validation-recursive-child-unsupported | validate/report run | - | contract.invalid | shop/store/architecture-contract.json, shop/store/backend/architecture-contract.json, shop/store/backend/tasks/__init__.py, shop/store/backend/tasks/alpha.py, shop/store/backend/tasks/architecture-contract.json, shop/store/backend/tasks/bravo.py, shop/store/backend/tasks/charlie.py, shop/store/backend/tasks/delta.py, shop/store/backend/tasks/echo.py, shop/store/backend/tasks/foxtrot.py, shop/store/backend/tasks/isolated.py, shop/store/backend/tasks/source.py, shop/store/backend/tasks/target.py |
-| validation | against:deepest_inside_changed | against-recursive-deepest-contract-change | validate --against run | - | - | shop/store/architecture-contract.json, shop/store/backend/architecture-contract.json, shop/store/backend/tasks/__init__.py, shop/store/backend/tasks/alpha.py, shop/store/backend/tasks/architecture-contract.json, shop/store/backend/tasks/bravo.py, shop/store/backend/tasks/charlie.py, shop/store/backend/tasks/delta.py, shop/store/backend/tasks/echo.py, shop/store/backend/tasks/foxtrot.py, shop/store/backend/tasks/isolated.py, shop/store/backend/tasks/source.py, shop/store/backend/tasks/target.py |
-| validation | interface.lifecycle:recursive_public_unused | validation-recursive-interface-public-unused | validate/report run | - | interface.unused | shop/store/architecture-contract.json, shop/store/backend/architecture-contract.json, shop/store/backend/tasks/__init__.py, shop/store/backend/tasks/architecture-contract.json, shop/store/backend/tasks/source.py, shop/store/backend/tasks/target.py |
-| validation | interface.lifecycle:recursive_public_used | validation-recursive-interface-public-used | validate/report run | - | - | shop/store/architecture-contract.json, shop/store/backend/architecture-contract.json, shop/store/backend/tasks/__init__.py, shop/store/backend/tasks/architecture-contract.json, shop/store/backend/tasks/source.py, shop/store/backend/tasks/target.py |
-| validation | interface.lifecycle:recursive_planned_unused | validation-recursive-interface-planned-unused | validate/report run | - | - | shop/store/architecture-contract.json, shop/store/backend/architecture-contract.json, shop/store/backend/tasks/__init__.py, shop/store/backend/tasks/architecture-contract.json, shop/store/backend/tasks/source.py, shop/store/backend/tasks/target.py |
-| validation | interface.lifecycle:recursive_planned_used | validation-recursive-interface-planned-used | validate/report run | store:backend:tasks:DEEP-INTERFACE | interface.planned_built, rule.violated | shop/store/architecture-contract.json, shop/store/backend/architecture-contract.json, shop/store/backend/tasks/__init__.py, shop/store/backend/tasks/architecture-contract.json, shop/store/backend/tasks/source.py, shop/store/backend/tasks/target.py |
-| class_a | complete_external_scope | class-a-complete-external-scope | validate/report run | EXTERNAL-COMPLETE | rule.violated | shop/app/analytics.py |
-| class_a | forbidden_dependency:pair | class-a-forbidden-dependency-pair | validate/report run | DEP-RENDER-NO-STORE | closed_world.observed_forbidden, graph.drift, rule.violated | shop/render/text.py |
-| class_a | forbidden_dependency:target_symbol | class-a-forbidden-dependency-target-symbol | validate/report run | DEP-STORE-NO-MONEY | rule.violated | shop/store/repository.py |
-| class_a | forbidden_dependency:include_type_checking | class-a-forbidden-dependency-include-type-checking | validate/report run | DEP-APP-NO-STORE-SQLITE | rule.violated | architecture-contract.json |
-| class_a | forbidden_dependency:allowed_sources | class-a-forbidden-dependency-allowed-sources | validate/report run | DEP-APP-NO-STORE-SQLITE, DEP-APP-NO-STORE-SQLITE | rule.violated, rule.violated | architecture-contract.json |
-| class_a | external_dependency_scope | class-a-external-dependency-scope | validate/report run | EXTERNAL-JSON-STORE | rule.violated | shop/app/reporting.py |
-| class_a | complete_assignment | class-a-complete-assignment | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | shop/extra.py |
-| class_a | no_component_cycles | class-a-no-component-cycles | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/uses_render.py |
-| class_a | no_component_cycles:module_hidden | class-a-no-component-cycles-module-hidden | validate/report run | - | - | shop/model/alpha.py, shop/model/beta.py |
-| class_a | no_component_cycles:module | class-a-no-component-cycles-module | validate/report run | MODEL-MODULES-ACYCLIC | rule.violated | architecture-contract.json, shop/model/alpha.py, shop/model/beta.py |
-| showcase | report:partial_cycle_scan | report-partial-module-cycle-scan | validate/report run | - | reference.package_unscanned | architecture-contract.json, archkeel.toml, docs/architecture/shop.md, known-violations.json, shop/model/alpha.py, shop/model/beta.py |
-| class_a | no_component_cycles:package_rollup_only | class-a-package-cycle-rollup-only | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/uses_render.py |
-| class_a | no_component_cycles:package_backed | class-a-package-cycle-backed | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/entities.py |
-| class_a | decision:open | class-a-decision-open | validate/report run | - | decision.open | architecture-contract.json |
-| class_a | closed_world:duplicate | class-a-closed-world-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
-| class_a | allowed_dependency:duplicate | class-a-allowed-dependency-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
-| class_a | decision:conflict | class-a-decision-conflict | validate/report run | DEP-STORE-NO-MODEL-CONFLICT, DEP-STORE-NO-MODEL-CONFLICT, DEP-STORE-NO-MODEL-CONFLICT | closed_world.observed_forbidden, decision.conflict, rule.violated, rule.violated, rule.violated | architecture-contract.json |
-| class_a | sibling_isolation:peer import | class-a-sibling-isolation | validate/report run | STORE-PEERS-ISOLATED | rule.violated | shop/store/architecture-contract.json, shop/store/sqlite.py |
-| class_a | interface_boundary:public method type | class-a-interface-public-method-type | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | interface_boundary:private method type | class-a-interface-private-method-type | validate/report run | - | interface.unused | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | interface_boundary:underscore | class-a-interface-boundary-underscore | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/cli/main.py |
-| class_a | interface_boundary:undeclared symbol | class-a-interface-boundary-undeclared-symbol | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/cli/main.py |
-| class_a | interface_boundary:whole-module import | class-a-interface-boundary-whole-module | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/app/maintenance_report.py |
-| class_a | interface_boundary:__all__ gate | class-a-interface-boundary-all-gate | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/render/discount_probe.py |
-| class_a | interface_boundary:accepted re-export | class-a-interface-boundary-accepted-reexport | validate/report run | - | - | shop/app/accepted_reexport.py |
-| class_d | interface_profile:declared barrel | class-d-interface-profile-barrel | validate/report run | - | - | architecture-contract.json, shop/store/__init__.py, shop/store/architecture-contract.json |
-| class_a | interface_boundary:package attribute over submodule | class-a-interface-boundary-package-attribute-over-submodule | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/app/sqlite_probe.py, shop/store/__init__.py |
-| class_a | private_access:untyped parameter | class-a-private-attribute-untyped | validate/report run | - | - | shop/app/untyped_private.py |
-| class_a | private_access:top-level Any owner | class-a-private-attribute-any-owner | validate/report run | - | - | architecture-contract.json, shop/app/any_private.py |
-| clean | declarations.modules:present | target-module-present | validate/report run | - | - | architecture-contract.json |
-| clean | declarations.modules:absent | target-module-absent | validate/report run | - | - | architecture-contract.json |
-| clean | target.responsibilities:missing | target-empty-responsibilities | validate/report run | - | - | architecture-contract.json, shop/store/architecture-contract.json |
-| clean | target.hierarchy:declared | target-hierarchy-positive | validate/report run | - | - | architecture-contract.json, shop/store/architecture-contract.json |
-| clean | target.hierarchy:ambiguous-root | target-hierarchy-ambiguous | validate/report run | - | - | architecture-contract.json, shop/store/architecture-contract.json |
-| clean | target.hierarchy:missing-child | target-hierarchy-missing | validate/report run | - | - | architecture-contract.json, shop/store/architecture-contract.json |
-| clean | target.hierarchy:requirement-cycle | target-hierarchy-cycle | validate/report run | - | - | architecture-contract.json, docs/architecture/shop.md, shop/store/architecture-contract.json |
-| clean | root_layout:clean | class-a-root-layout-clean | validate/report run | - | - | clean sample |
-| clean | root_layout:nested-root | class-a-root-layout-nested-root | validate/report run | - | - | architecture-contract.json |
-| validation | root_layout:invalid-contract | validation-root-layout-invalid-child | validate/report run | - | contract.invalid | architecture-contract.json |
-| class_a | root_layout:unexpected-child | class-a-root-layout-violation | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | shop/rogue.py |
-| class_a | root_layout:empty-initializer | class-a-root-layout-empty-package | validate/report run | ROOT-LAYOUT | rule.violated | shop/extra/__init__.py |
-| class_a | root_layout:blank-first-line | class-a-root-layout-blank-first-line | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | shop/stray.py |
-| clean | test_scope:clean | test-scope-clean | validate/report --config archkeel-tests.toml run | - | - | clean sample |
-| class_a | symbol_placement:test-helper-outside-support | test-scope-helper-in-unit | validate/report --config archkeel-tests.toml run | TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-HELPERS-IN-SUPPORT, TESTS-REQUIRES-COMPLETE | graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | tests/integration/test_place_order.py, tests/support/orders.py, tests/unit/orders.py, tests/unit/test_entities.py |
-| class_a | root_layout:test-helper-at-root | test-scope-helper-at-root | validate/report --config archkeel-tests.toml run | TESTS-ASSIGNMENT-COMPLETE, TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-HELPERS-IN-SUPPORT, TESTS-ROOT-LAYOUT | graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | tests/integration/test_place_order.py, tests/orders.py, tests/support/orders.py, tests/unit/test_entities.py |
-| class_a | complete_requires:test-suite-crossing | test-scope-suite-crossing | validate/report --config archkeel-tests.toml run | TESTS-REQUIRES-COMPLETE | graph.drift, rule.violated | tests/unit/test_entities.py |
-| class_a | external_dependency_scope:test-suite-imports-product | test-scope-unit-imports-product | validate/report --config archkeel-tests.toml run | TESTS-EXTERNAL-SHOP | rule.violated | tests/unit/test_entities.py |
-| class_a | symbol_placement:exact_sources | class-a-symbol-placement | validate/report run | MODEL-TYPES-IN-ENTITIES | rule.violated | shop/model/promotions.py |
-| class_a | boundary_types:dict | class-a-boundary-types | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:proven_mapping | class-a-boundary-types-mapping | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:exact_open_mapping | class-a-boundary-types-mapping-allowed | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:exact_opaque_map_values | class-a-boundary-types-opaque-map-values | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:outer_map_keeps_opaque_values | class-a-boundary-types-opaque-map-values-missing | validate/report run | APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT | rule.violated, rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:opaque_map_keeps_unknown | class-a-boundary-types-opaque-map-values-unknown | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:exact_native_map_list_values | class-a-boundary-types-native-map-list-values | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:outer_map_keeps_native_list_values | class-a-boundary-types-native-map-list-values-missing | validate/report run | APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT | rule.violated, rule.violated, rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:unique_contained_mapping | class-a-boundary-types-contained-mapping | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:ambiguous_contained_mappings | class-a-boundary-types-contained-mapping-siblings | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:contained_mapping_unknown_member | class-a-boundary-types-contained-mapping-unknown | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:exact_builtin_dict | class-a-boundary-types-builtin-dict-allowed | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:omitted_root_path | class-a-boundary-types-direct-default | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:direct_allowance_keeps_neighbors | class-a-boundary-types-direct-neighbors | validate/report run | APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT | rule.violated, rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:shadowed_dict_unknown | class-a-boundary-types-shadowed-dict-unknown | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:exact_native_payload | class-a-boundary-types-native-payload | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:native_payload_keeps_controls | class-a-boundary-types-native-controls | validate/report run | APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT | rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:mixed_fail_unknown | class-a-boundary-types-mixed-evidence | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
-| class_a | boundary_types:declared_type | class-a-boundary-types-declared-type | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/discounts.py, shop/cli/main.py |
-| class_a | boundary_types:collection_element | class-a-boundary-types-in-collection | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/batches.py, shop/cli/main.py |
-| class_a | boundary_types:reexport | class-a-boundary-types-reexport | validate/report run | RENDER-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/cli/main.py, shop/render/__init__.py, shop/render/text.py |
-| class_a | boundary_types:reexport_aliases | class-a-boundary-types-reexport-aliases | validate/report run | RENDER-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/cli/main.py, shop/render/__init__.py, shop/render/text.py |
-| class_a | boundary_types:ordinary_reexport | class-a-boundary-types-ordinary-reexport | validate/report run | RENDER-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/cli/main.py, shop/render/facade.py, shop/render/text.py |
-| class_a | boundary_types:ordinary_reexport_chain | class-a-boundary-types-ordinary-reexport-chain-unknown | validate/report run | - | - | architecture-contract.json, shop/cli/main.py, shop/render/facade.py, shop/render/intermediate.py, shop/render/text.py |
-| class_a | boundary_types:owned_public_type | class-a-boundary-types-owned-public-type | validate/report run | - | - | architecture-contract.json, shop/app/api.py, shop/app/payloads.py, shop/cli/main.py |
-| class_a | boundary_types:owned_public_broad_field | class-a-boundary-types-owned-public-broad-field | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/api.py, shop/app/payloads.py, shop/cli/main.py |
-| class_a | boundary_types:datetime_leaf | class-a-boundary-types-datetime | validate/report run | - | - | architecture-contract.json, shop/app/api.py, shop/app/payloads.py, shop/cli/main.py |
-| class_a | boundary_types:external_datetime_unknown | class-a-boundary-types-datetime-external | validate/report run | - | - | architecture-contract.json, shop/app/api.py, shop/app/payloads.py, shop/cli/main.py |
-| class_a | boundary_types:broad_object_field | class-a-boundary-types-object-field | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/api.py, shop/app/payloads.py, shop/cli/main.py |
-| class_a | boundary_types:model_field | class-a-boundary-types-model-field | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/requests.py, shop/cli/main.py |
-| class_a | interface_boundary:inherited_generic_return | class-a-inherited-generic-return | validate/report run | - | - | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
-| class_a | boundary_types:inherited_concrete_return | class-a-inherited-generic-undeclared-return | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
-| class_a | boundary_types:inherited_concrete_collection | class-a-inherited-generic-undeclared-batch | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
-| class_a | interface_boundary:irrelevant_generic_argument | class-a-inherited-generic-unused | validate/report run | - | interface.unused | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
-| class_a | interface_boundary:ambiguous_inherited_generic | class-a-inherited-generic-ambiguous | validate/report run | - | interface.usage_unknown | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
-| class_a | interface_boundary:uncertain_inherited_reexport | class-a-inherited-generic-reexport-unknown | validate/report run | - | interface.usage_unknown | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/facade.py, shop/app/payloads.py, shop/app/service.py, shop/cli/inherited_consumer.py, shop/cli/main.py |
-| clean | boundary_types:local_inherited_method | class-a-inherited-local-declared | validate/report run | - | - | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
-| class_a | boundary_types:local_inherited_broad_return | class-a-inherited-local-broad | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
-| validation | boundary_types:incomplete_local_chain | class-a-inherited-local-unknown | validate/report run | - | - | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
-| validation | boundary_types:declared_accessor_candidates | class-a-owned-property-unknown | validate/report run | - | - | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
-| validation | public_api:inherited_field_missing | public-api-inherited-missing | validate/report run | - | api_surface.missing | architecture-contract.json, shop/model/public_api.py |
-| clean | public_api:inherited_field_declared | public-api-inherited-declared | validate/report run | - | - | architecture-contract.json, shop/model/public_api.py |
-| validation | public_api:unresolved_inheritance | public-api-inherited-unknown | validate/report run | - | - | architecture-contract.json, shop/model/public_api.py |
-| validation | public_api:class_alias_missing | public-api-alias-missing | validate/report run | - | api_surface.missing | architecture-contract.json, shop/app/orders.py, shop/model/public_api.py |
-| clean | public_api:class_alias_declared | public-api-alias-declared | validate/report run | - | - | architecture-contract.json, shop/app/orders.py, shop/model/public_api.py |
-| validation | requires.target:local | validation-requires-local-target | validate/report run | - | - | architecture-contract.json |
-| validation | requires.target:undeclared | validation-requires-target-unknown | validate/report run | - | contract.invalid | architecture-contract.json |
-| validation | component.label:duplicate | validation-component-label-duplicate | validate/report run | - | contract.invalid | architecture-contract.json |
-| validation | module.placement:clean | validation-module-placement-clean | validate/report run | - | - | shop/model/catalog.py |
-| validation | module.placement | validation-module-placement | validate/report run | COMP-MODEL, ROOT-LAYOUT | rule.violated, rule.violated | architecture-contract.json, shop/model_rules.py |
-| validation | interface.undeclared | validation-interface-undeclared | validate/report run | - | interface.undeclared | architecture-contract.json |
-| validation | interface.unused | validation-interface-unused | validate/report run | - | interface.unused | architecture-contract.json |
-| validation | interface.missing | validation-interface-missing | validate/report run | - | interface.missing | architecture-contract.json |
-| validation | api_surface.missing | validation-api-surface-missing | validate/report run | - | api_surface.missing | architecture-contract.json |
-| validation | api_surface.missing:not_in_all | validation-api-surface-not-exported | validate/report run | - | api_surface.missing | architecture-contract.json |
-| validation | interface.planned_built:not yet built | validation-interface-planned-not-built | validate/report run | - | - | architecture-contract.json |
-| validation | interface.planned_built:target work | validation-interface-planned-built | validate/report run | - | - | architecture-contract.json |
-| validation | interface.planned_built:reached | validation-interface-planned-built-reached | tested only | - | interface.planned_built | tests/test_validation.py |
-| validation | agent_decisions:agent-attributed | validation-agent-decisions-attributed | validate/report run | - | - | architecture-contract.json |
-| validation | rationale.placeholder | validation-rationale-placeholder | validate/report run | - | rationale.placeholder | architecture-contract.json |
-| validation | rationale.repeated | validation-rationale-repeated | validate/report run | - | rationale.repeated | architecture-contract.json |
-| validation | graph.count | validation-graph-count | validate/report run | - | graph.count | docs/architecture/shop.md |
-| validation | graph.drift:write-graph | validation-graph-drift-write-graph | validate/report run | - | graph.drift, graph.drift | architecture-contract.json |
-| validation | graph.drift:subgraph | validation-graph-drift-subgraph | validate/report run | - | graph.drift, graph.drift | architecture-contract.json, docs/architecture/shop.md |
-| validation | graph.drift:target-write-graph | validation-target-graph-drift-write-graph | validate/report run | - | graph.drift | architecture-contract.json |
-| validation | graph.drift:target-subgraph | validation-target-graph-drift-subgraph | validate/report run | - | graph.drift | architecture-contract.json, docs/architecture/shop.md |
-| validation | reference.namespace | validation-reference-namespace | validate/report run | - | reference.namespace | architecture-contract.json |
-| validation | reference.public_owner | validation-reference-public-owner | validate/report run | - | reference.public_owner | architecture-contract.json |
-| validation | reference.public_underscore | validation-reference-public-underscore | validate/report run | - | reference.public_underscore | architecture-contract.json |
-| validation | reference.provenance | validation-reference-provenance | validate/report run | - | reference.provenance | architecture-contract.json |
-| validation | reference.package_unscanned | validation-reference-package-unscanned | validate/report run | - | reference.package_unscanned | architecture-contract.json |
-| validation | contract.schema_version | validation-contract-schema-version | validate/report run | - | contract.schema_version | architecture-contract.json |
-| validation | contract.invalid | validation-contract-invalid | validate/report run | - | contract.invalid | architecture-contract.json |
-| validation | observation.incomplete | validation-observation-incomplete | tested only | - | - | tests/test_trace.py |
-| class_c | ContractDeclarations.measurement_budgets | validation-measurement-budget-clean | validate/report run | - | - | architecture-baseline.json, architecture-contract.json |
-| validation | measurement_budget:cycle_edges | validation-measurement-budget-rise | validate/report run | - | - | architecture-baseline.json, architecture-contract.json, shop/model/alpha.py, shop/model/beta.py |
-| validation | measurement_budget:calls_unresolved --against | validation-measurement-budget-call-sites | tested only | - | - | tests/test_unresolved_call_sites.py |
-| class_c | ContractDeclarations.facade_budgets | validation-facade-budget-clean | validate/report run | - | - | architecture-contract.json |
-| class_c | ContractDeclarations.coupling_budgets | validation-coupling-budget-clean | validate/report run | - | - | architecture-contract.json |
-| validation | budget.exceeded | validation-facade-budget-exceeded | validate/report run | - | budget.exceeded | architecture-contract.json, shop/model/entities.py |
-| validation | budget.exceeded:coupling | validation-coupling-budget-exceeded | validate/report run | - | budget.exceeded | architecture-contract.json, shop/app/export.py |
-| validation | budget.unknown | validation-facade-budget-unknown | validate/report run | - | budget.unknown | architecture-contract.json |
-| validation | budget.target_first | validation-facade-budget-target-first | validate/report run | - | - | architecture-baseline.json, architecture-contract.json |
-| validation | budget.ratchet | validation-facade-budget-ratchet | validate/report run | - | - | architecture-baseline.json, architecture-contract.json, shop/model/entities.py |
-| validation | baseline.invalid | validation-baseline-invalid | tested only | - | - | tests/test_baseline.py |
-| validation | baseline.accept_new | validation-baseline-accept-new | tested only | - | - | tests/test_cli.py |
-| validation | baseline.root_relative | validation-baseline-root-relative | tested only | - | - | tests/test_cli.py |
-| validation | baseline.roles | validation-baseline-roles | tested only | - | - | tests/test_baseline.py |
-| validation | baseline.role_evidence | validation-baseline-role-evidence | tested only | - | - | tests/test_widening.py |
-| validation | baseline.interface_narrowing | validation-baseline-interface-narrowing | validate/report run | - | - | architecture-contract.json, known-violations.json |
-| validation | baseline.subject_order | validation-baseline-subject-order | validate/report run | DEP-STORE-NO-MONEY | - | architecture-baseline.json, shop/store/repository.py |
-| validation | baseline.refused | validation-baseline-refused | validate --write-baseline run | DEP-STORE-NO-MONEY | - | architecture-baseline.json, shop/store/repository.py |
-| validation | against.invalid | validation-against-invalid | tested only | - | - | tests/test_widening.py |
-| validation | amendment.invalid | validation-amendment-invalid | tested only | - | - | tests/test_widening.py |
-| validation | inside.local_public | validation-inside-local-public | validate/report run | - | - | shop/store/architecture-contract.json |
-| validation | inside.direct_publication | validation-inside-direct-publication | validate/report run | - | - | architecture-contract.json, shop/app/readiness.py, shop/store/architecture-contract.json, shop/store/status-contract.json, shop/store/status.py |
-| validation | inside.direct_publication_private_parent | validation-inside-direct-publication-private-parent | validate/report run | INTERFACE-BOUNDARY | interface.unused, rule.violated | architecture-contract.json, shop/app/readiness.py, shop/store/architecture-contract.json, shop/store/status-contract.json, shop/store/status.py |
-| validation | interface.missing | validation-inside-public-module-missing | validate/report run | - | interface.missing | shop/store/architecture-contract.json |
-| validation | inside.public_mismatch | validation-inside-public-mismatch-retired | tested only | - | - | tests/test_inside_rule_parity.py |
-| validation | inside.forbidden_import | validation-inside-forbidden-import | validate/report run | - | inside.forbidden_import | shop/store/architecture-contract.json |
-| validation | contract.invalid:inside | validation-inside-contract-missing | validate/report run | DEP-STORE-NO-MONEY | contract.invalid, rule.violated | shop/store/architecture-contract.json, shop/store/repository.py |
-| validation | api_surface_unknown | validation-api-surface-unknown | validate/report run | - | - | architecture-contract.json |
-| validation | rule_without_subjects | validation-rule-without-subjects | validate/report run | - | - | architecture-contract.json |
-| validation | parse_error | validation-parse-error | validate/report run | - | - | shop/model/broken_syntax.py |
-| validation | scope_empty | validation-scope-empty | validate/report run | - | - | architecture-contract.json, shop/app/maintenance.py, shop/app/orders.py, shop/cli/main.py, shop/model/entities.py, shop/render/text.py, shop/store/__init__.py, shop/store/backend/__init__.py, shop/store/backend/files.py, shop/store/backend/paths.py, shop/store/codec.py, shop/store/repository.py, shop/store/sqlite.py |
-| validation | runtime_mismatch | validation-runtime-mismatch | validate/report run | - | - | pyproject.toml |
-| validation | missing_tool | validation-missing-tool | tested only | - | - | tests/test_analyzer.py |
-| validation | timeout | validation-timeout | tested only | - | - | tests/test_analyzer.py |
-| validation | incomparable_runtime | validation-incomparable-runtime | tested only | - | - | tests/test_runtime_delta.py |
-| validation | rule_unsupported_by_profile | validation-rule-unsupported-by-profile | tested only | - | - | tests/test_dart_profile.py |
-| validation | existing_files | validation-existing-files | tested only | - | - | tests/test_onboarding.py |
-| validation | filter_unknown | validation-filter-unknown | tested only | - | - | tests/test_report_filter.py |
-| validation | against:widened_unamended | against-widened-unamended | validate --against run | - | - | architecture-contract.json |
-| validation | against:widened_amended | against-widened-amended | validate --against run | - | - | architecture-contract.json |
-| validation | against:narrowed_only | against-narrowed-only | validate --against run | - | - | architecture-contract.json |
-| validation | against:boundary_types_added | against-boundary-types-added | validate --against run | - | - | architecture-contract.json |
-| validation | against:symbol_placement_added | against-symbol-placement-added | validate --against run | - | - | architecture-contract.json |
-| validation | against:boundary_types_removed | against-boundary-types-removed | validate --against run | - | - | architecture-contract.json |
-| validation | against:symbol_placement_removed | against-symbol-placement-removed | validate --against run | - | - | architecture-contract.json |
-| validation | against:budget_raised | against-facade-budget-raised | validate --against run | - | - | architecture-contract.json |
-| validation | against:cycle_rule_scoped | against-cycle-rule-scoped | validate --against run | - | - | architecture-contract.json |
-| validation | against:introduced_unamended | against-contract-introduced | validate --against run | - | - | mobile/architecture-contract.json, mobile/archkeel.toml, mobile/docs/architecture/shop.md, mobile/lib/data/client_io.dart, mobile/lib/data/client_stub.dart, mobile/lib/data/http_order_repository.dart, mobile/lib/domain/domain.dart, mobile/lib/domain/entities.dart, mobile/lib/domain/repository.dart, mobile/lib/main.dart, mobile/lib/presentation/order_page.dart, mobile/lib/presentation/order_page_state.dart, mobile/lib/presentation/order_tile.dart, mobile/pubspec.yaml |
-| validation | against:introduced_amended | against-contract-introduced-amended | validate --against run | - | - | mobile/architecture-contract.json, mobile/archkeel.toml, mobile/docs/architecture/shop.md, mobile/lib/data/client_io.dart, mobile/lib/data/client_stub.dart, mobile/lib/data/http_order_repository.dart, mobile/lib/domain/domain.dart, mobile/lib/domain/entities.dart, mobile/lib/domain/repository.dart, mobile/lib/main.dart, mobile/lib/presentation/order_page.dart, mobile/lib/presentation/order_page_state.dart, mobile/lib/presentation/order_tile.dart, mobile/pubspec.yaml |
-| validation | against:package_renamed | against-package-renamed | validate --against run | - | - | architecture-contract.json, shop/cli/main.py, shop/render/text.py, shop/view/text.py |
-| validation | against:package_renamed_widened | against-package-renamed-widened | validate --against run | - | - | architecture-contract.json, shop/cli/main.py, shop/render/text.py, shop/view/text.py |
-| validation | against:package_renamed_relocated_root | against-package-renamed-relocated-root | validate --against run | - | - | architecture-contract.json, archkeel.toml, lib/shop/app/maintenance.py, lib/shop/app/orders.py, lib/shop/cli/main.py, lib/shop/model/entities.py, lib/shop/store/__init__.py, lib/shop/store/backend/__init__.py, lib/shop/store/backend/files.py, lib/shop/store/backend/paths.py, lib/shop/store/codec.py, lib/shop/store/repository.py, lib/shop/store/sqlite.py, lib/shop/view/text.py, src/shop/app/maintenance.py, src/shop/app/orders.py, src/shop/cli/main.py, src/shop/model/entities.py, src/shop/render/text.py, src/shop/store/__init__.py, src/shop/store/backend/__init__.py, src/shop/store/backend/files.py, src/shop/store/backend/paths.py, src/shop/store/codec.py, src/shop/store/repository.py, src/shop/store/sqlite.py |
-| validation | dart:against:package_renamed | dart-against-package-renamed | validate --against run | - | - | G-dart: architecture-contract.json, archkeel.toml, lib/data/http_order_repository.dart, lib/main.dart, lib/presentation/order_page.dart, lib/presentation/order_page_state.dart, lib/presentation/order_tile.dart, lib/ui/order_page.dart, lib/ui/order_page_state.dart, lib/ui/order_tile.dart, pubspec.yaml |
-| protocol | ordered | protocol-ordered | check run | - | - | shop/render/order_summary.py |
-| protocol | host_order | protocol-published-after-candidate | check run | - | - | shop/render/order_summary.py |
-| protocol | git_order | protocol-candidate-changed-expectation | check run | - | - | shop/render/order_summary.py |
-| protocol | empty_declaration | protocol-empty-declaration | check run | - | - | shop/model/entities.py |
-| class_b | SCALARS:violations | class-b-check-scalar-violations | check run | - | - | shop/render/text.py |
-| class_b | GUARDRAIL_DIMENSIONS:violations | class-b-check-guardrail-violations | check run | - | - | shop/render/text.py |
-| class_b | SCALARS:private_crossings | class-b-scalar-private-crossings | check run | - | - | shop/cli/main.py |
-| class_b | GUARDRAIL_DIMENSIONS:private_crossings | class-b-guardrail-private-crossings | check run | - | - | shop/cli/main.py |
-| class_b | SCALARS:untyped_private_accesses | class-b-scalar-private-attribute-access | check run | - | - | shop/app/untyped_private.py |
-| class_b | GUARDRAIL_DIMENSIONS:unknowns:untyped attribute | class-b-guardrail-private-attribute-access | check run | - | - | shop/app/untyped_private.py |
-| class_b | SCALARS:unknown_positions | class-b-scalar-unknown-positions | check run | - | - | shop/app/orders.py |
-| class_b | SCALARS:cycle_edges | class-b-scalar-cycle-edges | check run | - | - | shop/model/uses_render.py |
-| class_b | GUARDRAIL_DIMENSIONS:cycles | class-b-check-guardrail-cycles | check run | - | - | shop/model/uses_render.py |
-| class_b | SCALARS:typing_positions | class-b-scalar-typing-positions | check run | - | - | shop/model/probe_type_ignore.py |
-| class_b | GUARDRAIL_DIMENSIONS:typing_signals | class-b-guardrail-typing-signals | check run | - | - | shop/model/probe_type_ignore.py |
-| class_b | SCALARS:calls_unresolved | class-b-scalar-calls-unresolved | check run | - | - | shop/app/probe_unresolved.py |
-| class_b | unresolved_ratio | class-b-check-unresolved-ratio | check run | - | - | shop/app/probe_unresolved.py |
-| class_b | SCALARS:coverage_failures | class-b-scalar-coverage-failures | tested only | - | - | tests/test_ratchets.py |
-| class_b | GUARDRAIL_DIMENSIONS:unknowns | class-b-guardrail-unknowns | tested only | - | - | tests/test_expectation.py |
-| class_b | GUARDRAIL_DIMENSIONS:dependency_edges | class-b-guardrail-dependency-edges | tested only | - | - | tests/test_expectation.py |
-| class_b | coverage_must_pass | class-b-coverage-must-pass | tested only | - | - | tests/test_expectation.py |
-| class_c | ContractDeclarations.capabilities | class-c-capabilities | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
-| class_c | ContractDeclarations.review_scopes | class-c-review-scopes | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
-| class_c | ContractDeclarations.public_api | class-c-public-api | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
-| class_c | ContractDeclarations.public_api_provenance | class-c-public-api-provenance | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
-| class_c | ContractDeclarations.public_commands | class-c-public-commands | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
-| class_c | ContractDeclarations.context_roots | class-c-context-roots | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
-| class_c | ContractDeclarations.context_roots_provenance | class-c-context-roots-provenance | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
-| class_c | ContractDeclarations.paths | class-c-paths | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
-| class_c | ContractDeclarations.spot_owners | class-c-spot-owners | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
-| class_c | ContractDeclarations.compat | class-c-compat | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
-| class_c | ContractDeclarations.modules | class-c-modules | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
-| class_d | review_claims | class-d-review-claims | tested only | - | - | docs/rules.md |
-| class_d | unreferenced_symbols:enum-member-reference | class-d-enum-member-reference | tested only | - | - | tests/test_references.py |
-| class_d | oversized_inside | class-d-oversized-inside | tested only | - | - | docs/rules.md |
-| class_d | type_fanin | class-d-type-fanin | tested only | - | - | docs/rules.md |
-| class_c | ContractDeclarations.uml | uml-match | validate/report run | - | - | H-uml: clean sample |
-| class_c | ContractDeclarations.uml | uml-mismatch | validate/report run | UML-TARGET-a2e40c5592b1b06a | rule.violated | H-uml: demo/core.py |
-| class_c | ContractDeclarations.uml | uml-partial | validate/report run | - | - | H-uml: demo/core.py |
-| class_c | ContractDeclarations.uml | uml-complete | validate/report run | - | - | H-uml: architecture-contract.json, demo/core.py |
-| class_c | ContractDeclarations.uml | uml-dart | validate/report run | - | - | H-uml-dart: clean sample |
-| class_c | ContractDeclarations.uml | uml-typescript | validate/report run | - | - | H-uml-typescript: archkeel.toml |
-| class_d | exact_module_ownership:package initializer | ownership-exact-module-positive | validate/report run | - | - | shop/store/architecture-contract.json |
-| class_d | exact_module_ownership:sibling import remains separate | ownership-exact-module-not-recursive | validate/report run | store:STORE-REQUIRES-COMPLETE | rule.violated | shop/store/architecture-contract.json, shop/store/backend/probe.py |
-| class_d | exact_module_ownership:competing owner | ownership-exact-module-ambiguous | validate/report run | ASSIGNMENT-COMPLETE, DEP-STORE-NO-APP | reference.public_owner | architecture-contract.json |
-| clean | dart:clean | dart-clean | validate/report run | - | - | G-dart: clean sample |
-| class_a | dart:forbidden_dependency | dart-forbidden-dart-io | validate/report run | DEP-DOMAIN-NO-DART-IO | rule.violated | G-dart: lib/domain/repository.dart |
-| class_a | dart:complete_requires | dart-complete-requires | validate/report run | REQUIRES-COMPLETE | graph.drift, rule.violated | G-dart: lib/data/http_order_repository.dart |
-| class_a | dart:no_component_cycles | dart-component-cycle | validate/report run | COMPONENT-NO-CYCLES, REQUIRES-COMPLETE | graph.drift, rule.violated, rule.violated | G-dart: lib/domain/repository.dart |
-| class_a | dart:complete_assignment | dart-complete-assignment | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | G-dart: lib/util/strings.dart |
-| class_a | dart:external_dependency_scope | dart-external-scope | validate/report run | EXTERNAL-HTTP-DATA | rule.violated | G-dart: lib/presentation/order_tile.dart |
-| class_a | dart:interface_boundary:show | dart-interface-show | validate/report run | INTERFACE-BOUNDARY | rule.violated | G-dart: lib/presentation/order_tile.dart |
-| class_a | dart:interface_boundary:unknown | dart-interface-unknown | validate/report run | - | - | G-dart: lib/presentation/order_tile.dart |
-| class_a | dart:interface_boundary:nested_unknown | dart-nested-interface-unknown | validate/report run | - | - | G-dart: architecture-contract.json, contracts/domain-core.json, contracts/domain.json |
-| class_a | dart:interface_boundary:nested_show | dart-nested-interface-show | validate/report run | - | - | G-dart: architecture-contract.json, contracts/domain-core.json, contracts/domain.json, lib/domain/repository.dart |
-| class_a | dart:interface_boundary:nested_mixed | dart-nested-interface-mixed | validate/report run | domain:core:INTERFACE | rule.violated | G-dart: architecture-contract.json, contracts/domain-core.json, contracts/domain.json, lib/domain/repository.dart |
-| class_a | dart:forbidden_dependency:nested_unknown | dart-nested-forbidden-symbol-unknown | validate/report run | - | - | G-dart: architecture-contract.json, contracts/domain-core.json, contracts/domain.json |
-| validation | dart:rule_unsupported_by_profile:rule | dart-unsupported-rule | validate/report run | - | - | G-dart: architecture-contract.json |
-| validation | dart:rule_unsupported_by_profile:measurement_budget | dart-unsupported-budget | validate/report run | - | - | G-dart: architecture-baseline.json, architecture-contract.json |
-| validation | dart:parse_error | dart-unreadable-header | validate/report run | - | - | G-dart: lib/presentation/order_badge.dart |
-| showcase | dart:tour | dart-tour | validate/report run | ASSIGNMENT-COMPLETE, COMPONENT-NO-CYCLES, DEP-DOMAIN-NO-DART-IO, EXTERNAL-HTTP-DATA, INTERFACE-BOUNDARY, REQUIRES-COMPLETE, REQUIRES-COMPLETE, ROOT-LAYOUT | graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | G-dart: lib/data/http_order_repository.dart, lib/domain/repository.dart, lib/presentation/order_tile.dart, lib/util/strings.dart |
+| Variant | Demo | Rule ids | Diagnostic codes | Evidence / sample |
+|---|---|---|---|---|
+| tour | validate/report run | APP-TYPES-NOT-DICT, ASSIGNMENT-COMPLETE, COMPONENT-NO-CYCLES, CONSTRUCT-NO-ANY, CONSTRUCT-NO-ASSERT, CONSTRUCT-NO-BROAD-EXCEPT, CONSTRUCT-NO-DYNAMIC, CONSTRUCT-NO-DYNAMIC, DEP-APP-NO-STORE-BACKEND, DEP-APP-NO-STORE-SQLITE, DEP-MODEL-NO-RENDER, DEP-RENDER-NO-STORE, DEP-STORE-NO-MONEY, EXTERNAL-COMPLETE, EXTERNAL-JSON-STORE, INTERFACE-BOUNDARY, LAYERS-MODEL, MODEL-TYPES-IN-ENTITIES, ROOT-LAYOUT, STORE-PEERS-ISOLATED, store:STORE-REQUIRES-COMPLETE | closed_world.observed_forbidden, closed_world.observed_forbidden, graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | - |
+| clean | validate/report run | - | - | - |
+| class-a-compatibility-clean | validate/report run | - | - | - |
+| class-a-compatibility-migration | validate/report run | - | - | - |
+| class-a-compatibility-effectful | validate/report run | - | compatibility.invalid, compatibility.invalid | - |
+| class-a-compatibility-product-import | validate/report run | - | compatibility.invalid | - |
+| class-a-compatibility-wrong-export | validate/report run | - | compatibility.invalid | - |
+| against-compatibility-added | validate --against run | - | - | - |
+| against-compatibility-promoted | validate --against run | - | - | - |
+| class-a-construct-getattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | - |
+| class-a-construct-hasattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | - |
+| class-a-construct-cast | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | - |
+| class-a-construct-eval | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | - |
+| class-a-construct-exec | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | - |
+| class-a-construct-dynamic_import | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | - |
+| class-a-construct-type_ignore | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | - |
+| class-a-construct-any_annotation | validate/report run | CONSTRUCT-NO-ANY, CONSTRUCT-NO-ANY | rule.violated, rule.violated | - |
+| class-a-construct-placeholder_body | validate/report run | CONSTRUCT-NO-PLACEHOLDER | rule.violated | - |
+| class-a-construct-assert | validate/report run | CONSTRUCT-NO-ASSERT | rule.violated | - |
+| class-a-construct-broad_except | validate/report run | CONSTRUCT-NO-BROAD-EXCEPT | rule.violated | - |
+| class-a-construct-setattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | - |
+| class-a-construct-delattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | - |
+| class-a-construct-vars | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | - |
+| class-a-construct-dunder_dict | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | - |
+| class-a-construct-string_literal_compare | validate/report run | CONSTRUCT-NO-STRING-LITERAL-COMPARE, CONSTRUCT-NO-STRING-LITERAL-COMPARE, CONSTRUCT-NO-STRING-LITERAL-COMPARE | rule.violated, rule.violated, rule.violated | - |
+| class-a-broad-except-exact | validate/report run | CONSTRUCT-NO-BROAD-EXCEPT | rule.violated | - |
+| class-a-broad-except-prefix | validate/report run | - | - | - |
+| class-a-type-ignore-exact | validate/report run | - | - | - |
+| class-a-type-ignore-neighbors | validate/report run | CONSTRUCT-NO-ANY, CONSTRUCT-NO-DYNAMIC, CONSTRUCT-NO-DYNAMIC, CONSTRUCT-NO-DYNAMIC, CONSTRUCT-NO-DYNAMIC | rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | - |
+| class-a-layer-order | validate/report run | LAYERS-MODEL | rule.violated | - |
+| class-a-complete-requires | validate/report run | REQUIRES-COMPLETE | rule.violated | - |
+| class-a-complete-requires-type-checking | validate/report run | REQUIRES-COMPLETE, REQUIRES-COMPLETE, REQUIRES-COMPLETE, REQUIRES-COMPLETE | rule.violated, rule.violated, rule.violated, rule.violated | - |
+| class-a-complete-requires-inside | validate/report run | store:STORE-REQUIRES-COMPLETE, store:STORE-REQUIRES-COMPLETE, store:STORE-REQUIRES-COMPLETE | rule.violated, rule.violated, rule.violated | - |
+| class-a-forbidden-construct-inside-clean | validate/report run | - | - | - |
+| class-a-forbidden-construct-inside-violation | validate/report run | store:STORE-NO-EVAL | interface.usage_unknown, rule.violated | - |
+| class-a-recursive-inside-clean | validate/report run | - | - | - |
+| class-a-recursive-inside-violation | validate/report run | store:backend:tasks:DEEP-REQUIRES-COMPLETE | rule.violated | - |
+| class-a-recursive-wide-package | validate/report run | - | - | - |
+| class-a-recursive-deep-interface | validate/report run | store:backend:tasks:DEEP-INTERFACE | interface.planned_built, rule.violated | - |
+| validation-recursive-child-missing | validate/report run | - | contract.invalid | - |
+| validation-recursive-child-cycle | validate/report run | - | contract.invalid | - |
+| validation-recursive-child-unsupported | validate/report run | - | contract.invalid | - |
+| against-recursive-deepest-contract-change | validate --against run | - | - | - |
+| validation-recursive-interface-public-unused | validate/report run | - | interface.unused | - |
+| validation-recursive-interface-public-used | validate/report run | - | - | - |
+| validation-recursive-interface-planned-unused | validate/report run | - | - | - |
+| validation-recursive-interface-planned-used | validate/report run | store:backend:tasks:DEEP-INTERFACE | interface.planned_built, rule.violated | - |
+| class-a-complete-external-scope | validate/report run | EXTERNAL-COMPLETE | rule.violated | - |
+| class-a-forbidden-dependency-pair | validate/report run | DEP-RENDER-NO-STORE | closed_world.observed_forbidden, graph.drift, rule.violated | - |
+| class-a-forbidden-dependency-target-symbol | validate/report run | DEP-STORE-NO-MONEY | rule.violated | - |
+| class-a-forbidden-dependency-include-type-checking | validate/report run | DEP-APP-NO-STORE-SQLITE | rule.violated | - |
+| class-a-forbidden-dependency-allowed-sources | validate/report run | DEP-APP-NO-STORE-SQLITE, DEP-APP-NO-STORE-SQLITE | rule.violated, rule.violated | - |
+| class-a-external-dependency-scope | validate/report run | EXTERNAL-JSON-STORE | rule.violated | - |
+| class-a-complete-assignment | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | - |
+| class-a-no-component-cycles | validate/report run | COMPONENT-NO-CYCLES | rule.violated | - |
+| class-a-no-component-cycles-module-hidden | validate/report run | - | - | - |
+| class-a-no-component-cycles-module | validate/report run | MODEL-MODULES-ACYCLIC | rule.violated | - |
+| report-partial-module-cycle-scan | validate/report run | - | reference.package_unscanned | - |
+| class-a-package-cycle-rollup-only | validate/report run | COMPONENT-NO-CYCLES | rule.violated | - |
+| class-a-package-cycle-backed | validate/report run | COMPONENT-NO-CYCLES | rule.violated | - |
+| class-a-decision-open | validate/report run | - | decision.open | - |
+| class-a-closed-world-duplicate | validate/report run | - | closed_world.duplicate | - |
+| class-a-allowed-dependency-duplicate | validate/report run | - | closed_world.duplicate | - |
+| class-a-decision-conflict | validate/report run | DEP-STORE-NO-MODEL-CONFLICT, DEP-STORE-NO-MODEL-CONFLICT, DEP-STORE-NO-MODEL-CONFLICT | closed_world.observed_forbidden, decision.conflict, rule.violated, rule.violated, rule.violated | - |
+| class-a-sibling-isolation | validate/report run | STORE-PEERS-ISOLATED | rule.violated | - |
+| class-a-interface-public-method-type | validate/report run | - | - | - |
+| class-a-interface-private-method-type | validate/report run | - | interface.unused | - |
+| class-a-interface-boundary-underscore | validate/report run | INTERFACE-BOUNDARY | rule.violated | - |
+| class-a-interface-boundary-undeclared-symbol | validate/report run | INTERFACE-BOUNDARY | rule.violated | - |
+| class-a-interface-boundary-whole-module | validate/report run | INTERFACE-BOUNDARY | rule.violated | - |
+| class-a-interface-boundary-all-gate | validate/report run | INTERFACE-BOUNDARY | rule.violated | - |
+| class-a-interface-boundary-accepted-reexport | validate/report run | - | - | - |
+| class-d-interface-profile-barrel | validate/report run | - | - | - |
+| class-a-interface-boundary-package-attribute-over-submodule | validate/report run | INTERFACE-BOUNDARY | rule.violated | - |
+| class-a-private-attribute-untyped | validate/report run | - | - | - |
+| class-a-private-attribute-any-owner | validate/report run | - | - | - |
+| target-module-present | validate/report run | - | - | - |
+| target-module-absent | validate/report run | - | - | - |
+| target-empty-responsibilities | validate/report run | - | - | - |
+| target-hierarchy-positive | validate/report run | - | - | - |
+| target-hierarchy-ambiguous | validate/report run | - | - | - |
+| target-hierarchy-missing | validate/report run | - | - | - |
+| target-hierarchy-cycle | validate/report run | - | - | - |
+| class-a-root-layout-clean | validate/report run | - | - | - |
+| class-a-root-layout-nested-root | validate/report run | - | - | - |
+| validation-root-layout-invalid-child | validate/report run | - | contract.invalid | - |
+| class-a-root-layout-violation | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | - |
+| class-a-root-layout-empty-package | validate/report run | ROOT-LAYOUT | rule.violated | - |
+| class-a-root-layout-blank-first-line | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | - |
+| test-scope-clean | validate/report --config archkeel-tests.toml run | - | - | - |
+| test-scope-helper-in-unit | validate/report --config archkeel-tests.toml run | TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-HELPERS-IN-SUPPORT, TESTS-REQUIRES-COMPLETE | graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | - |
+| test-scope-helper-at-root | validate/report --config archkeel-tests.toml run | TESTS-ASSIGNMENT-COMPLETE, TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-HELPERS-IN-SUPPORT, TESTS-ROOT-LAYOUT | graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | - |
+| test-scope-suite-crossing | validate/report --config archkeel-tests.toml run | TESTS-REQUIRES-COMPLETE | graph.drift, rule.violated | - |
+| test-scope-unit-imports-product | validate/report --config archkeel-tests.toml run | TESTS-EXTERNAL-SHOP | rule.violated | - |
+| class-a-symbol-placement | validate/report run | MODEL-TYPES-IN-ENTITIES | rule.violated | - |
+| class-a-boundary-types | validate/report run | APP-TYPES-NOT-DICT | rule.violated | - |
+| class-a-boundary-types-mapping | validate/report run | APP-TYPES-NOT-DICT | rule.violated | - |
+| class-a-boundary-types-mapping-allowed | validate/report run | - | - | - |
+| class-a-boundary-types-opaque-map-values | validate/report run | - | - | - |
+| class-a-boundary-types-opaque-map-values-missing | validate/report run | APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT | rule.violated, rule.violated | - |
+| class-a-boundary-types-opaque-map-values-unknown | validate/report run | - | - | - |
+| class-a-boundary-types-native-map-list-values | validate/report run | APP-TYPES-NOT-DICT | rule.violated | - |
+| class-a-boundary-types-native-map-list-values-missing | validate/report run | APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT | rule.violated, rule.violated, rule.violated | - |
+| class-a-boundary-types-contained-mapping | validate/report run | - | - | - |
+| class-a-boundary-types-contained-mapping-siblings | validate/report run | APP-TYPES-NOT-DICT | rule.violated | - |
+| class-a-boundary-types-contained-mapping-unknown | validate/report run | - | - | - |
+| class-a-boundary-types-builtin-dict-allowed | validate/report run | - | - | - |
+| class-a-boundary-types-direct-default | validate/report run | - | - | - |
+| class-a-boundary-types-direct-neighbors | validate/report run | APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT | rule.violated, rule.violated | - |
+| class-a-boundary-types-shadowed-dict-unknown | validate/report run | - | - | - |
+| class-a-boundary-types-native-payload | validate/report run | - | - | - |
+| class-a-boundary-types-native-controls | validate/report run | APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT | rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | - |
+| class-a-boundary-types-mixed-evidence | validate/report run | APP-TYPES-NOT-DICT | rule.violated | - |
+| class-a-boundary-types-declared-type | validate/report run | APP-TYPES-NOT-DICT | rule.violated | - |
+| class-a-boundary-types-in-collection | validate/report run | APP-TYPES-NOT-DICT | rule.violated | - |
+| class-a-boundary-types-reexport | validate/report run | RENDER-TYPES-NOT-DICT | rule.violated | - |
+| class-a-boundary-types-reexport-aliases | validate/report run | RENDER-TYPES-NOT-DICT | rule.violated | - |
+| class-a-boundary-types-ordinary-reexport | validate/report run | RENDER-TYPES-NOT-DICT | rule.violated | - |
+| class-a-boundary-types-ordinary-reexport-chain-unknown | validate/report run | - | - | - |
+| class-a-boundary-types-owned-public-type | validate/report run | - | - | - |
+| class-a-boundary-types-owned-public-broad-field | validate/report run | APP-TYPES-NOT-DICT | rule.violated | - |
+| class-a-boundary-types-datetime | validate/report run | - | - | - |
+| class-a-boundary-types-datetime-external | validate/report run | - | - | - |
+| class-a-boundary-types-object-field | validate/report run | APP-TYPES-NOT-DICT | rule.violated | - |
+| class-a-boundary-types-model-field | validate/report run | APP-TYPES-NOT-DICT | rule.violated | - |
+| class-a-inherited-generic-return | validate/report run | - | - | - |
+| class-a-inherited-generic-undeclared-return | validate/report run | APP-TYPES-NOT-DICT | rule.violated | - |
+| class-a-inherited-generic-undeclared-batch | validate/report run | APP-TYPES-NOT-DICT | rule.violated | - |
+| class-a-inherited-generic-unused | validate/report run | - | interface.unused | - |
+| class-a-inherited-generic-ambiguous | validate/report run | - | interface.usage_unknown | - |
+| class-a-inherited-generic-reexport-unknown | validate/report run | - | interface.usage_unknown | - |
+| class-a-inherited-local-declared | validate/report run | - | - | - |
+| class-a-inherited-local-broad | validate/report run | APP-TYPES-NOT-DICT | rule.violated | - |
+| class-a-inherited-local-unknown | validate/report run | - | - | - |
+| class-a-owned-property-unknown | validate/report run | - | - | - |
+| public-api-inherited-missing | validate/report run | - | api_surface.missing | - |
+| public-api-inherited-declared | validate/report run | - | - | - |
+| public-api-inherited-unknown | validate/report run | - | - | - |
+| public-api-alias-missing | validate/report run | - | api_surface.missing | - |
+| public-api-alias-declared | validate/report run | - | - | - |
+| validation-requires-local-target | validate/report run | - | - | - |
+| validation-requires-target-unknown | validate/report run | - | contract.invalid | - |
+| validation-component-label-duplicate | validate/report run | - | contract.invalid | - |
+| validation-module-placement-clean | validate/report run | - | - | - |
+| validation-module-placement | validate/report run | COMP-MODEL, ROOT-LAYOUT | rule.violated, rule.violated | - |
+| validation-interface-undeclared | validate/report run | - | interface.undeclared | - |
+| validation-interface-unused | validate/report run | - | interface.unused | - |
+| validation-interface-missing | validate/report run | - | interface.missing | - |
+| validation-api-surface-missing | validate/report run | - | api_surface.missing | - |
+| validation-api-surface-not-exported | validate/report run | - | api_surface.missing | - |
+| validation-interface-planned-not-built | validate/report run | - | - | - |
+| validation-interface-planned-built | validate/report run | - | - | - |
+| validation-interface-planned-built-reached | tested only | - | interface.planned_built | tests/test_validation.py |
+| validation-agent-decisions-attributed | validate/report run | - | - | - |
+| validation-rationale-placeholder | validate/report run | - | rationale.placeholder | - |
+| validation-rationale-repeated | validate/report run | - | rationale.repeated | - |
+| validation-graph-count | validate/report run | - | graph.count | - |
+| validation-graph-drift-write-graph | validate/report run | - | graph.drift, graph.drift | - |
+| validation-graph-drift-subgraph | validate/report run | - | graph.drift, graph.drift | - |
+| validation-target-graph-drift-write-graph | validate/report run | - | graph.drift | - |
+| validation-target-graph-drift-subgraph | validate/report run | - | graph.drift | - |
+| validation-reference-namespace | validate/report run | - | reference.namespace | - |
+| validation-reference-public-owner | validate/report run | - | reference.public_owner | - |
+| validation-reference-public-underscore | validate/report run | - | reference.public_underscore | - |
+| validation-reference-provenance | validate/report run | - | reference.provenance | - |
+| validation-reference-package-unscanned | validate/report run | - | reference.package_unscanned | - |
+| validation-contract-schema-version | validate/report run | - | contract.schema_version | - |
+| validation-contract-invalid | validate/report run | - | contract.invalid | - |
+| validation-observation-incomplete | tested only | - | - | tests/test_trace.py |
+| validation-measurement-budget-clean | validate/report run | - | - | - |
+| validation-measurement-budget-rise | validate/report run | - | - | - |
+| validation-measurement-budget-call-sites | tested only | - | - | tests/test_unresolved_call_sites.py |
+| validation-facade-budget-clean | validate/report run | - | - | - |
+| validation-coupling-budget-clean | validate/report run | - | - | - |
+| validation-facade-budget-exceeded | validate/report run | - | budget.exceeded | - |
+| validation-coupling-budget-exceeded | validate/report run | - | budget.exceeded | - |
+| validation-facade-budget-unknown | validate/report run | - | budget.unknown | - |
+| validation-facade-budget-target-first | validate/report run | - | - | - |
+| validation-facade-budget-ratchet | validate/report run | - | - | - |
+| validation-baseline-invalid | tested only | - | - | tests/test_baseline.py |
+| validation-baseline-accept-new | tested only | - | - | tests/test_cli.py |
+| validation-baseline-root-relative | tested only | - | - | tests/test_cli.py |
+| validation-baseline-roles | tested only | - | - | tests/test_baseline.py |
+| validation-baseline-role-evidence | tested only | - | - | tests/test_widening.py |
+| validation-baseline-interface-narrowing | validate/report run | - | - | - |
+| validation-baseline-subject-order | validate/report run | DEP-STORE-NO-MONEY | - | - |
+| validation-baseline-refused | validate --write-baseline run | DEP-STORE-NO-MONEY | - | - |
+| validation-against-invalid | tested only | - | - | tests/test_widening.py |
+| validation-amendment-invalid | tested only | - | - | tests/test_widening.py |
+| validation-inside-local-public | validate/report run | - | - | - |
+| validation-inside-direct-publication | validate/report run | - | - | - |
+| validation-inside-direct-publication-private-parent | validate/report run | INTERFACE-BOUNDARY | interface.unused, rule.violated | - |
+| validation-inside-public-module-missing | validate/report run | - | interface.missing | - |
+| validation-inside-public-mismatch-retired | tested only | - | - | tests/test_inside_rule_parity.py |
+| validation-inside-forbidden-import | validate/report run | - | inside.forbidden_import | - |
+| validation-inside-contract-missing | validate/report run | DEP-STORE-NO-MONEY | contract.invalid, rule.violated | - |
+| validation-api-surface-unknown | validate/report run | - | - | - |
+| validation-rule-without-subjects | validate/report run | - | - | - |
+| validation-parse-error | validate/report run | - | - | - |
+| validation-scope-empty | validate/report run | - | - | - |
+| validation-runtime-mismatch | validate/report run | - | - | - |
+| validation-missing-tool | tested only | - | - | tests/test_analyzer.py |
+| validation-timeout | tested only | - | - | tests/test_analyzer.py |
+| validation-incomparable-runtime | tested only | - | - | tests/test_runtime_delta.py |
+| validation-rule-unsupported-by-profile | tested only | - | - | tests/test_dart_profile.py |
+| validation-existing-files | tested only | - | - | tests/test_onboarding.py |
+| validation-filter-unknown | tested only | - | - | tests/test_report_filter.py |
+| against-widened-unamended | validate --against run | - | - | - |
+| against-widened-amended | validate --against run | - | - | - |
+| against-narrowed-only | validate --against run | - | - | - |
+| against-boundary-types-added | validate --against run | - | - | - |
+| against-symbol-placement-added | validate --against run | - | - | - |
+| against-boundary-types-removed | validate --against run | - | - | - |
+| against-symbol-placement-removed | validate --against run | - | - | - |
+| against-facade-budget-raised | validate --against run | - | - | - |
+| against-cycle-rule-scoped | validate --against run | - | - | - |
+| against-contract-introduced | validate --against run | - | - | - |
+| against-contract-introduced-amended | validate --against run | - | - | - |
+| against-package-renamed | validate --against run | - | - | - |
+| against-package-renamed-widened | validate --against run | - | - | - |
+| against-package-renamed-relocated-root | validate --against run | - | - | - |
+| dart-against-package-renamed | validate --against run | - | - | G-dart |
+| protocol-ordered | check run | - | - | - |
+| protocol-published-after-candidate | check run | - | - | - |
+| protocol-candidate-changed-expectation | check run | - | - | - |
+| protocol-empty-declaration | check run | - | - | - |
+| class-b-check-scalar-violations | check run | - | - | - |
+| class-b-check-guardrail-violations | check run | - | - | - |
+| class-b-scalar-private-crossings | check run | - | - | - |
+| class-b-guardrail-private-crossings | check run | - | - | - |
+| class-b-scalar-private-attribute-access | check run | - | - | - |
+| class-b-guardrail-private-attribute-access | check run | - | - | - |
+| class-b-scalar-unknown-positions | check run | - | - | - |
+| class-b-scalar-cycle-edges | check run | - | - | - |
+| class-b-check-guardrail-cycles | check run | - | - | - |
+| class-b-scalar-typing-positions | check run | - | - | - |
+| class-b-guardrail-typing-signals | check run | - | - | - |
+| class-b-scalar-calls-unresolved | check run | - | - | - |
+| class-b-check-unresolved-ratio | check run | - | - | - |
+| class-b-scalar-coverage-failures | tested only | - | - | tests/test_ratchets.py |
+| class-b-guardrail-unknowns | tested only | - | - | tests/test_expectation.py |
+| class-b-guardrail-dependency-edges | tested only | - | - | tests/test_expectation.py |
+| class-b-coverage-must-pass | tested only | - | - | tests/test_expectation.py |
+| class-c-capabilities | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class-c-review-scopes | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class-c-public-api | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class-c-public-api-provenance | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class-c-public-commands | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class-c-context-roots | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class-c-context-roots-provenance | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class-c-paths | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class-c-spot-owners | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class-c-compat | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class-c-modules | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class-d-review-claims | tested only | - | - | docs/rules.md |
+| class-d-enum-member-reference | tested only | - | - | tests/test_references.py |
+| class-d-oversized-inside | tested only | - | - | docs/rules.md |
+| class-d-type-fanin | tested only | - | - | docs/rules.md |
+| uml-match | validate/report run | - | - | H-uml |
+| uml-mismatch | validate/report run | UML-TARGET-a2e40c5592b1b06a | rule.violated | H-uml |
+| uml-partial | validate/report run | - | - | H-uml |
+| uml-complete | validate/report run | - | - | H-uml |
+| uml-dart | validate/report run | - | - | H-uml-dart |
+| uml-typescript | validate/report run | - | - | H-uml-typescript |
+| ownership-exact-module-positive | validate/report run | - | - | - |
+| ownership-exact-module-not-recursive | validate/report run | store:STORE-REQUIRES-COMPLETE | rule.violated | - |
+| ownership-exact-module-ambiguous | validate/report run | ASSIGNMENT-COMPLETE, DEP-STORE-NO-APP | reference.public_owner | - |
+| dart-clean | validate/report run | - | - | G-dart |
+| dart-forbidden-dart-io | validate/report run | DEP-DOMAIN-NO-DART-IO | rule.violated | G-dart |
+| dart-complete-requires | validate/report run | REQUIRES-COMPLETE | graph.drift, rule.violated | G-dart |
+| dart-component-cycle | validate/report run | COMPONENT-NO-CYCLES, REQUIRES-COMPLETE | graph.drift, rule.violated, rule.violated | G-dart |
+| dart-complete-assignment | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | G-dart |
+| dart-external-scope | validate/report run | EXTERNAL-HTTP-DATA | rule.violated | G-dart |
+| dart-interface-show | validate/report run | INTERFACE-BOUNDARY | rule.violated | G-dart |
+| dart-interface-unknown | validate/report run | - | - | G-dart |
+| dart-nested-interface-unknown | validate/report run | - | - | G-dart |
+| dart-nested-interface-show | validate/report run | - | - | G-dart |
+| dart-nested-interface-mixed | validate/report run | domain:core:INTERFACE | rule.violated | G-dart |
+| dart-nested-forbidden-symbol-unknown | validate/report run | - | - | G-dart |
+| dart-unsupported-rule | validate/report run | - | - | G-dart |
+| dart-unsupported-budget | validate/report run | - | - | G-dart |
+| dart-unreadable-header | validate/report run | - | - | G-dart |
+| dart-tour | validate/report run | ASSIGNMENT-COMPLETE, COMPONENT-NO-CYCLES, DEP-DOMAIN-NO-DART-IO, EXTERNAL-HTTP-DATA, INTERFACE-BOUNDARY, REQUIRES-COMPLETE, REQUIRES-COMPLETE, ROOT-LAYOUT | graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | G-dart |

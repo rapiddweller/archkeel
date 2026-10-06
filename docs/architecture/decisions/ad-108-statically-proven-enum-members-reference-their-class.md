@@ -6,9 +6,8 @@ field annotations, defaults and constructor arguments without executing code or
 exempting every enum. Other evidence, including an explicit import, keeps its
 existing meaning.
 
-Reason: the dotted resolver names `Enum.MEMBER`, which is not a symbol; the claim
-therefore missed real enum-class uses. Rejected: exempt every enum, which would
-hide genuinely unused classes. Limit: enum-member evidence is considered only
+The dotted resolver names `Enum.MEMBER`, which is not a symbol, and missed real
+enum-class uses. Exempting every enum would hide unused classes. Evidence applies only
 for one direct module-level class or import binding with no competing binder
 anywhere in that module. A binder in an unrelated scope can therefore suppress
 otherwise valid evidence; type-parameter declarations conservatively suppress it
@@ -18,7 +17,7 @@ required. The enum's defining binding must meet the same bound. Scanned attribut
 writes/deletes invalidate overlapping qualified targets; an ambiguous imported
 writer suppresses the augmentation. External writes leave unrelated enums alone.
 This is syntactic evidence, not proof of runtime immutability: assignments that
-copy an alias and dynamic mutation are not followed. No code is executed.
+copy an alias and dynamic mutation are not followed.
 
 Analyzer version 0.53.0 names the changed evidence (AD-3); package release versions
 and the contract schema are separate and unchanged here.

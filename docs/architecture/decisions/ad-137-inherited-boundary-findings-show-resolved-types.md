@@ -27,7 +27,6 @@ AD-121. Direct findings keep their current wording.
 
 ## Verification
 
-`tests/test_inherited_boundary_diagnostics.py` covers bare and collection substitutions,
-raw annotations, stable IDs/fingerprints, declaring the model, ambiguous UNKNOWN, and
-CLI/canonical/HTML output. The undeclared return and batch demos reproduce both findings;
-the existing declared and ambiguous inherited demos remain the controls.
+`tests/test_inherited_boundary_diagnostics.py` covers substitutions, source annotations,
+stable identities, UNKNOWN and CLI/JSON/HTML output. Undeclared return and batch demos
+reproduce both findings; declared and ambiguous inherited demos remain controls.

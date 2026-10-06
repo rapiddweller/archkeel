@@ -1,25 +1,24 @@
 # AD-9 Components declare their interface
 
-A component lists its interface in `public`: an
-entry `pkg.module` makes every non-underscore top-level name of that module public, or its
-`__all__` when present, and `pkg.module:Name` makes exactly one name public. The Class A rule
-`interface_boundary` accepts a cross-component import only when it reaches a declared name of the
-target component, directly or through its re-export chain; underscore names never qualify, and
-`TYPE_CHECKING` imports count unless `include_type_checking` is false. When an
-`interface_boundary` rule exists, validation reports a component with inbound imports but no
-`public`, and a `public` entry that no other component uses.
-`init` proposes a module entry when the module defines `__all__` or other components use at least
-half of its public names, and symbol entries otherwise, so a module entry admits at most twice the
-names in use. `declarations.public_api` names a different thing, a consumer *outside* this
-package, not one component's promise to another inside it -
-[AD-66](ad-66-declarationspublicapi-names-a-consumer-outside-the-package.md) narrows this
-paragraph's older reading of it ("stays valid but is superseded") now that AD-64 gave this
-repository such an outside surface to declare; read AD-66 for what checks it and why `public`'s
-own checks do not simply extend to it. The report derives a
-communication table per component edge: the used names with their parameter and return
-annotations, and `UNKNOWN` where an annotation is missing. Protocol conformance, labeled graphs
-and new regression measures are out of scope. Reason: Archkeel already checks which components
-talk; the interface states through what, so reaching into another component's internals requires
-a visible contract change. Check: violation probes in `tests/test_analyzer.py`, drift tests in
-`tests/test_validation.py`, Archkeel's own contract, and the measured profile in `docs/evidence/`.
+A component declares `public` as modules or symbols. `pkg.module` exposes its
+non-underscore top-level names, or its `__all__`; `pkg.module:Name` exposes one name.
+`interface_boundary` permits a cross-component import only through a declared
+name, directly or through re-exports. Underscore names never qualify.
+`TYPE_CHECKING` imports count unless `include_type_checking` is false.
 
+With this rule, validation reports inbound imports to a component without
+`public`, and unused `public` entries. `init` proposes a module entry when it
+has `__all__` or consumers use at least half its public names; otherwise it
+proposes symbols. A module entry therefore admits at most twice the names in use.
+
+`declarations.public_api` names consumers outside the package. [AD-66](ad-66-declarationspublicapi-names-a-consumer-outside-the-package.md)
+clarifies this older distinction after AD-64 introduced the external surface;
+component `public` checks do not automatically cover it.
+
+The report lists used interface names, parameter and return annotations per edge,
+and `UNKNOWN` for missing annotations. Protocol conformance, labeled graphs and
+new regression measures are out of scope. Declaring interfaces makes access to
+another component's internals a visible contract change.
+
+Check: `tests/test_analyzer.py`, drift tests in `tests/test_validation.py`, the
+self-contract and the measured profile in `docs/evidence/`.

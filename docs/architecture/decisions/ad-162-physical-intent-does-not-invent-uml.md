@@ -20,8 +20,8 @@ The graph derives intent from these records. Its independent contract producer a
 Changed references or declaration contents fail authentication. The adapter gains no graph
 or policy code.
 
-The common Target/Diff inspector shows file intent and layout permissions in
-expandable details. It creates no placeholder cards or selectable invisible elements.
+Target/Diff Details shows file intent and layout permissions without placeholder cards
+or selectable invisible elements.
 This covers root Contract 2.2 intent. Legacy Target, nested inventories and global
 API migration remain open. Existing Core rules still own physical validation;
 UML comparison does not add a second physical verdict.

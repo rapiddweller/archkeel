@@ -1,31 +1,14 @@
 # Archkeel architecture
 
-[UML model target](uml-model-target.md) covers classes, operations, visibility, typed
-relationships and static bindings. Shared IR dataclasses, generated schema, strict codecs and
-independent source and Target producers exist. Core evaluates recorded UML facts and coverage.
-As-Is modules and Contract 2.2 Target/Diff entities use the shared UML renderer (AD-160).
-Component intent retains roles, ownership and published/planned API selectors (AD-161).
-Root Contract 2.2 file inventories and layout permissions retain their distinct meaning (AD-162).
-Nested UML compiles to one authenticated Target with explicit component parents (AD-163).
-Both producers retain authenticated import permissions; existing Core rules own their verdict (AD-164).
-Diff retains unlisted relationships and Core's typed endpoint correspondences (AD-165).
-Observed-only Diff interiors retain source identity and use the shared renderer (AD-166).
-Legacy component and physical intent now compiles to an authenticated standard graph
-without adding a rule (AD-167). Global API intent retains declaration evidence (AD-168).
-Legacy permission scenes now retain shared graph identities and component details (AD-169).
-The browser now consumes one `ArchitectureReport`: observed and independent Target
-graphs, Core comparison, findings and ownership references (AD-179). All three diagrams
-share projection, navigation, notation, routes and hit geometry.
-ArchKeel's IR Target now declares the shared graph boundary's fields, methods,
-producer functions and typed imports/calls/references (AD-173). Other inner targets remain open.
-Python exposes richer static facts. Dart and TypeScript currently expose imports.
-Replaced Python projections are removed; tests use the shared graph and renderer.
-Missing source capabilities remain open.
+[The UML target](uml-model-target.md) defines shared entities, relationships,
+codecs and coverage. Core compares recorded source facts with independent,
+authenticated Target intent. One `ArchitectureReport` carries both graphs,
+comparison receipts, findings and ownership references (AD-179).
 
-[The render target](render-target.md) separates graph projection, HTML composition,
-shared result explanations and terminal formatting. Its nested contract holds
-ownership and dependency direction. Physical Target navigation reads the authenticated graph. An observation without an
-authenticated Target descriptor cannot supply a Target diagram (AD-179).
+[The render target](render-target.md) defines the shared As-Is, Target and Diff
+renderer. Missing authenticated Target data cannot produce a Target diagram.
+Python exposes richer static facts; Dart and TypeScript expose imports.
+Own inner Target coverage and source capabilities remain partial.
 
 [The contract](../../architecture-contract.json) owns component boundaries. Within-component
 imports remain allowed. Every cross-component pair is either observed or forbidden. Neither
@@ -72,174 +55,172 @@ Compatibility shims are declared at the contract top level, not inferred as a ge
 
 ## Decisions
 
-Each decision names its reason and the check that holds it. Code follows the decision; a change
-to a decision is recorded here before the code changes. Each decision now lives in its own file
-under `decisions/`, in the order the architecture record was written, because a later decision
-often explains an earlier one; the index below keeps that order.
+Each decision records its reason and check. Record a changed decision before
+changing code. The index preserves document order; later records can amend earlier ones.
 
 | Decision | Title |
 |---|---|
-| AD-1 | [Analyzer modules are flat and single-purpose](decisions/ad-01-analyzer-modules-are-flat-and-singlepurpose.md) |
-| AD-2 | [JSON has one type](decisions/ad-02-json-has-one-type.md) |
-| AD-3 | [The analyzer digest decides comparability; the version names it](decisions/ad-03-the-analyzer-digest-decides-comparability-the-version-names.md) |
-| AD-4 | [Module length alone does not justify a split](decisions/ad-04-module-length-alone-does-not-justify-a-split.md) |
-| AD-5 | [Invariants live where values are built](decisions/ad-05-invariants-live-where-values-are-built.md) |
-| AD-6 | [A function has one responsibility](decisions/ad-06-a-function-has-one-responsibility.md) |
-| AD-7 | [Determinism is measured, not assumed](decisions/ad-07-determinism-is-measured-not-assumed.md) |
-| AD-8 | [Statement constructs are Class A rules](decisions/ad-08-statement-constructs-are-class-a-rules.md) |
-| AD-9 | [Components declare their interface](decisions/ad-09-components-declare-their-interface.md) |
-| AD-10 | [The report draws component flow as intent against observation](decisions/ad-10-the-report-draws-component-flow-as-intent-against.md) |
-| AD-11 | [Every checkable item has a catalogued demo](decisions/ad-11-every-checkable-item-has-a-catalogued-demo.md) |
-| AD-12 | [Validation diagnostics carry a code](decisions/ad-12-validation-diagnostics-carry-a-code.md) |
-| AD-13 | [Mermaid diagrams are checked before GitHub renders them](decisions/ad-13-mermaid-diagrams-are-checked-before-github-renders-them.md) |
-| AD-14 | [The report headline follows its verdicts, never the exit code alone](decisions/ad-14-the-report-headline-follows-its-verdicts-never-the-exit.md) |
-| AD-15 | [Onboarding is a decision interview: the code proposes, the architect decides](decisions/ad-15-onboarding-is-a-decision-interview-the-code-proposes-the.md) |
-| AD-16 | [Onboarding defines a target architecture in two agent modes, and every decision records who made it](decisions/ad-16-onboarding-defines-a-target-architecture-in-two-agent-modes.md) |
-| AD-17 | [Archkeel's own target names its quality goals, and `ir` holds pure derivations](decisions/ad-17-archkeels-own-target-names-its-quality-goals-and-ir-holds.md) |
-| AD-18 | [A forbidden dependency supersedes the interface boundary on the same import](decisions/ad-18-a-forbidden-dependency-supersedes-the-interface-boundary-on.md) |
-| AD-19 | [Words for people are plain; identifiers for machines stay stable](decisions/ad-19-words-for-people-are-plain-identifiers-for-machines-stay.md) |
-| AD-20 | [A level is its own contract, never a nesting inside one contract](decisions/ad-20-a-level-is-its-own-contract-never-a-nesting-inside-one.md) |
-| AD-21 | [Structure measurements are derivations, never gates](decisions/ad-21-structure-measurements-are-derivations-never-gates.md) |
-| AD-22 | [The analyzer is a process port with a language profile](decisions/ad-22-the-analyzer-is-a-process-port-with-a-language-profile.md) |
-| AD-23 | [The report headline follows open decisions as well](decisions/ad-23-the-report-headline-follows-open-decisions-as-well.md) |
-| AD-24b | [Observed is not undecided](decisions/ad-24b-observed-is-not-undecided.md) |
-| AD-24a | [A module opens the same way, and its interface is what crosses its edge](decisions/ad-24a-a-module-opens-the-same-way-and-its-interface-is-what.md) |
-| AD-24 | [The report opens a component without requiring a decision](decisions/ad-24-the-report-opens-a-component-without-requiring-a-decision.md) |
-| AD-25 | [Peers are isolated by one rule, not by n·(n-1) prohibitions](decisions/ad-25-peers-are-isolated-by-one-rule-not-by-nn1-prohibitions.md) |
-| AD-26 | [A quality claim is a signal, a derivation and a claim, and never guesses](decisions/ad-26-a-quality-claim-is-a-signal-a-derivation-and-a-claim-and.md) |
-| AD-27 | [A type escape hatch is decided, not merely observed](decisions/ad-27-a-type-escape-hatch-is-decided-not-merely-observed.md) |
-| AD-28 | [An undeclared external dependency is a hole, not a detail](decisions/ad-28-an-undeclared-external-dependency-is-a-hole-not-a-detail.md) |
-| AD-29 | [A function that does nothing is a claim, not a stub](decisions/ad-29-a-function-that-does-nothing-is-a-claim-not-a-stub.md) |
-| AD-30 | [A declared owner is worth nothing until something can contradict it](decisions/ad-30-a-declared-owner-is-worth-nothing-until-something-can.md) |
-| AD-31 | [Deciding inside a component is opt-in, and only for pairs that exist](decisions/ad-31-deciding-inside-a-component-is-optin-and-only-for-pairs.md) |
-| AD-32 | [A component names what it requires; what it does not name is forbidden](decisions/ad-32-a-component-names-what-it-requires-what-it-does-not-name-is.md) |
-| AD-33 | [A component's inside is a level, not a list of pairs](decisions/ad-33-a-components-inside-is-a-level-not-a-list-of-pairs.md) |
-| AD-34 | [A declared inside is recorded, so the report draws it without reading a second contract](decisions/ad-34-a-declared-inside-is-recorded-so-the-report-draws-it.md) |
-| AD-35 | [Every review claim is counted on the run result, so the terminal and the JSON name what the page shows](decisions/ad-35-every-review-claim-is-counted-on-the-run-result-so-the.md) |
-| AD-36 | [A rule the inside declares is recorded and carried, so the verdict it produces survives every command](decisions/ad-36-a-rule-the-inside-declares-is-recorded-and-carried-so-the.md) |
-| AD-37 | [A receiver whose type is statically obvious resolves the stdlib method it calls](decisions/ad-37-a-receiver-whose-type-is-statically-obvious-resolves-the.md) |
-| AD-38 | [A drafted component carries the size `structure_metrics` already measures, so the architect sees what a per-child draft hides before deciding whether to consolidate](decisions/ad-38-a-drafted-component-carries-the-size-structuremetrics.md) |
-| AD-39 | [An empty `selected_changes` declares that nothing architectural changed](decisions/ad-39-an-empty-selectedchanges-declares-that-nothing.md) |
-| AD-40 | [A call whose callee the import binding proves, or whose receiver is already typed, types its result from a documented table](decisions/ad-40-a-call-whose-callee-the-import-binding-proves-or-whose.md) |
-| AD-41 | [Where `Any` may appear is a contract rule, not a test](decisions/ad-41-where-any-may-appear-is-a-contract-rule-not-a-test.md) |
-| AD-42 | [A `requires` entry may name the modules it goes through, and twelve prohibitions become that one permission](decisions/ad-42-a-requires-entry-may-name-the-modules-it-goes-through-and.md) |
-| AD-43 | [A candidate declares what it changed, not what the scanner counted or what every module already carries](decisions/ad-43-a-candidate-declares-what-it-changed-not-what-the-scanner.md) |
-| AD-44 | [An undeclared added dependency edge is a guardrail failure, closing the AD-39 Limit](decisions/ad-44-an-undeclared-added-dependency-edge-is-a-guardrail-failure.md) |
-| AD-45 | [`analyzer` declares a three-part inside, the way `check` already does (AD-20)](decisions/ad-45-analyzer-declares-a-threepart-inside-the-way-check-already.md) |
-| AD-46 | [`validate --write-graph` regenerates the marked component graph after a contract edit](decisions/ad-46-validate-writegraph-regenerates-the-marked-component-graph.md) |
-| AD-47 | [`init` breaks a tie between top-level packages with `pyproject.toml`'s `[project] name`, and with nothing else](decisions/ad-47-init-breaks-a-tie-between-toplevel-packages-with.md) |
-| AD-48 | [Reflection that writes, and a value compared with a string literal, are decided, not only reviewed](decisions/ad-48-reflection-that-writes-and-a-value-compared-with-a-string.md) |
-| AD-49 | [An allowance may name its module exactly, so a package root is scoped on its own](decisions/ad-49-an-allowance-may-name-its-module-exactly-so-a-package-root.md) |
-| AD-50 | [An edge and an interface record who decided them, and the agent-decision count counts them](decisions/ad-50-an-edge-and-an-interface-record-who-decided-them-and-the.md) |
-| AD-51 | [A result carries its violations grouped by rule and by crossed component pair](decisions/ad-51-a-result-carries-its-violations-grouped-by-rule-and-by.md) |
-| AD-52 | [A violation is named by what it is, and a baseline may hold the ones already there](decisions/ad-52-a-violation-is-named-by-what-it-is-and-a-baseline-may-hold.md) |
-| AD-53 | [`from pkg import name` follows `pkg/__init__.py`'s own binding before a same-named submodule](decisions/ad-53-from-pkg-import-name-follows-pkginitpys-own-binding-before.md) |
-| AD-54 | [A typed violation row is the one supported way to read a report's violations, and `ir.baseline` derives it once for everything that groups them](decisions/ad-54-a-typed-violation-row-is-the-one-supported-way-to-read-a.md) |
-| AD-55 | [The decision record splits into one file per decision, indexed in document order](decisions/ad-55-the-decision-record-splits-into-one-file-per-decision.md) |
-| AD-56 | [A public entry the scan never saw is missing, and planned exempts it until built](decisions/ad-56-a-public-entry-the-scan-never-saw-is-missing-and-planned.md) |
-| AD-57 | [A target graph marker draws the edges the contract permits](decisions/ad-57-a-target-graph-marker-draws-the-edges-the-contract-permits.md) |
-| AD-58 | [A class lives where its symbol_placement rule allows, and a facade's dict or object is all boundary_types decides](decisions/ad-58-a-class-lives-where-its-symbolplacement-rule-allows-and-a.md) |
-| AD-59 | [A type crossing many component boundaries is a review claim, not a verdict](decisions/ad-59-a-type-crossing-many-component-boundaries-is-a-review-claim.md) |
-| AD-60 | [report --only, --rule and --component narrow what a rendered report shows, never what it judged](decisions/ad-60-report-only-rule-and-component-narrow-what-a-rendered.md) |
-| AD-61 | [A widening fails unless an amendment binds its exact before and after digest](decisions/ad-61-a-widening-fails-unless-an-amendment-binds-its-exact-before.md) |
-| AD-62 | [An annotated variable's owner is the scope it is written in, not its bare name](decisions/ad-62-an-annotated-variables-owner-is-the-scope-it-is-written-in.md) |
-| AD-63 | [boundary_types reads a component's declared public list, not a naming convention](decisions/ad-63-boundarytypes-reads-a-components-declared-public-list-not-a.md) |
-| AD-64 | [`archkeel.api` is the declared external contract, and `ir` performs no I/O](decisions/ad-64-archkeelapi-is-the-declared-external-contract-and-ir.md) |
-| AD-65 | [A type a declared facade signature exposes is a used public entry](decisions/ad-65-a-type-a-declared-facade-signature-exposes-is-a-used.md) |
-| AD-66 | [`declarations.public_api` names a consumer outside the package, narrowing AD-9](decisions/ad-66-declarationspublicapi-names-a-consumer-outside-the-package.md) |
-| AD-67 | [An undecidable boundary position is UNKNOWN, not silence](decisions/ad-67-an-undecidable-boundary-position-is-unknown-not-silence.md) |
-| AD-68 | [`check` and `render` declare boundary_types, and the ten findings are declarations](decisions/ad-68-check-and-render-declare-boundarytypes-and-the-ten.md) |
-| AD-69 | [One annotation is read once, for both readers](decisions/ad-69-one-annotation-is-read-once-for-both-readers.md) |
-| AD-70 | [The external promise declares every type it hands out](decisions/ad-70-the-external-promise-declares-every-type-it-hands-out.md) |
-| AD-71 | [A promised name is checked against the module's own `__all__`](decisions/ad-71-a-promised-name-is-checked-against-the-modules-own-all.md) |
-| AD-72 | [A rule that could not decide everything reports UNKNOWN](decisions/ad-72-a-rule-that-could-not-decide-everything-reports-unknown.md) |
-| AD-73 | [The external surface is judged by the same walk](decisions/ad-73-the-external-surface-is-judged-by-the-same-walk.md) |
-| AD-74 | [A name bound twice is unresolvable, not a coin flip](decisions/ad-74-a-name-bound-twice-is-unresolvable-not-a-coin-flip.md) |
-| AD-75 | [An open report can focus on violations without changing evidence](decisions/ad-75-an-open-report-can-focus-on-violations-without-changing.md) |
-| AD-76 | [`boundary_types` and `symbol_placement` are restrictions in `--against`](decisions/ad-76-boundary-rules-are-restrictions-in-against.md) |
-| AD-77 | [An existing baseline is compared before it is written](decisions/ad-77-an-existing-baseline-is-compared-before-it-is-written.md) |
-| AD-78 | [Baseline fingerprints keep identity and record direction roles](decisions/ad-78-baseline-fingerprints-keep-identity-and-record-direction-roles.md) |
-| AD-79 | [A planned entry is target work until code reaches it](decisions/ad-79-planned-entry-is-target-work-until-reached.md) |
-| AD-80 | [`string_literal_compare` follows proven local string constants](decisions/ad-80-string-constant-comparisons-are-statically-resolved.md) |
-| AD-81 | [The project owns one fail-closed Make gate](decisions/ad-81-the-project-owns-one-fail-closed-make-gate.md) |
-| AD-82 | [A component namespace restricts placement, not ownership](decisions/ad-82-component-namespace-is-placement-not-ownership.md) |
-| AD-83 | [Private attribute access without owner evidence is UNKNOWN](decisions/ad-83-private-attribute-access-without-owner-evidence-is-unknown.md) |
-| AD-84 | [`boundary_types` follows declared facade re-exports and one field level](decisions/ad-84-boundary-types-follow-declared-facade-reexports.md) |
-| AD-85 | [A resolved importer reports the public-interface narrowing it proves](decisions/ad-85-a-resolved-importer-reports-interface-narrowing.md) |
-| AD-86 | [`root_layout` allows only declared immediate children](decisions/ad-86-root-layout-allows-only-declared-immediate-children.md) |
-| AD-87 | [Compatibility shims are declared, logic-free and time-bounded](decisions/ad-87-compatibility-shims-are-declared-logic-free-and-timebounded.md) |
-| AD-88 | [Declared facade measurements are observations, not budgets](decisions/ad-88-declared-facade-measurements-are-observations-not-budgets.md) |
-| AD-89 | [Selected measurements share the validation baseline](decisions/ad-89-selected-measurements-share-the-validation-baseline.md) |
-| AD-90 | [Decision-relevant evidence is never neutral metadata](decisions/ad-90-decision-relevant-evidence-is-never-neutral-metadata.md) |
-| AD-91 | [Top-level owner resolution decides private ownership UNKNOWN](decisions/ad-91-only-top-level-any-makes-private-owner-unknown.md) |
-| AD-92 | [Undecided declared evidence is UNKNOWN by default and measured](decisions/ad-92-undecided-declared-evidence-is-unknown-by-default.md) |
-| AD-93 | [`boundary_types` follows owned declared DTO fields](decisions/ad-93-boundary-types-follow-owned-dto-fields.md) |
-| AD-94 | [Boundary types resolve statically recognized aliases](decisions/ad-94-boundary-types-resolve-static-aliases.md) |
-| AD-95 | [A boundary type allowance names one nested field finding](decisions/ad-95-boundary-type-allowances-match-one-nested-field.md) |
-| AD-96 | [Boundary types resolve proven enum members in Literal](decisions/ad-96-boundary-types-resolve-enum-literals.md) |
-| AD-97 | [A Dart profile observes directives, and what it cannot see is UNKNOWN](decisions/ad-97-a-dart-profile-observes-directives-and-what-it-cannot-see-is-unknown.md) |
-| AD-98 | [A cycle rule names the level and the components it holds acyclic](decisions/ad-98-a-cycle-rule-names-the-level-and-scope-it-holds-acyclic.md) |
-| AD-99 | [Facade and coupling budgets are contract ceilings](decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md) |
-| AD-100 | [An unresolved-call change names its call sites](decisions/ad-100-an-unresolved-call-change-names-its-call-sites.md) |
-| AD-101 | [A second configuration governs a second scope at the same root](decisions/ad-101-a-second-configuration-governs-a-second-scope.md) |
-| AD-102 | [A constant JSON cannot hold is recorded without its value](decisions/ad-102-a-constant-json-cannot-hold-is-recorded-without-its-value.md) |
-| AD-103 | [Baseline and amendment paths are relative to --root](decisions/ad-103-baseline-and-amendment-paths-are-relative-to-root.md) |
-| AD-104 | [A contract the compared revision lacks is introduced](decisions/ad-104-a-contract-the-compared-revision-lacks-is-introduced.md) |
-| AD-105 | [A package rename is compared under its new names](decisions/ad-105-a-package-rename-is-compared-under-its-new-names.md) |
-| AD-106 | [A baseline entry names its violation in any subject order](decisions/ad-106-a-baseline-entry-names-its-violation-in-any-subject-order.md) |
-| AD-107 | [A module's file is its evidence, even when the file is empty](decisions/ad-107-a-modules-file-is-its-evidence-even-when-empty.md) |
-| AD-108 | [Statically proven enum members reference their class](decisions/ad-108-statically-proven-enum-members-reference-their-class.md) |
-| AD-109 | [`boundary_types` follows literal exports from ordinary modules](decisions/ad-109-boundary-types-follows-literal-all-in-ordinary-modules.md) |
-| AD-110 | [Inside rules use the shared evaluator](decisions/ad-110-inside-rules-use-the-shared-evaluator.md) |
-| AD-111 | [Explicit inside contracts form one revision-bound tree](decisions/ad-111-recursive-inside-contract-tree.md) |
-| AD-112 | [Public means public at that boundary](decisions/ad-112-local-publication-at-each-boundary.md) |
-| AD-113 | [Requires names a component at its own level](decisions/ad-113-requires-targets-belong-to-their-contract-level.md) |
-| AD-114 | [Symbol uncertainty survives nested contracts](decisions/ad-114-symbol-uncertainty-survives-nested-contracts.md) |
-| AD-115 | [Nested API lifecycle uses local evidence](decisions/ad-115-nested-api-lifecycle-uses-local-evidence.md) |
-| AD-116 | [Diagram filtering is an explicit choice](decisions/ad-116-diagram-filtering-is-an-explicit-choice.md) |
-| AD-117 | [Report verdicts require evaluator evidence](decisions/ad-117-report-verdicts-require-evaluator-evidence.md) |
-| AD-118 | [Structure review is not contract conformance](decisions/ad-118-structure-review-is-not-contract-conformance.md) |
-| AD-119 | [Index re-exports once per boundary pass](decisions/ad-119-index-reexports-once-per-boundary-pass.md) |
-| AD-120 | [Direct publication crosses only declared ancestors](decisions/ad-120-direct-publication-crosses-only-declared-ancestors.md) |
-| AD-121 | [Boundary methods are scoped to exported classes](decisions/ad-121-boundary-methods-are-scoped-to-exported-classes.md) |
-| AD-122 | [Required field wrappers keep their inner boundary type](decisions/ad-122-required-fields-keep-their-inner-boundary-type.md) |
-| AD-123 | [Proven mappings are broad boundary types](decisions/ad-123-proven-mappings-are-broad-boundary-types.md) |
-| AD-124 | [A rule PASS requires a complete scope receipt](decisions/ad-124-rule-pass-requires-complete-scope-receipt.md) |
-| AD-125 | [Target hierarchy is physical presentation](decisions/ad-125-target-hierarchy-is-physical-presentation.md) |
-| AD-126 | [Target ranking retains four unresolved stdlib calls](decisions/ad-126-target-ranking-call-budget.md) |
-| AD-127 | [A contained-map allowance needs one proven occurrence](decisions/ad-127-a-contained-map-allowance-needs-one-proven-occurrence.md) |
-| AD-128 | [Exact module ownership stays distinct from recursive packages](decisions/ad-128-exact-module-ownership-is-distinct-from-package-ownership.md) |
-| AD-129 | [Agent skills use native discovery and compact exports](decisions/ad-129-agent-skills-use-native-discovery.md) |
-| AD-130 | [Review starts with findings and snapshot evidence](decisions/ad-130-review-starts-with-findings.md) |
-| AD-131 | [Public API closure includes inherited fields](decisions/ad-131-public-api-includes-inherited-fields.md) |
-| AD-132 | [Datetime is a proven boundary scalar leaf](decisions/ad-132-datetime-is-a-proven-boundary-scalar-leaf.md) |
-| AD-133 | [Type-ignore allowances bind one occurrence](decisions/ad-133-type-ignore-allowances-bind-one-occurrence.md) |
-| AD-134 | [Omitted boundary paths select the direct position](decisions/ad-134-omitted-boundary-path-selects-the-direct-position.md) |
-| AD-135 | [Exact native payloads accept opacity](decisions/ad-135-exact-native-payloads-accept-opacity.md) |
-| AD-136 | [Regression checks hold independent ceilings](decisions/ad-136-regression-checks-hold-independent-ceilings.md) |
-| AD-137 | [Inherited boundary findings show resolved types](decisions/ad-137-inherited-boundary-findings-show-resolved-types.md) |
-| AD-138 | [JSON results have a published schema](decisions/ad-138-json-results-have-a-published-schema.md) |
-| AD-139 | [Target overview keeps readable names](decisions/ad-139-target-overview-keeps-readable-names.md) |
-| AD-140 | [Measure rule evidence without inventing passes](decisions/ad-140-measure-rule-evidence-without-inventing-passes.md) |
-| AD-141 | [GitHub events are bounded observations](decisions/ad-141-github-events-are-bounded-observations.md) |
-| AD-142 | [Opaque map values need exact decisions](decisions/ad-142-opaque-map-values-need-exact-decisions.md) |
-| AD-143 | [Initial PR head proves scoped order](decisions/ad-143-initial-pr-head-proves-scoped-order.md) |
-| AD-144 | [Diff retains navigation scope](decisions/ad-144-diff-retains-navigation-scope.md) |
-| AD-145 | [Local inherited methods use the existing base proof](decisions/ad-145-local-inherited-methods-use-the-existing-base-proof.md) |
-| AD-146 | [Analyzer identity selects the observation profile](decisions/ad-146-analyzer-identity-selects-observation-profile.md) |
-| AD-147 | [Revision snapshots preserve language inputs](decisions/ad-147-revision-snapshots-preserve-language-inputs.md) |
-| AD-148 | [Source facts and Core evaluation have separate owners](decisions/ad-148-source-facts-and-core-evaluation-have-separate-owners.md) |
-| AD-149 | [Uncertain publication retains inherited type candidates](decisions/ad-149-uncertain-publication-retains-inherited-type-candidates.md) |
-| AD-150 | [TypeScript imports use a pinned npm collector](decisions/ad-150-typescript-imports-use-a-pinned-npm-collector.md) |
-| AD-151 | [Unproven require references retain UNKNOWN](decisions/ad-151-unproven-require-references-retain-unknown.md) |
-| AD-152 | [Validated construct identity controls rules](decisions/ad-152-validated-construct-identity-controls-rules.md) |
-| AD-153 | [Unproven chains retain declared signatures](decisions/ad-153-unproven-chains-retain-declared-signatures.md) |
-| AD-154 | [Incomplete ownership names its module](decisions/ad-154-incomplete-ownership-names-its-module.md) |
-| AD-156 | [Self evidence keeps compact provenance](decisions/ad-156-self-evidence-keeps-compact-provenance.md) |
-| AD-155 | [Open dependency decisions share one remedy](decisions/ad-155-open-dependency-decisions-share-one-remedy.md) |
-| AD-157 | [Filtered JSON carries source locations](decisions/ad-157-filtered-json-carries-source-locations.md) |
-| AD-158 | [Onboarding guidance keeps drafts neutral](decisions/ad-158-onboarding-guidance-keeps-drafts-neutral.md) |
-| AD-159 | [Reports use reader-facing copy and native colors](decisions/ad-159-reports-use-reader-facing-copy-and-native-colors.md) |
+| AD-1 | [Flat analyzer modules](decisions/ad-01-analyzer-modules-are-flat-and-singlepurpose.md) |
+| AD-2 | [One JSON type](decisions/ad-02-json-has-one-type.md) |
+| AD-3 | [Analyzer comparability](decisions/ad-03-the-analyzer-digest-decides-comparability-the-version-names.md) |
+| AD-4 | [Module split criteria](decisions/ad-04-module-length-alone-does-not-justify-a-split.md) |
+| AD-5 | [Value invariants](decisions/ad-05-invariants-live-where-values-are-built.md) |
+| AD-6 | [Function responsibility](decisions/ad-06-a-function-has-one-responsibility.md) |
+| AD-7 | [Measured determinism](decisions/ad-07-determinism-is-measured-not-assumed.md) |
+| AD-8 | [Statement construct rules](decisions/ad-08-statement-constructs-are-class-a-rules.md) |
+| AD-9 | [Component interfaces](decisions/ad-09-components-declare-their-interface.md) |
+| AD-10 | [Intent and observed flow](decisions/ad-10-the-report-draws-component-flow-as-intent-against.md) |
+| AD-11 | [Rule demo coverage](decisions/ad-11-every-checkable-item-has-a-catalogued-demo.md) |
+| AD-12 | [Diagnostic codes](decisions/ad-12-validation-diagnostics-carry-a-code.md) |
+| AD-13 | [Mermaid validation](decisions/ad-13-mermaid-diagrams-are-checked-before-github-renders-them.md) |
+| AD-14 | [Verdict-driven headlines](decisions/ad-14-the-report-headline-follows-its-verdicts-never-the-exit.md) |
+| AD-15 | [Onboarding decisions](decisions/ad-15-onboarding-is-a-decision-interview-the-code-proposes-the.md) |
+| AD-16 | [Onboarding modes and authorship](decisions/ad-16-onboarding-defines-a-target-architecture-in-two-agent-modes.md) |
+| AD-17 | [Quality goals and pure IR](decisions/ad-17-archkeels-own-target-names-its-quality-goals-and-ir-holds.md) |
+| AD-18 | [Dependency violations supersede interface findings](decisions/ad-18-a-forbidden-dependency-supersedes-the-interface-boundary-on.md) |
+| AD-19 | [Plain copy, stable identifiers](decisions/ad-19-words-for-people-are-plain-identifiers-for-machines-stay.md) |
+| AD-20 | [One contract per level](decisions/ad-20-a-level-is-its-own-contract-never-a-nesting-inside-one.md) |
+| AD-21 | [Structure observations](decisions/ad-21-structure-measurements-are-derivations-never-gates.md) |
+| AD-22 | [Language process port](decisions/ad-22-the-analyzer-is-a-process-port-with-a-language-profile.md) |
+| AD-23 | [Headlines with open decisions](decisions/ad-23-the-report-headline-follows-open-decisions-as-well.md) |
+| AD-24b | [Observed versus undecided](decisions/ad-24b-observed-is-not-undecided.md) |
+| AD-24a | [Module navigation and crossing interfaces](decisions/ad-24a-a-module-opens-the-same-way-and-its-interface-is-what.md) |
+| AD-24 | [Opening undeclared interiors](decisions/ad-24-the-report-opens-a-component-without-requiring-a-decision.md) |
+| AD-25 | [Peer isolation](decisions/ad-25-peers-are-isolated-by-one-rule-not-by-nn1-prohibitions.md) |
+| AD-26 | [Review signals and claims](decisions/ad-26-a-quality-claim-is-a-signal-a-derivation-and-a-claim-and.md) |
+| AD-27 | [Type allowances](decisions/ad-27-a-type-escape-hatch-is-decided-not-merely-observed.md) |
+| AD-28 | [Undeclared external dependencies](decisions/ad-28-an-undeclared-external-dependency-is-a-hole-not-a-detail.md) |
+| AD-29 | [Placeholder body rules](decisions/ad-29-a-function-that-does-nothing-is-a-claim-not-a-stub.md) |
+| AD-30 | [Contradictable ownership claims](decisions/ad-30-a-declared-owner-is-worth-nothing-until-something-can.md) |
+| AD-31 | [Optional internal decisions](decisions/ad-31-deciding-inside-a-component-is-optin-and-only-for-pairs.md) |
+| AD-32 | [Closed-world requires](decisions/ad-32-a-component-names-what-it-requires-what-it-does-not-name-is.md) |
+| AD-33 | [Component interiors as levels](decisions/ad-33-a-components-inside-is-a-level-not-a-list-of-pairs.md) |
+| AD-34 | [Recorded inside contracts](decisions/ad-34-a-declared-inside-is-recorded-so-the-report-draws-it.md) |
+| AD-35 | [Shared review counts](decisions/ad-35-every-review-claim-is-counted-on-the-run-result-so-the.md) |
+| AD-36 | [Scoped inside rule verdicts](decisions/ad-36-a-rule-the-inside-declares-is-recorded-and-carried-so-the.md) |
+| AD-37 | [Typed stdlib receivers](decisions/ad-37-a-receiver-whose-type-is-statically-obvious-resolves-the.md) |
+| AD-38 | [Draft component size](decisions/ad-38-a-drafted-component-carries-the-size-structuremetrics.md) |
+| AD-39 | [Empty selected changes](decisions/ad-39-an-empty-selectedchanges-declares-that-nothing.md) |
+| AD-40 | [Documented call-result types](decisions/ad-40-a-call-whose-callee-the-import-binding-proves-or-whose.md) |
+| AD-41 | [Any placement rules](decisions/ad-41-where-any-may-appear-is-a-contract-rule-not-a-test.md) |
+| AD-42 | [Requires through selectors](decisions/ad-42-a-requires-entry-may-name-the-modules-it-goes-through-and.md) |
+| AD-43 | [Candidate-declared changes](decisions/ad-43-a-candidate-declares-what-it-changed-not-what-the-scanner.md) |
+| AD-44 | [Undeclared added-edge guardrail](decisions/ad-44-an-undeclared-added-dependency-edge-is-a-guardrail-failure.md) |
+| AD-45 | [Analyzer inside contract](decisions/ad-45-analyzer-declares-a-threepart-inside-the-way-check-already.md) |
+| AD-46 | [Marked graph regeneration](decisions/ad-46-validate-writegraph-regenerates-the-marked-component-graph.md) |
+| AD-47 | [Python package selection](decisions/ad-47-init-breaks-a-tie-between-toplevel-packages-with.md) |
+| AD-48 | [Reflection writes and string comparisons](decisions/ad-48-reflection-that-writes-and-a-value-compared-with-a-string.md) |
+| AD-49 | [Exact allowance scopes](decisions/ad-49-an-allowance-may-name-its-module-exactly-so-a-package-root.md) |
+| AD-50 | [Edge and interface authorship](decisions/ad-50-an-edge-and-an-interface-record-who-decided-them-and-the.md) |
+| AD-51 | [Grouped violation counts](decisions/ad-51-a-result-carries-its-violations-grouped-by-rule-and-by.md) |
+| AD-52 | [Violation fingerprints and baselines](decisions/ad-52-a-violation-is-named-by-what-it-is-and-a-baseline-may-hold.md) |
+| AD-53 | [Package import binding precedence](decisions/ad-53-from-pkg-import-name-follows-pkginitpys-own-binding-before.md) |
+| AD-54 | [Typed violation rows](decisions/ad-54-a-typed-violation-row-is-the-one-supported-way-to-read-a.md) |
+| AD-55 | [Decision-file index](decisions/ad-55-the-decision-record-splits-into-one-file-per-decision.md) |
+| AD-56 | [Missing versus planned interfaces](decisions/ad-56-a-public-entry-the-scan-never-saw-is-missing-and-planned.md) |
+| AD-57 | [Target graph marker](decisions/ad-57-a-target-graph-marker-draws-the-edges-the-contract-permits.md) |
+| AD-58 | [Class placement and boundary types](decisions/ad-58-a-class-lives-where-its-symbolplacement-rule-allows-and-a.md) |
+| AD-59 | [Cross-component type fan-in](decisions/ad-59-a-type-crossing-many-component-boundaries-is-a-review-claim.md) |
+| AD-60 | [Report filters](decisions/ad-60-report-only-rule-and-component-narrow-what-a-rendered.md) |
+| AD-61 | [Digest-bound widening amendments](decisions/ad-61-a-widening-fails-unless-an-amendment-binds-its-exact-before.md) |
+| AD-62 | [Annotated variable ownership](decisions/ad-62-an-annotated-variables-owner-is-the-scope-it-is-written-in.md) |
+| AD-63 | [Declared facade type checks](decisions/ad-63-boundarytypes-reads-a-components-declared-public-list-not-a.md) |
+| AD-64 | [External API facade](decisions/ad-64-archkeelapi-is-the-declared-external-contract-and-ir.md) |
+| AD-65 | [Facade-exposed public types](decisions/ad-65-a-type-a-declared-facade-signature-exposes-is-a-used.md) |
+| AD-66 | [External API declarations](decisions/ad-66-declarationspublicapi-names-a-consumer-outside-the-package.md) |
+| AD-67 | [Undecidable boundary positions](decisions/ad-67-an-undecidable-boundary-position-is-unknown-not-silence.md) |
+| AD-68 | [Own boundary policies](decisions/ad-68-check-and-render-declare-boundarytypes-and-the-ten.md) |
+| AD-69 | [One annotation reader](decisions/ad-69-one-annotation-is-read-once-for-both-readers.md) |
+| AD-70 | [Public API type closure](decisions/ad-70-the-external-promise-declares-every-type-it-hands-out.md) |
+| AD-71 | [Literal public exports](decisions/ad-71-a-promised-name-is-checked-against-the-modules-own-all.md) |
+| AD-72 | [Incomplete rule verdicts](decisions/ad-72-a-rule-that-could-not-decide-everything-reports-unknown.md) |
+| AD-73 | [Shared external type walk](decisions/ad-73-the-external-surface-is-judged-by-the-same-walk.md) |
+| AD-74 | [Ambiguous bindings](decisions/ad-74-a-name-bound-twice-is-unresolvable-not-a-coin-flip.md) |
+| AD-75 | [Local violation focus](decisions/ad-75-an-open-report-can-focus-on-violations-without-changing.md) |
+| AD-76 | [Boundary restrictions in comparison](decisions/ad-76-boundary-rules-are-restrictions-in-against.md) |
+| AD-77 | [Baseline comparison before writing](decisions/ad-77-an-existing-baseline-is-compared-before-it-is-written.md) |
+| AD-78 | [Directional baseline evidence](decisions/ad-78-baseline-fingerprints-keep-identity-and-record-direction-roles.md) |
+| AD-79 | [Planned interface promotion](decisions/ad-79-planned-entry-is-target-work-until-reached.md) |
+| AD-80 | [Static string constants](decisions/ad-80-string-constant-comparisons-are-statically-resolved.md) |
+| AD-81 | [Fail-closed Make gate](decisions/ad-81-the-project-owns-one-fail-closed-make-gate.md) |
+| AD-82 | [Physical component namespace](decisions/ad-82-component-namespace-is-placement-not-ownership.md) |
+| AD-83 | [Private attribute UNKNOWN](decisions/ad-83-private-attribute-access-without-owner-evidence-is-unknown.md) |
+| AD-84 | [Facade re-exports and fields](decisions/ad-84-boundary-types-follow-declared-facade-reexports.md) |
+| AD-85 | [Resolved-import interface narrowing](decisions/ad-85-a-resolved-importer-reports-interface-narrowing.md) |
+| AD-86 | [Immediate-child layout](decisions/ad-86-root-layout-allows-only-declared-immediate-children.md) |
+| AD-87 | [Time-bounded compatibility shims](decisions/ad-87-compatibility-shims-are-declared-logic-free-and-timebounded.md) |
+| AD-88 | [Facade observations](decisions/ad-88-declared-facade-measurements-are-observations-not-budgets.md) |
+| AD-89 | [Shared measurement baselines](decisions/ad-89-selected-measurements-share-the-validation-baseline.md) |
+| AD-90 | [Decision-relevant evidence](decisions/ad-90-decision-relevant-evidence-is-never-neutral-metadata.md) |
+| AD-91 | [Private owner resolution](decisions/ad-91-only-top-level-any-makes-private-owner-unknown.md) |
+| AD-92 | [UNKNOWN verdicts and measurements](decisions/ad-92-undecided-declared-evidence-is-unknown-by-default.md) |
+| AD-93 | [Owned DTO fields](decisions/ad-93-boundary-types-follow-owned-dto-fields.md) |
+| AD-94 | [Static type aliases](decisions/ad-94-boundary-types-resolve-static-aliases.md) |
+| AD-95 | [Exact nested-field allowances](decisions/ad-95-boundary-type-allowances-match-one-nested-field.md) |
+| AD-96 | [Enum Literal bindings](decisions/ad-96-boundary-types-resolve-enum-literals.md) |
+| AD-97 | [Dart directive profile](decisions/ad-97-a-dart-profile-observes-directives-and-what-it-cannot-see-is-unknown.md) |
+| AD-98 | [Scoped cycle rules](decisions/ad-98-a-cycle-rule-names-the-level-and-scope-it-holds-acyclic.md) |
+| AD-99 | [Facade and coupling ceilings](decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md) |
+| AD-100 | [Unresolved call sites](decisions/ad-100-an-unresolved-call-change-names-its-call-sites.md) |
+| AD-101 | [Separate scan scopes](decisions/ad-101-a-second-configuration-governs-a-second-scope.md) |
+| AD-102 | [Non-JSON constants](decisions/ad-102-a-constant-json-cannot-hold-is-recorded-without-its-value.md) |
+| AD-103 | [Root-relative policy paths](decisions/ad-103-baseline-and-amendment-paths-are-relative-to-root.md) |
+| AD-104 | [Introduced contracts](decisions/ad-104-a-contract-the-compared-revision-lacks-is-introduced.md) |
+| AD-105 | [Package renames](decisions/ad-105-a-package-rename-is-compared-under-its-new-names.md) |
+| AD-106 | [Baseline subject ordering](decisions/ad-106-a-baseline-entry-names-its-violation-in-any-subject-order.md) |
+| AD-107 | [Module file evidence](decisions/ad-107-a-modules-file-is-its-evidence-even-when-empty.md) |
+| AD-108 | [Enum-member references](decisions/ad-108-statically-proven-enum-members-reference-their-class.md) |
+| AD-109 | [Ordinary-module literal exports](decisions/ad-109-boundary-types-follows-literal-all-in-ordinary-modules.md) |
+| AD-110 | [Shared inside evaluators](decisions/ad-110-inside-rules-use-the-shared-evaluator.md) |
+| AD-111 | [Recursive revision-bound contracts](decisions/ad-111-recursive-inside-contract-tree.md) |
+| AD-112 | [Local publication boundaries](decisions/ad-112-local-publication-at-each-boundary.md) |
+| AD-113 | [Local requires targets](decisions/ad-113-requires-targets-belong-to-their-contract-level.md) |
+| AD-114 | [Nested symbol uncertainty](decisions/ad-114-symbol-uncertainty-survives-nested-contracts.md) |
+| AD-115 | [Nested API lifecycle](decisions/ad-115-nested-api-lifecycle-uses-local-evidence.md) |
+| AD-116 | [Explicit diagram filtering](decisions/ad-116-diagram-filtering-is-an-explicit-choice.md) |
+| AD-117 | [Evaluator-backed verdicts](decisions/ad-117-report-verdicts-require-evaluator-evidence.md) |
+| AD-118 | [Structure versus conformance](decisions/ad-118-structure-review-is-not-contract-conformance.md) |
+| AD-119 | [Re-export indexing](decisions/ad-119-index-reexports-once-per-boundary-pass.md) |
+| AD-120 | [Publication through ancestors](decisions/ad-120-direct-publication-crosses-only-declared-ancestors.md) |
+| AD-121 | [Exported inherited methods](decisions/ad-121-boundary-methods-are-scoped-to-exported-classes.md) |
+| AD-122 | [Required field wrappers](decisions/ad-122-required-fields-keep-their-inner-boundary-type.md) |
+| AD-123 | [Broad mapping types](decisions/ad-123-proven-mappings-are-broad-boundary-types.md) |
+| AD-124 | [Complete scope receipts](decisions/ad-124-rule-pass-requires-complete-scope-receipt.md) |
+| AD-125 | [Physical Target hierarchy](decisions/ad-125-target-hierarchy-is-physical-presentation.md) |
+| AD-126 | [Target call budget](decisions/ad-126-target-ranking-call-budget.md) |
+| AD-127 | [Unique contained-map allowances](decisions/ad-127-a-contained-map-allowance-needs-one-proven-occurrence.md) |
+| AD-128 | [Exact module ownership](decisions/ad-128-exact-module-ownership-is-distinct-from-package-ownership.md) |
+| AD-129 | [Native skill discovery](decisions/ad-129-agent-skills-use-native-discovery.md) |
+| AD-130 | [Findings-first review](decisions/ad-130-review-starts-with-findings.md) |
+| AD-131 | [Inherited public fields](decisions/ad-131-public-api-includes-inherited-fields.md) |
+| AD-132 | [Datetime scalar proof](decisions/ad-132-datetime-is-a-proven-boundary-scalar-leaf.md) |
+| AD-133 | [Exact type-ignore allowances](decisions/ad-133-type-ignore-allowances-bind-one-occurrence.md) |
+| AD-134 | [Direct boundary position selectors](decisions/ad-134-omitted-boundary-path-selects-the-direct-position.md) |
+| AD-135 | [Opaque native payloads](decisions/ad-135-exact-native-payloads-accept-opacity.md) |
+| AD-136 | [Independent regression ceilings](decisions/ad-136-regression-checks-hold-independent-ceilings.md) |
+| AD-137 | [Resolved inherited finding types](decisions/ad-137-inherited-boundary-findings-show-resolved-types.md) |
+| AD-138 | [Command-result schema](decisions/ad-138-json-results-have-a-published-schema.md) |
+| AD-139 | [Readable Target names](decisions/ad-139-target-overview-keeps-readable-names.md) |
+| AD-140 | [Rule evidence measurements](decisions/ad-140-measure-rule-evidence-without-inventing-passes.md) |
+| AD-141 | [Bounded GitHub observations](decisions/ad-141-github-events-are-bounded-observations.md) |
+| AD-142 | [Exact opaque-map values](decisions/ad-142-opaque-map-values-need-exact-decisions.md) |
+| AD-143 | [Initial PR causal receipt](decisions/ad-143-initial-pr-head-proves-scoped-order.md) |
+| AD-144 | [Diff scope navigation](decisions/ad-144-diff-retains-navigation-scope.md) |
+| AD-145 | [Effective inherited methods](decisions/ad-145-local-inherited-methods-use-the-existing-base-proof.md) |
+| AD-146 | [Analyzer profile identity](decisions/ad-146-analyzer-identity-selects-observation-profile.md) |
+| AD-147 | [Language-aware revision inputs](decisions/ad-147-revision-snapshots-preserve-language-inputs.md) |
+| AD-148 | [Source and policy ownership](decisions/ad-148-source-facts-and-core-evaluation-have-separate-owners.md) |
+| AD-149 | [Uncertain inherited publication](decisions/ad-149-uncertain-publication-retains-inherited-type-candidates.md) |
+| AD-150 | [Pinned TypeScript collector](decisions/ad-150-typescript-imports-use-a-pinned-npm-collector.md) |
+| AD-151 | [Unproven require references](decisions/ad-151-unproven-require-references-retain-unknown.md) |
+| AD-152 | [Validated construct identity](decisions/ad-152-validated-construct-identity-controls-rules.md) |
+| AD-153 | [Unproven signature candidates](decisions/ad-153-unproven-chains-retain-declared-signatures.md) |
+| AD-154 | [Incomplete module ownership](decisions/ad-154-incomplete-ownership-names-its-module.md) |
+| AD-156 | [Compact self provenance](decisions/ad-156-self-evidence-keeps-compact-provenance.md) |
+| AD-155 | [Shared open-decision remedy](decisions/ad-155-open-dependency-decisions-share-one-remedy.md) |
+| AD-157 | [Filtered source locations](decisions/ad-157-filtered-json-carries-source-locations.md) |
+| AD-158 | [Neutral onboarding drafts](decisions/ad-158-onboarding-guidance-keeps-drafts-neutral.md) |
+| AD-159 | [Report copy and colors](decisions/ad-159-reports-use-reader-facing-copy-and-native-colors.md) |
 | AD-160 | [Inner UML uses the standard graph](decisions/ad-160-inner-uml-uses-the-standard-graph.md) |
 | AD-161 | [Component intent retains boundary semantics](decisions/ad-161-component-intent-retains-boundary-semantics.md) |
 | AD-162 | [Physical intent does not invent UML](decisions/ad-162-physical-intent-does-not-invent-uml.md) |
@@ -293,16 +274,16 @@ often explains an earlier one; the index below keeps that order.
 
 | Edge | Reason |
 |---|---|
-| `api` → `ir` | Read one `architecture.json` report from disk and hand its bytes to `ir`'s codec and baseline derivations; `api` decodes nothing itself (AD-64). |
-| `cli` → `analyzer` | Supply the concrete, replaceable source analyzer to report and check workflows; `cli` composes, it does not analyze. |
-| `cli` → `check` | Invoke deterministic and stable report and check services from the composition root. |
-| `cli` → `host` | Supply the concrete, replaceable host-record loader to checks; `cli` composes, it does not fetch. |
+| `api` → `ir` | Read report bytes; delegate decoding and baseline derivation to `ir` (AD-64). |
+| `cli` → `analyzer` | Inject the source analyzer. |
+| `cli` → `check` | Invoke report and check workflows. |
+| `cli` → `host` | Inject the host-record loader. |
 | `cli` → `ir` | Serialize the typed observation through `ir.codec` for the legacy JSON compatibility result. |
-| `cli` → `render` | Project typed results through the replaceable render adapter, keeping `cli` a thin composition root. |
+| `cli` → `render` | Render typed results. |
 | `analyzer` → `ir` | Publish source facts through the protocol; Core owns observation and policy (AD-148). |
-| `check` → `ir` | Compare observations and return typed results without losing determinism or stability. |
-| `host` → `ir` | Construct validated host-record values through the stable evidence model, so `host` stays replaceable behind it. |
-| `render` → `ir` | Render typed evidence without importing policy implementations, so `render` stays replaceable behind the stable model. |
+| `check` → `ir` | Compare observations and return typed results. |
+| `host` → `ir` | Construct validated host records. |
+| `render` → `ir` | Read typed evidence without policy implementations. |
 
 <!-- archkeel-component-graph -->
 ```mermaid
@@ -319,10 +300,9 @@ flowchart LR
     render --> ir
 ```
 
-Every edge above is also a `requires` entry in the contract, so the graph the code observes and
-the graph the contract permits are the same set today ([AD-57](decisions/ad-57-a-target-graph-marker-draws-the-edges-the-contract-permits.md)).
-The block below is generated from `target_component_edges`, not hand-written; it will diverge from
-the graph above the day this repository takes on debt its own contract has not yet granted.
+Observed edges currently match declared `requires` permissions.
+The Target block is generated from `target_component_edges`
+([AD-57](decisions/ad-57-a-target-graph-marker-draws-the-edges-the-contract-permits.md)).
 
 <!-- archkeel-target-graph -->
 ```mermaid

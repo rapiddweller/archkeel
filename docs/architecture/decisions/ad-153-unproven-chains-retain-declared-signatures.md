@@ -19,6 +19,6 @@ increase. Direct signature policy and exit policy remain unchanged.
 Core observation version becomes `0.69.0`; the open payload gains optional scope detail.
 Formats and source collection are unchanged. Reobserve before comparing changed checker identities.
 
-`tests/test_owned_property_candidates.py` covers report, full validation, canonical round-trip,
-HTML, re-exports, source identity, scopes and annotations. Existing property/transport controls
+`tests/test_owned_property_candidates.py` covers validation, reports, round-trip encoding,
+re-exports and declaration evidence. Existing property/transport controls
 retain proven chains and reject missing or malformed proof.

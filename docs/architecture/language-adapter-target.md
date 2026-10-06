@@ -1,11 +1,8 @@
 # Language adapter target
 
 Status: approved. The process boundary, Python/Dart collectors, pinned TypeScript
-npm collector and Core evaluation split are implemented. Active
-contracts are `architecture-contract.json` plus
-`docs/architecture/contracts/{analyzer,python,dart,check,ir}.json`. These contracts declare the
-target; they do not certify parity or completion. Every integrated change must
-pass the local gate, independent acceptance and required cross-platform CI.
+npm collector and Core evaluation split are implemented. Acceptance remains
+subject to the local gate, independent review and required cross-platform CI.
 
 ## Boundary
 
@@ -34,8 +31,7 @@ Language adapters cannot import each other or Core evaluation.
 
 ## Physical structure
 
-Keep the existing seven top-level components. `check` is the Core's workflow and
-evaluation owner; a new generic `core/` package adds no necessary boundary.
+Keep the seven top-level components. `check` owns Core workflows and evaluation.
 
 ```text
 src/archkeel/ir/
@@ -61,9 +57,7 @@ packages/typescript-adapter/
 
 Python retains its specialist collectors. Shared graph algorithms live in
 `ir.graph`; dependency/scope aggregation and policy live in `check.evaluation`.
-Dart retains directive-only capability. TypeScript uses four source files
-because the compiler owns its AST and resolver. Add another internal
-component only when responsibilities require it.
+Dart retains directive-only capability. The TypeScript compiler owns its AST and resolver.
 
 ## Interfaces
 
@@ -115,7 +109,7 @@ A process boundary is not an operating-system sandbox.
 
 The active root contract retains the existing rules and mounts contracts for
 `analyzer`, `python`, `dart`, `check` and `ir` under `docs/architecture/contracts/`.
-This document records the target; active contracts do not certify parity or completion.
+Contracts declare the target; they do not certify parity or completion.
 The TypeScript npm package has its own
 `packages/typescript-adapter/architecture-contract.json` because the Python
 scanner cannot observe `.ts`.

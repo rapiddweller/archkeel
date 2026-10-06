@@ -1,8 +1,7 @@
 # AD-9 interface profile: measure before implementing
 
-Purpose: before building the `public` interface rule (AD-9), measure how many contract
-entries it would add and how exposed the crossing surface already is. `tools/interface_profile.py`
-reads an `architecture.json` and its contract and prints these counts; it changes nothing.
+Before implementing AD-9, `tools/interface_profile.py` measured crossing surfaces
+and proposed `public` entries from `architecture.json` and its contract. It changes nothing.
 
 ## Commands
 
@@ -40,19 +39,12 @@ uv run --locked python tools/interface_profile.py --anonymize \
 
 ## Go/no-go reading
 
-- Module-first cuts declared lines by roughly 75-78% against a symbol-only scheme in both
-  repositories; the `__all__`-or-half rule is doing real work, not a marginal one.
-- Module-first keeps the largest declared surface at 7 entries in Archkeel and 11 in the
-  service, against 68 and 58 symbol entries; a broad component stays visible as many
-  module entries instead of a long symbol list.
-- Zero UNKNOWN return/parameter positions on both crossing surfaces means the communication
-  table AD-9 proposes would be fully typed from day one - no annotation backlog blocks it.
-- Zero underscore crossings on both means `interface_boundary`'s "underscore never qualifies"
-  rule would reject nothing that is already relied upon; adopting it costs no rework.
-- Max names per edge (55-61) shows a few edges would need large `public` entries; those are
-  the modules the half-rule should route to a module entry, not dozens of symbol entries.
-- The service's 7 whole-module imports (absent in Archkeel) are the one real gap: `init` must
-  default a whole-module use to a module entry, since no per-name usage is observable there.
+- Module-first cuts declared lines by roughly 75-78%. Largest surfaces shrink
+  from 68/58 symbol entries to 7/11 module entries.
+- Both measured surfaces have zero UNKNOWN signature positions and underscore
+  crossings. Neither requires annotation or underscore-access rework for AD-9.
+- Edges with 55-61 names support the half-rule's module default.
+- The service's 7 whole-module imports require `init` to default to module
+  entries: per-name usage is unavailable.
 
-Conclusion: proceed with AD-9 as specified; the module-first default is worth building, and
-no data-quality gap (untyped signatures, underscore reliance) blocks it.
+These two profiles supported proceeding with AD-9's module-first default.

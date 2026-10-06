@@ -66,77 +66,37 @@ CATALOG: tuple[Variant, ...] = (
 )
 
 _INTRO = (
-    "Generated from `fixtures/architecture_demo.py`'s `CATALOG`. Every checkable item in the "
-    "decision records under `docs/architecture/decisions/` (indexed by "
-    "`docs/architecture/archkeel.md`, AD-11) has one row below: a named variant, the "
-    "rule ids and diagnostic codes (AD-12) it must produce, and either the shop sample "
-    "files it changes or the existing evidence that demonstrates it instead. Regenerate "
-    "with `python -m fixtures.architecture_demo --markdown`."
+    "Generated from [CATALOG](../fixtures/architecture_demo.py), which owns fixture overlays "
+    "and expected outcomes (AD-11). Rows use `fixtures/F-architecture` unless they name "
+    "another sample or existing test evidence. Regenerate with "
+    "`python -m fixtures.architecture_demo --markdown`."
 )
-_SHOWCASE_NOTE = (
-    "The `showcase` row below (`tour`) is the default demo view: it applies many overlays "
-    "at once so one run shows many violations together; every other row isolates one item."
-)
+_SHOWCASE_NOTE = "`tour` and `dart-tour` combine violations."
 _REPLAY_NOTE = (
-    "Replay a report-capable row with `python -m fixtures.architecture_demo --replay <variant> "
-    "--output <new-path>`; it emits a `validate` result, then writes the ordinary report JSON and "
-    "HTML sidecar. Report generation is always attempted; the command exit is the higher of "
-    "validation and report exits. A failed validation does not suppress a report whose own "
-    "inputs are valid; an invalid explicit baseline also rejects the report. "
-    "Baseline flags are used only when "
-    "the row declares one, and a declared baseline is passed to both commands; only "
-    "`deepest_inside_changed` replays its `--against` history. "
-    "Check-protocol and tested-only rows are excluded. "
-    "The destination files must not exist. `make demo-architecture VARIANT=<variant> "
-    "OUTPUT=<new-path>` delegates to the same command."
+    "Replay with `make demo-architecture VARIANT=<variant> OUTPUT=<new-path>`. "
+    "It validates the fixture and writes report JSON and HTML; the exit is the higher of both "
+    "command exits. A validation failure still permits a report with valid inputs. An invalid "
+    "explicit baseline rejects both commands. Catalog baselines apply to both; only "
+    "`deepest_inside_changed` replays `--against`. Check-protocol and tested-only rows cannot "
+    "replay as reports. Destination files must not exist."
 )
-_DART_NOTE = (
-    "Rows whose item starts with `dart:` run on `fixtures/G-dart`, a Flutter-style package "
-    'scanned with `language = "dart"` (AD-97); `dart-tour` is their showcase. Replay them '
-    "as one story with `make demo-dart`."
-)
+_DART_NOTE = "`make demo-dart` replays the Dart story from `fixtures/G-dart`."
 _TARGET_HIERARCHY_NOTE = (
-    "Target hierarchy rows exercise declared physical frames, missing and ambiguous placement, "
-    "and requirement cycles. Frames describe layout, not semantic ownership. Placement is "
-    "`declared`, `inferred`, `multiple`, `ambiguous` or `unmapped`; exact `public` and "
-    "`requires.through` remain declaration details. A null dependency rank can mean a cycle or a "
-    "dependent of one, so it does not name an SCC or change the architecture verdict. Browser "
-    "acceptance checks initial zoom, hidden scrollbar tracks, collapsed Details, and selection "
-    "identity across Actual, Target and Diff. Ranked components share width-aware rows; owner "
-    "Details holds rule metadata. Target Fit keeps readable names and scrolls larger scopes "
-    "(AD-139). The report does not certify CE completion."
+    "Target frames describe layout; component ownership and permissions remain contract "
+    "decisions. A null dependency rank does not identify a cycle. "
+    "See [Target semantics](target-first.md)."
 )
 _BROWSER_NOTE = (
-    "`make report-browser OUTPUT=<fresh-directory>` captures the current README views. The "
-    "independent browser tests also cover a native dragged no-route case: selected Details "
-    "exposes a separate layout warning without changing architecture data. "
-    "The `tour` capture exercises tight focused rows: choose `app` and `Violating edges only`. "
-    "All seven violating edges retain selectable labels; labels moved beside the graph name "
-    "their source and target. The clean root and nested `store` captures exercise the "
-    "conforming case."
+    "`make report-browser OUTPUT=<fresh-directory>` captures the README views and verifies "
+    "navigation, filters and evidence preservation. Browser tests do not prove human usability."
 )
-
-
 _UML_NOTE = (
-    "Inner UML examples use fixtures/H-uml and one independently authored Contract 2.2 Target "
-    "(graph format 1.1). Replay uml-match (PASS), uml-mismatch (return signature FAIL), and "
-    "uml-partial (dynamic enum literal UNKNOWN). The Target stays unchanged across overlays. "
-    "They cover classifiers, literals, public/private members, typed operations, static members, "
-    "bindings and imports/calls/references/inheritance/realization/creation. "
-    "make report-browser captures their shared As-Is, Target and Diff views and drill-downs. "
-    "Open scopes do not claim exhaustive inventories. A successful report command does not "
-    "mean declared_rules is PASS. Dart and TypeScript currently lack inner UML collection. "
-    "Replay uml-dart and uml-typescript for independent native-language Target diagrams and "
-    "UNKNOWN inner comparisons. make demo-uml OUTPUT=<fresh-directory> generates all three "
-    "language reports; build the TypeScript collector with a supported Node runtime. "
-    "Recorded unavailable profile coverage remains visible in Details. "
-    "Track remaining demo acceptance in #339 and independent inner Target coverage in #340. "
-    "Replay uml-complete for closed Python intent, including internal State and VERSION uses. "
-    "make demo-uml also writes python-complete.report.html. An unlisted definition fails the "
-    "closed inventory; exhaustive observation stays UNKNOWN. Architecture groups As-Is, Target "
-    "and Diff. Structure, Review and Actual remain Evidence views. FAIL means a recorded failed "
-    "rule or comparison; select the card for its checks. "
-    "The status tooltip gives the first reasons."
+    "`make demo-uml OUTPUT=<fresh-directory>` generates Python, Dart and TypeScript reports. "
+    "Python variants cover matching intent, signature failures, unknown enum literals and "
+    "closed inventories. Target stays independent across overlays. Dart and TypeScript inner "
+    "UML observation remains unavailable and comparisons stay UNKNOWN. "
+    "A successful command does not imply `declared_rules` PASS. "
+    "See [UML scope](architecture/uml-model-target.md)."
 )
 
 
@@ -176,20 +136,17 @@ def markdown() -> str:
         "",
         *textwrap.wrap(_UML_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
         "",
-        "| Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |",
-        "|---|---|---|---|---|---|---|",
+        "| Variant | Demo | Rule ids | Diagnostic codes | Evidence / sample |",
+        "|---|---|---|---|---|",
     ]
     for variant in CATALOG:
         violations = ", ".join(variant.expected_violations) or "-"
         codes = ", ".join(variant.expected_codes) or "-"
-        # A row on another sample names it, so its file paths are not read as the shop's.
-        sample = "" if variant.fixture == FIXTURE_DIR else f"{variant.fixture.name}: "
-        reference = variant.evidence or sample + (
-            ", ".join(sorted(variant.files)) or "clean sample"
+        reference = variant.evidence or (
+            variant.fixture.name if variant.fixture != FIXTURE_DIR else "-"
         )
         lines.append(
-            f"| {variant.section} | {variant.item} | {variant.id} | {_demo_type(variant)} | "
-            f"{violations} | {codes} | {reference} |"
+            f"| {variant.id} | {_demo_type(variant)} | {violations} | {codes} | {reference} |"
         )
     return "\n".join(lines) + "\n"
 

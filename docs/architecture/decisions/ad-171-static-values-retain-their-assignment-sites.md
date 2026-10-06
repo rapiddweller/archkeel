@@ -1,8 +1,8 @@
 # AD-171 Static values retain their assignment sites
 
-The Python call collector records direct call-result assignments and constructor
-candidates. It receives no Target or rule policy. The unread-binding collector
-keeps its existing meaning. No second instance section or collector is added.
+The Python call collector records direct call-result assignments and constructor candidates,
+without Target or rule policy. Unread bindings keep their meaning. No second instance section
+or collector is added.
 The published Source IR schema checks these optional call fields. Old call
 records remain readable.
 

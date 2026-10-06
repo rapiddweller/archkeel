@@ -1,61 +1,44 @@
 # AD-92 Undecided declared evidence is UNKNOWN by default and measured
 
-The aggregate verdict derivation below is superseded by [AD-124](ad-124-rule-pass-requires-complete-scope-receipt.md),
-which also retains UNKNOWN rule assessments. The measurement remains unchanged.
+The aggregate verdict derivation is superseded by [AD-124](ad-124-rule-pass-requires-complete-scope-receipt.md).
+The measurement below remains unchanged.
 
 ## Decision
 
-One function, `unknown_positions` in `src/archkeel/check/ratchets.py`, counts what the scan left
-undecided. The same count decides `declared_rules` and fills the `unknown_positions` scalar, so
-the verdict and the measurement cannot disagree.
+`check/ratchets.py::unknown_positions` owns undecided-position counting:
 
 | `unknowns` record | counts |
 | --- | --- |
-| id also in `coverage.failures` | 0: the scan is already incomplete, exit 2 |
-| `dynamic_call_limit`, `context_alias_limit`, `private_attribute_access_limit` | 0: standing disclaimers, or a scalar of their own |
-| `boundary_type_limit` | its per-kind counts, without the totals and without `external_type` (AD-67) |
-| any other kind | `data.undecided` when it is a positive integer, else 1 |
+| id also in `coverage.failures` | 0: incomplete scan already exits 2 |
+| `dynamic_call_limit`, `context_alias_limit`, `private_attribute_access_limit` | 0: standing disclaimers or separate scalar |
+| `boundary_type_limit` | per-kind counts, excluding totals and `external_type` (AD-67) |
+| any other kind | positive integer `data.undecided`, else 1 |
 
-`inspect_observation` reads: a violation is `FAIL`; else a count above 0 is `UNKNOWN`; else
-`PASS`. Exit codes do not change.
-
-`unknown_positions` is a regression scalar and a selectable measurement budget, the path
-`untyped_private_accesses` took (AD-83, AD-89). `check` fails on a rise, and `validate
---baseline` with the budget declared fails on a rise and on an unrecorded fall. Older measurement
-payloads without the key read as 0. Archkeel selects the budget in its own contract.
+Originally `inspect_observation` used this count: violations FAIL, otherwise positive
+counts UNKNOWN, otherwise PASS. Exit codes stayed unchanged.
+The scalar is a ratchet and selectable baseline budget (AD-83, AD-89). `check`
+fails rises; budgeted validation also fails unrecorded falls. Legacy payloads
+without it read as 0. The self-contract selects it.
 
 ## Why
 
-Before, `declared_rules` became UNKNOWN only for `boundary_type_limit` and `api_surface_limit`.
-Any other kind a new analyzer profile emits left the verdict at PASS: no violation read as
-probably fine, the defect AD-67 fixed for one rule, left open at the record-kind level.
-`check` already failed on a new `unknowns` record, but `validate --baseline` had no scalar a
-budget could pin, so a new UNKNOWN kept exit 0.
-
-For every observation the Python analyzer produces today the verdict is unchanged:
-`api_surface_limit` counts 1 per record, `boundary_type_limit` counts exactly the positions that
-flipped the verdict before, and `git_metadata_failure`, parse failures and
-`rule-without-subjects` are coverage failures.
+An allowlist of contract-limit kinds let new analyzer kinds silently leave PASS.
+`check` caught new unknown records, but validation had no scalar budget. Naming
+only exceptions closes that default while preserving existing Python verdicts.
 
 ## Rejected
 
-- **An allow-list of counted kinds.** That is the defect: a new kind defaults to PASS. The code
-  names only the exceptions.
-- **Gating the exit code on UNKNOWN.** A gate nobody can clear gets deleted (AD-67). The budget
-  gates a rise instead, which a team can hold at its current value.
-- **Counting records by `rule_ids`.** `api_surface_limit` names a declaration, not a rule, and
-  would fall out of the count.
+Do not gate all UNKNOWN exits; budget changes are clearable. Counting only records
+with `rule_ids` would omit declaration-level `api_surface_limit`.
 
 ## Limit
 
-A record without a positive `undecided` count counts once, however many positions it covers. A
-profile that wants a finer count writes `data.undecided`. A kind added to the standing
-disclaimers must argue that it fires regardless of the contract.
+Without a positive count, a record contributes one regardless of covered positions.
+Profiles supply finer counts. New standing exceptions must justify why they fire
+independently of contract intent.
 
 ## Check
 
-`tests/test_boundary_type_unknown_verdict.py` keeps AD-67's verdicts unchanged.
-`tests/test_unknown_positions.py` covers a novel kind, the `undecided` count, the disclaimers and
-coverage failures; `tests/test_ratchets.py` the legacy payloads and the codec round trip;
-`tests/test_measurement_budgets.py` a rise under `validate --baseline`. `tests/test_self.py` and
-`make self-validate` check Archkeel's own value in `architecture-baseline.json`.
+Unknown/verdict, ratchet and measurement-budget tests cover old behavior, novel
+kinds, counts, exclusions, legacy payloads and round trips. Self tests and
+`make self-validate` check the committed value.

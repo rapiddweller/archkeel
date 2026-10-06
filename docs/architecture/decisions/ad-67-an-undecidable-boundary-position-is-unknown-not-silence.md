@@ -2,15 +2,10 @@
 
 ## What changes
 
-`boundary_types` wrote a record only for a violation, so a decided pass and six kinds of
-undecidable position were all `None`: the rule read `no violation == probably fine` where the
-tool elsewhere reads PASS, VIOLATION, UNKNOWN. Two steps, one commit each:
-
-1. `_boundary_type_verdict` answers a violation, an undecidable kind, or a decided pass, and one
-   `boundary_type_limit` record per rule reports positions seen, decided, undecided and the count
-   per kind. Same shape as `dynamic_call_limit`.
-2. `_collection_verdict` decides `Container[Name]` for the known collections by running that same
-   verdict on each parameter, one level in (`enter_collections=False` keeps it there).
+`_boundary_type_verdict` distinguishes violation, decided pass and undecidable
+positions. One `boundary_type_limit` per rule counts seen, decided and undecided
+positions by kind. `_collection_verdict` then applies the same walk one level
+inside known collections, with `enter_collections=False` preventing recursion.
 
 ## Measured, 258 positions in 88 facade functions
 
@@ -20,14 +15,10 @@ tool elsewhere reads PASS, VIOLATION, UNKNOWN. Two steps, one commit each:
 | decided pass | 153, silent | 153 | 181 |
 | undecidable | 69 (27%) | 69 | **38 (15%)** |
 
-By kind: generic 41→9, union 17→18, external 10→10, unresolved name 1→1.
-
-The issue's 146 does not survive: 79 are builtins, which issue #9 names acceptable. They only
-looked unresolvable because a builtin defines no symbol. Honest remainder before step 2: 69.
-
-Step 2's three new findings are all the wrapping hole, none false: `ir.levels.inside_levels`
-returns `tuple[InsideLevel, ...]`, and `check.onboarding.run_init` and
-`check.validation.run_validate` both return `tuple[RunResult, dict[str, bytes]]`.
+Kinds changed: generic 41→9, union 17→18, external 10→10, unresolved name 1→1.
+The issue's 146 included 79 acceptable builtins; the actual initial remainder was 69.
+Three new findings exposed wrappers: `tuple[InsideLevel, ...]` and two
+`tuple[RunResult, dict[str, bytes]]` returns.
 
 ## Why report, not gate
 
@@ -36,35 +27,25 @@ def execute(context: InternalContext) -> Result: ...         # reported
 def execute(contexts: list[InternalContext]) -> Result: ...  # silent before step 2
 ```
 
-The record goes to `unknowns`, never `coverage.failures`; exit code, `coverage.rules` and
-diagnostics do not move. A rule that decides nothing is already gated by AD-63. Gating the rest
-would fail this repository on 41 tuples and 10 `Path` parameters, none of them a finding, and a
-gate nobody can clear by declaring anything gets deleted.
+Limit records go to `unknowns`, not coverage failures. Exit code, coverage and
+diagnostics stay unchanged; AD-63 already gates zero-subject rules. Gating all
+uncertainty would require clearing undecidable tuples and external `Path` types.
 
 ## Rejected
 
-| Alternative | Why not |
-|---|---|
-| One UNKNOWN per undecidable position | 146 rows on one repository is the section-skipping AD-26 names. A reader needs size and kind, not identity. |
-| A field on `Coverage` | `Coverage` speaks about the scan and is computed before rules run. How much one rule decided belongs to that rule. |
-| Counting undecidable as a violation | Guessing is worse than silence (AD-63's Limit). This only makes the silence say how large it is. |
-| Descending recursively | A nested subscript is a second question. 31 of 41 undecided generics are one level deep. |
-| Entering `Mapping[...]` | Raises AD-58's broad-container question, which this does not answer. |
+Per-position UNKNOWN rows would overwhelm review. Coverage is scan evidence,
+not rule-level resolution. Uncertainty is not a violation. Recursive subscripts
+and mappings require separate decisions beyond this one-level collection cut.
 
 ## Limit
 
-The record says how many of each kind, not which ones. Unions, mappings, nested subscripts,
-dotted names, forward references and unowned types stay undecidable: 38 of 258 here.
-`_BUILTIN_NAMES` is the running interpreter's, so two Python builds can classify differently; the
-analyzer digest (AD-3) keeps such runs apart. `ANALYZER_VERSION` rises twice, 0.28.0 and 0.29.0.
+Counts identify no positions. Unions, mappings, nested subscripts, dotted names,
+forward references and unowned types remain undecidable: 38/258 here.
+`_BUILTIN_NAMES` depends on the interpreter; AD-3 comparability separates builds.
+Analyzer versions rose to 0.28.0 and 0.29.0.
 
 ## Check
 
-| Test | Red on |
-|---|---|
-| `test_boundary_types_reports_a_position_it_could_not_decide` | pre-fix code: no limit record at all |
-| `test_boundary_types_decides_a_bare_name_inside_a_collection` | step-one code: wrapped `list[Payload]` silent |
-| demo row `class-a-boundary-types-in-collection` | regenerated into `docs/architecture-demo.md` |
-
-`archkeel validate --root . --json` still exits 0, with `ANALYZER-TYPES-DECLARED` now saying how
-much of `analyzer`'s facade it decided.
+Analyzer tests cover explicit undecidable limits and collection elements;
+`class-a-boundary-types-in-collection` demonstrates the wrapping finding.
+Self validation still exited 0 with the analyzer rule's decision counts visible.

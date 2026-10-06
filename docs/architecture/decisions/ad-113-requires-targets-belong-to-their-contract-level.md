@@ -18,7 +18,7 @@ it does not prove that the code uses it.
 
 Evidence: `tests/test_requires_target_references.py` and the executable contract-validation demo.
 
-Under the architect's evidence-backed budget authorization, unresolved calls move 523 → 530.
+Approved by the architect: unresolved calls move 523 → 530.
 `validate --against 1c8e0e8` identifies exactly seven added call sites: six Path operations in
 the nested-input preflight and the new exception's `super().__init__`. These are additional
 source operations, not improved detection in unchanged code. The resolver is unchanged.

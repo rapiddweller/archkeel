@@ -15,5 +15,5 @@ scope cannot fit. Manual zoom remains available. No graph library, permissions,
 CE contract or analyzer decision changes.
 
 `make report-browser` covers readable names, metadata navigation, module leaves,
-view round trips and edge endpoints. CE acceptance reconciles all 492 module files,
+view round trips and edge endpoints. CE acceptance reconciled all 492 module files,
 including 58 initializers, and keyboard Runtime → Tasks → Registry at two sizes.

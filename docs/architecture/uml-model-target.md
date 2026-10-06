@@ -1,26 +1,13 @@
 # UML model target
 
-Status: shared types, generated schema, strict codecs and source and Target producers exist.
-Core authenticates Target intent and evaluates it against recorded facts and coverage.
+Status: shared types, generated schema, strict codecs and independent source/Target
+producers exist. Core authenticates Target and compares it with recorded facts and
+coverage. As-Is, Target and Diff use one `ArchitectureReport` and renderer (AD-179).
+This extends [PR #282](https://github.com/rapiddweller/archkeel/pull/282).
+
 Graph and Target-definition format 1.1.0 add `enum_literal` (AD-188). Format 1.0.0
-remains readable; its version and vocabulary are preserved. Known literal enum
-assignments use a Literals compartment. Dynamic member generation stays partial.
-Independent Target intent includes the five component responsibility roles and
-the shared graph-format alias. This is not a complete inner repository Target.
-As-Is modules and Contract 2.2 Target/Diff entities use the shared UML renderer (AD-160).
-Legacy component and physical intent uses the same authenticated graph producers (AD-167).
-Global API intent retains declaration IDs, selectors and provenance (AD-168).
-Legacy permission scenes retain shared identities and component details (AD-169).
-The browser consumes one versioned `ArchitectureReport` (AD-179). It contains
-independent observed/Target graphs, recorded Core comparison and findings,
-component ownership references and existing open dependency decisions.
-As-Is, Target and Diff share one scene projector and renderer. File paths come
-from module entities and explicit Target inventories; no file-to-namespace guess.
-External dependency permissions retain the same dataclass as the contract.
-Conditional definitions retain typed control-flow contexts and unproven bindings (AD-170).
-Direct call-result assignments retain static binding sites and construction evidence (AD-171).
-Replaced Python projections are removed. Missing source capabilities stay open.
-Extends the source-facts/Core boundary implemented in [PR #282](https://github.com/rapiddweller/archkeel/pull/282).
+remains readable with its original vocabulary. Known literal enum assignments use
+a Literals compartment; dynamic member generation stays partial.
 
 The standard is [the immutable dataclasses](../../src/archkeel/ir/architecture_graph.py).
 [The JSON Schema](../../schema/architecture-graph.schema.json) is generated with
@@ -40,85 +27,49 @@ and partial enum observations. They use the ordinary CLI and shared report rende
 
 ## Goal and current gaps
 
-Explore components → packages/modules → classes/interfaces → operations and static bindings.
-As-Is and Target use the same element vocabulary and renderer. Diff compares their evidence.
-Visibility, responsibilities, signatures and relationship direction remain inspectable.
-Overview stays compact; drill-down reveals detail without visible scrollbar tracks.
-Root overviews show component boundaries when components are declared. File inventories
-stay in Details; observed code without membership has its own explicit entry (AD-195).
-No file intent becomes a synthetic UML entity or inferred ownership. Automatic Fit
-retains at least 85 percent scale; large complete graphs remain pannable.
-The shared inspector uses short headings and retains full qualified identities below them
-with namespace break points (AD-192).
-Per-card heights and balanced columns improve large levels. Dense observed graphs
-still need a clearer overview; Fit alone cannot keep every full UML card readable.
-The existing Focus control narrows all three UML views to one entity and its direct
-neighbors, with subset counts and stable reset/navigation (AD-174). It changes no
-graph or Core verdict. Large neighborhoods still need clearer structure.
-The UML legend separates relationship kinds using the same scene filter in each
-view (AD-175). Details and Diff status remain complete; hidden edges have no hit
-areas. Without Focus, type filtering retains every element at the current level.
-Element-kind filtering shows matching cards and connections with two visible
-endpoints (AD-177). It retains complete counts, evidence, Core status and saved
-navigation. Focused own calls and class inventories have native routing and readability
-checks. This does not prove clean routing for every complete graph.
+Explore components → packages/modules → classes/interfaces → operations and static
+bindings. Each view retains visibility, responsibilities, signatures and direction.
+The shared renderer reads authenticated graphs; it does not infer file namespaces,
+ownership, endpoints or verdicts.
 
-The Python observation already records class kinds, fields, methods, annotations, bases,
-imports, calls and references. This is static evidence, not an execution trace.
-The removed `render.flow` folded methods into class names and joined calls/references into
-symbol-use edges. The explorer uses the standard graph instead. Classes/interfaces show
-attributes and operations; drill-down retains typed calls/imports/references, outside endpoints,
-resolution and source sites. Contract 2.2 Target and Core Diff use the same renderer.
-Diff displays Core assessments, known unlisted definitions and relationships (AD-165).
-Observed-only interiors retain source identity and use the same renderer (AD-166).
-Legacy Target component details and permissions now read the authenticated graph.
-The report reads that graph once. Shared cards retain its roles and permissions;
-each repeated permission remains selectable.
-Repeated permissions retain separate IDs and real component endpoints. Physical
-Target navigation now reads the graph. The browser no longer consumes file aliases
-or legacy scene payloads. Replaced Python projections are removed. Core retains one
-authenticated legacy graph descriptor. It adds no UML conformance rule or verdict.
-Global `public_api` selectors use `PublicAPIEntry` in the same graph. Source-derived
-exposed types stay outside independent Target intent. Selectors define no UML kind,
-signature or language visibility; shared Target and Diff Details show them at root.
-Inside contracts still reject global API declarations. Missing provenance remains an error.
-Python operation facts now retain parameter order, kinds and unevaluated defaults.
-Visibility records distinguish naming conventions from access rules; `__init__` is not private.
-Private class-body annotations are recorded separately from the existing public API inventory.
-Definitions, lexical parents, callers and repeated annotated attributes retain their source-site IDs.
-Direct nested functions and local classes are recorded. Same-name declarations are never merged in the graph.
-Definitions inside `if`, loops, `try`, `with` and `match` retain ordered control-flow contexts.
-Their callers keep exact definition IDs. Calls and references retain conditional targets as candidates.
-Core reports UNKNOWN for their Target availability and endpoints until binding is proven.
-Legacy contract rules retain their conservative direct-definition view. Conditional classifier roles
-and exhaustive inventory capabilities remain open. Local declarations do not become function
-attributes or unused-symbol candidates merely because the resolver cannot bind them.
-A class implementing a Protocol stays a class; a subprotocol needs an explicit `Protocol` base
-([Python typing specification](https://typing.python.org/en/latest/spec/protocol.html#merging-and-extending-protocols)).
-The [render contract](contracts/render.json) defines HTML, summary and terminal
-responsibilities and their dependency direction. HTML serializes the shared report;
-the browser projects its scenes. Existing `public`, `planned`, `requires` and module
-targets retain their semantics. Contract 2.2 adds inner UML intent through `declarations.uml`.
-The `bindings` collector reports unread names. Direct call-result assignments now publish
-static binding sites through existing call records. They retain initializer syntax,
-lexical parents, annotations, contexts and evidence. Direct stable class names with default
-constructors can establish a nominal result type; qualified accesses and other known
-class calls retain candidates. Factories,
-custom initialization and attribute storage do not prove instance types. The full binding
-and instance inventory stays partial. Runtime values and lifetimes are unobserved.
+Root overviews show component boundaries. File inventories stay in Details;
+unowned code has an explicit entry (AD-195). Fit retains at least 85 percent scale;
+large graphs remain pannable. Short inspector headings retain full qualified
+identities below them (AD-192). Per-card heights and balanced columns help large
+levels, but dense complete graphs still need a clearer overview.
+
+Focus shows one entity and direct neighbors with subset counts and stable reset
+(AD-174). Relationship filters retain every element without Focus (AD-175).
+Element filters show matching cards and edges with two visible endpoints (AD-177).
+Hidden edges have no hit areas. Counts, evidence and Core status remain complete.
+Focused routing checks do not prove clean routing for every full graph.
+
+Python records classes, fields, methods, annotations, bases, imports, calls and
+references. Operations retain ordered parameter kinds and unevaluated defaults.
+Private class-body annotations, lexical parents, callers and repeated attributes
+retain definition-site IDs. Direct nested definitions and definitions under `if`,
+loops, `try`, `with` and `match` retain ordered contexts. Conditional targets remain
+candidates; Core reports UNKNOWN until binding is proven. Legacy rules keep their
+conservative direct-definition view. Unbound local declarations do not become
+function attributes or unused-symbol candidates.
+
+A class implementing a Protocol stays a class; a subprotocol needs an explicit
+`Protocol` base ([Python typing specification](https://typing.python.org/en/latest/spec/protocol.html#merging-and-extending-protocols)).
+
+Direct call-result assignments retain initializer syntax, annotations, lexical
+parents, contexts and evidence. Stable class names with default constructors can
+prove a nominal result type. Qualified accesses, factories, custom initialization
+and attribute storage retain candidates. Runtime values and lifetimes are unobserved.
+Full lexical binding, classifier and instance inventories remain partial.
 Dart and TypeScript currently collect imports/directives, not classes, methods or calls.
-ArchKeel's IR Target declares the shared graph/report boundary: 17 immutable classes,
-their annotated fields, public/private validation methods, producer/codec functions
-and typed imports/calls/references (AD-173, AD-179). Eighteen class dependencies connect
-the shared value types. These are independently authored design values.
-The SourceCollector port, its immutable envelopes and ProcessCollector now have
-independent Target intent (AD-183). Typed identity references link the inside contracts
-through one compiled graph. Inventory and annotation-reference gaps remain UNKNOWN.
-The protocol Target also declares all three resolver variants, their public fields,
-the resolver union and shared wire-version identity (AD-191). It checks typed presence
-and dependencies; it does not certify a runtime version value or complete class inventories.
-Other IR helpers and the remaining inner components still need
-explicit Target definitions. This does not complete the whole repository's Target.
+
+The own IR Target declares 17 immutable classes, fields, validation methods,
+producer/codec functions and typed imports/calls/references, with eighteen class
+dependencies (AD-173, AD-179). The SourceCollector port, envelopes, ProcessCollector,
+three resolver variants, resolver union and wire-version identity have independent
+Target intent (AD-183, AD-191). Presence and dependency checks do not certify runtime
+version values or complete inventories. Other IR helpers and component interiors
+still need explicit Target definitions.
 
 ## Responsibilities
 
@@ -140,32 +91,32 @@ flowchart LR
   V --> R["Shared RenderScene and UML renderer"]
 ```
 
-Arrows show data flow. Import dependencies remain `analyzer → ir`, `check → ir`,
-`render → ir`; adapters receive no architecture contract. Main implements `ir.facts`, the process protocol and Core assembly (AD-148).
-Python, Dart and TypeScript collect source facts; Core owns architecture verdicts.
-`ir.source_graph.observed_graph()` currently normalizes existing observation records.
-It preserves record IDs, evidence, call candidates, resolution limits and per-profile availability.
-Recorded namespace groups use ownership edges; they do not become false lexical parents.
-`ir.target_graph.declared_graph()` compiles Target without an observation. Both producers return
-`ArchitectureGraph` with the same entity and relationship types. `ir.graph_codec` handles graph
-JSON; `ir.codec` embeds the same types in contracts. `ir.facts.Evidence` owns the
-shared evidence value; `ir.model.Evidence` remains a compatible export.
-The Target graph projects components, `requires`, explicit UML intent and typed component intent.
-`ArchitectureGraph.component_intents` retains roles, ownership selectors, namespace, published
-and planned API selectors, excluded responsibilities, decider and inner contract (AD-161).
-These declarations remain separate from language visibility and observed facts. A planned selector
-does not invent a typed entity. Root Contract 2.2 module inventories and physical layout rules
-now use graph fields (AD-162). The contract and graph share their immutable file/rule types
-and validation. Core authenticates the existing declarations and records their IDs with UML
-intent. The graph derives their contents; it stores no second contract copy. Target/Diff
-display this intent in expandable details.
-Allowed children do not require existence. Inventories retain undeclared versus explicitly empty;
-file intent does not invent classes or calls. Global API selectors retain canonical
-declaration IDs and independent provenance (AD-168). Their source-derived exposed
-types stay outside Target. Legacy-only Target and explicit UML use the same report
-boundary and browser renderer. HTML evidence tables retain the original Core result.
-The existing SourceFacts port remains unchanged. Graph assembly and comparison stay
-in Core; parsing stays in the adapters. Do not persist three copied graph models.
+Arrows show data flow. Import dependencies remain `analyzer → ir`, `check → ir`
+and `render → ir`; adapters receive no architecture contract.
+[The render contract](contracts/render.json) owns HTML, summary and terminal dependencies.
+
+`ir.source_graph.observed_graph()` normalizes canonical records, retaining IDs,
+evidence, candidates and profile limits. Namespace ownership never becomes a
+lexical parent. `ir.target_graph.declared_graph()` compiles independent contracts.
+Both return `ArchitectureGraph`; `ir.graph_codec` handles graph JSON and `ir.codec`
+embeds the shared contract types. `ir.facts.Evidence` owns evidence;
+`ir.model.Evidence` remains a compatible export.
+
+Target projects components, permissions, explicit UML, responsibility roles,
+ownership, namespaces, published/planned API selectors, provenance and inner
+contracts. File inventories and layout rules share immutable contract types and
+retain their declaring owner (AD-161–163). Allowed children do not require existence;
+undeclared and explicitly empty inventories stay distinct. Planned selectors and
+file intent do not invent UML entities.
+
+Global `public_api` uses `PublicAPIEntry` with canonical declaration IDs and
+independent provenance (AD-168). It defines no UML kind, signature or language
+visibility. Source-derived exposed types stay outside Target; inside contracts
+reject global API declarations. Missing provenance is an error.
+
+Graph assembly and comparison stay in Core. Legacy Target and explicit UML share
+the report boundary without adding a legacy conformance rule. HTML retains the
+original result; no copied observation or second contract model is persisted.
 
 ## Shared vocabulary
 
@@ -297,26 +248,18 @@ Notation reference: [OMG UML 2.5.1](https://www.omg.org/spec/UML/2.5.1/PDF).
 
 ## Delivery and acceptance
 
-1. Done: immutable graph types, generated schema, reference validation and source-record projection.
-2. Done: Python parameter kinds/defaults, structured visibility and private annotated attributes.
-3. Done: independent Target entity/operation declarations, open/closed scopes and strict codecs.
-4. Done: Core existence, signature, visibility, edge and completeness assessments with typed comparison categories.
-5. Done: Python definition-site parents/callers, direct nested definitions and attribute evidence.
-6. Done: explicit Python inheritance and Protocol realization with binding limits and local coverage.
-7. Done: conditional inventory and direct call-result binding sites. Open: complete lexical binding proof, explicit inventory capabilities and broader instance typing.
-8. Implemented: one report schema and UML renderer for all views. Replaced Python projections are removed; Core and browser acceptance use the shared graph.
-9. Done: compile nested explicit UML into one target and retain physical declaration ownership.
-10. Done: retain authenticated dependency permissions in both Target producers without a second policy owner.
-11. Partial: independently declare the own graph boundary's classes, fields, methods and functions. Other component interiors remain open (AD-173).
+Implemented: graph types/schema/codecs, strict Target declarations, nested Target
+compilation, Core comparison receipts, dependency-permission authentication and
+one renderer. Python records definition-site parents, parameter kinds/defaults,
+visibility, private annotations, explicit bases, conditional definitions and direct
+call-result assignments.
 
-Core intake and assessment are implemented. Current source coverage is partial
-for attributes, classifier inventories and static instances. Explicit base lists retain per-class
-coverage. Direct constructor and call-result assignment facts exist; other binding forms stay open.
-Legacy parameter details remain unknown. These are gaps, not PASS.
-The legacy symbols section does not certify an exhaustive lexical inventory. Its reference collector
-omits unresolved and external uses. Both remain partial until the SourceFacts port supplies explicit capabilities.
-Parameter and return references now retain their declaring operation separately from Python's
-evaluation scope (AD-184). This proves recorded positive edges, not an exhaustive reference inventory.
+Coverage remains partial for attributes, classifier inventories and static instances.
+Per-class base receipts cannot close a parent inventory. Legacy parameter details
+remain unknown. The legacy symbols section is not exhaustive; the reference collector
+omits unresolved and external uses. Parameter/return references retain declaring
+operations separately from Python evaluation scope (AD-184), proving positive edges
+without proving inventory closure. Own independent inner Target coverage is partial.
 
 Each increment needs positive/negative proofs: identical local labels in different modules,
 private/public and Python special methods, call/reference distinction, partial/unresolved calls,
@@ -326,12 +269,9 @@ profiles remain readable and cannot claim support for newly unavailable fact kin
 
 ## Working rules
 
-KISS, SPOT, DRY for knowledge, separation of concerns, YAGNI and Ponytail apply to this work.
-Reuse records, evidence and existing Make targets. No policy or layout in adapters.
-No guessed interface realization, runtime object identity or composition.
-Ship small coherent steps with positive and negative proofs. Report local and CI evidence separately.
-Docs use Alex Voice: engineering language, straight and simple.
-
+Reuse records, evidence and Make targets. Keep policy and layout out of adapters.
+Never infer interface realization, runtime object identity or composition without evidence.
+Ship small changes with positive and negative proofs; report local and CI evidence separately.
 
 Member inventories use the versioned source-only `MemberInventory` dataclass
 (AD-185). The Python process writes receipts; IR validates their exact definition
