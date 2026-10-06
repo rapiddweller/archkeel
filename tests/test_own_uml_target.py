@@ -262,7 +262,27 @@ def test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints(
         edges = page.locator(".flow-edges .edge")
         assert edges.count() > 10
         assert page.locator(".flow-edges .edge.undecided").count() > 0
-        assert not _route_problems(edges)
+        problems = _route_problems(edges)
+        if problems:
+            output = ROOT / "test-artifacts/report-browser"
+            output.mkdir(parents=True, exist_ok=True)
+            geometry = page.evaluate("""() => ({
+              viewport: {width: innerWidth, height: innerHeight},
+              fonts: document.fonts.status,
+              transform: document.querySelector('.flow-viewport').getAttribute('transform'),
+              cards: [...document.querySelectorAll('.flow-nodes > g')].map(node => ({
+                id: node.dataset.umlId, transform: node.getAttribute('transform'),
+                bounds: node.getBoundingClientRect().toJSON(),
+                font: getComputedStyle(node.querySelector('text') || node).font
+              })),
+              routes: [...document.querySelectorAll('.flow-edges .edge')].map(edge => ({
+                id: edge.dataset.umlId, path: edge.querySelector('.line').getAttribute('d')
+              }))
+            })""")
+            geometry.update(browser=browser.version, problems=problems)
+            (output / "own-filtered-calls.json").write_text(json.dumps(geometry, indent=2))
+            page.screenshot(path=str(output / "own-filtered-calls.png"), full_page=True)
+        assert not problems
         assert page.locator(".flow-edges [data-route-warning]").count() == 0
         assert edges.locator(".line").evaluate_all("""lines => lines.every(line => {
           const edge = line.closest('.edge');

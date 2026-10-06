@@ -2646,7 +2646,7 @@
       const [rule, kind] = key.split("\0");
       const sharedRemedy = entries.length > 1 && entries.every((finding) =>
         finding.remedy && finding.remedy === entries[0].remedy) ? entries[0].remedy : null;
-      return `<section id="atlas-rule-${esc(rule)}"><h4>${esc(rule)} · ${esc(kind)} · ${countLabel(entries.length, "finding")}</h4>${sharedRemedy ? `<p class="atlas-shared-remedy">${esc(sharedRemedy)}</p>` : ""}<ul class="plain">${entries.map((finding) => {
+      return `<details id="atlas-rule-${esc(rule)}" class="atlas-finding-group"><summary>${esc(rule)} · ${esc(kind)} · ${countLabel(entries.length, "finding")}</summary>${sharedRemedy ? `<p class="atlas-shared-remedy">${esc(sharedRemedy)}</p>` : ""}<ul class="plain">${entries.map((finding) => {
       const recorded = ATLAS.modules.find((item) => item.path === finding.path);
       const assignment = level.modules.find((item) => item.id === recorded?.id);
       const module = modules.find((item) => item.path === finding.path)
@@ -2661,10 +2661,24 @@
         }
         const remedy = finding.remedy && finding.remedy !== sharedRemedy
           ? `<p class="atlas-finding-remedy">${esc(finding.remedy)}</p>` : "";
-        return `<li id="atlas-finding-${esc(finding.id)}-${esc(encodeURIComponent(rule))}"><strong>${esc(finding.title)}</strong><p>${href ? `<a href="${esc(href)}">${esc(source)}</a>` : `<code>${esc(source)}</code>`}</p>${remedy}</li>`;
-      }).join("")}</ul></section>`;
+        const nested = finding.nested_annotation
+          ? `<p class="atlas-nested-annotation">Nested type: <code>${esc(finding.nested_annotation)}</code></p>` : "";
+        return `<li id="atlas-finding-${esc(finding.id)}-${esc(encodeURIComponent(rule))}"><strong>${esc(finding.title)}</strong>${nested}<p>${href ? `<a href="${esc(href)}">${esc(source)}</a>` : `<code>${esc(source)}</code>`}</p>${remedy}</li>`;
+      }).join("")}</ul></details>`;
       }).join("") || "<p>No recorded findings at this level.</p>"}</details>`;
   }
+  function openAtlasFindingHash() {
+    let id;
+    try { id = decodeURIComponent(location.hash.slice(1)); } catch { return; }
+    if (!id.startsWith("atlas-rule-") && !id.startsWith("atlas-finding-")) return;
+    const target = document.getElementById(id);
+    if (!target) return;
+    for (let ancestor = target; ancestor; ancestor = ancestor.parentElement) {
+      if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+    }
+    requestAnimationFrame(() => target.scrollIntoView());
+  }
+  window.addEventListener("hashchange", openAtlasFindingHash);
   function atlasRuleScopeHref(level, ruleId) {
     const query = new URLSearchParams(location.search);
     query.delete("component");
@@ -2931,7 +2945,7 @@
     if (!component) {
       inspectorContent.innerHTML = `<div class="kicker">Fact sheet${viewMode === "target" ? " · Declared intent" : ""}</div><h2>${esc(ATLAS.repository)}</h2>
         <p>${viewMode === "target" ? "Select a component or declared module." : "Select a component, module, import cell or question."}</p>
-        ${atlasRuleAssessmentMarkup(level)}${atlasEvidenceMarkup()}
+        ${viewMode === "target" ? "" : `${atlasRuleAssessmentMarkup(level)}${atlasEvidenceMarkup()}`}
         <p>${link(ATLAS.architecture_href, "Complete audit JSON")}</p>`;
       return;
     }
@@ -2944,10 +2958,10 @@
       <ul class="plain">${component.requires.map((edge) => `<li><strong>${esc(atlasComponent(edge.target_id)?.label || edge.target_id)}</strong>
         <p>${esc(edge.rationale)}</p>${edge.through.length ? `<p>Through: ${edge.through.map(esc).join(", ")}</p>` : ""}
         <p>Decided by ${esc(edge.decided_by || "Not declared")}${viewMode !== "target" ? ` · ${countLabel(edge.observed_imports, "observed import")}` : ""}</p></li>`).join("") || "Not declared"}</ul>
-      ${atlasRuleAssessmentMarkup(level, component)}${atlasEvidenceMarkup()}${viewMode !== "target" ? `<h3>Observed weight</h3><p>${countLabel(component.observed_modules, "module")} · ${countLabel(component.observed_symbols, "observed symbol")}
+      ${viewMode === "target" ? "" : `${atlasRuleAssessmentMarkup(level, component)}${atlasEvidenceMarkup()}`} ${viewMode !== "target" ? `<h3>Observed weight</h3><p>${countLabel(component.observed_modules, "module")} · ${countLabel(component.observed_symbols, "observed symbol")}
         ${component.symbols_complete === atlasGlobalSymbolsComplete() ? "" : component.symbols_complete ? "· complete lexical inventory" : "· partial lexical inventory"}</p><h3>Component evidence status</h3><p>${esc(component.status)} · ${esc(component.reason)}</p>
         <h3>Used by</h3><ul class="plain">${component.used_by.map((item) => `<li>${esc(atlasComponent(item.component_id)?.label || item.component_id)} · ${countLabel(item.import_sites, "import")}</li>`).join("") || "No recorded component uses."}</ul>` : ""}
-      <h3>Decision and source</h3><p>${esc(component.decided_by || "Not declared")} · <code>${esc(component.path || "Path not declared")}</code></p>
+      <h3>${viewMode === "target" ? "Decision" : "Decision and source"}</h3><p>${esc(component.decided_by || "Not declared")}${viewMode === "target" ? "" : ` · <code>${esc(component.path || "Path not declared")}</code>`}</p>
       ${list("Provenance", component.provenance)}`;
     inspectorContent.querySelector("[data-browse-component]").onclick = () => openAtlasComponent(component.id, "modules");
   }
@@ -3155,7 +3169,7 @@
       ? `${countLabel(scene.declared.length, "declared requirement")} at this level · agent decisions: ${agentComponents}/${countLabel(scene.nodes.length, "component")}, ${agentEdges}/${countLabel(scene.declared.length, "dependency", "dependencies")}`
       : `${countLabel(observed.length, "observed dependency", "observed dependencies")} · ${countLabel(observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : null, "import")} at this level · ${viewMode === "diff" ? "recorded failures highlighted; unproven permission UNKNOWN" : "source facts"}`;
     cardHeights.clear(); scene.nodes.forEach((node) => {
-      const chips = !scene.moduleOverview && node.component
+      const chips = viewMode !== "target" && !scene.moduleOverview && node.component
         ? Number(atlasComponentFindingCount(node.id) > 0) + Number(atlasInsideDeviationCount(node.id) > 0) : 0;
       cardHeights.set(node.id, scene.moduleOverview ? 144 : 164 + Math.max(0, chips - 1) * 14);
     }); CARD.h = Math.max(144, ...cardHeights.values());
@@ -3181,7 +3195,7 @@
             : `${node.component.observed_modules} mod · ${node.component.observed_symbols ?? "?"} sym${node.component.symbols_complete === inventoryComplete ? "" : node.component.symbols_complete ? " · complete" : " · partial"}`;
           group.appendChild(weight);
         }
-        if (!scene.moduleOverview && node.component) {
+        if (viewMode !== "target" && !scene.moduleOverview && node.component) {
           const findingCount = atlasComponentFindingCount(node.id);
           let chipY = 151;
           if (findingCount) {
@@ -3223,9 +3237,12 @@
     const neighbors = new Set(scene.edges.filter((edge) => edge.source === selected || edge.target === selected).flatMap((edge) => [edge.source, edge.target]));
     nodeLayer.querySelectorAll("[data-uml-id]").forEach((node) => node.classList.toggle("dim", Boolean(selected && node.dataset.umlId !== selected && !neighbors.has(node.dataset.umlId))));
     edgeLayer.querySelectorAll("[data-uml-id]").forEach((edge) => edge.classList.toggle("dim", Boolean(selected && edge.dataset.umlSource !== selected && edge.dataset.umlTarget !== selected)));
-    legend.textContent = scene.moduleOverview ? "Native modules · local directed relationships · Enter opens direct definitions"
-      : viewMode === "diff" ? "Diff edges · red: undeclared · solid: permitted and used · dashed: allowed but unused"
-        : "Directed dependencies · card positions come from the Target · counts are observed import sites";
+    legend.textContent = scene.moduleOverview ? viewMode === "target"
+      ? "Target modules · authored relationships · Enter opens direct definitions"
+      : "Observed modules · local directed relationships · Enter opens direct definitions"
+      : viewMode === "target" ? "Target edges · declared permissions · labels show rationale"
+        : viewMode === "diff" ? "Diff edges · red: undeclared · solid: permitted and used · dashed: allowed but unused"
+          : "Directed dependencies · card positions come from the Target · counts are observed import sites";
     atlasExplore(level); atlasSheet(level); updateOpenSelected(); sizeDiagram();
   }
 
@@ -3419,6 +3436,7 @@
     });
   }
   render();
+  if (ATLAS) openAtlasFindingHash();
   if (!NAV) {
     const moduleId = new URLSearchParams(location.search).get("module");
     const module = DATA.observed?.entities.find((entity) => entity.id === moduleId && entity.kind === "module");

@@ -522,7 +522,9 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
     return tuple(
         replace(
             level,
-            hint_candidates=_hint_candidates(level, root, cells, model.coverage.status == "PASS"),
+            hint_candidates=_hint_candidates(
+                level, root, cells, intents, model.coverage.status == "PASS"
+            ),
         )
         for level in levels
     )
@@ -532,6 +534,7 @@ def _hint_candidates(
     level: ModuleExploreLevel,
     root: ModuleExploreLevel,
     cells: tuple[ModuleImportCell, ...],
+    intents: dict[str, ComponentIntent],
     inventory_complete: bool,
 ) -> tuple[HintCandidate, ...]:
     """Provisional question candidates preserve native ownership and coverage."""
@@ -542,7 +545,7 @@ def _hint_candidates(
     hints: list[HintCandidate] = []
 
     if level.import_status == "PASS":
-        hints.extend(_used_elsewhere_hints(level, root_modules, incoming))
+        hints.extend(_used_elsewhere_hints(level, root_modules, incoming, intents))
         hubs = sorted(
             (item for item in level.modules if item.fan_in is not None and item.fan_in >= 10),
             key=lambda item: (-(item.fan_in or 0), item.name),
@@ -600,6 +603,7 @@ def _used_elsewhere_hints(
     level: ModuleExploreLevel,
     root_modules: dict[str, ModuleStatistic],
     incoming: dict[str, list[ModuleImportCell]],
+    intents: dict[str, ComponentIntent],
 ) -> tuple[HintCandidate, ...]:
     elsewhere: dict[tuple[str, str], list[ModuleStatistic]] = defaultdict(list)
     for module in level.modules:
@@ -614,6 +618,15 @@ def _used_elsewhere_hints(
         group = tuple(sorted(elsewhere[owner, user], key=lambda item: item.name))
         names = ", ".join(item.name for item in group)
         sites = sum(cell.import_sites or 0 for item in group for cell in incoming[item.id])
+        owner_name = intents[owner].label or owner
+        user_name = intents[user].label or user
+        question = (
+            f"Does {names} belong to {user_name}, or is it {owner_name}'s intended "
+            f"interface for {user_name}?"
+            if len(group) == 1
+            else f"Do {names} belong to {user_name}, or are they {owner_name}'s intended "
+            f"interface for {user_name}?"
+        )
         hints.append(
             _hint(
                 incoming,
@@ -621,8 +634,7 @@ def _used_elsewhere_hints(
                 group,
                 (owner, user),
                 sites,
-                f"Do {names} belong to {user}, or are they {owner}'s intended "
-                f"interface for {user}?",
+                question,
             )
         )
     return tuple(hints)

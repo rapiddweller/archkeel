@@ -271,7 +271,7 @@ def _check_atlas_interactions(page: Page) -> None:
             assert not page.locator("[data-copy-question]").count()
             text = page.locator(".flow-inspector-content").inner_text().lower()
             assert "observed weight" not in text
-            assert "recorded checks" in text
+            assert "recorded checks" not in text
             assert "observed import cell" not in text
     module = page.locator(".matrix-label[data-module]").first
     if module.count():
@@ -556,6 +556,8 @@ def _capture_assets(browser: Browser, reports: dict[str, Path], output: Path) ->
         page.locator("#flow").screenshot(path=str(output / "archkeel-component-flow.png"))
         page.locator('.flow-nodes [data-label="store"]').dblclick()
         page.locator(".atlas-findings").evaluate("node => node.open = true")
+        page.locator(".atlas-finding-group").first.locator("summary").click()
+        assert page.locator(".atlas-findings li").first.is_visible()
         page.locator("#flow").screenshot(path=str(output / "archkeel-shop-store-inside.png"))
         _check_module_graph(page)
         for name in ("archkeel-report-preview.png", "archkeel-shop-store-inside.png"):

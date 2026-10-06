@@ -772,6 +772,34 @@ def test_used_elsewhere_candidate_is_a_grouped_question_with_real_sites(tmp_path
     assert hint.provisional is True
 
 
+def test_used_elsewhere_hint_uses_intent_labels_and_singular_grammar(tmp_path):
+    from archkeel.check.ports import ScanConfig
+
+    _sample(tmp_path, extra_files={"sample/peer.py": "import sample.core\n"})
+    repository = tmp_path / "repo"
+    contract_path = repository / "contract.json"
+    contract = json.loads(contract_path.read_text())
+    contract["components"][0].update(id="COMP-CORE", label="Core API")
+    peer = contract["components"][1]
+    peer.update(id="COMP-PEER", label="Peer clients")
+    peer["requires"] = [{"component": "Core API", "rationale": "Use the API."}]
+    contract_path.write_text(json.dumps(contract))
+    _, encoded = run_report(
+        repository,
+        config=ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        analyzer=observe,
+    )
+    assert encoded is not None
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    level = _root(model)
+    hint = next(hint for hint in level.hint_candidates if hint.kind == "used_elsewhere")
+    assert hint.component_ids == ("COMP-CORE", "COMP-PEER")
+    assert hint.question == (
+        "Does sample.core belong to Peer clients, or is it Core API's intended "
+        "interface for Peer clients?"
+    )
+
+
 def test_proposed_hub_threshold_has_native_counts_and_stable_top_three(tmp_path):
     heavy = tuple(f"sample.h{index}" for index in range(4))
     users = tuple(f"sample.user{index}" for index in range(10))

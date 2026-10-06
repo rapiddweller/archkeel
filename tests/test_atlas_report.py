@@ -228,16 +228,20 @@ def test_atlas_header_shows_four_status_cards_with_native_rule_counts(tmp_path):
             ).values()
         )
     ).decode()
+    cards = re.findall(r'<article class="verdict-card".*?</article>', page, re.S)
+    assert len(cards) == 4
+    for card, status in zip(cards, ("PASS", "FAIL", "UNKNOWN", "NOT CHECKED"), strict=True):
+        assert f"</span>{status}</div>" in card
+        if status != "NOT CHECKED":
+            count = sum(item.status == status for item in result.rule_assessments)
+            assert f"<h3>{count} rule{'s' if count != 1 else ''}</h3>" in card
+        else:
+            assert "Count unavailable" in card
+    assert '<article class="verdict-card"' not in details
+    assert f"Whole-run rules: {result.declared_rules}" in details
+    assert f"Source observation: {result.observation_complete}" in details
+    assert '<a href="architecture.report.html">Architecture overview</a>' in details
     for document in (page, details):
-        cards = re.findall(r'<article class="verdict-card".*?</article>', document, re.S)
-        assert len(cards) == 4
-        for card, status in zip(cards, ("PASS", "FAIL", "UNKNOWN", "NOT CHECKED"), strict=True):
-            assert f"</span>{status}</div>" in card
-            if status != "NOT CHECKED":
-                count = sum(item.status == status for item in result.rule_assessments)
-                assert f"<h3>{count} rule{'s' if count != 1 else ''}</h3>" in card
-            else:
-                assert "Count unavailable" in card
         assert "NOT APPLICABLE" not in document
         assert "atlas-status-key" not in document
         assert "Symbol inventory:" in document
@@ -365,10 +369,12 @@ def test_atlas_keeps_every_rule_of_a_finding_without_inflating_totals(tmp_path):
     playwright, browser, page = _browser_page(api, html)
     try:
         panel = page.locator(".atlas-findings")
-        assert panel.locator("summary").inner_text() == f"Findings · {len(records)}"
+        assert panel.locator(":scope > summary").inner_text() == f"Findings · {len(records)}"
         for rule in original.rule_ids + ("second",):
             count = sum(rule in record.rule_ids for record in records)
             group = panel.locator(f'[id="atlas-rule-{rule}"]')
+            assert not group.evaluate("node => node.open")
+            group.locator("summary").click()
             assert group.locator("li").count() == count
             finding = group.locator(f'[id^="atlas-finding-{original.id}-"]')
             assert finding.count() == 1
@@ -613,6 +619,9 @@ def test_recorded_findings_are_visible_in_each_atlas_lens(tmp_path, theme, fill)
             assert panel.is_visible()
             assert "Findings · 2" in panel.inner_text()
             assert "dependencies" in panel.inner_text()
+            groups = panel.locator(".atlas-finding-group")
+            assert groups.count() == 1 and not groups.first.evaluate("node => node.open")
+            groups.first.locator("summary").click()
             assert page.locator(".atlas-findings li strong").count() == 2
             root_level = next(item for item in atlas["levels"] if item["parent_id"] is None)
             grouped_findings = {}
@@ -646,21 +655,26 @@ def test_recorded_findings_are_visible_in_each_atlas_lens(tmp_path, theme, fill)
                 individual_remedies
             )
             rules = page.locator(".flow-inspector-content .atlas-rule-assessments")
-            assert (
-                f"Rules · whole run {atlas['declared_rules']}"
-                in rules.locator("summary").inner_text()
-            )
-            rules.locator("summary").click()
-            assert "Whole-run rule assessments" in rules.inner_text()
-            assert page.locator(".flow-inspector-content .atlas-evidence").is_visible()
-            component_level = next(
-                item for item in atlas["levels"] if item["parent_id"] == component["id"]
-            )
-            expected_findings = len(component_level["finding_ids"])
-            assert (
-                f"{expected_findings} recorded failing finding"
-                in page.locator(".flow-inspector-content .atlas-scoped-findings").inner_text()
-            )
+            if lens == "Target":
+                assert not rules.count()
+                assert not page.locator(".flow-inspector-content .atlas-evidence").count()
+                assert not page.locator(".flow-inspector-content .atlas-scoped-findings").count()
+            else:
+                assert (
+                    f"Rules · whole run {atlas['declared_rules']}"
+                    in rules.locator("summary").inner_text()
+                )
+                rules.locator("summary").click()
+                assert "Whole-run rule assessments" in rules.inner_text()
+                assert page.locator(".flow-inspector-content .atlas-evidence").is_visible()
+                component_level = next(
+                    item for item in atlas["levels"] if item["parent_id"] == component["id"]
+                )
+                expected_findings = len(component_level["finding_ids"])
+                assert (
+                    f"{expected_findings} recorded failing finding"
+                    in page.locator(".flow-inspector-content .atlas-scoped-findings").inner_text()
+                )
             for component in atlas["components"]:
                 level = next(
                     item for item in atlas["levels"] if item["parent_id"] == component["id"]
@@ -668,14 +682,246 @@ def test_recorded_findings_are_visible_in_each_atlas_lens(tmp_path, theme, fill)
                 finding_count = len(level["finding_ids"])
                 card = page.locator(f'.flow-nodes [data-uml-id="{component["id"]}"]')
                 chip = card.locator(".atlas-finding-chip")
-                assert chip.count() == (1 if finding_count else 0)
-                if finding_count:
+                assert chip.count() == (1 if finding_count and lens != "Target" else 0)
+                if finding_count and lens != "Target":
                     assert chip.evaluate("node => getComputedStyle(node).fill") == fill
                     assert (
                         chip.text_content()
                         == f"{finding_count} finding{'s' if finding_count != 1 else ''} inside"
                     )
             assert page.get_by_role("link", name="sample/peer.py:1").count() == 1
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_finding_links_open_collapsed_groups_without_trapping_navigation(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    html = _page(_sample(tmp_path))
+    report = tmp_path / "report.html"
+    report.write_text(html)
+    errors = []
+    playwright, browser, page = _browser_page(api, html, errors=errors)
+    try:
+        page.goto(report.as_uri() + "#atlas-rule-dependencies")
+        group = page.locator("#atlas-rule-dependencies")
+        group.locator("li").first.wait_for(state="visible")
+        page.get_by_role("button", name="Target", exact=True).click()
+        assert not page.locator("#atlas-rule-dependencies").evaluate("node => node.open")
+        page.evaluate("location.hash = '#%invalid'")
+        page.evaluate("location.hash = '#atlas-rule-dependencies'")
+        group.locator("li").first.wait_for(state="visible")
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_findings_show_only_distinct_nested_annotation_without_deduplication(tmp_path):
+    model = _sample(tmp_path)
+    violations = model.records("violations") or ()
+    assert len(violations) >= 2
+    replacement = {}
+    for index, record in enumerate(violations[:2]):
+        values = dict(record.data.entries)
+        values["annotation"] = "Base"
+        values["nested_annotation"] = "dict[str, float]" if index == 0 else "Base"
+        replacement[record.id] = replace(
+            record, data=replace(record.data, entries=tuple(values.items()))
+        )
+    model = replace(
+        model,
+        sections=tuple(
+            replace(
+                section,
+                records=tuple(replacement.get(record.id, record) for record in section.records),
+            )
+            for section in model.sections
+        ),
+    )
+    findings = _atlas(_page(model))["findings"]
+    assert len(findings) == len(violations)
+    by_id = {finding["id"]: finding for finding in findings}
+    assert by_id[violations[0].id]["nested_annotation"] == "dict[str, float]"
+    assert "nested_annotation" not in by_id[violations[1].id]
+
+
+def test_target_view_is_independent_of_observed_evidence(tmp_path):
+    from archkeel.check.ports import ScanConfig
+
+    api = pytest.importorskip("playwright.sync_api")
+    root = tmp_path / "target-purity"
+    _sample(
+        root,
+        permitted=True,
+        other_component=True,
+        uml=True,
+        extra_files={"sample/other.py": "VALUE = 1\n"},
+    )
+    repository = root / "repo"
+    # The unowned helper module prevents a fully decided starting point.
+    (repository / "sample/unowned.py").unlink()
+    config = ScanConfig(("sample",), "sample", "contract.json", "0" * 64)
+    contract_value = json.loads((repository / config.contract).read_bytes())
+    contract_value["declarations"]["uml"]["relationships"] = [
+        {
+            "id": "peer-imports-core",
+            "kind": "imports",
+            "source_id": "peer-module",
+            "target_id": "core-module",
+            "provenance": ["docs/target.md"],
+        }
+    ]
+    (repository / config.contract).write_text(json.dumps(contract_value))
+    contract = (repository / config.contract).read_bytes()
+
+    def report():
+        result, encoded = run_report(repository, config=config, analyzer=observe)
+        assert encoded is not None
+        return result, render_architecture_html(
+            result, encoded, repository="One target", architecture_href="architecture.json"
+        ).decode()
+
+    observations = [report()]
+    long_source = repository / "sample/peer/deep/remove_none_or_empty_element_converter.py"
+    long_source.parent.mkdir(parents=True)
+    long_source.write_text("import sample.other\n")
+    observations.append(report())
+    long_source.unlink()
+    (repository / "sample/__init__.py").write_text("class core:\n    pass\n")
+    observations.append(report())
+    assert (repository / config.contract).read_bytes() == contract
+    assert [result.declared_rules for result, _ in observations] == ["PASS", "FAIL", "UNKNOWN"]
+    atlases = [_atlas(html) for _, html in observations]
+    root_levels = [
+        next(level for level in atlas["levels"] if level["parent_id"] is None) for atlas in atlases
+    ]
+    assert len(atlases[0]["findings"]) < len(atlases[1]["findings"])
+    assert len(root_levels[0]["deviation_ids"]) < len(root_levels[1]["deviation_ids"])
+
+    target_views = []
+    errors = []
+    for _, html in observations:
+        playwright, browser, page = _browser_page(api, html, errors=errors)
+        try:
+            atlas = json.loads(page.locator("#flow-data").text_content())["atlas"]
+            peer = next(item for item in atlas["components"] if item["id"] == "peer")
+            module = next(
+                item for item in atlas["declared_modules"] if item["component_id"] == "peer"
+            )
+            page.get_by_role("button", name="Target", exact=True).click()
+            page.evaluate(
+                """async () => {
+                  await document.fonts.ready;
+                  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                }"""
+            )
+            root_sheet = page.locator(".flow-inspector-content").inner_text()
+            assert "Recorded checks" not in root_sheet
+            assert "Rules · whole run" not in root_sheet
+            assert "Source observation:" not in root_sheet
+            cards = page.locator(".flow-nodes > g").evaluate_all("""nodes => nodes.map(node => ({
+              id: node.dataset.umlId,
+              label: node.dataset.label,
+              transform: node.getAttribute('transform'),
+              height: node.querySelector('.card')?.getAttribute('height'),
+              text: [...node.querySelectorAll('text')].map(item => item.textContent).join(' | '),
+              findingChips: node.querySelectorAll('.atlas-finding-chip').length,
+              deviationChips: node.querySelectorAll('.atlas-deviation-chip').length
+            }))""")
+            assert all(item["findingChips"] == item["deviationChips"] == 0 for item in cards)
+            legend = page.locator(".flow-legend").inner_text()
+            assert "observed import sites" not in legend
+            assert "declared" in legend.lower()
+
+            page.locator(f'.flow-nodes [data-uml-id="{peer["id"]}"]').click()
+            component_sheet = page.locator(".flow-inspector-content").inner_text()
+            assert "Recorded checks" not in component_sheet
+            assert "Rules · whole run" not in component_sheet
+            assert "Source observation:" not in component_sheet
+            page.locator("[data-browse-component]").click()
+            page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').click()
+            module_sheet = page.locator(".flow-inspector-content").inner_text()
+            target_views.append((root_sheet, cards, legend, component_sheet, module_sheet))
+        finally:
+            browser.close()
+            playwright.stop()
+
+    assert target_views[0] == target_views[1] == target_views[2]
+    assert not errors
+
+
+def test_long_atlas_paths_fit_mobile_on_initial_view_and_after_resize(tmp_path):
+    from archkeel.check.ports import ScanConfig
+
+    api = pytest.importorskip("playwright.sync_api")
+    root = tmp_path / "mobile-long-path"
+    _sample(root, permitted=False)
+    repository = root / "repo"
+    long_path = repository / "sample/peer/deep/remove_none_or_empty_element_converter.py"
+    long_path.parent.mkdir(parents=True)
+    long_path.write_text("import sample.core\n")
+    config = ScanConfig(("sample",), "sample", "contract.json", "0" * 64)
+    result, encoded = run_report(repository, config=config, analyzer=observe)
+    assert encoded is not None
+    html = render_architecture_html(
+        result, encoded, repository="One target", architecture_href="architecture.json"
+    ).decode()
+    errors = []
+    playwright, browser, page = _browser_page(api, html, width=375, height=900, errors=errors)
+    try:
+        _open_details(page)
+
+        def assert_visible_links_fit():
+            page.evaluate(
+                """async () => {
+                  await document.fonts.ready;
+                  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                }"""
+            )
+            geometry = page.evaluate("""() => ({width: innerWidth,
+              documentWidth: document.documentElement.scrollWidth,
+              links: [...document.querySelectorAll('a')]
+                .filter(node => !node.closest('.flow-matrix') && node.checkVisibility())
+                .map(node => ({text: node.textContent.trim(),
+                  right: node.getBoundingClientRect().right}))
+            })""")
+            assert geometry["documentWidth"] <= geometry["width"], geometry
+            assert all(item["right"] <= geometry["width"] + 0.5 for item in geometry["links"]), (
+                geometry
+            )
+
+        for lens in ("As-Is", "Target", "Diff"):
+            page.get_by_role("button", name=lens, exact=True).click()
+            panel = page.locator(".atlas-findings")
+            for group in panel.locator(".atlas-finding-group").all():
+                group.locator("summary").click()
+            if lens != "Target":
+                modules = page.locator(".atlas-module-list")
+                modules.locator("summary").click()
+                assert (
+                    page.locator(".atlas-module-list")
+                    .get_by_role("link", name="remove_none_or_empty_element_converter.py")
+                    .count()
+                    == 1
+                )
+            assert_visible_links_fit()
+            page.locator(".flow-details-toggle").click()
+            assert_visible_links_fit()
+            page.locator(".flow-details-toggle").click()
+
+        page.set_viewport_size({"width": 1440, "height": 900})
+        page.get_by_role("button", name="Diff", exact=True).click()
+        page.set_viewport_size({"width": 375, "height": 900})
+        page.locator(".atlas-module-list summary").click()
+        assert (
+            page.locator(".atlas-module-list")
+            .get_by_role("link", name="remove_none_or_empty_element_converter.py")
+            .count()
+            == 1
+        )
+        assert_visible_links_fit()
         assert not errors
     finally:
         browser.close()
@@ -753,7 +999,7 @@ def test_tour_nested_scope_chips_balances_and_deviation_links(tmp_path):
             page.goto(report.as_uri())
             page.get_by_role("button", name=lens, exact=True).click()
             rule_links = page.locator('a[href*="#atlas-rule-"]')
-            assert rule_links.count() > 0
+            assert (rule_links.count() > 0) == (lens != "Target")
             assert rule_links.evaluate_all("""links => links.every(link =>
               document.getElementById(decodeURIComponent(new URL(link.href).hash.slice(1))))""")
             spacing = page.evaluate("""() => {
@@ -782,8 +1028,8 @@ def test_tour_nested_scope_chips_balances_and_deviation_links(tmp_path):
                 card = page.locator(f'.flow-nodes [data-uml-id="{component_id}"]')
                 chip = card.locator(".atlas-finding-chip")
                 expected = len(level["finding_ids"])
-                assert chip.count() == (1 if expected else 0)
-                if expected:
+                assert chip.count() == (1 if expected and lens != "Target" else 0)
+                if expected and lens != "Target":
                     assert (
                         chip.text_content()
                         == f"{expected} finding{'s' if expected != 1 else ''} inside"
@@ -805,20 +1051,32 @@ def test_tour_nested_scope_chips_balances_and_deviation_links(tmp_path):
                     for deviation_id in scoped["deviation_ids"]
                 }
                 deviation_chip = card.locator(".atlas-deviation-chip")
-                assert deviation_chip.count() == (1 if expected_deviations else 0)
-                if expected_deviations:
+                assert deviation_chip.count() == (
+                    1 if expected_deviations and lens != "Target" else 0
+                )
+                if expected_deviations and lens != "Target":
                     expected_label = (
                         f"{len(expected_deviations)} deviation"
                         f"{'s' if len(expected_deviations) != 1 else ''} inside"
                     )
                     assert deviation_chip.text_content() == expected_label
             store_card = page.locator(f'.flow-nodes [data-uml-id="{store["id"]}"]')
-            assert (
-                store_card.locator(".atlas-deviation-chip").text_content() == "3 deviations inside"
-            )
+            if lens == "Target":
+                assert store_card.locator(".atlas-finding-chip, .atlas-deviation-chip").count() == 0
+                assert store_card.locator(".card").get_attribute("height") == "164"
+            else:
+                assert (
+                    store_card.locator(".atlas-finding-chip").text_content() == "7 findings inside"
+                )
+                assert (
+                    store_card.locator(".atlas-deviation-chip").text_content()
+                    == "3 deviations inside"
+                )
+                assert store_card.locator(".card").get_attribute("height") == "178"
             store_card.press("Space")
-            scoped_checks = page.locator(".atlas-scoped-findings").inner_text()
-            assert "7 recorded failing findings" in scoped_checks
+            if lens != "Target":
+                scoped_checks = page.locator(".atlas-scoped-findings").inner_text()
+                assert "7 recorded failing findings" in scoped_checks
             if lens == "Diff":
                 root_balance = page.locator(".atlas-balance").inner_text()
                 for field, value in atlas["levels"][0]["balance"].items():

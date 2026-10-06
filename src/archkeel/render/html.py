@@ -756,6 +756,7 @@ def _atlas_content(
     *,
     repository: str,
     architecture_href: str,
+    detail_page: bool = False,
 ) -> str:
     components = (
         len(result.architecture_projection.components) if result.architecture_projection else 0
@@ -769,14 +770,16 @@ def _atlas_content(
     )
     summary = report_summary(result)
     inventory_status = "complete" if symbols_complete else "partial"
-    return f"""<section class="report-heading atlas-heading">
-      <div><span class="eyebrow">Architecture Atlas</span><h1>{_text(repository)}</h1>
-      <p><code>{_text(observation.source.git_head)}</code>
-      · {observation.coverage.files_parsed} observed files
-      · {components} components</p></div>
-      <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
-      </section>
-      <section class="decision-banner" data-decision="{summary.decision.state}"
+    overview_href = (
+        navigation.get("main_href") if isinstance(navigation, dict) else None
+    ) or "architecture.report.html"
+    status_header = (
+        f'<p class="atlas-detail-status">Whole-run rules: {_text(result.declared_rules)}'
+        f" · Source observation: {_text(result.observation_complete)}"
+        f" · Symbol inventory: {_text(inventory_status)}"
+        f' · <a href="{_text(overview_href)}">Architecture overview</a></p>'
+        if detail_page
+        else f'''<section class="decision-banner" data-decision="{summary.decision.state}"
         aria-label="Decision: {_text(summary.decision.label)}">
         <span class="decision-symbol" aria-hidden="true">{summary.decision.symbol}</span>
         <div><h2>{_text(summary.decision.label)}</h2><p>{_text(summary.sentence)}</p></div>
@@ -786,7 +789,16 @@ def _atlas_content(
         <div class="verdict-grid atlas-verdict-grid">{_atlas_rule_status_cards(result)}</div>
       </section>
       <p class="atlas-status">Source observation: {_text(result.observation_complete)}
-      · Symbol inventory: {_text(inventory_status)}</p>
+      · Symbol inventory: {_text(inventory_status)}</p>'''
+    )
+    return f"""<section class="report-heading atlas-heading">
+      <div><span class="eyebrow">Architecture Atlas</span><h1>{_text(repository)}</h1>
+      <p><code>{_text(observation.source.git_head)}</code>
+      · {observation.coverage.files_parsed} observed files
+      · {components} components</p></div>
+      <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
+      </section>
+      {status_header}
       {_atlas_section(data)}
       <details class="atlas-source"><summary>Snapshot and audit</summary>
       <p>Source digest <code>{_text(observation.source.source_digest)}</code>
@@ -929,6 +941,7 @@ def render_architecture_details(
                 data,
                 repository=repository,
                 architecture_href=architecture_href,
+                detail_page=True,
             ),
         )
     }

@@ -2356,6 +2356,9 @@ code {
 }
 .atlas-findings summary { cursor: pointer; color: var(--ck-teal); }
 .atlas-findings li { margin: 10px 0; overflow-wrap: anywhere; }
+.atlas-finding-group { margin: 10px 0; }
+.atlas-nested-annotation { margin: 4px 0; color: var(--ck-muted); }
+.atlas-module-list a { overflow-wrap: anywhere; }
 .atlas-rule-assessments,
 .atlas-evidence {
   margin: 12px 0;

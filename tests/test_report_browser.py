@@ -155,7 +155,16 @@ def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path):
             assert parse_qs(urlsplit(page.url).query)["return_selected"] == [module_id]
             assert "atlas" not in data
             assert page.locator(".atlas-heading").inner_text() == heading
-            assert page.locator(".atlas-status").inner_text() == verdict
+            detail_status = page.locator(".atlas-detail-status")
+            assert "Whole-run rules:" in detail_status.inner_text()
+            assert verdict.replace("\n", " ") in detail_status.inner_text()
+            assert not page.locator(".decision-banner, .atlas-verdict-grid").count()
+            assert (
+                detail_status.get_by_role("link", name="Architecture overview").get_attribute(
+                    "href"
+                )
+                == "architecture.report.html"
+            )
             assert page.locator("html").get_attribute("data-theme") == "dark"
             assert page.locator(".theme-toggle").count() == 1
             page.locator('[data-lexical-depth="1"]').click()

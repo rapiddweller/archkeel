@@ -233,17 +233,19 @@ def _finding_payload(
             key=lambda location: (location[0] or "", location[1] or -1),
         )
         path, line = locations[0] if locations else (None, None)
-        entries.append(
-            {
-                "id": item.id,
-                "rule_ids": item.rule_ids,
-                "kind": item.kind,
-                "title": item.title,
-                "path": path,
-                "line": line,
-                "remedy_ref": references.setdefault(projection.violation_remedy, len(references)),
-            }
-        )
+        entry: dict[str, object] = {
+            "id": item.id,
+            "rule_ids": item.rule_ids,
+            "kind": item.kind,
+            "title": item.title,
+            "path": path,
+            "line": line,
+            "remedy_ref": references.setdefault(projection.violation_remedy, len(references)),
+        }
+        nested_annotation = item.data.get("nested_annotation")
+        if isinstance(nested_annotation, str) and nested_annotation != item.data.get("annotation"):
+            entry["nested_annotation"] = nested_annotation
+        entries.append(entry)
 
     violation_ids = {item.id for item in violations}
     selected_by_component = {
