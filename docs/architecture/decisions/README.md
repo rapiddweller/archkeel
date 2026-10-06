@@ -216,3 +216,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-207 | [Atlas projection boundaries](ad-207-atlas-projection-boundaries.md) |
 | AD-208 | [Evaluated module import cells](ad-208-module-import-cells-require-evaluated-import-rules.md) |
 | AD-209 | [One offline detail snapshot](ad-209-atlas-uses-one-offline-detail-snapshot.md) |
+| AD-210 | [TypeScript frontend ships in the package](ad-210-typescript-frontend-ships-in-the-package.md) |

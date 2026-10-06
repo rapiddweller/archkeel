@@ -1,0 +1,124 @@
+{
+  "$schema": "../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "TARGET-ENTRY",
+      "label": "entry",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.typescript.entry",
+        "archkeel.analyzer.typescript.collect"
+      ],
+      "responsibilities": [
+        "Serve the protocol and walk the selected files and the local files their imports reach."
+      ],
+      "forbidden_responsibilities": [
+        "Architecture policy, tree-sitter nodes and filesystem reads outside the snapshot."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "exact_modules": [
+        "archkeel.analyzer.typescript"
+      ],
+      "requires": [
+        {
+          "component": "source",
+          "rationale": "Read syntax facts, TSConfig and the resolver to decide each import target.",
+          "decided_by": "agent"
+        }
+      ],
+      "public": []
+    },
+    {
+      "id": "TARGET-SOURCE",
+      "label": "source",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.typescript.parse",
+        "archkeel.analyzer.typescript.config",
+        "archkeel.analyzer.typescript.resolve"
+      ],
+      "responsibilities": [
+        "Parse imports with tree-sitter, read TSConfig and resolve specifiers as the TypeScript compiler does."
+      ],
+      "forbidden_responsibilities": [
+        "Claiming type-checker semantics, resolving what the compiler would not prove, or evaluating architecture policy."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "public": [
+        "archkeel.analyzer.typescript.parse",
+        "archkeel.analyzer.typescript.config",
+        "archkeel.analyzer.typescript.resolve"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "TARGET-COMPLETE_REQUIRES",
+      "kind": "complete_requires",
+      "rationale": "Only intended component dependencies are permitted.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-COMPLETE_ASSIGNMENT",
+      "kind": "complete_assignment",
+      "rationale": "Every source module has one owner.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "source": "archkeel.analyzer.typescript"
+    },
+    {
+      "id": "TARGET-NO_COMPONENT_CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Components have one dependency direction.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-INTERFACE_BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Crossings use declared public interfaces.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "modules": [
+      {
+        "path": "src/archkeel/analyzer/typescript/entry.py",
+        "responsibility": "Serve the shared process protocol."
+      },
+      {
+        "path": "src/archkeel/analyzer/typescript/collect.py",
+        "responsibility": "Collect import facts with explicit coverage and a gap for everything unproven."
+      },
+      {
+        "path": "src/archkeel/analyzer/typescript/parse.py",
+        "responsibility": "Own the tree-sitter grammars and read import syntax and its concerns."
+      },
+      {
+        "path": "src/archkeel/analyzer/typescript/config.py",
+        "responsibility": "Read TSConfig and its extends chain; select files and snapshot inputs."
+      },
+      {
+        "path": "src/archkeel/analyzer/typescript/resolve.py",
+        "responsibility": "Resolve specifiers by module mode, paths, baseUrl and node_modules."
+      }
+    ]
+  }
+}

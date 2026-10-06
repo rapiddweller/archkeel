@@ -83,6 +83,33 @@
           "rationale": "Use the shared runtime-provenance reader without importing the sibling language adapter."
         }
       ]
+    },
+    {
+      "id": "TARGET-TYPESCRIPT",
+      "label": "typescript",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.typescript"
+      ],
+      "responsibilities": [
+        "Own TypeScript import parsing, module resolution and source-fact collection."
+      ],
+      "forbidden_responsibilities": [
+        "Type-checker semantics, governance policy and sibling adapter imports."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "inside": "docs/architecture/contracts/typescript.json",
+      "planned": [],
+      "public": [],
+      "requires": [
+        {
+          "component": "process",
+          "rationale": "Use the shared runtime-provenance reader without importing the sibling language adapter."
+        }
+      ]
     }
   ],
   "rules": [
