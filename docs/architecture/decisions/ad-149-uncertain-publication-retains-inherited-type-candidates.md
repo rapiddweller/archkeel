@@ -1,14 +1,13 @@
 # AD-149 Uncertain publication retains inherited type candidates
 
-An uncertain facade route may expose a concrete inherited result type. Discarding that
-candidate made root validation call the type unused while an inside contract retained UNKNOWN
-(#286).
+Retain inherited concrete-type candidates from uncertain facade routes at root
+and inside scopes. Dropping them made one level call a type unused while another
+reported UNKNOWN.
 
-Record candidate types for every matching publisher, including uncertain routes, at root and
-inside scopes. Positive `facade_types` still require proven publication and inheritance.
-Validation selects publishers from owned scanned modules, including modules that only re-export.
-A candidate produces `interface.usage_unknown`; it grants no publication permission.
+Only proven publication and inheritance populate `facade_types`. Validation selects
+publishers from owned scanned modules, including re-export-only modules. Candidates
+produce `interface.usage_unknown`, never publication permission. Existing inheritance,
+ownership and mutation limits remain.
 
-Full `validate` controls cover proven and uncertain re-exports, direct inside publication and
-an unrelated generic argument. Existing inheritance, ownership and mutation controls remain.
-Analyzer version becomes `0.66.1`; wire formats and CE declarations stay unchanged.
+[Candidate proof](../../../tests/test_inherited_generic_facade_negative.py) and
+[nested publication](../../../tests/test_inside_publication.py).

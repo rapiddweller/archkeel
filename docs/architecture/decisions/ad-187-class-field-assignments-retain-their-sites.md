@@ -1,18 +1,12 @@
 # AD-187 Class field assignments retain their sites
 
-Python class assignments define UML attributes even without annotations. Their
-names, visibility, static storage and evidence travel through SourceFacts into
-the shared graph. Chained and destructured assignments retain distinct identities;
-reassigning a name retains both sites. No type is inferred from the initializer.
+Record unannotated Python class assignments as static UML attributes, preserving
+visibility, evidence and distinct assignment sites. Infer no type from initializers.
+Writes to another object's attribute are not writer-class declarations.
 
-This does not complete the member inventory. Instance writes and dynamic class
-creation remain outside complete proof. Writes to another object's attribute
-are not declarations in the writer's class. AD-70's public field inventory still
-reads annotated fields only; UML assignment declarations cannot expand it.
+This cannot complete member inventory; instance writes and dynamic creation remain
+unproved. Public API field inventory still includes annotated fields only,
+so UML assignments cannot enlarge it. The shared renderer consumes recorded
+modifiers without new inference.
 
-The shared renderer underlines static fields and operations in previews and
-drill-down. Target and As-Is use the same modifier from the graph.
-
-Proof: `tests/test_static_fields.py`, malformed process metadata in
-`tests/test_member_inventory.py`, and native field-shadow controls in
-`tests/test_boundary_type_native_payloads.py`.
+[Field proof](../../../tests/test_static_fields.py).

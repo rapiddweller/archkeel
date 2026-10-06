@@ -1,12 +1,8 @@
 # AD-41 Where `Any` may appear is a contract rule, not a test
 
-The self-contract's `CONSTRUCT-NO-ANY` forbids `any_annotation`, allowing only
-open-JSON owners `archkeel.ir.codec` and `archkeel.analyzer.embedded`
-([AD-2](ad-02-json-has-one-type.md)). Remove `tests/test_source_types.py`'s duplicate
-regex and path exemptions. The analyzer already observes annotations and
-`forbidden_construct` evaluates `allowed_sources`, so no new code is needed.
+Keep `Any` permissions in the architecture contract with scoped owner rationale. Do not duplicate
+them in a source regex: test and report policy could drift. At a JSON boundary, `object` is an
+honest type and remains a typing-ratchet signal; it is not an `Any` annotation.
 
-Keeping both would let test and report decisions drift. `object` remains a ratchet
-signal; at a JSON boundary it is an honest type, not an `Any` annotation.
-Check: the self-rule recorded zero violations; moving `dict[str, Any]` outside
-those owners produced `rule.violated` in `report`.
+Proof: [test_source_types.py](../../../tests/test_source_types.py) and
+[test_self.py](../../../tests/test_self.py).

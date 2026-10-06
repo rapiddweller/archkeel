@@ -1,11 +1,8 @@
 # AD-12 Validation diagnostics carry a code
 
-Every `contract_invalid` diagnostic carries a stable `DiagnosticCode`, such as
-`decision.open`, `interface.unused` or `rule.violated`. The constructor requires
-it; result JSON emits it beside the pointer. Pre-validation analyzer diagnostics,
-such as `rule_without_subjects`, retain their kind without a code. Remove codes
-that no path can produce.
+Contract-invalid findings carry a stable `DiagnosticCode` and JSON pointer at construction. Codes
+identify failures across renderers and replay tests; presentation text is not their identity.
+Pre-validation analyzer failures remain separately identified.
 
-Sixteen findings had shared one kind, forcing tests and agents to match prose.
-Check: the constructor and the [AD-11](ad-11-every-checkable-item-has-a-catalogued-demo.md)
-catalog compare codes instead.
+Delete a code when its failure is unreachable rather than retaining dead catalog entries. Proof:
+[test_architecture_demo.py](../../../tests/test_architecture_demo.py).

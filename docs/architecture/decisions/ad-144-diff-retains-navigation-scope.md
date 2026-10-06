@@ -1,17 +1,12 @@
 # AD-144 Diff retains navigation scope
 
-Diff previously had only global categories, so nested view switches lost their scope.
-Diff now groups the same recorded findings by module and declared package scope.
-Evidence files, qualified subjects and explicit module fields bind each finding;
-unattributable limits remain available at the root. No observation or verdict changes.
+Group recorded Diff findings by module and declared package scope so view switches
+retain navigation. Evidence, subjects and explicit module fields bind attribution;
+unattributable limits remain at the root. Observations and verdicts stay unchanged.
 
-An empty scope says no differences are recorded; missing evidence remains UNKNOWN.
-A missing or ambiguous counterpart retains its original location and offers an
-explicit nearest-scope action. Switching back restores the original view.
-Canonical mounted declaration IDs recover the logical Target route after drilling
-and returning; multiple exact owners remain ambiguous.
-Drill history captures the original route before subject changes; inspecting a
-Diff category retains it. Exact declared modules keep their source-file identity.
+Empty scope means no recorded differences, not complete evidence. Missing or
+ambiguous counterparts retain their location and offer explicit nearest-scope navigation.
+Mounted declaration IDs recover Target routes; exact owners and file identities
+remain distinct.
 
-`tests/test_diff_scope_acceptance.py` covers a CE-sized recursive tree at desktop
-and mobile widths; `make report-browser` retains the existing navigation controls.
+[Scope proof](../../../tests/test_report_interactions.py).

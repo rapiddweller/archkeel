@@ -1,7 +1,8 @@
 # AD-96: Boundary types resolve proven enum members in Literal
 
-`boundary_types` accepts `Literal[State.READY]` only when `State` resolves to one
-statically recognized enum class and `READY` is assigned one literal value in that
-class body. Missing, repeated, dynamically assigned, or non-enum attributes remain
-UNKNOWN. This recognizes a value inside `Literal`; it does not treat `State.READY`
-as a type annotation.
+Accept an enum member inside `Literal` only when its owner resolves to one statically recognized
+enum and the member has one literal assignment. Missing, repeated, dynamic or non-enum attributes
+remain UNKNOWN.
+
+This proves a Literal value; it does not make the member expression a type annotation. Proof:
+[test_boundary_type_enum_literals.py](../../../tests/test_boundary_type_enum_literals.py).

@@ -1,16 +1,10 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-11 architecture demo catalog: the single source read by the test and by markdown().
+"""AD-11 demo variants and their generated replay guide.
 
-Every named `Variant` maps a copy of the clean `fixtures/F-architecture` shop sample to the
-exact rule ids, `DiagnosticCode` and `DiagnosticKind` values `validate` and `report` must
-produce. Rows that run on the sample apply file overlays; rows that compare two observations
-or record a declaration Archkeel never enforces cite existing evidence instead.
-
-Regenerate `docs/architecture-demo.md` from the repository root with:
-
-    python -m fixtures.architecture_demo --markdown
+CATALOG owns fixture overlays and expected validate/report outcomes.
+Regenerate docs/architecture-demo.md with --markdown.
 """
 
 from __future__ import annotations
@@ -21,13 +15,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import textwrap
 from collections.abc import Iterator
 from pathlib import Path
 
 from archkeel.cli import html_path
 from archkeel.cli import main as archkeel_main
-from archkeel.cli.config import CONFIG_PATH
 from fixtures.demo_catalog_check import VARIANTS as _CHECK_PROTOCOL_VARIANTS
 from fixtures.demo_catalog_check_regressions import VARIANTS as _CHECK_REGRESSION_VARIANTS
 from fixtures.demo_catalog_compatibility import VARIANTS as _COMPATIBILITY_VARIANTS
@@ -39,7 +31,7 @@ from fixtures.demo_catalog_exact_ownership import VARIANTS as _EXACT_OWNERSHIP_V
 from fixtures.demo_catalog_interfaces import VARIANTS as _INTERFACE_VARIANTS
 from fixtures.demo_catalog_layout import VARIANTS as _LAYOUT_VARIANTS
 from fixtures.demo_catalog_showcase import VARIANTS as _SHOWCASE_VARIANTS
-from fixtures.demo_catalog_support import FIXTURE_DIR, Variant, apply_overlay
+from fixtures.demo_catalog_support import Variant, apply_overlay
 from fixtures.demo_catalog_test_scope import VARIANTS as _TEST_SCOPE_VARIANTS
 from fixtures.demo_catalog_types import VARIANTS as _TYPE_VARIANTS
 from fixtures.demo_catalog_uml import VARIANTS as _UML_VARIANTS
@@ -65,90 +57,34 @@ CATALOG: tuple[Variant, ...] = (
     *_DART_VARIANTS,
 )
 
-_INTRO = (
-    "Generated from [CATALOG](../fixtures/architecture_demo.py), which owns fixture overlays "
-    "and expected outcomes (AD-11). Rows use `fixtures/F-architecture` unless they name "
-    "another sample or existing test evidence. Regenerate with "
-    "`python -m fixtures.architecture_demo --markdown`."
-)
-_SHOWCASE_NOTE = "`tour` and `dart-tour` combine violations."
-_REPLAY_NOTE = (
-    "Replay with `make demo-architecture VARIANT=<variant> OUTPUT=<new-path>`. "
-    "It validates the fixture and writes report JSON and HTML; the exit is the higher of both "
-    "command exits. A validation failure still permits a report with valid inputs. An invalid "
-    "explicit baseline rejects both commands. Catalog baselines apply to both; only "
-    "`deepest_inside_changed` replays `--against`. Check-protocol and tested-only rows cannot "
-    "replay as reports. Destination files must not exist."
-)
-_DART_NOTE = "`make demo-dart` replays the Dart story from `fixtures/G-dart`."
-_TARGET_HIERARCHY_NOTE = (
-    "Target frames describe layout; component ownership and permissions remain contract "
-    "decisions. A null dependency rank does not identify a cycle. "
-    "See [Target semantics](target-first.md)."
-)
-_BROWSER_NOTE = (
-    "`make report-browser OUTPUT=<fresh-directory>` captures the README views and verifies "
-    "navigation, filters and evidence preservation. Browser tests do not prove human usability."
-)
-_UML_NOTE = (
-    "`make demo-uml OUTPUT=<fresh-directory>` generates Python, Dart and TypeScript reports. "
-    "Python variants cover matching intent, signature failures, unknown enum literals and "
-    "closed inventories. Target stays independent across overlays. Dart and TypeScript inner "
-    "UML observation remains unavailable and comparisons stay UNKNOWN. "
-    "A successful command does not imply `declared_rules` PASS. "
-    "See [UML scope](architecture/uml-model-target.md)."
-)
-
-
-def _demo_type(variant: Variant) -> str:
-    """Name each row's demo kind: what it runs, not what it changes."""
-    if variant.check is not None:
-        return "check run"
-    if variant.against is not None:
-        return "validate --against run"
-    if variant.evidence is not None:
-        return "tested only"
-    if variant.write_baseline:
-        return "validate --write-baseline run"
-    if variant.config != CONFIG_PATH:
-        return f"validate/report --config {variant.config} run"
-    return "validate/report run"
-
 
 def markdown() -> str:
-    """Render docs/architecture-demo.md from CATALOG."""
-    lines = [
-        "# Architecture demo catalog",
-        "",
-        *textwrap.wrap(_INTRO, width=100, break_long_words=False, break_on_hyphens=False),
-        "",
-        *textwrap.wrap(_SHOWCASE_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
-        "",
-        *textwrap.wrap(_REPLAY_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
-        "",
-        *textwrap.wrap(_DART_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
-        "",
-        *textwrap.wrap(
-            _TARGET_HIERARCHY_NOTE, width=100, break_long_words=False, break_on_hyphens=False
-        ),
-        "",
-        *textwrap.wrap(_BROWSER_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
-        "",
-        *textwrap.wrap(_UML_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
-        "",
-        "| Variant | Demo | Rule ids | Diagnostic codes | Evidence / sample |",
-        "|---|---|---|---|---|",
-    ]
-    for variant in CATALOG:
-        violations = ", ".join(variant.expected_violations) or "-"
-        codes = ", ".join(variant.expected_codes) or "-"
-        reference = variant.evidence or (
-            variant.fixture.name if variant.fixture != FIXTURE_DIR else "-"
-        )
-        lines.append(
-            f"| {variant.id} | {_demo_type(variant)} | {violations} | {codes} | {reference} |"
-        )
-    return "\n".join(lines) + "\n"
+    """Generate the short demo guide; CATALOG owns the complete case inventory."""
+    return """# Architecture demos
+
+Create a report with several deliberate violations:
+
+```sh
+make demo-architecture VARIANT=tour OUTPUT=build/demo.json
+```
+
+Use a new output path. The command validates, then writes report JSON and HTML.
+Its exit is the higher validation/report exit; read the report's verdict separately.
+
+For Python, Dart and TypeScript UML examples:
+
+```sh
+make demo-uml OUTPUT=build/uml-demo
+```
+
+Dart and TypeScript inner observation remains unavailable; those comparisons stay UNKNOWN.
+
+The [catalog](../fixtures/architecture_demo.py) owns all variants, overlays and expected
+outcomes. Check-protocol and test-only variants cannot replay as reports.
+[Tests](../tests/test_architecture_demo.py) verify the catalog; the guide omits its full inventory.
+
+Regenerate this page: `uv run --locked python -m fixtures.architecture_demo --markdown`.
+"""
 
 
 def main(argv: list[str]) -> int:

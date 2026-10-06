@@ -1,12 +1,7 @@
 # AD-18 A forbidden dependency supersedes the interface boundary on the same import
 
-An import rejected by `forbidden_dependency` emits only that violation.
-`interface_boundary` evaluates the remaining imports: a forbidden edge has no
-legitimate interface. The violations measurement counts each rejected import once.
-The analyzer version rises because the same input yields fewer records.
+A forbidden dependency takes precedence over an interface finding for the same import. Report the
+decisive failure once, while retaining interface checks on remaining crossings. Permitting a
+component pair does not permit imports outside the provider's public boundary.
 
-On the internal service, most of 149 interface violations duplicated the 148
-forbidden use-case-to-persistence imports.
-Check: a probe breaking both rules reports only the forbidden dependency; an
-allowed pair reaching an undeclared interface still fails. Service evidence
-counts each rejected import once.
+Proof: [test_analyzer.py](../../../tests/test_analyzer.py).

@@ -1,14 +1,12 @@
 # AD-193 UML navigation distinguishes code and boundaries
 
-A component is a declared responsibility and ownership boundary. A module is a
-source unit. Recorded packages are namespace groups, not proof of directories.
-These meanings must remain distinct even when labels match.
+Keep declared components, source modules and namespace packages distinct,
+even when labels match. Packages prove no directories; component roles are not
+language interfaces.
 
-The shared renderer shows kind-specific colors and existing UML glyphs. Breadcrumbs
-include kinds. Details separates the view group, lexical code container and recorded
-source file. Observed components list their assigned modules. Missing Target file
-paths remain undeclared. Component roles are not language interface declarations.
+Show kinds in glyphs and breadcrumbs. Details separates view grouping, lexical
+container and recorded source file; observed components retain assigned modules.
+Missing Target file paths remain undeclared. Kind colors stay separate from verdict
+borders. Identities, facts and Core assessments do not change.
 
-Graph identities, producer facts and Core verdicts are unchanged. Type accents are
-separate from verdict borders. Browser proof covers As-Is, Target and Diff, including
-same-label component/module navigation and namespace groups without directory proof.
+[Navigation proof](../../../tests/test_uml_visual_acceptance.py).

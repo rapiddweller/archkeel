@@ -1,16 +1,12 @@
 # AD-197 Expanded Target records eight UNKNOWN inventories
 
-The reviewed Target adds eight closed member scopes: `ir:source-facts`,
-`ir:coverage`, `ir:snapshot`, `ir:scope`, `ir:request`, `ir:response`,
-`ir:error` and `check:port`. Their declared members match. Python cannot prove
-these inventories complete, so Core retains eight completeness UNKNOWNs.
+Keep the expanded protocol Target's closed member scopes while accepting their
+explicit completeness UNKNOWNs. Declared members match, but Python cannot prove
+those inventories exhaustive. Acceptance records debt rather than converting it
+to PASS; unrelated boundary uncertainty remains.
 
-The existing 40 boundary-type UNKNOWN positions are unchanged. Accept exactly
-these eight additional positions for the reviewed migration: the UNKNOWN ceiling
-becomes 48. This is new tracked debt, not complete architecture proof. Keep the
-closed scopes and collector limits; do not turn UNKNOWN into PASS. Any further
-increase still fails the baseline gate.
+The amendment binds exact recursive contracts and before/after baseline policy.
+It approves only the reviewed inventory debt; further increases still fail gates.
 
-The v2 amendment binds the exact recursive contracts and before/after baseline.
-`tests/test_protocol_uml_target.py` pins all eight subjects and the unchanged
-boundary count. Complete self-Target work remains tracked in issue #340.
+[Bound amendment](ad-197-target-inventory-amendment.json) and
+[inventory proof](../../../tests/test_protocol_uml_target.py).

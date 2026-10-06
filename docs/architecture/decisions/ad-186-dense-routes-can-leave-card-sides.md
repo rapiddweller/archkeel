@@ -1,13 +1,11 @@
 # AD-186 Dense routes can leave card sides
 
-Top and bottom ports can force unrelated lines onto the same stretch. The shared
-renderer keeps its existing route search. If no clear route is found, it tries
-source side ports and an exterior rail beyond occupied routes. This retry rejects
-exits and arrivals that already overlap: changing the middle cannot repair them.
+Retry blocked routes with source side ports and an exterior rail using the existing
+router. Reject overlapping departures and arrivals: changing the middle cannot
+repair them. This avoids forcing unrelated connections onto the same stretch.
 
-Only geometry changes. Graph identities, verdicts and evidence stay unchanged.
-Visible lines and hit paths use the same route. No new dependency is needed.
+Visible and hit geometry share the route. Identity, evidence and verdicts stay
+unchanged; no dependency is added. Reproduced clear routes do not establish a
+global routing guarantee.
 
-Proof: `test_own_ports_keep_mixed_relationship_routes_separate` checks the own
-mixed import/reference scope at two viewport widths. The browser suite also covers
-navigation through the dense graph boundary. This is no global routing guarantee.
+[Route proof](../../../tests/test_own_uml_target.py).

@@ -276,32 +276,17 @@ def test_sdist_ships_library_and_build_inputs_only() -> None:
 
 
 def test_decision_index_matches_decision_files() -> None:
-    """AD-55: the decisions index and docs/architecture/decisions/ name the same set.
-
-    A decision file nobody indexed, or an index row pointing at a missing file, is a
-    drift the split's whole point was to prevent: add the file's row to the index table
-    in docs/architecture/archkeel.md, or add the missing file under decisions/.
-    """
-    archkeel_md = (ROOT / "docs/architecture/archkeel.md").read_text(encoding="utf-8")
-    indexed = dict(
-        re.findall(
-            r"^\| AD-(\S+) \| \[.*?\]\(decisions/(ad-\S+\.md)\) \|$", archkeel_md, re.MULTILINE
-        )
-    )
+    """AD-55: the archive index and decision files must name the same set."""
     decisions_dir = ROOT / "docs/architecture/decisions"
+    index = (decisions_dir / "README.md").read_text(encoding="utf-8")
+    indexed = dict(re.findall(r"^\| AD-(\S+) \| \[.*?\]\((ad-\S+\.md)\) \|$", index, re.MULTILINE))
     on_disk = {path.name for path in decisions_dir.glob("ad-*.md")}
 
-    assert indexed, "the index table in docs/architecture/archkeel.md parsed no rows"
+    assert indexed, "the archive index parsed no rows"
     missing_files = sorted(set(indexed.values()) - on_disk)
-    assert missing_files == [], (
-        "the index in docs/architecture/archkeel.md names a file docs/architecture/decisions/ "
-        f"does not have: {missing_files}"
-    )
+    assert missing_files == [], f"the archive index names missing decision files: {missing_files}"
     unindexed_files = sorted(on_disk - set(indexed.values()))
-    assert unindexed_files == [], (
-        "docs/architecture/decisions/ holds a file the index in docs/architecture/archkeel.md "
-        f"does not name: {unindexed_files}"
-    )
+    assert unindexed_files == [], f"the archive index omits decision files: {unindexed_files}"
 
 
 def test_repository_root_holds_no_stray_file() -> None:

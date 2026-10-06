@@ -1,24 +1,12 @@
 # AD-181 UML bases retain binding evidence
 
-The Python symbol collector records each explicit base expression with its source site,
-relationship kind and resolution limits. A stable direct module binding can prove one
-classifier. Repeated definitions remain candidates. Rebinding, replaceable classes, lexical
-lookup, unknown external kinds and custom generic origins remain partial or unresolved.
-Expressions are never executed.
+Record explicit Python base expressions with kind, site and binding limits.
+Proven Protocol implementation yields `realizes`; subprotocols yield `inherits`.
+Matching signatures alone prove neither. Expressions are never executed.
 
-A class explicitly implementing a known Protocol records `realizes`. A subprotocol records
-`inherits`. This does not infer structural implementation from matching method signatures.
-Legacy base-name arrays alone prove neither typed edges nor complete coverage.
+Each classifier retains base-list coverage. Core uses the nearest covering receipt
+without dropping descendant limits: a complete local list can prove a missing base,
+an unresolved one cannot. Child receipts cannot certify unmeasured parents or siblings.
+Adapters collect evidence; Core compares independent Target.
 
-`ir.source_graph` projects these facts into the shared relationship dataclass and retains
-their class record IDs and source evidence. Each recorded classifier has its own base-list
-coverage. Module coverage remains partial while conditional classifiers are not inventoried.
-Core uses the nearest covering receipt and retains descendant limits. A complete local list
-can prove a missing base; an unresolved base cannot. Child receipts alone cannot certify
-an unmeasured parent inventory or prove a missing sibling.
-
-Adapters collect syntax and binding evidence. IR normalizes facts. Core evaluates the
-independent Target. Rendering owns no new inference or verdict.
-
-Proof: `tests/test_uml_classifier_facts.py`, `tests/test_uml_comparison.py`,
-`tests/test_source_graph.py`; `make self-validate` and `make self-observation`.
+[Base proof](../../../tests/test_uml_classifier_facts.py).

@@ -1,7 +1,8 @@
 # AD-23 Open decisions remain visible context
 
-The report banner follows `declared_rules` (AD-14). Open component pairs remain a counted
-worklist; they do not override that verdict with FAIL. The shared headline names a few actual
-FAIL and UNKNOWN rule IDs. HTML lists those rows first without reordering the JSON result.
+Open component pairs are a decision worklist, not failures of declared rules. Reports must
+distinguish undecided intent from violations and missing evidence. Show FAIL and UNKNOWN first
+without changing deterministic JSON order or claiming that open architecture is conformant.
 
-Checks: terminal/HTML tests and the existing demo catalog sweep compare banner and rule verdict.
+Proof: [test_terminal.py](../../../tests/test_terminal.py) and
+[test_html_report.py](../../../tests/test_html_report.py).

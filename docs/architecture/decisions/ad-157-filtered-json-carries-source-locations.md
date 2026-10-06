@@ -1,15 +1,13 @@
 # AD-157: Filtered JSON carries source locations
 
-`report`'s filtered violations add `locations: [{path, line}]` from the recorded evidence
-used by the HTML handoff. Line `0` means file-only evidence; no attached evidence yields `[]`.
-The projection wraps canonical records, which stay unchanged.
+Filtered violation JSON adds source `locations` from recorded evidence.
+Line zero means file-only; missing evidence yields an empty list. Canonical records
+remain unchanged.
 
-`--only violations` omits PASS and DECLARATION rule assessments, retaining FAIL and UNKNOWN.
-Apply this after baseline comparison. Verdicts, totals, measurements and exit codes stay global.
-Rule/component facets alone keep all assessments.
+Apply filtering after baseline comparison. `--only violations` retains FAIL and
+UNKNOWN assessments; facets alone retain all assessments. Verdicts, totals,
+measurements and exits remain global. Required locations and changed filtering
+semantics form a breaking result-schema change, separate from Core and observation
+formats.
 
-Command-result schema becomes `4.0.0`: locations are required and filtered assessment
-semantics change. Core, observation, contract and profile versions stay unchanged. No release.
-
-Checks: `tests/test_report_agent_json.py` covers CLI locations, schema negatives, size reduction,
-FAIL/UNKNOWN, missing evidence, incomplete observations and unchanged baseline comparisons.
+[Agent-result proof](../../../tests/test_report_agent_json.py).

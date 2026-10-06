@@ -1,42 +1,13 @@
 # AD-202: Focused architecture projection
 
-`report --only architecture --json` projects the authenticated shared report once.
-The typed projection is the source for architecture fact sheets. It adds no collector,
-policy evaluator or inferred ports. Required Target relationships, permissions and imports
-remain separate. Nested ownership uses exact recorded scopes; ties remain UNKNOWN.
+Project authenticated architecture once into typed fact sheets, without collection
+or policy. Slices retain global verdicts, coverage, identity, UNKNOWNs, governing
+ancestor/subtree rules and peer context. Required wiring stays separate from
+permissions and observed imports. Allowances bypass no applicable rule.
 
-Component slices retain global Core verdicts, coverage, source identity and UNKNOWNs,
-plus authentic Core rule declarations/assessments at governing ancestor levels and
-all levels mounted in the selected subtree, with peer ownership/public/planned context.
-Required wiring touching that same subtree is retained before detail/summary partitioning.
-The native rule catalogue owns membership. Allowed means a declared conditional
-component permission; each import must satisfy every applicable rule. ID/scope/label collisions
-produce a named diagnostic. Core and projection share the existing requires predicate;
-Allow declarations do not bypass complete_requires or forbidden dependency constraints.
-The architecture command envelope groups every UNKNOWN by exact kind, reason and scope
-with counts. Only internal class/method/type Target details use Core summaries by scope,
-kind, status and original reasons. Boundary relationships remain individual; the full
-ArchitectureReport retains the detail source for #355. Authenticated namespaces shorten
-names. Its generated schema defines reconstruction and defaults.
-Finding IDs and locations retain #314's format and existing remedy text.
-Shared graph vocabulary owns rule assessments, avoiding a model/projection cycle;
-model re-exports preserve existing imports.
-Command result schema 5 accepts this separate 1.0 envelope. Stable JSON excludes artifact paths.
-Ordinary reports carry the same Core projection for the human view; ordinary JSON keeps its existing null field. Component layers come from authenticated intent.
+Boundary relationships remain individual. Internal details use Core summaries with
+original reasons; the full report retains their source. Colliding IDs/scopes/labels
+produce diagnostics. Never truncate records to meet size budgets or infer ports.
+Ordinary JSON compatibility remains separate from the architecture envelope.
 
-The delegated task owner approved two Governance modules, their exact public projection symbols
-and view dataclasses contained in the public DTO, plus `workflows -> declarations` to authenticate recorded
-dependency permissions. This widens the contract.
-
-Evidence: `tests/test_architecture_projection.py`. Own-repository byte budgets and integrated
-gates are separate acceptance checks; no record is truncated to satisfy a size budget.
-
-Fresh native Self measured 99,058 bytes for the whole command envelope and 56,557 bytes
-for the largest of 29 component ID slices. The owner superseded the proposed 50 KB/5 KB
-limits with 160 KiB/80 KiB guards to retain complete governing records, assessments,
-UNKNOWNs, locations and remedy.
-This budget proof does not accept outstanding baseline changes or the release gates.
-
-Native violation filters use the same authenticated component IDs/scopes and finding subjects;
-legacy top-level labels keep crossing behavior. Live architecture output preserves existing
-baseline comparison receipts. Neither change adds analysis or narrows the global verdict.
+[Projection proof](../../../tests/test_architecture_projection.py).

@@ -1,8 +1,7 @@
 # AD-13 Mermaid diagrams are checked before GitHub renders them
 
-One tool extracts every fenced
-Mermaid block in tracked Markdown; a repository test rejects node labels with unquoted characters
-that break the parser, and CI renders every block with the official Mermaid command-line renderer
-at one pinned version. Reason: GitHub showed a parse error instead of the onboarding flow, and no
-local check noticed. Check: `tests/test_mermaid.py` and the CI render step.
+Check every Mermaid fence locally with the repository parser and in CI with the pinned official
+renderer. Local syntax checks are fast; renderer acceptance catches grammar and rendering
+differences the parser cannot prove.
 
+Proof: [test_mermaid.py](../../../tests/test_mermaid.py).

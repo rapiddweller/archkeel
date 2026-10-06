@@ -1,15 +1,9 @@
 # AD-24a A module opens the same way, and its interface is what crosses its edge
 
-A module opens its functions, classes, calls and references. Methods stay inside
-their owning class. Its observed interface is the names other modules import from
-it and the names it imports. This adds no decision, rule or contract field.
-Reuse `level()`'s card, edge and selection shape, already consumed by layout,
-ranking, routing and the inspector.
+Module navigation exposes functions, classes and methods under their observed owner. Include empty
+and unassigned modules; navigation roots do not become components or permissions. Keep symbol-use
+edges separate from import counts.
 
-Every observed module is reachable, including empty and import-only initializers.
-Modules without a unique owner use a labeled navigation-only root group. This
-group adds no component, verdict or permission; physical folders are navigation.
-Every card opens its module, including those without symbols. Call and reference
-edges show symbol use, not import-site counts.
-
-Check: `archkeel.ir.codec` opened 71 symbols and 165 edges.
+An interface view shows import facts, while declared policy decides whether crossings are permitted.
+See [AD-24](ad-24-the-report-opens-a-component-without-requiring-a-decision.md) and
+[AD-9](ad-09-components-declare-their-interface.md).
