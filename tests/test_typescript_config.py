@@ -33,6 +33,26 @@ def _selected(
     return list(selected.files)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="symbolic links need privileges on Windows")
+def test_discovery_visits_a_symlinked_directory_only_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _config(tmp_path, {"src/main.ts": "export {};"})
+    (tmp_path / "src/loop").symlink_to(".", target_is_directory=True)
+    snapshot = Snapshot(str(tmp_path))
+    entries = snapshot.entries
+    visited: list[str] = []
+
+    def bounded_entries(rel: str) -> tuple[list[str], list[str]]:
+        visited.append(rel)
+        assert len(visited) <= 3, visited
+        return entries(rel)
+
+    monkeypatch.setattr(snapshot, "entries", bounded_entries)
+    config = load_config(snapshot, "tsconfig.json", ("src",))
+    assert config.files == ("src/main.ts",)
+
+
 _TREE = [
     "src/a.ts",
     "src/b.tsx",

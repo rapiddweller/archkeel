@@ -1,9 +1,8 @@
 # TypeScript adapter decision
 
-Status: the pinned npm package chosen here is superseded by
-[AD-210](decisions/ad-210-typescript-frontend-ships-in-the-package.md). The frontend in
-`archkeel.analyzer.typescript` now collects TypeScript; the npm package stays in
-`packages/typescript-adapter` only as the reference its differential tests compare against.
+Status: superseded by [AD-210](decisions/ad-210-typescript-frontend-ships-in-the-package.md).
+The frontend in `archkeel.analyzer.typescript` collects TypeScript; the old npm collector is
+removed. A frozen output from its pinned revision remains the differential reference.
 
 The collector emits validated `SourceFacts`; Core owns policy and verdicts. See the
 [language-adapter target](language-adapter-target.md) for the boundary.
@@ -26,11 +25,10 @@ maps, project references and constructs its grammar cannot parse. See
 [runtime-alias](../../fixtures/typescript-runtime-aliases.json) and
 [hidden-loader](../../fixtures/typescript-hidden-loaders.json) acceptance catalogs.
 
-`make typescript-differential` runs the frontend and the reference adapter over the
-acceptance catalogs, the demo variants and the shop fixtures. It fails on a wrong edge or
-an unexplained difference; every case where the frontend claims less needs a one-line
-reason in `fixtures/typescript-differential-allowlist.json`. The reference adapter is built
-by `make typescript-adapter` until it is removed.
+`make typescript-differential` compares the frontend with the 576-case frozen reference
+captured from the old Node collector (504 equivalent, 72 conservative, 0 defects). Each
+conservative case has a reason in `fixtures/typescript-differential-allowlist.json`; unexpected
+differences fail. The low-resolution real-world corpus remains a limit of this evidence.
 
 [The demo](typescript-demo.md) replays import-rule and revision cases. Process,
 collector and snapshot tests cover executable replacement, malformed facts,

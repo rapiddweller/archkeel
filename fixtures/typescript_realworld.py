@@ -1,10 +1,9 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Run both TypeScript collectors on an already cloned repository and compare their shares.
+"""Measure the in-package TypeScript collector on an already cloned repository.
 
-Nothing is cloned or installed here. The comparison is the corpus differential's own: the same
-request, the same classification, so the numbers are comparable with the acceptance report.
+Nothing is cloned or installed here.
 """
 
 from __future__ import annotations
@@ -16,10 +15,8 @@ from pathlib import Path
 
 from fixtures.typescript_differential import (
     FRONTEND,
-    ORACLE,
     Summary,
     collect,
-    compare,
     request_for,
     summarize,
 )
@@ -48,17 +45,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root = args.repository.resolve()
     request = request_for(root, tuple(args.roots.split(",")), args.namespace, args.tsconfig)
-    summaries = []
-    for label, argv_ in (("oracle  ", ORACLE), ("frontend", FRONTEND)):
-        started = time.monotonic()
-        summaries.append(summarize(collect(argv_, request), str(root)))
-        print(_share(label, summaries[-1], time.monotonic() - started))
-    findings = compare(*summaries)
-    classes = Counter(item.klass for item in findings if item.subject != "gap reasons")
-    print("differences by class:", dict(sorted(classes.items())))
-    for item in findings:
-        if item.klass in ("suspicious", "defect"):
-            print(f"  {item.klass}: {item.subject}: {item.old} -> {item.new}")
+    started = time.monotonic()
+    summary = summarize(collect(FRONTEND, request), str(root))
+    print(_share("frontend", summary, time.monotonic() - started))
     return 0
 
 

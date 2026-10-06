@@ -14,16 +14,12 @@ from archkeel.ir.facts_codec import encode_request
 from fixtures import typescript_differential as differential
 from fixtures import typescript_scenarios
 from fixtures.demo_catalog_typescript import VARIANTS
-from fixtures.reproduce_typescript import ADAPTER
 
 CATALOGS = Path(differential.FIXTURES)
 
 
 @pytest.fixture(scope="module")
 def judged(tmp_path_factory: pytest.TempPathFactory) -> differential.Verdict:
-    assert ADAPTER.is_file(), (
-        "run make -C packages/typescript-adapter install build before the differential"
-    )
     results = differential.run(tmp_path_factory.mktemp("differential"))
     verdict = differential.judge(results, differential.load_allowlist())
     output = Path(os.environ.get("ARCHKEEL_DIFFERENTIAL_OUTPUT", tmp_path_factory.mktemp("report")))
@@ -121,6 +117,30 @@ def test_the_checked_in_allowlist_gives_every_entry_one_line_of_reason() -> None
     for entries in allowlist.values():
         for name, reason in entries.items():
             assert reason.strip() and "\n" not in reason, name
+
+
+def test_reference_rejects_missing_and_stale_cases(tmp_path: Path, monkeypatch) -> None:
+    scenario = typescript_scenarios.SCENARIOS[0]
+    typescript_scenarios.write(tmp_path, scenario)
+    case = differential.Case(
+        "scenario/missing-reference",
+        "scenario",
+        tmp_path,
+        differential.request_for(tmp_path, scenario.roots, "app"),
+    )
+    with pytest.raises(ValueError, match="missing frozen TypeScript reference"):
+        differential.reference(case)
+
+    reference = json.loads(differential.REFERENCE.read_text())
+    reference["cases"][case.name] = {
+        "input_digest": "0" * 64,
+        "summary": {},
+        "statuses": {},
+    }
+    monkeypatch.setattr(differential, "REFERENCE", tmp_path / "reference.json")
+    differential.REFERENCE.write_text(json.dumps(reference))
+    with pytest.raises(ValueError, match="stale frozen TypeScript reference"):
+        differential.reference(case)
 
 
 def test_two_runs_of_the_frontend_are_byte_identical(tmp_path: Path) -> None:

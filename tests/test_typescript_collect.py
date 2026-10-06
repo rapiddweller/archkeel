@@ -62,6 +62,24 @@ def _only(*paths: str) -> dict[str, object]:
     return {"files": list(paths), "include": []}
 
 
+@pytest.mark.parametrize("allow_js", [None, False, True])
+def test_check_js_includes_javascript_unless_allow_js_is_explicitly_false(
+    tmp_path: Path, allow_js: bool | None
+) -> None:
+    options = {**NODE10, "checkJs": True}
+    if allow_js is not None:
+        options["allowJs"] = allow_js
+    facts = _facts(
+        tmp_path,
+        {"src/main.ts": "export {};", "src/hidden.js": "require('./missing.cjs');"},
+        options=options,
+    )
+    assert ("src/hidden.js" in facts.coverage.selected_files) == (allow_js is not False)
+    if allow_js is not False:
+        assert not facts.coverage.full_scope
+        assert any(isinstance(target, UnresolvedTarget) for target in facts.imports)
+
+
 def _gaps(facts: SourceFacts) -> list[str]:
     return [item.title for item in facts.coverage.gaps]
 
@@ -477,6 +495,25 @@ def test_jsdoc_imports_are_a_gap_not_a_guess(tmp_path: Path, comment: str) -> No
 
 @pytest.mark.skipif(os.name == "nt", reason="symbolic links need privileges on Windows")
 class TestSymbolicLinks:
+    def test_workspace_subpath_ignores_the_root_types_entry(self, tmp_path: Path) -> None:
+        (tmp_path / "node_modules").mkdir()
+        (tmp_path / "node_modules/example").symlink_to("../src/example")
+        facts = _facts(
+            tmp_path,
+            {
+                "src/main.ts": "import type { Value } from 'example/sub';",
+                "src/example/package.json": '{"name":"example","types":"types.d.ts"}',
+                "src/example/sub/types.d.ts": "export interface Wrong {}",
+                "src/example/sub/index.ts": "export interface Value {}",
+            },
+            _only("src/main.ts"),
+            options=NODE10,
+        )
+        target = _targets(facts)["import:example/sub"]
+        assert isinstance(target, LocalTarget)
+        assert target.file == "src/example/sub/index.ts"
+        assert facts.coverage.full_scope, _gaps(facts)
+
     def test_a_resolver_symlink_outside_the_snapshot_stays_unknown_and_undigested(
         self, tmp_path: Path
     ) -> None:

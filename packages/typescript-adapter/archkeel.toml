@@ -1,6 +1,0 @@
-[scan]
-roots = ["src"]
-namespace = "archkeel.typescript"
-contract = "architecture-contract.json"
-language = "typescript"
-tsconfig = "tsconfig.json"

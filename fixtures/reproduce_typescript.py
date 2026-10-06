@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Replay TypeScript catalog cases through the configured collector and Core."""
+"""Replay TypeScript catalog cases through the in-package collector and Core."""
 
 from __future__ import annotations
 
@@ -34,10 +34,6 @@ from archkeel.ir.trace import trace_valid_violations
 from fixtures.demo_catalog_support import Variant, apply_overlay
 from fixtures.demo_catalog_typescript import VARIANTS, appended
 
-# The Node reference collector, kept until the in-package frontend has run beside it in CI.
-ADAPTER = Path(__file__).resolve().parents[1] / "packages/typescript-adapter/dist/entry.js"
-ORACLE = ("node", str(ADAPTER))
-
 
 @dataclass(frozen=True)
 class Outcome:
@@ -47,24 +43,12 @@ class Outcome:
     observation: Observation | None
 
 
-def repository(
-    workspace: Path, variant: Variant, collector_argv: tuple[str, ...] | None = None
-) -> Path:
-    """Materialize one variant as a Git repository; None keeps the in-package collector."""
+def repository(workspace: Path, variant: Variant) -> Path:
+    """Materialize one variant as a Git repository using the in-package collector."""
     root = workspace / variant.id
     shutil.copytree(variant.fixture, root)
     apply_overlay(root, variant.files)
     shutil.copytree(root / "resolver-inputs", root / "node_modules")
-    config = root / variant.config
-    config.write_text(
-        "\n".join(
-            line
-            for line in config.read_text().splitlines()
-            if not line.startswith("collector_argv")
-        )
-        + "\n"
-        + (f"collector_argv = {json.dumps(list(collector_argv))}\n" if collector_argv else "")
-    )
     for args in (
         ("init", "-q", "-b", "main"),
         ("config", "user.email", "typescript-demo@example.invalid"),
@@ -87,10 +71,8 @@ def repository(
     return root
 
 
-def run_variant(
-    workspace: Path, variant: Variant, collector_argv: tuple[str, ...] | None = None
-) -> Outcome:
-    root = repository(workspace, variant, collector_argv)
+def run_variant(workspace: Path, variant: Variant) -> Outcome:
+    root = repository(workspace, variant)
     config = load_config(root)
     baseline = root / variant.baseline if variant.baseline else None
     observe = observer_for(
@@ -147,9 +129,7 @@ def command(root: Path, output: Path, label: str, *args: str) -> dict:
     return payload
 
 
-def check_revisions(
-    workspace: Path, output: Path, collector_argv: tuple[str, ...] | None = None
-) -> dict:
+def check_revisions(workspace: Path, output: Path) -> dict:
     root = repository(
         workspace,
         replace(
@@ -163,7 +143,6 @@ def check_revisions(
                 ),
             },
         ),
-        collector_argv,
     )
     path = output / "accepted.json"
     reported = command(root, output, "accepted-report", "report", "--output", str(path))
@@ -255,20 +234,12 @@ def check_revisions(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
-    parser.add_argument(
-        "--oracle",
-        action="store_true",
-        help="replay with the Node reference collector instead of the in-package one",
-    )
     args = parser.parse_args(argv)
-    if args.oracle and not ADAPTER.is_file():
-        parser.error("adapter not built; run make -C packages/typescript-adapter install build")
-    collector = ORACLE if args.oracle else None
     with TemporaryDirectory(prefix="archkeel-typescript-") as temporary:
         output = args.output or Path(temporary)
         output.mkdir(parents=True, exist_ok=True)
         for variant in VARIANTS:
-            root = repository(output, variant, collector)
+            root = repository(output, variant)
             artifact = root / "architecture.json"
             commands = (
                 ("validate",),
@@ -345,7 +316,7 @@ def main(argv: list[str] | None = None) -> int:
                         for name, value in result["measurements"]["scalars"].items()
                     )
                 )
-        checked = check_revisions(output, output, collector)
+        checked = check_revisions(output, output)
         print(f"typescript-revisions: {checked['expectation_fulfilled']} (simulated host ordering)")
         if args.output:
             print(f"Artifacts: {output.resolve()}")

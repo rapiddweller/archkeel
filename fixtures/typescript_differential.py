@@ -1,9 +1,10 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Run the TypeScript acceptance corpus through the Node oracle and the in-package frontend.
+"""Compare the TypeScript acceptance corpus with its frozen reference and in-package frontend.
 
-Both collectors read the same snapshot and the same request. Every difference is classified:
+The frozen reference and frontend read the same snapshot and request. Every difference is
+classified:
 
 - `equivalent`: the same facts, or a difference that cannot change a verdict;
 - `more_conservative`: the oracle resolved or completed what the frontend leaves UNKNOWN;
@@ -16,6 +17,7 @@ The checked-in allow-list names every `more_conservative` and `suspicious` case 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -23,7 +25,8 @@ import sys
 import tempfile
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Final, Literal
 
@@ -44,13 +47,14 @@ from archkeel.ir.protocol import (
 from fixtures import typescript_scenarios
 from fixtures.demo_catalog_support import Variant
 from fixtures.demo_catalog_typescript import VARIANTS
-from fixtures.reproduce_typescript import ORACLE, Outcome, repository, run_variant
+from fixtures.reproduce_typescript import Outcome, repository, run_variant
 
 Klass = Literal["equivalent", "more_conservative", "suspicious", "defect"]
 ORDER: Final[tuple[Klass, ...]] = ("equivalent", "more_conservative", "suspicious", "defect")
 FRONTEND: Final = (sys.executable, "-I", "-B", "-m", "archkeel.analyzer.typescript.entry")
 FIXTURES: Final = Path(__file__).resolve().parent
 ALLOWLIST: Final = FIXTURES / "typescript-differential-allowlist.json"
+REFERENCE: Final = FIXTURES / "typescript-reference.json"
 EXPECTED_GROUPS: Final = {
     "variant": 34,
     "hidden-loader": 111,
@@ -241,7 +245,7 @@ def _fixtures(workspace: Path) -> list[Case]:
 def _variants(workspace: Path) -> list[Case]:
     cases = []
     for variant in VARIANTS:
-        root = repository(workspace / "variants", variant, ORACLE)
+        root = repository(workspace / "variants", variant)
         config = load_config(root)
         request = request_for(
             root, config.roots, config.namespace, config.tsconfig or "tsconfig.json"
@@ -333,6 +337,54 @@ def summarize(facts: SourceFacts, root: str) -> Summary:
         frozenset(str(item.data.get("module")) for item in gaps),
         {item.path: (item.digest, item.role) for item in facts.inputs},
     )
+
+
+def _fingerprint(case: Case) -> str:
+    files = []
+    for path in sorted(case.root.rglob("*")):
+        relative = path.relative_to(case.root)
+        if ".git" in relative.parts:
+            continue
+        if path.is_symlink():
+            value = path.readlink().as_posix().replace(str(case.root.parent), "<parent>")
+            files.append([relative.as_posix(), "link", value])
+        elif path.is_file():
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            files.append([relative.as_posix(), "file", digest])
+    value = [asdict(case.request.scope), asdict(case.request.resolver), files]
+    return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
+
+
+def _reference_summary(data: dict[str, object]) -> Summary:
+    return Summary(
+        data["complete"],
+        tuple(data["selected"]),
+        tuple(data["counts"]),
+        frozenset(tuple(item) for item in data["files"]),
+        {
+            tuple(key): Edge(**{**edge, "flags": tuple(edge["flags"])})
+            for key, edge in data["edges"]
+        },
+        frozenset(data["reasons"]),
+        frozenset(data["gap_modules"]),
+        {path: tuple(value) for path, value in data["inputs"].items()},
+    )
+
+
+@lru_cache(maxsize=1)
+def _reference_records(path: Path) -> dict[str, object]:
+    return json.loads(path.read_text(encoding="utf-8"))["cases"]
+
+
+def reference(case: Case) -> tuple[Summary, dict[str, str]]:
+    records = _reference_records(REFERENCE)
+    record = records.get(case.name)
+    if record is None:
+        raise ValueError(f"missing frozen TypeScript reference case: {case.name}")
+    actual = _fingerprint(case)
+    if record["input_digest"] != actual:
+        raise ValueError(f"stale frozen TypeScript reference case: {case.name}")
+    return _reference_summary(record["summary"]), record["statuses"]
 
 
 def _edge(key: tuple[str, str, str, int, int], old: Edge, new: Edge) -> list[Finding]:
@@ -446,11 +498,12 @@ def _statuses(outcome: Outcome) -> dict[str, str]:
     }
 
 
-def _verdicts(case: Case, workspace: Path) -> tuple[list[Finding], list[tuple[str, str, str]], int]:
+def _verdicts(
+    old: dict[str, str], case: Case, workspace: Path
+) -> tuple[list[Finding], list[tuple[str, str, str]], int]:
     if case.variant is None:
         return [], [], 0
-    old = _statuses(run_variant(workspace / "core-old", case.variant, ORACLE))
-    new = _statuses(run_variant(workspace / "core-new", case.variant, FRONTEND))
+    new = _statuses(run_variant(workspace / "core-new", case.variant))
     findings, rules = [], []
     for rule in sorted(old.keys() | new.keys()):
         before, after = old.get(rule, "absent"), new.get(rule, "absent")
@@ -477,9 +530,10 @@ def _verdicts(case: Case, workspace: Path) -> tuple[list[Finding], list[tuple[st
 def evaluate(case: Case, workspace: Path) -> Result:
     root = str(case.root)
     try:
-        old = summarize(collect(ORACLE, case.request), root)
-    except RuntimeError as error:
-        return Result(case, (Finding("defect", "the Node oracle failed", str(error)[:200], ""),))
+        old, statuses = reference(case)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        finding = Finding("defect", "the frozen reference failed", str(error)[:200], "")
+        return Result(case, (finding,))
     try:
         new = summarize(collect(FRONTEND, case.request), root)
     except RuntimeError as error:
@@ -491,7 +545,7 @@ def evaluate(case: Case, workspace: Path) -> Result:
             findings.append(
                 Finding("defect", "module identity", case.module, ", ".join(sorted(modules)))
             )
-    verdicts, rules, compared = _verdicts(case, workspace)
+    verdicts, rules, compared = _verdicts(statuses, case, workspace)
     return Result(case, (*findings, *verdicts), tuple(rules), compared)
 
 

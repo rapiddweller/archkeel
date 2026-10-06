@@ -1,17 +1,25 @@
-# Unreleased
+# Archkeel 1.0.0 — Unreleased
 
 - TypeScript imports are read by a frontend inside the Python package. No Node runtime or
   separately built adapter is needed. Anything it cannot prove stays UNKNOWN, including
   `extends` through a package and `exports` maps (AD-210). Migration: drop
   `collector_argv = ["archkeel-typescript"]` from `archkeel.toml`; observations recorded with
   the npm adapter name another producer and runtime, so comparing them with a new one fails
-  `incomparable_runtime` until both revisions are observed again.
+  `incomparable_runtime` until both revisions are observed again. The old collector is removed;
+  a frozen 576-case reference retains 504 equivalent, 72 conservative and 0 defective outcomes.
 - Agents can query the shared architecture projection with `report --only architecture`
   and reuse a recorded snapshot with `--input`. Focused queries retain global verdicts,
   coverage and UNKNOWNs. Native component ids/scopes select local Target findings;
   architecture JSON preserves requested baseline comparisons (#358).
 - Exact initializer ownership preserves provider use through proven ancestor-published
   re-exports. Ambiguous routes remain UNKNOWN (#338, AD-198).
+- The report explains findings in plain language, presents four status cards and a Diff, and
+  opens large module diagrams with the 30 most connected elements plus a Show all control.
+  Shared detail assets keep HTML small; the separate agent projection keeps JSON compact.
+  Main publishes the current report through Pages.
+- Layer order evaluates declared dependency permissions. It does not prove runtime or protocol
+  conformance.
+- Incomplete reviewed assessments remain UNKNOWN in the report.
 - The total report metric is named **Contract violations**; counts and evidence are unchanged
   (#349, Core observation 0.72.0; AD-3).
 
@@ -42,10 +50,6 @@ Command-result uses 3.0.0, accepted-lock uses 2.0.0 and fresh Delta uses 1.4.0. 
 and schema together: older consumers cannot read fresh null totals. New readers retain legacy
 formats; re-observe evidence when its analyzer profile is incomparable
 ([compatibility](docs/reference.md)).
-
-TypeScript requires a separate adapter 1.0.0 build and a supported Node runtime;
-the Python distribution does not bundle it. This is import-graph analysis, with no
-full type/call analysis or cross-repository runtime observation claim.
 
 # Archkeel 0.8.4 — Assign exact modules without claiming their children
 

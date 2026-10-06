@@ -1,10 +1,10 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Snapshot scenarios of the Node collector's acceptance tests, as data both collectors can read.
+"""Snapshot scenarios retained from the former Node collector acceptance tests.
 
-Each scenario is what `packages/typescript-adapter/test/adapter.test.mjs` writes to disk before
-it runs the collector; the assertions stay there, the differential compares the two collectors.
+Each scenario preserves what the collector at commit 4e215679 wrote to disk before
+collection; the differential compares the native frontend with that frozen reference.
 """
 
 from __future__ import annotations

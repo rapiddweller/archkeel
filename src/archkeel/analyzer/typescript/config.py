@@ -419,7 +419,7 @@ def _options(layer: _Layer, problems: list[str]) -> Options:
         _lowered(raw, "module"),
         _RESOLUTIONS.get(resolution, resolution) if resolution is not None else None,
         _lowered(raw, "target"),
-        raw.get("allowJs") is True,
+        raw.get("allowJs", raw.get("checkJs")) is True,
         layer.base_url,
         paths,
         layer.base_url if layer.base_url is not None else layer.paths_directory,
@@ -531,9 +531,10 @@ def _discover(
     pending = [(start.lstrip("/") or ".", start) for start in starts]
     while pending and files:
         rel, absolute = pending.pop()
-        if absolute in seen:
+        real = snapshot.real(rel)
+        if real is None or real in seen:
             continue
-        seen.add(absolute)
+        seen.add(real)
         names, children = snapshot.entries(rel)
         for name in names:
             path = posixpath.join(absolute, name)

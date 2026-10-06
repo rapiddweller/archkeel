@@ -342,7 +342,7 @@ class Resolver:
         nested = self._manifest(candidate) if rest else None
         if isinstance(nested, Unknown):
             return nested
-        found = self._worker(candidate, nested or root, esm, kinds)
+        found = self._worker(candidate, nested if rest else root, esm, kinds)
         defaulted = esm and not rest and root is not None and not _declares_exports(root)
         if found is None and defaulted:
             return self._file(join(candidate, "index.js"), esm, kinds)

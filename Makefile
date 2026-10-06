@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-typescript ci-artifacts-clean mermaid check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing
+.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-typescript ci-artifacts-clean mermaid check test collector-safety typescript-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing
 
 check: lint typecheck test
 
@@ -50,7 +50,7 @@ against:
 self-validate:
 	$(UV) run --locked archkeel validate --root . --baseline architecture-baseline.json --json
 
-test: typescript-adapter
+test:
 	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 \
 		-q --durations=20 --junitxml=test-artifacts/pytest/results.xml
 
@@ -61,12 +61,15 @@ collector-safety:
 		tests/test_collector_interrupt.py tests/test_windows_launcher_startup.py \
 		tests/test_collector_safety_acceptance.py tests/test_collector_liveness_observer.py \
 		tests/test_inheritance_proof_transport.py
-.PHONY: typescript-adapter typescript-differential
-typescript-adapter:
-	$(MAKE) -C packages/typescript-adapter install pack
+.PHONY: typescript-differential
+typescript-native:
+	$(UV) run --locked python -m pytest -q tests/test_typescript_parse.py \
+		tests/test_typescript_collect.py tests/test_typescript_config.py \
+		tests/test_typescript_resolve.py tests/test_typescript_provenance.py \
+		tests/test_typescript_init_acceptance.py tests/test_typescript_demo.py
 
-# The Node adapter stays the reference until the in-package frontend has run in CI beside it.
-typescript-differential: typescript-adapter
+# Compare against the immutable output captured from the former Node collector.
+typescript-differential:
 	ARCHKEEL_DIFFERENTIAL_OUTPUT="$(or $(OUTPUT),test-artifacts/typescript-differential)" \
 		$(UV) run --locked python -m pytest -q tests/test_typescript_differential.py
 

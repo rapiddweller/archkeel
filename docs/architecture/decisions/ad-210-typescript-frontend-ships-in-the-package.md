@@ -33,22 +33,18 @@ Whatever it cannot prove is a `collection_gap` with `full_scope` false, never PA
 
 ## Acceptance
 
-The Node adapter remains in the repository as the reference oracle. `make typescript-differential`
-runs both collectors over the scenario catalogs, the demo variants and the shop fixtures and
-classifies every difference:
-
-- equivalent: same edges, targets, flags and coverage;
-- more_conservative: the frontend claims less. It passes only with a one-line reason in
-  `fixtures/typescript-differential-allowlist.json`; a stale entry fails too;
-- suspicious: the frontend claims more or something unclassified. It fails unless allow-listed
-  with proof;
-- defect: a wrong edge or a false claim. It always fails.
-
-Core verdicts are compared as well, and every FAIL that became UNKNOWN is counted per rule.
-Removing the adapter and its Node CI follows separately, after this evidence has run in CI.
+The old Node collector and its source are removed. Its output, captured from commit
+[`4e215679`](https://github.com/rapiddweller/archkeel/tree/4e215679be7ae063ab1de7da189e4565e7851727),
+is preserved as `fixtures/typescript-reference.json`. `make typescript-differential` compares
+the native frontend with this immutable reference across 576 cases: 504 equivalent, 72
+conservative, and 0 defects. The conservative outcomes remain explicitly allow-listed with
+reasons; stale entries and unexpected differences fail. The real-world corpus was low-resolution
+and remains a limit of this evidence.
 
 ## Consequences
 
 - Grammar releases can lag TypeScript syntax; such constructs surface as gaps, not wrong edges.
 - JSDoc type imports and computed loaders stay unobserved and are reported when present.
-- The resolver implements compiler behavior by hand; the differential is what keeps it honest.
+- The resolver is not a full compiler. Package `extends`, `exports`, `typesVersions`, project
+  references and unsupported syntax remain UNKNOWN.
+- The frozen differential does not replace a live compiler or broaden these limits.

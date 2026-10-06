@@ -31,6 +31,6 @@ own resolver, run as a process collector like the others ([AD-210](decisions/ad-
 
 Acceptance covers Python/Dart parity, executable replacement, invalid protocol and
 coverage cases, revision-bound inputs, independent review and, for TypeScript, a
-differential run against the reference adapter. See the
+differential against the frozen output of the historical npm collector. See the
 [TypeScript decision](typescript-foundation-proposal.md) for its gates.
 Import facts do not prove HTTP, queue or runtime relationships.

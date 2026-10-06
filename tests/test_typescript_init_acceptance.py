@@ -17,9 +17,6 @@ from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_obse
 from archkeel.ir.model import in_scope
 
 ROOT = Path(__file__).resolve().parents[1]
-ADAPTER = ROOT / "packages/typescript-adapter/dist/entry.js"
-# The Node reference collector stays selectable until Phase 2 removes it.
-COLLECTORS = ("frontend", "oracle")
 
 
 def _git(root: Path, *args: str) -> str:
@@ -88,36 +85,16 @@ def _invoke(root: Path, *args: str, env: dict[str, str] | None = None):
     )
 
 
-def _collector(collector: str) -> list[str]:
-    """Arguments naming the Node reference collector; the default needs none."""
-    if collector == "frontend":
-        return []
-    assert ADAPTER.is_file(), "Build the pinned TypeScript collector before acceptance."
-    return ["--collector-argv", "node", str(ADAPTER)]
-
-
-def _toml_collector(collector: str) -> str:
-    return "" if collector == "frontend" else "collector_argv=" + json.dumps(["node", str(ADAPTER)])
-
-
 def _allowlist(klass: str) -> dict[str, str]:
     path = ROOT / "fixtures/typescript-differential-allowlist.json"
     return json.loads(path.read_text(encoding="utf-8"))[klass]
 
 
-def _catalog_cases(catalog: str, prefix: str, suffix: str = "") -> list[tuple[dict, str]]:
-    """Every catalog case on the in-package collector; on the reference only where they differ."""
-    listed = _allowlist("more_conservative")
-    cases = json.loads((ROOT / "fixtures" / catalog).read_text())
-    return [
-        (example, collector)
-        for example in cases
-        for collector in COLLECTORS
-        if collector == "frontend" or f"{prefix}{example['name']}{suffix}" in listed
-    ]
+def _catalog_cases(catalog: str) -> list[dict]:
+    return json.loads((ROOT / "fixtures" / catalog).read_text())
 
 
-def _init(root: Path, *, source="src", namespace="shop", collector="frontend", env=None):
+def _init(root: Path, *, source="src", namespace="shop", env=None):
     args = [
         "init",
         "--language",
@@ -129,7 +106,6 @@ def _init(root: Path, *, source="src", namespace="shop", collector="frontend", e
         "--tsconfig",
         "config/production.json",
     ]
-    args.extend(_collector(collector))
     return _invoke(root, *args, env=env)
 
 
@@ -394,12 +370,12 @@ def test_hidden_compiler_closure_refuses_init_and_binds_report_digest(
 
 
 @pytest.mark.parametrize(
-    ("example", "collector"),
-    _catalog_cases("typescript-hidden-loaders.json", "hidden-loader/"),
+    "example",
+    _catalog_cases("typescript-hidden-loaders.json"),
     ids=lambda value: value["name"] if isinstance(value, dict) else value,
 )
 def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
-    tmp_path: Path, example: dict, collector: str
+    tmp_path: Path, example: dict
 ) -> None:
     root = _repository(tmp_path / "project")
     (root / "src").mkdir()
@@ -424,9 +400,7 @@ def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
     )
     (root / "archkeel.toml").write_text(
         '[scan]\nroots=["src"]\nnamespace="app"\nlanguage="typescript"\n'
-        'tsconfig="tsconfig.json"\ncontract="architecture-contract.json"\n'
-        + _toml_collector(collector)
-        + "\n"
+        'tsconfig="tsconfig.json"\ncontract="architecture-contract.json"\n' + "\n"
     )
     (root / "architecture-contract.json").write_text(
         json.dumps(
@@ -461,7 +435,7 @@ def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
     # The frontend may leave UNKNOWN what the reference proved, but only where the checked-in
     # differential allow-list says so; anywhere else it must agree with the reference.
     listed = f"hidden-loader/{example['name']}" in _allowlist("more_conservative")
-    if collector == "frontend" and example["complete"] and listed:
+    if example["complete"] and listed:
         assert payload["observation_complete"] in ("PASS", "UNKNOWN")
         return
     assert result.returncode == (0 if example["complete"] else 2), result.stdout + result.stderr
@@ -479,12 +453,12 @@ def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
 
 
 @pytest.mark.parametrize(
-    ("example", "collector"),
-    _catalog_cases("typescript-runtime-aliases.json", "runtime-alias/", "/first"),
+    "example",
+    _catalog_cases("typescript-runtime-aliases.json"),
     ids=lambda value: value["name"] if isinstance(value, dict) else value,
 )
 def test_package_aliases_preserve_explicit_runtime_and_reject_hidden_imports(
-    tmp_path: Path, example: dict, collector: str
+    tmp_path: Path, example: dict
 ) -> None:
     root = _repository(tmp_path / "project")
     files = {
@@ -521,7 +495,6 @@ def test_package_aliases_preserve_explicit_runtime_and_reject_hidden_imports(
     )
     (root / "archkeel.toml").write_text(
         '[scan]\nroots=["src"]\nnamespace="app"\nlanguage="typescript"\ntsconfig="tsconfig.json"\ncontract="architecture-contract.json"\n'
-        + _toml_collector(collector)
         + "\n"
     )
     (root / "architecture-contract.json").write_text(

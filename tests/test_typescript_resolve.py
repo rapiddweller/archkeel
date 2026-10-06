@@ -43,6 +43,27 @@ def _path(result: Found | Unknown | None) -> str | None:
 _EMPTY = "export {};\n"
 
 
+@pytest.mark.parametrize("nested_manifest", [None, {}, {"types": "local.d.ts"}])
+def test_package_subdirectory_uses_only_its_own_manifest(
+    tmp_path: Path, nested_manifest: dict[str, str] | None
+) -> None:
+    files = {
+        "src/main.ts": "export {};",
+        "node_modules/example/package.json": '{"types":"types.d.ts"}',
+        "node_modules/example/sub/types.d.ts": "export interface Wrong {}",
+        "node_modules/example/sub/local.d.ts": "export interface Local {}",
+        "node_modules/example/sub/index.ts": "export interface Index {}",
+    }
+    if nested_manifest is not None:
+        files["node_modules/example/sub/package.json"] = json.dumps(nested_manifest)
+    resolver = _resolver(tmp_path, files)
+    assert _path(resolver.resolve("example/sub", "src/main.ts", None)) == (
+        "node_modules/example/sub/local.d.ts"
+        if nested_manifest
+        else "node_modules/example/sub/index.ts"
+    )
+
+
 @pytest.mark.parametrize(
     ("specifier", "files", "expected"),
     [
