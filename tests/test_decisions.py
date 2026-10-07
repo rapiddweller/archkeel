@@ -4,6 +4,7 @@
 """AD-15: open_decisions derives undecided component pairs from one observation alone."""
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,7 @@ from archkeel.ir.decisions import (
     agent_decisions,
     dependency_rule_ids,
     open_decisions,
+    rule_uncertainty_evidence,
     violation_counts,
 )
 from archkeel.ir.model import (
@@ -101,6 +103,74 @@ def _declaration(item_id: str, kind: str, data: tuple[tuple[str, object], ...]) 
         provenance=(),
         data=RecordData(data),
     )
+
+
+def test_rule_uncertainty_evidence_groups_only_rule_unknowns_and_ownership_blockers() -> None:
+    def record(
+        identity: str,
+        evidence_class: EvidenceClass,
+        kind: str,
+        rule_ids: tuple[str, ...],
+    ) -> Record:
+        return Record(
+            identity,
+            evidence_class,
+            "rules",
+            kind,
+            identity,
+            (),
+            (),
+            rule_ids,
+            (),
+            (),
+            RecordData(),
+        )
+
+    unknowns = (
+        record("UNKNOWN-Z", EvidenceClass.UNKNOWN, "type_limit", ("RULE-B",)),
+        record("UNKNOWN-A", EvidenceClass.UNKNOWN, "unsupported_rule", ("RULE-B", "RULE-A")),
+        record("UNKNOWN-UNRELATED", EvidenceClass.UNKNOWN, "dynamic_limit", ()),
+        record("FACT-ONLY", EvidenceClass.FACT, "scope_observation", ("RULE-A",)),
+    )
+    receipts = (
+        record("EVALUATION", EvidenceClass.FACT, "rule_evaluation", ("RULE-A",)),
+        record("OTHER-SCOPE", EvidenceClass.UNKNOWN, "scope_unknown", ("RULE-A",)),
+        record(
+            "BLOCKER-B",
+            EvidenceClass.FACT,
+            "rule_ownership_blocker",
+            ("RULE-B", "RULE-A"),
+        ),
+    )
+    observation = _observation(())
+    observation = replace(
+        observation,
+        sections=(
+            *observation.sections,
+            Section("unknowns", unknowns),
+            Section("scope_observations", receipts),
+        ),
+    )
+
+    grouped = rule_uncertainty_evidence(observation)
+
+    assert list(grouped) == ["RULE-A", "RULE-B"]
+    assert [record.id for record in grouped["RULE-A"]] == ["BLOCKER-B", "UNKNOWN-A"]
+    assert [record.id for record in grouped["RULE-B"]] == [
+        "BLOCKER-B",
+        "UNKNOWN-A",
+        "UNKNOWN-Z",
+    ]
+    reversed_observation = replace(
+        observation,
+        sections=tuple(
+            replace(section, records=tuple(reversed(section.records)))
+            if section.name in {"unknowns", "scope_observations"}
+            else section
+            for section in observation.sections
+        ),
+    )
+    assert rule_uncertainty_evidence(reversed_observation) == grouped
 
 
 @pytest.mark.parametrize(

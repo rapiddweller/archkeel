@@ -753,63 +753,27 @@ def _atlas_rule_status_cards(result: RunResult) -> str:
     return "".join(cards)
 
 
-def _atlas_review_claims(data: dict[str, object]) -> str:
-    atlas = data.get("atlas")
-    if not isinstance(atlas, dict):
-        return ""
-    claim = atlas.get("oversized_insides")
-    if not isinstance(claim, dict):
-        return ""
-    if claim.get("status") == "UNKNOWN":
-        body = (
-            "UNKNOWN: the module inventory or module dependency edges needed for this "
-            "comparison are unavailable."
-        )
-        table = ""
-        label = "Review question · components larger than their level · UNKNOWN"
-    else:
-        basis = (
-            f"Comparison basis at the top level: {claim['components']} components and "
-            f"{claim['component_edges']} observed cross-component edges. A candidate has more "
-            "modules than components at that level, or more inner module edges than those "
-            "cross-component edges."
-        )
-        candidates = claim.get("candidates", [])
-        label = (
-            f"Review question · components larger than their level · {len(candidates)} candidate"
-            f"{'s' if len(candidates) != 1 else ''}"
-            if candidates
-            else "Review question · components larger than their level · no candidates measured"
-        )
-        body = basis + (
-            " No candidates were measured."
-            if not candidates
-            else " Candidates are review questions, not violations or proof that a component "
-            "should split."
-        )
-        if candidates:
-            rows = "".join(
-                "<tr><td>"
-                + (
-                    f'<a href="?component={_text(item["component_id"])}" '
-                    f'data-atlas-component-route="{_text(item["component_id"])}">'
-                    f"{_text(item['scope'])}</a>"
-                    if item.get("component_id")
-                    else _text(item["scope"])
-                )
-                + f"</td><td>{item['modules']}</td><td>{item['inner_edges']}</td></tr>"
-                for item in candidates
-            )
-            table = (
-                '<div class="table-wrap"><table class="data-table"><thead><tr>'
-                "<th>Component</th><th>Modules</th><th>Inner module edges</th></tr></thead>"
-                f"<tbody>{rows}</tbody></table></div>"
-            )
-        else:
-            table = ""
+def _atlas_review_claims(
+    observation: Observation, projection: ArchitectureProjection | None
+) -> str:
+    claim = oversized_insides(observation)
+    component_ids = (
+        {item.label: item.id for item in projection.components if item.parent_id is None}
+        if projection is not None
+        else {}
+    )
+    label = (
+        "Review question · components larger than their level · UNKNOWN"
+        if claim.status == "UNKNOWN"
+        else f"Review question · components larger than their level · {len(claim.candidates)} "
+        f"candidate{'s' if len(claim.candidates) != 1 else ''}"
+        if claim.candidates
+        else "Review question · components larger than their level · no candidates measured"
+    )
     return (
         '<details class="report-section report-evidence atlas-review-claim">'
-        f"<summary>{_text(label)}</summary><p>{body}</p>{table}</details>"
+        f"<summary>{_text(label)}</summary>"
+        f"{_inside_claim_body(claim, component_ids=component_ids)}</details>"
     )
 
 
@@ -864,7 +828,7 @@ def _atlas_content(
       </section>
       {status_header}
       {_atlas_section(data)}
-      {_atlas_review_claims(data)}
+      {_atlas_review_claims(observation, result.architecture_projection) if not detail_page else ""}
       <details class="atlas-source"><summary>Snapshot and audit</summary>
       <p>Source digest <code>{_text(observation.source.source_digest)}</code>
       · Dirty {_text(observation.source.dirty)}.</p>
@@ -1710,26 +1674,33 @@ def _fanin_claim_body(claim: TypeFanin) -> str:
 """
 
 
-def _inside_claim_body(claim: InsideSizes) -> str:
+def _inside_claim_body(claim: InsideSizes, *, component_ids: dict[str, str] | None = None) -> str:
     if claim.status == "UNKNOWN":
         return (
             "<p>UNKNOWN: this observation records no modules or no dependency edges, so no "
             "inside can be measured against the level that holds it.</p>"
         )
     scale = (
-        f"The top level holds {claim.components} components and {claim.component_edges} edges "
-        "between them."
+        f"Comparison basis at the top level: {claim.components} components and "
+        f"{claim.component_edges} observed cross-component edges."
     )
     if not claim.candidates:
         return f"<p>None: no component holds more than the level containing it. {scale}</p>"
-    rows = "".join(
-        f"<tr><td>{_text(item.scope)}</td><td>{item.modules}</td><td>{item.inner_edges}</td></tr>"
-        for item in claim.candidates
-    )
+    rows = ""
+    for item in claim.candidates:
+        component_id = component_ids.get(item.scope) if component_ids is not None else None
+        scope = (
+            f'<a href="?component={_text(component_id)}" '
+            f'data-atlas-component-route="{_text(component_id)}">{_text(item.scope)}</a>'
+            if component_id is not None
+            else _text(item.scope)
+        )
+        rows += f"<tr><td>{scope}</td><td>{item.modules}</td><td>{item.inner_edges}</td></tr>"
     return f"""
       <p>{len(claim.candidates)} components hold more modules than the contract has components,
       or more edges among their modules than it has component edges. {scale} Naming a size is
-      evidence; giving one of them a level of its own is a decision (AD-20, AD-33).</p>
+      evidence; giving one of them a level of its own is a decision (AD-20, AD-33). These are
+      review questions, not violations or proof that a component should split.</p>
       <div class="table-wrap">
       <table class="data-table"><thead><tr><th>Component</th><th>Modules</th>
       <th>Edges inside</th></tr></thead><tbody>{rows}</tbody></table></div>

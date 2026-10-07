@@ -15,7 +15,7 @@ from test_atlas_report import _page as _atlas_page
 from test_atlas_report import _result as _atlas_result
 from test_module_explore import _sample
 from test_report_159_160_e2e_oracle import _variant
-from test_target_graph import _nested_repository
+from test_target_graph import _nested_repository, _permission_contract
 from test_uml_rendering import _open_module, _uml_report
 
 from archkeel.check.report import run_report
@@ -47,7 +47,7 @@ def test_atlas_labels_count_scopes_and_oversized_evidence_without_losing_route_s
         repository="One target",
         architecture_href="architecture.json",
     ).decode()
-    assert _atlas(unavailable)["oversized_insides"]["status"] == "UNKNOWN"
+    assert "oversized_insides" not in _atlas(unavailable)
     cases = (
         (_atlas_page(positive), "1 candidate", "core\t3\t0"),
         (_atlas_page(empty), "no candidates measured", None),
@@ -72,7 +72,7 @@ def test_atlas_labels_count_scopes_and_oversized_evidence_without_losing_route_s
                 link = claim.get_by_role("link", name="core")
                 link.click()
                 query = parse_qs(urlsplit(page.url).query)
-                assert query["component"] == ["core"]
+                assert query["scope"] == ["core"]
                 assert query["view"] == ["target"]
                 assert query["theme"] == ["dark"]
                 assert page.locator("html").get_attribute("data-theme") == "dark"
@@ -109,7 +109,10 @@ def test_atlas_unknown_rule_links_its_analyzer_gap_while_failures_remain_visible
         inspector = page.locator(".flow-inspector-content")
         inspector.locator(".atlas-rule-assessments summary").click()
         assert unknown["id"] in inspector.inner_text()
-        assert "Analyzer limitation" in inspector.inner_text()
+        assert "An UNKNOWN alone does not establish" in inspector.inner_text()
+        assert (
+            "Analyzer limitation: a contract decision cannot resolve" not in inspector.inner_text()
+        )
         assert "boundary_type_route" in inspector.inner_text()
         assert "UNKNOWN" in page.locator(".decision-banner").inner_text()
         assert not errors
@@ -144,7 +147,7 @@ def test_atlas_unknown_ownership_gap_points_to_the_required_decision(tmp_path):
         page.locator(f'.flow-nodes [data-uml-id="{component["id"]}"]').press("Space")
         inspector = page.locator(".flow-inspector-content")
         inspector.locator(".atlas-rule-assessments summary").click()
-        assert "Ownership decision needed" in inspector.inner_text()
+        assert "rule_ownership_blocker" in inspector.inner_text()
         assert "Assign it to one existing component" in inspector.inner_text()
         assert "code changes alone" not in inspector.inner_text()
     finally:
@@ -376,8 +379,11 @@ def test_atlas_fail_with_undecided_and_mixed_evidence_keeps_all_actions(tmp_path
         assert assessment.id in inspector.inner_text()
         assert "FAIL" in inspector.inner_text()
         assert "undecided result" in inspector.inner_text()
-        assert "Analyzer limitation" in inspector.inner_text()
-        assert "Ownership decision needed" in inspector.inner_text()
+        assert "An UNKNOWN alone does not establish" in inspector.inner_text()
+        assert (
+            "Analyzer limitation: a contract decision cannot resolve" not in inspector.inner_text()
+        )
+        assert "rule_ownership_blocker" in inspector.inner_text()
         assert "Assign it to one existing component" in inspector.inner_text()
     finally:
         browser.close()
@@ -423,11 +429,16 @@ def test_atlas_nested_rule_scope_link_uses_parent_identity_with_duplicate_labels
         page.locator(f'.flow-nodes [data-uml-id="{parent["id"]}"]').press("Space")
         rules = page.locator(".flow-inspector-content .atlas-rule-assessments")
         rules.locator("summary").click()
-        link = rules.get_by_role("link", name="core", exact=True).first
-        assert f"component={child['id'].replace(':', '%3A')}" in link.get_attribute("href")
-        link.click()
+        row = rules.locator("li").filter(has=page.locator("code", has_text="core:layout")).first
+        scope = row.get_by_role("link", name="core", exact=True).first
+        affected = row.get_by_role("link", name="core:core", exact=True)
+        assert parse_qs(urlsplit(scope.get_attribute("href")).query)["scope"] == [parent["id"]]
+        assert parse_qs(urlsplit(affected.get_attribute("href")).query)["scope"] == [child["id"]]
+        page.evaluate("window.navigationSentinel = 42")
+        affected.click()
         query = parse_qs(urlsplit(page.url).query)
-        assert query["component"] == [child["id"]]
+        assert query["scope"] == [child["id"]]
+        assert page.evaluate("window.navigationSentinel") == 42
         assert page.locator("html").get_attribute("data-theme") == "dark"
     finally:
         browser.close()
@@ -775,6 +786,114 @@ def test_native_theme_keeps_target_cards_readable_and_evidence_unchanged(tmp_pat
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         assert page.locator("#flow-data").text_content() == before
         assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.parametrize("component_labels", [(), ("core", "peer")])
+def test_atlas_rule_scope_and_components_have_distinct_native_routes(tmp_path, component_labels):
+    api = pytest.importorskip("playwright.sync_api")
+    root, config = _nested_repository(tmp_path)
+    contract_path = root / config.contract
+    contract_path.write_text(
+        json.dumps(_permission_contract(json.loads(contract_path.read_text())))
+    )
+    result, architecture = run_report(root, config=config, analyzer=observe)
+    assert architecture is not None
+    root_rule = next(item for item in result.rule_assessments if item.scope == "root")
+    nested_rule = next(item for item in result.rule_assessments if item.id == "core:layout")
+    result = replace(
+        result,
+        rule_assessments=(
+            replace(root_rule, status="UNKNOWN", components=component_labels),
+            replace(nested_rule, status="UNKNOWN", components=()),
+        ),
+    )
+    html = render_architecture_html(
+        result, architecture, repository="nested", architecture_href="architecture.json"
+    ).decode()
+    atlas = _atlas(html)
+    root_row, nested_row = atlas["rule_assessments"]
+    assert root_row["scope_id"] is None
+    assert len(root_row["component_ids"]) == len(component_labels)
+    assert nested_row["scope_id"] == "ROOT"
+    assert nested_row["component_ids"] == []
+    report = tmp_path / "routes.report.html"
+    report.write_text(html)
+    playwright, browser, page = _browser_page(api, html)
+    try:
+        page.goto(f"{report.as_uri()}?theme=dark&view=diagram")
+        page.locator('.flow-nodes [data-uml-id="ROOT"]').press("Space")
+        rules = page.locator(".flow-inspector-content .atlas-rule-assessments")
+        rules.locator("summary").click()
+        links = rules.get_by_role("link", name="root", exact=True)
+        assert links.count() >= 1
+        for link in links.all():
+            query = parse_qs(urlsplit(link.get_attribute("href")).query)
+            assert "scope" not in query and "component" not in query
+            assert query["theme"] == ["dark"] and query["view"] == ["diagram"]
+        link = rules.get_by_role("link", name="core", exact=True).last
+        assert parse_qs(urlsplit(link.get_attribute("href")).query)["scope"] == ["ROOT"]
+        page.evaluate("""document.querySelector('main').addEventListener('click', event => {
+            if (!event.isTrusted) {
+                window.routePrevented = event.defaultPrevented;
+                event.preventDefault();
+            }
+        })""")
+        for options in ({"ctrlKey": True}, {"metaKey": True}, {"button": 1}):
+            link.evaluate(
+                "(node, options) => node.dispatchEvent(new MouseEvent('click', "
+                "{bubbles: true, cancelable: true, ...options}))",
+                options,
+            )
+            assert page.evaluate("window.routePrevented") is False
+        page.evaluate("window.navigationSentinel = 42")
+        link.click()
+        assert parse_qs(urlsplit(page.url).query)["scope"] == ["ROOT"]
+        assert page.evaluate("window.navigationSentinel") == 42
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_atlas_uncertainty_preview_is_bounded_and_excludes_success_receipts(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    model = _sample(tmp_path)
+    blocker = next(
+        record
+        for record in model.records("scope_observations")
+        if record.kind == "rule_ownership_blocker"
+    )
+    copies = tuple(
+        replace(blocker, id=stable_id("scope-observation", blocker.id, str(index)))
+        for index in range(12)
+    )
+    model = replace(
+        model,
+        sections=tuple(
+            replace(section, records=(*section.records, *copies))
+            if section.name == "scope_observations"
+            else replace(section, records=())
+            if section.name == "violations"
+            else section
+            for section in model.sections
+        ),
+    )
+    html = _atlas_page(model)
+    atlas = _atlas(html)
+    row = next(item for item in atlas["rule_assessments"] if item["id"] == blocker.rule_ids[0])
+    assert row["evidence_count"] == 13
+    assert len(row["evidence"]) == 5
+    assert all(item["kind"] == "rule_ownership_blocker" for item in row["evidence"])
+    playwright, browser, page = _browser_page(api, html)
+    try:
+        page.locator('.flow-nodes [data-uml-id="core"]').press("Space")
+        rules = page.locator(".flow-inspector-content .atlas-rule-assessments")
+        rules.locator("summary").click()
+        assert "5 of 13 records" in rules.inner_text()
+        assert "Complete evidence in architecture JSON" in rules.inner_text()
+        assert "rule_evaluation" not in rules.inner_text()
     finally:
         browser.close()
         playwright.stop()

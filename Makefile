@@ -28,14 +28,14 @@ pr-test:
 	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 \
 		-q --durations=10 --junitxml=test-artifacts/pytest/pr-core.xml \
 		tests/test_ci_changes.py tests/test_make_gate.py tests/test_repository_hygiene.py \
-		tests/test_contract_model.py tests/test_collection_protocol.py tests/test_source_trust_boundary.py \
+		tests/test_contract_model.py tests/test_decisions.py tests/test_collection_protocol.py tests/test_source_trust_boundary.py \
 		tests/test_analyzer.py tests/test_typescript_config.py tests/test_typescript_resolve.py \
 		tests/test_uml_comparison.py tests/test_saved_report.py tests/test_cli.py
 
 pr-report-test:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q \
 		--junitxml=test-artifacts/pytest/pr-report.xml tests/test_report_pages.py \
-		tests/test_report_interactions.py tests/test_uml_rendering.py
+		tests/test_report_interactions.py tests/test_report_browser.py tests/test_uml_rendering.py
 
 ci-typescript: OUTPUT := test-artifacts/typescript-demo
 ci-typescript: demo-typescript

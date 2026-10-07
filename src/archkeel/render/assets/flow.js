@@ -9,15 +9,6 @@
   const DATA = JSON.parse(dataNode.textContent);
   const ATLAS = DATA.atlas || null;
   const NAV = DATA.navigation || null;
-  document.addEventListener("click", (event) => {
-    const link = event.target.closest("[data-atlas-component-route]");
-    if (!link) return;
-    event.preventDefault();
-    const query = new URLSearchParams(location.search);
-    query.delete("scope");
-    query.set("component", link.dataset.atlasComponentRoute);
-    location.href = `${location.pathname}?${query}`;
-  });
   const SIDECAR = Boolean(NAV?.module_ids);
   let routeReady = false, returnScope = null, returnView = "diagram", returnSelection = null, returnCell = null, returnContent = null, routeNotice = null;
   if (ATLAS) {
@@ -1751,6 +1742,9 @@
   }
 
   function syncRoute(replace = false) {
+    document.querySelectorAll("[data-atlas-component-route]").forEach((link) => {
+      link.href = atlasComponentHref(link.dataset.atlasComponentRoute || null);
+    });
     if (!NAV || !routeReady || !["file:", "http:", "https:"].includes(location.protocol)) return;
     const query = new URLSearchParams();
     if (SIDECAR) {
@@ -2695,6 +2689,28 @@
     requestAnimationFrame(() => target.scrollIntoView());
   }
   window.addEventListener("hashchange", openAtlasFindingHash);
+  function atlasComponentHref(id) {
+    const query = new URLSearchParams(location.search);
+    for (const key of ["component", "scope", "module", "selected", "cell", "content"]) query.delete(key);
+    if (id) query.set("scope", id);
+    query.set("view", viewMode);
+    query.set("theme", document.documentElement.dataset.theme);
+    return `${location.pathname}?${query}`;
+  }
+  function atlasComponentLink(id, label) {
+    return `<a href="${esc(atlasComponentHref(id))}" data-atlas-component-route="${esc(id || "")}">${esc(label)}</a>`;
+  }
+  function followAtlasComponentRoute(event) {
+    if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    const link = event.target.closest("[data-atlas-component-route]");
+    if (!link || !ATLAS) return;
+    const id = link.dataset.atlasComponentRoute || null;
+    if (!ATLAS.levels.some((level) => level.parent_id === id)) return;
+    event.preventDefault();
+    openAtlasComponent(id);
+  }
+  (root.closest("main") || root).addEventListener("click", followAtlasComponentRoute);
+  document.addEventListener("DOMContentLoaded", () => syncRoute(true), { once: true });
   function atlasRuleScopeHref(level, ruleId) {
     const query = new URLSearchParams(location.search);
     query.delete("component");
@@ -2725,30 +2741,18 @@
         ? `<a href="${esc(atlasRuleScopeHref(scopedLevel || level, item.id))}">${esc(item.id)}</a>`
         : `<code>${esc(item.id)}</code>`;
       const evidence = item.evidence.length
-        ? `<ul>${item.evidence.map((entry) => `<li>${esc(entry.kind)} · ${esc(entry.title)} · ${esc(entry.subjects.join(", "))}${entry.reason ? ` · ${esc(entry.reason)}` : ""} · <a href="${esc(ATLAS.architecture_href)}">record ${esc(entry.id)} in architecture JSON</a></li>`).join("")}</ul>`
+        ? `<ul>${item.evidence.map((entry) => `<li>${esc(entry.kind)} · ${esc(entry.title)} · ${esc(entry.subjects.join(", "))}${entry.subject_count > entry.subjects.length ? ` (+${entry.subject_count - entry.subjects.length} subjects in audit)` : ""}${entry.reason ? ` · ${esc(entry.reason)}` : ""} · <a href="${esc(ATLAS.architecture_href)}">record ${esc(entry.id)} in architecture JSON</a></li>`).join("")}</ul>`
         : "";
-      const scopeComponent = item.scope === "root"
-        ? null : ATLAS.components.find((candidate) => candidate.scope === item.scope);
-      const component = ATLAS.components.find((candidate) =>
-        candidate.parent_id === (scopeComponent?.id || null) && item.components.includes(candidate.label));
-      const scope = component
-        ? `<a href="?component=${encodeURIComponent(component.id)}" data-atlas-component-route="${esc(component.id)}">${esc(item.scope)}</a>`
-        : esc(item.scope);
-      const analyzerGap = item.evidence.some((entry) => entry.evidence_class === "UNKNOWN");
-      const ownershipBlocker = item.evidence.some((entry) => entry.kind === "rule_ownership_blocker");
-      const nextActions = [];
-      if (analyzerGap) nextActions.push("Analyzer limitation: a contract decision cannot resolve this missing analysis evidence.");
-      if (ownershipBlocker) nextActions.push("Ownership decision needed: assign the affected scope to a component.");
-      if (ATLAS.observation_complete !== "PASS" && !item.evaluation_proven) {
-        nextActions.push("Source observation is incomplete; complete the scan and rerun the check.");
-      } else if (item.undecided && !analyzerGap && !ownershipBlocker) {
-        nextActions.push("The evaluator left positions undecided; review the evidence and record architect-approved intent if a decision is still open.");
-      } else if (!item.evaluation_proven && !analyzerGap && !ownershipBlocker) {
-        nextActions.push("No complete evaluator receipt is recorded; inspect this scope and rerun the check.");
-      }
-      const next = nextActions.map((action) => `<p>Next action: ${esc(action)}</p>`).join("");
+      const scope = atlasComponentLink(item.scope_id, item.scope);
+      const affected = item.component_ids.map((id) => {
+        const component = ATLAS.components.find((entry) => entry.id === id);
+        return atlasComponentLink(id, component?.scope || id);
+      }).join(", ");
       const uncertainEvidence = item.status === "UNKNOWN" || item.undecided > 0
-        ? `<p>Affected scope: ${scope}</p>${evidence}${next}` : "";
+        ? `<p>Affected scope: ${scope}</p>${affected ? `<p>Affected components: ${affected}</p>` : ""}
+          <p>Recorded uncertainty evidence: ${item.evidence.length} of ${item.evidence_count} records.</p>${evidence}
+          <p>Next action: inspect the recorded reason and affected scope; address missing inputs, ownership or unsupported analysis as applicable, then rerun. An UNKNOWN alone does not establish whether a contract decision can resolve it.</p>
+          <p><a href="${esc(ATLAS.architecture_href)}">Complete evidence in architecture JSON</a></p>` : "";
       return `<li><strong class="atlas-rule-status ${esc(item.status.toLowerCase())}">${esc(item.status)}</strong> · ${rule} (${esc(item.kind)}) · ${scope} · ${esc(item.reason)}`
         + `${item.count ? ` · ${countLabel(item.count, "recorded result")}` : ""}`
         + `${item.undecided ? ` · ${countLabel(item.undecided, "undecided result")}` : ""}`

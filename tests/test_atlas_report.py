@@ -52,6 +52,30 @@ def _page(model):
     ).decode()
 
 
+def test_atlas_oversized_review_uses_shared_claim_and_canonical_component_route(tmp_path):
+    model = _sample(
+        tmp_path,
+        extra_files={
+            "sample/core/helper.py": "def one():\n    return 1\n",
+            "sample/core/helper2.py": "def two():\n    return 2\n",
+        },
+    )
+    page = _page(model)
+    component_id = next(
+        item.id
+        for item in _result(model).architecture_projection.components
+        if item.scope == "core"
+    )
+
+    assert '<details class="report-section report-evidence atlas-review-claim">' in page
+    assert "Review question · components larger than their level · 1 candidate" in page
+    assert "Comparison basis at the top level" in page
+    assert "review questions, not violations" in page
+    assert (
+        f'<a href="?component={component_id}" data-atlas-component-route="{component_id}">core</a>'
+    ) in page
+
+
 def test_html_graph_omits_resolvable_record_id_lists_only(tmp_path):
     from archkeel.ir.graph_codec import report_bytes
     from archkeel.render.html import render_architecture_details, render_html
@@ -189,8 +213,11 @@ def test_default_report_is_one_authentic_repository_with_sparse_native_cells(tmp
             "undecided": item.undecided,
             "reason": item.reason,
             "scope": item.scope,
+            "scope_id": None,
             "components": list(item.components),
+            "component_ids": list(item.components),
             "evaluation_proven": item.evaluation_proven,
+            "evidence_count": 0,
             "evidence": [],
         }
         for item in result.rule_assessments or ()

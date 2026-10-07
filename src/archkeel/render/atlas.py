@@ -9,9 +9,9 @@ from pathlib import PurePosixPath
 
 from archkeel.ir.architecture_graph import ArchitectureReport, Coverage
 from archkeel.ir.architecture_projection import ArchitectureProjection
+from archkeel.ir.decisions import rule_assessment_applies_to_component, rule_uncertainty_evidence
 from archkeel.ir.model import Observation, RunResult, stable_id
 from archkeel.ir.module_explore import ModuleExploreLevel, ModuleStatistic, module_exploration
-from archkeel.ir.structure import oversized_insides
 
 
 def _reference_fields(item: dict[str, object], references: dict[str, int]) -> dict[str, object]:
@@ -443,64 +443,55 @@ def _modules_payload(
 def _rule_assessments_payload(
     result: RunResult,
     model: Observation,
+    projection: ArchitectureProjection,
     references: dict[str, int],
 ) -> list[dict[str, object]]:
-    records = (
-        (*(model.records("unknowns") or ()), *(model.records("scope_observations") or ()))
-        if any(item.status == "UNKNOWN" or item.undecided for item in result.rule_assessments or ())
-        else ()
-    )
-    return [
-        {
-            "id": references.setdefault(item.id, len(references)),
-            "kind": references.setdefault(item.kind, len(references)),
-            "status": item.status,
-            "count": item.count,
-            "undecided": item.undecided,
-            "reason": references.setdefault(item.reason, len(references)),
-            "scope": references.setdefault(item.scope, len(references)),
-            "components": [
-                references.setdefault(value, len(references)) for value in item.components
-            ],
-            "evaluation_proven": item.evaluation_proven,
-            "evidence": [
-                {
-                    "id": references.setdefault(record.id, len(references)),
-                    "kind": record.kind,
-                    "title": record.title,
-                    "subjects": record.subjects,
-                    "evidence_class": record.evidence_class.value,
-                    "reason": record.data.get("reason"),
-                }
-                for record in records
-                if (item.status == "UNKNOWN" or item.undecided) and item.id in record.rule_ids
-            ],
-        }
-        for item in result.rule_assessments or ()
-    ]
-
-
-def _oversized_insides_payload(
-    model: Observation, projection: ArchitectureProjection
-) -> dict[str, object]:
-    claim = oversized_insides(model)
-    component_ids = {
-        item.label: item.id for item in projection.components if item.parent_id is None
-    }
-    return {
-        "status": claim.status,
-        "components": claim.components,
-        "component_edges": claim.component_edges,
-        "candidates": [
+    evidence = rule_uncertainty_evidence(model)
+    scopes = {item.declaration.id: item.parent_id for item in projection.permission_rules}
+    components = {item.id: item for item in projection.components}
+    rows: list[dict[str, object]] = []
+    for item in result.rule_assessments or ():
+        scope_id = scopes.get(item.id)
+        scope = components[scope_id].scope if scope_id in components else item.scope
+        records = evidence.get(item.id, ()) if item.status == "UNKNOWN" or item.undecided else ()
+        rows.append(
             {
-                "scope": item.scope,
-                "component_id": component_ids.get(item.scope),
-                "modules": item.modules,
-                "inner_edges": item.inner_edges,
+                "id": references.setdefault(item.id, len(references)),
+                "kind": references.setdefault(item.kind, len(references)),
+                "status": item.status,
+                "count": item.count,
+                "undecided": item.undecided,
+                "reason": references.setdefault(item.reason, len(references)),
+                "scope": references.setdefault(scope, len(references)),
+                "scope_id": scope_id,
+                "components": [
+                    references.setdefault(value, len(references)) for value in item.components
+                ],
+                "component_ids": [
+                    component.id
+                    for component in projection.components
+                    if item.components
+                    and rule_assessment_applies_to_component(
+                        item, scope_id, component.parent_id, component.label
+                    )
+                ],
+                "evaluation_proven": item.evaluation_proven,
+                "evidence_count": len(records),
+                "evidence": [
+                    {
+                        "id": references.setdefault(record.id, len(references)),
+                        "kind": record.kind,
+                        "title": record.title,
+                        "subjects": record.subjects[:3],
+                        "subject_count": len(record.subjects),
+                        "evidence_class": record.evidence_class.value,
+                        "reason": record.data.get("reason"),
+                    }
+                    for record in records[:5]
+                ],
             }
-            for item in claim.candidates
-        ],
-    }
+        )
+    return rows
 
 
 def atlas_payload(
@@ -528,8 +519,7 @@ def atlas_payload(
         },
         "declared_rules": result.declared_rules,
         "observation_complete": result.observation_complete,
-        "rule_assessments": _rule_assessments_payload(result, model, references),
-        "oversized_insides": _oversized_insides_payload(model, projection),
+        "rule_assessments": _rule_assessments_payload(result, model, projection, references),
         "status": projection.status,
         "reason": projection.reason,
         "components": _components_payload(report, projection, root.modules, references),

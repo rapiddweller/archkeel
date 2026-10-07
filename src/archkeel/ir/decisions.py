@@ -25,6 +25,7 @@ from .model import (
     ComparisonStatus,
     ComponentOwnership,
     ComponentOwnershipInput,
+    EvidenceClass,
     ForbiddenDependencyRule,
     JsonValue,
     Observation,
@@ -52,6 +53,27 @@ _COMPONENT_KINDS = frozenset({"component_responsibility", "inside_component_resp
 DOCUMENT_PATH: _Final = "docs/architecture/architecture.md"
 
 _PLACEHOLDER_RATIONALE: _Final = "TODO: the architect's reason for this decision."
+
+
+def rule_uncertainty_evidence(observation: Observation) -> dict[str, tuple[Record, ...]]:
+    """Group rule-specific UNKNOWN findings and ownership blockers by rule ID."""
+    evidence: dict[str, list[Record]] = {}
+    for record in observation.records("unknowns") or ():
+        if record.evidence_class != EvidenceClass.UNKNOWN:
+            continue
+        for rule_id in set(record.rule_ids):
+            group: list[Record] = evidence.setdefault(rule_id, [])
+            group.append(record)
+    for record in observation.records("scope_observations") or ():
+        if record.kind != "rule_ownership_blocker":
+            continue
+        for rule_id in set(record.rule_ids):
+            group = evidence.setdefault(rule_id, [])
+            group.append(record)
+    return {
+        rule_id: tuple(sorted(records, key=lambda record: record.id))
+        for rule_id, records in sorted(evidence.items())
+    }
 
 
 def _decides_this_level(record: Record) -> bool:
