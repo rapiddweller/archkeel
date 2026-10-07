@@ -11,7 +11,7 @@
       "public": [
         "shop.src.main_x2e_ts"
       ],
-      "responsibilities": [],
+      "responsibilities": ["Compose application startup and connect presentation to data."],
       "forbidden_responsibilities": [],
       "provenance": [
         "docs/architecture/shop.md"
@@ -38,7 +38,7 @@
       "public": [
         "shop.src.presentation"
       ],
-      "responsibilities": [],
+      "responsibilities": ["Present user-facing flows and translate user actions into domain operations."],
       "forbidden_responsibilities": [],
       "provenance": [
         "docs/architecture/shop.md"
@@ -61,7 +61,7 @@
       "public": [
         "shop.src.data"
       ],
-      "responsibilities": [],
+      "responsibilities": ["Persist and retrieve domain data through external systems."],
       "forbidden_responsibilities": [],
       "provenance": [
         "docs/architecture/shop.md"
@@ -84,7 +84,7 @@
       "public": [
         "shop.src.domain"
       ],
-      "responsibilities": [],
+      "responsibilities": ["Define shop concepts and enforce business rules independently of storage and presentation."],
       "forbidden_responsibilities": [],
       "provenance": [
         "docs/architecture/shop.md"

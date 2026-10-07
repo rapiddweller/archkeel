@@ -30,9 +30,10 @@ from archkeel.check.validation import (
     rewrite_component_graph,
     run_validate,
 )
+from archkeel.check.validation.observation import observation_diagnostics
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe
-from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
+from archkeel.ir.baseline import KnownViolation, ViolationFingerprint, violation_fingerprint
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     baseline_bytes,
@@ -491,6 +492,59 @@ def test_nested_same_component_reexport_does_not_count_as_public_use() -> None:
     imports = _imports_by_target(contract, observation, frozenset({"sample.core.types"}))
 
     assert imports == {}
+
+
+def test_aggregate_rule_diagnostic_does_not_invent_a_source_location() -> None:
+    contract = parse_contract(
+        json.loads((ROOT / "fixtures/F-architecture/architecture-contract.json").read_text())
+    )
+    raw = _model(
+        git_head="a" * 40,
+        violations=[
+            _record("VIO-aggregate", kind="forbidden_dependency", evidence_class="VIOLATION")
+        ],
+    )
+    raw["violations"][0]["rule_ids"] = ["DEP-MODEL-NO-STORE"]
+    observation = parse_observation(raw)
+
+    diagnostic = next(
+        item
+        for item in observation_diagnostics(contract, observation, ())
+        if item.code == "rule.violated"
+    )
+
+    assert diagnostic.locations == ()
+
+
+def test_moving_evidence_lines_does_not_change_baseline_fingerprint() -> None:
+    fingerprints = []
+    for identifier, line in (("E-first", 3), ("E-moved", 15)):
+        raw = _model(
+            git_head="a" * 40,
+            violations=[
+                _record(
+                    "VIO-rule",
+                    kind="forbidden_dependency",
+                    evidence_class="VIOLATION",
+                    data={"source_module": "datamimic_ee.tasks.sample"},
+                )
+            ],
+            evidence=[
+                {
+                    "id": identifier,
+                    "file": "src/sample.py",
+                    "line": line,
+                    "end_line": line,
+                    "column": 0,
+                    "excerpt": "from datamimic_ee.clients import Client",
+                }
+            ],
+        )
+        raw["violations"][0]["evidence_ids"] = [identifier]
+        raw["violations"][0]["rule_ids"] = ["DEP-TASKS-NO-CLIENTS"]
+        fingerprints.append(violation_fingerprint(parse_observation(raw).records("violations")[0]))
+
+    assert fingerprints[0] == fingerprints[1]
 
 
 def _module(qualified_name: str, all_exports: list[str] | None = None) -> dict[str, object]:

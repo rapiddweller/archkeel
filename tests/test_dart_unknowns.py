@@ -522,6 +522,8 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
         "git_predicate",
         "host_order",
         "host_source",
+        "widenings",
+        "amendment_status",
         # AD-99: null unless validate measures a declared facade or coupling budget.
         "interface_budgets",
         "measurements",
@@ -552,6 +554,8 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
     assert payload["baseline_comparisons"] is None
     assert payload["architecture_projection"] is None
     assert payload["baseline_path"] is None
+    assert payload["widenings"] is None
+    assert payload["amendment_status"] is None
     assert payload["open_decision_count"] is None
     assert payload["open_decisions_complete"] is None
     assert payload["rule_assessments"] == []

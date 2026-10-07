@@ -39,8 +39,9 @@ from .declarations import (
 )
 from .evaluation.evaluate import ScanResult, evaluate_source
 from .ports import SourceCollector
+from .runtime import has_invalid_python_requirement
 
-OBSERVATION_VERSION = "0.73.0"
+OBSERVATION_VERSION = "0.74.0"
 
 DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")
 
@@ -705,10 +706,14 @@ def assemble_observation(
         "unknowns": scan.unknowns,
         "evidence": scan.evidence,
     }
+    requirement_state = facts.runtime.requirement_state
+    if requirement_state == "declared" and has_invalid_python_requirement(facts.runtime):
+        requirement_state = "requirement_invalid"
     model["runtime"] = {
         "name": facts.runtime.name,
         "version": facts.runtime.version,
         "required": facts.runtime.required,
+        "requirement_state": requirement_state,
     }
     if language == "python" and facts.runtime.name == "python":
         model["python_version"] = facts.runtime.version

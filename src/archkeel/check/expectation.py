@@ -249,8 +249,8 @@ def _require_profile_coverage(delta: ArchitectureDelta) -> Profile:
         or coverage.head_status != delta.head.coverage_status
     ):
         raise ExpectationError("delta coverage disagrees with complete snapshots")
-    if unknown and delta.schema_version != DELTA_SCHEMA_VERSION:
-        raise ExpectationError("profile-scoped comparison requires delta 1.4.0")
+    if unknown and delta.schema_version not in {"1.4.0", DELTA_SCHEMA_VERSION}:
+        raise ExpectationError("profile-scoped comparison requires delta 1.4.0 or 2.0.0")
     if any(
         dimensions[name].before_count is not None or dimensions[name].after_count is not None
         for name in unknown

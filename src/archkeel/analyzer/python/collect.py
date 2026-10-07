@@ -10,7 +10,10 @@ import sys
 from pathlib import Path
 from typing import Literal
 
-from archkeel.analyzer.runtime import collector_provenance, python_requirement
+from archkeel.analyzer.runtime import (
+    collector_provenance,
+    python_requirement,
+)
 from archkeel.ir.facts import (
     BuiltinTarget,
     Capabilities,
@@ -133,7 +136,10 @@ def collect(request: CollectionRequest) -> SourceFacts:
     for item in private_evidence:
         evidence[item.id] = _raw_evidence(item)
 
-    adapter, runtime = collector_provenance("python", required=python_requirement(root))
+    required, requirement_state = python_requirement(root)
+    adapter, runtime = collector_provenance(
+        "python", required=required, requirement_state=requirement_state
+    )
     return SourceFacts(
         "archkeel-python-analyzer",
         adapter,

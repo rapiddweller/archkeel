@@ -389,6 +389,21 @@ def test_real_cli_demo_results_match_the_published_schema(validator, results) ->
     )
 
 
+def test_legacy_cli_result_without_review_fields_matches_schema(validator, results) -> None:
+    for name, result in results.items():
+        payload = copy.deepcopy(result)
+        payload.pop("widenings")
+        payload.pop("amendment_status")
+        assert validator.is_valid(payload), name
+
+    payload = copy.deepcopy(results["clean-report"])
+
+    for field, malformed in (("widenings", "invalid"), ("amendment_status", "invalid")):
+        payload[field] = malformed
+        assert not validator.is_valid(payload), field
+        del payload[field]
+
+
 @pytest.mark.parametrize("full", [False, True])
 def test_real_cli_init_results_match_the_published_schema(validator, tmp_path: Path, full: bool):
     root = _onboarding_repository(tmp_path / ("full" if full else "compact"))
@@ -452,7 +467,7 @@ def test_real_dart_delta_matches_the_published_schema(validator, tmp_path: Path)
             checker_digest="b" * 64,
         )
     )
-    schema = validator.evolve(schema={"$ref": "urn:archkeel:command-result:5.0.0#/$defs/delta"})
+    schema = validator.evolve(schema={"$ref": "urn:archkeel:command-result:6.0.0#/$defs/delta"})
     assert not list(schema.iter_errors(delta))
     delta["analyzer"]["name"] = "unknown-analyzer"
     assert not schema.is_valid(delta)
@@ -487,7 +502,7 @@ def test_incomplete_dart_check_preserves_profile_sections(validator, tmp_path: P
     assert result.exit_code == 2 and result.observation is not None
     payload = result_payload(_incomplete(result))
     assert not list(validator.iter_errors(payload))
-    python = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0"})
+    python = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0"})
     assert not python.is_valid(payload["observation"])
     for section, invalid in (
         ("symbols", []),
@@ -510,7 +525,7 @@ def test_python_observation_sections_remain_required(validator, tmp_path: Path) 
     observation = observation_payload(result.observation)
     schemas = (
         validator.evolve(schema=validator.schema["properties"]["observation"]),
-        validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0"}),
+        validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0"}),
     )
     for schema in schemas:
         assert schema.is_valid(observation)
@@ -712,3 +727,25 @@ def test_validate_assessments_require_completed_inspection(validator, results) -
     complete = copy.deepcopy(results["tour-validate"])
     complete["rule_assessments"] = results["tour-report"]["rule_assessments"]
     assert complete["rule_assessments"] and validator.is_valid(complete)
+
+
+@pytest.mark.parametrize("version", ["1.3.0", "1.4.0", "2.0.0"])
+def test_delta_schema_requires_new_wire_version_for_runtime_metadata(validator, tmp_path, version):
+    observed = _observe_tree(tmp_path, {"sample/a.py": ""}, _contract([]))
+    raw = delta_payload(
+        build_architecture_delta(
+            observed.observation,
+            observed.observation,
+            baseline_digest="a" * 64,
+            head_digest="a" * 64,
+            checker_digest="b" * 64,
+        )
+    )
+    raw["schema_version"] = version
+    schema = validator.evolve(schema=validator.schema["$defs"]["delta"])
+    for side in ("baseline", "head"):
+        raw[side]["runtime"] = {"name": "python", "version": "3.11.12"}
+    assert schema.is_valid(raw)
+    for side in ("baseline", "head"):
+        raw[side]["runtime"]["requirement_state"] = "metadata_missing"
+    assert schema.is_valid(raw) is (version == "2.0.0")

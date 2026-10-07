@@ -1,5 +1,11 @@
 # Archkeel 1.0.0 — Unreleased
 
+- Validation reports coded policy widenings, recorded file/line locations, empty architect-owned
+  responsibilities and specific missing/invalid Python runtime metadata. UNKNOWN stays separate
+  from failures; runtime metadata survives saved reports.
+- Wire migration: SourceFacts and ArchitectureIR use 2.0.0, Core observations 0.74.0, Delta 2.0.0
+  and command-result 6.0.0. Pin collectors, CLI and schemas together. New readers retain supported
+  legacy packets; old strict consumers must upgrade before reading the new runtime state.
 - `init` now lists observed undecided crossings by default and reports the exact total in
   `open_decision_count`; `open_decisions_complete` marks whether the list is full. The terminal
   summary distinguishes total open pairs from observed crossings. `init --full` includes every

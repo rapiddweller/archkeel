@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "cd7275afc0abb0e0dc7226fbca9f81c77257e422bfaf6438be5c7b3f1176e3eb",
+  "after_digest": "ccb13016bd6857a20552146753d1e025c8b4ce72c522a3e6d404340969dea171",
+  "before_baseline_digest": "fae69437915df127b5e66d86775b660426c9839f566dd221ff3dfd87bc260bff",
+  "before_digest": "17a7fc851b2b630fb3a8098c2955d891e4384445f65c74c8bd9e0b8d490e0b92",
+  "decided_by": "Alex (combined 720 baseline approval); Codex (delegated architecture lead, runtime export proposed for owner review)",
+  "rationale": "Integrating main PRs #399 and #400 with the validation changes measures 720 unresolved calls, explicitly approved by Alex. Expose the Core runtime classifier to observation assembly; packaging remains confined to check.runtime. Other budgets are unchanged. Final owner PR review is pending.",
+  "schema_version": "2.0.0"
+}

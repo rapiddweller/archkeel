@@ -55,6 +55,8 @@ archkeel validate    # check the contract
 Read the verdicts: a report can exit `0` with failed or undecided rules.
 `validate` checks the contract; `check` also compares a submitted change with its
 published expectation. Use `archkeel <command> --help` for command options.
+Validation diagnoses only absent responsibilities on components explicitly marked
+`decided_by: "architect"`; non-empty prose is not proof that the stated responsibility is correct.
 
 ## Review the evidence
 

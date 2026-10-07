@@ -113,9 +113,19 @@ def test_invalid_python_is_parse_error_when_runtime_is_allowed(tmp_path: Path) -
     assert "declared target runtime" in result["diagnostics"][0]["remedy"]
 
 
-@pytest.mark.parametrize("metadata", [None, "", '[project]\nrequires-python = "invalid"\n'])
+@pytest.mark.parametrize(
+    ("metadata", "remedy"),
+    [
+        (None, "Add [project].requires-python to pyproject.toml"),
+        ("", "Add [project].requires-python to pyproject.toml"),
+        ("[project]\n", "Add [project].requires-python to pyproject.toml"),
+        ("[project]\nrequires-python = 7\n", "PEP 440 range"),
+        ("[project\n", "Repair pyproject.toml as valid TOML"),
+        ('[project]\nrequires-python = "invalid"\n', "PEP 440 range"),
+    ],
+)
 def test_missing_or_invalid_runtime_metadata_preserves_observation(
-    tmp_path: Path, metadata: str | None
+    tmp_path: Path, metadata: str | None, remedy: str
 ) -> None:
     root = _fixture(tmp_path)
     if metadata is None:
@@ -126,5 +136,36 @@ def test_missing_or_invalid_runtime_metadata_preserves_observation(
     code, result = _report(11, root)
     assert code == 2
     assert result["diagnostics"][0]["kind"] == "runtime_mismatch"
+    assert remedy in result["diagnostics"][0]["remedy"]
     assert result["coverage"]["files_parsed"] == 1
     assert (root / "architecture.json").is_file()
+    if metadata == '[project]\nrequires-python = "invalid"\n':
+        from archkeel.ir.codec import decode_canonical_model, parse_observation
+
+        artifact = json.loads((root / "architecture.json").read_bytes())
+        assert artifact["runtime"]["requirement_state"] == "requirement_invalid"
+        observation = parse_observation(decode_canonical_model(artifact))
+        assert observation.runtime.requirement_state == "requirement_invalid"
+        diagnostic = result["diagnostics"][0]
+        assert diagnostic["subject"] == "pyproject.toml [project].requires-python is invalid"
+        assert "non-empty PEP 440 range" in diagnostic["remedy"]
+
+
+def test_legacy_invalid_python_requirement_names_metadata_subject() -> None:
+    from archkeel.check.runtime import runtime_diagnostic
+    from archkeel.ir.facts import RuntimeInfo
+
+    diagnostic = runtime_diagnostic(RuntimeInfo("python", "3.11.12", "invalid"))
+    assert diagnostic is not None
+    assert diagnostic.subject.startswith("pyproject.toml [project].requires-python is invalid")
+    assert "valid PEP 440 range" in diagnostic.remedy
+
+
+def test_invalid_python_runtime_version_does_not_blame_requirement() -> None:
+    from archkeel.check.runtime import runtime_diagnostic
+    from archkeel.ir.facts import RuntimeInfo
+
+    diagnostic = runtime_diagnostic(RuntimeInfo("python", "broken", ">=3.11"))
+    assert diagnostic is not None
+    assert "pyproject.toml [project].requires-python" not in diagnostic.subject
+    assert "valid runtime version" in diagnostic.remedy

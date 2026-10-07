@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Literal, TypeAlias
 
@@ -15,6 +15,13 @@ from .state_facts import StateFacts
 from .type_shapes import TypeShape
 
 Language: TypeAlias = Literal["python", "dart", "typescript"]
+RuntimeRequirementState: TypeAlias = Literal[
+    "declared",
+    "metadata_missing",
+    "metadata_invalid",
+    "requirement_missing",
+    "requirement_invalid",
+]
 
 RECORD_FIELDS = (
     "id",
@@ -246,6 +253,8 @@ class RuntimeInfo:
     name: str
     version: str
     required: str | None = None
+    # Diagnostic context does not change runtime comparability for saved snapshots.
+    requirement_state: RuntimeRequirementState = field(default="declared", compare=False)
 
 
 @dataclass(frozen=True, slots=True)

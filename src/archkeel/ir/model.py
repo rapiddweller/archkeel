@@ -71,8 +71,8 @@ def public_api_id(selector: str) -> str:
     return f"API-{hashlib.sha256(selector.encode()).hexdigest()[:16]}"
 
 
-SCHEMA_VERSION = "1.3.0"
-DELTA_SCHEMA_VERSION = "1.4.0"
+SCHEMA_VERSION = "2.0.0"
+DELTA_SCHEMA_VERSION = "2.0.0"
 Verdict: TypeAlias = Literal["PASS", "FAIL"]
 ComponentOwnership: TypeAlias = tuple[str, tuple[str, ...], tuple[str, ...]]
 PackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]
@@ -941,6 +941,7 @@ DiagnosticCode: TypeAlias = Literal[
     "graph.count",
     "graph.drift",
     "rule.violated",
+    "responsibility.missing",
     "reference.namespace",
     "reference.public_owner",
     "reference.public_underscore",
@@ -969,6 +970,8 @@ class Diagnostic:
     remedy: str
     pointer: str | None = None
     code: DiagnosticCode | None = None
+    locations: tuple[ReportLocation, ...] = ()
+    contract_path: str | None = None
 
     def __post_init__(self) -> None:
         if self.kind not in get_args(DiagnosticKind):
@@ -985,6 +988,13 @@ class Diagnostic:
             raise ValueError("contract_invalid diagnostics require a code")
         if self.kind != "contract_invalid" and self.code is not None:
             raise ValueError("only contract_invalid diagnostics carry a code")
+
+
+@dataclass(frozen=True, slots=True)
+class WideningFinding:
+    code: Literal["ir.widening"]
+    subject: str
+    field: str
 
 
 class DiagnosticError(ValueError):
@@ -1320,6 +1330,9 @@ class RunResult:
     host_order: Verdict | None = None
     host_source: str | None = None
     failures: tuple[str, ...] = ()
+    # Present as null without --against; otherwise only unamended/rejected changes.
+    widenings: tuple[WideningFinding, ...] | None = None
+    amendment_status: Literal["valid", "stale"] | None = None
     # AD-77: baseline drift is reported as deterministic fingerprint counts.
     baseline_new: int | None = None
     baseline_resolved: int | None = None

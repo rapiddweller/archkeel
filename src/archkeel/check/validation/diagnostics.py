@@ -5,13 +5,21 @@
 
 from __future__ import annotations
 
-from archkeel.ir.model import Diagnostic, DiagnosticCode
+from archkeel.ir.model import Diagnostic, DiagnosticCode, ReportLocation
 
 
 def _diagnostic(
-    code: DiagnosticCode, pointer: str, subject: str, claim: str, remedy: str
+    code: DiagnosticCode,
+    pointer: str,
+    subject: str,
+    claim: str,
+    remedy: str,
+    locations: tuple[ReportLocation, ...] = (),
+    contract_path: str | None = None,
 ) -> Diagnostic:
-    return Diagnostic("contract_invalid", subject, claim, remedy, pointer, code)
+    return Diagnostic(
+        "contract_invalid", subject, claim, remedy, pointer, code, locations, contract_path
+    )
 
 
 def _sorted(diagnostics: list[Diagnostic]) -> tuple[Diagnostic, ...]:

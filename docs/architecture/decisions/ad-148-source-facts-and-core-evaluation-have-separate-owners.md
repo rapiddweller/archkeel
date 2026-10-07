@@ -11,5 +11,9 @@ comparable snapshots and every applicable dimension. Historical deltas remain re
 scoped comparison requires reobservation. Replaceable collectors prove neither
 language parity nor runtime isolation.
 
+Runtime metadata uses SourceFacts/ArchitectureIR 2.0.0; Delta 2.0.0 and command-result
+6.0.0 carry it. Legacy packets remain readable; collectors, Core and strict schemas
+must be pinned together.
+
 [Protocol proof](../../../tests/test_collection_protocol.py) and
 [comparison proof](../../../tests/test_profile_comparison.py).

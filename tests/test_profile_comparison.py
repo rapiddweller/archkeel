@@ -102,7 +102,7 @@ def test_complete_profile_compares_changed_source_without_architecture_change(la
     assert delta.baseline.source_digest != delta.head.source_digest
     assert delta.coverage.status == "PASS"
     assert not evaluate_expectation(delta, _expectation(delta)).failures
-    assert delta.schema_version == "1.4.0"
+    assert delta.schema_version == "2.0.0"
     if language != "python":
         assert set(delta.coverage.unknown_dimensions) == set(UNAVAILABLE)
         for name in UNAVAILABLE:

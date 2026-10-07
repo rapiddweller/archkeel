@@ -10,7 +10,7 @@ import tomllib
 from pathlib import Path
 from typing import Literal
 
-from archkeel.ir.facts import AnalyzerInfo, RuntimeInfo
+from archkeel.ir.facts import AnalyzerInfo, RuntimeInfo, RuntimeRequirementState
 
 Language = Literal["python", "dart", "typescript"]
 _ANALYZERS: dict[Language, str] = {
@@ -23,7 +23,10 @@ _PARSERS = ("tree-sitter", "tree-sitter-typescript")
 
 
 def collector_provenance(
-    language: Language, *, required: str | None = ">=3.11"
+    language: Language,
+    *,
+    required: str | None = ">=3.11",
+    requirement_state: RuntimeRequirementState = "declared",
 ) -> tuple[AnalyzerInfo, RuntimeInfo]:
     """Identify the collector from its installed version and its actual source files."""
     package = Path(__file__).parent
@@ -64,17 +67,23 @@ def collector_provenance(
         version = "0+unknown"
     return (
         AnalyzerInfo(_ANALYZERS[language], version, digest.hexdigest()),
-        RuntimeInfo("python", platform.python_version(), required),
+        RuntimeInfo("python", platform.python_version(), required, requirement_state),
     )
 
 
-def python_requirement(root: Path) -> str | None:
+def python_requirement(root: Path) -> tuple[str | None, RuntimeRequirementState]:
     path = root / "pyproject.toml"
     try:
-        if not path.resolve().is_relative_to(root):
-            return None
+        if not path.resolve().is_relative_to(root.resolve()):
+            return None, "metadata_invalid"
         project = tomllib.loads(path.read_text(encoding="utf-8")).get("project")
-        required = project.get("requires-python") if isinstance(project, dict) else None
-        return required if isinstance(required, str) and required.strip() else None
+    except FileNotFoundError:
+        return None, "metadata_missing"
     except (OSError, ValueError):
-        return None
+        return None, "metadata_invalid"
+    if not isinstance(project, dict) or "requires-python" not in project:
+        return None, "requirement_missing"
+    required = project["requires-python"]
+    if not isinstance(required, str) or not required.strip():
+        return None, "requirement_invalid"
+    return required, "declared"
