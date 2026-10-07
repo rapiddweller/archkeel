@@ -79,7 +79,12 @@
         {"type": "null"}
       ]
     },
-    "draft_sizes": {"type": "null"},
+    "draft_sizes": {
+      "anyOf": [
+        {"type": "array", "items": {"$ref": "#/$defs/draftedComponentSize"}},
+        {"type": "null"}
+      ]
+    },
     "report_filter": {"anyOf": [{"$ref": "#/$defs/reportFilter"}, {"type": "null"}]},
     "filtered_violations": {
       "anyOf": [
@@ -139,8 +144,6 @@
       "delta",
       "provenance",
       "open_decisions",
-      "open_decision_count",
-      "open_decisions_complete",
       "agent_decisions",
       "claims",
       "violations_by_rule",
@@ -160,6 +163,10 @@
       "renames"
     ],
     "allOf": [
+      {
+        "if": {"properties": {"command": {"const": "init"}}},
+        "else": {"properties": {"draft_sizes": {"type": "null"}}}
+      },
       {
         "if": {
           "properties": {
@@ -797,6 +804,16 @@
     ]
   },
   "$defs": {
+    "draftedComponentSize": {
+      "type": "object",
+      "required": ["label", "modules", "inner_edges"],
+      "properties": {
+        "label": {"type": "string", "minLength": 1},
+        "modules": {"type": "integer", "minimum": 0},
+        "inner_edges": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
     "diagnostic": {
       "type": "object",
       "required": ["kind", "subject", "unknown_claim", "remedy"],

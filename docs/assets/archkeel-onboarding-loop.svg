@@ -19,8 +19,7 @@
 <text x="86" y="162" fill="#E8E8E2" font-size="12.5" font-weight="600">The agent drafts the structure</text>
 <text x="56" y="206" fill="#8A8A84" font-size="9.8" font-family="ui-monospace, Menlo, monospace">$ archkeel init --source shop --namespace</text>
 <text x="56" y="219" fill="#8A8A84" font-size="9.8" font-family="ui-monospace, Menlo, monospace">shop --force</text>
-<text x="56" y="240" fill="#5EEAD4" font-size="10.5">5 components, 20 open decisions, 0</text>
-<text x="56" y="253" fill="#5EEAD4" font-size="10.5">dependency rules</text>
+<text x="56" y="240" fill="#5EEAD4" font-size="10.5">5 components, 20 pairs, 6 observed</text>
 <path d="M 180.0 266 V 282.0 Q 180.0 294.0 192.0 294.0 H 478.0 Q 490.0 294.0 490.0 306.0 V 312" fill="none" stroke="#6E6E66" stroke-width="1.8" stroke-linecap="round" marker-end="url(#tip)"/>
 <rect x="350" y="322" width="280" height="128" rx="10" fill="#141414" stroke="#2A2A28"/>
 <rect x="350" y="322" width="3" height="128" rx="1.5" fill="#F4C95D"/>
@@ -57,7 +56,7 @@
 <text x="86" y="898" fill="#E8E8E2" font-size="12.5" font-weight="600">The agent drafts the inside</text>
 <text x="56" y="942" fill="#8A8A84" font-size="9.8" font-family="ui-monospace, Menlo, monospace">$ archkeel init --source shop/store</text>
 <text x="56" y="955" fill="#8A8A84" font-size="9.8" font-family="ui-monospace, Menlo, monospace">--namespace shop.store --force</text>
-<text x="56" y="976" fill="#5EEAD4" font-size="10.5">4 sub-components, 12 open decisions</text>
+<text x="56" y="976" fill="#5EEAD4" font-size="10.5">4 sub-components, 12 pairs, 3 observed</text>
 <path d="M 180.0 1002 V 1018.0 Q 180.0 1030.0 192.0 1030.0 H 788.0 Q 800.0 1030.0 800.0 1042.0 V 1048" fill="none" stroke="#6E6E66" stroke-width="1.8" stroke-linecap="round" marker-end="url(#tip)"/>
 <rect x="660" y="1058" width="280" height="128" rx="10" fill="#141414" stroke="#2A2A28"/>
 <rect x="660" y="1058" width="3" height="128" rx="1.5" fill="#C5F82A"/>

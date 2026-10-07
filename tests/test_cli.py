@@ -683,6 +683,48 @@ def test_write_graph_baseline_keeps_whole_pair_forbidden(
         assert baseline.exists()
 
 
+@pytest.mark.parametrize("existing_baseline", [False, True])
+def test_accept_new_cannot_baseline_an_undeclared_interface(
+    tmp_path: Path, capsys: pytest.CaptureFixture, existing_baseline: bool
+) -> None:
+    root = _prepare_repo(tmp_path, {})
+    baseline = root / "known-violations.json"
+    arguments = [
+        "validate",
+        "--root",
+        str(root),
+        "--baseline",
+        str(baseline),
+        "--write-graph",
+        "--write-baseline",
+        "--json",
+    ]
+    initial = (
+        arguments
+        if existing_baseline
+        else [
+            "validate",
+            "--root",
+            str(root),
+            "--write-graph",
+            "--json",
+        ]
+    )
+    assert main(initial) == 0
+    capsys.readouterr()
+    before = baseline.read_bytes() if existing_baseline else None
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_text())
+    model = next(item for item in contract["components"] if item["label"] == "model")
+    del model["public"]
+    contract_path.write_text(json.dumps(contract))
+
+    assert main([*arguments, "--accept-new"]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert "interface.undeclared" in {item["code"] for item in result["diagnostics"]}
+    assert (baseline.read_bytes() if baseline.exists() else None) == before
+
+
 def test_validate_baseline_writes_then_gates_on_new_violations(
     tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:

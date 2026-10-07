@@ -165,6 +165,12 @@ def test_open_decision_summary_counts_all_pairs_but_materializes_observed_only()
         ("module_0", "module_1", 2)
     ]
 
+    small_components = components[:3]
+    full = open_decisions(observation, small_components)
+    summary, total = open_decision_summary(observation, small_components)
+    assert total == len(full)
+    assert summary == tuple(item for item in full if item.observed)
+
 
 def test_validation_and_open_decisions_agree_on_undecided_pairs(tmp_path: Path) -> None:
     root = _prepare_repo(

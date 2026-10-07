@@ -1,5 +1,10 @@
 # Archkeel 1.0.0 — Unreleased
 
+- `init` now lists observed undecided crossings by default and reports the exact total in
+  `open_decision_count`; `open_decisions_complete` marks whether the list is full. The terminal
+  summary distinguishes total open pairs from observed crossings. `init --full` includes every
+  pair, while `validate` continues to return the full decision list. Init JSON also reports
+  measured `draft_sizes` for proposed components.
 - Compact agent artifacts contain the shared architecture projection without duplicating the
   full source inventory. `report --only architecture`, focused filters and `--input` let agents
   find relevant violations and next actions while retaining global verdicts, coverage and UNKNOWNs.
