@@ -19,6 +19,7 @@ from archkeel.ir.decisions import (
     RuleUncertaintyCause,
     agent_decisions,
     dependency_rule_ids,
+    open_decision_summary,
     open_decisions,
     rule_uncertainty_evidence,
     violation_counts,
@@ -355,6 +356,24 @@ def test_open_decisions_reports_the_pair_left_undecided_by_a_removed_allowed_rul
     assert decisions[0].observed is True
     # repository imports Order; codec imports Order and OrderPayload.
     assert decisions[0].import_sites == 3
+
+
+def test_open_decision_summary_counts_all_pairs_but_materializes_observed_only() -> None:
+    components = tuple((f"module_{index}", (f"sample.module_{index}",)) for index in range(100))
+    observation = _observation((_module_edge("sample.module_0.a", "sample.module_1.b", 2),))
+
+    decisions, count = open_decision_summary(observation, components)
+
+    assert count == 100 * 99
+    assert [(item.source, item.target, item.import_sites) for item in decisions] == [
+        ("module_0", "module_1", 2)
+    ]
+
+    small_components = components[:3]
+    full = open_decisions(observation, small_components)
+    summary, total = open_decision_summary(observation, small_components)
+    assert total == len(full)
+    assert summary == tuple(item for item in full if item.observed)
 
 
 def test_validation_and_open_decisions_agree_on_undecided_pairs(tmp_path: Path) -> None:

@@ -24,6 +24,7 @@ from archkeel.ir.model import CLASSIFIED_SECTIONS, DiagnosticCode, DiagnosticKin
 from fixtures.architecture_demo import CATALOG, materialized_fixture
 from tests.test_dart_profile import _observe
 from tests.test_exact_module_ownership import _contract, _observe_tree
+from tests.test_onboarding import _repository as _onboarding_repository
 
 ROOT = Path(__file__).parents[1]
 VERDICTS = ("observation_complete", "declared_rules", "expectation_fulfilled")
@@ -372,6 +373,10 @@ def test_real_cli_demo_results_match_the_published_schema(validator, results) ->
     for name, payload in results.items():
         errors = list(validator.iter_errors(payload))
         assert not errors, (name, [(list(error.path), error.message) for error in errors])
+        old_packet = copy.deepcopy(payload)
+        old_packet.pop("open_decision_count", None)
+        old_packet.pop("open_decisions_complete", None)
+        assert validator.is_valid(old_packet), name
     assert results["C-check.stdout"]["expectation_fulfilled"] == "PASS"
     assert results["A-check.stdout"]["expectation_fulfilled"] == "FAIL"
     assert results["B-missing-host.stdout"]["expectation_fulfilled"] == "UNKNOWN"
@@ -382,6 +387,57 @@ def test_real_cli_demo_results_match_the_published_schema(validator, results) ->
         results["class-a-boundary-types-contained-mapping-unknown-report"]["declared_rules"]
         == "UNKNOWN"
     )
+
+
+@pytest.mark.parametrize("full", [False, True])
+def test_real_cli_init_results_match_the_published_schema(validator, tmp_path: Path, full: bool):
+    root = _onboarding_repository(tmp_path / ("full" if full else "compact"))
+    command = [
+        sys.executable,
+        "-m",
+        "archkeel.cli",
+        "init",
+        "--root",
+        str(root),
+        "--json",
+        *(["--full"] if full else []),
+    ]
+    run = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
+    payload = json.loads(run.stdout)
+    assert run.returncode == 0, (payload["diagnostics"], run.stderr)
+    errors = list(validator.iter_errors(payload))
+    assert not errors, [(list(error.path), error.message) for error in errors]
+    assert payload["command"] == "init"
+    assert payload["draft_sizes"]
+    assert payload["open_decision_count"] >= len(payload["open_decisions"])
+    assert payload["open_decisions_complete"] is full
+
+    for field in ("open_decision_count", "open_decisions_complete", "draft_sizes"):
+        missing = copy.deepcopy(payload)
+        del missing[field]
+        assert not validator.is_valid(missing), field
+        missing[field] = None
+        assert not validator.is_valid(missing), field
+
+    repeated = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
+    diagnostic = json.loads(repeated.stdout)
+    assert repeated.returncode == 2
+    assert validator.is_valid(diagnostic)
+    assert all(
+        diagnostic[field] is None
+        for field in ("open_decision_count", "open_decisions_complete", "draft_sizes")
+    )
+
+    for size in (
+        {"label": "core", "modules": True, "inner_edges": 0},
+        {"label": "core", "modules": 1, "inner_edges": -1},
+        {"label": "", "modules": 1, "inner_edges": 0},
+        {"label": "core", "modules": 1},
+        {"label": "core", "modules": 1, "inner_edges": 0, "extra": 0},
+    ):
+        malformed = copy.deepcopy(payload)
+        malformed["draft_sizes"] = [size]
+        assert not validator.is_valid(malformed), size
 
 
 def test_real_dart_delta_matches_the_published_schema(validator, tmp_path: Path) -> None:
@@ -627,7 +683,12 @@ def test_diagnostic_validate_preserves_complete_evidence_only(validator, results
     incomplete["observation_complete"] = "UNKNOWN"
     assert not validator.is_valid(incomplete)
     legacy = copy.deepcopy(validator.schema)
-    legacy["else"]["allOf"][1]["then"] = legacy["else"]["allOf"][1]["then"]["else"]
+    diagnostic_validate = next(
+        branch["then"]
+        for branch in legacy["else"]["allOf"]
+        if branch["if"] == {"properties": {"exit_code": {"const": 2}}}
+    )
+    diagnostic_validate["then"] = diagnostic_validate["else"]
     assert not validator.evolve(schema=legacy).is_valid(payload)
     assert validator.evolve(schema=legacy).is_valid(results["invalid-validate"])
 

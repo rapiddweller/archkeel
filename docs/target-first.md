@@ -15,16 +15,37 @@ counts. Unknown selectors exit 2. Read confirmed violations and UNKNOWNs togethe
 
 ## Baseline debt and gate changes
 
+For a `requires` + `complete_requires` contract, list each permitted direction in `requires`.
+A new crossing on an absent direction is a measured `complete_requires` violation that
+`--accept-new` can record as debt. It appears in the observed graph while Target keeps the
+declared permissions. A whole-pair `forbidden_dependency` instead produces
+`closed_world.observed_forbidden` and cannot be baselined. Regenerate marked graphs and compare
+the debt baseline in one run:
+
 ```bash
-archkeel validate --baseline known-violations.json --write-baseline
+archkeel validate --baseline known-violations.json --write-graph --write-baseline
 archkeel validate --baseline known-violations.json
 ```
 
-Review and commit the initial baseline. Exact debt counts can exit 0 while
-`declared_rules` remains FAIL. New/increased and resolved debt exit 1; other
-diagnostics exit 2. Fix code and rewrite resolved-only debt in the same change.
-Contracted cycles can also shrink without `--accept-new`; new debt requires that
-explicit approval. Baselines never hide diagnostics or complete UNKNOWN evidence.
+Review both writes. If the measured baseline has new or increased debt that the owner accepts,
+rerun with `--accept-new`; otherwise fix it first. For example:
+
+```bash
+archkeel validate --baseline known-violations.json --write-graph --write-baseline --accept-new
+```
+
+`--accept-new` accepts measured debt only.
+The Shop whole-pair `render -> store` case in the
+[forbidden-pair fixture](../fixtures/demo_catalog_dependencies.py) still emits
+`closed_world.observed_forbidden` and exits 2, even with `--write-graph`, `--write-baseline` or
+`--accept-new`; no baseline is written. A narrower case such as
+`forbidden_dependency:target_symbol` remains baseline-capable because it does not forbid the
+whole component pair.
+
+Graph refresh does not amend policy. `validate --against "$BASE"` still rejects an unamended
+permission widening. Exact debt counts can exit 0 while `declared_rules` remains FAIL; new or
+increased and resolved debt exit 1; other diagnostics exit 2. Baselines never hide diagnostics
+or complete UNKNOWN evidence.
 
 Set `BASE` to the branch's reviewed base commit, then protect policy too:
 

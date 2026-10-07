@@ -1,9 +1,9 @@
 {
-  "after_baseline_digest": "f4787db5c01773a2fe369063860c711b706ae6b1f99ca457645d2539c1803666",
+  "after_baseline_digest": "fae69437915df127b5e66d86775b660426c9839f566dd221ff3dfd87bc260bff",
   "after_digest": "17a7fc851b2b630fb3a8098c2955d891e4384445f65c74c8bd9e0b8d490e0b92",
-  "before_baseline_digest": "9e306d1304a70a033a5530c6960696a00637cad40a1878887cf8dba94baadb90",
+  "before_baseline_digest": "a109f81de55cd4c81664454d6c2170db4db5f66ab10f64a0f60d4bbe92ac517b",
   "before_digest": "17a7fc851b2b630fb3a8098c2955d891e4384445f65c74c8bd9e0b8d490e0b92",
-  "decided_by": "Alex (2026-10-07 report review baseline approval)",
-  "rationale": "The Core evidence index adds two unresolved list receiver calls. Alex approved the measured 715 to 717 baseline; all other budgets and rule semantics are unchanged.",
+  "decided_by": "Alex (2026-10-07 explicit combined self-scan baseline approval)",
+  "rationale": "Combined self-scan after Main merged #400: the init parser option adds one unresolved call and the Core uncertainty index adds two. Alex explicitly approved measured 718; all other budgets and rule semantics are unchanged.",
   "schema_version": "2.0.0"
 }

@@ -313,6 +313,23 @@ _OPEN_PAIR = OpenDecision(
 )
 
 
+@pytest.mark.parametrize("count", [3, 6])
+def test_init_summary_distinguishes_materialized_and_displayed_crossings(count: int) -> None:
+    result = RunResult(
+        "init",
+        0,
+        open_decisions=tuple(replace(_OPEN_PAIR, target=f"target_{i}") for i in range(count)),
+        open_decision_count=20,
+        open_decisions_complete=False,
+    )
+    sentence = init_summary(result).sentence
+    assert "20 open decision(s) remain" in sentence
+    assert f"{count} observed crossing(s) in compact result" in sentence
+    assert f"Heaviest {min(count, 5)} observed:" in sentence
+    assert sentence.count(" -> ") == min(count, 5)
+    assert "Showing" not in sentence
+
+
 @pytest.mark.parametrize("verdict", ["PASS", "FAIL", "UNKNOWN"])
 def test_report_headline_keeps_the_rule_verdict_with_open_decisions(verdict: str) -> None:
     result = RunResult("report", 0, "PASS", verdict, "n/a", open_decisions=(_OPEN_PAIR,))

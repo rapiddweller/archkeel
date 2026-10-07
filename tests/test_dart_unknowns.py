@@ -528,6 +528,8 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
         "observation",
         "observation_complete",
         "open_decisions",
+        "open_decision_count",
+        "open_decisions_complete",
         "provenance",
         "python_version",
         "report_filter",
@@ -550,6 +552,8 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
     assert payload["baseline_comparisons"] is None
     assert payload["architecture_projection"] is None
     assert payload["baseline_path"] is None
+    assert payload["open_decision_count"] is None
+    assert payload["open_decisions_complete"] is None
     assert payload["rule_assessments"] == []
     claims = payload["claims"]
     assert isinstance(claims, dict)

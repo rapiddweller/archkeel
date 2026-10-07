@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:command-result:5.0.0",
-  "title": "Archkeel check, validate and report JSON results",
+  "title": "Archkeel command JSON results",
   "$comment": "Version 5 accepts the separate typed architecture command with global Core verdicts, coverage and exact grouped uncertainty. AD-138. Describes codec.result_payload; Version 4 requires filtered violation locations and retains only FAIL/UNKNOWN assessments under --only violations. Version 3 preserves inspected validate verdicts and measurements at diagnostic exit 2; incomplete results remain UNKNOWN/null. Version 2 null call totals and legacy zero sentinels remain readable. Register the bundled IR common, Python decoded and architecture contract schemas by their $id for offline validation. Shape validation does not prove source authenticity, arithmetic consistency or contract conformance.",
   "type": "object",
   "required": ["command", "exit_code", "observation_complete", "declared_rules", "expectation_fulfilled", "diagnostics", "coverage", "architecture_projection"],
   "properties": {
-    "command": {"enum": ["check", "validate", "report"]},
+    "command": {"enum": ["init", "check", "validate", "report"]},
     "exit_code": {"enum": [0, 1, 2]},
     "observation_complete": {"enum": ["PASS", "UNKNOWN"]},
     "declared_rules": {"enum": ["PASS", "FAIL", "UNKNOWN"]},
@@ -30,6 +30,8 @@
     "delta": {"anyOf": [{"$ref": "#/$defs/delta"}, {"type": "null"}]},
     "provenance": {"anyOf": [{"$ref": "#/$defs/provenance"}, {"type": "null"}]},
     "open_decisions": {"type": "array", "items": {"$ref": "#/$defs/openDecision"}},
+    "open_decision_count": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+    "open_decisions_complete": {"anyOf": [{"type": "boolean"}, {"type": "null"}]},
     "agent_decisions": {
       "anyOf": [
         {
@@ -77,7 +79,12 @@
         {"type": "null"}
       ]
     },
-    "draft_sizes": {"type": "null"},
+    "draft_sizes": {
+      "anyOf": [
+        {"type": "array", "items": {"$ref": "#/$defs/draftedComponentSize"}},
+        {"type": "null"}
+      ]
+    },
     "report_filter": {"anyOf": [{"$ref": "#/$defs/reportFilter"}, {"type": "null"}]},
     "filtered_violations": {
       "anyOf": [
@@ -156,6 +163,21 @@
       "renames"
     ],
     "allOf": [
+      {
+        "if": {"properties": {"command": {"const": "init"}}},
+        "then": {
+          "if": {"properties": {"exit_code": {"const": 0}}},
+          "then": {
+            "required": ["open_decision_count", "open_decisions_complete", "draft_sizes"],
+            "properties": {
+              "open_decision_count": {"type": "integer", "minimum": 0},
+              "open_decisions_complete": {"type": "boolean"},
+              "draft_sizes": {"type": "array"}
+            }
+          }
+        },
+        "else": {"properties": {"draft_sizes": {"type": "null"}}}
+      },
       {
         "if": {
           "properties": {
@@ -793,6 +815,16 @@
     ]
   },
   "$defs": {
+    "draftedComponentSize": {
+      "type": "object",
+      "required": ["label", "modules", "inner_edges"],
+      "properties": {
+        "label": {"type": "string", "minLength": 1},
+        "modules": {"type": "integer", "minimum": 0},
+        "inner_edges": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
     "diagnostic": {
       "type": "object",
       "required": ["kind", "subject", "unknown_claim", "remedy"],
