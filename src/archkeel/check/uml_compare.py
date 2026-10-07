@@ -88,8 +88,7 @@ def _scope(graph: ArchitectureGraph, wanted: Entity) -> tuple[Entity, ...]:
     )
 
 
-def _ancestors(graph: ArchitectureGraph, identifier: str) -> set[str]:
-    entities = {item.id: item for item in graph.entities}
+def _ancestors(entities: dict[str, Entity], identifier: str) -> set[str]:
     result: set[str] = set()
     while identifier in entities:
         result.add(identifier)
@@ -101,8 +100,8 @@ def _ancestors(graph: ArchitectureGraph, identifier: str) -> set[str]:
 
 
 def _complete(graph: ArchitectureGraph, scope: Entity, kind: EntityKind | RelationshipKind) -> bool:
-    ancestors = _ancestors(graph, scope.id)
     entities = {item.id: item for item in graph.entities}
+    ancestors = _ancestors(entities, scope.id)
     relevant = tuple(
         item for item in graph.coverage if kind in (*item.entity_kinds, *item.relationship_kinds)
     )
@@ -114,7 +113,7 @@ def _complete(graph: ArchitectureGraph, scope: Entity, kind: EntityKind | Relati
     receipts = covering + tuple(
         item
         for item in relevant
-        if item.scope_id not in ancestors and _within(graph, scope, entities[item.scope_id])
+        if item.scope_id not in ancestors and _within(entities, scope, entities[item.scope_id])
     )
     return bool(covering) and all(item.status == "complete" for item in receipts)
 
@@ -422,31 +421,30 @@ def _relationship(
     )
 
 
-def _within(graph: ArchitectureGraph, scope: Entity, item: Entity) -> bool:
+def _within(entities: dict[str, Entity], scope: Entity, item: Entity) -> bool:
     if scope.kind in {"package", "component"}:
         prefix: str = scope.qualified_name
         name: str = item.qualified_name
         return name.startswith(f"{prefix}.")
-    return scope.id in _ancestors(graph, item.id)
+    return scope.id in _ancestors(entities, item.id)
 
 
 def _closed_relationship_assessments(
     observed: ArchitectureGraph, target: ArchitectureGraph, wanted: TargetScope, actual: Entity
 ) -> tuple[GraphAssessment, ...]:
     entities = {item.id: item for item in target.entities}
+    observed_entities = {item.id: item for item in observed.entities}
     scope = entities[wanted.scope_id]
     matches = (actual,)
     kinds = (*wanted.entity_kinds, *wanted.relationship_kinds)
     expected_edges = tuple(
-        item for item in target.relationships if _within(target, scope, entities[item.source_id])
+        item for item in target.relationships if _within(entities, scope, entities[item.source_id])
     )
     sites = tuple(
         item
         for item in observed.relationships
         if item.kind in wanted.relationship_kinds
-        and _within(
-            observed, actual, {entry.id: entry for entry in observed.entities}[item.source_id]
-        )
+        and _within(observed_entities, actual, observed_entities[item.source_id])
     )
     extra_edges = tuple(
         item
@@ -527,14 +525,15 @@ def _scope_assessments(
                 kinds,
             ),
         )
-    declared = tuple(item for item in target.entities if _within(target, scope, item))
+    observed_entities = {item.id: item for item in observed.entities}
+    declared = tuple(item for item in target.entities if _within(entities, scope, item))
     extras = tuple(
         item
         for item in observed.entities
         if item.id != actual.id
         and item.presence == "defined"
         and item.kind in wanted.entity_kinds
-        and _within(observed, actual, item)
+        and _within(observed_entities, actual, item)
         and not any(
             item.qualified_name == entry.qualified_name and item.kind == entry.kind
             for entry in declared

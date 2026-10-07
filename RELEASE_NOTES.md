@@ -1,29 +1,29 @@
 # Archkeel 1.0.0 — Unreleased
 
+- Compact agent artifacts contain the shared architecture projection without duplicating the
+  full source inventory. `report --only architecture`, focused filters and `--input` let agents
+  find relevant violations and next actions while retaining global verdicts, coverage and UNKNOWNs.
+- The rebuilt report puts findings, independent verdicts and As-Is / Target / Diff navigation
+  first. Quieter diagrams, readable module matrices and dependency balances help architects
+  spot deviations and inspect their evidence. Shared detail data and assets remove duplication.
+  Main publishes the current report through GitHub Pages.
 - TypeScript imports are read by a frontend inside the Python package. No Node runtime or
   separately built adapter is needed. Anything it cannot prove stays UNKNOWN, including
   `extends` through a package and `exports` maps (AD-210). Migration: drop
   `collector_argv = ["archkeel-typescript"]` from `archkeel.toml`; observations recorded with
   the npm adapter name another producer and runtime, so comparing them with a new one fails
   `incomparable_runtime` until both revisions are observed again. The old collector is removed;
-  a frozen 576-case reference retains 503 equivalent, 73 conservative and 0 defective outcomes
-  within that corpus; this does not establish compiler parity.
+  frozen adapter and compiler references guard the modeled cases, not compiler parity.
   Inherited output directories keep their declaring paths; malformed selection/resolution
-  settings remain UNKNOWN. A separate 25-case compiler reference covers these TSConfig cases.
+  settings remain UNKNOWN. Windows checks cover UTF-8 output and portable analyzer provenance.
 - TypeScript publishes lexical UML declarations, members, signatures and typed relationship
   sites through the existing SourceFacts port (#348). Explicit member inventories support
   missing-member checks; ambiguous bindings retain candidates and UNKNOWN. Older import-only
   observations keep inner evidence unavailable. This does not provide compiler type checking.
-- Agents can query the shared architecture projection with `report --only architecture`
-  and reuse a recorded snapshot with `--input`. Focused queries retain global verdicts,
-  coverage and UNKNOWNs. Native component ids/scopes select local Target findings;
-  architecture JSON preserves requested baseline comparisons (#358).
+- Native component ids/scopes select local Target findings; architecture JSON preserves
+  requested baseline comparisons (#358).
 - Exact initializer ownership preserves provider use through proven ancestor-published
   re-exports. Ambiguous routes remain UNKNOWN (#338, AD-198).
-- The report explains findings in plain language, presents four status cards and a Diff, and
-  opens large module diagrams with the 30 most connected elements plus a Show all control.
-  Shared detail assets keep HTML small; the separate agent projection keeps JSON compact.
-  Main publishes the current report through Pages.
 - Layer order evaluates declared dependency permissions. It does not prove runtime or protocol
   conformance.
 - Incomplete reviewed assessments remain UNKNOWN in the report.
