@@ -159,7 +159,7 @@ def test_ir_codec_no_longer_reads_a_file(tmp_path: Path) -> None:
     raw = decode_json(report_path.read_bytes())
     assert isinstance(raw, dict)
     observation = parse_observation(decode_canonical_model(raw))
-    assert observation.schema_version == "1.3.0"
+    assert observation.schema_version == "2.0.0"
 
 
 def test_load_violations_rejects_a_violation_with_no_rule_ids(tmp_path: Path) -> None:

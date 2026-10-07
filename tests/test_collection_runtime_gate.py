@@ -30,11 +30,13 @@ def test_required_runtime_is_checked_for_every_collector(
         (root / "pubspec.yaml").write_text("name: project\n")
         (source / "app.dart").write_text("class Value {}\n")
     response = _response(language, root)
-    response["facts"]["runtime"] = {
-        "name": "node",
-        "version": version,
-        "required": ">=22.13,<23 || >=24,<25 || >=26",
-    }
+    response["facts"]["runtime"].update(
+        {
+            "name": "node",
+            "version": version,
+            "required": ">=22.13,<23 || >=24,<25 || >=26",
+        }
+    )
     contract = root / "contract.json"
     contract.write_text('{"schema_version":"2.1.0","components":[],"rules":[]}')
     output = json.dumps(response)

@@ -35,6 +35,7 @@ pr-test:
 		tests/test_codec.py tests/test_source_provenance_acceptance.py \
 		tests/test_collection_process.py tests/test_collection_conformance.py tests/test_schema_drift.py \
 		tests/test_runtime_delta.py tests/test_nullable_profile_measurements.py \
+		tests/test_collection_runtime_gate.py tests/test_ratchets.py tests/test_model.py tests/test_trace.py tests/test_violations.py \
 		tests/test_typescript_demo.py tests/test_onboarding_guidance.py \
 		tests/test_references.py tests/test_levels.py tests/test_widening.py tests/test_measurement_budgets.py \
 		tests/test_onboarding.py tests/test_terminal.py \
