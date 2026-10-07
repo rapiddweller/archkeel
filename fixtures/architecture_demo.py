@@ -58,6 +58,31 @@ CATALOG: tuple[Variant, ...] = (
 )
 
 
+REPORT_CASES = {
+    "uml-match": ("uml-match", 0),
+    "uml-complete": ("uml-complete", 0),
+    "uml-dart": ("uml-dart", 0),
+    "uml-typescript": ("uml-typescript", 0),
+    "uml-typescript-match": ("uml-typescript-match", 0),
+    "uml-typescript-mismatch": ("uml-typescript-mismatch", 2),
+    "uml-typescript-partial": ("uml-typescript-partial", 0),
+    "uml-mismatch": ("uml-mismatch", 2),
+    "uml-partial": ("uml-partial", 0),
+    "tour": ("tour", 2),
+    "clean": ("clean", 0),
+    "open": ("class-a-decision-open", 2),
+    "wide": ("class-a-recursive-wide-package", 0),
+    "deep": ("class-a-recursive-inside-violation", 2),
+    "mixed": ("class-a-boundary-types-mixed-evidence", 2),
+    "unknown": ("class-a-boundary-types-ordinary-reexport-chain-unknown", 0),
+    "known": ("validation-baseline-subject-order", 0),
+    "target-present": ("target-module-present", 0),
+    "target-absent": ("target-module-absent", 0),
+    "target-store": ("target-hierarchy-positive", 0),
+    "empty-responsibility": ("target-empty-responsibilities", 0),
+}
+
+
 def markdown() -> str:
     """Generate the short demo guide; CATALOG owns the complete case inventory."""
     return """# Architecture demos

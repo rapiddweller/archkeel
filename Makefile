@@ -76,7 +76,7 @@ typescript-differential:
 		$(UV) run --locked python -m pytest -q tests/test_typescript_differential.py
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py tools/ci_changes.py \
-	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
+	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_browser.py tools/report_pages.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/reproduce_typescript.py fixtures/typescript_differential.py fixtures/typescript_scenarios.py fixtures/typescript_realworld.py \
@@ -90,6 +90,7 @@ report-timing:
 report-pages:
 	rm -rf test-artifacts/pages
 	$(UV) run --locked archkeel report --root . --output test-artifacts/pages/architecture.json --json
+	$(UV) run --locked python -m tools.report_pages
 	@printf '%s\n' '<!doctype html><html lang="en"><meta charset="utf-8"><title>ArchKeel report</title><meta http-equiv="refresh" content="0; url=architecture.report.html?theme=dark"><a href="architecture.report.html?theme=dark">Open the current ArchKeel report</a></html>' > test-artifacts/pages/index.html
 
 architecture-graph-schema:

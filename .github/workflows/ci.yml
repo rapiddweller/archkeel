@@ -33,7 +33,7 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
 
-      - name: Build current report
+      - name: Build current report and demo gallery
         run: make report-pages
 
       - name: Configure GitHub Pages

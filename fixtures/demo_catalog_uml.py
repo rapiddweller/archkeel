@@ -188,9 +188,7 @@ for language in ("dart", "typescript"):
             id="uml-" + language,
             section="class_c",
             item="ContractDeclarations.uml",
-            summary="Independent "
-            + language
-            + " intent; unsupported inner observation stays UNKNOWN.",
+            summary="Independent " + language + " intent; incomplete inner coverage stays UNKNOWN.",
             files={},
             expected_violations=(),
             expected_codes=(),
