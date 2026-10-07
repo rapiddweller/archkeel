@@ -542,8 +542,11 @@ def test_atlas_fullscreen_uses_available_canvas_and_background_drag_pans(tmp_pat
         node_count = page.locator(".flow-nodes [data-label]").count()
         edge_count = page.locator(".flow-edges .line").count()
         zoom = page.locator(".flow-zoom-value").inner_text()
+        first_node = page.locator(".flow-nodes [data-label]").first
+        first_node_width = first_node.bounding_box()["width"]
         page.get_by_role("button", name="Zoom in").click()
         assert page.locator(".flow-zoom-value").inner_text() != zoom
+        assert first_node.bounding_box()["width"] > first_node_width
         page.get_by_role("button", name="Fit overview").click()
         assert page.locator(".flow-viewport").get_attribute("transform") is None
         page.locator(".flow-fullscreen").click()

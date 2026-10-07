@@ -1085,9 +1085,6 @@ code {
   height: 100%;
   min-height: 0;
 }
-.flow[data-atlas][data-expanded] .flow-graph {
-  height: 100% !important;
-}
 @media (max-width: 900px) {
   .flow[data-atlas][data-expanded] .flow-layout {
     grid-template-columns: minmax(0, 1fr);
