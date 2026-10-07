@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "a109f81de55cd4c81664454d6c2170db4db5f66ab10f64a0f60d4bbe92ac517b",
+  "after_digest": "17a7fc851b2b630fb3a8098c2955d891e4384445f65c74c8bd9e0b8d490e0b92",
+  "before_baseline_digest": "9e306d1304a70a033a5530c6960696a00637cad40a1878887cf8dba94baadb90",
+  "before_digest": "17a7fc851b2b630fb3a8098c2955d891e4384445f65c74c8bd9e0b8d490e0b92",
+  "decided_by": "Alex (2026-10-07 measured self-scan baseline approval)",
+  "rationale": "Approve calls_unresolved at 716: the required init --full parser option adds one unresolved argparse receiver call.",
+  "schema_version": "2.0.0"
+}

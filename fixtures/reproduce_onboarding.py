@@ -76,28 +76,39 @@ def _repository(workspace: Path) -> Path:
     return root
 
 
-def _draft(root: Path, source: str, namespace: str) -> tuple[int, int, int, tuple[str, ...]]:
+def _draft(root: Path, source: str, namespace: str) -> tuple[int, int, int, int, tuple[str, ...]]:
     """Run `init` at one scope and report what it drafted, without writing anything."""
     result, files = run_init(root, source=source, namespace=namespace, force=True, analyzer=observe)
     contract = json.loads(files["architecture-contract.json"])
     labels = tuple(sorted(item["label"] for item in contract["components"]))
     dependency_kinds = {"allowed_dependency", "forbidden_dependency"}
     dependency_rules = sum(rule["kind"] in dependency_kinds for rule in contract["rules"])
-    return len(labels), len(result.open_decisions), dependency_rules, labels
+    assert result.open_decision_count is not None
+    return (
+        len(labels),
+        result.open_decision_count,
+        len(result.open_decisions),
+        dependency_rules,
+        labels,
+    )
 
 
 def _drafts_the_top_level(root: Path) -> Step:
-    components, open_decisions, dependency_rules, labels = _draft(root, "shop", "shop")
+    components, open_decisions, observed_crossings, dependency_rules, labels = _draft(
+        root, "shop", "shop"
+    )
     return Step(
         "The agent drafts the structure",
         "archkeel init --source shop --namespace shop --force",
-        f"{components} components, {open_decisions} open decisions, "
-        f"{dependency_rules} dependency rules",
+        f"{components} components, {open_decisions} pairs, {observed_crossings} observed",
         (
             f"components: {', '.join(labels)}",
+            f"{dependency_rules} dependency rules",
             "INTERVIEW-MODE REPLAY: approved answers below come from committed fixtures.",
             "`init` derives open pairs from the draft; it writes no dependency rules.",
-            "Every ordered pair is listed heaviest first, with the rule to choose from.",
+            f"The default result lists {observed_crossings} observed crossings; all "
+            f"{open_decisions} open pairs remain in the total.",
+            "Use `init --json --full` to list every pair; `validate --json` remains full.",
         ),
         "agent",
     )
@@ -125,6 +136,7 @@ def _refuses_the_draft(root: Path) -> Step:
         (
             "In this interview-mode replay, a drafted contract is not the approved target.",
             "Its 20 pairs remain open until the pre-approved fixture is applied.",
+            "Unlike compact init output, validate returns the full open-decision list.",
         ),
         "gate",
     )
@@ -228,13 +240,17 @@ def _names_the_large_component(root: Path) -> Step:
 
 
 def _drafts_the_inside(root: Path) -> Step:
-    components, open_decisions, _, labels = _draft(root, "shop/store", "shop.store")
+    components, open_decisions, observed_crossings, _, labels = _draft(
+        root, "shop/store", "shop.store"
+    )
     return Step(
         "The agent drafts the inside",
         "archkeel init --source shop/store --namespace shop.store --force",
-        f"{components} sub-components, {open_decisions} open decisions",
+        f"{components} sub-components, {open_decisions} pairs, {observed_crossings} observed",
         (
             f"drafted: {', '.join(labels)}",
+            f"The default result lists {observed_crossings} observed crossings; all "
+            f"{open_decisions} open pairs remain in the total.",
             "The draft is shown separately from the approved nested target in the next step.",
         ),
         "agent",

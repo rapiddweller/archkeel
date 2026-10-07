@@ -95,8 +95,16 @@ def test_typescript_init_groups_untracked_physical_files_and_persists_settings(
     assert len(contract.components) == 7
     assert sum(item["modules"] for item in result["draft_sizes"]) == 7
     assert len({item.id for item in contract.components}) == 7
-    assert len(result["open_decisions"]) == 42
+    assert result["open_decision_count"] == 42
+    assert result["open_decisions_complete"] is False
+    assert len(result["open_decisions"]) < result["open_decision_count"]
+    assert all(item["observed"] for item in result["open_decisions"])
     assert any(item["import_sites"] == 1 for item in result["open_decisions"])
+    assert main([*arguments(root), "--source", "workers", "--full", "--force"]) == 0
+    full_result = json.loads(capsys.readouterr().out)
+    assert full_result["open_decision_count"] == 42
+    assert full_result["open_decisions_complete"] is True
+    assert len(full_result["open_decisions"]) == full_result["open_decision_count"]
     assert main(["report", "--root", str(root), "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["observation_complete"] == "PASS"
 

@@ -79,7 +79,7 @@ def _repository(root: Path, packages: tuple[str, ...] = ("archkeel",)) -> Path:
 
 
 def _init(root: Path, capsys: pytest.CaptureFixture) -> dict:
-    assert main(["init", "--root", str(root), "--json"]) == 0
+    assert main(["init", "--root", str(root), "--json", "--full"]) == 0
     return json.loads(capsys.readouterr().out)
 
 
@@ -239,6 +239,58 @@ def test_init_open_decisions_are_sorted_and_cover_every_ordered_pair_exactly_onc
 
     heaviest = decisions[0]
     assert heaviest["observed"] is (heaviest["import_sites"] > 0)
+
+
+def test_init_compact_payload_keeps_many_observed_crossings_within_budget(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    modules, imports_per_module = 39, 12
+    package = tmp_path / "src/sample"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    for index in range(modules):
+        imports = "".join(
+            f"from sample.module_{(index + offset) % modules} import VALUE\n"
+            for offset in range(1, imports_per_module + 1)
+        )
+        (package / f"module_{index}.py").write_text(f"{imports}VALUE = 1\n")
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "sample"\nrequires-python = ">=3.11"\n'
+    )
+    for args in (
+        ("init", "-q"),
+        ("config", "user.email", "init@example.invalid"),
+        ("config", "user.name", "Archkeel init"),
+        ("add", "."),
+        ("commit", "-qm", "snapshot"),
+    ):
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+
+    assert (
+        main(
+            [
+                "init",
+                "--root",
+                str(tmp_path),
+                "--source",
+                "src/sample",
+                "--namespace",
+                "sample",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    result = json.loads(output)
+
+    assert result["open_decision_count"] == modules * (modules - 1)
+    assert len(result["open_decisions"]) == modules * imports_per_module
+    assert sum(item["import_sites"] for item in result["open_decisions"]) == (
+        modules * imports_per_module
+    )
+    assert result["open_decisions_complete"] is False
+    assert len(output) < 400_000
 
 
 def test_open_decision_options_round_trip_through_parse_contract(

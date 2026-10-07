@@ -35,9 +35,12 @@ def test_the_loop_runs_agent_gate_architect_gate_agent_architect_gate(
 
 
 def test_init_drafts_the_five_components_and_decides_no_pair(steps: tuple[Step, ...]) -> None:
-    assert steps[0].outcome.startswith("5 components, 20 open decisions, ")
+    assert steps[0].outcome == "5 components, 20 pairs, 6 observed"
     assert "app, cli, model, render, store" in steps[0].detail[0]
     assert "interview" in " ".join(steps[0].detail).lower()
+    assert "0 dependency rules" in steps[0].detail[1]
+    assert "all 20 open pairs remain in the total" in steps[0].detail[4]
+    assert "validate --json` remains full" in steps[0].detail[5]
     assert "--force" in steps[0].command
 
 
@@ -45,18 +48,22 @@ def test_init_reports_the_dependency_rule_count_from_its_draft(
     steps: tuple[Step, ...], tmp_path: Path
 ) -> None:
     root = _repository(tmp_path)
-    _, files = run_init(root, source="shop", namespace="shop", force=True, analyzer=observe)
+    result, files = run_init(root, source="shop", namespace="shop", force=True, analyzer=observe)
     dependency_kinds = {"allowed_dependency", "forbidden_dependency"}
     rule_count = sum(
         rule["kind"] in dependency_kinds
         for rule in json.loads(files["architecture-contract.json"])["rules"]
     )
     assert rule_count == 0
-    assert steps[0].outcome.endswith(f"{rule_count} dependency rules")
+    assert f"{rule_count} dependency rules" in steps[0].detail[1]
+    assert result.open_decision_count == 20
+    assert result.open_decisions_complete is False
+    assert len(result.open_decisions) < result.open_decision_count
 
 
 def test_validate_refuses_a_drafted_contract(steps: tuple[Step, ...]) -> None:
     assert steps[1].outcome == "exit 2, 20 open decisions, 1 decision.open panel"
+    assert "validate returns the full open-decision list" in steps[1].detail[2]
 
 
 def test_the_decided_contract_passes(steps: tuple[Step, ...]) -> None:
@@ -68,7 +75,8 @@ def test_the_report_names_one_component_larger_than_its_level(steps: tuple[Step,
 
 
 def test_nested_draft_is_separate_from_architect_decision(steps: tuple[Step, ...]) -> None:
-    assert steps[4].outcome == "4 sub-components, 12 open decisions"
+    assert steps[4].outcome == "4 sub-components, 12 pairs, 3 observed"
+    assert "all 12 open pairs remain in the total" in steps[4].detail[1]
     assert "backend, codec, repository, sqlite" in steps[4].detail[0]
     assert "api" not in steps[4].detail[0]
     assert "--force" in steps[4].command
