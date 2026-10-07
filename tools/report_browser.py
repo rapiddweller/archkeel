@@ -330,7 +330,7 @@ def _check_module_graph(page: Page) -> None:
         else "UNKNOWN"
     )
     assert page.locator(".atlas-summary").inner_text() == (
-        f"{len(ids)} observed module{'s' if len(ids) != 1 else ''} · "
+        f"Current level: {len(ids)} observed module{'s' if len(ids) != 1 else ''} · "
         f"{len(cells)} local {'dependency' if len(cells) == 1 else 'dependencies'} · "
         f"{sites} import site{'s' if sites != 1 else ''}"
     )
@@ -591,8 +591,10 @@ def _check_report_verdicts(browser: Browser, reports: dict[str, Path], output: P
                 for index, status in enumerate(("PASS", "FAIL", "UNKNOWN", "NOT CHECKED")):
                     card = page.locator(".atlas-verdict-grid .verdict-card").nth(index)
                     assert card.locator(".verdict-state").inner_text().endswith(status)
-                    if status == "NOT CHECKED" or result["rule_assessments"] is None:
-                        assert card.locator("h3").inner_text() == "Count unavailable"
+                    if status == "NOT CHECKED":
+                        assert card.locator("h3").inner_text() == "Status definition"
+                    elif result["rule_assessments"] is None:
+                        assert card.locator("h3").inner_text() == "No recorded count"
                     else:
                         count = sum(item["status"] == status for item in result["rule_assessments"])
                         assert (

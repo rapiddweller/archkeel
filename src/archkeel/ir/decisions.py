@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections import Counter as _Counter
 from collections.abc import Mapping as _Mapping
+from dataclasses import dataclass
 from pathlib import PurePosixPath as _PurePosixPath
 from typing import Final as _Final
 
@@ -19,12 +20,14 @@ from .baseline import violation_rows
 from .bindings import unread_bindings
 from .duplication import repeated_logic
 from .interfaces import component_owners, owner_of
+from .measurements import RatchetError
 from .model import (
     RULE_RECORD_KINDS,
     AllowedDependencyRule,
     ComparisonStatus,
     ComponentOwnership,
     ComponentOwnershipInput,
+    EvidenceClass,
     ForbiddenDependencyRule,
     JsonValue,
     Observation,
@@ -37,6 +40,9 @@ from .model import (
     ViolationCounts,
     declared_package_pair,
     in_scope,
+)
+from .model import (
+    RuleUncertaintyCause as RuleUncertaintyCause,
 )
 from .references import unreferenced_symbols
 from .structure import oversized_insides
@@ -52,6 +58,297 @@ _COMPONENT_KINDS = frozenset({"component_responsibility", "inside_component_resp
 DOCUMENT_PATH: _Final = "docs/architecture/architecture.md"
 
 _PLACEHOLDER_RATIONALE: _Final = "TODO: the architect's reason for this decision."
+
+
+@dataclass(frozen=True, slots=True)
+class RuleUncertaintyAction:
+    cause: RuleUncertaintyCause
+    architect_actionable: bool | None
+    next_action: str
+
+
+@dataclass(frozen=True, slots=True)
+class RuleUncertainty:
+    actions: tuple[RuleUncertaintyAction, ...]
+    evidence: tuple[Record, ...]
+    undecided_positions: int
+
+
+_INCOMPLETE_EXECUTION_ACTION = RuleUncertaintyAction(
+    RuleUncertaintyCause.INCOMPLETE_EXECUTION,
+    False,
+    "Complete source observation before judging this rule.",
+)
+
+
+_UNSUPPORTED_TYPE_ACTION = RuleUncertaintyAction(
+    RuleUncertaintyCause.UNSUPPORTED_ANALYSIS,
+    False,
+    "A contract decision cannot resolve this analysis gap; inspect the recorded type evidence "
+    "and improve analyzer support or provide provable source annotations or re-export routes.",
+)
+
+
+_BOUNDARY_TYPE_TOTALS = frozenset({"positions", "decided", "undecided", "undecidable_positions"})
+_BOUNDARY_POSITION_FIELDS = frozenset(
+    {"module", "qualified_name", "position", "annotation", "reason", "occurrence"}
+)
+
+
+def _boundary_position_key(data: RecordData) -> tuple[str, str, str, str, str, int]:
+    if not _BOUNDARY_POSITION_FIELDS <= frozenset(key for key, _ in data.entries):
+        raise RatchetError("boundary_type_position has incomplete coordinate data")
+    module = data.get("module")
+    qualified_name = data.get("qualified_name")
+    position = data.get("position")
+    annotation = data.get("annotation")
+    reason = data.get("reason")
+    occurrence = data.get("occurrence")
+    if (
+        not isinstance(module, str)
+        or not module
+        or not isinstance(qualified_name, str)
+        or not qualified_name
+        or not isinstance(position, str)
+        or not position
+        or not isinstance(annotation, str)
+        or not isinstance(reason, str)
+        or not reason
+        or not isinstance(occurrence, int)
+        or isinstance(occurrence, bool)
+        or occurrence < 0
+    ):
+        raise RatchetError("boundary_type_position has invalid coordinate data")
+    return module, qualified_name, position, annotation, reason, occurrence
+
+
+def _boundary_type_undecided(
+    record: Record, position_records: tuple[Record, ...], analyzer_version: str
+) -> tuple[int, set[str]]:
+    data = record.data
+    positions = record.data.get("positions")
+    decided = record.data.get("decided")
+    undecided = record.data.get("undecided")
+    reason_counts = {
+        reason: value
+        for reason, value in record.data.entries
+        if reason not in _BOUNDARY_TYPE_TOTALS
+    }
+    valid_reason_counts = {
+        reason: value
+        for reason, value in reason_counts.items()
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 0
+    }
+    if (
+        not isinstance(positions, int)
+        or isinstance(positions, bool)
+        or positions <= 0
+        or not isinstance(decided, int)
+        or isinstance(decided, bool)
+        or decided < 0
+        or not isinstance(undecided, int)
+        or isinstance(undecided, bool)
+        or undecided < 0
+        or positions != decided + undecided
+        or len(valid_reason_counts) != len(reason_counts)
+        or sum(valid_reason_counts.values()) != undecided
+    ):
+        raise RatchetError("boundary_type_limit has incoherent aggregate counts")
+    details_present = "undecidable_positions" in dict(data.entries)
+    details = data.get("undecidable_positions")
+    matching = tuple(item for item in position_records if item.rule_ids == record.rule_ids)
+    if not details_present:
+        if matching:
+            raise RatchetError("boundary_type_limit is missing position details")
+        try:
+            version = tuple(int(part) for part in analyzer_version.split("."))
+        except ValueError as error:
+            raise RatchetError("invalid analyzer version for boundary type details") from error
+        if len(version) != 3 or any(part < 0 for part in version):
+            raise RatchetError("invalid analyzer version for boundary type details")
+        if version >= (0, 43, 0):
+            raise RatchetError("boundary_type_limit is missing position details")
+        return (
+            sum(
+                value for reason, value in valid_reason_counts.items() if reason != "external_type"
+            ),
+            set(),
+        )
+    if not isinstance(details, tuple) or not details or len(record.rule_ids) != 1:
+        raise RatchetError("boundary_type_limit has invalid position details")
+    expected: list[tuple[str, str, str, str, str, int]] = []
+    for detail in details:
+        if not isinstance(detail, RecordData):
+            raise RatchetError("boundary_type_limit has invalid position details")
+        key = _boundary_position_key(detail)
+        if key[4] not in valid_reason_counts:
+            raise RatchetError("boundary_type_limit has an uncounted detail reason")
+        expected.append(key)
+    expected_coordinates = [(key[0], key[1], key[2], key[5]) for key in expected]
+    if len(set(expected_coordinates)) != len(expected_coordinates):
+        raise RatchetError("boundary_type_limit has duplicate position coordinates")
+    if len(expected) != undecided:
+        raise RatchetError("boundary_type_limit detail count mismatch")
+    for reason, count in valid_reason_counts.items():
+        if count != sum(1 for key in expected if key[4] == reason):
+            raise RatchetError("boundary_type_limit detail reason counts mismatch")
+    actual = [_boundary_position_key(item.data) for item in matching]
+    actual_coordinates = [(key[0], key[1], key[2], key[5]) for key in actual]
+    if len(set(actual_coordinates)) != len(actual_coordinates):
+        raise RatchetError("boundary_type_position has duplicate logical coordinates")
+    if sorted(actual) != sorted(expected):
+        raise RatchetError("boundary_type_limit detail records are missing or inconsistent")
+    return (
+        sum(1 for key in expected if key[4] != "external_type"),
+        {item.id for item in matching},
+    )
+
+
+def _unknown_evidence_and_counts(
+    observation: Observation,
+) -> tuple[int, dict[str, int], dict[str, tuple[Record, ...]]]:
+    """Select exactly the records and counts used by the UNKNOWN ratchet (AD-92/67)."""
+    failed = {record.id for record in observation.coverage.failures}
+    records = observation.records("unknowns")
+    if records is None:
+        raise RatchetError("unknowns must be a record list")
+    positions = tuple(record for record in records if record.kind == "boundary_type_position")
+    matched_positions: set[str] = set()
+    totals: _Counter[str] = _Counter()
+    selected: dict[str, list[Record]] = {}
+    total = 0
+    disclaimers = {"dynamic_call_limit", "context_alias_limit", "private_attribute_access_limit"}
+    for record in records:
+        if (
+            record.id in failed
+            or record.kind in disclaimers
+            or record.kind == "boundary_type_position"
+        ):
+            continue
+        if record.kind == "boundary_type_limit":
+            count, matched = _boundary_type_undecided(
+                record, positions, observation.analyzer.version
+            )
+            matched_positions.update(matched)
+        else:
+            raw_count = record.data.get("undecided")
+            count = (
+                raw_count
+                if isinstance(raw_count, int) and not isinstance(raw_count, bool) and raw_count > 0
+                else 1
+            )
+        if not count:
+            continue
+        total += count
+        for rule_id in set(record.rule_ids):
+            totals[rule_id] += count
+            selected.setdefault(rule_id, []).append(record)
+    if matched_positions != {item.id for item in positions}:
+        raise RatchetError("boundary_type_position has no matching aggregate")
+    for record in positions:
+        if record.data.get("reason") == "external_type":
+            continue
+        for rule_id in set(record.rule_ids):
+            if rule_id in selected:
+                selected[rule_id].append(record)
+    return (
+        total,
+        dict(totals),
+        {
+            rule_id: tuple(sorted(items, key=lambda item: item.id))
+            for rule_id, items in selected.items()
+        },
+    )
+
+
+def _rule_uncertainty_action(record: Record) -> RuleUncertaintyAction:
+    if record.kind == "rule_ownership_blocker":
+        return RuleUncertaintyAction(
+            RuleUncertaintyCause.MISSING_OWNERSHIP,
+            True,
+            "Assign each affected module to exactly one component.",
+        )
+    route_details = record.data.get("undecidable_positions")
+    if record.kind == "boundary_type_route":
+        return _UNSUPPORTED_TYPE_ACTION
+    elif record.kind == "rule-unsupported-by-profile":
+        return RuleUncertaintyAction(
+            RuleUncertaintyCause.UNSUPPORTED_ANALYSIS,
+            False,
+            "A contract decision cannot resolve this analysis gap; use an analyzer profile "
+            "that supports this rule.",
+        )
+    elif record.kind == "inside_source_domain_incomplete":
+        return RuleUncertaintyAction(
+            RuleUncertaintyCause.MISSING_INTENT,
+            True,
+            "Align the affected child component's packages/exact_modules with the parent "
+            "component's source domain.",
+        )
+    elif record.kind == "component_scope_assignment_incomplete":
+        return _INCOMPLETE_EXECUTION_ACTION
+    elif record.kind == "boundary_type_position" and record.data.get("reason") in {
+        "unresolved_reexport_route",
+        "forward_reference",
+    }:
+        return _UNSUPPORTED_TYPE_ACTION
+    elif (
+        record.kind == "boundary_type_limit"
+        and isinstance(route_details, tuple)
+        and any(
+            isinstance(item, RecordData)
+            and item.get("reason") in {"unresolved_reexport_route", "forward_reference"}
+            for item in route_details
+        )
+    ):
+        return _UNSUPPORTED_TYPE_ACTION
+    else:
+        return RuleUncertaintyAction(
+            RuleUncertaintyCause.UNKNOWN,
+            None,
+            "Inspect the recorded evidence to determine the cause.",
+        )
+
+
+def rule_uncertainty_evidence(observation: Observation) -> dict[str, RuleUncertainty]:
+    """Return typed causes and causal evidence using the same position semantics as ratchets."""
+    _, counts, unknown_evidence = _unknown_evidence_and_counts(observation)
+    records_by_rule = {rule_id: list(records) for rule_id, records in unknown_evidence.items()}
+    ownership_blockers = tuple(
+        record
+        for record in observation.records("scope_observations") or ()
+        if record.kind == "rule_ownership_blocker"
+    )
+    for record in (*ownership_blockers, *observation.coverage.failures):
+        for rule_id in record.rule_ids:
+            records_by_rule.setdefault(rule_id, []).append(record)
+    if observation.coverage.status != "PASS" or observation.coverage.failures:
+        for declaration in observation.records("declarations") or ():
+            if (
+                declaration.evidence_class == EvidenceClass.DECLARED_RULE
+                and declaration.kind in RULE_RECORD_KINDS
+            ):
+                records_by_rule.setdefault(declaration.id, [])
+
+    result: dict[str, RuleUncertainty] = {}
+    for rule_id, records in sorted(records_by_rule.items()):
+        actions = {_rule_uncertainty_action(record) for record in records}
+        if observation.coverage.status != "PASS" or observation.coverage.failures:
+            actions |= {_INCOMPLETE_EXECUTION_ACTION}
+        result[rule_id] = RuleUncertainty(
+            tuple(sorted(actions, key=lambda item: (item.cause.value, item.next_action))),
+            tuple(sorted(records, key=lambda item: item.id)),
+            counts.get(rule_id, 0),
+        )
+    return result
+
+
+def unknown_positions_by_rule(observation: Observation) -> dict[str, int]:
+    return _unknown_evidence_and_counts(observation)[1]
+
+
+def unknown_positions(observation: Observation) -> int:
+    return _unknown_evidence_and_counts(observation)[0]
 
 
 def _decides_this_level(record: Record) -> bool:

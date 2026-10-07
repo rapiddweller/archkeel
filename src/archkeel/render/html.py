@@ -732,7 +732,7 @@ def _atlas_rule_status_cards(result: RunResult) -> str:
         (
             "NOT CHECKED",
             "A check was not performed or could not be completed. Read its scope and explanation. "
-            "No separate count is recorded.",
+            "This status definition does not itself say which occurred.",
         ),
     )
     cards = []
@@ -743,10 +743,38 @@ def _atlas_rule_status_cards(result: RunResult) -> str:
             else None
         )
         label = (
-            f"{count} rule{'s' if count != 1 else ''}" if count is not None else "Count unavailable"
+            "Status definition"
+            if status == "NOT CHECKED"
+            else f"{count} rule{'s' if count != 1 else ''}"
+            if count is not None
+            else "No recorded count"
         )
         cards.append(_verdict_card(VerdictRow(label, "", status, reason)))
     return "".join(cards)
+
+
+def _atlas_review_claims(
+    observation: Observation, projection: ArchitectureProjection | None
+) -> str:
+    claim = oversized_insides(observation)
+    component_ids = (
+        {item.label: item.id for item in projection.components if item.parent_id is None}
+        if projection is not None
+        else {}
+    )
+    label = (
+        "Review question · components larger than their level · UNKNOWN"
+        if claim.status == "UNKNOWN"
+        else f"Review question · components larger than their level · {len(claim.candidates)} "
+        f"candidate{'s' if len(claim.candidates) != 1 else ''}"
+        if claim.candidates
+        else "Review question · components larger than their level · no candidates measured"
+    )
+    return (
+        '<details class="report-section report-evidence atlas-review-claim">'
+        f"<summary>{_text(label)}</summary>"
+        f"{_inside_claim_body(claim, component_ids=component_ids)}</details>"
+    )
 
 
 def _atlas_content(
@@ -795,11 +823,12 @@ def _atlas_content(
       <div><span class="eyebrow">Architecture Atlas</span><h1>{_text(repository)}</h1>
       <p><code>{_text(observation.source.git_head)}</code>
       · {observation.coverage.files_parsed} observed files
-      · {components} components</p></div>
+      · {components} whole-contract components</p></div>
       <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
       </section>
       {status_header}
       {_atlas_section(data)}
+      {_atlas_review_claims(observation, result.architecture_projection) if not detail_page else ""}
       <details class="atlas-source"><summary>Snapshot and audit</summary>
       <p>Source digest <code>{_text(observation.source.source_digest)}</code>
       · Dirty {_text(observation.source.dirty)}.</p>
@@ -1645,26 +1674,33 @@ def _fanin_claim_body(claim: TypeFanin) -> str:
 """
 
 
-def _inside_claim_body(claim: InsideSizes) -> str:
+def _inside_claim_body(claim: InsideSizes, *, component_ids: dict[str, str] | None = None) -> str:
     if claim.status == "UNKNOWN":
         return (
             "<p>UNKNOWN: this observation records no modules or no dependency edges, so no "
             "inside can be measured against the level that holds it.</p>"
         )
     scale = (
-        f"The top level holds {claim.components} components and {claim.component_edges} edges "
-        "between them."
+        f"Comparison basis at the top level: {claim.components} components and "
+        f"{claim.component_edges} observed cross-component edges."
     )
     if not claim.candidates:
         return f"<p>None: no component holds more than the level containing it. {scale}</p>"
-    rows = "".join(
-        f"<tr><td>{_text(item.scope)}</td><td>{item.modules}</td><td>{item.inner_edges}</td></tr>"
-        for item in claim.candidates
-    )
+    rows = ""
+    for item in claim.candidates:
+        component_id = component_ids.get(item.scope) if component_ids is not None else None
+        scope = (
+            f'<a href="?component={_text(component_id)}" '
+            f'data-atlas-component-route="{_text(component_id)}">{_text(item.scope)}</a>'
+            if component_id is not None
+            else _text(item.scope)
+        )
+        rows += f"<tr><td>{scope}</td><td>{item.modules}</td><td>{item.inner_edges}</td></tr>"
     return f"""
       <p>{len(claim.candidates)} components hold more modules than the contract has components,
       or more edges among their modules than it has component edges. {scale} Naming a size is
-      evidence; giving one of them a level of its own is a decision (AD-20, AD-33).</p>
+      evidence; giving one of them a level of its own is a decision (AD-20, AD-33). These are
+      review questions, not violations or proof that a component should split.</p>
       <div class="table-wrap">
       <table class="data-table"><thead><tr><th>Component</th><th>Modules</th>
       <th>Edges inside</th></tr></thead><tbody>{rows}</tbody></table></div>

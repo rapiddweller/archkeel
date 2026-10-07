@@ -84,6 +84,14 @@ def _renderer_only_mixed_report(tmp_path: Path, *, only_violations: bool = False
     assert architecture is not None
     raw = decode_canonical_model(json.loads(architecture))
     observed_violations = len(raw["violations"])
+    position = {
+        "module": "shop.app.orders",
+        "qualified_name": "shop.app.orders.place_order",
+        "position": "return",
+        "annotation": "SyntheticType",
+        "reason": "other",
+        "occurrence": 0,
+    }
     raw["unknowns"].append(
         {
             "id": "UNKNOWN-APP-TYPES-PARTIAL",
@@ -108,7 +116,23 @@ def _renderer_only_mixed_report(tmp_path: Path, *, only_violations: bool = False
                 "unresolved_name": 0,
                 "external_type": 0,
                 "other": 1,
+                "undecidable_positions": [position],
             },
+        }
+    )
+    raw["unknowns"].append(
+        {
+            "id": "UNKNOWN-APP-TYPES-POSITION",
+            "evidence_class": "UNKNOWN",
+            "area": "type_architecture",
+            "kind": "boundary_type_position",
+            "title": "Synthetic facade return type is undecided",
+            "subjects": ["shop.app.orders.place_order"],
+            "evidence_ids": [],
+            "rule_ids": ["APP-TYPES-NOT-DICT"],
+            "fact_ids": [],
+            "provenance": ["docs/architecture/shop.md"],
+            "data": position,
         }
     )
     observation = parse_observation(raw)

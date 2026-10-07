@@ -349,6 +349,14 @@ class SymbolClassKind(StrEnum):
     CLASS = "class"
 
 
+class RuleUncertaintyCause(StrEnum):
+    MISSING_OWNERSHIP = "missing_ownership"
+    MISSING_INTENT = "missing_intent"
+    UNSUPPORTED_ANALYSIS = "unsupported_analysis"
+    INCOMPLETE_EXECUTION = "incomplete_execution"
+    UNKNOWN = "unknown"
+
+
 @dataclass(frozen=True, slots=True)
 class TypeIgnoreAllowance:
     """One suppression bound to its scope, source line, statement and exact tag."""

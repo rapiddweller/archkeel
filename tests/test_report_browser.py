@@ -34,7 +34,7 @@ def test_native_module_cards_match_local_cells_and_return_scope_theme(tmp_path, 
             _check_module_graph(page)
             assert page.get_by_role("group", name="Content", exact=True).is_hidden()
             assert page.locator(".atlas-summary").inner_text() == (
-                "2 observed modules · 1 local dependency · 2 import sites"
+                "Current level: 2 observed modules · 1 local dependency · 2 import sites"
             )
             page.locator(".atlas-summary").evaluate("n => n.textContent = '0 imports'")
             with pytest.raises(AssertionError):
