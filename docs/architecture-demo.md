@@ -15,7 +15,8 @@ For Python, Dart and TypeScript UML examples:
 make demo-uml OUTPUT=build/uml-demo
 ```
 
-Dart and TypeScript inner observation remains unavailable; those comparisons stay UNKNOWN.
+Dart inner observation remains unavailable. TypeScript includes PASS, FAIL and UNKNOWN UML cases;
+unsupported or ambiguous source facts stay UNKNOWN.
 
 The [catalog](../fixtures/architecture_demo.py) owns all variants, overlays and expected
 outcomes. Check-protocol and test-only variants cannot replay as reports.
