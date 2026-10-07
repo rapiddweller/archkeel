@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Measured delta 1.4 bytes retain accepted parent Python semantics."""
+"""Current delta retains both accepted legacy Python byte contracts."""
 
 import hashlib
 
@@ -12,7 +12,7 @@ from archkeel.check.delta import build_architecture_delta
 from archkeel.ir.codec import canonical_json_bytes, delta_payload, parse_observation
 
 
-# Delta 1.4 changes only schema_version for these fully observed Python cases.
+# Normalize only the format version to check both frozen legacy byte contracts.
 @pytest.mark.parametrize(
     ("before_n", "after_n", "parent_digest", "digest"),
     [
@@ -36,7 +36,7 @@ from archkeel.ir.codec import canonical_json_bytes, delta_payload, parse_observa
         ),
     ],
 )
-def test_delta_1_4_canonical_bytes_preserve_python_semantics(
+def test_current_delta_canonical_bytes_preserve_legacy_python_semantics(
     before_n: int, after_n: int, parent_digest: str, digest: str
 ) -> None:
     before, after = _model(git_head="a" * 40), _model(git_head="b" * 40)
@@ -68,11 +68,12 @@ def test_delta_1_4_canonical_bytes_preserve_python_semantics(
     for side in ("baseline", "head"):
         assert payload[side].pop("python_version") == "3.11.12"
         assert payload["ratchets"][side]["scalars"]["typing_positions"] == 0
-    assert payload["schema_version"] == "1.4.0"
+    assert payload["schema_version"] == "2.0.0"
     for dimension in payload["dimensions"].values():
         assert dimension["status"] == "SUPPORTED"
         assert dimension["before_count"] is not None
         assert dimension["after_count"] is not None
+    payload["schema_version"] = "1.4.0"
     assert hashlib.sha256(canonical_json_bytes(payload)).hexdigest() == digest
     payload["schema_version"] = "1.3.0"
     assert hashlib.sha256(canonical_json_bytes(payload)).hexdigest() == parent_digest

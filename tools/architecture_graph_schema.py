@@ -35,9 +35,9 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
         if annotation is Coverage:
             return {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/coverage"}
         if annotation is Diagnostic:
-            return {"$ref": "urn:archkeel:command-result:5.0.0#/$defs/diagnostic"}
+            return {"$ref": "urn:archkeel:command-result:6.0.0#/$defs/diagnostic"}
         if annotation is FilteredViolation:
-            return {"$ref": "urn:archkeel:command-result:5.0.0#/$defs/filteredViolation"}
+            return {"$ref": "urn:archkeel:command-result:6.0.0#/$defs/filteredViolation"}
         if annotation is float:
             return {"type": "number"}
         if annotation is str:
@@ -229,7 +229,7 @@ def command_schema() -> dict[str, object]:
         "anyOf": [
             {
                 "type": "array",
-                "items": {"$ref": "urn:archkeel:command-result:5.0.0#/$defs/filteredViolation"},
+                "items": {"$ref": "urn:archkeel:command-result:6.0.0#/$defs/filteredViolation"},
             },
             {"type": "null"},
         ]

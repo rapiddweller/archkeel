@@ -161,16 +161,17 @@ def _relative(value: RawJson, label: str) -> str:
     return path
 
 
-def _version(value: RawJson) -> None:
-    if value != PROTOCOL_VERSION:
+def _version(value: RawJson) -> str:
+    if not isinstance(value, str) or value not in ("1.0.0", PROTOCOL_VERSION):
         raise ProtocolError("unsupported collection protocol version")
+    return value
 
 
 def decode_request(payload: bytes) -> CollectionRequest:
     raw = _object(
         _decode(payload), {"protocol_version", "snapshot", "scope", "resolver"}, "request"
     )
-    _version(raw["protocol_version"])
+    version = _version(raw["protocol_version"])
     snapshot = _object(raw["snapshot"], {"root", "git_head", "dirty"}, "snapshot")
     source_root = _string(snapshot["root"], "snapshot.root")
     if not (
@@ -221,6 +222,7 @@ def decode_request(payload: bytes) -> CollectionRequest:
         SnapshotInput(source_root, _string(snapshot["git_head"], "snapshot.git_head"), dirty_value),
         SourceScope(roots, namespace),
         resolver,
+        version,
     )
 
 
@@ -228,6 +230,7 @@ def encode_request(request: CollectionRequest) -> bytes:
     resolver: dict[str, RawJson] = {"language": request.resolver.language}
     if isinstance(request.resolver, TypeScriptSettings):
         resolver["tsconfig"] = request.resolver.tsconfig
+    _version(request.protocol_version)
     raw = {
         "protocol_version": request.protocol_version,
         "snapshot": {
@@ -673,12 +676,14 @@ def _file_payload(entry: FileFact) -> dict[str, RawJson]:
     }
 
 
-def _runtime_info(value: RawJson) -> RuntimeInfo:
-    if not isinstance(value, dict) or set(value) not in (
-        {"name", "version", "required"},
-        {"name", "version", "required", "requirement_state"},
-    ):
-        raise ProtocolError("runtime fields mismatch")
+def _runtime_info(value: RawJson, protocol_version: str) -> RuntimeInfo:
+    expected = (
+        {"name", "version", "required", "requirement_state"}
+        if protocol_version == PROTOCOL_VERSION
+        else {"name", "version", "required"}
+    )
+    if not isinstance(value, dict) or set(value) != expected:
+        raise ProtocolError("runtime fields mismatch for collection protocol version")
     return RuntimeInfo(
         _string(value["name"], "runtime.name"),
         _string(value["version"], "runtime.version"),
@@ -690,7 +695,7 @@ def _runtime_info(value: RawJson) -> RuntimeInfo:
 def decode_response(payload: bytes) -> CollectionResponse:
     try:
         raw = _object(_decode(payload), {"protocol_version", "facts"}, "response")
-        _version(raw["protocol_version"])
+        version = _version(raw["protocol_version"])
         item = _object(
             raw["facts"],
             {
@@ -733,7 +738,7 @@ def decode_response(payload: bytes) -> CollectionResponse:
                 _string(adapter["version"], "adapter.version"),
                 _digest(adapter["code_digest"], "adapter.code_digest"),
             ),
-            _runtime_info(item["runtime"]),
+            _runtime_info(item["runtime"], version),
             _source(item["source"]),
             _capabilities(item["capabilities"]),
             tuple(_input(entry) for entry in _array(item["inputs"], "inputs")),
@@ -751,13 +756,16 @@ def decode_response(payload: bytes) -> CollectionResponse:
             ),
         )
         validate_source_facts(facts)
-        return CollectionResponse(facts)
+        return CollectionResponse(facts, version)
     except (ValueError, TypeError, KeyError, RecursionError) as error:
         raise ProtocolError(str(error)) from error
 
 
 def encode_response(response: CollectionResponse) -> bytes:
     facts = response.facts
+    _version(response.protocol_version)
+    if response.protocol_version == "1.0.0" and facts.runtime.requirement_state != "declared":
+        raise ProtocolError("protocol 1.0.0 cannot carry runtime.requirement_state")
     raw: dict[str, RawJson] = {
         "protocol_version": response.protocol_version,
         "facts": {
@@ -773,7 +781,11 @@ def encode_response(response: CollectionResponse) -> bytes:
                 "name": facts.runtime.name,
                 "version": facts.runtime.version,
                 "required": facts.runtime.required,
-                "requirement_state": facts.runtime.requirement_state,
+                **(
+                    {"requirement_state": facts.runtime.requirement_state}
+                    if response.protocol_version == PROTOCOL_VERSION
+                    else {}
+                ),
             },
             "source": {
                 "git_head": facts.source.git_head,

@@ -8,7 +8,7 @@ from typing import Final, Literal, TypeAlias
 
 from .facts import SourceFacts
 
-PROTOCOL_VERSION: Final = "1.0.0"
+PROTOCOL_VERSION: Final = "2.0.0"
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:archkeel:architecture-ir:decoded:1.3.0",
+  "$id": "urn:archkeel:architecture-ir:decoded:2.0.0",
   "title": "Decoded ArchitectureIR by analyzer profile",
   "$comment": "Decode the canonical columnar model first. Code validates references, evidence and metric arithmetic.",
   "type": "object",
@@ -34,7 +34,7 @@
   ],
   "properties": {
     "schema_version": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/schema_version"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/schema_version"
     },
     "analyzer": {
       "type": "object",
@@ -63,33 +63,33 @@
       "additionalProperties": false
     },
     "source": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/source"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/source"
     },
     "contract": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/contract"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/contract"
     },
     "coverage": {
       "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/coverage"
     },
     "metrics": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/metrics"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/metrics"
     },
     "declarations": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/declarations"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/declarations"
     },
     "scope_observations": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/scope_observations"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/scope_observations"
     },
     "packages": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/packages"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/packages"
     },
     "modules": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/modules"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/modules"
     },
     "symbols": {
       "anyOf": [
         {
-          "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/symbols"
+          "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/symbols"
         },
         {
           "type": "null"
@@ -119,16 +119,16 @@
       }
     },
     "dependency_edges": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/dependency_edges"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/dependency_edges"
     },
     "transitive_paths": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/transitive_paths"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/transitive_paths"
     },
     "path_observations": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/path_observations"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/path_observations"
     },
     "cycles": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/cycles"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/cycles"
     },
     "calls": {
       "anyOf": [
@@ -162,7 +162,7 @@
     "typing_signals": {
       "anyOf": [
         {
-          "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/typing_signals"
+          "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/typing_signals"
         },
         {
           "type": "null"
@@ -172,7 +172,7 @@
     "constructs": {
       "anyOf": [
         {
-          "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/constructs"
+          "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/constructs"
         },
         {
           "type": "null"
@@ -180,27 +180,27 @@
       ]
     },
     "contexts": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/contexts"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/contexts"
     },
     "context_evidence": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/context_evidence"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/context_evidence"
     },
     "violations": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/violations"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/violations"
     },
     "unknowns": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/unknowns"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/unknowns"
     },
     "evidence": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/evidence"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/evidence"
     },
     "python_version": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/python_version"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/python_version"
     },
     "bindings": {
       "anyOf": [
         {
-          "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/bindings"
+          "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/bindings"
         },
         {
           "type": "null"
@@ -294,6 +294,21 @@
     {
       "if": {
         "properties": {
+          "schema_version": { "const": "1.3.0" }
+        },
+        "required": ["schema_version"]
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "not": { "required": ["requirement_state"] }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
           "analyzer": {
             "properties": {
               "name": {
@@ -306,7 +321,7 @@
       "then": {
         "properties": {
           "imports": {
-            "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/imports"
+            "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/imports"
           },
           "symbols": {
             "type": "array"

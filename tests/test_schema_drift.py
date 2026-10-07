@@ -290,6 +290,42 @@ def test_ir_schemas_accept_the_parsed_self_observation(self_artifact_bytes: byte
     assert not list(Draft202012Validator(profile, registry=registry).iter_errors(observation))
 
 
+def test_requirement_state_schema_is_versioned_and_legacy_report_remains_valid() -> None:
+    profile = _schema("architecture-ir-python-decoded.schema.json")
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for schema in (_schema(path.name) for path in (ROOT / "schema").glob("*.json"))
+    )
+    validator = Draft202012Validator(profile, registry=registry)
+    legacy = _model(git_head="a" * 40)
+    legacy["runtime"] = {"name": "python", "version": "3.11.12"}
+    assert validator.is_valid(legacy)
+
+    legacy["runtime"]["requirement_state"] = "requirement_missing"
+    assert not validator.is_valid(legacy)
+    with pytest.raises(ValueError, match="requires observation/Delta schema 2.0.0"):
+        parse_observation(legacy)
+
+    current = dict(legacy)
+    current["schema_version"] = "2.0.0"
+    current["runtime"] = {
+        "name": "python",
+        "version": "3.11.12",
+        "requirement_state": "requirement_missing",
+    }
+    assert validator.is_valid(current)
+    legacy_runtime_schema = json.loads(
+        (ROOT / "tests/fixtures/collection-protocol/legacy-runtime-schemas.json").read_bytes()
+    )["architecture_ir_1_3"]
+    assert not Draft202012Validator(legacy_runtime_schema, registry=registry).is_valid(
+        current["runtime"]
+    )
+    current["runtime"]["requirement_state"] = "future_state"
+    assert not validator.is_valid(current)
+    with pytest.raises(ValueError, match="runtime.requirement_state is invalid"):
+        parse_observation(current)
+
+
 @pytest.mark.parametrize("profile", PROFILES.values(), ids=lambda profile: profile.analyzer)
 def test_shared_observation_schema_preserves_each_profile_and_provenance(profile) -> None:
     registry = Registry().with_resources(
@@ -297,7 +333,7 @@ def test_shared_observation_schema_preserves_each_profile_and_provenance(profile
         for schema in (_schema(path.name) for path in (ROOT / "schema").glob("*.json"))
     )
     validator = Draft202012Validator(
-        {"$ref": "urn:archkeel:architecture-ir:decoded:1.3.0"}, registry=registry
+        {"$ref": "urn:archkeel:architecture-ir:decoded:2.0.0"}, registry=registry
     )
     observation = _model(git_head="a" * 40)
     observation["analyzer"]["name"] = profile.analyzer
@@ -349,7 +385,7 @@ def test_shared_observation_schema_rejects_unknown_provenance(field, value) -> N
         for schema in (_schema(path.name) for path in (ROOT / "schema").glob("*.json"))
     )
     validator = Draft202012Validator(
-        {"$ref": "urn:archkeel:architecture-ir:decoded:1.3.0"}, registry=registry
+        {"$ref": "urn:archkeel:architecture-ir:decoded:2.0.0"}, registry=registry
     )
     observation = _model(git_head="a" * 40)
     observation[field] = {"name": "python", "version": "3.11.12"}

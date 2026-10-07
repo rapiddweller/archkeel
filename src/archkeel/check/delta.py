@@ -505,7 +505,8 @@ def build_architecture_delta(
         and baseline.analyzer.code_digest == analyzer_digest
         and identity_is_known(contract_digest)
         and baseline.contract.digest == contract_digest
-        and baseline.schema_version == head.schema_version == SCHEMA_VERSION
+        and baseline.schema_version == head.schema_version
+        and head.schema_version in {"1.3.0", SCHEMA_VERSION}
         and bool(baseline.source.scope)
         and all(baseline.source.scope + head.source.scope)
         and sorted(baseline.source.scope) == sorted(head.source.scope)

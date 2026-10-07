@@ -1,0 +1,53 @@
+{
+  "source_facts_1": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[^\\u0000]+$"
+      },
+      "version": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[^\\u0000]+$"
+      },
+      "required": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "minLength": 1
+      }
+    },
+    "required": [
+      "name",
+      "version",
+      "required"
+    ],
+    "additionalProperties": false
+  },
+  "architecture_ir_1_3": {
+    "type": "object",
+    "required": [
+      "name",
+      "version"
+    ],
+    "properties": {
+      "name": {
+        "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/knownIdentity"
+      },
+      "version": {
+        "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/knownIdentity"
+      },
+      "required": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "minLength": 1
+      }
+    },
+    "additionalProperties": false
+  }
+}

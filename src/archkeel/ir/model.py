@@ -71,8 +71,8 @@ def public_api_id(selector: str) -> str:
     return f"API-{hashlib.sha256(selector.encode()).hexdigest()[:16]}"
 
 
-SCHEMA_VERSION = "1.3.0"
-DELTA_SCHEMA_VERSION = "1.4.0"
+SCHEMA_VERSION = "2.0.0"
+DELTA_SCHEMA_VERSION = "2.0.0"
 Verdict: TypeAlias = Literal["PASS", "FAIL"]
 ComponentOwnership: TypeAlias = tuple[str, tuple[str, ...], tuple[str, ...]]
 PackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]

@@ -34,6 +34,12 @@ needs no Node runtime. Runtime mismatch, malformed replies and incomplete eviden
 cannot certify a scan. Legacy observations remain readable only under supported
 schemas; missing required sections fail closed.
 
+SourceFacts 2.0.0 and ArchitectureIR 2.0.0 persist `runtime.requirement_state`; Core
+observation 0.74.0 emits it. Delta 2.0.0 and command-result 6.0.0 carry the new runtime
+shape. New readers accept SourceFacts 1.0.0 and supported legacy observations/deltas
+without this field. Old strict consumers require an upgrade; pin collectors, CLI and
+schemas together. A new Core request names protocol 2.0.0; collectors must support it.
+
 ## Results
 
 Read `observation_complete`, `declared_rules` and `expectation_fulfilled` separately.

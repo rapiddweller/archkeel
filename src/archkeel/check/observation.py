@@ -41,7 +41,7 @@ from .evaluation.evaluate import ScanResult, evaluate_source
 from .ports import SourceCollector
 from .runtime import has_invalid_python_requirement
 
-OBSERVATION_VERSION = "0.73.0"
+OBSERVATION_VERSION = "0.74.0"
 
 DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")
 

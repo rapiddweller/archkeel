@@ -86,6 +86,6 @@ def test_committed_profile_check_ignores_working_tree_and_keeps_scope(
     ]
     assert main(args) == expected
     first = json.loads(capsys.readouterr().out)
-    assert first["delta"]["schema_version"] == "1.4.0"
+    assert first["delta"]["schema_version"] == "2.0.0"
     assert main(args) == expected
     assert json.loads(capsys.readouterr().out) == first
