@@ -91,7 +91,6 @@ report-pages:
 	rm -rf test-artifacts/pages
 	$(UV) run --locked archkeel report --root . --output test-artifacts/pages/architecture.json --json
 	$(UV) run --locked python -m tools.report_pages
-	@printf '%s\n' '<!doctype html><html lang="en"><meta charset="utf-8"><title>ArchKeel report</title><meta http-equiv="refresh" content="0; url=architecture.report.html?theme=dark"><a href="architecture.report.html?theme=dark">Open the current ArchKeel report</a></html>' > test-artifacts/pages/index.html
 
 architecture-graph-schema:
 	$(UV) run --locked python -m tools.architecture_graph_schema schema/architecture-graph.schema.json --contract schema/architecture-contract.schema.json --comparison schema/architecture-comparison.schema.json --report schema/architecture-report.schema.json --source-inventory schema/source-member-inventory.schema.json --source-profile schema/architecture-ir-python-decoded.schema.json --projection schema/architecture-projection.schema.json --command schema/architecture-command.schema.json

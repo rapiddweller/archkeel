@@ -36,13 +36,16 @@ def test_gallery_builds_real_reports_with_working_dark_links(tmp_path):
         "uml-typescript-partial",
     }
     parser = Links()
-    parser.feed((output / "index.html").read_text())
-    assert "../architecture.report.html?theme=dark" in parser.hrefs
-    reports = [urlsplit(href) for href in parser.hrefs if not href.startswith("../")]
+    landing = (tmp_path / "index.html").read_text()
+    parser.feed(landing)
+    assert "architecture.report.html?theme=dark" in parser.hrefs
+    assert 'id="demos"' in landing and "http-equiv" not in landing
+    assert "../#demos" in (output / "index.html").read_text()
+    reports = [urlsplit(href) for href in parser.hrefs if href.startswith("demos/")]
     assert len(reports) == len(rows)
     for link in reports:
         assert link.query == "theme=dark"
-        assert (output / link.path).is_file()
-        assert (output / link.path.replace(".report.html", ".detail.html")).is_file()
+        assert (tmp_path / link.path).is_file()
+        assert (tmp_path / link.path.replace(".report.html", ".detail.html")).is_file()
     assert not list(output.rglob(".git"))
     assert not list(output.rglob("node_modules"))
