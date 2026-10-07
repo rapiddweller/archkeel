@@ -1,45 +1,94 @@
-# Archkeel 1.0.0 — Unreleased
+# Archkeel 1.0.0 — Review architecture with evidence
 
-- Validation reports coded policy widenings, recorded file/line locations, empty architect-owned
-  responsibilities and specific missing/invalid Python runtime metadata. UNKNOWN stays separate
-  from failures; runtime metadata survives saved reports.
-- Wire migration: SourceFacts and ArchitectureIR use 2.0.0, Core observations 0.74.0, Delta 2.0.0
-  and command-result 6.0.0. Pin collectors, CLI and schemas together. New readers retain supported
-  legacy packets; old strict consumers must upgrade before reading the new runtime state.
-- `init` now lists observed undecided crossings by default and reports the exact total in
-  `open_decision_count`; `open_decisions_complete` marks whether the list is full. The terminal
-  summary distinguishes total open pairs from observed crossings. `init --full` includes every
-  pair, while `validate` continues to return the full decision list. Init JSON also reports
-  measured `draft_sizes` for proposed components.
-- Compact agent artifacts contain the shared architecture projection without duplicating the
-  full source inventory. `report --only architecture`, focused filters and `--input` let agents
-  find relevant violations and next actions while retaining global verdicts, coverage and UNKNOWNs.
-- The rebuilt report puts findings, independent verdicts and As-Is / Target / Diff navigation
-  first. Quieter diagrams, readable module matrices and dependency balances help architects
-  spot deviations and inspect their evidence. Shared detail data and assets remove duplication.
-  Main publishes the current report through GitHub Pages.
-- TypeScript imports are read by a frontend inside the Python package. No Node runtime or
-  separately built adapter is needed. Anything it cannot prove stays UNKNOWN, including
-  `extends` through a package and `exports` maps (AD-210). Migration: drop
-  `collector_argv = ["archkeel-typescript"]` from `archkeel.toml`; observations recorded with
-  the npm adapter name another producer and runtime, so comparing them with a new one fails
-  `incomparable_runtime` until both revisions are observed again. The old collector is removed;
-  frozen adapter and compiler references guard the modeled cases, not compiler parity.
-  Inherited output directories keep their declaring paths; malformed selection/resolution
-  settings remain UNKNOWN. Windows checks cover UTF-8 output and portable analyzer provenance.
-- TypeScript publishes lexical UML declarations, members, signatures and typed relationship
-  sites through the existing SourceFacts port (#348). Explicit member inventories support
-  missing-member checks; ambiguous bindings retain candidates and UNKNOWN. Older import-only
-  observations keep inner evidence unavailable. This does not provide compiler type checking.
-- Native component ids/scopes select local Target findings; architecture JSON preserves
-  requested baseline comparisons (#358).
-- Exact initializer ownership preserves provider use through proven ancestor-published
-  re-exports. Ambiguous routes remain UNKNOWN (#338, AD-198).
-- Layer order evaluates declared dependency permissions. It does not prove runtime or protocol
-  conformance.
-- Incomplete reviewed assessments remain UNKNOWN in the report.
-- The total report metric is named **Contract violations**; counts and evidence are unchanged
-  (#349, Core observation 0.72.0; AD-3).
+Review observed code, your declared architecture and their differences in one report.
+Follow a violation to its rule and source evidence, or inspect what is still UNKNOWN.
+A completed scan can still leave rules undecided; filtering keeps the overall verdict visible.
+
+## What you can do in 1.0
+
+- **Explore from overview to source.** Navigate components, modules and UML in As-Is,
+  Target and Diff. The dependency balance shows declared, used, unused and undeclared edges.
+  Fullscreen gives the Architecture Map room; pan, zoom and Fit support exploration.
+  Large UML views start with a list; Python member views retain enum values, static fields
+  and annotation references. Target references bind across nested contracts (#355, #373).
+- **Give agents smaller, focused answers.** `report --only architecture` omits duplicated
+  source inventory. Scope filters and saved `--input` queries retrieve relevant findings
+  while preserving global verdicts, coverage and UNKNOWNs. `--full` retrieves complete details.
+- **Get actionable validation results.** Findings include recorded paths and lines.
+  Coded diagnostics explain policy widenings, missing responsibilities and absent,
+  malformed or incompatible Python requirements. Aggregate findings do not invent a location.
+- **Analyze TypeScript without Node.** The Python package reads imports, lexical classes,
+  members, signatures and typed relationships. The separate Node collector is removed.
+  This is static evidence, not compiler type checking; unsupported resolution stays UNKNOWN (#382).
+- **Start with observed crossings.** `init` groups open decisions and reports exact totals
+  in compact output. `init --full` returns every pair. The draft still needs your decisions.
+- **Share an offline report or open a demo.** Detail pages share one evidence snapshot and
+  assets. GitHub Pages publishes the current Main report and 24 Python, Dart and TypeScript
+  demos, including PASS, FAIL and UNKNOWN examples.
+
+## Fixes since 0.9.0
+
+Issue numbers refer to [the issue tracker](https://github.com/rapiddweller/archkeel/issues).
+
+| Issues | What changes for you |
+| --- | --- |
+| #335 | Forbidden observed imports remain visible in Diff, including nested contracts and finding evidence. |
+| #336 | Target shows declared intent. Observed status, findings and analysis limits belong to As-Is and Diff. |
+| #382 | TypeScript keeps inherited TSConfig output paths and rejects malformed options. UTF-8 output and analyzer provenance are portable across Windows checkouts. |
+| #338 | Providers reached through proven ancestor re-exports count as used. Ambiguous routes stay UNKNOWN. |
+| #342 | Nullable allowances match the complete annotation. Incomplete union permissions and ambiguous declarations no longer allow the whole field. |
+| #353 | Scoped opacity allowances cover exact native leaves inside map/list returns. Wrong-depth and unrelated positions stay rejected; opacity does not prove type closure. |
+| #370, #374 | FAIL exposes scoped findings. Matrix cells use evaluator evidence; skipped or unevaluated imports cannot produce PASS. |
+| #358, #372, #392 | Compact agent output retains excluded responsibilities, local findings, global verdicts and baseline comparisons. Omitted rows are marked. |
+| #314, #395 | Filtered report JSON and validation diagnostics retain recorded source paths and lines. |
+| #390, #391, #398 | Python requirement states, empty architect-owned responsibilities and policy widenings have distinct diagnostics. Rejected widening stays exit 1; invalid input stays exit 2. |
+| #313, #318, #388, #389 | Setup remedies and baseline guidance name the next action, including whole-pair prohibitions that cannot be baselined. |
+| #349, #393, #394, #397 | Counts distinguish contract violations from the current level. UNKNOWN links to evidence and next actions; component size remains a review question. |
+| #319, #375, #376, #403 | Navigation, mobile paths, labels and themes are corrected. Architecture Map fills fullscreen and supports background panning, zoom and Fit. |
+| #363, #371 | Offline detail pages stop duplicating full evidence. Repeated analysis work is reduced; runtime and size guards remain enforced. |
+| #315, #316, #343, #350 | Policy runs before expensive checks. Self-scan, import-schema and collector timeout tests are corrected; wire-format consumers are updated (PR #404). |
+| #317, #377, #396 | Documentation, dark screenshots and the first runnable forbidden-import example match the workflow. |
+
+## Upgrade from 0.9.0
+
+- Remove `collector_argv = ["archkeel-typescript"]` from TypeScript configuration.
+  Observe both revisions again: the native frontend has a different producer/runtime identity,
+  and old/new observations are not comparable (`incomparable_runtime`).
+- Pin collectors, CLI and schemas together. Fresh SourceFacts/protocol and ArchitectureIR use
+  **2.0.0**, Core observations **0.74.0**, Delta **2.0.0** and command-result **6.0.0**.
+  New readers retain supported legacy packets; old strict consumers must upgrade before
+  reading the new runtime state. Package and wire version numbers are independent.
+- Code consuming init decisions must inspect `open_decisions_complete`; an omitted pair is
+  still undecided. Use `init --full` for exhaustive output. `validate` still returns the full list.
+- Review newly rejected incomplete nullable permissions and missing responsibilities.
+  Do not broaden contracts or baseline budgets merely to restore a passing command.
+
+Published schema changes from 0.9.0:
+
+| Format | 0.9.0 | 1.0.0 |
+| --- | --- | --- |
+| Architecture contract | 2.2.0 | 2.3.0; 2.1/2.2 remain readable, layers require 2.3 |
+| Architecture graph / report | 1.0.0 | 1.2.0 |
+| ArchitectureIR | 1.3.0 | 2.0.0 |
+| SourceFacts / collector protocol | 1.0.0 | 2.0.0 |
+| Delta | 1.4.0 | 2.0.0 |
+| Command result | 3.0.0 | 6.0.0 |
+| Architecture projection / focused command / member inventory | Not published | 1.0.0 |
+
+The documented CLI, configuration, external Python API and wire interfaces are stable for 1.x.
+Read the [compatibility policy](docs/reference.md#compatibility-in-1x) before upgrading integrations.
+
+## Explicit limits
+
+Stable means the documented interface, not complete language analysis. Missing or ambiguous
+proof stays UNKNOWN. Layers assess declared permissions, not runtime behavior or structural
+Protocol conformance. Dart inner UML facts (#347), complete independently authored own Target
+intent (#340), and full per-language demo/acceptance coverage (#339/#348) remain open.
+TypeScript package-based `extends`, exports/typesVersions and project references remain unsupported;
+see [the TypeScript evidence and limits](docs/architecture/typescript-foundation-proposal.md#evidence-and-limits).
+Compact validation of an existing draft is separate follow-up work (#402).
+Hints remain provisional (#384); structural port checks need a concrete use case (#356).
+Human review effectiveness and public plugin-directory acceptance are not established (#236).
 
 # Archkeel 0.9.0 — Explore architecture, keep the evidence
 

@@ -5,19 +5,15 @@ Only open work belongs here. Completed decisions live in the
 
 | Issue | Remaining work |
 |---|---|
-| [#363](https://github.com/rapiddweller/archkeel/issues/363) | Measure and reduce report validation and repeated AST work. |
-| [#358](https://github.com/rapiddweller/archkeel/issues/358) | Accept the native architecture projection, output budgets and integrated gates (AD-202). |
-| [#357](https://github.com/rapiddweller/archkeel/issues/357) | Split check hotspots along proven seams. |
-| [#356](https://github.com/rapiddweller/archkeel/issues/356) | Authenticate layers, port realization and external components. |
-| [#355](https://github.com/rapiddweller/archkeel/issues/355) | Explore As-Is against Target through one shared projection. |
-| [#354](https://github.com/rapiddweller/archkeel/issues/354) | Verify the architecture review gaps and child acceptance. |
-| [#313](https://github.com/rapiddweller/archkeel/issues/313) | Group open decisions and show one actionable validation remedy. |
-| [#314](https://github.com/rapiddweller/archkeel/issues/314) | Include source locations and reduce filtered agent JSON. |
-| [#315](https://github.com/rapiddweller/archkeel/issues/315) | Fail fast, cancel superseded CI runs and share Make entry points. |
-| [#316](https://github.com/rapiddweller/archkeel/issues/316) | Generate self-observation artifacts once per test session; retain compact proof. |
-| [#317](https://github.com/rapiddweller/archkeel/issues/317) | Remove stale and duplicated documentation. |
-| [#318](https://github.com/rapiddweller/archkeel/issues/318) | Simplify first-run diagnostics, draft status and skill setup. |
-| [#319](https://github.com/rapiddweller/archkeel/issues/319) | Fix mobile report overflow, theme and review labels. |
+| [#402](https://github.com/rapiddweller/archkeel/issues/402) | Offer compact open-decision output for existing drafts; retain full retrieval. |
+| [#384](https://github.com/rapiddweller/archkeel/issues/384) | Review provisional hints with CE/EE evidence and record intended patterns. |
+| [#357](https://github.com/rapiddweller/archkeel/issues/357) | Historical split acceptance remains unverified; do not repeat the merged split. |
+| [#356](https://github.com/rapiddweller/archkeel/issues/356) | Establish a concrete need for structural port checks and out-of-scan components. Layers are implemented. |
+| [#354](https://github.com/rapiddweller/archkeel/issues/354) | Track the remaining architecture-review acceptance and child issues. |
+| [#348](https://github.com/rapiddweller/archkeel/issues/348) | Reconcile native TypeScript UML implementation with the full issue acceptance. |
+| [#347](https://github.com/rapiddweller/archkeel/issues/347) | Publish Dart inner UML facts with explicit coverage. |
+| [#340](https://github.com/rapiddweller/archkeel/issues/340) | Complete independently authored inner Target intent for Archkeel itself. |
+| [#339](https://github.com/rapiddweller/archkeel/issues/339) | Complete per-language UML demo and browser acceptance, retaining capability gaps. |
 | [#236](https://github.com/rapiddweller/archkeel/issues/236) | Confirm plugin directory acceptance and run the [human review pilot](review-pilot.md). |
 
 Implementation and local tests do not close remote or human acceptance gates.

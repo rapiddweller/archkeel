@@ -9,7 +9,7 @@ authors = [{ name = "Rapiddweller Asia Co., Ltd." }]
 maintainers = [{ name = "Alexander Kell", email = "Alexander.Kell@rapiddweller.com" }]
 keywords = ["architecture", "static-analysis", "code-review", "coding-agents", "harness-engineering", "cli"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3 :: Only",

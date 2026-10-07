@@ -48,8 +48,10 @@ standing scan disclaimers retain their separate meanings.
 
 ## TypeScript profile
 
-Import graphs, ownership, externals, cycles and layout are measured. Symbols,
-types, constructs, calls and private-use metrics are unavailable. Computed/indirect
+Import graphs, ownership, externals, cycles and layout are measured. Lexical UML
+declarations, members, signatures and proven local relationships are available;
+they do not provide compiler type checking or Python-style symbol/type rules.
+Construct, call and private-use metrics remain unavailable. Computed/indirect
 loaders, incomplete JavaScript closure and missing resolver inputs retain UNKNOWN, as do
 `extends` through a package, `exports` and `typesVersions` maps, and syntax the
 grammar cannot parse (`import('x').T<G>`, `export type *`).
