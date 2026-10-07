@@ -5,7 +5,12 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
+from textwrap import dedent
 
 from tools.ci_changes import Areas, classify_path, classify_paths
 
@@ -60,6 +65,33 @@ class ChangeClassificationTests(unittest.TestCase):
 
     def test_empty_diff_fails_closed(self) -> None:
         self.assertEqual(classify_paths(()), Areas(core=True))
+
+    def test_main_runs_every_area_even_with_no_comparable_base(self) -> None:
+        root = Path(__file__).parents[1]
+        workflow = (root / ".github/workflows/ci.yml").read_text()
+        step = workflow.split("      - name: Classify changed files\n", 1)[1].split(
+            "\n  check:", 1
+        )[0]
+        self.assertIn("EVENT: ${{ github.event_name }}", step)
+        script = dedent(step.split("        run: |\n", 1)[1])
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "outputs"
+            run = subprocess.run(
+                ["bash", "-eu", "-c", script],
+                cwd=root,
+                env={
+                    **os.environ,
+                    "EVENT": "push",
+                    "BASE": "missing",
+                    "GITHUB_OUTPUT": str(output),
+                },
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertEqual(
+                output.read_text().splitlines(), ["core=true", "report=true", "mermaid=true"]
+            )
 
 
 if __name__ == "__main__":

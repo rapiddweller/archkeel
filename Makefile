@@ -1,12 +1,12 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-typescript ci-artifacts-clean mermaid check test collector-safety typescript-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing
+.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety typescript-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing
 
 check: lint typecheck test
 
 # These stages consume the previous stage's success, even with make -j.
-.NOTPARALLEL: gate release-check ci ci-check ci-core-check ci-report-check
+.NOTPARALLEL: gate release-check ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check
 
 gate: $(if $(strip $(BASE)),against,self-validate) release-check
 
@@ -19,6 +19,23 @@ ci-check: ci-artifacts-clean ci-core-check ci-report-check
 ci-core-check: gate ci-typescript
 
 ci-report-check: report-timing browser-install report-browser
+
+ci-pr-check: $(if $(strip $(BASE)),against,self-validate) lint typecheck pr-test
+
+ci-pr-report-check: browser-install pr-report-test
+
+pr-test:
+	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 \
+		-q --durations=10 --junitxml=test-artifacts/pytest/pr-core.xml \
+		tests/test_ci_changes.py tests/test_make_gate.py tests/test_repository_hygiene.py \
+		tests/test_contract_model.py tests/test_collection_protocol.py tests/test_source_trust_boundary.py \
+		tests/test_analyzer.py tests/test_typescript_config.py tests/test_typescript_resolve.py \
+		tests/test_uml_comparison.py tests/test_saved_report.py tests/test_cli.py
+
+pr-report-test:
+	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q \
+		--junitxml=test-artifacts/pytest/pr-report.xml tests/test_report_pages.py \
+		tests/test_report_interactions.py tests/test_uml_rendering.py
 
 ci-typescript: OUTPUT := test-artifacts/typescript-demo
 ci-typescript: demo-typescript
@@ -76,7 +93,7 @@ typescript-differential:
 		$(UV) run --locked python -m pytest -q tests/test_typescript_differential.py
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py tools/ci_changes.py \
-	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
+	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_browser.py tools/report_pages.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/reproduce_typescript.py fixtures/typescript_differential.py fixtures/typescript_scenarios.py fixtures/typescript_realworld.py \
@@ -90,7 +107,7 @@ report-timing:
 report-pages:
 	rm -rf test-artifacts/pages
 	$(UV) run --locked archkeel report --root . --output test-artifacts/pages/architecture.json --json
-	@printf '%s\n' '<!doctype html><html lang="en"><meta charset="utf-8"><title>ArchKeel report</title><meta http-equiv="refresh" content="0; url=architecture.report.html?theme=dark"><a href="architecture.report.html?theme=dark">Open the current ArchKeel report</a></html>' > test-artifacts/pages/index.html
+	$(UV) run --locked python -m tools.report_pages
 
 architecture-graph-schema:
 	$(UV) run --locked python -m tools.architecture_graph_schema schema/architecture-graph.schema.json --contract schema/architecture-contract.schema.json --comparison schema/architecture-comparison.schema.json --report schema/architecture-report.schema.json --source-inventory schema/source-member-inventory.schema.json --source-profile schema/architecture-ir-python-decoded.schema.json --projection schema/architecture-projection.schema.json --command schema/architecture-command.schema.json

@@ -19,6 +19,8 @@ without an LLM. They complement tests of runtime behavior.
 
 Explore observed code, declared architecture and their differences in one offline report.
 See [ArchKeel's current Main report](https://rapiddweller.github.io/archkeel/), updated by CI.
+Browse the [Python, Dart and TypeScript demo reports](https://rapiddweller.github.io/archkeel/demos/),
+including UML PASS, FAIL and UNKNOWN examples.
 
 ## Start here
 

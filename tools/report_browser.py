@@ -28,35 +28,12 @@ from archkeel.ir.graph_codec import parse_report
 from archkeel.ir.module_explore import module_exploration
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.report_projection import architecture_projection
-from fixtures.architecture_demo import replay
+from fixtures.architecture_demo import REPORT_CASES, replay
 
 
 def _make_reports(output: Path) -> dict[str, Path]:
-    cases = {
-        "uml-match": ("uml-match", 0),
-        "uml-complete": ("uml-complete", 0),
-        "uml-dart": ("uml-dart", 0),
-        "uml-typescript": ("uml-typescript", 0),
-        "uml-typescript-match": ("uml-typescript-match", 0),
-        "uml-typescript-mismatch": ("uml-typescript-mismatch", 2),
-        "uml-typescript-partial": ("uml-typescript-partial", 0),
-        "uml-mismatch": ("uml-mismatch", 2),
-        "uml-partial": ("uml-partial", 0),
-        "tour": ("tour", 2),
-        "clean": ("clean", 0),
-        "open": ("class-a-decision-open", 2),
-        "wide": ("class-a-recursive-wide-package", 0),
-        "deep": ("class-a-recursive-inside-violation", 2),
-        "mixed": ("class-a-boundary-types-mixed-evidence", 2),
-        "unknown": ("class-a-boundary-types-ordinary-reexport-chain-unknown", 0),
-        "known": ("validation-baseline-subject-order", 0),
-        "target-present": ("target-module-present", 0),
-        "target-absent": ("target-module-absent", 0),
-        "target-store": ("target-hierarchy-positive", 0),
-        "empty-responsibility": ("target-empty-responsibilities", 0),
-    }
     reports = {}
-    for name, (variant, expected_exit) in cases.items():
+    for name, (variant, expected_exit) in REPORT_CASES.items():
         report = output / f"{name}.json"
         stdout = io.StringIO()
         stderr = io.StringIO()
