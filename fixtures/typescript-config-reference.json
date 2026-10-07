@@ -1,0 +1,1083 @@
+{
+  "schema_version": 1,
+  "reference": {
+    "producer": "TypeScript Compiler API",
+    "version": "5.9.3",
+    "method": "parseJsonConfigFileContent",
+    "diagnostics": "parsed.errors"
+  },
+  "cases": {
+    "inherited_outputs_from_extended_config": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"extends\":\"./configs/base.json\"}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "f13e4366076da752ac51beb142d1f8fcb650647374f184297df611754493b975",
+      "selected": [
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": []
+    },
+    "root_out_dir_override_retains_inherited_declaration_dir": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"extends\":\"./configs/base.json\",\"compilerOptions\":{\"outDir\":\"src/root-build\"}}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "9df12178af71c7c81b2ec59da04917f26f6e7c163f2d6a84f3725bfbdb609ad5",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": []
+    },
+    "root_declaration_dir_override_retains_inherited_out_dir": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"extends\":\"./configs/base.json\",\"compilerOptions\":{\"declarationDir\":\"src/root-types\"}}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "0dd120ea220eaade40639b7da01aa63248521f0e4a053e6c5e2005db40d5b588",
+      "selected": [
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts"
+      ],
+      "diagnostics": []
+    },
+    "root_overrides_both_output_dirs": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"extends\":\"./configs/base.json\",\"compilerOptions\":{\"outDir\":\"src/root-build\",\"declarationDir\":\"src/root-types\"}}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "640c480ac0ee9a0bcb050d30f0ab9a6118526b047caa4f45451fb65c356d4d1f",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts"
+      ],
+      "diagnostics": []
+    },
+    "later_extends_entry_overrides_only_declaration_dir": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"extends\":[\"./configs/left.json\",\"./configs/right.json\"]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "926f00e0ebee37b6b0f52b9dfe2d971171d612f47138a87094a7e631c1df55dc",
+      "selected": [
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": []
+    },
+    "root_include_override_is_relative_to_root_config": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"extends\":\"./configs/base.json\",\"include\":[\"src/override\"]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "fc55d95f0dc1ade7635516be78bbfc4ff5a7ff1f0ea62c918557d936338cf8d8",
+      "selected": [
+        "src/override/drop.ts",
+        "src/override/keep.ts"
+      ],
+      "diagnostics": []
+    },
+    "root_exclude_override_replaces_default_exclude": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"extends\":\"./configs/base.json\",\"exclude\":[]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "fc767a47968eb4d180fcb514f0096d51b80ecd67625f4fe7b7f9ed2dbfb74ba8",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": []
+    },
+    "inherited_exclude_is_relative_to_extended_config": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "configs/exclude.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"],\"exclude\":[\"../src/excluded.ts\"]}",
+        "tsconfig.json": "{\"extends\":\"./configs/exclude.json\"}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "e48173a53d3d01a0e8c8ceaaa9c66fc585b32e08e922cdf2cbf43d80a27fa033",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": []
+    },
+    "root_include_and_exclude_overrides": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"extends\":\"./configs/base.json\",\"include\":[\"src/override\"],\"exclude\":[\"src/override/drop.ts\"]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "65db96fb066e74691b633d0693bf0f8c561322d8cf844e7904d75f36ee5f36a2",
+      "selected": [
+        "src/override/keep.ts"
+      ],
+      "diagnostics": []
+    },
+    "local_check_js_without_allow_js": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"src\"]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "f755cd6bc04703a2a9c7669dc3ca02b592c8e5402495262dcb49db2d35c55c69",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/loose.js",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": []
+    },
+    "local_check_js_with_allow_js_null": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"compilerOptions\":{\"checkJs\":true,\"allowJs\":null},\"include\":[\"src\"]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "d7457f2adeb1d3800cfe4b0c520c49d4b60c0f748f0fba450ae129b37f22930a",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/loose.js",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": []
+    },
+    "inherited_check_js_without_allow_js": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"extends\":\"./configs/check-js.json\"}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "47689bba3b3969c42c110e1b0a8399dfbb7121a941e21766538c31081d2fd345",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/loose.js",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": []
+    },
+    "inherited_check_js_with_allow_js_null": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"extends\":\"./configs/check-js.json\",\"compilerOptions\":{\"allowJs\":null}}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "b8c74896f54e92d8e94ca33d747ff6fd1fe0402516e21ac7821e458679af7ad2",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/loose.js",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": []
+    },
+    "invalid_compiler_options_string": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"compilerOptions\":\"oops\",\"include\":[\"src\"]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "aab01c99e79cec9cabc164421e5492fc3470530c5e425a683a1ba1ef5b5e4666",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": [
+        {
+          "code": 5023,
+          "message": "Unknown compiler option '0'."
+        },
+        {
+          "code": 5023,
+          "message": "Unknown compiler option '1'."
+        },
+        {
+          "code": 5023,
+          "message": "Unknown compiler option '2'."
+        },
+        {
+          "code": 5023,
+          "message": "Unknown compiler option '3'."
+        }
+      ]
+    },
+    "invalid_out_dir_number": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"compilerOptions\":{\"outDir\":7},\"include\":[\"src\"]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "e7760e3f4c3f487c67a500bdda4a03345d8d41722c6358bbd3479a83fdc37627",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": [
+        {
+          "code": 5024,
+          "message": "Compiler option 'outDir' requires a value of type string."
+        }
+      ]
+    },
+    "invalid_declaration_dir_boolean": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"compilerOptions\":{\"declarationDir\":false},\"include\":[\"src\"]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "d512ea3a4eeb97148398f0440c16bae9e58092e55704b5b9154898042eb799d4",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": [
+        {
+          "code": 5024,
+          "message": "Compiler option 'declarationDir' requires a value of type string."
+        }
+      ]
+    },
+    "invalid_allow_js_string": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"compilerOptions\":{\"allowJs\":\"false\"},\"include\":[\"src\"]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "e20b090951b83f3f3949a57f2805e2200122f7ed5dc4cec595751a13fb44b543",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": [
+        {
+          "code": 5024,
+          "message": "Compiler option 'allowJs' requires a value of type boolean."
+        }
+      ]
+    },
+    "invalid_base_url_boolean": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"compilerOptions\":{\"baseUrl\":true},\"include\":[\"src\"]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "20659c21a999cbe3f2dbe5062bbf8c1c10d25e94959dfa13fd93ea457aafac0c",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": [
+        {
+          "code": 5024,
+          "message": "Compiler option 'baseUrl' requires a value of type string."
+        }
+      ]
+    },
+    "invalid_module_number": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"compilerOptions\":{\"module\":3},\"include\":[\"src\"]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "6aea292ea1d75ba248e23b7333e37181c4c61eda56ea85005f27a4755671f8cd",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": [
+        {
+          "code": 5024,
+          "message": "Compiler option 'module' requires a value of type string."
+        }
+      ]
+    },
+    "invalid_module_resolution_array": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"compilerOptions\":{\"moduleResolution\":[]},\"include\":[\"src\"]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "14cac810c63d1e294e8374c38d9db8ca4e2e9c1376e0fc092f04da6dd339752e",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": [
+        {
+          "code": 5024,
+          "message": "Compiler option 'moduleResolution' requires a value of type string."
+        }
+      ]
+    },
+    "invalid_target_object": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"compilerOptions\":{\"target\":{}},\"include\":[\"src\"]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "5b1d02bd1f4c96186a3203c5edb44c7f5952c4c760878e4739f6996d60ebfbc6",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": [
+        {
+          "code": 5024,
+          "message": "Compiler option 'target' requires a value of type string."
+        }
+      ]
+    },
+    "invalid_resolve_json_module_string": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"compilerOptions\":{\"resolveJsonModule\":\"true\"},\"include\":[\"src\"]}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "1b8548519cb62af04afa0b38443a221d399bddea4946847fc5a5c355de77caa7",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": [
+        {
+          "code": 5024,
+          "message": "Compiler option 'resolveJsonModule' requires a value of type boolean."
+        }
+      ]
+    },
+    "invalid_files_string": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"files\":\"src/main.ts\"}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "5db30c389ba25f496e9cd9575b7315a5b027fb205cc2ec112550e019a0135ef5",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": [
+        {
+          "code": 5024,
+          "message": "Compiler option 'files' requires a value of type Array."
+        }
+      ]
+    },
+    "invalid_include_string": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"include\":\"src\"}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "0b916b4b6273764830fbeadba16eccea14561e73eb381eb98f059dcd6c143db2",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": [
+        {
+          "code": 5024,
+          "message": "Compiler option 'include' requires a value of type Array."
+        }
+      ]
+    },
+    "invalid_exclude_object": {
+      "files": {
+        "src/main.ts": "export {};\n",
+        "src/main.js": "export {};\n",
+        "src/loose.js": "export {};\n",
+        "src/excluded.ts": "export {};\n",
+        "src/base-build/gen.ts": "export {};\n",
+        "src/base-types/gen.d.ts": "export {};\n",
+        "src/root-build/gen.ts": "export {};\n",
+        "src/root-types/gen.d.ts": "export {};\n",
+        "src/left-build/gen.ts": "export {};\n",
+        "src/right-types/gen.d.ts": "export {};\n",
+        "src/override/keep.ts": "export {};\n",
+        "src/override/drop.ts": "export {};\n",
+        "src/other/extra.ts": "export {};\n",
+        "configs/base.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/left.json": "{\"compilerOptions\":{\"outDir\":\"../src/base-build\",\"declarationDir\":\"../src/base-types\"},\"include\":[\"../src\"]}",
+        "configs/right.json": "{\"compilerOptions\":{\"declarationDir\":\"../src/right-types\"},\"include\":[\"../src\"]}",
+        "configs/check-js.json": "{\"compilerOptions\":{\"checkJs\":true},\"include\":[\"../src\"]}",
+        "tsconfig.json": "{\"include\":[\"src\"],\"exclude\":{\"src\":true}}"
+      },
+      "roots": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "input_digest": "8219a4ae018f62d7281c1979267112d343d94b4595b70b7c84540bc2cb12b981",
+      "selected": [
+        "src/base-build/gen.ts",
+        "src/base-types/gen.d.ts",
+        "src/excluded.ts",
+        "src/left-build/gen.ts",
+        "src/main.ts",
+        "src/other/extra.ts",
+        "src/override/drop.ts",
+        "src/override/keep.ts",
+        "src/right-types/gen.d.ts",
+        "src/root-build/gen.ts",
+        "src/root-types/gen.d.ts"
+      ],
+      "diagnostics": [
+        {
+          "code": 5024,
+          "message": "Compiler option 'exclude' requires a value of type Array."
+        }
+      ]
+    }
+  }
+}

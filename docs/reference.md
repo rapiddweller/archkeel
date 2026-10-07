@@ -29,8 +29,8 @@ fallback resolves missing inputs.
 
 Collectors run through a process port. Optional `collector_argv` supplies separate
 arguments without a shell; on Windows use an executable and script, not a `.cmd`
-shim. [TypeScript prerequisites](architecture/typescript-demo.md) include the
-pinned collector build. Runtime mismatch, malformed replies and incomplete evidence
+shim. Every language defaults to its own collector inside this package, so TypeScript
+needs no Node runtime. Runtime mismatch, malformed replies and incomplete evidence
 cannot certify a scan. Legacy observations remain readable only under supported
 schemas; missing required sections fail closed.
 

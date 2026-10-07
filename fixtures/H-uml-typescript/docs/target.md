@@ -9,14 +9,16 @@ VERSION is a constant. The contract is independent of collector output.
 TypeScript source-unit identities follow the collector's relative-path codec:
 demo.src.core_x2e_ts and demo.src.app_x2e_ts. The UI labels their declared source files.
 
-The current TypeScript collector observes imports, not inner definitions or calls.
-Target shows the declared design. As-Is shows recorded modules and imports.
-Diff must retain unsupported inner observations as UNKNOWN, never PASS or absence FAIL.
-This demo does not certify language UML parity or exhaustive inventories.
+The current collector records TypeScript SourceFacts independently of this Target:
+definitions, member inventories, calls, references, bases, and bindings. The original
+closed module scopes remain UNKNOWN where evidence is incomplete. Three variants share
+the same entities and relationships, closing only classifier member inventories with
+complete receipts: matching source is PASS, a return-type change is FAIL, and a computed
+constructor is UNKNOWN. As-Is and Diff show only recorded facts.
 
-Replay with make demo-architecture VARIANT=uml-typescript OUTPUT=demo-output/uml-typescript.json.
-Use a fresh output path. For TypeScript, first run make typescript-adapter with a
-supported Node runtime. make demo-uml generates all three language reports.
+Replay with `make demo-architecture VARIANT=uml-typescript-match OUTPUT=demo-output/ts-match.json`.
+The `uml-typescript-mismatch` and `uml-typescript-partial` variants exercise FAIL and
+UNKNOWN. Use fresh output paths; `make demo-uml` generates these alongside Python and Dart.
 
 Tracked in #339 (demos) and #340 (complete ArchKeel Target).
 

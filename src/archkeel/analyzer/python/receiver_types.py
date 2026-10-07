@@ -178,9 +178,8 @@ _ANNOTATION_BASES = {
     "pathlib.Path": "Path",
 }
 
-# A literal or a zero-argument-shaped constructor call proves its result's type outright;
-# `set()` has no literal spelling, so only the call form is recognised for it.
-_LITERAL_CONSTRUCTORS = {"list": "list", "dict": "dict", "set": "set"}
+# These builtins return an exact container type; callers reject shadowed builtin names.
+_LITERAL_CONSTRUCTORS = {"list": "list", "dict": "dict", "set": "set", "sorted": "list"}
 
 
 Origin = Literal["literal", "annotation", "documented"]

@@ -183,18 +183,6 @@ VARIANTS += (
 
 for language in ("dart", "typescript"):
     fixture = UML_FIXTURE_DIR.with_name("H-uml-" + language)
-    files = {}
-    if language == "typescript":
-        adapter = UML_FIXTURE_DIR.parents[1] / "packages/typescript-adapter/dist/entry.js"
-        config = fixture.joinpath("archkeel.toml").read_text()
-        files = {
-            "archkeel.toml": "\n".join(
-                line for line in config.splitlines() if not line.startswith("collector_argv")
-            )
-            + "\ncollector_argv = "
-            + json.dumps(["node", str(adapter.resolve())])
-            + "\n"
-        }
     VARIANTS += (
         Variant(
             id="uml-" + language,
@@ -203,10 +191,87 @@ for language in ("dart", "typescript"):
             summary="Independent "
             + language
             + " intent; unsupported inner observation stays UNKNOWN.",
-            files=files,
+            files={},
             expected_violations=(),
             expected_codes=(),
             expected_declared_rules="UNKNOWN",
             fixture=fixture,
         ),
     )
+
+
+TS_FIXTURE_DIR = UML_FIXTURE_DIR.with_name("H-uml-typescript")
+TS_CONTRACT = json.loads((TS_FIXTURE_DIR / "architecture-contract.json").read_text())
+TS_CLOSED_CONTRACT = json.loads(json.dumps(TS_CONTRACT))
+TS_UML = TS_CLOSED_CONTRACT["declarations"]["uml"]
+TS_UML["scopes"] = [
+    {
+        "scope_id": scope_id,
+        "mode": "closed",
+        "entity_kinds": kinds,
+        "rationale": "Declare the complete classifier member inventory recorded by the analyzer.",
+        "provenance": ["docs/target.md"],
+    }
+    for scope_id, kinds in (
+        ("client", ["attribute", "method"]),
+        ("state", ["enum_literal"]),
+        ("base", ["attribute", "method"]),
+        ("unit", ["attribute", "method"]),
+        ("port", ["attribute", "method"]),
+    )
+]
+TS_CORE_SOURCE = (TS_FIXTURE_DIR / "src/core.ts").read_text()
+TS_MATCH_SOURCE = TS_CORE_SOURCE.replace("return String(value);", "return `${value}`;")
+TS_MISMATCH_SOURCE = TS_CORE_SOURCE.replace(
+    "static reset(): void {}",
+    "static reset(): number { return 0; }",
+)
+TS_PARTIAL_SOURCE = TS_CORE_SOURCE.replace(
+    "const item = new Unit();",
+    "const constructors = [Unit];\n  const item = new constructors[0]();",
+)
+TS_CLOSED_CONTRACT_JSON = json.dumps(TS_CLOSED_CONTRACT, indent=2) + "\n"
+VARIANTS += (
+    Variant(
+        id="uml-typescript-match",
+        section="class_c",
+        item="ContractDeclarations.uml",
+        summary="TypeScript source matches the independently declared classifier contract.",
+        files={
+            "architecture-contract.json": TS_CLOSED_CONTRACT_JSON,
+            "src/core.ts": TS_MATCH_SOURCE,
+        },
+        expected_violations=(),
+        expected_codes=(),
+        expected_declared_rules="PASS",
+        fixture=TS_FIXTURE_DIR,
+    ),
+    Variant(
+        id="uml-typescript-mismatch",
+        section="class_c",
+        item="ContractDeclarations.uml",
+        summary="A changed TypeScript static method return type fails its independent signature.",
+        files={
+            "architecture-contract.json": TS_CLOSED_CONTRACT_JSON,
+            "src/core.ts": TS_MISMATCH_SOURCE,
+        },
+        expected_violations=(stable_id("UML-TARGET", "architecture-contract.json"),),
+        expected_codes=("rule.violated",),
+        expected_declared_rules="FAIL",
+        fixture=TS_FIXTURE_DIR,
+    ),
+    Variant(
+        id="uml-typescript-partial",
+        section="class_c",
+        item="ContractDeclarations.uml",
+        summary="A computed TypeScript constructor keeps the result UNKNOWN.",
+        files={
+            "architecture-contract.json": TS_CLOSED_CONTRACT_JSON,
+            "src/core.ts": TS_PARTIAL_SOURCE,
+        },
+        expected_violations=(),
+        expected_codes=(),
+        expected_declared_rules="UNKNOWN",
+        fixture=TS_FIXTURE_DIR,
+    ),
+)

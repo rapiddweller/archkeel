@@ -21,11 +21,7 @@ def observer_for(
     tsconfig: str = "tsconfig.json",
 ) -> Observer:
     if collector_argv is None:
-        collector_argv = (
-            ("archkeel-typescript",)
-            if language == "typescript"
-            else (sys.executable, "-I", "-B", "-m", f"archkeel.analyzer.{language}.entry")
-        )
+        collector_argv = (sys.executable, "-I", "-B", "-m", f"archkeel.analyzer.{language}.entry")
     return Observer(ProcessCollector(collector_argv), tsconfig)
 
 

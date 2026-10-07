@@ -49,8 +49,8 @@ def _run_gate(
     overrides.write_text(
         ("" if separate_override else f"include {ROOT / 'Makefile'}\n")
         + ".PHONY: "
-        + " ".join([*names, "lint", "typecheck", "test", "typescript-adapter"])
-        + "\nlint typecheck test typescript-adapter:\n\t@:\n"
+        + " ".join([*names, "lint", "typecheck", "test"])
+        + "\nlint typecheck test:\n\t@:\n"
         + "".join(recipes)
     )
     args = ["make", f"-j{jobs}"]
@@ -160,6 +160,12 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
         in workflow
     )
     assert "run: make mermaid" in workflow
+    native = workflow.split("  typescript-native:\n", 1)[1].split("\n  github-order-report:", 1)[0]
+    assert "os: [ubuntu-latest, windows-latest]" in native
+    assert 'python: ["3.11.12", "3.12.10"]' in native
+    assert "make typescript-native SHELL=bash" in native
+    assert "make build smoke SHELL=bash" in native
+    assert "collector-runtimes:" not in workflow
 
 
 @pytest.mark.parametrize("renderer_exit", [0, 1])

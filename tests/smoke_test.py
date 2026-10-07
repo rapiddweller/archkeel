@@ -13,7 +13,9 @@ from tempfile import TemporaryDirectory
 
 def main() -> None:
     schemas = files("archkeel").joinpath("schema")
-    result_schema = json.loads(schemas.joinpath("command-result.schema.json").read_text())
+    result_schema = json.loads(
+        schemas.joinpath("command-result.schema.json").read_text(encoding="utf-8")
+    )
     assert result_schema["$id"] == "urn:archkeel:command-result:5.0.0"
     assert "expectation_fulfilled" in result_schema["required"]
     for name in (
@@ -23,7 +25,7 @@ def main() -> None:
         "architecture-projection.schema.json",
         "architecture-command.schema.json",
     ):
-        assert json.loads(schemas.joinpath(name).read_text())["$id"]
+        assert json.loads(schemas.joinpath(name).read_text(encoding="utf-8"))["$id"]
     with TemporaryDirectory(prefix="archkeel-smoke-") as temporary:
         root = Path(temporary)
         (root / "sample").mkdir()
@@ -79,6 +81,7 @@ def main() -> None:
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         result = json.loads(run.stdout)
         assert run.returncode == 0, (run.stdout, run.stderr)
@@ -90,20 +93,26 @@ def main() -> None:
             [sys.executable, "-m", "archkeel.cli", "validate", "--root", str(root), "--json"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         assert validate.returncode == 0, (validate.stdout, validate.stderr)
         assert json.loads(validate.stdout)["diagnostics"] == []
 
         def cli(*args: str) -> subprocess.CompletedProcess[str]:
             return subprocess.run(
-                [sys.executable, "-m", "archkeel.cli", *args], capture_output=True, text=True
+                [sys.executable, "-m", "archkeel.cli", *args],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
             )
 
         version = cli("--version")
         assert version.returncode == 0 and version.stdout.startswith("archkeel "), version
         skill = cli("skill", "install", "codex", "--root", str(root), "--json")
         assert skill.returncode == 0, (skill.stdout, skill.stderr)
-        assert "archkeel init" in (root / ".agents/skills/archkeel/SKILL.md").read_text()
+        assert "archkeel init" in (root / ".agents/skills/archkeel/SKILL.md").read_text(
+            encoding="utf-8"
+        )
         init = cli("init", "--root", str(root), "--force", "--json")
         assert init.returncode == 0, (init.stdout, init.stderr)
         drafted = cli("validate", "--root", str(root), "--json")
@@ -119,5 +128,49 @@ def main() -> None:
         ], diagnostics
 
 
+def typescript() -> None:
+    """A TypeScript scan needs only the installed distribution: no Node, no adapter package."""
+    with TemporaryDirectory(prefix="archkeel-smoke-ts-") as temporary:
+        root = Path(temporary)
+        (root / "src").mkdir()
+        (root / "src/a.ts").write_text('import { b } from "./b";\nexport const a = b;\n')
+        (root / "src/b.ts").write_text("export const b = 1;\n")
+        (root / "tsconfig.json").write_text(
+            '{"compilerOptions": {"module": "esnext", "moduleResolution": "bundler"},'
+            ' "include": ["src"]}\n'
+        )
+        (root / "architecture-contract.json").write_text(
+            '{"schema_version": "2.1.0", "components": [], "rules": []}\n'
+        )
+        (root / "archkeel.toml").write_text(
+            '[scan]\nlanguage = "typescript"\nroots = ["src"]\nnamespace = "app"\n'
+            'contract = "architecture-contract.json"\ntsconfig = "tsconfig.json"\n'
+        )
+        for args in (
+            ("init", "-q"),
+            ("config", "user.email", "smoke@example.invalid"),
+            ("config", "user.name", "Archkeel smoke test"),
+            ("add", "."),
+            ("commit", "-qm", "smoke fixture"),
+        ):
+            subprocess.run(["git", *args], cwd=root, check=True)
+        output = root / "architecture.json"
+        run = subprocess.run(
+            [sys.executable, "-m", "archkeel.cli", "report", "--root", str(root)]
+            + ["--output", str(output)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        assert run.returncode == 0, (run.stdout, run.stderr)
+        assert json.loads(run.stdout)["observation_complete"] == "PASS"
+        report = json.loads(output.read_text(encoding="utf-8"))
+        assert len(report["dependency_edges"]) == 1, report["dependency_edges"]
+        # The collector that ran is the installed Python one, not an npm adapter on Node.
+        assert report["runtime"]["name"] == "python", report["runtime"]
+        assert report["producer"]["name"] == "archkeel-typescript-imports", report["producer"]
+
+
 if __name__ == "__main__":
     main()
+    typescript()

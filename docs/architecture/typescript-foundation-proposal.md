@@ -1,10 +1,10 @@
 # TypeScript adapter decision
 
-Status: approved and integrated with the Core protocol. Publication is separate.
+Status: superseded by [AD-210](decisions/ad-210-typescript-frontend-ships-in-the-package.md).
+The frontend in `archkeel.analyzer.typescript` collects TypeScript; the old npm collector is
+removed. A frozen output from its pinned revision remains the differential reference.
 
-Use TypeScript Compiler API 5.9.3 in a separately versioned, pinned npm package.
-It supplies parsing, TSConfig handling and module resolution. The adapter emits
-validated `SourceFacts`; Core owns policy and verdicts. See the
+The collector emits validated `SourceFacts`; Core owns policy and verdicts. See the
 [language-adapter target](language-adapter-target.md) for the boundary.
 
 ## Evidence and limits
@@ -18,15 +18,17 @@ Incomplete resolution, computed or indirect loaders and unproved runtime targets
 cannot prove absence. Runtime JavaScript and declaration files retain distinct
 identities. Historical scans use the same revision's source and resolver inputs;
 they cannot borrow working-tree files or installed dependencies. Analysis installs
-nothing and executes no project code or scripts. See
+nothing and executes no project code or scripts. The frontend also leaves a gap where
+the compiler would resolve: `extends` through a package, `exports` and `typesVersions`
+maps, project references and constructs its grammar cannot parse. See
 [known limits](../known-limits.md) and the
 [runtime-alias](../../fixtures/typescript-runtime-aliases.json) and
 [hidden-loader](../../fixtures/typescript-hidden-loaders.json) acceptance catalogs.
 
-`make typescript-adapter` checks the strict build, locked offline tarball, Core
-decoding and runtime-range refusal. Acceptance also requires the integrated local
-gate, independent review, Python/Dart parity and Linux, native Windows and Node
-22/24/26 CI. Package source does not prove publication.
+`make typescript-differential` compares the frontend with the 576-case frozen reference
+captured from the old Node collector (504 equivalent, 72 conservative, 0 defects). Each
+conservative case has a reason in `fixtures/typescript-differential-allowlist.json`; unexpected
+differences fail. The low-resolution real-world corpus remains a limit of this evidence.
 
 [The demo](typescript-demo.md) replays import-rule and revision cases. Process,
 collector and snapshot tests cover executable replacement, malformed facts,

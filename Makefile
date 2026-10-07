@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-typescript ci-artifacts-clean mermaid check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing
+.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-typescript ci-artifacts-clean mermaid check test collector-safety typescript-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing
 
 check: lint typecheck test
 
@@ -50,7 +50,7 @@ against:
 self-validate:
 	$(UV) run --locked archkeel validate --root . --baseline architecture-baseline.json --json
 
-test: typescript-adapter
+test:
 	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 \
 		-q --durations=20 --junitxml=test-artifacts/pytest/results.xml
 
@@ -61,15 +61,25 @@ collector-safety:
 		tests/test_collector_interrupt.py tests/test_windows_launcher_startup.py \
 		tests/test_collector_safety_acceptance.py tests/test_collector_liveness_observer.py \
 		tests/test_inheritance_proof_transport.py
-.PHONY: typescript-adapter
-typescript-adapter:
-	$(MAKE) -C packages/typescript-adapter install pack
+.PHONY: typescript-differential
+typescript-native:
+	$(UV) run --locked python -m pytest -q tests/test_typescript_parse.py \
+		tests/test_typescript_inner.py tests/test_typescript_uml_acceptance.py \
+		tests/test_typescript_collect.py tests/test_typescript_config.py \
+		tests/test_typescript_config_reference.py \
+		tests/test_typescript_resolve.py tests/test_typescript_provenance.py \
+		tests/test_typescript_init_acceptance.py tests/test_typescript_demo.py
+
+# Compare against the immutable output captured from the former Node collector.
+typescript-differential:
+	ARCHKEEL_DIFFERENTIAL_OUTPUT="$(or $(OUTPUT),test-artifacts/typescript-differential)" \
+		$(UV) run --locked python -m pytest -q tests/test_typescript_differential.py
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py tools/ci_changes.py \
 	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
-	fixtures/reproduce_typescript.py \
+	fixtures/reproduce_typescript.py fixtures/typescript_differential.py fixtures/typescript_scenarios.py fixtures/typescript_realworld.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
 	tools/architecture_graph_schema.py tools/report_timing.py
 
@@ -135,12 +145,15 @@ demo-architecture:
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
 	@$(UV) run --locked python -m fixtures.architecture_demo --replay "$(VARIANT)" --output "$(OUTPUT)"
 
-demo-uml: typescript-adapter
+demo-uml:
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
 	@$(MAKE) demo-architecture VARIANT=uml-match OUTPUT="$(OUTPUT)/python.json"
 	@$(MAKE) demo-architecture VARIANT=uml-complete OUTPUT="$(OUTPUT)/python-complete.json"
 	@$(MAKE) demo-architecture VARIANT=uml-dart OUTPUT="$(OUTPUT)/dart.json"
 	@$(MAKE) demo-architecture VARIANT=uml-typescript OUTPUT="$(OUTPUT)/typescript.json"
+	@$(MAKE) demo-architecture VARIANT=uml-typescript-match OUTPUT="$(OUTPUT)/typescript-match.json"
+	@$(MAKE) demo-architecture VARIANT=uml-typescript-mismatch OUTPUT="$(OUTPUT)/typescript-mismatch.json"
+	@$(MAKE) demo-architecture VARIANT=uml-typescript-partial OUTPUT="$(OUTPUT)/typescript-partial.json"
 
 # The figure is derived from the run above, so a test compares it with a fresh render.
 loop-figure:

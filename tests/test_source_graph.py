@@ -198,6 +198,85 @@ def test_dart_directive_profile_never_claims_a_complete_empty_call_graph(observa
     assert all(item.status == "unavailable" and item.reason for item in unsupported)
 
 
+def test_typescript_recorded_calls_have_partial_coverage(observation) -> None:
+    typescript = replace(
+        observation,
+        analyzer=replace(observation.analyzer, name="archkeel-typescript-imports"),
+    )
+
+    calls = [item for item in _graph(typescript).coverage if "calls" in item.relationship_kinds]
+
+    assert calls and all(item.status == "partial" for item in calls)
+
+
+def test_typescript_enum_member_receipt_can_prove_exact_literal_inventory(tmp_path: Path) -> None:
+    observation = _source_observation(
+        tmp_path,
+        "from enum import Enum\nclass State(Enum):\n READY = 1\n STOPPED = 2\n",
+    )
+    state = next(
+        item for item in observation.records("symbols") or () if item.data.get("name") == "State"
+    )
+    python_inventory = [
+        item
+        for item in _graph(observation).coverage
+        if item.scope_id == state.id and "enum_literal" in item.entity_kinds
+    ]
+    inventories = state.data.get("member_inventories")
+    assert isinstance(inventories, tuple)
+    complete_inventory = tuple(
+        RecordData(
+            tuple(
+                (
+                    key,
+                    "complete" if key == "status" else None if key == "reason" else value,
+                )
+                for key, value in item.entries
+            )
+        )
+        if isinstance(item, RecordData) and item.get("kind") == "attribute"
+        else item
+        for item in inventories
+    )
+    complete_state = replace(
+        state,
+        data=RecordData(
+            tuple(
+                (key, complete_inventory if key == "member_inventories" else value)
+                for key, value in state.data.entries
+            )
+        ),
+    )
+    complete_observation = replace(
+        observation,
+        sections=tuple(
+            Section(
+                section.name,
+                tuple(
+                    complete_state if record.id == state.id else record
+                    for record in section.records
+                ),
+            )
+            if section.name == "symbols"
+            else section
+            for section in observation.sections
+        ),
+    )
+    typescript = replace(
+        complete_observation,
+        analyzer=replace(complete_observation.analyzer, name="archkeel-typescript-imports"),
+    )
+
+    inventory = [
+        item
+        for item in _graph(typescript).coverage
+        if item.scope_id == state.id and "enum_literal" in item.entity_kinds
+    ]
+
+    assert python_inventory and all(item.status == "partial" for item in python_inventory)
+    assert inventory and all(item.status == "complete" for item in inventory)
+
+
 def test_incomplete_observation_does_not_claim_complete_graph_coverage(observation) -> None:
     partial = replace(observation, coverage=replace(observation.coverage, status="FAIL"))
     graph = _graph(partial)
@@ -346,6 +425,47 @@ def test_header_defaults_keep_evaluation_ownership(tmp_path: Path) -> None:
         entity_names[next(edge.source_id for edge in graph.relationships if edge.id == default.id)]
         == "sample.app"
     )
+
+
+def test_unresolved_construction_remains_an_unresolved_typed_site(observation) -> None:
+    calls = observation.records("calls") or ()
+    call = calls[0]
+    unresolved = replace(
+        call,
+        data=RecordData(
+            tuple((key, value) for key, value in call.data.entries if key != "construction")
+            + (
+                (
+                    "construction",
+                    RecordData(
+                        (
+                            ("status", "unresolved"),
+                            ("targets", ()),
+                            ("candidates_truncated", False),
+                            ("reason", "constructor is outside the recorded source graph"),
+                        )
+                    ),
+                ),
+            )
+        ),
+    )
+    changed = replace(
+        observation,
+        sections=tuple(
+            Section(section.name, (unresolved, *calls[1:])) if section.name == "calls" else section
+            for section in observation.sections
+        ),
+    )
+
+    constructions = [
+        edge
+        for edge in _graph(changed).relationships
+        if edge.kind == "creates" and call.id in edge.record_ids
+    ]
+    assert len(constructions) == 1
+    assert constructions[0].resolution == "unresolved"
+    assert constructions[0].target_id is None
+    assert constructions[0].reason == "constructor is outside the recorded source graph"
 
 
 @pytest.mark.parametrize(

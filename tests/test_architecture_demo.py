@@ -623,7 +623,11 @@ def _report_findings(
     if architecture is None:
         return (), (), report.declared_rules
     summary = report_summary(report)
-    expected = badge("NOT CHECKED" if report.exit_code == 2 else report.declared_rules)
+    expected = badge(
+        "NOT CHECKED"
+        if report.exit_code == 2 and report.rule_assessments is None
+        else report.declared_rules
+    )
     assert summary.decision == expected
     assert (
         next(row.value for row in summary.verdicts if row.key == "declared_rules")

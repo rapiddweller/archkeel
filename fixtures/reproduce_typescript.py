@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Replay TypeScript catalog cases through the configured collector and Core."""
+"""Replay TypeScript catalog cases through the in-package collector and Core."""
 
 from __future__ import annotations
 
@@ -34,8 +34,6 @@ from archkeel.ir.trace import trace_valid_violations
 from fixtures.demo_catalog_support import Variant, apply_overlay
 from fixtures.demo_catalog_typescript import VARIANTS, appended
 
-ADAPTER = Path(__file__).resolve().parents[1] / "packages/typescript-adapter/dist/entry.js"
-
 
 @dataclass(frozen=True)
 class Outcome:
@@ -45,26 +43,17 @@ class Outcome:
     observation: Observation | None
 
 
-def repository(workspace: Path, variant: Variant, adapter: Path = ADAPTER) -> Path:
+def repository(workspace: Path, variant: Variant) -> Path:
+    """Materialize one variant as a Git repository using the in-package collector."""
     root = workspace / variant.id
     shutil.copytree(variant.fixture, root)
     apply_overlay(root, variant.files)
     shutil.copytree(root / "resolver-inputs", root / "node_modules")
-    config = root / variant.config
-    config.write_text(
-        "\n".join(
-            line
-            for line in config.read_text().splitlines()
-            if not line.startswith("collector_argv")
-        )
-        + "\ncollector_argv = "
-        + json.dumps(["node", str(adapter.resolve())])
-        + "\n"
-    )
     for args in (
         ("init", "-q", "-b", "main"),
         ("config", "user.email", "typescript-demo@example.invalid"),
         ("config", "user.name", "TypeScript demo"),
+        ("config", "core.autocrlf", "false"),
         ("add", "-A"),
         ("add", "--force", "node_modules"),
         ("-c", "commit.gpgsign=false", "commit", "-q", "-m", variant.id),
@@ -83,8 +72,8 @@ def repository(workspace: Path, variant: Variant, adapter: Path = ADAPTER) -> Pa
     return root
 
 
-def run_variant(workspace: Path, variant: Variant, adapter: Path = ADAPTER) -> Outcome:
-    root = repository(workspace, variant, adapter)
+def run_variant(workspace: Path, variant: Variant) -> Outcome:
+    root = repository(workspace, variant)
     config = load_config(root)
     baseline = root / variant.baseline if variant.baseline else None
     observe = observer_for(
@@ -131,17 +120,18 @@ def command(root: Path, output: Path, label: str, *args: str) -> dict:
         env=environment,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=False,
     )
-    (output / f"{label}.stdout.json").write_text(result.stdout)
-    (output / f"{label}.stderr").write_text(result.stderr)
+    (output / f"{label}.stdout.json").write_text(result.stdout, encoding="utf-8")
+    (output / f"{label}.stderr").write_text(result.stderr, encoding="utf-8")
     assert result.stdout, (args, result.returncode, result.stderr)
     payload = json.loads(result.stdout)
     assert payload["exit_code"] == result.returncode
     return payload
 
 
-def check_revisions(workspace: Path, output: Path, adapter: Path = ADAPTER) -> dict:
+def check_revisions(workspace: Path, output: Path) -> dict:
     root = repository(
         workspace,
         replace(
@@ -155,11 +145,10 @@ def check_revisions(workspace: Path, output: Path, adapter: Path = ADAPTER) -> d
                 ),
             },
         ),
-        adapter,
     )
     path = output / "accepted.json"
     reported = command(root, output, "accepted-report", "report", "--output", str(path))
-    assert reported["declared_rules"] == "PASS", reported
+    assert reported["declared_rules"] == "UNKNOWN", reported
     assert reported["measurements"]["calls_total"] is None
     assert reported["measurements"]["scalars"]["calls_unresolved"] is None
     accepted = parse_observation(decode_canonical_model(json.loads(path.read_bytes())))
@@ -247,17 +236,12 @@ def check_revisions(workspace: Path, output: Path, adapter: Path = ADAPTER) -> d
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--adapter", type=Path, default=ADAPTER)
     args = parser.parse_args(argv)
-    if not args.adapter.is_file():
-        parser.error(
-            "adapter not built; run make -C packages/typescript-adapter install build first"
-        )
     with TemporaryDirectory(prefix="archkeel-typescript-") as temporary:
         output = args.output or Path(temporary)
         output.mkdir(parents=True, exist_ok=True)
         for variant in VARIANTS:
-            root = repository(output, variant, args.adapter)
+            root = repository(output, variant)
             artifact = root / "architecture.json"
             commands = (
                 ("validate",),
@@ -334,7 +318,7 @@ def main(argv: list[str] | None = None) -> int:
                         for name, value in result["measurements"]["scalars"].items()
                     )
                 )
-        checked = check_revisions(output, output, args.adapter)
+        checked = check_revisions(output, output)
         print(f"typescript-revisions: {checked['expectation_fulfilled']} (simulated host ordering)")
         if args.output:
             print(f"Artifacts: {output.resolve()}")

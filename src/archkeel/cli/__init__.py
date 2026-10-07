@@ -4,6 +4,7 @@
 """Run repository observations and declaration checks."""
 
 import argparse
+import io
 import json
 import os
 import re
@@ -354,8 +355,8 @@ def build_parser() -> _Parser:
         "--collector-argv",
         nargs="+",
         metavar="ARG",
-        help="Collector command and arguments. TypeScript defaults to archkeel-typescript. "
-        "On Windows, pass node and the collector entry file instead of an npm .cmd shim.",
+        help="Collector command and arguments. Every language defaults to its own collector "
+        "inside this package. On Windows, pass an executable and its script, not a .cmd shim.",
     )
     init.add_argument("--force", action="store_true", help="Replace existing onboarding files.")
 
@@ -657,5 +658,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print_result(result, summary, artifacts=tuple(str(path) for path in artifacts))
     else:
-        print(render_result(result).decode(), end="")
+        payload = render_result(result)
+        if isinstance(sys.stdout, io.TextIOWrapper):
+            sys.stdout.buffer.write(payload)
+        else:
+            sys.stdout.write(payload.decode("utf-8"))
     return result.exit_code

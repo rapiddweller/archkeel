@@ -81,6 +81,30 @@ def test_profile_codec_accepts_only_valid_nullable_call_groups() -> None:
     assert parse_observation(legacy_dart).coverage.calls_analyzed == 0
 
 
+def test_typescript_optional_sections_are_an_atomic_measurement_receipt() -> None:
+    legacy = _profile_model("archkeel-typescript-imports")
+    measured = deepcopy(legacy)
+    for section in ("symbols", "calls", "references", "bindings"):
+        measured[section] = []
+    measured["coverage"].update(
+        calls_analyzed=0,
+        calls_resolved=0,
+        calls_partially_resolved=0,
+        calls_unresolved=0,
+        call_resolution_percent=0.0,
+    )
+    observation = parse_observation(measured)
+    assert observation.coverage.calls_analyzed == 0
+    ratchets = measure_python_ratchets(observation)
+    assert ratchets.calls_total is None
+    assert ratchets.scalars.calls_unresolved is None
+
+    mixed = deepcopy(measured)
+    mixed["references"] = None
+    with pytest.raises(ValueError, match="all null or all arrays"):
+        parse_observation(mixed)
+
+
 def test_ratchets_skip_absent_typescript_sections_and_keep_python_validation() -> None:
     typescript = parse_observation(_profile_model("archkeel-typescript-imports"))
     result = measure_python_ratchets(typescript)
@@ -291,6 +315,7 @@ def test_forbidden_package_edges_use_declared_module_packages() -> None:
             "ast_coverage_percent": 100,
             "call_resolution_percent": None,
         },
+        observed_sections=frozenset(),
         dependency_edges=[
             _record(
                 "pkg-edge",

@@ -247,7 +247,11 @@ def parse_observation(raw: object) -> Observation:
     dirty_value: bool | Literal["unknown"] = (
         True if dirty is True else False if dirty is False else "unknown"
     )
-    coverage_value = _parse_coverage(coverage, profile)
+    coverage_value = _parse_coverage(
+        coverage,
+        profile,
+        calls_measured=item.get("calls") is not None,
+    )
     evidence_raw = item["evidence"]
     if not isinstance(evidence_raw, list):
         raise ValueError("coverage.failures and evidence must be arrays")
@@ -312,7 +316,9 @@ def _parse_runtime(raw: RawJson) -> RuntimeInfo:
     )
 
 
-def _parse_coverage(coverage: dict[str, RawJson], profile: Profile) -> Coverage:
+def _parse_coverage(
+    coverage: dict[str, RawJson], profile: Profile, *, calls_measured: bool = True
+) -> Coverage:
     if set(coverage) - _COVERAGE_KEYS or not _COVERAGE_REQUIRED_KEYS.issubset(coverage):
         raise ValueError("coverage fields mismatch")
     status = coverage["status"]
@@ -338,12 +344,15 @@ def _parse_coverage(coverage: dict[str, RawJson], profile: Profile) -> Coverage:
         for key in call_counts
     }
     call_percent = coverage["call_resolution_percent"]
-    if "calls_unresolved" not in profile.unmeasured:
+    if profile.analyzer == "archkeel-typescript-imports":
+        if not calls_measured:
+            if any(value is not None for value in call_values.values()) or call_percent is not None:
+                raise ValueError("TypeScript call measurements must be null")
+        elif any(value is None for value in call_values.values()) or call_percent is None:
+            raise ValueError("TypeScript call measurements are required with a calls section")
+    elif "calls_unresolved" not in profile.unmeasured:
         if any(value is None for value in call_values.values()) or call_percent is None:
             raise ValueError("coverage call measurements are required for this profile")
-    elif profile.analyzer == "archkeel-typescript-imports":
-        if any(value is not None for value in call_values.values()) or call_percent is not None:
-            raise ValueError("TypeScript call measurements must be null")
     else:
         # Dart snapshots written before AD-97 used numeric zeros. Read those while new
         # observations use a fully null call group.
@@ -393,12 +402,21 @@ def _observation_profile(model: Mapping[str, RawJson]) -> Profile:
 
 
 def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -> None:
+    optional_values = [model.get(section, _MISSING_VALUE) for section in profile.optional_sections]
+    if (
+        optional_values
+        and any(value is None for value in optional_values)
+        and any(isinstance(value, list) for value in optional_values)
+    ):
+        raise ValueError("optional profile sections must be all null or all arrays")
     for section in CLASSIFIED_SECTIONS:
         raw = model.get(section, _MISSING_VALUE)
         if section in profile.absent_sections:
             if raw is None:
                 continue
             raise ValueError(f"{section} must be null for analyzer {profile.analyzer}")
+        if section in profile.optional_sections and raw is None:
+            continue
         if not isinstance(raw, list):
             raise ValueError(f"{section} must be an array for analyzer {profile.analyzer}")
 
@@ -438,6 +456,8 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
     profile = profile_for(observation.analyzer.name)
     for name in profile.absent_sections:
         result[name] = None
+    for name in profile.optional_sections:
+        result.setdefault(name, None)
     result.update(
         {
             section.name: [_record_payload(record) for record in section.records]

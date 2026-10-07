@@ -37,6 +37,9 @@ def _make_reports(output: Path) -> dict[str, Path]:
         "uml-complete": ("uml-complete", 0),
         "uml-dart": ("uml-dart", 0),
         "uml-typescript": ("uml-typescript", 0),
+        "uml-typescript-match": ("uml-typescript-match", 0),
+        "uml-typescript-mismatch": ("uml-typescript-mismatch", 2),
+        "uml-typescript-partial": ("uml-typescript-partial", 0),
         "uml-mismatch": ("uml-mismatch", 2),
         "uml-partial": ("uml-partial", 0),
         "tour": ("tour", 2),
@@ -399,6 +402,9 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
         "uml-partial": "UNKNOWN",
         "uml-dart": "UNKNOWN",
         "uml-typescript": "UNKNOWN",
+        "uml-typescript-match": "PASS",
+        "uml-typescript-mismatch": "FAIL",
+        "uml-typescript-partial": "UNKNOWN",
     }[name]
     assert report.comparison.status == expected
     language = next(e.language for e in report.target.entities if e.kind == "module")
@@ -410,7 +416,7 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
         assert page.locator(".atlas-heading").count() == 1
         assert page.locator(".flow-views [data-flow-view]").count() == 3
         assert page.locator('.flow-nodes [data-uml-kind="component"]').count() == 0
-        if language != "python" and view in {"diagram", "diff"}:
+        if language == "dart" and view in {"diagram", "diff"}:
             assert not any(
                 e.kind in {"class", "method", "function"} for e in report.observed.entities
             )
@@ -421,6 +427,11 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
             page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-modules.png"))
             assert page.locator("#flow-data").text_content() == payload
             continue
+        if language == "typescript":
+            source_names = {entity.qualified_name for entity in report.observed.entities}
+            assert "demo.src.core_x2e_ts.Client" in source_names
+            assert "demo.src.core_x2e_ts.Port" in source_names
+            assert "demo.src.core_x2e_ts.Client.run" in source_names
         nodes = page.locator(".flow-nodes [data-uml-id]")
         assert {"class", "interface", "enum", "function", "constant"} <= set(
             nodes.evaluate_all("nodes => nodes.map(n => n.dataset.umlKind)")
@@ -472,7 +483,13 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
         )
         reset.press("Space")
         _show_details(page)
-        assert f"+ reset(): {returns}" in page.locator(".flow-inspector-content").inner_text()
+        expected_reset_return = (
+            "number" if name == "uml-typescript-mismatch" and view != "target" else returns
+        )
+        assert (
+            f"+ reset(): {expected_reset_return}"
+            in page.locator(".flow-inspector-content").inner_text()
+        )
         page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-members.png"))
         page.locator(".flow-back").click()
         page.locator('.flow-nodes [data-label="State"]').dblclick()
@@ -493,11 +510,28 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
         page.locator('.flow-nodes [data-label="build"]').dblclick()
         item = page.locator('.flow-nodes [data-label="item"]')
         assert item.get_attribute("data-uml-kind") == "binding"
-        assert "Unit()" in item.text_content()
-        assert page.locator('.flow-edges [data-relationship-kind="instance_of"]').count() > 0
+        if view in {"diagram", "diff"} and name == "uml-typescript-partial":
+            assert "constructors[0]" in item.text_content()
+            assert any(
+                relationship.kind == "instance_of"
+                and relationship.target_id is None
+                and relationship.resolution == "unresolved"
+                for relationship in report.observed.relationships
+            )
+        else:
+            if view in {"diagram", "diff"}:
+                initializer = "new Unit()" if language == "typescript" else "Unit()"
+                assert initializer in item.text_content()
+            assert page.locator('.flow-edges [data-relationship-kind="instance_of"]').count() > 0
         item.press("Space")
         _show_details(page)
-        assert "live object" in page.locator(".flow-inspector-content").inner_text()
+        inspector = page.locator(".flow-inspector-content").inner_text()
+        if language == "typescript":
+            assert "binding" in inspector
+            if view in {"diagram", "diff"}:
+                assert "does not identify a live object or its current value" in inspector
+        else:
+            assert "live object" in inspector
         assert page.locator("#flow-data").text_content() == payload
 
 

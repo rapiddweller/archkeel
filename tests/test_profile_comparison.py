@@ -45,6 +45,8 @@ def _observation(language, *, head="1" * 40, **sections):
     raw["producer"] = {"name": profile.analyzer, "version": "0.3.0", "code_digest": "c" * 64}
     for name in profile.absent_sections:
         raw[name] = None
+    for name in profile.optional_sections:
+        raw[name] = None
     if profile.unmeasured:
         for name in (
             "calls_analyzed",

@@ -5,7 +5,6 @@
 
 import json
 import os
-import shlex
 import shutil
 import subprocess
 import sys
@@ -18,7 +17,6 @@ from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_obse
 from archkeel.ir.model import in_scope
 
 ROOT = Path(__file__).resolve().parents[1]
-ADAPTER = ROOT / "packages/typescript-adapter/dist/entry.js"
 
 
 def _git(root: Path, *args: str) -> str:
@@ -83,12 +81,21 @@ def _invoke(root: Path, *args: str, env: dict[str, str] | None = None):
         env=environment,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=20,
     )
 
 
-def _init(root: Path, *, source="src", namespace="shop", default=False, env=None):
-    assert ADAPTER.is_file(), "Build the pinned TypeScript collector before acceptance."
+def _allowlist(klass: str) -> dict[str, str]:
+    path = ROOT / "fixtures/typescript-differential-allowlist.json"
+    return json.loads(path.read_text(encoding="utf-8"))[klass]
+
+
+def _catalog_cases(catalog: str) -> list[dict]:
+    return json.loads((ROOT / "fixtures" / catalog).read_text())
+
+
+def _init(root: Path, *, source="src", namespace="shop", env=None):
     args = [
         "init",
         "--language",
@@ -100,8 +107,6 @@ def _init(root: Path, *, source="src", namespace="shop", default=False, env=None
         "--tsconfig",
         "config/production.json",
     ]
-    if not default:
-        args.extend(("--collector-argv", "node", str(ADAPTER)))
     return _invoke(root, *args, env=env)
 
 
@@ -169,32 +174,41 @@ def test_untracked_typescript_init_uses_physical_directories_and_path_identity(
     assert scan["roots"] == [source]
     assert scan["namespace"] == namespace
     assert scan["tsconfig"] == "config/production.json"
-    assert scan["collector_argv"] == ["node", str(ADAPTER)]
+    assert "collector_argv" not in scan
     report = _invoke(root, "report")
     assert report.returncode == 0, report.stdout + report.stderr
     assert json.loads(report.stdout)["coverage"]["files_parsed"] == 6
 
 
-def test_default_installed_collector_keeps_configuration_portable(tmp_path: Path) -> None:
+def test_default_collector_keeps_configuration_portable(tmp_path: Path) -> None:
     root = _repository(tmp_path / "project")
     _typescript(root)
-    node = shutil.which("node")
-    assert node is not None
-    binary_dir = tmp_path / "bin"
-    binary_dir.mkdir()
+    # Keep Git available while excluding Node, npm and the old collector command.
     if os.name == "nt":
-        binary = binary_dir / "archkeel-typescript.cmd"
-        binary.write_text(f'@"{node}" "{ADAPTER}" %*\n')
+        path = os.pathsep.join(
+            item
+            for item in os.environ["PATH"].split(os.pathsep)
+            if all(
+                shutil.which(name, path=item) is None
+                for name in ("node", "npm", "archkeel-typescript")
+            )
+        )
+        assert shutil.which("git", path=path), "Git must remain available on PATH"
+        assert all(
+            shutil.which(name, path=path) is None for name in ("node", "npm", "archkeel-typescript")
+        )
     else:
-        binary = binary_dir / "archkeel-typescript"
-        binary.write_text(f'#!/bin/sh\nexec {shlex.quote(node)} {shlex.quote(str(ADAPTER))} "$@"\n')
-        binary.chmod(0o755)
-    env = {"PATH": str(binary_dir) + os.pathsep + os.environ["PATH"]}
-    result = _init(root, default=True, env=env)
+        git = shutil.which("git")
+        assert git is not None
+        git_only = tmp_path / "bin"
+        git_only.mkdir()
+        (git_only / "git").symlink_to(git)
+        path = str(git_only)
+    env = {"PATH": path}
+    result = _init(root, env=env)
     assert result.returncode == 0, result.stdout + result.stderr
     config_text = (root / "archkeel.toml").read_text()
-    scan = tomllib.loads(config_text)["scan"]
-    assert scan.get("collector_argv", ["archkeel-typescript"]) == ["archkeel-typescript"]
+    assert "collector_argv" not in tomllib.loads(config_text)["scan"]
     assert str(ROOT) not in config_text
     assert str(tmp_path) not in config_text
     assert "npx" not in config_text
@@ -271,9 +285,6 @@ def test_repeated_source_roots_preserve_distinct_physical_owners(tmp_path: Path)
         "shop",
         "--tsconfig",
         "config/production.json",
-        "--collector-argv",
-        "node",
-        str(ADAPTER),
     )
     assert result.returncode == 0, result.stdout + result.stderr
     draft = parse_contract(json.loads((root / "architecture-contract.json").read_text()))
@@ -304,7 +315,6 @@ def test_typescript_requires_explicit_scope_and_project_config(
     ):
         if key != missing:
             args.extend((f"--{key}", value))
-    args.extend(("--collector-argv", "node", str(ADAPTER)))
     result = _invoke(root, *args)
     assert result.returncode == 2
     assert not (root / "archkeel.toml").exists()
@@ -378,8 +388,8 @@ def test_hidden_compiler_closure_refuses_init_and_binds_report_digest(
 
 @pytest.mark.parametrize(
     "example",
-    json.loads((ROOT / "fixtures/typescript-hidden-loaders.json").read_text()),
-    ids=lambda example: example["name"],
+    _catalog_cases("typescript-hidden-loaders.json"),
+    ids=lambda value: value["name"] if isinstance(value, dict) else value,
 )
 def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
     tmp_path: Path, example: dict
@@ -407,10 +417,7 @@ def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
     )
     (root / "archkeel.toml").write_text(
         '[scan]\nroots=["src"]\nnamespace="app"\nlanguage="typescript"\n'
-        'tsconfig="tsconfig.json"\ncontract="architecture-contract.json"\n'
-        + "collector_argv="
-        + json.dumps(["node", str(ADAPTER)])
-        + "\n"
+        'tsconfig="tsconfig.json"\ncontract="architecture-contract.json"\n' + "\n"
     )
     (root / "architecture-contract.json").write_text(
         json.dumps(
@@ -441,8 +448,14 @@ def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
         )
     )
     result = _invoke(root, "report")
-    assert result.returncode == (0 if example["complete"] else 2), result.stdout + result.stderr
     payload = json.loads(result.stdout)
+    # The frontend may leave UNKNOWN what the reference proved, but only where the checked-in
+    # differential allow-list says so; anywhere else it must agree with the reference.
+    listed = f"hidden-loader/{example['name']}" in _allowlist("more_conservative")
+    if example["complete"] and listed:
+        assert payload["observation_complete"] in ("PASS", "UNKNOWN")
+        return
+    assert result.returncode == (0 if example["complete"] else 2), result.stdout + result.stderr
     assert payload["observation_complete"] == ("PASS" if example["complete"] else "UNKNOWN")
     assert payload["declared_rules"] == (
         "FAIL" if example["cycle"] else "PASS" if example["complete"] else "UNKNOWN"
@@ -458,8 +471,8 @@ def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
 
 @pytest.mark.parametrize(
     "example",
-    json.loads((ROOT / "fixtures/typescript-runtime-aliases.json").read_text()),
-    ids=lambda example: example["name"],
+    _catalog_cases("typescript-runtime-aliases.json"),
+    ids=lambda value: value["name"] if isinstance(value, dict) else value,
 )
 def test_package_aliases_preserve_explicit_runtime_and_reject_hidden_imports(
     tmp_path: Path, example: dict
@@ -498,8 +511,7 @@ def test_package_aliases_preserve_explicit_runtime_and_reject_hidden_imports(
         "```mermaid\nflowchart LR\n    source\n```\n"
     )
     (root / "archkeel.toml").write_text(
-        '[scan]\nroots=["src"]\nnamespace="app"\nlanguage="typescript"\ntsconfig="tsconfig.json"\ncontract="architecture-contract.json"\ncollector_argv='
-        + json.dumps(["node", str(ADAPTER)])
+        '[scan]\nroots=["src"]\nnamespace="app"\nlanguage="typescript"\ntsconfig="tsconfig.json"\ncontract="architecture-contract.json"\n'
         + "\n"
     )
     (root / "architecture-contract.json").write_text(

@@ -84,7 +84,9 @@ def report_leaves_rules_undecided(result: RunResult) -> bool:
 
 
 def _decision_badge(result: RunResult) -> Badge:
-    if result.command == "report" and result.exit_code == 0:
+    if result.command == "report" and (
+        result.exit_code == 0 or result.rule_assessments is not None
+    ):
         return badge(result.declared_rules)
     if check_leaves_a_verdict_undecided(result) or report_leaves_rules_undecided(result):
         return badge("UNKNOWN")
@@ -240,7 +242,7 @@ def report_summary(result: RunResult) -> Summary:
     sentence = {
         0: "All requested deterministic checks completed.",
         1: "One or more deterministic checks rejected the candidate.",
-        2: "Nothing was checked: the evidence needed for a decision is missing or invalid.",
+        2: "Some checks could not complete. Read diagnostics and recorded findings.",
     }[result.exit_code]
     if (
         result.command == "validate"

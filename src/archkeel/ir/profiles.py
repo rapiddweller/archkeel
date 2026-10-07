@@ -36,12 +36,16 @@ class Profile:
     unsupported_rules: frozenset[str] = frozenset()
     dependency_symbols: bool = True
     complete_api_crossings: bool = True
+    complete_unread_binding_inventory: bool = False
     project_import_closure: bool = False
     unsupported_declarations: frozenset[DeclarationField] = frozenset()
     unmeasured: frozenset[UnmeasurableScalar] = frozenset()
     # A section the profile never produces is null in the observation, so a claim built on it
     # reads UNKNOWN (signal missing) instead of "0 candidates".
     absent_sections: frozenset[ObservedSection] = frozenset()
+    # Some profiles publish older observations without these sections and newer observations
+    # with them. Null remains UNKNOWN; an array is a measured section receipt.
+    optional_sections: frozenset[ObservedSection] = frozenset()
     # Top-level import names `complete_external_scope` exempts as the language's own library.
     standard_library: frozenset[str] = frozenset()
     # Library names a `forbidden_dependency` target may name although no scanned module has them.
@@ -51,6 +55,7 @@ class Profile:
 PYTHON: Final = Profile(
     analyzer=PYTHON_ANALYZER,
     source_suffix=".py",
+    complete_unread_binding_inventory=True,
     standard_library=frozenset(sys.stdlib_module_names) | frozenset(sys.builtin_module_names),
 )
 
@@ -114,9 +119,8 @@ TYPESCRIPT: Final = Profile(
     unmeasured=frozenset(
         {"typing_positions", "calls_unresolved", "private_crossings", "untyped_private_accesses"}
     ),
-    absent_sections=frozenset(
-        {"symbols", "references", "bindings", "calls", "typing_signals", "constructs"}
-    ),
+    absent_sections=frozenset({"typing_signals", "constructs"}),
+    optional_sections=frozenset({"symbols", "references", "bindings", "calls"}),
 )
 
 PROFILES: Final[dict[Language, Profile]] = {

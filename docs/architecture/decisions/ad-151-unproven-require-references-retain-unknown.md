@@ -9,4 +9,4 @@ members and aliases remain supported; type-only references introduce no value ga
 Unproved re-exports and runtime escapes need further binding and flow proof.
 Core retains coverage gaps and unavailable measurements without asserting absence.
 
-[Collector proof](../../../packages/typescript-adapter/test/adapter.test.mjs).
+[Historical collector proof](https://github.com/rapiddweller/archkeel/blob/4e215679be7ae063ab1de7da189e4565e7851727/packages/typescript-adapter/test/adapter.test.mjs).

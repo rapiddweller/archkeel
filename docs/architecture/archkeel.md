@@ -61,10 +61,10 @@ Caller-supplied `--host-records` require caller authentication.
 Component `layer` values are contract intent; `layer_order` checks declared permissions
 ([AD-201](decisions/ad-201-layers-assess-declared-permissions.md)). A `requires` permission
 does not prove structural Protocol conformance.
-The Node [TypeScript collector](../../packages/typescript-adapter/) has its own scan contract;
-it is outside the root scan and is not a declared external component on the root map.
-Missing source evidence remains UNKNOWN. Proposed contract extensions are tracked in
-[#356](https://github.com/rapiddweller/archkeel/issues/356).
+The TypeScript frontend is packaged in Python at
+[`archkeel.analyzer.typescript`](../../src/archkeel/analyzer/typescript/); it remains a
+process collector and does not execute project code. Missing source evidence remains UNKNOWN.
+Proposed contract extensions are tracked in [#356](https://github.com/rapiddweller/archkeel/issues/356).
 
 ## Decisions
 

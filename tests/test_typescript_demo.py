@@ -32,7 +32,7 @@ from fixtures.demo_catalog_typescript import (
     UNMEASURED,
     VARIANTS,
 )
-from fixtures.reproduce_typescript import ADAPTER, Outcome, check_revisions, run_variant
+from fixtures.reproduce_typescript import Outcome, check_revisions, run_variant
 
 
 def test_catalog_exhausts_rule_and_measurement_vocabulary() -> None:
@@ -60,9 +60,6 @@ def test_catalog_exhausts_rule_and_measurement_vocabulary() -> None:
 
 @pytest.fixture(scope="module")
 def outcomes(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Outcome]:
-    assert ADAPTER.is_file(), (
-        "run make -C packages/typescript-adapter install build before TypeScript acceptance"
-    )
     workspace = tmp_path_factory.mktemp("typescript-demo")
     return {variant.id: run_variant(workspace, variant) for variant in VARIANTS}
 
@@ -91,8 +88,8 @@ def test_each_demo_matches_independent_expectation(variant, outcomes: dict[str, 
         assert dict(outcome.report.measurements.scalars.items())[name] is None
     assert outcome.report.measurements.calls_total is None
     assert outcome.report.measurements.resolution == "n/a"
-    assert outcome.observation.records("calls") is None
-    assert outcome.observation.records("symbols") is None
+    assert outcome.observation.records("calls") is not None
+    assert outcome.observation.records("symbols") is not None
 
 
 def test_clean_graph_has_independently_counted_modules_and_edges(
@@ -106,8 +103,17 @@ def test_clean_graph_has_independently_counted_modules_and_edges(
     graph = observed_graph(observation)
     assert {entity.language for entity in graph.entities} == {"typescript"}
     assert sum(entity.kind == "module" for entity in graph.entities) == 7
-    assert not any(entity.kind in {"class", "interface", "method"} for entity in graph.entities)
-    assert not any(edge.kind == "calls" for edge in graph.relationships)
+    names = {entity.qualified_name for entity in graph.entities}
+    assert {
+        "shop.src.domain.order_x2e_ts.Order",
+        "shop.src.domain.order_x2e_ts.Order.id",
+        "shop.src.domain.repository_x2e_ts.OrderRepository",
+        "shop.src.domain.repository_x2e_ts.OrderRepository.load",
+        "shop.src.presentation.page_x2e_ts.page",
+    } <= names
+    calls = [edge for edge in graph.relationships if edge.kind == "calls"]
+    assert len(calls) == 4
+    assert all(edge.target_id is None and edge.resolution == "unresolved" for edge in calls)
     metrics = {
         metric.scope: (metric.modules, metric.inner_edges, metric.fan_in, metric.fan_out)
         for metric in structure_metrics(observation)
@@ -124,7 +130,126 @@ def test_clean_graph_has_independently_counted_modules_and_edges(
     assert {
         name: scalars[name]
         for name in ("violations", "cycle_edges", "coverage_failures", "unknown_positions")
-    } == {"violations": 0, "cycle_edges": 0, "coverage_failures": 0, "unknown_positions": 0}
+    } == {"violations": 0, "cycle_edges": 0, "coverage_failures": 0, "unknown_positions": 10}
+    target_assessment = next(
+        item for item in outcome.report.rule_assessments or () if item.kind == "uml_target"
+    )
+    assert target_assessment.status == "UNKNOWN"
+    assert target_assessment.undecided > 0
+
+
+def test_main_typescript_target_is_explicit_and_independent(
+    outcomes: dict[str, Outcome],
+) -> None:
+    import json
+
+    from archkeel.ir.codec import parse_contract
+    from archkeel.ir.target_graph import declared_graph
+    from fixtures.demo_catalog_typescript import TYPESCRIPT_FIXTURE_DIR
+
+    contract = parse_contract(
+        json.loads((TYPESCRIPT_FIXTURE_DIR / "architecture-contract.json").read_text())
+    )
+    target = declared_graph(contract)
+    outcome = outcomes["typescript-clean"]
+    assert outcome.observation is not None
+    assert target.origin == "declared"
+    entities = {entity.id: entity for entity in target.entities}
+    names = {identity: entity.qualified_name for identity, entity in entities.items()}
+    assert {
+        "shop.src.main_x2e_ts",
+        "shop.src.domain.order_x2e_ts",
+        "shop.src.domain.repository_x2e_ts",
+        "shop.src.domain.index_x2e_ts",
+        "shop.src.data.local_x2e_ts",
+        "shop.src.data.remote_x2e_ts",
+        "shop.src.presentation.page_x2e_ts",
+        "shop.src.domain.order_x2e_ts.Order",
+        "shop.src.domain.order_x2e_ts.Order.id",
+        "shop.src.domain.repository_x2e_ts.OrderRepository",
+        "shop.src.domain.repository_x2e_ts.OrderRepository.load",
+        "shop.src.data.local_x2e_ts.local",
+        "shop.src.data.local_x2e_ts.local.load",
+        "shop.src.data.remote_x2e_ts.remote",
+        "shop.src.data.remote_x2e_ts.remote.load",
+        "shop.src.presentation.page_x2e_ts.page",
+        "shop.src.main_x2e_ts.main",
+    } <= set(names.values())
+    target_relationships = {
+        (
+            edge.kind,
+            names[edge.source_id],
+            names[edge.target_id],
+        )
+        for edge in target.relationships
+        if edge.kind != "requires"
+    }
+    target_imports = {
+        (names[edge.source_id], names[edge.target_id])
+        for edge in target.relationships
+        if edge.kind == "imports"
+    }
+    assert target_imports == {
+        ("shop.src.main_x2e_ts", "shop.src.data.local_x2e_ts"),
+        ("shop.src.main_x2e_ts", "shop.src.presentation.page_x2e_ts"),
+        ("shop.src.domain.repository_x2e_ts", "shop.src.domain.order_x2e_ts"),
+        ("shop.src.domain.index_x2e_ts", "shop.src.domain.order_x2e_ts"),
+        ("shop.src.domain.index_x2e_ts", "shop.src.domain.repository_x2e_ts"),
+        ("shop.src.data.local_x2e_ts", "shop.src.domain.repository_x2e_ts"),
+        ("shop.src.data.remote_x2e_ts", "shop.src.domain.repository_x2e_ts"),
+        ("shop.src.presentation.page_x2e_ts", "shop.src.domain.index_x2e_ts"),
+    }
+    assert target_relationships - {
+        ("imports", source, target_name) for source, target_name in target_imports
+    } == {
+        (
+            "references",
+            "shop.src.data.local_x2e_ts",
+            "shop.src.domain.repository_x2e_ts.OrderRepository",
+        ),
+        (
+            "references",
+            "shop.src.data.remote_x2e_ts",
+            "shop.src.domain.repository_x2e_ts.OrderRepository",
+        ),
+        (
+            "calls",
+            "shop.src.presentation.page_x2e_ts.page",
+            "shop.src.domain.repository_x2e_ts.OrderRepository.load",
+        ),
+        (
+            "references",
+            "shop.src.presentation.page_x2e_ts.page",
+            "shop.src.domain.order_x2e_ts.Order.id",
+        ),
+        (
+            "calls",
+            "shop.src.main_x2e_ts.main",
+            "shop.src.presentation.page_x2e_ts.page",
+        ),
+        (
+            "references",
+            "shop.src.main_x2e_ts.main",
+            "shop.src.data.local_x2e_ts.local",
+        ),
+    }
+    assert entities["order-id"].annotation == "string"
+    assert entities["repository-load"].signature.returns == "Promise<Order[]>"
+    assert entities["local-load"].modifiers == ("async",)
+    assert entities["main"].annotation == "() => Promise<string>"
+    observed = observed_graph(outcome.observation)
+    observed_names = {entity.id: entity.qualified_name for entity in observed.entities}
+    observed_imports = {
+        (observed_names[edge.source_id], observed_names[edge.target_id])
+        for edge in observed.relationships
+        if edge.kind == "imports" and edge.target_id is not None
+    }
+    assert observed_imports == target_imports
+    assessment = next(
+        item for item in outcome.report.rule_assessments or () if item.kind == "uml_target"
+    )
+    assert assessment.status == "UNKNOWN"
+    assert assessment.undecided > 0
 
 
 def test_layer_order_judges_declared_permissions_without_changing_imports(
@@ -364,7 +489,6 @@ def test_missing_configured_process_has_no_language_fallback(tmp_path: Path) -> 
 
 def test_replacement_executable_is_actually_called(tmp_path: Path) -> None:
     import json
-    import shutil
     import sys
 
     from archkeel.check.report import run_report
@@ -372,14 +496,14 @@ def test_replacement_executable_is_actually_called(tmp_path: Path) -> None:
     from archkeel.cli.observe import observer_for
     from fixtures.reproduce_typescript import repository
 
-    node = shutil.which("node")
-    assert node is not None
     marker = tmp_path / "collector-called"
     replacement = tmp_path / "collector.py"
     replacement.write_text(
-        "import os\nfrom pathlib import Path\n"
+        "from pathlib import Path\n"
+        "from archkeel.analyzer.typescript.entry import main\n"
         f"Path({str(marker)!r}).write_text('called')\n"
-        f"os.execv({node!r}, [{node!r}, {str(ADAPTER)!r}])\n"
+        "raise SystemExit(main())\n",
+        encoding="utf-8",
     )
     root = repository(tmp_path, VARIANTS[0])
     config_path = root / "archkeel.toml"
@@ -401,7 +525,7 @@ def test_replacement_executable_is_actually_called(tmp_path: Path) -> None:
     )
     result, artifact = run_report(root, config=config, analyzer=configured)
     assert marker.read_text() == "called"
-    assert result.declared_rules == "PASS"
+    assert result.declared_rules == "UNKNOWN", result.diagnostics
     assert artifact is not None
 
 
@@ -470,9 +594,9 @@ def test_committed_js_only_revision_check(tmp_path: Path) -> None:
     accepted = parse_observation(
         decode_canonical_model(json.loads((output / "accepted.json").read_bytes()))
     )
-    assert accepted.coverage.calls_analyzed is None
+    assert accepted.coverage.calls_analyzed == 6
     assert accepted.records("constructs") is None
-    assert accepted.records("symbols") is None
+    assert accepted.records("symbols") is not None
     assert json.loads((output / "revisions-check.stdout.json").read_bytes()) == json.loads(
         (output / "revisions-repeat.stdout.json").read_bytes()
     )

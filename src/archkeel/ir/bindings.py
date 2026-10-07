@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .model import FUNCTION_KINDS, ComparisonStatus, Observation, text_value
+from .profiles import profile_for
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,7 +46,8 @@ class BindingReads:
 def unread_bindings(observation: Observation) -> BindingReads:
     """Return lexical unread candidates, or UNKNOWN when the signal is missing."""
     records = observation.records("bindings")
-    if records is None:
+    profile = profile_for(observation.analyzer.name)
+    if records is None or not profile.complete_unread_binding_inventory:
         return BindingReads("UNKNOWN")
     functions = sum(
         1 for record in observation.records("symbols") or () if record.kind in FUNCTION_KINDS

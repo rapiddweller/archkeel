@@ -289,7 +289,8 @@
             "archkeel.ir.state_facts",
             "archkeel.ir.type_shapes",
             "archkeel.ir.reexports",
-            "archkeel.ir.source_records"
+            "archkeel.ir.source_records",
+            "archkeel.ir.identity"
           ],
           "rationale": "Adapters publish immutable facts over the shared protocol. Core owns validation, ownership and policy; analyzers do not import it."
         }
@@ -635,6 +636,32 @@
         "docs/architecture/archkeel.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "EXTERNAL-TREE-SITTER-TYPESCRIPT-PARSE",
+      "kind": "external_dependency_scope",
+      "dependency": "tree_sitter",
+      "exact_sources": [
+        "archkeel.analyzer.typescript.parse"
+      ],
+      "rationale": "Only the TypeScript parse module touches the parser library, so no other module depends on its node types.",
+      "provenance": [
+        "docs/architecture/decisions/ad-210-typescript-frontend-ships-in-the-package.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "EXTERNAL-TREE-SITTER-TYPESCRIPT-GRAMMAR",
+      "kind": "external_dependency_scope",
+      "dependency": "tree_sitter_typescript",
+      "exact_sources": [
+        "archkeel.analyzer.typescript.parse"
+      ],
+      "rationale": "Only the TypeScript parse module loads the grammar, so a grammar change cannot reach resolution or collection.",
+      "provenance": [
+        "docs/architecture/decisions/ad-210-typescript-frontend-ships-in-the-package.md"
+      ],
+      "decided_by": "agent"
     },
     {
       "id": "ASSIGNMENT-COMPLETE",

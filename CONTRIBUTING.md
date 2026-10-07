@@ -13,7 +13,7 @@ uv sync --locked
 
 `.python-version` pins 3.11.12: CI runs the gate on it, and the saved self-observation records it.
 The runtime test in `make check` also starts `python3.12`, so 3.12 must be on your `PATH`.
-Flow browser tests require Node.js 22; CI and release builds install that pinned major version.
+Flow browser tests and Mermaid rendering require Node.js 22; CI installs it for these tools.
 
 ## Before you push
 
@@ -24,7 +24,8 @@ make ci BASE=origin/main                 # policy, release checks, TypeScript, b
 Policy validation runs first. `BASE` also checks widenings and amendments; CI pins the PR base SHA.
 Without `BASE`, `make gate` validates only the checked-out policy before release checks.
 CI splits this command into `make ci-check` and the parallel `make mermaid` job.
-The Windows/Python/Node matrices remain separate CI checks. Obsolete PR runs cancel automatically;
+Native TypeScript collection runs on Linux and Windows with Python 3.11 and 3.12.
+Obsolete PR runs cancel automatically;
 main runs stay independent. The main check has a 60-minute cap, not a performance guarantee.
 
 Every push to `main` also builds and publishes the [current architecture report](https://rapiddweller.github.io/archkeel/).

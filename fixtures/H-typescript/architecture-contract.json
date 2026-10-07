@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.1.0",
+  "schema_version": "2.2.0",
   "components": [
     {
       "id": "COMP-APP",
@@ -196,5 +196,462 @@
       ],
       "decided_by": "architect"
     }
-  ]
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-main_x2e_ts",
+          "kind": "module",
+          "qualified_name": "shop.src.main_x2e_ts",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "COMP-APP",
+          "file_path": "src/main.ts",
+          "responsibilities": [
+            "Compose the application entry point."
+          ]
+        },
+        {
+          "id": "module-order_x2e_ts",
+          "kind": "module",
+          "qualified_name": "shop.src.domain.order_x2e_ts",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "COMP-DOMAIN",
+          "file_path": "src/domain/order.ts",
+          "responsibilities": [
+            "Define the order value contract."
+          ]
+        },
+        {
+          "id": "module-repository_x2e_ts",
+          "kind": "module",
+          "qualified_name": "shop.src.domain.repository_x2e_ts",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "COMP-DOMAIN",
+          "file_path": "src/domain/repository.ts",
+          "responsibilities": [
+            "Define the repository contract."
+          ]
+        },
+        {
+          "id": "module-index_x2e_ts",
+          "kind": "module",
+          "qualified_name": "shop.src.domain.index_x2e_ts",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "COMP-DOMAIN",
+          "file_path": "src/domain/index.ts",
+          "responsibilities": [
+            "Re-export domain contracts."
+          ]
+        },
+        {
+          "id": "module-local_x2e_ts",
+          "kind": "module",
+          "qualified_name": "shop.src.data.local_x2e_ts",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "COMP-DATA",
+          "file_path": "src/data/local.ts",
+          "responsibilities": [
+            "Implement the local repository."
+          ]
+        },
+        {
+          "id": "module-remote_x2e_ts",
+          "kind": "module",
+          "qualified_name": "shop.src.data.remote_x2e_ts",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "COMP-DATA",
+          "file_path": "src/data/remote.ts",
+          "responsibilities": [
+            "Implement the remote repository."
+          ]
+        },
+        {
+          "id": "module-page_x2e_ts",
+          "kind": "module",
+          "qualified_name": "shop.src.presentation.page_x2e_ts",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "COMP-PRESENTATION",
+          "file_path": "src/presentation/page.ts",
+          "responsibilities": [
+            "Render repository orders."
+          ]
+        },
+        {
+          "id": "order",
+          "kind": "interface",
+          "qualified_name": "shop.src.domain.order_x2e_ts.Order",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "module-order_x2e_ts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Represent a shop order."
+          ]
+        },
+        {
+          "id": "order-id",
+          "kind": "attribute",
+          "qualified_name": "shop.src.domain.order_x2e_ts.Order.id",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "order",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string",
+          "responsibilities": [
+            "Expose the order identifier."
+          ]
+        },
+        {
+          "id": "repository",
+          "kind": "interface",
+          "qualified_name": "shop.src.domain.repository_x2e_ts.OrderRepository",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "module-repository_x2e_ts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Load orders through a stable contract."
+          ]
+        },
+        {
+          "id": "repository-load",
+          "kind": "method",
+          "qualified_name": "shop.src.domain.repository_x2e_ts.OrderRepository.load",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "repository",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Promise<Order[]>"
+          },
+          "responsibilities": [
+            "Load the current orders."
+          ]
+        },
+        {
+          "id": "local",
+          "kind": "constant",
+          "qualified_name": "shop.src.data.local_x2e_ts.local",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "module-local_x2e_ts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "OrderRepository",
+          "responsibilities": [
+            "Provide the local repository."
+          ]
+        },
+        {
+          "id": "local-load",
+          "kind": "function",
+          "qualified_name": "shop.src.data.local_x2e_ts.local.load",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "local",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "async"
+          ],
+          "signature": {
+            "parameters": [],
+            "returns": "Promise<Order[]>"
+          },
+          "responsibilities": [
+            "Return locally stored orders."
+          ]
+        },
+        {
+          "id": "remote",
+          "kind": "constant",
+          "qualified_name": "shop.src.data.remote_x2e_ts.remote",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "module-remote_x2e_ts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "OrderRepository",
+          "responsibilities": [
+            "Provide the remote repository."
+          ]
+        },
+        {
+          "id": "remote-load",
+          "kind": "function",
+          "qualified_name": "shop.src.data.remote_x2e_ts.remote.load",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "remote",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "async"
+          ],
+          "signature": {
+            "parameters": [],
+            "returns": "Promise<Order[]>"
+          },
+          "responsibilities": [
+            "Return remotely fetched orders."
+          ]
+        },
+        {
+          "id": "page",
+          "kind": "function",
+          "qualified_name": "shop.src.presentation.page_x2e_ts.page",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "module-page_x2e_ts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "async"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "repository",
+                "annotation": "OrderRepository",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Promise<string>"
+          },
+          "responsibilities": [
+            "Render the repository contents as text."
+          ]
+        },
+        {
+          "id": "main",
+          "kind": "constant",
+          "qualified_name": "shop.src.main_x2e_ts.main",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ],
+          "parent_id": "module-main_x2e_ts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Expose the function-valued application entry point; its arrow body is not independently observed."
+          ],
+          "annotation": "() => Promise<string>"
+        }
+      ],
+      "relationships": [
+        {
+          "id": "main-local-import",
+          "kind": "imports",
+          "source_id": "module-main_x2e_ts",
+          "target_id": "module-local_x2e_ts",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ]
+        },
+        {
+          "id": "main-page-import",
+          "kind": "imports",
+          "source_id": "module-main_x2e_ts",
+          "target_id": "module-page_x2e_ts",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ]
+        },
+        {
+          "id": "repository-order-import",
+          "kind": "imports",
+          "source_id": "module-repository_x2e_ts",
+          "target_id": "module-order_x2e_ts",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ]
+        },
+        {
+          "id": "index-order-import",
+          "kind": "imports",
+          "source_id": "module-index_x2e_ts",
+          "target_id": "module-order_x2e_ts",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ]
+        },
+        {
+          "id": "index-repository-import",
+          "kind": "imports",
+          "source_id": "module-index_x2e_ts",
+          "target_id": "module-repository_x2e_ts",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ]
+        },
+        {
+          "id": "local-repository-import",
+          "kind": "imports",
+          "source_id": "module-local_x2e_ts",
+          "target_id": "module-repository_x2e_ts",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ]
+        },
+        {
+          "id": "remote-repository-import",
+          "kind": "imports",
+          "source_id": "module-remote_x2e_ts",
+          "target_id": "module-repository_x2e_ts",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ]
+        },
+        {
+          "id": "page-index-import",
+          "kind": "imports",
+          "source_id": "module-page_x2e_ts",
+          "target_id": "module-index_x2e_ts",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ]
+        },
+        {
+          "id": "local-realizes-repository",
+          "kind": "references",
+          "source_id": "module-local_x2e_ts",
+          "target_id": "repository",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ]
+        },
+        {
+          "id": "remote-realizes-repository",
+          "kind": "references",
+          "source_id": "module-remote_x2e_ts",
+          "target_id": "repository",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ]
+        },
+        {
+          "id": "page-calls-load",
+          "kind": "calls",
+          "source_id": "page",
+          "target_id": "repository-load",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ]
+        },
+        {
+          "id": "page-references-order-id",
+          "kind": "references",
+          "source_id": "page",
+          "target_id": "order-id",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ]
+        },
+        {
+          "id": "main-calls-page",
+          "kind": "calls",
+          "source_id": "main",
+          "target_id": "page",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ]
+        },
+        {
+          "id": "main-references-local",
+          "kind": "references",
+          "source_id": "main",
+          "target_id": "local",
+          "provenance": [
+            "docs/architecture/shop.md"
+          ]
+        }
+      ],
+      "scopes": []
+    }
+  }
 }

@@ -26,10 +26,11 @@ stderr; stdout carries one response. The process boundary is not an OS sandbox.
 
 Adapters cannot import each other or Core evaluation. Active
 [contracts](contracts/) govern the dependency boundaries. Python retains specialist
-collectors; Dart remains directive-only. The separately pinned TypeScript package
-owns compiler parsing and resolution.
+collectors; Dart remains directive-only. TypeScript is a tree-sitter frontend with its
+own resolver, run as a process collector like the others ([AD-210](decisions/ad-210-typescript-frontend-ships-in-the-package.md)).
 
 Acceptance covers Python/Dart parity, executable replacement, invalid protocol and
-coverage cases, revision-bound inputs and independent review. See the
-[TypeScript decision](typescript-foundation-proposal.md) for package and CI gates.
+coverage cases, revision-bound inputs, independent review and, for TypeScript, a
+differential against the frozen output of the historical npm collector. See the
+[TypeScript decision](typescript-foundation-proposal.md) for its gates.
 Import facts do not prove HTTP, queue or runtime relationships.

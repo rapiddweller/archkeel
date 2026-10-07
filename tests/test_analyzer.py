@@ -1403,6 +1403,28 @@ def test_receiver_typed_calls_resolve_or_name_why_not(
     assert match["data"]["reason"] == reason
 
 
+@pytest.mark.parametrize(
+    ("prefix", "parameter", "status", "targets"),
+    [
+        ("", "", "resolved", ["builtins.list.append"]),
+        ("", "sorted", "unresolved", []),
+        ("from other import sorted\n", "", "unresolved", []),
+        ("sorted = lambda items: object()\n", "", "unresolved", []),
+    ],
+)
+def test_sorted_rebinding_preserves_list_only_for_the_builtin(
+    prefix: str, parameter: str, status: str, targets: list[str]
+) -> None:
+    source = (
+        f"{prefix}def f({parameter}):\n"
+        "    items = []\n    items.append(1)\n    items = sorted(items)\n"
+    )
+    calls = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    call = next(item["data"] for item in calls if item["data"]["expression"] == "items.append")
+    assert call["status"] == status
+    assert call["targets"] == targets
+
+
 def test_every_source_failure_uses_runtime_mismatch_with_an_older_parser(tmp_path: Path) -> None:
     required = f">={sys.version_info.major}.{sys.version_info.minor + 1}"
     (tmp_path / "pyproject.toml").write_text(f'[project]\nrequires-python = "{required}"\n')

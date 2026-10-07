@@ -776,6 +776,22 @@ def test_verdict_badges_keep_unknown_and_not_checked_distinct() -> None:
     assert badge("unavailable").label == "NOT CHECKED"
 
 
+def test_partial_report_does_not_disown_recorded_rule_assessments() -> None:
+    result = RunResult(
+        "report",
+        2,
+        "UNKNOWN",
+        "UNKNOWN",
+        "n/a",
+        diagnostics=(Diagnostic("parse_error", "src/main.ts", "Computed import", "Use a literal"),),
+        rule_assessments=(),
+    )
+    summary = report_summary(result)
+    assert summary.decision.label == "UNKNOWN"
+    assert "Nothing was checked" not in summary.sentence
+    assert "Read diagnostics and recorded findings" in summary.sentence
+
+
 @pytest.mark.parametrize("command", ["report", "validate"])
 def test_a_completed_run_with_undecided_rules_does_not_claim_pass(command: str) -> None:
     result = RunResult(command, 0, "PASS", "UNKNOWN", "n/a")

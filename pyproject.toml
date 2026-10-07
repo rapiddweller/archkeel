@@ -19,10 +19,13 @@ classifiers = [
     "Typing :: Typed",
 ]
 # Stdlib has no PEP 440 specifier parser and no styled terminal or help output.
+# TypeScript has no stdlib parser: imports can occur anywhere, so a lexer cannot prove absence.
 dependencies = [
     "packaging>=24.2,<27",
     "rich>=13.9,<16",
     "rich-argparse>=1.6,<2",
+    "tree-sitter>=0.26,<0.27",
+    "tree-sitter-typescript>=0.23.2,<0.24",
 ]
 
 [project.urls]
@@ -59,9 +62,11 @@ replacement = '](https://github.com/rapiddweller/archkeel/blob/main/\1)'
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/archkeel"]
+exclude = ["src/archkeel/cli/assets/SKILL.md"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "schema" = "archkeel/schema"
+"skills/archkeel/SKILL.md" = "archkeel/cli/assets/SKILL.md"
 
 [tool.hatch.build.targets.sdist]
 # The sdist ships what rebuilds the wheel, not the test suite: pytest needs a Git checkout

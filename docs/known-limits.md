@@ -50,7 +50,9 @@ standing scan disclaimers retain their separate meanings.
 
 Import graphs, ownership, externals, cycles and layout are measured. Symbols,
 types, constructs, calls and private-use metrics are unavailable. Computed/indirect
-loaders, incomplete JavaScript closure and missing resolver inputs retain UNKNOWN.
+loaders, incomplete JavaScript closure and missing resolver inputs retain UNKNOWN, as do
+`extends` through a package, `exports` and `typesVersions` maps, and syntax the
+grammar cannot parse (`import('x').T<G>`, `export type *`).
 See [adapter limits](architecture/typescript-foundation-proposal.md#evidence-and-limits).
 
 ## Dart profile

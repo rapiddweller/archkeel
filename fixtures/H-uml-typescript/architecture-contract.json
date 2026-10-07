@@ -370,8 +370,7 @@
           ],
           "responsibilities": [
             "Hold the constructed Unit at this assignment site."
-          ],
-          "initializer": "new Unit()"
+          ]
         },
         {
           "id": "work",
@@ -520,9 +519,101 @@
           "provenance": [
             "docs/target.md"
           ]
+        },
+        {
+          "id": "client-base-reference",
+          "kind": "references",
+          "source_id": "client",
+          "target_id": "base",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "client-port-reference",
+          "kind": "references",
+          "source_id": "client",
+          "target_id": "port",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "build-unit-call",
+          "kind": "calls",
+          "source_id": "build",
+          "target_id": "unit",
+          "provenance": [
+            "docs/target.md"
+          ]
         }
       ],
-      "scopes": []
+      "scopes": [
+        {
+          "scope_id": "core-module",
+          "mode": "closed",
+          "entity_kinds": [
+            "module",
+            "package",
+            "class",
+            "interface",
+            "enum",
+            "enum_literal",
+            "attribute",
+            "method",
+            "function",
+            "binding",
+            "constant",
+            "type_alias"
+          ],
+          "relationship_kinds": [
+            "imports",
+            "calls",
+            "references",
+            "inherits",
+            "realizes",
+            "creates",
+            "instance_of",
+            "owns"
+          ],
+          "rationale": "Declare all static TypeScript definitions and local uses.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "app-module",
+          "mode": "closed",
+          "entity_kinds": [
+            "module",
+            "package",
+            "class",
+            "interface",
+            "enum",
+            "enum_literal",
+            "attribute",
+            "method",
+            "function",
+            "binding",
+            "constant",
+            "type_alias"
+          ],
+          "relationship_kinds": [
+            "imports",
+            "calls",
+            "references",
+            "inherits",
+            "realizes",
+            "creates",
+            "instance_of",
+            "owns"
+          ],
+          "rationale": "Declare all static TypeScript definitions and local uses.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
     }
   }
 }

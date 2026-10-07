@@ -101,7 +101,14 @@ def test_complete_uml_demo_declares_closed_intent_without_claiming_full_observat
 
 @pytest.mark.parametrize(
     "variant,status,exit_code",
-    [("uml-match", "PASS", 0), ("uml-mismatch", "FAIL", 2), ("uml-partial", "UNKNOWN", 0)],
+    [
+        ("uml-match", "PASS", 0),
+        ("uml-mismatch", "FAIL", 2),
+        ("uml-partial", "UNKNOWN", 0),
+        ("uml-typescript-match", "PASS", 0),
+        ("uml-typescript-mismatch", "FAIL", 2),
+        ("uml-typescript-partial", "UNKNOWN", 0),
+    ],
 )
 def test_uml_demo_uses_independent_target_and_recorded_core_comparison(
     tmp_path, capsys, variant, status, exit_code
@@ -146,27 +153,38 @@ def test_uml_demo_uses_independent_target_and_recorded_core_comparison(
     static = next(item for item in report.target.entities if item.id == "reset")
     assert static.modifiers == ("static",)
     if status == "PASS":
-        assert {item.kind for item in (*report.observed.entities, *report.target.entities)} == set(
-            get_args(EntityKind)
-        )
         assert {item.status for item in report.comparison.assessments} == {"PASS"}
+        if variant == "uml-match":
+            assert {
+                item.kind for item in (*report.observed.entities, *report.target.entities)
+            } == set(get_args(EntityKind))
     elif status == "FAIL":
+        failed_signature = "reset" if variant == "uml-typescript-mismatch" else "run"
         assert any(
-            item.status == "FAIL" and item.subject_id == "run" and item.aspect == "signature"
+            item.status == "FAIL"
+            and item.subject_id == failed_signature
+            and item.aspect == "signature"
             for item in report.comparison.assessments
         )
     else:
-        assert any(
-            item.status == "UNKNOWN" and item.subject_id == "ready"
-            for item in report.comparison.assessments
-        )
+        assert any(item.status == "UNKNOWN" for item in report.comparison.assessments)
+        if variant in {"uml-complete", "uml-partial"}:
+            assert any(
+                item.status == "UNKNOWN" and item.subject_id == "ready"
+                for item in report.comparison.assessments
+            )
+        elif variant == "uml-dart":
+            assert any(
+                item.status == "UNKNOWN" and item.subject_id == "run"
+                for item in report.comparison.assessments
+            )
         assert not any(item.status == "FAIL" for item in report.comparison.assessments)
 
 
 @pytest.mark.parametrize(
     "variant,language", [("uml-dart", "dart"), ("uml-typescript", "typescript")]
 )
-def test_language_uml_demo_keeps_unsupported_inner_observation_unknown(
+def test_language_uml_demo_keeps_declared_target_separate_from_observation(
     tmp_path, capsys, variant, language
 ):
     output = tmp_path / "architecture.json"
@@ -188,11 +206,52 @@ def test_language_uml_demo_keeps_unsupported_inner_observation_unknown(
         "type_alias",
         "constant",
     }
-    assert not any(e.kind in {"class", "method", "function"} for e in report.observed.entities)
-    assert report.comparison and any(
-        a.status == "UNKNOWN" and a.subject_id == "run" for a in report.comparison.assessments
-    )
-    assert not any(a.status == "FAIL" for a in report.comparison.assessments)
+    if language == "dart":
+        assert not any(e.kind in {"class", "method", "function"} for e in report.observed.entities)
+        assert report.comparison and any(
+            a.status == "UNKNOWN" and a.subject_id == "run" for a in report.comparison.assessments
+        )
+        assert not any(a.status == "FAIL" for a in report.comparison.assessments)
+    else:
+        names = {entity.qualified_name: entity for entity in report.observed.entities}
+        assert {
+            "demo.src.core_x2e_ts.Port",
+            "demo.src.core_x2e_ts.Base",
+            "demo.src.core_x2e_ts.Client",
+            "demo.src.core_x2e_ts.Client.run",
+            "demo.src.core_x2e_ts.Client._token",
+            "demo.src.core_x2e_ts.State.READY",
+            "demo.src.core_x2e_ts.build.item",
+        } <= names.keys()
+        assert all(entity.language == "typescript" for entity in names.values())
+        assert not (
+            {entity.id for entity in report.observed.entities}
+            & {entity.id for entity in report.target.entities if entity.kind != "component"}
+        )
+        endpoints = {entity.id: entity.qualified_name for entity in report.observed.entities}
+        relationships = {
+            (item.kind, endpoints[item.source_id], endpoints[item.target_id])
+            for item in report.observed.relationships
+            if item.target_id is not None
+        }
+        assert (
+            "inherits",
+            "demo.src.core_x2e_ts.Client",
+            "demo.src.core_x2e_ts.Base",
+        ) in relationships
+        assert (
+            "realizes",
+            "demo.src.core_x2e_ts.Client",
+            "demo.src.core_x2e_ts.Port",
+        ) in relationships
+        assert (
+            "instance_of",
+            "demo.src.core_x2e_ts.build.item",
+            "demo.src.core_x2e_ts.Unit",
+        ) in relationships
+        assert report.comparison and not any(
+            a.status == "FAIL" for a in report.comparison.assessments
+        )
     assert all(
         any(
             a.subject_id == identity and a.aspect == "existence" and a.status == "PASS"
