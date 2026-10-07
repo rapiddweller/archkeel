@@ -10,8 +10,10 @@ The collector emits validated `SourceFacts`; Core owns policy and verdicts. See 
 ## Evidence and limits
 
 The collector measures import graphs, ownership, external scopes, cycles and
-layout. It does not measure symbols, types, constructs, calls or private use.
-Unavailable signals remain null/UNKNOWN; reports show n/a and budgets refuse them.
+layout. It also publishes lexical UML declarations, members, signatures and proven
+local relationships; see the [UML demos](typescript-demo.md).
+Python-style symbol/type rules, construct and call metrics, and private-use metrics
+remain unavailable. Those signals stay null/UNKNOWN; reports show n/a and budgets refuse them.
 Older lock/delta zero sentinels remain readable as unmeasured.
 
 Incomplete resolution, computed or indirect loaders and unproved runtime targets

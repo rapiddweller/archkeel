@@ -3,6 +3,25 @@
 Use `archkeel <command> --help` for exact options. [Onboarding](onboarding.md)
 sets up policy; [target-first](target-first.md) maintains it.
 
+## Compatibility in 1.x
+
+The documented CLI commands, options, exit-code meanings, configuration and
+`archkeel.api` exports are the stable interface. Removing or incompatibly changing
+them requires a new package major version. Internal Python modules, terminal text
+and HTML structure are not integration interfaces.
+
+Evidence and command JSON have their own schema versions. Incompatible changes to
+the documented JSON formats or collector protocol also require a new package major
+version. Adding a field that an existing supported decoder rejects is also incompatible;
+collector validation remains strict. Pin CLI, collectors and schemas together for
+reproducible integrations.
+Schema readability does not guarantee comparable observations: analyzer corrections
+and profile changes can require re-observing both revisions. Correctness fixes may
+change findings without changing an interface.
+
+Stable does not mean complete language analysis. Unsupported or ambiguous evidence
+stays UNKNOWN; language limits remain part of the documented result.
+
 ## Configuration
 
 [The schema](../schema/archkeel.schema.json) defines `archkeel.toml`:
