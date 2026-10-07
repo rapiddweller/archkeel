@@ -201,7 +201,7 @@ def test_unmeasured_accepted_lock_versions_preserve_legacy_reads(
             parse_lock(json.dumps(raw).encode())
 
 
-@pytest.mark.parametrize("version", ["1.2.0", "1.3.0", "1.4.0"])
+@pytest.mark.parametrize("version", ["1.2.0", "1.3.0", "1.4.0", "2.0.0"])
 def test_only_profile_delta_version_accepts_fresh_null_call_totals(version: str) -> None:
     from test_expectation import _delta_payload
 
@@ -212,12 +212,14 @@ def test_only_profile_delta_version_accepts_fresh_null_call_totals(version: str)
     parsed = parse_delta(raw)
     assert parsed.ratchets.head.calls_total is None
     emitted = delta_payload(parsed)
-    assert emitted["ratchets"]["head"]["calls_total"] == (None if version == "1.4.0" else 0)
+    assert emitted["ratchets"]["head"]["calls_total"] == (
+        None if version in {"1.4.0", "2.0.0"} else 0
+    )
     assert parse_delta(emitted) == parsed
     assert result_payload(RunResult("check", 0, delta=parsed))["delta"] == emitted
     for side in ("baseline", "head"):
         raw["ratchets"][side]["calls_total"] = None
-    if version == "1.4.0":
+    if version in {"1.4.0", "2.0.0"}:
         assert parse_delta(raw).ratchets.head.calls_total is None
     else:
         with pytest.raises(RatchetError, match="null call totals"):

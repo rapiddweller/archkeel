@@ -138,12 +138,17 @@ def test_configured_executable_collects_facts_without_receiving_policy(tmp_path)
     code = (
         "import json,sys; request=json.load(sys.stdin); "
         "assert set(request)=={'protocol_version','snapshot','scope','resolver'}; "
+        "assert request['protocol_version']=='2.0.0'; "
         f"print({json.dumps(json.dumps(response))})"
     )
     request = decode_request(_request())
     from dataclasses import replace
 
-    request = replace(request, snapshot=replace(request.snapshot, root=str(tmp_path)))
+    request = replace(
+        request,
+        protocol_version="2.0.0",
+        snapshot=replace(request.snapshot, root=str(tmp_path)),
+    )
     facts = _collector(code).collect(request)
     assert not isinstance(facts, CollectionError)
     assert facts.adapter.name == "alternate-parser"

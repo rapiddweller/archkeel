@@ -16,7 +16,7 @@ def main() -> None:
     result_schema = json.loads(
         schemas.joinpath("command-result.schema.json").read_text(encoding="utf-8")
     )
-    assert result_schema["$id"] == "urn:archkeel:command-result:5.0.0"
+    assert result_schema["$id"] == "urn:archkeel:command-result:6.0.0"
     assert "expectation_fulfilled" in result_schema["required"]
     for name in (
         "architecture-ir-common.schema.json",

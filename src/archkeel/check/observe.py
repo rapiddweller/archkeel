@@ -272,7 +272,7 @@ def _observe(
             namespace=namespace,
             language=language,
         )
-        runtime = runtime_diagnostic(facts.runtime)
+        runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
         return ObservationResult(
             model, model.coverage, observation_diagnostics(model, runtime, language)
         )

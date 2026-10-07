@@ -52,6 +52,7 @@ def _diagnostic(item: Diagnostic) -> Panel:
         ("claim", item.unknown_claim),
         ("remedy", item.remedy),
         ("pointer", item.pointer),
+        ("locations", ", ".join(f"{location.path}:{location.line}" for location in item.locations)),
     ):
         if value:
             fields.add_row(name, Text(value))

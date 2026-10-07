@@ -137,11 +137,11 @@ VARIANTS: tuple[Variant, ...] = (
         id="target-empty-responsibilities",
         section="clean",
         item="target.responsibilities:missing",
-        summary="Target shows missing responsibility design information; the unowned store facade "
-        "keeps STORE-REQUIRES-COMPLETE unproven.",
+        summary="Validation flags empty architect-decided responsibilities; the report keeps "
+        "STORE-REQUIRES-COMPLETE UNKNOWN.",
         files=_empty_responsibility_files(),
         expected_violations=(),
-        expected_codes=(),
+        expected_codes=("responsibility.missing", "responsibility.missing"),
         expected_declared_rules="UNKNOWN",
     ),
     Variant(

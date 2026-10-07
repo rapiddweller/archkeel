@@ -41,7 +41,7 @@
         "diagnostics": {
           "type": "array",
           "items": {
-            "$ref": "urn:archkeel:command-result:5.0.0#/$defs/diagnostic"
+            "$ref": "urn:archkeel:command-result:6.0.0#/$defs/diagnostic"
           }
         },
         "report_filter": {
@@ -62,7 +62,7 @@
             {
               "type": "array",
               "items": {
-                "$ref": "urn:archkeel:command-result:5.0.0#/$defs/filteredViolation"
+                "$ref": "urn:archkeel:command-result:6.0.0#/$defs/filteredViolation"
               }
             },
             {

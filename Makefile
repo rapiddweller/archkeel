@@ -31,10 +31,15 @@ pr-test:
 		tests/test_contract_model.py tests/test_decisions.py tests/test_collection_protocol.py tests/test_source_trust_boundary.py \
 		tests/test_analyzer.py tests/test_typescript_config.py tests/test_typescript_resolve.py \
 		tests/test_uml_comparison.py tests/test_saved_report.py tests/test_cli.py \
-		tests/test_result_schema.py tests/test_onboarding.py tests/test_terminal.py \
-		tests/test_onboarding_demo.py tests/test_onboarding_guidance.py tests/test_pypi_description.py \
-		tests/test_typescript_onboarding.py tests/test_dart_unknowns.py tests/test_unknown_positions.py \
-		tests/test_inside_rule_coverage.py
+		tests/test_result_schema.py tests/test_dart_unknowns.py tests/test_runtime.py \
+		tests/test_codec.py tests/test_source_provenance_acceptance.py \
+		tests/test_collection_process.py tests/test_collection_conformance.py tests/test_schema_drift.py \
+		tests/test_runtime_delta.py tests/test_nullable_profile_measurements.py \
+		tests/test_typescript_demo.py tests/test_onboarding_guidance.py \
+		tests/test_references.py tests/test_levels.py tests/test_widening.py tests/test_measurement_budgets.py \
+		tests/test_onboarding.py tests/test_terminal.py \
+		tests/test_onboarding_demo.py tests/test_pypi_description.py tests/test_typescript_onboarding.py \
+		tests/test_unknown_positions.py tests/test_inside_rule_coverage.py tests/test_report_159_160.py
 
 pr-report-test:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q \

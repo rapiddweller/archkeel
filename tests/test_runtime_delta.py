@@ -255,6 +255,20 @@ def test_changed_or_missing_explicit_runtime_is_incomparable(runtime: RuntimeInf
     assert error.value.diagnostic.kind == "incomparable_runtime"
 
 
+def test_requirement_state_does_not_change_runtime_identity_and_old_reports_load() -> None:
+    declared = RuntimeInfo("python", "3.11.12", ">=3.11")
+    missing = RuntimeInfo("python", "3.11.12", ">=3.11", "metadata_missing")
+    assert declared == missing
+
+    raw = _model(git_head="a" * 40)
+    raw["runtime"] = {"name": "python", "version": "3.11.12", "required": ">=3.11"}
+    assert parse_observation(raw).runtime == declared
+
+    raw["runtime"]["requirement_state"] = "unknown"
+    with pytest.raises(ValueError, match="requirement_state"):
+        parse_observation(raw)
+
+
 def test_different_analyzer_bytes_never_grant_coverage() -> None:
     baseline = parse_observation(_model(git_head="a" * 40))
     delta = build_architecture_delta(
@@ -316,3 +330,27 @@ def test_partial_common_provenance_cannot_use_the_legacy_python_fallback() -> No
             checker_digest="c" * 64,
         )
     assert error.value.diagnostic.kind == "incomparable_runtime"
+
+
+@pytest.mark.parametrize("version", ["1.3.0", "1.4.0", "2.0.0"])
+def test_runtime_metadata_requires_delta_2_and_preserves_legacy_read(version):
+    from archkeel.ir.codec import delta_payload
+
+    raw = _delta_payload()
+    raw["schema_version"] = version
+    for side in ("baseline", "head"):
+        raw[side]["runtime"] = {"name": "python", "version": "3.11.12"}
+    legacy = parse_delta(raw)
+    assert delta_payload(legacy)["schema_version"] == version
+    assert "requirement_state" not in delta_payload(legacy)["head"]["runtime"]
+    for side in ("baseline", "head"):
+        raw[side]["runtime"]["requirement_state"] = "metadata_missing"
+    if version != "2.0.0":
+        with pytest.raises(ValueError, match="requirement_state"):
+            parse_delta(raw)
+    else:
+        parsed = parse_delta(raw)
+        assert parsed.head.runtime.requirement_state == "metadata_missing"
+        assert parse_delta(delta_payload(parsed)) == parsed
+        with pytest.raises(ValueError, match="requires Delta schema 2.0.0"):
+            delta_payload(replace(parsed, schema_version="1.4.0"))

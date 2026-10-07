@@ -28,6 +28,7 @@ from archkeel.ir.baseline import (
     canonical_fingerprint,
     violation_name,
 )
+from archkeel.ir.facts import RuntimeRequirementState
 from archkeel.ir.graph_codec import parse_target
 from archkeel.ir.lock import LOCK_SCHEMA_VERSION, AcceptedLock, LockError
 from archkeel.ir.measurements import (
@@ -45,6 +46,7 @@ from archkeel.ir.model import (
     DELTA_SCHEMA_VERSION,
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
+    SCHEMA_VERSION,
     AllowedDependencyRule,
     AnalyzerInfo,
     ArchitectureContract,
@@ -230,6 +232,9 @@ def parse_observation(raw: object) -> Observation:
     optional = {"python_version", "runtime", "producer"}
     if set(item) - optional != _TOP_LEVEL:
         raise ValueError("observation fields mismatch")
+    schema_version = _string(item["schema_version"], "schema_version")
+    if schema_version not in {"1.2.0", "1.3.0", SCHEMA_VERSION}:
+        raise ValueError("unsupported observation schema_version")
     analyzer = _object(item["analyzer"], "analyzer")
     source = _object(item["source"], "source")
     contract = _object(item["contract"], "contract")
@@ -262,7 +267,7 @@ def parse_observation(raw: object) -> Observation:
         if isinstance(section_items := item[name], list)
     )
     return Observation(
-        schema_version=_string(item["schema_version"], "schema_version"),
+        schema_version=schema_version,
         analyzer=AnalyzerInfo(
             *(_string(analyzer[k], f"analyzer.{k}") for k in ("name", "version", "code_digest"))
         ),
@@ -281,7 +286,11 @@ def parse_observation(raw: object) -> Observation:
         python_version=_python_version(item["python_version"])
         if "python_version" in item
         else None,
-        runtime=_parse_runtime(item["runtime"]) if "runtime" in item else None,
+        runtime=_parse_runtime(
+            item["runtime"], allow_requirement_state=schema_version == SCHEMA_VERSION
+        )
+        if "runtime" in item
+        else None,
         producer=_parse_analyzer(item["producer"], "producer") if "producer" in item else None,
     )
 
@@ -303,16 +312,38 @@ def _known_identity(raw: RawJson, label: str) -> str:
     return value
 
 
-def _parse_runtime(raw: RawJson) -> RuntimeInfo:
+def _parse_runtime(raw: RawJson, *, allow_requirement_state: bool) -> RuntimeInfo:
     item = _object(raw, "runtime")
-    if set(item) - {"name", "version", "required"} or not {"name", "version"}.issubset(item):
+    if not allow_requirement_state and "requirement_state" in item:
+        raise ValueError("runtime.requirement_state requires observation/Delta schema 2.0.0")
+    if set(item) - {"name", "version", "required", "requirement_state"} or not {
+        "name",
+        "version",
+    }.issubset(item):
         raise ValueError("runtime fields mismatch")
+    requirement_state_raw = _string(
+        item.get("requirement_state", "declared"), "runtime.requirement_state"
+    )
+    requirement_state: RuntimeRequirementState
+    if requirement_state_raw == "declared":
+        requirement_state = "declared"
+    elif requirement_state_raw == "metadata_missing":
+        requirement_state = "metadata_missing"
+    elif requirement_state_raw == "metadata_invalid":
+        requirement_state = "metadata_invalid"
+    elif requirement_state_raw == "requirement_missing":
+        requirement_state = "requirement_missing"
+    elif requirement_state_raw == "requirement_invalid":
+        requirement_state = "requirement_invalid"
+    else:
+        raise ValueError("runtime.requirement_state is invalid")
     return RuntimeInfo(
         _known_identity(item["name"], "runtime.name"),
         _known_identity(item["version"], "runtime.version"),
         _nonempty(item["required"], "runtime.required")
         if item.get("required") is not None
         else None,
+        requirement_state,
     )
 
 
@@ -440,15 +471,24 @@ def value_bytes(value: JsonValue) -> bytes:
 
 
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
+    if (
+        observation.schema_version != SCHEMA_VERSION
+        and observation.runtime is not None
+        and observation.runtime.requirement_state != "declared"
+    ):
+        raise ValueError("runtime.requirement_state requires observation schema 2.0.0")
     result = _raw_object(asdict(observation))
     if observation.python_version is None:
         del result["python_version"]
     if observation.runtime is None:
         del result["runtime"]
-    elif observation.runtime.required is None:
+    else:
         runtime = result["runtime"]
         if isinstance(runtime, dict):
-            del runtime["required"]
+            if observation.runtime.required is None:
+                del runtime["required"]
+            if observation.runtime.requirement_state == "declared":
+                del runtime["requirement_state"]
     if observation.producer is None:
         del result["producer"]
     del result["sections"]
@@ -660,6 +700,11 @@ def _projection_payload(value: Projection) -> dict[str, RawJson]:
 
 
 def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
+    if delta.schema_version != DELTA_SCHEMA_VERSION and any(
+        snapshot.runtime is not None and snapshot.runtime.requirement_state != "declared"
+        for snapshot in (delta.baseline, delta.head)
+    ):
+        raise ValueError("runtime.requirement_state requires Delta schema 2.0.0")
     result = _raw_object(asdict(delta))
     for side in ("baseline", "head"):
         snapshot = result[side]
@@ -667,8 +712,11 @@ def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
             if snapshot.get("runtime") is None:
                 del snapshot["runtime"]
             runtime = snapshot.get("runtime")
-            if isinstance(runtime, dict) and runtime.get("required") is None:
-                del runtime["required"]
+            if isinstance(runtime, dict):
+                if runtime.get("required") is None:
+                    del runtime["required"]
+                if runtime.get("requirement_state") == "declared":
+                    del runtime["requirement_state"]
             if snapshot.get("producer") is None:
                 del snapshot["producer"]
     result["dimensions"] = {
@@ -1754,7 +1802,7 @@ def parse_delta(raw: object) -> ArchitectureDelta:
     if not _is_verdict(head_status):
         raise ValueError("delta coverage status invalid")
     version = _string(item["schema_version"], "delta.schema_version")
-    if version not in {"1.2.0", "1.3.0", DELTA_SCHEMA_VERSION}:
+    if version not in {"1.2.0", "1.3.0", "1.4.0", DELTA_SCHEMA_VERSION}:
         raise ValueError("unsupported delta schema version")
     profile_for(_string(analyzer["name"], "delta.analyzer.name"))
     dimensions_raw = _object(item["dimensions"], "delta.dimensions")
@@ -1762,7 +1810,9 @@ def parse_delta(raw: object) -> ArchitectureDelta:
         _parse_dimension(name, raw_dimension, version=version)
         for name, raw_dimension in sorted(dimensions_raw.items())
     )
-    ratchets = _parse_ratchets(item["ratchets"], nullable_calls=version == DELTA_SCHEMA_VERSION)
+    ratchets = _parse_ratchets(
+        item["ratchets"], nullable_calls=version in {"1.4.0", DELTA_SCHEMA_VERSION}
+    )
     semantic_changes_raw = item["semantic_changes"]
     unknowns_raw = item["unknowns"]
     if not isinstance(semantic_changes_raw, list) or not isinstance(unknowns_raw, list):
@@ -1790,8 +1840,14 @@ def parse_delta(raw: object) -> ArchitectureDelta:
                 )
             )
         ),
-        _parse_snapshot_summary(item["baseline"], "delta.baseline"),
-        _parse_snapshot_summary(item["head"], "delta.head"),
+        _parse_snapshot_summary(
+            item["baseline"],
+            "delta.baseline",
+            allow_requirement_state=version == DELTA_SCHEMA_VERSION,
+        ),
+        _parse_snapshot_summary(
+            item["head"], "delta.head", allow_requirement_state=version == DELTA_SCHEMA_VERSION
+        ),
         ContractInfo(
             _string(c["schema_version"], "contract.schema_version"),
             _string(c["digest"], "contract.digest"),
@@ -1811,7 +1867,9 @@ def parse_delta(raw: object) -> ArchitectureDelta:
     )
 
 
-def _parse_snapshot_summary(raw: RawJson, label: str) -> SnapshotSummary:
+def _parse_snapshot_summary(
+    raw: RawJson, label: str, *, allow_requirement_state: bool
+) -> SnapshotSummary:
     x = _object(raw, label)
     optional = {"python_version", "runtime", "producer"}
     if set(x) - optional != {"git_head", "source_digest", "coverage_status"}:
@@ -1824,7 +1882,9 @@ def _parse_snapshot_summary(raw: RawJson, label: str) -> SnapshotSummary:
         _string(x["source_digest"], f"{label}.source_digest"),
         coverage_status,
         _python_version(x["python_version"]) if x.get("python_version") is not None else None,
-        _parse_runtime(x["runtime"]) if "runtime" in x else None,
+        _parse_runtime(x["runtime"], allow_requirement_state=allow_requirement_state)
+        if "runtime" in x
+        else None,
         _parse_analyzer(x["producer"], f"{label}.producer") if "producer" in x else None,
     )
 
@@ -1843,12 +1903,12 @@ def _parse_dimension(name: str, raw: RawJson, *, version: str) -> DimensionDelta
         name,
         status,
         None
-        if version == DELTA_SCHEMA_VERSION
+        if version in {"1.4.0", DELTA_SCHEMA_VERSION}
         and status == "UNKNOWN"
         and dimension["before_count"] is None
         else _count(dimension["before_count"], f"{label}.before_count"),
         None
-        if version == DELTA_SCHEMA_VERSION
+        if version in {"1.4.0", DELTA_SCHEMA_VERSION}
         and status == "UNKNOWN"
         and dimension["after_count"] is None
         else _count(dimension["after_count"], f"{label}.after_count"),
@@ -2079,7 +2139,8 @@ def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
         {
             key: value
             for key, value in _raw_object(asdict(item)).items()
-            if key not in {"pointer", "code"} or value is not None
+            if (key not in {"pointer", "code", "contract_path"} or value is not None)
+            and (key != "locations" or value)
         }
         for item in result.diagnostics
     ]
@@ -2153,7 +2214,8 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
         {
             key: value
             for key, value in _raw_object(asdict(diagnostic)).items()
-            if key not in {"pointer", "code"} or value is not None
+            if (key not in {"pointer", "code", "contract_path"} or value is not None)
+            and (key != "locations" or value)
         }
         for diagnostic in result.diagnostics
     ]

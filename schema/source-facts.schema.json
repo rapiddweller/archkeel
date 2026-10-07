@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://archkeel.dev/schema/source-facts/1.0.0",
-  "title": "ArchKeel source collection protocol 1.0.0",
+  "$id": "https://archkeel.dev/schema/source-facts/2.0.0",
+  "title": "ArchKeel source collection protocol 2.0.0",
   "description": "Structural wire contract. facts_validation additionally checks section payloads, scope, digests, unique identities, coverage and references. Architecture policy never crosses this port.",
   "$defs": {
     "Record": {
@@ -1003,6 +1003,15 @@
                 "null"
               ],
               "minLength": 1
+            },
+            "requirement_state": {
+              "enum": [
+                "declared",
+                "metadata_missing",
+                "metadata_invalid",
+                "requirement_missing",
+                "requirement_invalid"
+              ]
             }
           },
           "required": [
@@ -1321,7 +1330,10 @@
       "type": "object",
       "properties": {
         "protocol_version": {
-          "const": "1.0.0"
+          "enum": [
+            "1.0.0",
+            "2.0.0"
+          ]
         },
         "snapshot": {
           "type": "object",
@@ -1436,7 +1448,10 @@
       "type": "object",
       "properties": {
         "protocol_version": {
-          "const": "1.0.0"
+          "enum": [
+            "1.0.0",
+            "2.0.0"
+          ]
         },
         "facts": {
           "$ref": "#/$defs/SourceFacts"
@@ -1446,7 +1461,46 @@
         "protocol_version",
         "facts"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "protocol_version": {
+                "const": "1.0.0"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "facts": {
+                "properties": {
+                  "runtime": {
+                    "not": {
+                      "required": [
+                        "requirement_state"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "facts": {
+                "properties": {
+                  "runtime": {
+                    "required": [
+                      "requirement_state"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     }
   },
   "oneOf": [

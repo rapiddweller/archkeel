@@ -26,6 +26,7 @@ def test_collection_request_roundtrip_contains_only_source_inputs() -> None:
     assert request.snapshot.git_head == "a" * 40
     assert request.scope.roots == ("src",)
     assert request.resolver.language == "python"
+    assert request.protocol_version == "1.0.0"
     assert json.loads(encode_request(request)) == json.loads(_request())
 
 
@@ -39,7 +40,21 @@ def test_collection_request_rejects_architecture_policy(field: str) -> None:
         decode_request(json.dumps(payload).encode())
 
 
-@pytest.mark.parametrize("version", ["0.0.0", "2.0.0", None, True])
+def test_new_request_is_labeled_v2() -> None:
+    from archkeel.ir.facts_codec import decode_request, encode_request
+    from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope
+
+    request = CollectionRequest(
+        SnapshotInput("/source-project", "a" * 40, False),
+        SourceScope(("src",), "project"),
+        PythonSettings(),
+    )
+    payload = json.loads(encode_request(request))
+    assert payload["protocol_version"] == "2.0.0"
+    assert decode_request(json.dumps(payload).encode()).protocol_version == "2.0.0"
+
+
+@pytest.mark.parametrize("version", ["0.0.0", "3.0.0", None, True])
 def test_collection_request_rejects_incompatible_version(version: object) -> None:
     from archkeel.ir.facts_codec import ProtocolError, decode_request
 
@@ -173,6 +188,108 @@ def test_source_response_is_immutable_and_preserves_alternate_parser_identity() 
     assert json.loads(encode_response(response))["facts"]["adapter"]["name"] == "alternate-parser"
     with pytest.raises(FrozenInstanceError):
         response.facts.coverage.files_read = 0
+
+
+def test_legacy_response_defaults_runtime_state_and_roundtrips_as_legacy() -> None:
+    from archkeel.ir.facts_codec import decode_response, encode_response
+
+    raw = _response()
+    response = decode_response(json.dumps(raw).encode())
+    assert response.protocol_version == "1.0.0"
+    assert response.facts.runtime.requirement_state == "declared"
+    encoded = json.loads(encode_response(response))
+    assert encoded["protocol_version"] == "1.0.0"
+    assert "requirement_state" not in encoded["facts"]["runtime"]
+
+
+def test_current_response_requires_runtime_state_and_is_labeled_v2(tmp_path) -> None:
+    from pathlib import Path
+
+    import jsonschema
+    from test_collection_boundary_regressions import _facts
+
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import CollectionResponse
+
+    encoded = encode_response(CollectionResponse(_facts(tmp_path)))
+    payload = json.loads(encoded)
+    assert payload["protocol_version"] == "2.0.0"
+    assert "requirement_state" in payload["facts"]["runtime"]
+    schema = json.loads(
+        (Path(__file__).parents[1] / "schema/source-facts.schema.json").read_bytes()
+    )
+    jsonschema.Draft202012Validator(schema).validate(payload)
+    assert decode_response(encoded).protocol_version == "2.0.0"
+
+    legacy_runtime_schema = json.loads(
+        (
+            Path(__file__).parent / "fixtures/collection-protocol/legacy-runtime-schemas.json"
+        ).read_bytes()
+    )["source_facts_1"]
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.Draft202012Validator(legacy_runtime_schema).validate(payload["facts"]["runtime"])
+
+
+def test_encoders_reject_unsupported_versions(tmp_path) -> None:
+    from test_collection_boundary_regressions import _facts
+
+    from archkeel.ir.facts_codec import ProtocolError, encode_request, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    request = CollectionRequest(
+        SnapshotInput("/source-project", "a" * 40, False),
+        SourceScope(("src",), "project"),
+        PythonSettings(),
+        "3.0.0",
+    )
+    with pytest.raises(ProtocolError, match="version"):
+        encode_request(request)
+    with pytest.raises(ProtocolError, match="version"):
+        encode_response(CollectionResponse(_facts(tmp_path), "3.0.0"))
+
+
+def test_legacy_encoder_rejects_nondefault_runtime_state(tmp_path) -> None:
+    from dataclasses import replace
+
+    from test_collection_boundary_regressions import _facts
+
+    from archkeel.ir.facts_codec import ProtocolError, encode_response
+    from archkeel.ir.protocol import CollectionResponse
+
+    facts = _facts(tmp_path)
+    facts = replace(facts, runtime=replace(facts.runtime, requirement_state="metadata_missing"))
+    with pytest.raises(ProtocolError, match="cannot carry"):
+        encode_response(CollectionResponse(facts, "1.0.0"))
+
+
+def test_response_rejects_runtime_state_for_wrong_version() -> None:
+    from archkeel.ir.facts_codec import ProtocolError, decode_response
+
+    raw = _response()
+    raw["facts"]["runtime"]["requirement_state"] = "declared"
+    with pytest.raises(ProtocolError, match="runtime fields"):
+        decode_response(json.dumps(raw).encode())
+
+    raw["protocol_version"] = "2.0.0"
+    del raw["facts"]["runtime"]["requirement_state"]
+    with pytest.raises(ProtocolError, match="runtime fields"):
+        decode_response(json.dumps(raw).encode())
+
+
+def test_source_response_rejects_unknown_runtime_requirement_state() -> None:
+    from archkeel.ir.facts_codec import ProtocolError, decode_response
+
+    raw = _response()
+    raw["protocol_version"] = "2.0.0"
+    raw["facts"]["runtime"]["requirement_state"] = "maybe"
+    with pytest.raises(ProtocolError, match="requirement_state"):
+        decode_response(json.dumps(raw).encode())
 
 
 @pytest.mark.parametrize("field", ["contract", "baseline", "verdict", "violations"])

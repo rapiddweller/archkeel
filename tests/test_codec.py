@@ -147,6 +147,46 @@ def test_old_python_observation_keeps_legacy_wire_fields():
     assert set(observation_payload(observation)) == set(raw)
 
 
+def test_legacy_canonical_report_roundtrips_without_requirement_state():
+    raw = raw_observation()
+    raw["schema_version"] = "1.3.0"
+    raw["runtime"] = {"name": "cpython", "version": "3.11.12"}
+
+    wire = encode_canonical_model(raw)
+    parsed = parse_observation(decode_canonical_model(wire))
+
+    assert parsed.schema_version == "1.3.0"
+    assert "requirement_state" not in observation_payload(parsed)["runtime"]
+
+
+def test_requirement_state_requires_ir_2_and_survives_canonical_roundtrip():
+    raw = raw_observation()
+    raw["schema_version"] = "2.0.0"
+    raw["runtime"] = {
+        "name": "cpython",
+        "version": "3.11.12",
+        "requirement_state": "requirement_missing",
+    }
+
+    wire = encode_canonical_model(raw)
+    parsed = parse_observation(decode_canonical_model(wire))
+
+    assert observation_payload(parsed)["runtime"]["requirement_state"] == "requirement_missing"
+
+
+def test_legacy_observation_rejects_requirement_state():
+    raw = raw_observation()
+    raw["schema_version"] = "1.3.0"
+    raw["runtime"] = {
+        "name": "cpython",
+        "version": "3.11.12",
+        "requirement_state": "requirement_missing",
+    }
+
+    with pytest.raises(ValueError, match="requires observation/Delta schema 2.0.0"):
+        parse_observation(raw)
+
+
 @pytest.mark.parametrize("field", ["name", "version", "code_digest"])
 @pytest.mark.parametrize("missing", ["", " ", "unknown", "UNKNOWN"])
 def test_explicit_incomplete_producer_is_rejected(field, missing):
@@ -278,3 +318,16 @@ def test_canonical_decoder_rejects_unknown_analyzer_identity():
 
     with pytest.raises(ValueError, match="unsupported analyzer identity"):
         decode_canonical_model(raw)
+
+
+def test_legacy_observation_writer_cannot_mislabel_runtime_metadata():
+    from dataclasses import replace
+
+    from archkeel.ir.model import RuntimeInfo
+
+    observation = parse_observation(raw_observation())
+    observation = replace(
+        observation, runtime=RuntimeInfo("python", "3.11.12", None, "metadata_missing")
+    )
+    with pytest.raises(ValueError, match="requires observation schema 2.0.0"):
+        observation_payload(observation)

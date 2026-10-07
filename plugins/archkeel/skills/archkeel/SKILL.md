@@ -60,12 +60,14 @@ Ignore `/test-artifacts/` in `.gitignore` for default report output, or choose `
 Restore missing configuration in existing setups or select `--config PATH`; use `init`
 only for a new setup. Without Git history, run `git init` and create a commit first.
 
-For example, after approving `storage -> domain`, add this fragment to the existing
-`storage` component. Replace the example reason with the decision owner's actual reason;
-keep its existing ownership and public interface fields.
+For example, after defining storage's responsibility and approving `storage -> domain`,
+add this fragment to the existing `storage` component. Replace the example reason with
+the decision owner's actual reason; keep its existing ownership and public interface fields.
 
 ```json
 {
+  "responsibilities": ["Persist and retrieve domain records."],
+  "decided_by": "architect",
   "requires": [
     {
       "component": "domain",
@@ -230,12 +232,22 @@ new `requires` edge, a `public` entry, an `allowed_sources` module, a relaxed or
 a padded baseline entry, and anything else this repository's `ir.widening` does not otherwise
 name — as a widening, which fails (exit 1) unless `--amendment <path>` names a file the
 architect wrote, recording who decided it and why, bound to this exact change.
+In `validate --json`, `widenings` is `null` when `--against` was not checked, otherwise it lists
+unamended widenings with `code: "ir.widening"`, `subject` and `field`; `failures` keeps the
+human-readable messages. `amendment_status` is `valid` or `stale` when a supplied amendment was
+checked, and `null` otherwise. A valid amendment may leave `widenings` empty even when it accepts
+a real change.
 Never widen the contract in the same change that removes the violation it names: fix the code,
 or ask the architect for an amendment. The full loop — gating, widening, picking a slice of the
 backlog and landing a planned interface — is worked end to end on the shop sample in
 https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md.
 
 ## Daily loop
+
+Validation reports `responsibility.missing` only for components explicitly marked
+`decided_by: "architect"` with no non-whitespace responsibility text. It checks declaration
+presence, not prose quality or complete coverage of cross-cutting concerns; an agent draft stays
+usable and incomplete until the architect decides it.
 
 - Start with `archkeel report --only architecture --json`. It projects authenticated intent,
   ownership, dependency permissions, observed use and required Target relationships. Use
