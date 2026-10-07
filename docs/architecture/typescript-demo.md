@@ -1,4 +1,4 @@
-# TypeScript import-graph demo
+# TypeScript demos
 
 Replay the committed shop fixture with the collector that ships in the package:
 
@@ -22,3 +22,17 @@ A committed revision case also proves that JavaScript inputs affect the source
 digest, snapshots survive a poisoned working tree and replay is deterministic.
 Its host ordering and approval are simulated fixture evidence. See the
 [adapter decision](typescript-foundation-proposal.md#evidence-and-limits) for limits.
+
+`make demo-uml OUTPUT=test-artifacts/uml` also generates native TypeScript UML reports.
+The `uml-typescript-match`, `uml-typescript-mismatch` and `uml-typescript-partial` variants
+exercise matching intent, a changed method signature and an unresolved constructor.
+Their Target is declared independently in `fixtures/H-uml-typescript`; it is never copied
+from observed facts. Reports use the shared As-Is, Target and Diff views.
+
+Classifiers, members, signatures, visibility, static members and proven local relationships
+carry source locations. Missing members require complete inventory for that owner and kind.
+Computed or ambiguous bindings remain UNKNOWN; a complete import scan does not prove them.
+
+The shop demo independently declares all seven modules down to UML: 17 entities and
+14 relationships. Its ten undecided positions remain visible; declaring intent does not
+turn incomplete observation into PASS.

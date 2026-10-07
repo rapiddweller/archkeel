@@ -46,7 +46,6 @@ def example(
     *,
     codes: tuple[DiagnosticCode, ...] = (),
     refused: bool = False,
-    unknown: bool = False,
     gap: bool = False,
 ) -> Variant:
     return Variant(
@@ -62,13 +61,7 @@ def example(
         else ("rule_unsupported_by_profile",)
         if refused
         else (),
-        expected_declared_rules=None
-        if refused
-        else "FAIL"
-        if violations
-        else "UNKNOWN"
-        if unknown
-        else "PASS",
+        expected_declared_rules=None if refused else "FAIL" if violations else "UNKNOWN",
         fixture=TYPESCRIPT_FIXTURE_DIR,
     )
 
@@ -386,7 +379,6 @@ VARIANTS: tuple[Variant, ...] = (
                 "src/main.ts", "export const load = (name: string) => import(name);\n"
             )
         },
-        unknown=True,
         gap=True,
     ),
     example(
@@ -399,7 +391,6 @@ VARIANTS: tuple[Variant, ...] = (
             ),
             "src/hidden.cjs": "module.exports = 7;\n",
         },
-        unknown=True,
         gap=True,
     ),
     example(

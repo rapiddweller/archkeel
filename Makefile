@@ -64,6 +64,7 @@ collector-safety:
 .PHONY: typescript-differential
 typescript-native:
 	$(UV) run --locked python -m pytest -q tests/test_typescript_parse.py \
+		tests/test_typescript_inner.py tests/test_typescript_uml_acceptance.py \
 		tests/test_typescript_collect.py tests/test_typescript_config.py \
 		tests/test_typescript_config_reference.py \
 		tests/test_typescript_resolve.py tests/test_typescript_provenance.py \
@@ -150,6 +151,9 @@ demo-uml:
 	@$(MAKE) demo-architecture VARIANT=uml-complete OUTPUT="$(OUTPUT)/python-complete.json"
 	@$(MAKE) demo-architecture VARIANT=uml-dart OUTPUT="$(OUTPUT)/dart.json"
 	@$(MAKE) demo-architecture VARIANT=uml-typescript OUTPUT="$(OUTPUT)/typescript.json"
+	@$(MAKE) demo-architecture VARIANT=uml-typescript-match OUTPUT="$(OUTPUT)/typescript-match.json"
+	@$(MAKE) demo-architecture VARIANT=uml-typescript-mismatch OUTPUT="$(OUTPUT)/typescript-mismatch.json"
+	@$(MAKE) demo-architecture VARIANT=uml-typescript-partial OUTPUT="$(OUTPUT)/typescript-partial.json"
 
 # The figure is derived from the run above, so a test compares it with a fresh render.
 loop-figure:

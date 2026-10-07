@@ -96,6 +96,7 @@ _BOOLEAN_FIELDS = frozenset(
         "candidates_truncated",
         "conditional",
         "is_async",
+        "signature_complete",
     }
 )
 _PROOF_FLAGS = frozenset(

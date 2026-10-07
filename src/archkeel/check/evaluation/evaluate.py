@@ -101,6 +101,7 @@ class ScanResult:
     context_evidence: list[RawRecord]
     violations: list[RawRecord]
     unknowns: list[RawRecord]
+    observed_sections: frozenset[str]
 
 
 def coverage_payload(
@@ -271,6 +272,7 @@ def _inside_rule_results(
     *,
     type_shapes: TypeShapeIndex,
     construct_capabilities: tuple[ConstructCapability, ...],
+    symbols_measured: bool,
     root_contract: ArchitectureContract | None = None,
     imports: Sequence[RawRecord],
     typing_signals: Sequence[RawRecord],
@@ -322,6 +324,7 @@ def _inside_rule_results(
             blank_modules=blank_modules,
             module_cycles=module_cycles,
             profile=profile,
+            symbols_measured=symbols_measured,
             exports_by_module=exports_by_module,
             uncertain_reexport_origins=uncertain_reexport_origins,
             scanned_modules=scanned_modules,
@@ -333,7 +336,7 @@ def _inside_rule_results(
             type_shapes=type_shapes,
             construct_capabilities=construct_capabilities,
         )
-        if "symbols" not in profile.absent_sections:
+        if symbols_measured and profile.complete_api_crossings:
             symbols = _mount_facade_signature_types(
                 symbols,
                 imports,
@@ -481,6 +484,7 @@ def _evaluate_inside_contract(
     blank_modules: frozenset[str],
     module_cycles: Sequence[RawRecord],
     profile: Profile,
+    symbols_measured: bool,
     exports_by_module: dict[str, frozenset[str]],
     uncertain_reexport_origins: dict[str, frozenset[str]],
     scanned_modules: set[str],
@@ -543,7 +547,7 @@ def _evaluate_inside_contract(
             ancestor_contracts,
             type_shapes=type_shapes,
         )
-        if "symbols" not in profile.absent_sections
+        if symbols_measured and profile.complete_api_crossings
         else []
     )
     unknowns.extend(symbol_limits(imports, scoped, exports_by_module, source_modules))
@@ -600,7 +604,25 @@ def evaluate_source(
         if is_python
         else {"imports", "unknowns"}
     )
-    if set(facts.capabilities.sections) != required:
+    declared_sections = set(facts.capabilities.sections)
+    features = set(facts.capabilities.resolution_features)
+    if facts.profile == "archkeel-typescript-imports":
+        native_import_features = {
+            "literal-imports",
+            "relative-specifiers",
+            "node-builtins",
+            "local-runtime-closure",
+        }
+        legacy_features = ({"static-imports"}, native_import_features)
+        inner_uml_features = native_import_features | {"inner-uml-v1"}
+        inner_uml_sections = {"imports", "unknowns", "symbols", "calls", "references", "bindings"}
+        legacy = declared_sections == required and features in legacy_features
+        inner_uml = declared_sections == inner_uml_sections and features == inner_uml_features
+        if len(facts.capabilities.resolution_features) != len(features):
+            raise ProtocolError("duplicate resolution feature")
+        if not (legacy or inner_uml):
+            raise ProtocolError("source sections or resolution features are not registered")
+    elif declared_sections != required:
         raise ProtocolError("source sections do not match the registered profile")
     sections = {
         section.name: [raw_record(record) for record in section.records]
@@ -695,7 +717,8 @@ def evaluate_source(
     module_facts = module_records(
         parsed, module_names, module_edge_pairs, inventory_symbols, module_evidence
     )
-    if "symbols" in profile.absent_sections:
+    symbols_measured = "symbols" in sections
+    if not symbols_measured:
         for module in module_facts:
             module["data"]["symbol_count"] = None
     # boundary_types reads the declared facade, not a naming convention (AD-63): a rule whose
@@ -707,7 +730,7 @@ def evaluate_source(
     # AD-65: a type a declared facade signature names reaches the boundary without any import,
     # so the resolution boundary_types already runs is recorded on the facade function itself
     # and travels to validate's unused-entry check in the observation, not in a second copy.
-    if "symbols" not in profile.absent_sections:
+    if symbols_measured and profile.complete_api_crossings:
         symbols = facade_signature_types(
             symbols,
             imports,
@@ -777,6 +800,7 @@ def evaluate_source(
     ) = _inside_rule_results(
         inside_contracts,
         construct_capabilities=facts.capabilities.constructs,
+        symbols_measured=symbols_measured,
         root_contract=contract,
         imports=imports,
         typing_signals=typing_signals,
@@ -825,7 +849,7 @@ def evaluate_source(
                 stable_bindings_by_module,
                 type_shapes=type_shapes,
             )
-            if "symbols" not in profile.absent_sections
+            if symbols_measured and profile.complete_api_crossings
             else []
         ),
         *api_surface_limits(
@@ -847,7 +871,7 @@ def evaluate_source(
         failures=failures,
         rule_failures=rule_failures,
         calls=calls,
-        calls_measured="calls_unresolved" not in profile.unmeasured,
+        calls_measured="calls" in sections,
     )
 
     strip_internal_reexport_facts(imports)
@@ -882,4 +906,5 @@ def evaluate_source(
         unknowns=sorted(
             {item["id"]: item for item in unknowns}.values(), key=lambda item: item["id"]
         ),
+        observed_sections=frozenset(sections),
     )

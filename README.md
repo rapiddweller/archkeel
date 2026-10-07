@@ -133,10 +133,11 @@ it performs no live approvals. More cases are in the [demo catalog](docs/archite
 
 ## Scope and limits
 
-Archkeel observes static source in configured roots. Python support covers imports, calls, and declared boundaries;
-Dart and TypeScript support imports. TypeScript roots may name files or directories. Archkeel does not prove
-runtime behavior, performance, or the quality of every design decision. Separate test trees need their own
-scan and contract.
+Archkeel observes static source in configured roots. Python support covers imports, calls, and declared boundaries.
+Dart supports imports. TypeScript also records lexical UML declarations and statically bound relationships;
+ambiguous bindings and unsupported constructs remain UNKNOWN. TypeScript roots may name files or directories.
+Archkeel does not prove runtime behavior, performance, or the quality of every design decision.
+Separate test trees need their own scan and contract.
 
 Exit meanings are defined [per command](docs/reference.md#exit-codes).
 

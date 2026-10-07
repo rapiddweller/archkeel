@@ -35,6 +35,21 @@ def test_a_repository_the_linter_already_guards_names_no_binding(
     assert result.functions > 100
 
 
+def test_typescript_binding_receipt_does_not_claim_unread_name_coverage(
+    self_observation: Observation,
+) -> None:
+    typescript = replace(
+        self_observation,
+        analyzer=replace(self_observation.analyzer, name="archkeel-typescript-imports"),
+    )
+
+    result = unread_bindings(typescript)
+
+    assert result.status == "UNKNOWN"
+    assert result.candidates == ()
+    assert result.functions == 0
+
+
 def test_a_supported_empty_claim_does_not_say_every_parameter_is_read() -> None:
     result = _binding_claim_body(BindingReads("SUPPORTED", functions=4))
 

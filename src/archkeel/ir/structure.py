@@ -68,7 +68,10 @@ def module_edges(observation: Observation) -> tuple[tuple[str, str, int], ...]:
 def _calls_by_module(
     observation: Observation,
 ) -> tuple[Counter[str] | None, Counter[str] | None]:
-    if "calls_unresolved" in profile_for(observation.analyzer.name).unmeasured:
+    if (
+        observation.records("calls") is None
+        or "calls_unresolved" in profile_for(observation.analyzer.name).unmeasured
+    ):
         return None, None
     total: Counter[str] = Counter()
     unresolved: Counter[str] = Counter()

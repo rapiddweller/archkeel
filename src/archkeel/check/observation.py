@@ -225,11 +225,21 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile)
             _metric(
                 "symbols",
                 "Symbols",
-                None if "symbols" in profile.absent_sections else len(scan.symbols),
+                None
+                if "symbols" in profile.absent_sections
+                or (
+                    "symbols" in profile.optional_sections
+                    and "symbols" not in scan.observed_sections
+                )
+                else len(scan.symbols),
                 "components",
                 fact_ids=(
                     [item["id"] for item in scan.symbols]
                     if "symbols" not in profile.absent_sections
+                    and not (
+                        "symbols" in profile.optional_sections
+                        and "symbols" not in scan.observed_sections
+                    )
                     else None
                 ),
             ),
@@ -328,14 +338,16 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile)
             ),
             _metric(
                 "unresolved_calls",
-                "Unresolved calls",
+                "Unresolved recorded call sites"
+                if profile.analyzer == "archkeel-typescript-imports"
+                else "Unresolved calls",
                 None
-                if "calls_unresolved" in profile.unmeasured
+                if "calls" not in scan.observed_sections
                 else scan.coverage["calls_unresolved"],
                 "calls",
                 fact_ids=(
                     [item["id"] for item in unresolved_calls]
-                    if "calls_unresolved" not in profile.unmeasured
+                    if "calls" in scan.observed_sections
                     else None
                 ),
             ),
@@ -348,14 +360,16 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile)
             ),
             _metric(
                 "call_resolution",
-                "Uniquely resolved calls",
+                "Uniquely resolved recorded call sites"
+                if profile.analyzer == "archkeel-typescript-imports"
+                else "Uniquely resolved calls",
                 None
-                if "calls_unresolved" in profile.unmeasured
+                if "calls" not in scan.observed_sections
                 else f"{scan.coverage['call_resolution_percent']}%",
                 "calls",
                 fact_ids=(
                     [item["id"] for item in resolved_calls]
-                    if "calls_unresolved" not in profile.unmeasured
+                    if "calls" in scan.observed_sections
                     else None
                 ),
             ),
@@ -432,7 +446,7 @@ def _declaration_records(
             contract_path,
             unknowns=scan.unknowns,
             type_shapes=scan.type_shapes,
-            measured_types="symbols" not in PROFILES[language].absent_sections,
+            measured_types="symbols" in scan.observed_sections,
         ),
         *inside_records,
     ]
@@ -707,6 +721,9 @@ def assemble_observation(
     # AD-97: a signal the profile never produces is null, so a claim on it reads UNKNOWN.
     for section in profile.absent_sections:
         model[section] = None
+    for section in profile.optional_sections:
+        if section not in scan.observed_sections:
+            model[section] = None
     normalized = decode_json(canonical_json_bytes(model))
     if not isinstance(normalized, dict):
         raise ValueError("assembled observation must be an object")

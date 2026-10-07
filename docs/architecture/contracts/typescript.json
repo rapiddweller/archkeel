@@ -26,7 +26,7 @@
       "requires": [
         {
           "component": "source",
-          "rationale": "Read syntax facts, TSConfig and the resolver to decide each import target.",
+          "rationale": "Read syntax facts, TSConfig and module resolution to collect bounded source relationships.",
           "decided_by": "agent"
         }
       ],
@@ -42,7 +42,7 @@
         "archkeel.analyzer.typescript.resolve"
       ],
       "responsibilities": [
-        "Parse imports with tree-sitter, read TSConfig and resolve specifiers as the TypeScript compiler does."
+        "Read lexical TypeScript facts with tree-sitter, select snapshot inputs and resolve supported module specifiers."
       ],
       "forbidden_responsibilities": [
         "Claiming type-checker semantics, resolving what the compiler would not prove, or evaluating architecture policy."
@@ -105,11 +105,11 @@
       },
       {
         "path": "src/archkeel/analyzer/typescript/collect.py",
-        "responsibility": "Collect import facts with explicit coverage and a gap for everything unproven."
+        "responsibility": "Collect imports and lexical UML facts with explicit binding candidates and coverage."
       },
       {
         "path": "src/archkeel/analyzer/typescript/parse.py",
-        "responsibility": "Own the tree-sitter grammars and read import syntax and its concerns."
+        "responsibility": "Own tree-sitter and read source declarations, relationship sites and syntax limits."
       },
       {
         "path": "src/archkeel/analyzer/typescript/config.py",

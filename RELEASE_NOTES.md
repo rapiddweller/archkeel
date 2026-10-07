@@ -10,6 +10,10 @@
   within that corpus; this does not establish compiler parity.
   Inherited output directories keep their declaring paths; malformed selection/resolution
   settings remain UNKNOWN. A separate 25-case compiler reference covers these TSConfig cases.
+- TypeScript publishes lexical UML declarations, members, signatures and typed relationship
+  sites through the existing SourceFacts port (#348). Explicit member inventories support
+  missing-member checks; ambiguous bindings retain candidates and UNKNOWN. Older import-only
+  observations keep inner evidence unavailable. This does not provide compiler type checking.
 - Agents can query the shared architecture projection with `report --only architecture`
   and reuse a recorded snapshot with `--input`. Focused queries retain global verdicts,
   coverage and UNKNOWNs. Native component ids/scopes select local Target findings;

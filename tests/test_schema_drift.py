@@ -305,6 +305,8 @@ def test_shared_observation_schema_preserves_each_profile_and_provenance(profile
     observation["runtime"] = {"name": "python", "version": "3.11.12"}
     for section in profile.absent_sections:
         observation[section] = None
+    for section in profile.optional_sections:
+        observation[section] = None
     if profile.unmeasured:
         for key in (
             "calls_analyzed",
@@ -320,14 +322,18 @@ def test_shared_observation_schema_preserves_each_profile_and_provenance(profile
         observation[section] = []
         assert not validator.is_valid(observation), section
         observation[section] = None
-    for section in {
-        "symbols",
-        "references",
-        "bindings",
-        "calls",
-        "typing_signals",
-        "constructs",
-    } - profile.absent_sections:
+    for section in (
+        {
+            "symbols",
+            "references",
+            "bindings",
+            "calls",
+            "typing_signals",
+            "constructs",
+        }
+        - profile.absent_sections
+        - profile.optional_sections
+    ):
         observation[section] = None
         assert not validator.is_valid(observation), section
         observation[section] = []

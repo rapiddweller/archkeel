@@ -3004,7 +3004,11 @@ def _boundary_types_violations(
     unsupported_rules: frozenset[str] = frozenset(),
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     """Evaluate boundary rules only for facade positions the contract explicitly promises."""
-    rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
+    rules = [
+        rule
+        for rule in contract.rules
+        if isinstance(rule, BoundaryTypesRule) and rule.kind not in unsupported_rules
+    ]
     if not rules:
         return [], []
     imports_by_binding, classes_by_location = boundary_type_indexes(

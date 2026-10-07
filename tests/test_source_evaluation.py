@@ -122,3 +122,88 @@ def test_import_target_cannot_reclassify_an_observed_local_module(target_kind: s
         facts["imports"] = [{"kind": "builtin", "import_id": "IMP-1", "name": "project.store"}]
     with pytest.raises(ProtocolError, match="(local import package|observed local module)"):
         decode_response(json.dumps(payload).encode())
+
+
+def _typescript_facts(*, inner_uml: bool):
+    payload = json.loads(
+        (
+            Path(__file__).parent / "fixtures/collection-protocol/response-typescript.json"
+        ).read_bytes()
+    )
+    facts = payload["facts"]
+    if inner_uml:
+        facts["capabilities"]["sections"] = [
+            "imports",
+            "unknowns",
+            "symbols",
+            "calls",
+            "references",
+            "bindings",
+        ]
+        facts["capabilities"]["resolution_features"] = [
+            "literal-imports",
+            "relative-specifiers",
+            "node-builtins",
+            "local-runtime-closure",
+            "inner-uml-v1",
+        ]
+        facts["sections"].extend(
+            {"name": name, "records": []} for name in ("symbols", "calls", "references", "bindings")
+        )
+    return decode_response(json.dumps(payload).encode()).facts
+
+
+def test_typescript_inner_uml_receipt_measures_only_published_facts() -> None:
+    from archkeel.check.evaluation.evaluate import evaluate_source
+
+    contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": []})
+    legacy = evaluate_source(
+        _typescript_facts(inner_uml=False), contract, roots=("src",), namespace="project"
+    )
+    measured = evaluate_source(
+        _typescript_facts(inner_uml=True), contract, roots=("src",), namespace="project"
+    )
+
+    assert "calls" not in legacy.observed_sections
+    assert legacy.coverage["calls_analyzed"] is None
+    assert measured.observed_sections == frozenset(
+        {"imports", "unknowns", "symbols", "calls", "references", "bindings"}
+    )
+    assert measured.coverage["calls_analyzed"] == 0
+    assert measured.contexts == []
+    assert all(
+        item["id"] not in {"UNKNOWN-PYTHON-DYNAMIC-CALLS", "UNKNOWN-CONTEXT-DATAFLOW"}
+        for item in measured.unknowns
+    )
+
+
+@pytest.mark.parametrize(
+    ("sections", "features"),
+    [
+        (["imports", "unknowns", "symbols"], ["static-imports"]),
+        (["imports", "unknowns", "symbols", "calls", "references", "bindings"], ["static-imports"]),
+        (
+            ["imports", "unknowns", "symbols", "calls", "references", "bindings"],
+            ["static-imports", "inner-uml-v1", "extra"],
+        ),
+    ],
+)
+def test_typescript_rejects_unregistered_section_or_feature_receipt(
+    sections: list[str], features: list[str]
+) -> None:
+    from archkeel.check.evaluation.evaluate import evaluate_source
+
+    facts = json.loads(
+        (
+            Path(__file__).parent / "fixtures/collection-protocol/response-typescript.json"
+        ).read_bytes()
+    )["facts"]
+    facts["capabilities"]["sections"] = sections
+    facts["capabilities"]["resolution_features"] = features
+    facts["sections"] = [section for section in facts["sections"] if section["name"] in sections]
+    for name in set(sections) - {section["name"] for section in facts["sections"]}:
+        facts["sections"].append({"name": name, "records": []})
+    decoded = decode_response(json.dumps({"protocol_version": "1.0.0", "facts": facts}).encode())
+    contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": []})
+    with pytest.raises(ProtocolError, match="not registered"):
+        evaluate_source(decoded.facts, contract, roots=("src",), namespace="project")

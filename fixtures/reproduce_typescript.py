@@ -148,7 +148,7 @@ def check_revisions(workspace: Path, output: Path) -> dict:
     )
     path = output / "accepted.json"
     reported = command(root, output, "accepted-report", "report", "--output", str(path))
-    assert reported["declared_rules"] == "PASS", reported
+    assert reported["declared_rules"] == "UNKNOWN", reported
     assert reported["measurements"]["calls_total"] is None
     assert reported["measurements"]["scalars"]["calls_unresolved"] is None
     accepted = parse_observation(decode_canonical_model(json.loads(path.read_bytes())))

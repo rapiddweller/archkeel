@@ -25,7 +25,7 @@ import sys
 import tempfile
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from functools import lru_cache
 from pathlib import Path
 from typing import Final, Literal
@@ -143,7 +143,7 @@ def request_for(
 def _write(root: Path, files: dict[str, str]) -> None:
     for rel, text in files.items():
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
-        (root / rel).write_text(text)
+        (root / rel).write_bytes(text.encode("utf-8"))
 
 
 def _hidden(workspace: Path) -> list[Case]:
@@ -231,9 +231,10 @@ def _identities(workspace: Path) -> list[Case]:
 
 def _fixtures(workspace: Path) -> list[Case]:
     cases = []
+    frozen = json.loads((FIXTURES / "typescript-reference-demos.json").read_text(encoding="utf-8"))
     for name, namespace in (("H-typescript", "shop"), ("H-uml-typescript", "demo")):
         root = workspace / name
-        shutil.copytree(FIXTURES / name, root)
+        _write(root, frozen["fixtures"][name])
         if (root / "resolver-inputs").is_dir():
             shutil.copytree(root / "resolver-inputs", root / "node_modules")
         cases.append(
@@ -244,7 +245,12 @@ def _fixtures(workspace: Path) -> list[Case]:
 
 def _variants(workspace: Path) -> list[Case]:
     cases = []
-    for variant in VARIANTS:
+    # Keep the oracle's exact inputs while the live demo's architecture evolves.
+    frozen = json.loads((FIXTURES / "typescript-reference-demos.json").read_text(encoding="utf-8"))
+    fixture = workspace / "reference-typescript-demo"
+    _write(fixture, frozen["fixtures"]["H-typescript"])
+    for current in VARIANTS:
+        variant = replace(current, fixture=fixture, files=frozen["variants"][current.id])
         root = repository(workspace / "variants", variant)
         config = load_config(root)
         request = request_for(

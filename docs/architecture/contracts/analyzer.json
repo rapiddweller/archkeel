@@ -92,7 +92,7 @@
         "archkeel.analyzer.typescript"
       ],
       "responsibilities": [
-        "Own TypeScript import parsing, module resolution and source-fact collection."
+        "Own TypeScript syntax parsing, module resolution and bounded source-fact collection."
       ],
       "forbidden_responsibilities": [
         "Type-checker semantics, governance policy and sibling adapter imports."

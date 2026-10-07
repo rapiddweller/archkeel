@@ -149,7 +149,11 @@ def _symbol(record: Record, language: str) -> Entity:
         _text(data.get("qualified_name")) or "",
         language,
         visibility=_visibility(data.get("visibility_detail"), _text(data.get("name"))),
-        signature=_signature(data) if kind in {"method", "function"} else None,
+        signature=(
+            _signature(data)
+            if kind in {"method", "function"} and data.get("signature_complete") is not False
+            else None
+        ),
         annotation=_text(data.get("annotation")),
         modifiers=tuple(modifiers),
         presence="defined",
@@ -429,8 +433,8 @@ def _construction_sites(
     if (
         {key for key, _ in construction.entries}
         != {"status", "targets", "candidates_truncated", "reason"}
-        or status not in {"resolved", "partially_resolved"}
-        or not names
+        or status not in {"resolved", "partially_resolved", "unresolved"}
+        or (status == "unresolved") != (not names)
         or not isinstance(truncated, bool)
         or not reason
     ):
@@ -450,7 +454,7 @@ def _construction_sites(
             }
         )
     )
-    if not targets:
+    if status != "unresolved" and not targets:
         raise ValueError("construction needs a recorded classifier candidate")
     resolved = status == "resolved" and len(targets) == 1 and not truncated
     relations: list[tuple[RelationshipKind, str, bool]] = [("creates", source, True)]
@@ -460,18 +464,19 @@ def _construction_sites(
     result: list[Relationship] = []
     for kind, caller, stored in relations:
         proven = resolved and stored
+        unresolved = status == "unresolved"
         result.append(
             Relationship(
                 stable_id("CONSTRUCTION", record.id, kind, caller),
                 kind,
                 caller,
                 targets[0] if proven else None,
-                "resolved" if proven else "partial",
-                candidate_ids=() if proven else targets,
+                "resolved" if proven else "unresolved" if unresolved else "partial",
+                candidate_ids=() if proven or unresolved else targets,
                 expression=_text(record.data.get("expression")),
                 evidence_ids=record.evidence_ids,
                 record_ids=(record.id,),
-                candidate_count=None if truncated else len(targets),
+                candidate_count=None if unresolved or truncated else len(targets),
                 candidates_truncated=truncated,
                 reason=reason if stored else "Storage is unproven; initializer type is a candidate",
             )
@@ -612,10 +617,15 @@ def _section_coverage(
         status, reason = "unavailable", "profile does not publish this section"
     elif observation.coverage.status != "PASS":
         status, reason = "partial", "source observation is incomplete"
+    elif section == "calls" and observation.analyzer.name == "archkeel-typescript-imports":
+        status, reason = (
+            "partial",
+            "observed call sites do not certify an exhaustive module call inventory",
+        )
     elif section == "symbols":
         status, reason = (
             "partial",
-            "legacy profile does not certify an exhaustive lexical symbol inventory",
+            "symbol records do not certify an exhaustive module-level lexical inventory",
         )
     elif section == "references":
         status, reason = "partial", "reference collector omits unresolved and external symbol uses"
@@ -633,7 +643,7 @@ def _partial_inventory_coverage(
             status="partial" if entity.qualified_name in value_modules else "unavailable",
             reason="call-result assignments are recorded; other binding forms remain incomplete"
             if entity.qualified_name in value_modules
-            else "bindings section measures unread names, not static instances",
+            else "the source facts do not certify a complete static binding inventory",
         )
     )
     result.append(
@@ -643,7 +653,7 @@ def _partial_inventory_coverage(
             status="partial" if entity.qualified_name in base_modules else "unavailable",
             reason="explicit bases are recorded; the classifier inventory is not exhaustive"
             if entity.qualified_name in base_modules
-            else "legacy profile has no typed classifier relationship facts",
+            else "no typed classifier relationship facts were recorded",
         )
     )
     result.append(
@@ -689,7 +699,10 @@ def _member_inventory_coverage(
             complete = (
                 inventory.status == "complete"
                 and observation.coverage.status == "PASS"
-                and "enum_literal" not in kinds
+                and (
+                    "enum_literal" not in kinds
+                    or observation.analyzer.name == "archkeel-typescript-imports"
+                )
             )
             result.append(
                 Coverage(
@@ -768,8 +781,14 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
         if entity.kind != "module" or entity.presence != "defined":
             continue
         for section, entity_kinds, relationships in sections:
-            available = observation.records(section) is not None and not (
-                section == "calls" and "calls_unresolved" in profile.unmeasured
+            available = (
+                section not in profile.absent_sections
+                and observation.records(section) is not None
+                and not (
+                    section == "calls"
+                    and "calls_unresolved" in profile.unmeasured
+                    and profile.analyzer != "archkeel-typescript-imports"
+                )
             )
             result.append(
                 _section_coverage(
