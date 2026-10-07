@@ -17,6 +17,9 @@
       id: ATLAS.reference_ids[item.id], kind: ATLAS.reference_ids[item.kind],
       reason: ATLAS.reference_ids[item.reason], scope: ATLAS.reference_ids[item.scope],
       components: item.components.map((index) => ATLAS.reference_ids[index]),
+      uncertainty_actions: (item.uncertainty_actions || []).map((action) => ({
+        ...action, next_action: ATLAS.reference_ids[action.next_action],
+      })),
       evidence: item.evidence.map((entry) => ({
         ...entry, id: ATLAS.reference_ids[entry.id],
       })),
@@ -2689,10 +2692,18 @@
     requestAnimationFrame(() => target.scrollIntoView());
   }
   window.addEventListener("hashchange", openAtlasFindingHash);
+  function atlasComponentNavigation(id) {
+    const component = id && atlasComponent(id);
+    return component && ATLAS.components.some((item) => item.parent_id === id)
+      ? { scope: id, selected: null }
+      : component ? { scope: component.parent_id, selected: id } : { scope: null, selected: null };
+  }
   function atlasComponentHref(id) {
     const query = new URLSearchParams(location.search);
     for (const key of ["component", "scope", "module", "selected", "cell", "content"]) query.delete(key);
-    if (id) query.set("scope", id);
+    const navigation = atlasComponentNavigation(id);
+    if (navigation.scope) query.set("scope", navigation.scope);
+    if (navigation.selected) query.set("selected", navigation.selected);
     query.set("view", viewMode);
     query.set("theme", document.documentElement.dataset.theme);
     return `${location.pathname}?${query}`;
@@ -2705,9 +2716,11 @@
     const link = event.target.closest("[data-atlas-component-route]");
     if (!link || !ATLAS) return;
     const id = link.dataset.atlasComponentRoute || null;
-    if (!ATLAS.levels.some((level) => level.parent_id === id)) return;
+    if (id && !atlasComponent(id)) return;
     event.preventDefault();
-    openAtlasComponent(id);
+    const navigation = atlasComponentNavigation(id);
+    openAtlasComponent(navigation.scope);
+    if (navigation.selected) selectArchitectureSubject("node", navigation.selected);
   }
   (root.closest("main") || root).addEventListener("click", followAtlasComponentRoute);
   document.addEventListener("DOMContentLoaded", () => syncRoute(true), { once: true });
@@ -2751,7 +2764,9 @@
       const uncertainEvidence = item.status === "UNKNOWN" || item.undecided > 0
         ? `<p>Affected scope: ${scope}</p>${affected ? `<p>Affected components: ${affected}</p>` : ""}
           <p>Recorded uncertainty evidence: ${item.evidence.length} of ${item.evidence_count} records.</p>${evidence}
-          <p>Next action: inspect the recorded reason and affected scope; address missing inputs, ownership or unsupported analysis as applicable, then rerun. An UNKNOWN alone does not establish whether a contract decision can resolve it.</p>
+          ${item.uncertainty_actions.length ? `<ul>${item.uncertainty_actions.map((action) =>
+            `<li data-uncertainty-cause="${esc(action.cause)}" data-architect-actionable="${action.architect_actionable ?? "unknown"}"><strong>${esc(action.cause.replaceAll("_", " "))}</strong> · ${action.architect_actionable === true ? "Architect decision required" : action.architect_actionable === false ? "Evidence or analysis action required" : "Architect actionability not established"}: ${esc(action.next_action)}</li>`).join("")}</ul>`
+            : "<p>Next action: inspect the recorded reason and affected scope. No cause was established for this uncertainty.</p>"}
           <p><a href="${esc(ATLAS.architecture_href)}">Complete evidence in architecture JSON</a></p>` : "";
       return `<li><strong class="atlas-rule-status ${esc(item.status.toLowerCase())}">${esc(item.status)}</strong> · ${rule} (${esc(item.kind)}) · ${scope} · ${esc(item.reason)}`
         + `${item.count ? ` · ${countLabel(item.count, "recorded result")}` : ""}`

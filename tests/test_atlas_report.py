@@ -151,6 +151,10 @@ def _atlas(page):
             "reason": data["reference_ids"][row["reason"]],
             "scope": data["reference_ids"][row["scope"]],
             "components": [data["reference_ids"][index] for index in row["components"]],
+            "uncertainty_actions": [
+                {**action, "next_action": data["reference_ids"][action["next_action"]]}
+                for action in row["uncertainty_actions"]
+            ],
             "evidence": [
                 {**entry, "id": data["reference_ids"][entry["id"]]} for entry in row["evidence"]
             ],
@@ -217,6 +221,7 @@ def test_default_report_is_one_authentic_repository_with_sparse_native_cells(tmp
             "components": list(item.components),
             "component_ids": list(item.components),
             "evaluation_proven": item.evaluation_proven,
+            "uncertainty_actions": [],
             "evidence_count": 0,
             "evidence": [],
         }

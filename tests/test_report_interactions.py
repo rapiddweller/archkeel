@@ -5,7 +5,7 @@
 
 import json
 from dataclasses import replace
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 import pytest
 from browser_report_support import _browser_page, _open_details
@@ -72,7 +72,14 @@ def test_atlas_labels_count_scopes_and_oversized_evidence_without_losing_route_s
                 link = claim.get_by_role("link", name="core")
                 link.click()
                 query = parse_qs(urlsplit(page.url).query)
-                assert query["scope"] == ["core"]
+                assert query["selected"] == ["core"]
+                assert "scope" not in query
+                assert (
+                    page.locator('.flow-nodes [aria-pressed="true"]').get_attribute("data-uml-id")
+                    == "core"
+                )
+                assert "core" in page.locator(".flow-inspector-content").inner_text()
+                assert page.locator('.flow-scope-notice[role="status"]').count() == 0
                 assert query["view"] == ["target"]
                 assert query["theme"] == ["dark"]
                 assert page.locator("html").get_attribute("data-theme") == "dark"
@@ -109,11 +116,15 @@ def test_atlas_unknown_rule_links_its_analyzer_gap_while_failures_remain_visible
         inspector = page.locator(".flow-inspector-content")
         inspector.locator(".atlas-rule-assessments summary").click()
         assert unknown["id"] in inspector.inner_text()
-        assert "An UNKNOWN alone does not establish" in inspector.inner_text()
-        assert (
-            "Analyzer limitation: a contract decision cannot resolve" not in inspector.inner_text()
-        )
+        assert "unsupported analysis" in inspector.inner_text()
+        assert "A contract decision cannot resolve this analysis gap" in inspector.inner_text()
         assert "boundary_type_route" in inspector.inner_text()
+        assert (
+            inspector.locator(
+                '[data-uncertainty-cause="unsupported_analysis"][data-architect-actionable="false"]'
+            ).count()
+            >= 1
+        )
         assert "UNKNOWN" in page.locator(".decision-banner").inner_text()
         assert not errors
     finally:
@@ -149,7 +160,13 @@ def test_atlas_unknown_ownership_gap_points_to_the_required_decision(tmp_path):
         inspector.locator(".atlas-rule-assessments summary").click()
         assert "rule_ownership_blocker" in inspector.inner_text()
         assert "Assign it to one existing component" in inspector.inner_text()
-        assert "code changes alone" not in inspector.inner_text()
+        assert "missing ownership" in inspector.inner_text()
+        assert (
+            inspector.locator(
+                '[data-uncertainty-cause="missing_ownership"][data-architect-actionable="true"]'
+            ).count()
+            >= 1
+        )
     finally:
         browser.close()
         playwright.stop()
@@ -379,10 +396,8 @@ def test_atlas_fail_with_undecided_and_mixed_evidence_keeps_all_actions(tmp_path
         assert assessment.id in inspector.inner_text()
         assert "FAIL" in inspector.inner_text()
         assert "undecided result" in inspector.inner_text()
-        assert "An UNKNOWN alone does not establish" in inspector.inner_text()
-        assert (
-            "Analyzer limitation: a contract decision cannot resolve" not in inspector.inner_text()
-        )
+        assert "unsupported analysis" in inspector.inner_text()
+        assert "A contract decision cannot resolve this analysis gap" in inspector.inner_text()
         assert "rule_ownership_blocker" in inspector.inner_text()
         assert "Assign it to one existing component" in inspector.inner_text()
     finally:
@@ -857,6 +872,90 @@ def test_atlas_rule_scope_and_components_have_distinct_native_routes(tmp_path, c
         playwright.stop()
 
 
+def test_atlas_component_routes_select_leafs_and_open_inside_scopes(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    root, config = _nested_repository(tmp_path)
+    contract_path = root / config.contract
+    contract = json.loads(contract_path.read_text())
+    contract["components"].append(_permission_contract()["components"][1])
+    contract_path.write_text(json.dumps(contract))
+    result, architecture = run_report(root, config=config, analyzer=observe)
+    assert architecture is not None
+    html = render_architecture_html(
+        result, architecture, repository="nested", architecture_href="architecture.json"
+    ).decode()
+    atlas = _atlas(html)
+    root_leaf = next(item for item in atlas["components"] if item["id"] == "PEER")
+    nested_leaf = next(
+        item
+        for item in atlas["components"]
+        if item["parent_id"]
+        and not any(child["parent_id"] == item["id"] for child in atlas["components"])
+    )
+    inside = next(
+        item
+        for item in atlas["components"]
+        if any(child["parent_id"] == item["id"] for child in atlas["components"])
+    )
+    report = tmp_path / "atlas-leaf-routes.report.html"
+    report.write_text(html)
+    playwright, browser, page = _browser_page(api, html)
+    try:
+        page.goto(f"{report.as_uri()}?theme=dark")
+        page.evaluate("""() => {
+            const link = document.createElement('a');
+            link.href = '#'; link.dataset.atlasComponentRoute = ''; link.textContent = 'root';
+            document.querySelector('main').append(link);
+        }""")
+        page.evaluate("window.navigationSentinel = 42")
+        page.get_by_role("link", name="root", exact=True).click()
+        assert "scope" not in parse_qs(urlsplit(page.url).query)
+        assert page.evaluate("window.navigationSentinel") == 42
+        assert page.locator('.flow-scope-notice[role="status"]').count() == 0
+        for component in (root_leaf, nested_leaf, inside):
+            page.evaluate(
+                """id => {
+                const link = document.createElement('a');
+                link.href = '#'; link.dataset.atlasComponentRoute = id; link.textContent = id;
+                document.querySelector('main').append(link);
+            }""",
+                component["id"],
+            )
+            page.get_by_role("link", name=component["id"], exact=True).last.click()
+            query = parse_qs(urlsplit(page.url).query)
+            assert page.locator('.flow-scope-notice[role="status"]').count() == 0
+            inspector = page.locator(".flow-inspector-content")
+            assert component["label"] in inspector.inner_text()
+            if component in (root_leaf, nested_leaf):
+                assert (
+                    page.locator('.flow-nodes [aria-pressed="true"]').get_attribute("data-uml-id")
+                    == component["id"]
+                )
+                assert query["selected"] == [component["id"]]
+                if component["parent_id"]:
+                    assert query["scope"] == [component["parent_id"]]
+                else:
+                    assert "scope" not in query
+            else:
+                assert query["scope"] == [component["id"]]
+                assert "selected" not in query
+            href = page.get_by_role("link", name=component["id"], exact=True).last.get_attribute(
+                "href"
+            )
+            assert parse_qs(urlsplit(href).query) == query
+            page.goto(urljoin(page.url, href))
+            assert page.locator('.flow-scope-notice[role="status"]').count() == 0
+            assert component["label"] in page.locator(".flow-inspector-content").inner_text()
+            if component in (root_leaf, nested_leaf):
+                assert (
+                    page.locator('.flow-nodes [aria-pressed="true"]').get_attribute("data-uml-id")
+                    == component["id"]
+                )
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 def test_atlas_uncertainty_preview_is_bounded_and_excludes_success_receipts(tmp_path):
     api = pytest.importorskip("playwright.sync_api")
     model = _sample(tmp_path)
@@ -894,6 +993,50 @@ def test_atlas_uncertainty_preview_is_bounded_and_excludes_success_receipts(tmp_
         assert "5 of 13 records" in rules.inner_text()
         assert "Complete evidence in architecture JSON" in rules.inner_text()
         assert "rule_evaluation" not in rules.inner_text()
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_atlas_incomplete_execution_keeps_evidence_action_separate_from_intent(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    observed = _sample(tmp_path)
+    model = replace(
+        observed,
+        coverage=replace(
+            observed.coverage, status="FAIL", files_parsed=0, ast_coverage_percent=0.0
+        ),
+    )
+    result = _atlas_result(model)
+    result = replace(
+        result,
+        observation_complete="UNKNOWN",
+        declared_rules="UNKNOWN",
+        rule_assessments=tuple(replace(item, status="UNKNOWN") for item in result.rule_assessments),
+    )
+    html = render_architecture_html(
+        result,
+        canonical_report_bytes(model),
+        repository="partial",
+        architecture_href="architecture.json",
+    ).decode()
+    atlas = _atlas(html)
+    assert any(
+        action["cause"] == "incomplete_execution" and action["architect_actionable"] is False
+        for row in atlas["rule_assessments"]
+        for action in row["uncertainty_actions"]
+    )
+    playwright, browser, page = _browser_page(api, html)
+    try:
+        page.locator(".flow-inspector-content .atlas-rule-assessments summary").click()
+        inspector = page.locator(".flow-inspector-content")
+        assert "Complete source observation before judging this rule" in inspector.inner_text()
+        assert (
+            inspector.locator(
+                '[data-uncertainty-cause="incomplete_execution"][data-architect-actionable="false"]'
+            ).count()
+            >= 1
+        )
     finally:
         browser.close()
         playwright.stop()

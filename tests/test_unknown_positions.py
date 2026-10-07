@@ -27,6 +27,7 @@ from test_delta import _evidence, _model, _record
 from archkeel.check.ratchets import compare_ratchets, measure_python_ratchets, unknown_positions
 from archkeel.check.run import inspect_observation
 from archkeel.ir.codec import parse_observation
+from archkeel.ir.decisions import rule_uncertainty_evidence
 from archkeel.ir.measurements import RatchetError
 from archkeel.ir.model import Observation
 
@@ -166,6 +167,44 @@ def test_boundary_position_records_are_counted_once_and_must_match_aggregate() -
     duplicate["rule_ids"] = ["BOUNDARY"]
     with pytest.raises(RatchetError, match="duplicate logical coordinates"):
         unknown_positions(_observation(aggregate, position, duplicate))
+
+
+def test_rule_uncertainty_uses_aggregate_counts_and_excludes_neutral_positions() -> None:
+    external = {
+        "module": "sample.api",
+        "qualified_name": "sample.api.fetch",
+        "position": "external",
+        "annotation": "datetime.datetime",
+        "reason": "external_type",
+        "occurrence": 0,
+    }
+    forward = {**external, "position": "forward", "reason": "forward_reference", "occurrence": 1}
+    aggregate = _boundary_type_limit(
+        "BOUNDARY", positions=2, decided=0, external_type=1, forward_reference=1
+    )
+    aggregate["rule_ids"] = ["RULE-BOUNDARY"]
+    aggregate["data"]["undecidable_positions"] = [external, forward]
+    external_record = _unknown("POSITION-EXTERNAL", "boundary_type_position", external)
+    external_record["rule_ids"] = ["RULE-BOUNDARY"]
+    forward_record = _unknown("POSITION-FORWARD", "boundary_type_position", forward)
+    forward_record["rule_ids"] = ["RULE-BOUNDARY"]
+
+    result = rule_uncertainty_evidence(_observation(aggregate, external_record, forward_record))[
+        "RULE-BOUNDARY"
+    ]
+
+    assert result.undecided_positions == 1
+    assert [record.id for record in result.evidence] == ["BOUNDARY", "POSITION-FORWARD"]
+    assert result.actions[0].cause.value == "unknown"
+
+    neutral_aggregate = _boundary_type_limit("NEUTRAL", positions=1, decided=0, external_type=1)
+    neutral_aggregate["rule_ids"] = ["RULE-NEUTRAL"]
+    neutral_aggregate["data"]["undecidable_positions"] = [external]
+    neutral_position = _unknown("POSITION-NEUTRAL", "boundary_type_position", external)
+    neutral_position["rule_ids"] = ["RULE-NEUTRAL"]
+    assert "RULE-NEUTRAL" not in rule_uncertainty_evidence(
+        _observation(neutral_aggregate, neutral_position)
+    )
 
 
 def test_new_analyzer_requires_position_details_for_boundary_aggregates() -> None:

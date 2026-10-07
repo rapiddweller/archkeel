@@ -453,7 +453,8 @@ def _rule_assessments_payload(
     for item in result.rule_assessments or ():
         scope_id = scopes.get(item.id)
         scope = components[scope_id].scope if scope_id in components else item.scope
-        records = evidence.get(item.id, ()) if item.status == "UNKNOWN" or item.undecided else ()
+        uncertainty = evidence.get(item.id) if item.status == "UNKNOWN" or item.undecided else None
+        records = uncertainty.evidence if uncertainty is not None else ()
         rows.append(
             {
                 "id": references.setdefault(item.id, len(references)),
@@ -476,6 +477,16 @@ def _rule_assessments_payload(
                     )
                 ],
                 "evaluation_proven": item.evaluation_proven,
+                "uncertainty_actions": [
+                    {
+                        "cause": action.cause.value,
+                        "architect_actionable": action.architect_actionable,
+                        "next_action": references.setdefault(action.next_action, len(references)),
+                    }
+                    for action in uncertainty.actions
+                ]
+                if uncertainty is not None
+                else [],
                 "evidence_count": len(records),
                 "evidence": [
                     {

@@ -16,6 +16,7 @@ from archkeel.check.validation import closed_world_diagnostics
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
 from archkeel.ir.decisions import (
+    RuleUncertaintyCause,
     agent_decisions,
     dependency_rule_ids,
     open_decisions,
@@ -155,11 +156,22 @@ def test_rule_uncertainty_evidence_groups_only_rule_unknowns_and_ownership_block
     grouped = rule_uncertainty_evidence(observation)
 
     assert list(grouped) == ["RULE-A", "RULE-B"]
-    assert [record.id for record in grouped["RULE-A"]] == ["BLOCKER-B", "UNKNOWN-A"]
-    assert [record.id for record in grouped["RULE-B"]] == [
+    assert [record.id for record in grouped["RULE-A"].evidence] == [
+        "BLOCKER-B",
+        "FACT-ONLY",
+        "UNKNOWN-A",
+    ]
+    assert [record.id for record in grouped["RULE-B"].evidence] == [
         "BLOCKER-B",
         "UNKNOWN-A",
         "UNKNOWN-Z",
+    ]
+    assert grouped["RULE-A"].undecided_positions == 2
+    assert [
+        (action.cause, action.architect_actionable) for action in grouped["RULE-A"].actions
+    ] == [
+        (RuleUncertaintyCause.MISSING_OWNERSHIP, True),
+        (RuleUncertaintyCause.UNKNOWN, None),
     ]
     reversed_observation = replace(
         observation,
@@ -171,6 +183,128 @@ def test_rule_uncertainty_evidence_groups_only_rule_unknowns_and_ownership_block
         ),
     )
     assert rule_uncertainty_evidence(reversed_observation) == grouped
+
+
+def test_boundary_route_and_forward_reference_causes() -> None:
+    route = Record(
+        "ROUTE",
+        EvidenceClass.UNKNOWN,
+        "type_architecture",
+        "boundary_type_route",
+        "route",
+        (),
+        (),
+        ("RULE-ROUTE",),
+        (),
+        (),
+        RecordData((("reason", "unresolved_reexport_route"),)),
+    )
+    forward = Record(
+        "FORWARD",
+        EvidenceClass.UNKNOWN,
+        "type_architecture",
+        "forward_reference",
+        "forward",
+        (),
+        (),
+        ("RULE-FORWARD",),
+        (),
+        (),
+        RecordData((("undecided", 2),)),
+    )
+    observation = replace(
+        _observation(()),
+        sections=(
+            *_observation(()).sections,
+            Section("unknowns", (route, forward)),
+        ),
+    )
+
+    result = rule_uncertainty_evidence(observation)
+
+    assert result["RULE-ROUTE"].undecided_positions == 1
+    assert [
+        (action.cause, action.architect_actionable) for action in result["RULE-ROUTE"].actions
+    ] == [
+        (RuleUncertaintyCause.UNSUPPORTED_ANALYSIS, False),
+    ]
+    assert (
+        result["RULE-ROUTE"]
+        .actions[0]
+        .next_action.startswith("A contract decision cannot resolve this analysis gap")
+    )
+    assert result["RULE-FORWARD"].undecided_positions == 2
+    assert [
+        (action.cause, action.architect_actionable) for action in result["RULE-FORWARD"].actions
+    ] == [
+        (RuleUncertaintyCause.UNKNOWN, None),
+    ]
+
+    unsupported_profile = replace(route, id="PROFILE", kind="rule-unsupported-by-profile")
+    mixed = replace(observation, sections=(Section("unknowns", (route, unsupported_profile)),))
+    actions = rule_uncertainty_evidence(mixed)["RULE-ROUTE"].actions
+    assert len(actions) == 2
+    assert [action.next_action for action in actions] == sorted(
+        action.next_action for action in actions
+    )
+
+
+def test_rule_uncertainty_separates_missing_scope_intent_from_incomplete_execution() -> None:
+    missing_intent = Record(
+        "SCOPE-INTENT",
+        EvidenceClass.UNKNOWN,
+        "analysis_coverage",
+        "inside_source_domain_incomplete",
+        "scope mismatch",
+        (),
+        (),
+        ("RULE-INTENT",),
+        (),
+        (),
+        RecordData(),
+    )
+    incomplete = Record(
+        "SCOPE-FAILED",
+        EvidenceClass.UNKNOWN,
+        "analysis_coverage",
+        "component_scope_assignment_incomplete",
+        "source scan failed",
+        (),
+        (),
+        ("RULE-INCOMPLETE",),
+        (),
+        (),
+        RecordData(),
+    )
+    base = _observation(())
+    observation = replace(
+        base, sections=(*base.sections, Section("unknowns", (missing_intent, incomplete)))
+    )
+
+    result = rule_uncertainty_evidence(observation)
+
+    assert [
+        (action.cause, action.architect_actionable) for action in result["RULE-INTENT"].actions
+    ] == [
+        (RuleUncertaintyCause.MISSING_INTENT, True),
+    ]
+    assert [
+        (action.cause, action.architect_actionable) for action in result["RULE-INCOMPLETE"].actions
+    ] == [
+        (RuleUncertaintyCause.INCOMPLETE_EXECUTION, False),
+    ]
+
+    failed_scope = replace(
+        observation,
+        coverage=replace(observation.coverage, status="FAIL", failures=(missing_intent,)),
+    )
+    failed_result = rule_uncertainty_evidence(failed_scope)["RULE-INTENT"]
+    assert failed_result.undecided_positions == 0
+    assert failed_result.evidence == (missing_intent,)
+    assert {action.cause for action in failed_result.actions} == {
+        RuleUncertaintyCause.MISSING_INTENT,
+        RuleUncertaintyCause.INCOMPLETE_EXECUTION,
+    }
 
 
 @pytest.mark.parametrize(
