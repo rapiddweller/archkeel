@@ -1,12 +1,12 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-typescript ci-artifacts-clean mermaid check test collector-safety typescript-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing
+.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety typescript-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing
 
 check: lint typecheck test
 
 # These stages consume the previous stage's success, even with make -j.
-.NOTPARALLEL: gate release-check ci ci-check ci-core-check ci-report-check
+.NOTPARALLEL: gate release-check ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check
 
 gate: $(if $(strip $(BASE)),against,self-validate) release-check
 
@@ -19,6 +19,23 @@ ci-check: ci-artifacts-clean ci-core-check ci-report-check
 ci-core-check: gate ci-typescript
 
 ci-report-check: report-timing browser-install report-browser
+
+ci-pr-check: $(if $(strip $(BASE)),against,self-validate) lint typecheck pr-test
+
+ci-pr-report-check: browser-install pr-report-test
+
+pr-test:
+	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 \
+		-q --durations=10 --junitxml=test-artifacts/pytest/pr-core.xml \
+		tests/test_ci_changes.py tests/test_make_gate.py tests/test_repository_hygiene.py \
+		tests/test_contract_model.py tests/test_collection_protocol.py tests/test_source_trust_boundary.py \
+		tests/test_analyzer.py tests/test_typescript_config.py tests/test_typescript_resolve.py \
+		tests/test_uml_comparison.py tests/test_saved_report.py tests/test_cli.py
+
+pr-report-test:
+	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q \
+		--junitxml=test-artifacts/pytest/pr-report.xml tests/test_report_pages.py \
+		tests/test_report_interactions.py tests/test_uml_rendering.py
 
 ci-typescript: OUTPUT := test-artifacts/typescript-demo
 ci-typescript: demo-typescript

@@ -34,7 +34,7 @@ def _run_gate(
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     steps = tmp_path / "steps"
     overrides = tmp_path / "Makefile"
-    names = [*CI_STEPS, "against"]
+    names = [*CI_STEPS, "against", "pr-test", "pr-report-test"]
     recipes = []
     for name in names:
         output_guard = ""
@@ -141,6 +141,24 @@ def test_against_receives_the_exact_ci_base_and_stops_before_tests(tmp_path: Pat
     ]
 
 
+@pytest.mark.parametrize("failed", [None, "against", "pr-test"])
+def test_pr_gate_keeps_policy_and_stops_before_later_checks(tmp_path, failed):
+    result, steps = _run_gate(tmp_path, "ci-pr-check", failed, 2, False, base="a" * 40)
+    assert steps == (["against"] if failed == "against" else ["against", "pr-test"])
+    assert result.returncode == (0 if failed is None else 2)
+
+
+@pytest.mark.parametrize("failed", [None, "browser-install", "pr-report-test"])
+def test_pr_report_gate_runs_its_browser_sample_and_propagates_failure(tmp_path, failed):
+    result, steps = _run_gate(tmp_path, "ci-pr-report-check", failed, 2, False)
+    assert steps == (
+        ["browser-install"]
+        if failed == "browser-install"
+        else ["browser-install", "pr-report-test"]
+    )
+    assert result.returncode == (0 if failed is None else 2)
+
+
 def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     check = workflow.split("  check:\n", 1)[1].split("\n  collector-safety-windows:", 1)[0]
@@ -148,11 +166,19 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     assert "run: make ci-core-check\n" in check
     assert "run: make ci-report-check\n" in check
     assert "continue-on-error" not in check
-    assert "timeout-minutes: 60" in check
+    assert "timeout-minutes: ${{ github.event_name == 'pull_request' && 15 || 60 }}" in check
+    assert "run: make ci-pr-check\n" in check
+    assert "run: make ci-pr-report-check\n" in check
+    for heading in ("Run full core checks", "Run full report checks"):
+        step = check.split(f"- name: {heading}\n", 1)[1].split("\n      - name:", 1)[0]
+        assert "github.event_name == 'push'" in step
+    for heading in ("Run PR core checks", "Run PR report checks"):
+        step = check.split(f"- name: {heading}\n", 1)[1].split("\n      - name:", 1)[0]
+        assert "github.event_name == 'pull_request'" in step
     assert "Observe Archkeel" not in check
     assert "archkeel-self-observation" not in check
     assert "path: test-artifacts/report-timing/architecture.timing.json" in check
-    assert "path: test-artifacts/pytest/results.xml" in check
+    assert "path: test-artifacts/pytest/*.xml" in check
     assert "path: test-artifacts/report-browser/" in check
     assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in workflow
     assert (
@@ -165,6 +191,11 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     assert 'python: ["3.11.12", "3.12.10"]' in native
     assert "make typescript-native SHELL=bash" in native
     assert "make build smoke SHELL=bash" in native
+    assert "if: github.event_name == 'push' && needs.changes.outputs.core == 'true'" in native
+    safety = workflow.split("  collector-safety-windows:\n", 1)[1].split(
+        "\n  typescript-native:", 1
+    )[0]
+    assert "if: github.event_name == 'push' && needs.changes.outputs.core == 'true'" in safety
     assert "collector-runtimes:" not in workflow
 
 

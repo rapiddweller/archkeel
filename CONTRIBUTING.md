@@ -18,15 +18,20 @@ Flow browser tests and Mermaid rendering require Node.js 22; CI installs it for 
 ## Before you push
 
 ```bash
-make ci BASE=origin/main                 # policy, release checks, TypeScript, browser and Mermaid
+make ci-pr-check BASE=origin/main        # policy, lint, types and representative Core tests
+make ci-pr-report-check                  # browser sample for report changes
 ```
 
 Policy validation runs first. `BASE` also checks widenings and amendments; CI pins the PR base SHA.
-Without `BASE`, `make gate` validates only the checked-out policy before release checks.
-CI splits this command into `make ci-check` and the parallel `make mermaid` job.
-Native TypeScript collection runs on Linux and Windows with Python 3.11 and 3.12.
-Obsolete PR runs cancel automatically;
-main runs stay independent. The main check has a 60-minute cap, not a performance guarantee.
+Without `BASE`, the local gate validates only the checked-out policy.
+PRs select Core and report samples by changed area; Mermaid checks follow Markdown changes.
+These samples do not replace testing the behavior you change. Rare or platform-specific
+regressions may first surface on Main. The PR check has a 15-minute cap.
+
+Every Main push runs the full `make ci`: all tests, build/smoke, TypeScript demos, report timing,
+browser acceptance and Mermaid. Native collector matrices also run on Main, including
+Linux/Windows and Python 3.11/3.12. Use `make ci BASE=origin/main` locally for that full scope.
+Obsolete PR runs cancel automatically; Main runs remain independent with a 60-minute check cap.
 
 Every push to `main` also builds and publishes the [current architecture report](https://rapiddweller.github.io/archkeel/).
 PRs run the same report build, Pages configuration check and artifact upload as Main.
@@ -36,8 +41,9 @@ Reports retain FAIL and UNKNOWN findings. A failed report build leaves the publi
 Pages jobs run serially, and superseded revisions do not replace the current Main report.
 GitHub Pages must use **GitHub Actions** as its publishing source.
 
-Run `make report-pages` to generate the same site in `test-artifacts/pages/`: the overview,
-shared detail page, canonical JSON and a small index redirect opening the dark theme.
+Run `make report-pages` to generate the same site in `test-artifacts/pages/`: an entry page,
+the current report and 24 Python/Dart/TypeScript demos with shared detail pages and canonical
+JSON. Demo links open in the dark theme; `/demos/` leads to the gallery.
 
 ## Regenerate the self-observation
 
