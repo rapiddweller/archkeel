@@ -31,7 +31,8 @@ pr-test:
 		tests/test_contract_model.py tests/test_decisions.py tests/test_collection_protocol.py tests/test_source_trust_boundary.py \
 		tests/test_analyzer.py tests/test_typescript_config.py tests/test_typescript_resolve.py \
 		tests/test_uml_comparison.py tests/test_saved_report.py tests/test_cli.py \
-		tests/test_unknown_positions.py
+		tests/test_unknown_positions.py \
+		tests/test_inside_rule_coverage.py
 
 pr-report-test:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q \

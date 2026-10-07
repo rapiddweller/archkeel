@@ -185,7 +185,7 @@ def test_rule_uncertainty_evidence_groups_only_rule_unknowns_and_ownership_block
     assert rule_uncertainty_evidence(reversed_observation) == grouped
 
 
-def test_boundary_route_and_forward_reference_causes() -> None:
+def test_boundary_route_and_unclassified_record_causes() -> None:
     route = Record(
         "ROUTE",
         EvidenceClass.UNKNOWN,
@@ -203,8 +203,8 @@ def test_boundary_route_and_forward_reference_causes() -> None:
         "FORWARD",
         EvidenceClass.UNKNOWN,
         "type_architecture",
-        "forward_reference",
-        "forward",
+        "unclassified_future_gap",
+        "unclassified",
         (),
         (),
         ("RULE-FORWARD",),

@@ -19,7 +19,7 @@ from archkeel.check.validation import inside_diagnostics
 from archkeel.cli import main
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
-from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.decisions import RuleUncertaintyCause, rule_assessments, rule_uncertainty_evidence
 from archkeel.ir.model import Observation
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
@@ -300,8 +300,9 @@ def test_inside_component_cannot_claim_packages_outside_its_parent(tmp_path: Pat
     ), diagnostics
 
 
+@pytest.mark.parametrize("claim", ["packages", "exact_modules"])
 def test_out_of_parent_inside_is_unknown_in_report_not_a_foreign_violation(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], claim: str
 ) -> None:
     _write_inside_case(
         tmp_path,
@@ -322,7 +323,10 @@ def test_out_of_parent_inside_is_unknown_in_report_not_a_foreign_violation(
     outer_path.write_text(json.dumps(outer))
     inside_path = tmp_path / "inner.json"
     inside = json.loads(inside_path.read_bytes())
-    inside["components"][0]["packages"] = ["sample.foreign"]
+    inside["components"][0]["packages"] = []
+    inside["components"][0][claim] = [
+        "sample.foreign.x" if claim == "exact_modules" else "sample.foreign"
+    ]
     inside_path.write_text(json.dumps(inside))
     foreign = tmp_path / "sample/foreign"
     foreign.mkdir()
@@ -350,6 +354,21 @@ def test_out_of_parent_inside_is_unknown_in_report_not_a_foreign_violation(
         "UNKNOWN",
         True,
         0,
+    )
+    uncertainty = rule_uncertainty_evidence(observation)["core:REQUIRES-COMPLETE"]
+    action = next(
+        item for item in uncertainty.actions if item.cause == RuleUncertaintyCause.MISSING_INTENT
+    )
+    assert action.architect_actionable is True
+    assert action.next_action == (
+        "Align the affected child component's packages/exact_modules with the parent "
+        "component's source domain."
+    )
+    evidence = next(
+        item for item in uncertainty.evidence if item.kind == "inside_source_domain_incomplete"
+    )
+    assert evidence.data.get(claim) == (
+        "sample.foreign.x" if claim == "exact_modules" else "sample.foreign",
     )
 
 

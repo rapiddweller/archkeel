@@ -169,7 +169,13 @@ def test_boundary_position_records_are_counted_once_and_must_match_aggregate() -
         unknown_positions(_observation(aggregate, position, duplicate))
 
 
-def test_rule_uncertainty_uses_aggregate_counts_and_excludes_neutral_positions() -> None:
+@pytest.mark.parametrize(
+    "reason, cause, actionable",
+    [("forward_reference", "unsupported_analysis", False), ("dotted_name", "unknown", None)],
+)
+def test_rule_uncertainty_uses_aggregate_counts_and_excludes_neutral_positions(
+    reason: str, cause: str, actionable: bool | None
+) -> None:
     external = {
         "module": "sample.api",
         "qualified_name": "sample.api.fetch",
@@ -178,9 +184,9 @@ def test_rule_uncertainty_uses_aggregate_counts_and_excludes_neutral_positions()
         "reason": "external_type",
         "occurrence": 0,
     }
-    forward = {**external, "position": "forward", "reason": "forward_reference", "occurrence": 1}
+    forward = {**external, "position": "forward", "reason": reason, "occurrence": 1}
     aggregate = _boundary_type_limit(
-        "BOUNDARY", positions=2, decided=0, external_type=1, forward_reference=1
+        "BOUNDARY", positions=2, decided=0, **{"external_type": 1, reason: 1}
     )
     aggregate["rule_ids"] = ["RULE-BOUNDARY"]
     aggregate["data"]["undecidable_positions"] = [external, forward]
@@ -195,7 +201,9 @@ def test_rule_uncertainty_uses_aggregate_counts_and_excludes_neutral_positions()
 
     assert result.undecided_positions == 1
     assert [record.id for record in result.evidence] == ["BOUNDARY", "POSITION-FORWARD"]
-    assert result.actions[0].cause.value == "unknown"
+    assert [(action.cause.value, action.architect_actionable) for action in result.actions] == [
+        (cause, actionable)
+    ]
 
     neutral_aggregate = _boundary_type_limit("NEUTRAL", positions=1, decided=0, external_type=1)
     neutral_aggregate["rule_ids"] = ["RULE-NEUTRAL"]

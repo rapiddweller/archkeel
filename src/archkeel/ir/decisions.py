@@ -81,11 +81,11 @@ _INCOMPLETE_EXECUTION_ACTION = RuleUncertaintyAction(
 )
 
 
-_UNSUPPORTED_ROUTE_ACTION = RuleUncertaintyAction(
+_UNSUPPORTED_TYPE_ACTION = RuleUncertaintyAction(
     RuleUncertaintyCause.UNSUPPORTED_ANALYSIS,
     False,
-    "A contract decision cannot resolve this analysis gap; inspect the route evidence "
-    "and improve analyzer support or provide a provable source route.",
+    "A contract decision cannot resolve this analysis gap; inspect the recorded type evidence "
+    "and improve analyzer support or provide provable source annotations or re-export routes.",
 )
 
 
@@ -270,7 +270,7 @@ def _rule_uncertainty_action(record: Record) -> RuleUncertaintyAction:
         )
     route_details = record.data.get("undecidable_positions")
     if record.kind == "boundary_type_route":
-        return _UNSUPPORTED_ROUTE_ACTION
+        return _UNSUPPORTED_TYPE_ACTION
     elif record.kind == "rule-unsupported-by-profile":
         return RuleUncertaintyAction(
             RuleUncertaintyCause.UNSUPPORTED_ANALYSIS,
@@ -282,24 +282,26 @@ def _rule_uncertainty_action(record: Record) -> RuleUncertaintyAction:
         return RuleUncertaintyAction(
             RuleUncertaintyCause.MISSING_INTENT,
             True,
-            "Align the declared rule scope with the parent source domain.",
+            "Align the affected child component's packages/exact_modules with the parent "
+            "component's source domain.",
         )
     elif record.kind == "component_scope_assignment_incomplete":
         return _INCOMPLETE_EXECUTION_ACTION
-    elif (
-        record.kind == "boundary_type_position"
-        and record.data.get("reason") == "unresolved_reexport_route"
-    ):
-        return _UNSUPPORTED_ROUTE_ACTION
+    elif record.kind == "boundary_type_position" and record.data.get("reason") in {
+        "unresolved_reexport_route",
+        "forward_reference",
+    }:
+        return _UNSUPPORTED_TYPE_ACTION
     elif (
         record.kind == "boundary_type_limit"
         and isinstance(route_details, tuple)
         and any(
-            isinstance(item, RecordData) and item.get("reason") == "unresolved_reexport_route"
+            isinstance(item, RecordData)
+            and item.get("reason") in {"unresolved_reexport_route", "forward_reference"}
             for item in route_details
         )
     ):
-        return _UNSUPPORTED_ROUTE_ACTION
+        return _UNSUPPORTED_TYPE_ACTION
     else:
         return RuleUncertaintyAction(
             RuleUncertaintyCause.UNKNOWN,

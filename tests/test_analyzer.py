@@ -36,6 +36,7 @@ from archkeel.ir.codec import (
     observation_payload,
     parse_contract,
 )
+from archkeel.ir.decisions import RuleUncertaintyCause, rule_uncertainty_evidence
 from archkeel.ir.digest import package_digest
 from archkeel.ir.interfaces import component_owners
 from archkeel.ir.model import (
@@ -1990,6 +1991,18 @@ def test_boundary_types_reports_a_position_it_could_not_decide(tmp_path: Path) -
         },
     ]
     assert unknown_positions(result.observation) == 3
+    uncertainty = rule_uncertainty_evidence(result.observation)["APP-TYPES-NOT-DICT"]
+    assert uncertainty.undecided_positions == 3
+    assert {(action.cause, action.architect_actionable) for action in uncertainty.actions} == {
+        (RuleUncertaintyCause.UNSUPPORTED_ANALYSIS, False),
+        (RuleUncertaintyCause.UNKNOWN, None),
+    }
+    action = next(
+        item
+        for item in uncertainty.actions
+        if item.cause == RuleUncertaintyCause.UNSUPPORTED_ANALYSIS
+    )
+    assert "A contract decision cannot resolve this analysis gap" in action.next_action
     # A position the rule cannot decide is a reported limit, not a gate: the run stays clean
     # and the rule still holds a verdict, because it decided the positions it could.
     assert result.observation.coverage.rules == "PASS"
