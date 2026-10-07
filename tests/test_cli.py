@@ -32,6 +32,84 @@ _PROBE = (
 )
 
 
+def _sparse_init_repository(root: Path, modules: int) -> Path:
+    package = root / "src" / "sample"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    for index in range(modules):
+        imports = "from sample.module_1 import VALUE\n" if index == 0 else ""
+        (package / f"module_{index}.py").write_text(f"{imports}VALUE = 1\n")
+    (root / "pyproject.toml").write_text('[project]\nname = "sample"\nrequires-python = ">=3.11"\n')
+    for args in (
+        ("init", "-q"),
+        ("config", "user.email", "init@example.invalid"),
+        ("config", "user.name", "Archkeel init"),
+        ("add", "."),
+        ("commit", "-qm", "snapshot"),
+    ):
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+    return root
+
+
+@pytest.mark.parametrize("modules", [39, 100])
+def test_init_compact_payload_counts_sparse_decisions(
+    tmp_path: Path, capsys: pytest.CaptureFixture, modules: int
+) -> None:
+    root = _sparse_init_repository(tmp_path, modules)
+
+    assert (
+        main(
+            [
+                "init",
+                "--root",
+                str(root),
+                "--source",
+                "src/sample",
+                "--namespace",
+                "sample",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    result = json.loads(output)
+
+    assert result["open_decision_count"] == modules * (modules - 1)
+    assert len(result["open_decisions"]) == 1
+    assert result["open_decisions"][0]["observed"] is True
+    assert result["open_decisions_complete"] is False
+    assert len(output) < 8_000
+
+
+def test_init_full_retrieves_all_sparse_open_pairs(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _sparse_init_repository(tmp_path, 39)
+
+    assert (
+        main(
+            [
+                "init",
+                "--root",
+                str(root),
+                "--source",
+                "src/sample",
+                "--namespace",
+                "sample",
+                "--json",
+                "--full",
+            ]
+        )
+        == 0
+    )
+    result = json.loads(capsys.readouterr().out)
+
+    assert result["open_decision_count"] == 39 * 38
+    assert len(result["open_decisions"]) == 39 * 38
+    assert result["open_decisions_complete"] is True
+
+
 def test_json_stdout_preserves_unicode_on_a_legacy_encoded_stream(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -592,6 +670,264 @@ def test_validate_write_graph_regenerates_both_marked_graphs(
 
     assert main(["validate", "--root", str(root), "--write-graph", "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["artifact"] is None
+
+
+def test_validate_writes_graph_and_baseline_in_one_run(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    variant = next(item for item in CATALOG if item.id == "validation-graph-drift-write-graph")
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    baseline = root / "known-violations.json"
+
+    assert (
+        main(
+            [
+                "validate",
+                "--root",
+                str(root),
+                "--baseline",
+                str(baseline),
+                "--write-graph",
+                "--write-baseline",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    result = json.loads(capsys.readouterr().out)
+
+    assert result["diagnostics"] == []
+    assert baseline.exists()
+    page = (root / "docs/architecture/shop.md").read_text()
+    assert page.count("    cli --> view") == 2
+    assert page.count("    view --> model") == 2
+
+
+def test_complete_requires_crossing_is_accepted_as_baseline_debt_without_target_change(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    from fixtures.demo_catalog_support import contract_with_requires
+
+    contract = json.loads(
+        contract_with_requires(
+            {
+                "store": [{"component": "model", "rationale": "Store domain entities."}],
+                "app": [
+                    {"component": "model", "rationale": "Use domain entities."},
+                    {"component": "store", "rationale": "Use persistence."},
+                ],
+                "render": [{"component": "model", "rationale": "Render domain entities."}],
+                "cli": [
+                    {"component": "app", "rationale": "Invoke use cases."},
+                    {"component": "render", "rationale": "Render results."},
+                ],
+            },
+            {
+                "id": "REQUIRES-COMPLETE",
+                "kind": "complete_requires",
+                "rationale": "Declare each component direction explicitly.",
+                "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect",
+            },
+        )
+    )
+    # Keep only the narrow symbol prohibition; whole-pair permissions come from requires.
+    contract["rules"] = [
+        rule
+        for rule in contract["rules"]
+        if rule["id"] in {"DEP-STORE-NO-MONEY", "REQUIRES-COMPLETE"}
+    ]
+    root = _prepare_repo(
+        tmp_path,
+        {"architecture-contract.json": json.dumps(contract, indent=2) + "\n"},
+    )
+    baseline = root / "known-violations.json"
+    arguments = [
+        "validate",
+        "--root",
+        str(root),
+        "--baseline",
+        str(baseline),
+        "--write-graph",
+        "--write-baseline",
+        "--json",
+    ]
+
+    assert main([*arguments[:-1], "--json"]) == 0
+    capsys.readouterr()
+    subprocess.run(["git", "add", "known-violations.json"], cwd=root, check=True)
+    subprocess.run(
+        ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "baseline"],
+        cwd=root,
+        check=True,
+    )
+    page_path = root / "docs/architecture/shop.md"
+    before = page_path.read_text()
+    target_before = (
+        before.split(TARGET_GRAPH_MARKER, 1)[1].split("```mermaid\n", 1)[1].split("\n```", 1)[0]
+    )
+    baseline_before = baseline.read_bytes()
+
+    (root / "shop/cli/direct_domain.py").write_text(
+        '"""A newly observed direct domain crossing."""\n\n'
+        "from shop.model.entities import Order\n\n"
+        "ORDER_TYPE = Order\n"
+    )
+
+    assert main(arguments) == 1
+    refused = json.loads(capsys.readouterr().out)
+    assert refused["artifact"] == "docs/architecture/shop.md"
+    assert refused["baseline_new"] == 1
+    assert refused["diagnostics"] == []
+    assert baseline.read_bytes() == baseline_before
+    after_refusal = page_path.read_text()
+    assert (
+        "    cli --> model"
+        in after_refusal.split(COMPONENT_GRAPH_MARKER, 1)[1]
+        .split("```mermaid\n", 1)[1]
+        .split("\n```", 1)[0]
+    )
+    assert (
+        after_refusal.split(TARGET_GRAPH_MARKER, 1)[1]
+        .split("```mermaid\n", 1)[1]
+        .split("\n```", 1)[0]
+        == target_before
+    )
+
+    assert main([*arguments[:-1], "--accept-new", "--json"]) == 0
+    accepted = json.loads(capsys.readouterr().out)
+    assert accepted["artifact"] == str(baseline)
+    assert accepted["baseline_new"] == 1
+    assert accepted["diagnostics"] == []
+    recorded = json.loads(baseline.read_text())
+    assert recorded["violations"] == [
+        {
+            "count": 1,
+            "roles": [{"source": "shop.cli.direct_domain", "target": "shop.model.entities"}],
+            "rules": ["REQUIRES-COMPLETE"],
+            "subjects": ["shop.cli.direct_domain", "shop.model.entities"],
+        }
+    ]
+    final_page = page_path.read_text()
+    assert (
+        final_page.split(TARGET_GRAPH_MARKER, 1)[1].split("```mermaid\n", 1)[1].split("\n```", 1)[0]
+        == target_before
+    )
+
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(
+        ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "accepted debt"],
+        cwd=root,
+        check=True,
+    )
+    contract_path = root / "architecture-contract.json"
+    widened = json.loads(contract_path.read_text())
+    cli = next(item for item in widened["components"] if item["label"] == "cli")
+    cli["requires"].append({"component": "model", "rationale": "A widening that needs review."})
+    contract_path.write_text(json.dumps(widened, indent=2) + "\n")
+    assert (
+        main(
+            [
+                "validate",
+                "--root",
+                str(root),
+                "--baseline",
+                str(baseline),
+                "--against",
+                "HEAD",
+                "--write-graph",
+                "--json",
+            ]
+        )
+        == 1
+    )
+    widened_result = json.loads(capsys.readouterr().out)
+    assert "component 'cli'.requires gained an edge to 'model'" in widened_result["failures"]
+
+
+@pytest.mark.parametrize(
+    ("variant_id", "blocked"),
+    [
+        ("class-a-forbidden-dependency-pair", True),
+        ("class-a-forbidden-dependency-target-symbol", False),
+    ],
+)
+def test_write_graph_baseline_keeps_whole_pair_forbidden(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+    variant_id: str,
+    blocked: bool,
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    baseline = root / "known-violations.json"
+    arguments = [
+        "validate",
+        "--root",
+        str(root),
+        "--baseline",
+        str(baseline),
+        "--write-graph",
+        "--write-baseline",
+        "--accept-new",
+        "--json",
+    ]
+
+    exit_code = main(arguments)
+    result = json.loads(capsys.readouterr().out)
+
+    if blocked:
+        assert exit_code == 2
+        assert "closed_world.observed_forbidden" in {item["code"] for item in result["diagnostics"]}
+        assert not baseline.exists()
+    else:
+        assert exit_code == 0
+        assert "closed_world.observed_forbidden" not in {
+            item["code"] for item in result["diagnostics"]
+        }
+        assert baseline.exists()
+
+
+@pytest.mark.parametrize("existing_baseline", [False, True])
+def test_accept_new_cannot_baseline_an_undeclared_interface(
+    tmp_path: Path, capsys: pytest.CaptureFixture, existing_baseline: bool
+) -> None:
+    root = _prepare_repo(tmp_path, {})
+    baseline = root / "known-violations.json"
+    arguments = [
+        "validate",
+        "--root",
+        str(root),
+        "--baseline",
+        str(baseline),
+        "--write-graph",
+        "--write-baseline",
+        "--json",
+    ]
+    initial = (
+        arguments
+        if existing_baseline
+        else [
+            "validate",
+            "--root",
+            str(root),
+            "--write-graph",
+            "--json",
+        ]
+    )
+    assert main(initial) == 0
+    capsys.readouterr()
+    before = baseline.read_bytes() if existing_baseline else None
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_text())
+    model = next(item for item in contract["components"] if item["label"] == "model")
+    del model["public"]
+    contract_path.write_text(json.dumps(contract))
+
+    assert main([*arguments, "--accept-new"]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert "interface.undeclared" in {item["code"] for item in result["diagnostics"]}
+    assert (baseline.read_bytes() if baseline.exists() else None) == before
 
 
 def test_validate_baseline_writes_then_gates_on_new_violations(

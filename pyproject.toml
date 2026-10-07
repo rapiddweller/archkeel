@@ -57,7 +57,7 @@ replacement = '\1="https://raw.githubusercontent.com/rapiddweller/archkeel/main/
 
 # A relative Markdown link resolves against PyPI's own page, so it 404s there.
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
-pattern = '\]\((docs/[^)]+)\)'
+pattern = '\]\(((?:docs|fixtures)/[^)]+)\)'
 replacement = '](https://github.com/rapiddweller/archkeel/blob/main/\1)'
 
 [tool.hatch.build.targets.wheel]

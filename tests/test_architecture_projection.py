@@ -22,7 +22,13 @@ from archkeel.cli import main
 from archkeel.cli.observe import observe
 from archkeel.ir.architecture_graph import RuleAssessment as GraphRuleAssessment
 from archkeel.ir.architecture_graph import RuleAssessmentStatus as GraphRuleAssessmentStatus
-from archkeel.ir.codec import decode_canonical_model, parse_observation, parse_record, result_bytes
+from archkeel.ir.codec import (
+    canonical_json_bytes,
+    decode_canonical_model,
+    parse_observation,
+    parse_record,
+    result_bytes,
+)
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import (
     FilteredViolation,
@@ -335,6 +341,44 @@ def test_deepest_ownership_and_repeated_nested_labels_are_scope_qualified(tmp_pa
     assert gap.reason and tied.architecture_projection.status == "UNKNOWN"
 
 
+def test_compact_architecture_keeps_excluded_responsibilities_at_every_level(tmp_path):
+    root, config = _nested_repository(tmp_path)
+    expectations = {
+        config.contract: ["The root does not own leaf operations."],
+        "inside.json": ["The service does not own operation details."],
+        "leaf.json": [],
+    }
+    for path, excluded in expectations.items():
+        contract_path = root / path
+        contract = json.loads(contract_path.read_bytes())
+        contract["components"][0]["forbidden_responsibilities"] = excluded
+        contract_path.write_text(json.dumps(contract))
+
+    compact, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
+    full, _ = run_report(
+        root, config=config, analyzer=observe, only_architecture=True, full_architecture=True
+    )
+    compact_payload = json.loads(result_bytes(compact))
+    full_payload = json.loads(result_bytes(full))
+    compact_components = {
+        item["id"]: item for item in compact_payload["architecture_projection"]["components"]
+    }
+    full_components = {
+        item["id"]: item for item in full_payload["architecture_projection"]["components"]
+    }
+
+    for identity, excluded in (
+        ("ROOT", expectations[config.contract]),
+        ("core:core", expectations["inside.json"]),
+        ("core:service:core", expectations["leaf.json"]),
+    ):
+        assert compact_components[identity]["not_responsible_for"] == excluded
+        assert (
+            compact_components[identity]["not_responsible_for"]
+            == full_components[identity]["not_responsible_for"]
+        )
+
+
 def test_missing_target_and_partial_coverage_never_project_pass(tmp_path):
     root, config = _repository(tmp_path)
     _, encoded = run_report(root, config=config, analyzer=observe)
@@ -438,6 +482,7 @@ def test_native_self_architecture_envelopes_preserve_context_within_measured_bud
         for owner in full.components
     ]
     sizes = {}
+    exclusion_bytes = {}
     for identity, view in views:
         finding_ids = {item for owner in view.components for item in owner.finding_ids}
         result = RunResult(
@@ -502,7 +547,14 @@ def test_native_self_architecture_envelopes_preserve_context_within_measured_bud
             result,
             report_filter=ReportFilter(False, None, identity, False, True, False),
         )
-        sizes[identity] = len(result_bytes(compact))
+        compact_bytes = result_bytes(compact)
+        without_exclusions = json.loads(compact_bytes)
+        for component in without_exclusions["architecture_projection"]["components"]:
+            component.pop("not_responsible_for", None)
+        sizes[identity] = len(compact_bytes)
+        exclusion_bytes["whole" if identity is None else identity] = len(compact_bytes) - len(
+            canonical_json_bytes(without_exclusions)
+        )
     assert sizes[None] <= 160 * 1024, sizes
     largest_id, largest_size = max(
         ((identity, size) for identity, size in sizes.items() if identity is not None),
@@ -521,6 +573,7 @@ def test_native_self_architecture_envelopes_preserve_context_within_measured_bud
                 },
                 "largest_component_id": largest_id,
                 "largest_component_bytes": largest_size,
+                "excluded_responsibility_bytes": exclusion_bytes,
             },
             sort_keys=True,
         )

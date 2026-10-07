@@ -116,7 +116,9 @@ def test_successful_init_is_neutral_and_names_observed_cycles(tmp_path: Path, cy
     result, files = run_init(root, source=None, namespace=None, force=False, analyzer=observe)
     summary = init_summary(result)
     assert result.exit_code == 0 and result.observation_complete == "PASS"
-    assert result.diagnostics == () and len(result.open_decisions) == 2
+    assert result.diagnostics == () and result.open_decision_count == 2
+    assert len(result.open_decisions) == (2 if cyclic else 1)
+    assert result.open_decisions_complete is cyclic
     assert summary.decision.state == "info" and summary.decision.label == "DRAFT"
     assert summary.verdicts[0].value == "PASS"
     assert result.measurements is not None

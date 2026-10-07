@@ -140,12 +140,15 @@ architect's own words as the `rationale`, with `decided_by: "architect"`.
    answer, until they confirm it.
 3. After that confirmation, ask only about conflicts (the code contradicts a document) and
    gaps (the documents are silent). Each question names the recommended option first, with
-   its evidence. `init --json` returns every ordered component pair as an open decision,
-   heaviest observed edge first, with its observation and import-site evidence. Batch
-   everything consistent with the confirmed picture into one confirmation. Then encode each
-   allowed direction as a `requires` entry on its source component and add one
-   `complete_requires` rule, so absence forbids every other pair. Never treat an observed edge
-   as permission.
+   its evidence. The `init` summary gives the total open pairs and the observed crossings shown.
+   `init --json` lists observed undecided crossings first and reports the exact
+   `open_decision_count`; when `open_decisions_complete` is false, unlisted pairs remain
+   undecided. Use `init --json --full` on the initial command to include every pair; for an
+   existing draft, `validate --json` returns the full decision list without rewriting files.
+   Batch everything consistent
+   with the confirmed picture into one confirmation. Then encode each allowed direction as a
+   `requires` entry on its source component and add one `complete_requires` rule, so absence
+   forbids every other pair. Never treat an observed edge as permission.
 4. When the architect chooses against your recommendation, ask why before writing the rule.
    Always ask when the choice contradicts a document, an earlier decision in this interview,
    or the code you observed. Write their answer as the `rationale`.
@@ -370,5 +373,7 @@ programmatically: `archkeel validate --json`, `archkeel init --json`, `archkeel 
 --json`. Interactive terminals otherwise get a Rich-formatted summary instead of raw JSON.
 Read `declared_rules`, not just exit 0: FAIL names violated constraints; UNKNOWN retains
 unproved results. The [command-result schema](https://github.com/rapiddweller/archkeel/blob/main/schema/command-result.schema.json)
-covers `check`, `validate` and `report`, excluding `init`, `skill` and the observation artifact.
+covers `init`, `check`, `validate` and `report`, excluding `skill` and the observation artifact.
+For `init`, `open_decision_count` is the exact total and `open_decisions_complete` marks whether
+`open_decisions` lists every pair; `draft_sizes` records each proposed component's measured size.
 Use the CLI’s bundled schemas for offline validation; pin schema and CLI together.

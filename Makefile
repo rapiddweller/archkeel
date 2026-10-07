@@ -34,7 +34,9 @@ pr-test:
 		tests/test_result_schema.py tests/test_dart_unknowns.py tests/test_runtime.py \
 		tests/test_codec.py tests/test_source_provenance_acceptance.py \
 		tests/test_typescript_demo.py tests/test_onboarding_guidance.py \
-		tests/test_references.py tests/test_levels.py tests/test_widening.py tests/test_measurement_budgets.py
+		tests/test_references.py tests/test_levels.py tests/test_widening.py tests/test_measurement_budgets.py \
+		tests/test_decisions.py tests/test_onboarding.py tests/test_terminal.py \
+		tests/test_onboarding_demo.py tests/test_pypi_description.py tests/test_typescript_onboarding.py
 
 pr-report-test:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q \

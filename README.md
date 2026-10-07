@@ -90,9 +90,24 @@ Folders help navigation; they do not establish ownership or runtime behavior.
 `UNKNOWN` means evidence is missing. A rule can fail and still have undecided positions.
 A clean graph does not prove a good design.
 
+## Start with a forbidden import
+
+The runnable [Shop forbidden-pair fixture](fixtures/demo_catalog_dependencies.py) adds
+`shop.render.text -> shop.store` at `shop/render/text.py:9`. It reports
+`DEP-RENDER-NO-STORE`, `rule.violated` and `closed_world.observed_forbidden`:
+
+```bash
+make demo-architecture VARIANT=class-a-forbidden-dependency-pair OUTPUT=build/forbidden.json
+```
+
+The replay writes its report, then exits 2 because validation cannot accept the observed
+whole-pair ban. Remove the crossing or revisit the declared boundary with its owner; do not
+allow the forbidden pair just to make validation pass.
+
 ## Catch changes that finding diffs miss
 
-This change adds no forbidden import or cycle, but makes a call harder to resolve:
+The runnable [call coverage regression fixture](fixtures/reproduce_milestone1.py) shows a
+change that adds no forbidden import or cycle but makes a call harder to resolve:
 
 ```diff
  def run(key: str) -> int:
@@ -101,8 +116,9 @@ This change adds no forbidden import or cycle, but makes a call harder to resolv
 +    return handlers[key]()
 ```
 
-In Fixture A, resolved calls drop from 2 of 2 to 0 of 1. New finding fingerprints stay at
-zero. Archkeel rejects the candidate because unresolved calls increase from 0 to 1.
+`make demo` runs this fixture. Resolved calls drop from 2 of 2 to 0 of 1 while new finding
+fingerprints stay at zero; Archkeel rejects the candidate because unresolved calls increase
+from 0 to 1.
 
 `check` compares the accepted and candidate commits, checks the contract, and verifies the
 candidate against an expectation published before submission. Publication order needs trusted
