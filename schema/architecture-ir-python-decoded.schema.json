@@ -1127,6 +1127,15 @@
             "null"
           ],
           "minLength": 1
+        },
+        "requirement_state": {
+          "enum": [
+            "declared",
+            "metadata_missing",
+            "metadata_invalid",
+            "requirement_missing",
+            "requirement_invalid"
+          ]
         }
       },
       "additionalProperties": false

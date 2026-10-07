@@ -709,6 +709,7 @@ def assemble_observation(
         "name": facts.runtime.name,
         "version": facts.runtime.version,
         "required": facts.runtime.required,
+        "requirement_state": facts.runtime.requirement_state,
     }
     if language == "python" and facts.runtime.name == "python":
         model["python_version"] = facts.runtime.version

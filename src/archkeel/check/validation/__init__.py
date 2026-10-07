@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Literal
 
 from archkeel.ir.baseline import (
     KnownViolation,
@@ -59,14 +60,16 @@ from archkeel.ir.model import (
     Observation,
     RunResult,
     UnresolvedCallChange,
+    WideningFinding,
     text_value,
 )
 from archkeel.ir.renames import Renamed, module_layouts, observed_names, renames_since
 from archkeel.ir.widening import (
     Amendment,
-    baseline_widenings,
-    contract_widenings,
-    measurement_budget_widenings,
+    WideningChange,
+    baseline_widening_changes,
+    contract_widening_changes,
+    measurement_budget_changes,
     verify_amendment,
 )
 
@@ -253,6 +256,8 @@ def _repository_diagnostics(
             documents,
             report_violations=report_violations,
             resolved_public_entries=resolved_public_entries,
+            inside_tree=inside_tree,
+            contract_path=config.contract,
         ),
         *inside_diagnostics(root, contract, config, inside_tree, observation),
     ], edits
@@ -266,6 +271,8 @@ def _observed_result(
     baseline_new: int | None = None,
     baseline_resolved: int | None = None,
     interface_budgets: tuple[InterfaceBudgetResult, ...] | None = None,
+    widenings: tuple[WideningFinding, ...] | None = None,
+    amendment_status: Literal["valid", "stale"] | None = None,
 ) -> RunResult:
     """The validate result once a complete observation has produced its diagnostics.
 
@@ -301,6 +308,8 @@ def _observed_result(
         python_version=observation.python_version,
         measurements=measurements,
         failures=failures,
+        widenings=widenings,
+        amendment_status=amendment_status,
         baseline_new=baseline_new,
         baseline_resolved=baseline_resolved,
         open_decisions=decisions,
@@ -819,30 +828,36 @@ def _widening_failures(
     cycle_rules: frozenset[str],
     after_digest: str,
     after_policy_digest: str | None,
-) -> tuple[str, ...]:
+) -> tuple[tuple[str, ...], tuple[WideningFinding, ...], Literal["valid", "stale"] | None]:
     """Every unamended widening from `ctx.contract` to `contract` (AD-61, #11).
 
     A recognised rename is applied to the old side first (AD-105), so only what it does not
     explain is compared, and a widening beside it is still reported.
     """
     if ctx.against is None or ctx.contract is None:
-        return ()
+        return (), (), None
     violations, budgets = ctx.baseline, ctx.budgets
     if isinstance(ctx.contract, _Introduced):
         # AD-104: nothing at the revision to compare, so the whole contract is one widening, and
         # no rename applies to it (AD-105).
-        findings = [f"contract introduced: {ctx.contract.path} does not exist at {ctx.against}"]
+        findings = [
+            WideningChange(
+                f"contract {ctx.contract.path}",
+                "presence",
+                f"contract introduced: {ctx.contract.path} does not exist at {ctx.against}",
+            )
+        ]
         targets: dict[str, int] = {}
     else:
         before = ctx.contract
         if rename is not None:
             before, budgets = rename.contract, rename.budgets
             violations = None if violations is None else rename.violations
-        findings = list(contract_widenings(before, contract))
+        findings = list(contract_widening_changes(before, contract))
         targets = _name_budget_targets(before.declarations or ContractDeclarations())
     if baseline is not None and violations is not None:
-        findings += baseline_widenings(violations, after_baseline, cycle_rules=cycle_rules)
-        findings += measurement_budget_widenings(budgets, after_budgets, targets)
+        findings += baseline_widening_changes(violations, after_baseline, cycle_rules=cycle_rules)
+        findings += measurement_budget_changes(budgets, after_budgets, targets)
     amended = ctx.write_amendment or (
         ctx.parsed_amendment is not None
         and verify_amendment(
@@ -853,9 +868,24 @@ def _widening_failures(
             after_baseline_digest=after_policy_digest,
         )
     )
+    coded_findings = tuple(
+        dict.fromkeys(WideningFinding("ir.widening", item.subject, item.field) for item in findings)
+    )
     if ctx.parsed_amendment is not None and not amended:
-        return tuple(findings) or ("amendment does not bind this contract and baseline comparison",)
-    return tuple(findings) if findings and not amended else ()
+        messages = tuple(item.message for item in findings)
+        return (
+            messages or ("amendment does not bind this contract and baseline comparison",),
+            coded_findings,
+            "stale",
+        )
+    status: Literal["valid", "stale"] | None = None
+    if ctx.parsed_amendment is not None and amended:
+        status = "valid"
+    if findings and not amended:
+        return tuple(item.message for item in findings), coded_findings, status
+    empty_messages: tuple[str, ...] = ()
+    empty_findings: tuple[WideningFinding, ...] = ()
+    return empty_messages, empty_findings, status
 
 
 def _artifact_files(
@@ -1122,7 +1152,7 @@ def run_validate(
             after_policy_digest = baseline_digest(violations, observed_budgets)
         else:
             after_policy_digest = baseline_digest(known, known_budgets)
-    widening_failures = _widening_failures(
+    widening_failures, widening_findings, amendment_status = _widening_failures(
         against_ctx,
         comparison_contract,
         rename,
@@ -1145,6 +1175,8 @@ def run_validate(
         baseline_new=baseline_new if baseline is not None else None,
         baseline_resolved=baseline_resolved if baseline is not None else None,
         interface_budgets=budget_results or None,
+        widenings=widening_findings if against is not None else None,
+        amendment_status=amendment_status,
     )
     if against is not None:
         result = replace(result, renames=rename.prefixes if rename is not None else ())

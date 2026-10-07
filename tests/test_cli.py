@@ -15,9 +15,11 @@ from test_report_159_160 import _flow_data
 
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, TARGET_GRAPH_MARKER
 from archkeel.cli import main
+from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
+from archkeel.ir.codec import baseline_bytes
 from fixtures.architecture_demo import CATALOG
 from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
-from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay
+from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_rule_field
 
 ROOT = Path(__file__).parents[1]
 _PROBE = (
@@ -133,7 +135,8 @@ def test_config_selects_a_second_scope_and_every_result_names_its_roots(
     assert architecture["contract"]["path"] == "tests/architecture-contract.json"
 
     assert main(["validate", "--root", str(root), "--config", "missing.toml", "--json"]) == 2
-    diagnostic = json.loads(capsys.readouterr().out)["diagnostics"][0]
+    result = json.loads(capsys.readouterr().out)
+    diagnostic = result["diagnostics"][0]
     assert diagnostic["subject"] == str(root / "missing.toml")
     assert "cannot read missing.toml" in diagnostic["unknown_claim"]
 
@@ -320,11 +323,213 @@ def test_unknown_against_ref_keeps_the_against_invalid_diagnostic(
         )
         == 2
     )
-    diagnostic = json.loads(capsys.readouterr().out)["diagnostics"][0]
+    result = json.loads(capsys.readouterr().out)
+    diagnostic = result["diagnostics"][0]
     assert (diagnostic["code"], diagnostic["subject"]) == (
         "against.invalid",
         "archkeel-review-nonexistent-revision",
     )
+    assert result["widenings"] is None
+
+
+def test_validate_against_emits_typed_widening_and_preserves_amendment_status(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _prepare_repo(tmp_path, {})
+    args = ["validate", "--root", str(root), "--against", "HEAD", "--json"]
+    apply_overlay(
+        root,
+        {
+            "architecture-contract.json": contract_rule_field(
+                "DEP-APP-NO-STORE-SQLITE",
+                allowed_sources=["shop.app.maintenance", "shop.app.orders"],
+            )
+        },
+    )
+
+    assert main(args) == 1
+    rejected = json.loads(capsys.readouterr().out)
+    assert rejected["failures"] == [
+        "rule DEP-APP-NO-STORE-SQLITE.allowed_sources gained 'shop.app.orders'"
+    ]
+    assert rejected["widenings"] == [
+        {
+            "code": "ir.widening",
+            "subject": "rule DEP-APP-NO-STORE-SQLITE",
+            "field": "allowed_sources",
+        }
+    ]
+    assert rejected["amendment_status"] is None
+
+    amendment = [
+        "--amendment",
+        "widening.json",
+        "--write-amendment",
+        "--decided-by",
+        "Jordan (architect)",
+        "--rationale",
+        "Orders needs the sqlite exemption during the migration.",
+    ]
+    assert main([*args, *amendment]) == 0
+    assert json.loads(capsys.readouterr().out)["widenings"] == []
+
+    apply_overlay(
+        root,
+        {
+            "architecture-contract.json": contract_rule_field(
+                "DEP-APP-NO-STORE-SQLITE",
+                allowed_sources=[
+                    "shop.app.maintenance",
+                    "shop.app.orders",
+                    "shop.model.entities",
+                ],
+            )
+        },
+    )
+    assert main([*args, "--amendment", "widening.json"]) == 1
+    stale = json.loads(capsys.readouterr().out)
+    assert stale["amendment_status"] == "stale"
+    assert stale["widenings"] == [
+        {
+            "code": "ir.widening",
+            "subject": "rule DEP-APP-NO-STORE-SQLITE",
+            "field": "allowed_sources",
+        },
+    ]
+
+
+def test_validate_against_codes_added_requires_permission_and_baseline_growth(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    requires_root = tmp_path / "requires"
+    requires_root.mkdir()
+    root = _prepare_repo(requires_root, {})
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_text())
+    app = next(item for item in contract["components"] if item["label"] == "app")
+    app["requires"] = [
+        {
+            "component": "store",
+            "rationale": "A test change that adds a dependency permission.",
+            "decided_by": "architect",
+        }
+    ]
+    contract_path.write_text(json.dumps(contract))
+    args = ["validate", "--root", str(root), "--against", "HEAD", "--json"]
+
+    assert main(args) == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["widenings"] == [
+        {
+            "code": "ir.widening",
+            "subject": "component 'app'",
+            "field": "requires",
+        }
+    ]
+
+    baseline_root = tmp_path / "baseline"
+    baseline_root.mkdir()
+    root = _prepare_repo(baseline_root, {})
+    baseline = root / "known-violations.json"
+    baseline.write_bytes(baseline_bytes(()))
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "empty baseline"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+    )
+    baseline.write_bytes(
+        baseline_bytes(
+            (
+                KnownViolation(
+                    ViolationFingerprint(("CONSTRUCT-NO-DYNAMIC",), ("shop.model.probe.read",)), 1
+                ),
+            )
+        )
+    )
+
+    assert (
+        main(
+            [
+                "validate",
+                "--root",
+                str(root),
+                "--baseline",
+                str(baseline),
+                "--against",
+                "HEAD",
+                "--json",
+            ]
+        )
+        == 1
+    )
+    result = json.loads(capsys.readouterr().out)
+    assert result["widenings"] == [
+        {
+            "code": "ir.widening",
+            "subject": "CONSTRUCT-NO-DYNAMIC | shop.model.probe.read",
+            "field": "count",
+        }
+    ]
+
+
+def test_validate_reports_architect_responsibilities_but_keeps_drafts_usable(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _prepare_repo(tmp_path, {})
+    assert main(["validate", "--root", str(root), "--json"]) == 0
+    before = json.loads(capsys.readouterr().out)
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_text())
+    components = contract["components"]
+    components[0]["responsibilities"] = []  # architect-decided and missing
+    components[2]["responsibilities"] = []
+    components[2]["decided_by"] = "agent"  # generated draft remains usable
+    components[3]["responsibilities"] = []
+    components[3].pop("decided_by")  # undecided is not an architect decision
+    contract_path.write_text(json.dumps(contract))
+
+    nested_path = root / "shop/store/architecture-contract.json"
+    nested = json.loads(nested_path.read_text())
+    nested["components"][0]["responsibilities"] = []
+    nested_path.write_text(json.dumps(nested))
+
+    assert main(["validate", "--root", str(root), "--json"]) == 2
+    result = json.loads(capsys.readouterr().out)
+    missing = [
+        item for item in result["diagnostics"] if item.get("code") == "responsibility.missing"
+    ]
+    assert sorted(
+        (item["subject"], item["pointer"], item["contract_path"]) for item in missing
+    ) == [
+        (
+            "api in shop/store/architecture-contract.json",
+            "/components/0/responsibilities",
+            "shop/store/architecture-contract.json",
+        ),
+        ("model", "/components/0/responsibilities", "architecture-contract.json"),
+    ]
+    assert result["observation_complete"] == "PASS"
+    assert result["declared_rules"] == before["declared_rules"]
+    assert result["rule_assessments"] == before["rule_assessments"]
+
+
+def test_validate_includes_recorded_import_location_in_json_and_terminal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    root = _prepare_repo(tmp_path, {"shop/model/probe.py": "from shop.store import repository\n"})
+    args = ["validate", "--root", str(root)]
+
+    assert main([*args, "--json"]) == 2
+    result = json.loads(capsys.readouterr().out)
+    finding = next(item for item in result["diagnostics"] if item.get("code") == "rule.violated")
+    assert finding["subject"] == "DEP-MODEL-NO-STORE"
+    assert finding["locations"] == [{"path": "shop/model/probe.py", "line": 1}]
+
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    assert main(args) == 2
+    assert "shop/model/probe.py:1" in capsys.readouterr().out
 
 
 def test_validate_default_and_explicit_json_are_identical(
@@ -445,7 +650,8 @@ def test_validate_configuration_error_has_pointer(
     tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:
     assert main(["validate", "--root", str(tmp_path), "--json"]) == 2
-    diagnostic = json.loads(capsys.readouterr().out)["diagnostics"][0]
+    result = json.loads(capsys.readouterr().out)
+    diagnostic = result["diagnostics"][0]
     assert diagnostic["kind"] == "contract_invalid"
     assert diagnostic["pointer"] == ""
 

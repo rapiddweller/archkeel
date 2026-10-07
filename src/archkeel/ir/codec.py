@@ -28,6 +28,7 @@ from archkeel.ir.baseline import (
     canonical_fingerprint,
     violation_name,
 )
+from archkeel.ir.facts import RuntimeRequirementState
 from archkeel.ir.graph_codec import parse_target
 from archkeel.ir.lock import LOCK_SCHEMA_VERSION, AcceptedLock, LockError
 from archkeel.ir.measurements import (
@@ -305,14 +306,34 @@ def _known_identity(raw: RawJson, label: str) -> str:
 
 def _parse_runtime(raw: RawJson) -> RuntimeInfo:
     item = _object(raw, "runtime")
-    if set(item) - {"name", "version", "required"} or not {"name", "version"}.issubset(item):
+    if set(item) - {"name", "version", "required", "requirement_state"} or not {
+        "name",
+        "version",
+    }.issubset(item):
         raise ValueError("runtime fields mismatch")
+    requirement_state_raw = _string(
+        item.get("requirement_state", "declared"), "runtime.requirement_state"
+    )
+    requirement_state: RuntimeRequirementState
+    if requirement_state_raw == "declared":
+        requirement_state = "declared"
+    elif requirement_state_raw == "metadata_missing":
+        requirement_state = "metadata_missing"
+    elif requirement_state_raw == "metadata_invalid":
+        requirement_state = "metadata_invalid"
+    elif requirement_state_raw == "requirement_missing":
+        requirement_state = "requirement_missing"
+    elif requirement_state_raw == "requirement_invalid":
+        requirement_state = "requirement_invalid"
+    else:
+        raise ValueError("runtime.requirement_state is invalid")
     return RuntimeInfo(
         _known_identity(item["name"], "runtime.name"),
         _known_identity(item["version"], "runtime.version"),
         _nonempty(item["required"], "runtime.required")
         if item.get("required") is not None
         else None,
+        requirement_state,
     )
 
 
@@ -2081,7 +2102,8 @@ def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
         {
             key: value
             for key, value in _raw_object(asdict(item)).items()
-            if key not in {"pointer", "code"} or value is not None
+            if (key not in {"pointer", "code", "contract_path"} or value is not None)
+            and (key != "locations" or value)
         }
         for item in result.diagnostics
     ]
@@ -2155,7 +2177,8 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
         {
             key: value
             for key, value in _raw_object(asdict(diagnostic)).items()
-            if key not in {"pointer", "code"} or value is not None
+            if (key not in {"pointer", "code", "contract_path"} or value is not None)
+            and (key != "locations" or value)
         }
         for diagnostic in result.diagnostics
     ]

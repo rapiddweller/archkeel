@@ -25,6 +25,8 @@
     "host_order": {"anyOf": [{"enum": ["PASS", "FAIL"]}, {"type": "null"}]},
     "host_source": {"anyOf": [{"enum": ["supplied_records", "gitlab_mr_versions", "github_initial_pr_head"]}, {"type": "null"}]},
     "failures": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "widenings": {"anyOf": [{"type": "array", "items": {"$ref": "#/$defs/wideningFinding"}}, {"type": "null"}]},
+    "amendment_status": {"anyOf": [{"enum": ["valid", "stale"]}, {"type": "null"}]},
     "baseline_new": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
     "baseline_resolved": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
     "delta": {"anyOf": [{"$ref": "#/$defs/delta"}, {"type": "null"}]},
@@ -132,6 +134,8 @@
       "host_order",
       "host_source",
       "failures",
+      "widenings",
+      "amendment_status",
       "baseline_new",
       "baseline_resolved",
       "delta",
@@ -832,6 +836,7 @@
             "graph.count",
             "graph.drift",
             "rule.violated",
+            "responsibility.missing",
             "reference.namespace",
             "reference.public_owner",
             "reference.public_underscore",
@@ -850,7 +855,20 @@
             "budget.exceeded",
             "budget.unknown"
           ]
-        }
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "line"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "line": {"type": "integer", "minimum": 1}
+            },
+            "additionalProperties": false
+          }
+        },
+        "contract_path": {"type": "string", "minLength": 1}
       },
       "allOf": [
         {
@@ -859,6 +877,16 @@
           "else": {"not": {"required": ["code"]}}
         }
       ]
+    },
+    "wideningFinding": {
+      "type": "object",
+      "required": ["code", "subject", "field"],
+      "properties": {
+        "code": {"const": "ir.widening"},
+        "subject": {"type": "string", "minLength": 1},
+        "field": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
     },
     "measurements": {
       "type": "object",

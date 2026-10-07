@@ -255,6 +255,20 @@ def test_changed_or_missing_explicit_runtime_is_incomparable(runtime: RuntimeInf
     assert error.value.diagnostic.kind == "incomparable_runtime"
 
 
+def test_requirement_state_does_not_change_runtime_identity_and_old_reports_load() -> None:
+    declared = RuntimeInfo("python", "3.11.12", ">=3.11")
+    missing = RuntimeInfo("python", "3.11.12", ">=3.11", "metadata_missing")
+    assert declared == missing
+
+    raw = _model(git_head="a" * 40)
+    raw["runtime"] = {"name": "python", "version": "3.11.12", "required": ">=3.11"}
+    assert parse_observation(raw).runtime == declared
+
+    raw["runtime"]["requirement_state"] = "unknown"
+    with pytest.raises(ValueError, match="requirement_state"):
+        parse_observation(raw)
+
+
 def test_different_analyzer_bytes_never_grant_coverage() -> None:
     baseline = parse_observation(_model(git_head="a" * 40))
     delta = build_architecture_delta(

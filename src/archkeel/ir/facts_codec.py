@@ -33,6 +33,7 @@ from .facts import (
     RecordData,
     ResolutionInput,
     RuntimeInfo,
+    RuntimeRequirementState,
     SourceFacts,
     SourceInfo,
     SourceProfile,
@@ -134,6 +135,22 @@ def _string(value: RawJson, label: str) -> str:
     if not isinstance(value, str) or not value or "\x00" in value:
         raise ProtocolError(f"{label} must be a nonempty string")
     return value
+
+
+def _runtime_requirement_state(value: RawJson) -> RuntimeRequirementState:
+    if value == "declared":
+        return "declared"
+    if value == "metadata_missing":
+        return "metadata_missing"
+    if value == "metadata_invalid":
+        return "metadata_invalid"
+    if value == "requirement_missing":
+        return "requirement_missing"
+    if value == "requirement_invalid":
+        return "requirement_invalid"
+    if not isinstance(value, str):
+        raise ProtocolError("runtime.requirement_state is invalid")
+    raise ProtocolError("runtime.requirement_state is invalid")
 
 
 def _relative(value: RawJson, label: str) -> str:
@@ -656,6 +673,20 @@ def _file_payload(entry: FileFact) -> dict[str, RawJson]:
     }
 
 
+def _runtime_info(value: RawJson) -> RuntimeInfo:
+    if not isinstance(value, dict) or set(value) not in (
+        {"name", "version", "required"},
+        {"name", "version", "required", "requirement_state"},
+    ):
+        raise ProtocolError("runtime fields mismatch")
+    return RuntimeInfo(
+        _string(value["name"], "runtime.name"),
+        _string(value["version"], "runtime.version"),
+        _string(value["required"], "runtime.required") if value["required"] is not None else None,
+        _runtime_requirement_state(value.get("requirement_state", "declared")),
+    )
+
+
 def decode_response(payload: bytes) -> CollectionResponse:
     try:
         raw = _object(_decode(payload), {"protocol_version", "facts"}, "response")
@@ -682,7 +713,6 @@ def decode_response(payload: bytes) -> CollectionResponse:
             "facts",
         )
         adapter = _object(item["adapter"], {"name", "version", "code_digest"}, "adapter")
-        runtime = _object(item["runtime"], {"name", "version", "required"}, "runtime")
         uncertain: list[tuple[str, tuple[str, ...]]] = []
         for entry in _array(item["uncertain_reexports"], "uncertain reexports"):
             pair = _object(entry, {"binding", "origins"}, "uncertain reexport")
@@ -703,13 +733,7 @@ def decode_response(payload: bytes) -> CollectionResponse:
                 _string(adapter["version"], "adapter.version"),
                 _digest(adapter["code_digest"], "adapter.code_digest"),
             ),
-            RuntimeInfo(
-                _string(runtime["name"], "runtime.name"),
-                _string(runtime["version"], "runtime.version"),
-                _string(runtime["required"], "runtime.required")
-                if runtime["required"] is not None
-                else None,
-            ),
+            _runtime_info(item["runtime"]),
             _source(item["source"]),
             _capabilities(item["capabilities"]),
             tuple(_input(entry) for entry in _array(item["inputs"], "inputs")),
@@ -749,6 +773,7 @@ def encode_response(response: CollectionResponse) -> bytes:
                 "name": facts.runtime.name,
                 "version": facts.runtime.version,
                 "required": facts.runtime.required,
+                "requirement_state": facts.runtime.requirement_state,
             },
             "source": {
                 "git_head": facts.source.git_head,

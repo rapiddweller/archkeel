@@ -5,7 +5,14 @@
 
 from __future__ import annotations
 
-from archkeel.ir.model import ArchitectureContract, Diagnostic, Observation, text_value
+from archkeel.ir.model import (
+    ArchitectureContract,
+    Diagnostic,
+    InsideContractTree,
+    Observation,
+    ReportLocation,
+    text_value,
+)
 
 from ..report import VIOLATION_REMEDY
 from .closed_world import closed_world_diagnostics
@@ -53,6 +60,36 @@ def _inside_pointers(contract: ArchitectureContract, observation: Observation) -
     return pointers
 
 
+def _responsibility_diagnostics(
+    contract: ArchitectureContract,
+    inside_tree: InsideContractTree | None,
+    contract_path: str | None,
+) -> list[Diagnostic]:
+    """Flag architect-decided components whose responsibility list is empty."""
+    contracts: list[tuple[ArchitectureContract, str | None]] = [(contract, None)]
+    if inside_tree is not None:
+        contracts.extend((mount.contract, mount.path) for mount in inside_tree.mounts)
+    diagnostics = []
+    for reviewed_contract, path in contracts:
+        for index, component in enumerate(reviewed_contract.components):
+            if component.decided_by != "architect" or any(
+                value.strip() for value in component.responsibilities
+            ):
+                continue
+            location = f" in {path}" if path is not None else ""
+            diagnostics.append(
+                _diagnostic(
+                    "responsibility.missing",
+                    f"/components/{index}/responsibilities",
+                    f"{component.label}{location}",
+                    "The architect-decided component has no responsibility declaration.",
+                    "Ask the architect to declare the component's intended responsibilities.",
+                    contract_path=path or contract_path,
+                )
+            )
+    return diagnostics
+
+
 def observation_diagnostics(
     contract: ArchitectureContract,
     observation: Observation,
@@ -60,6 +97,8 @@ def observation_diagnostics(
     *,
     report_violations: bool = True,
     resolved_public_entries: frozenset[tuple[str, str]] = frozenset(),
+    inside_tree: InsideContractTree | None = None,
+    contract_path: str | None = None,
 ) -> tuple[Diagnostic, ...]:
     """Validate rules, closed-world coverage and architecture documentation.
 
@@ -77,9 +116,20 @@ def observation_diagnostics(
         *graph_diagnostics(contract, observation, documents),
     ]
     reported = (observation.records("violations") or ()) if report_violations else ()
+    evidence = {item.id: item for item in observation.evidence}
     for record in reported:
         rule_id = record.rule_ids[0] if record.rule_ids else record.id
         index = rule_index.get(rule_id)
+        locations = tuple(
+            sorted(
+                {
+                    ReportLocation(item.file, item.line)
+                    for evidence_id in record.evidence_ids
+                    if (item := evidence.get(evidence_id)) is not None
+                },
+                key=lambda item: (item.path, item.line),
+            )
+        )
         diagnostics.append(
             _diagnostic(
                 "rule.violated",
@@ -95,6 +145,8 @@ def observation_diagnostics(
                     if record.kind == "layer_order"
                     else VIOLATION_REMEDY
                 ),
+                locations,
             )
         )
+    diagnostics.extend(_responsibility_diagnostics(contract, inside_tree, contract_path))
     return _sorted(diagnostics)

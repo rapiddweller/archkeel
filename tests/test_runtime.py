@@ -113,9 +113,19 @@ def test_invalid_python_is_parse_error_when_runtime_is_allowed(tmp_path: Path) -
     assert "declared target runtime" in result["diagnostics"][0]["remedy"]
 
 
-@pytest.mark.parametrize("metadata", [None, "", '[project]\nrequires-python = "invalid"\n'])
+@pytest.mark.parametrize(
+    ("metadata", "remedy"),
+    [
+        (None, "Add [project].requires-python to pyproject.toml"),
+        ("", "Add [project].requires-python to pyproject.toml"),
+        ("[project]\n", "Add [project].requires-python to pyproject.toml"),
+        ("[project]\nrequires-python = 7\n", "PEP 440 range"),
+        ("[project\n", "Repair pyproject.toml as valid TOML"),
+        ('[project]\nrequires-python = "invalid"\n', "PEP 440 range"),
+    ],
+)
 def test_missing_or_invalid_runtime_metadata_preserves_observation(
-    tmp_path: Path, metadata: str | None
+    tmp_path: Path, metadata: str | None, remedy: str
 ) -> None:
     root = _fixture(tmp_path)
     if metadata is None:
@@ -126,5 +136,6 @@ def test_missing_or_invalid_runtime_metadata_preserves_observation(
     code, result = _report(11, root)
     assert code == 2
     assert result["diagnostics"][0]["kind"] == "runtime_mismatch"
+    assert remedy in result["diagnostics"][0]["remedy"]
     assert result["coverage"]["files_parsed"] == 1
     assert (root / "architecture.json").is_file()

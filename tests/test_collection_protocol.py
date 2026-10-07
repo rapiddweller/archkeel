@@ -175,6 +175,26 @@ def test_source_response_is_immutable_and_preserves_alternate_parser_identity() 
         response.facts.coverage.files_read = 0
 
 
+def test_runtime_requirement_state_is_optional_on_old_source_responses() -> None:
+    from archkeel.ir.facts_codec import decode_response, encode_response
+
+    raw = _response()
+    response = decode_response(json.dumps(raw).encode())
+    assert response.facts.runtime.requirement_state == "declared"
+    assert (
+        json.loads(encode_response(response))["facts"]["runtime"]["requirement_state"] == "declared"
+    )
+
+
+def test_source_response_rejects_unknown_runtime_requirement_state() -> None:
+    from archkeel.ir.facts_codec import ProtocolError, decode_response
+
+    raw = _response()
+    raw["facts"]["runtime"]["requirement_state"] = "maybe"
+    with pytest.raises(ProtocolError, match="requirement_state"):
+        decode_response(json.dumps(raw).encode())
+
+
 @pytest.mark.parametrize("field", ["contract", "baseline", "verdict", "violations"])
 def test_source_response_rejects_policy_fields(field: str) -> None:
     from archkeel.ir.facts_codec import ProtocolError, decode_response
