@@ -504,6 +504,57 @@ def test_fullscreen_fallback_restores_scope_selection_focus_and_scroll(tmp_path,
         playwright.stop()
 
 
+@pytest.mark.parametrize("reject", [False, True])
+def test_atlas_fullscreen_uses_available_canvas_and_background_drag_pans(tmp_path, reject):
+    api = pytest.importorskip("playwright.sync_api")
+    html = _atlas_page(_sample(tmp_path))
+    playwright, browser, page = _browser_page(api, html, width=1440, height=800)
+    try:
+        canvas = page.locator(".flow-canvas")
+        normal_height = canvas.bounding_box()["height"]
+        page.set_viewport_size({"width": 1440, "height": 1000})
+        resized_height = canvas.bounding_box()["height"]
+        assert resized_height >= normal_height + 100
+        page.evaluate(
+            """reject => {
+          Element.prototype.requestFullscreen = reject
+            ? async () => { throw new DOMException('embedding denied', 'NotAllowedError'); }
+            : Element.prototype.requestFullscreen;
+        }""",
+            reject,
+        )
+        page.locator(".flow-fullscreen").click()
+        page.locator("#flow[data-expanded]").wait_for()
+        page.wait_for_timeout(100)
+        bounds = canvas.bounding_box()
+        assert bounds and bounds["height"] > resized_height + 50
+        graph = page.locator(".flow-graph")
+        assert graph.evaluate("n => getComputedStyle(n).cursor") == "grab"
+        before = page.locator(".flow-viewport").get_attribute("transform")
+        x, y = bounds["x"] + bounds["width"] - 20, bounds["y"] + bounds["height"] - 20
+        page.mouse.move(x, y)
+        page.mouse.down()
+        assert graph.evaluate("n => getComputedStyle(n).cursor") == "grabbing"
+        page.mouse.move(x - 45, y - 35, steps=4)
+        page.mouse.up()
+        assert page.locator(".flow-viewport").get_attribute("transform") != before
+        assert graph.evaluate("n => getComputedStyle(n).cursor") == "grab"
+        node_count = page.locator(".flow-nodes [data-label]").count()
+        edge_count = page.locator(".flow-edges .line").count()
+        zoom = page.locator(".flow-zoom-value").inner_text()
+        page.get_by_role("button", name="Zoom in").click()
+        assert page.locator(".flow-zoom-value").inner_text() != zoom
+        page.get_by_role("button", name="Fit overview").click()
+        assert page.locator(".flow-viewport").get_attribute("transform") is None
+        page.locator(".flow-fullscreen").click()
+        page.locator("#flow:not([data-expanded])").wait_for()
+        assert page.locator(".flow-nodes [data-label]").count() == node_count
+        assert page.locator(".flow-edges .line").count() == edge_count
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
 def test_native_card_drag_reroutes_all_hits_and_keeps_architecture_unchanged(tmp_path, view):
     api = pytest.importorskip("playwright.sync_api")

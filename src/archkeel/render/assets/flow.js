@@ -66,6 +66,7 @@
   let showAllModuleElements = false, showExternalSymbols = false;
   let transform = { k: 1 }, umlPath = !SIDECAR && DATA.initial_scope ? [{ id: DATA.initial_scope, origin: "observed" }] : [], umlSelection = null, scopeNotice = null;
   let dragState = null, panState = null, expansionRestore = null;
+  let panOffset = { x: 0, y: 0 };
   let lastPointerTap = null, skipSvgClick = false;
   const viewStates = new Map(), navigationHistory = new Map();
   const CARD = { w: 200, h: 92 };
@@ -325,6 +326,7 @@
       delete root.dataset.expanded;
       fullscreenButton.textContent = "Fullscreen";
     }
+    sizeDiagram();
   }
 
   function restoreExpansion() {
@@ -334,6 +336,7 @@
     }
     if (root.dataset.expanded !== "fallback") return;
     delete root.dataset.expanded;
+    sizeDiagram();
     root.removeAttribute("aria-modal");
     root.removeAttribute("role");
     document.body.style.overflow = expansionRestore.bodyOverflow;
@@ -2422,6 +2425,8 @@
       canvas.clientWidth / (bounds.width + 48),
       canvas.clientHeight / (bounds.height + 48),
     ));
+    panOffset = { x: 0, y: 0 };
+    viewport.removeAttribute("transform");
     diagramOrigin = null;
     sizeDiagram();
     canvas.scrollLeft = 0;
@@ -3386,13 +3391,17 @@
   svg.addEventListener("pointerdown", (event) => {
     if (!event.isPrimary || event.button !== 0 || event.target.closest(".node, .hit")) return;
     capturePointer(svg, event);
-    panState = { x: event.clientX, y: event.clientY, left: canvas.scrollLeft, top: canvas.scrollTop };
+    panState = { x: event.clientX, y: event.clientY, offset: { ...panOffset } };
+    svg.classList.add("panning");
     event.preventDefault();
   });
   svg.addEventListener("pointermove", (event) => {
     if (panState) {
-      canvas.scrollLeft = panState.left - event.clientX + panState.x;
-      canvas.scrollTop = panState.top - event.clientY + panState.y;
+      panOffset = {
+        x: panState.offset.x + (event.clientX - panState.x) / transform.k,
+        y: panState.offset.y + (event.clientY - panState.y) / transform.k,
+      };
+      viewport.setAttribute("transform", `translate(${panOffset.x} ${panOffset.y})`);
     }
     if (dragState) {
       positions[dragState.label] = { x: dragState.start.x + (event.clientX - dragState.x) / transform.k,
@@ -3417,9 +3426,13 @@
     if (panState) {
       skipSvgClick = Math.hypot(event.clientX - panState.x, event.clientY - panState.y) > 3;
       panState = null;
+      svg.classList.remove("panning");
     }
   });
-  svg.addEventListener("pointercancel", () => { dragState = null; panState = null; lastPointerTap = null; });
+  svg.addEventListener("pointercancel", () => {
+    dragState = null; panState = null; lastPointerTap = null;
+    svg.classList.remove("panning");
+  });
   svg.addEventListener("click", (event) => {
     if (skipSvgClick) { skipSvgClick = false; return; }
     if (!event.target.closest(".node, .hit")) { umlSelection = null; render(); }
@@ -3452,6 +3465,7 @@
     expansionRestore.inert.forEach(([element]) => { element.inert = true; });
     document.body.style.overflow = "hidden";
     root.dataset.expanded = "fallback";
+    sizeDiagram();
     root.setAttribute("aria-modal", "true");
     root.setAttribute("role", "dialog");
     fullscreenButton.textContent = "Restore";
