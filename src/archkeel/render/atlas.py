@@ -11,6 +11,7 @@ from archkeel.ir.architecture_graph import ArchitectureReport, Coverage
 from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.model import Observation, RunResult, stable_id
 from archkeel.ir.module_explore import ModuleExploreLevel, ModuleStatistic, module_exploration
+from archkeel.ir.structure import oversized_insides
 
 
 def _reference_fields(item: dict[str, object], references: dict[str, int]) -> dict[str, object]:
@@ -132,7 +133,6 @@ def _components_payload(
             "selector_prefix",
             "packages",
             "exact_modules",
-            "scope",
         ):
             del item[field]
         del item["reason"]
@@ -442,20 +442,65 @@ def _modules_payload(
 
 def _rule_assessments_payload(
     result: RunResult,
+    model: Observation,
     references: dict[str, int],
-) -> list[list[object]]:
+) -> list[dict[str, object]]:
+    records = (
+        (*(model.records("unknowns") or ()), *(model.records("scope_observations") or ()))
+        if any(item.status == "UNKNOWN" or item.undecided for item in result.rule_assessments or ())
+        else ()
+    )
     return [
-        [
-            references.setdefault(item.id, len(references)),
-            references.setdefault(item.kind, len(references)),
-            item.status,
-            item.count,
-            item.undecided,
-            references.setdefault(item.reason, len(references)),
-            references.setdefault(item.scope, len(references)),
-        ]
+        {
+            "id": references.setdefault(item.id, len(references)),
+            "kind": references.setdefault(item.kind, len(references)),
+            "status": item.status,
+            "count": item.count,
+            "undecided": item.undecided,
+            "reason": references.setdefault(item.reason, len(references)),
+            "scope": references.setdefault(item.scope, len(references)),
+            "components": [
+                references.setdefault(value, len(references)) for value in item.components
+            ],
+            "evaluation_proven": item.evaluation_proven,
+            "evidence": [
+                {
+                    "id": references.setdefault(record.id, len(references)),
+                    "kind": record.kind,
+                    "title": record.title,
+                    "subjects": record.subjects,
+                    "evidence_class": record.evidence_class.value,
+                    "reason": record.data.get("reason"),
+                }
+                for record in records
+                if (item.status == "UNKNOWN" or item.undecided) and item.id in record.rule_ids
+            ],
+        }
         for item in result.rule_assessments or ()
     ]
+
+
+def _oversized_insides_payload(
+    model: Observation, projection: ArchitectureProjection
+) -> dict[str, object]:
+    claim = oversized_insides(model)
+    component_ids = {
+        item.label: item.id for item in projection.components if item.parent_id is None
+    }
+    return {
+        "status": claim.status,
+        "components": claim.components,
+        "component_edges": claim.component_edges,
+        "candidates": [
+            {
+                "scope": item.scope,
+                "component_id": component_ids.get(item.scope),
+                "modules": item.modules,
+                "inner_edges": item.inner_edges,
+            }
+            for item in claim.candidates
+        ],
+    }
 
 
 def atlas_payload(
@@ -483,7 +528,8 @@ def atlas_payload(
         },
         "declared_rules": result.declared_rules,
         "observation_complete": result.observation_complete,
-        "rule_assessments": _rule_assessments_payload(result, references),
+        "rule_assessments": _rule_assessments_payload(result, model, references),
+        "oversized_insides": _oversized_insides_payload(model, projection),
         "status": projection.status,
         "reason": projection.reason,
         "components": _components_payload(report, projection, root.modules, references),

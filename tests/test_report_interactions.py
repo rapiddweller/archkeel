@@ -3,11 +3,227 @@
 # SPDX-License-Identifier: MIT
 """Shared report navigation remains usable without the retired frame renderer."""
 
+import json
+from dataclasses import replace
+from urllib.parse import parse_qs, urlsplit
+
 import pytest
 from browser_report_support import _browser_page, _open_details
+from test_architecture_demo import _prepare_repo
+from test_atlas_report import _atlas
+from test_atlas_report import _page as _atlas_page
+from test_atlas_report import _result as _atlas_result
+from test_module_explore import _sample
+from test_report_159_160_e2e_oracle import _variant
+from test_target_graph import _nested_repository
 from test_uml_rendering import _open_module, _uml_report
 
+from archkeel.check.report import run_report
+from archkeel.cli.config import load_config
+from archkeel.cli.observe import observe
 from archkeel.ir.architecture_graph import Relationship
+from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
+from archkeel.ir.model import stable_id
+from archkeel.render.html import _atlas_document, render_architecture_html
+
+
+def test_atlas_labels_count_scopes_and_oversized_evidence_without_losing_route_state(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    positive = _sample(
+        tmp_path / "positive",
+        extra_files={
+            "sample/core/helper.py": "def one():\n    return 1\n",
+            "sample/core/helper2.py": "def two():\n    return 2\n",
+        },
+    )
+    empty = _sample(tmp_path / "empty")
+    unavailable_model = replace(
+        empty,
+        sections=tuple(section for section in empty.sections if section.name != "dependency_edges"),
+    )
+    unavailable = _atlas_document(
+        _atlas_result(unavailable_model),
+        unavailable_model,
+        repository="One target",
+        architecture_href="architecture.json",
+    ).decode()
+    assert _atlas(unavailable)["oversized_insides"]["status"] == "UNKNOWN"
+    cases = (
+        (_atlas_page(positive), "1 candidate", "core\t3\t0"),
+        (_atlas_page(empty), "no candidates measured", None),
+        (unavailable, "UNKNOWN", None),
+    )
+    for index, (html, claim_label, measurement) in enumerate(cases):
+        report = tmp_path / f"atlas-{index}.report.html"
+        report.write_text(html)
+        errors = []
+        playwright, browser, page = _browser_page(api, html, errors=errors)
+        try:
+            page.goto(f"{report.as_uri()}?view=target&theme=dark")
+            assert "whole-contract components" in page.locator(".report-heading").inner_text()
+            summary = page.locator(".atlas-summary").inner_text()
+            assert "Current level: 2 components" in summary
+            assert "agent-authored contract entries (authorship only): 0/2 components" in summary
+            claim = page.locator(".atlas-review-claim")
+            assert claim.locator("summary").inner_text().endswith(claim_label)
+            claim.locator("summary").click()
+            if measurement:
+                assert measurement in claim.inner_text()
+                link = claim.get_by_role("link", name="core")
+                link.click()
+                query = parse_qs(urlsplit(page.url).query)
+                assert query["component"] == ["core"]
+                assert query["view"] == ["target"]
+                assert query["theme"] == ["dark"]
+                assert page.locator("html").get_attribute("data-theme") == "dark"
+            else:
+                assert claim.locator("table").count() == 0
+            assert not errors
+        finally:
+            browser.close()
+            playwright.stop()
+
+
+def test_atlas_unknown_rule_links_its_analyzer_gap_while_failures_remain_visible(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    variant = _variant("class-a-boundary-types-ordinary-reexport-chain-unknown")
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    config = load_config(root, variant.config)
+    result, architecture = run_report(root, config=config, analyzer=observe)
+    assert architecture is not None and result.declared_rules == "UNKNOWN"
+    html = render_architecture_html(
+        result, architecture, repository="shop", architecture_href="architecture.json"
+    ).decode()
+    atlas = _atlas(html)
+    unknown = next(item for item in atlas["rule_assessments"] if item["status"] == "UNKNOWN")
+    assert any(entry["evidence_class"] == "UNKNOWN" for entry in unknown["evidence"])
+    component = next(item for item in atlas["components"] if item["label"] in unknown["components"])
+    report = tmp_path / "atlas-unknown.report.html"
+    report.write_text(html)
+    errors = []
+    playwright, browser, page = _browser_page(api, html, errors=errors)
+    try:
+        page.goto(f"{report.as_uri()}?view=diagram&theme=dark")
+        assert page.locator('.flow-nodes [data-uml-id="' + component["id"] + '"]').count() == 1
+        page.locator('.flow-nodes [data-uml-id="' + component["id"] + '"]').press("Space")
+        inspector = page.locator(".flow-inspector-content")
+        inspector.locator(".atlas-rule-assessments summary").click()
+        assert unknown["id"] in inspector.inner_text()
+        assert "Analyzer limitation" in inspector.inner_text()
+        assert "boundary_type_route" in inspector.inner_text()
+        assert "UNKNOWN" in page.locator(".decision-banner").inner_text()
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_atlas_unknown_ownership_gap_points_to_the_required_decision(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    observed = _sample(tmp_path)
+    model = replace(
+        observed,
+        sections=tuple(
+            replace(section, records=()) if section.name == "violations" else section
+            for section in observed.sections
+        ),
+    )
+    result = replace(_atlas_result(model), declared_rules="UNKNOWN")
+    html = render_architecture_html(
+        result,
+        canonical_report_bytes(model),
+        repository="One target",
+        architecture_href="architecture.json",
+    ).decode()
+    atlas = _atlas(html)
+    unknown = next(item for item in atlas["rule_assessments"] if item["status"] == "UNKNOWN")
+    assert any(entry["kind"] == "rule_ownership_blocker" for entry in unknown["evidence"])
+    component = atlas["components"][0]
+    playwright, browser, page = _browser_page(api, html)
+    try:
+        page.locator(f'.flow-nodes [data-uml-id="{component["id"]}"]').press("Space")
+        inspector = page.locator(".flow-inspector-content")
+        inspector.locator(".atlas-rule-assessments summary").click()
+        assert "Ownership decision needed" in inspector.inner_text()
+        assert "Assign it to one existing component" in inspector.inner_text()
+        assert "code changes alone" not in inspector.inner_text()
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_atlas_whole_contract_and_nested_level_counts_have_distinct_scopes(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    root, config = _nested_repository(tmp_path)
+    result, architecture = run_report(root, config=config, analyzer=observe)
+    assert architecture is not None and result.architecture_projection is not None
+    html = render_architecture_html(
+        result, architecture, repository="nested", architecture_href="architecture.json"
+    ).decode()
+    atlas = _atlas(html)
+    components = atlas["components"]
+    parent = next(
+        item for item in components if any(child["parent_id"] == item["id"] for child in components)
+    )
+    children = [item for item in components if item["parent_id"] == parent["id"]]
+    roots = [item for item in components if item["parent_id"] is None]
+    report = tmp_path / "nested.report.html"
+    report.write_text(html)
+    playwright, browser, page = _browser_page(api, html)
+    try:
+        page.goto(f"{report.as_uri()}?view=target&theme=dark")
+        assert (
+            f"{len(components)} whole-contract components"
+            in page.locator(".report-heading").inner_text()
+        )
+        root_count = len(roots)
+        root_label = "component" if root_count == 1 else "components"
+        assert (
+            f"Current level: {root_count} {root_label}"
+            in page.locator(".atlas-summary").inner_text()
+        )
+        page.goto(f"{report.as_uri()}?view=target&component={parent['id']}&theme=dark")
+        assert (
+            f"{len(components)} whole-contract components"
+            in page.locator(".report-heading").inner_text()
+        )
+        child_count = len(children)
+        child_label = "component" if child_count == 1 else "components"
+        assert (
+            f"Current level: {child_count} {child_label}"
+            in page.locator(".atlas-summary").inner_text()
+        )
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_atlas_unperformed_check_is_only_a_legend_definition(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    model = _sample(tmp_path)
+    result = replace(
+        _atlas_result(model),
+        observation_complete="UNKNOWN",
+        declared_rules="UNKNOWN",
+        rule_assessments=None,
+    )
+    html = render_architecture_html(
+        result,
+        canonical_report_bytes(model),
+        repository="One target",
+        architecture_href="architecture.json",
+    ).decode()
+    playwright, browser, page = _browser_page(api, html)
+    try:
+        card = page.locator(".verdict-card").nth(3)
+        assert "NOT CHECKED" in card.inner_text()
+        assert "Status definition" in card.inner_text()
+        assert "A check was not performed or could not be completed" in card.inner_text()
+        assert "Count unavailable" not in card.inner_text()
+        assert "0 rules" not in card.inner_text()
+    finally:
+        browser.close()
+        playwright.stop()
 
 
 @pytest.mark.parametrize("width,height", [(1440, 1000), (375, 844)])
@@ -100,6 +316,119 @@ def test_scope_selection_and_geometry_survive_view_switch_and_resize(tmp_path, v
         assert page.locator(".flow-chips [tabindex]").count() == 0
         assert page.locator("#flow-data").text_content() == payload
         assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_atlas_fail_with_undecided_and_mixed_evidence_keeps_all_actions(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    variant = _variant("class-a-boundary-types-ordinary-reexport-chain-unknown")
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    config = load_config(root, variant.config)
+    result, encoded = run_report(root, config=config, analyzer=observe)
+    assert encoded is not None
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    assessment = next(item for item in result.rule_assessments if item.status == "UNKNOWN")
+    ownership_model = _sample(tmp_path / "ownership")
+    blocker = next(
+        item
+        for item in ownership_model.records("scope_observations") or ()
+        if item.kind == "rule_ownership_blocker"
+    )
+    sections = tuple(
+        replace(
+            section,
+            records=(
+                *section.records,
+                replace(
+                    blocker,
+                    id=stable_id("scope-observation", assessment.id, blocker.id),
+                    rule_ids=(assessment.id,),
+                ),
+            ),
+        )
+        if section.name == "scope_observations"
+        else section
+        for section in model.sections
+    )
+    model = replace(model, sections=sections)
+    result = replace(
+        result,
+        rule_assessments=tuple(
+            replace(item, status="FAIL", undecided=1) if item.id == assessment.id else item
+            for item in result.rule_assessments
+        ),
+    )
+    html = render_architecture_html(
+        result,
+        canonical_report_bytes(model),
+        repository="shop",
+        architecture_href="architecture.json",
+    ).decode()
+    report = tmp_path / "atlas-mixed-evidence.report.html"
+    report.write_text(html)
+    playwright, browser, page = _browser_page(api, html)
+    try:
+        page.goto(f"{report.as_uri()}?theme=dark")
+        page.locator(".flow-inspector-content .atlas-rule-assessments summary").click()
+        inspector = page.locator(".flow-inspector-content")
+        assert assessment.id in inspector.inner_text()
+        assert "FAIL" in inspector.inner_text()
+        assert "undecided result" in inspector.inner_text()
+        assert "Analyzer limitation" in inspector.inner_text()
+        assert "Ownership decision needed" in inspector.inner_text()
+        assert "Assign it to one existing component" in inspector.inner_text()
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_atlas_nested_rule_scope_link_uses_parent_identity_with_duplicate_labels(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    root, config = _nested_repository(tmp_path)
+    inside_path = root / "inside.json"
+    inside = json.loads(inside_path.read_text())
+    inside["components"][0]["label"] = "core"
+    inside_path.write_text(json.dumps(inside))
+    result, architecture = run_report(root, config=config, analyzer=observe)
+    assert architecture is not None
+    assessment = next(item for item in result.rule_assessments if item.id == "core:layout")
+    result = replace(
+        result,
+        rule_assessments=tuple(
+            replace(item, status="UNKNOWN", undecided=1) if item.id == assessment.id else item
+            for item in result.rule_assessments
+        ),
+    )
+    html = render_architecture_html(
+        result, architecture, repository="nested", architecture_href="architecture.json"
+    ).decode()
+    atlas = _atlas(html)
+    parent = next(
+        item
+        for item in atlas["components"]
+        if item["label"] == "core" and item["parent_id"] is None
+    )
+    child = next(
+        item
+        for item in atlas["components"]
+        if item["label"] == "core" and item["parent_id"] == parent["id"]
+    )
+    report = tmp_path / "atlas-nested-rule.report.html"
+    report.write_text(html)
+    playwright, browser, page = _browser_page(api, html)
+    try:
+        page.goto(f"{report.as_uri()}?theme=dark")
+        page.locator(f'.flow-nodes [data-uml-id="{parent["id"]}"]').press("Space")
+        rules = page.locator(".flow-inspector-content .atlas-rule-assessments")
+        rules.locator("summary").click()
+        link = rules.get_by_role("link", name="core", exact=True).first
+        assert f"component={child['id'].replace(':', '%3A')}" in link.get_attribute("href")
+        link.click()
+        query = parse_qs(urlsplit(page.url).query)
+        assert query["component"] == [child["id"]]
+        assert page.locator("html").get_attribute("data-theme") == "dark"
     finally:
         browser.close()
         playwright.stop()

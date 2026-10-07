@@ -9,12 +9,26 @@
   const DATA = JSON.parse(dataNode.textContent);
   const ATLAS = DATA.atlas || null;
   const NAV = DATA.navigation || null;
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest("[data-atlas-component-route]");
+    if (!link) return;
+    event.preventDefault();
+    const query = new URLSearchParams(location.search);
+    query.delete("scope");
+    query.set("component", link.dataset.atlasComponentRoute);
+    location.href = `${location.pathname}?${query}`;
+  });
   const SIDECAR = Boolean(NAV?.module_ids);
   let routeReady = false, returnScope = null, returnView = "diagram", returnSelection = null, returnCell = null, returnContent = null, routeNotice = null;
   if (ATLAS) {
-    ATLAS.rule_assessments = (ATLAS.rule_assessments || []).map(([id, kind, status, count, undecided, reason, scope]) => ({
-      id: ATLAS.reference_ids[id], kind: ATLAS.reference_ids[kind], status, count, undecided,
-      reason: ATLAS.reference_ids[reason], scope: ATLAS.reference_ids[scope],
+    ATLAS.rule_assessments = (ATLAS.rule_assessments || []).map((item) => ({
+      ...item,
+      id: ATLAS.reference_ids[item.id], kind: ATLAS.reference_ids[item.kind],
+      reason: ATLAS.reference_ids[item.reason], scope: ATLAS.reference_ids[item.scope],
+      components: item.components.map((index) => ATLAS.reference_ids[index]),
+      evidence: item.evidence.map((entry) => ({
+        ...entry, id: ATLAS.reference_ids[entry.id],
+      })),
     }));
     ATLAS.cells = ATLAS.cells.map(([source, target, count, status, evidence, findings, reasons]) => ({
       source_id: ATLAS.modules[source].id, target_id: ATLAS.modules[target].id, import_sites: count,
@@ -2704,15 +2718,41 @@
       ${failureGroups.size ? `<ul class="plain">${[...failureGroups].map(([ruleId, count]) =>
       `<li><a href="${esc(atlasRuleScopeHref(scopedLevel || level, ruleId))}">${esc(ruleId)}</a> · ${countLabel(count, "finding")}</li>`).join("")}</ul>` : ""}</section>`;
     return `${recordedChecks}<details class="atlas-rule-assessments"><summary>Rules · whole run ${esc(ATLAS.declared_rules || "NOT CHECKED")} · ${statuses}${notChecked}</summary>
-      <p>Whole-run rule assessments; local findings are scoped separately above.</p>
+      <p>Whole-run rule assessments; local findings are scoped separately above. Each UNKNOWN keeps its rule, reason and scope.</p>
       ${assessments.length ? `<ul class="plain">${assessments.map((item) => {
       const localCount = failureGroups.get(item.id) || 0;
       const rule = localCount
         ? `<a href="${esc(atlasRuleScopeHref(scopedLevel || level, item.id))}">${esc(item.id)}</a>`
         : `<code>${esc(item.id)}</code>`;
-      return `<li><strong class="atlas-rule-status ${esc(item.status.toLowerCase())}">${esc(item.status)}</strong> · ${rule} (${esc(item.kind)}) · ${esc(item.scope)} · ${esc(item.reason)}`
+      const evidence = item.evidence.length
+        ? `<ul>${item.evidence.map((entry) => `<li>${esc(entry.kind)} · ${esc(entry.title)} · ${esc(entry.subjects.join(", "))}${entry.reason ? ` · ${esc(entry.reason)}` : ""} · <a href="${esc(ATLAS.architecture_href)}">record ${esc(entry.id)} in architecture JSON</a></li>`).join("")}</ul>`
+        : "";
+      const scopeComponent = item.scope === "root"
+        ? null : ATLAS.components.find((candidate) => candidate.scope === item.scope);
+      const component = ATLAS.components.find((candidate) =>
+        candidate.parent_id === (scopeComponent?.id || null) && item.components.includes(candidate.label));
+      const scope = component
+        ? `<a href="?component=${encodeURIComponent(component.id)}" data-atlas-component-route="${esc(component.id)}">${esc(item.scope)}</a>`
+        : esc(item.scope);
+      const analyzerGap = item.evidence.some((entry) => entry.evidence_class === "UNKNOWN");
+      const ownershipBlocker = item.evidence.some((entry) => entry.kind === "rule_ownership_blocker");
+      const nextActions = [];
+      if (analyzerGap) nextActions.push("Analyzer limitation: a contract decision cannot resolve this missing analysis evidence.");
+      if (ownershipBlocker) nextActions.push("Ownership decision needed: assign the affected scope to a component.");
+      if (ATLAS.observation_complete !== "PASS" && !item.evaluation_proven) {
+        nextActions.push("Source observation is incomplete; complete the scan and rerun the check.");
+      } else if (item.undecided && !analyzerGap && !ownershipBlocker) {
+        nextActions.push("The evaluator left positions undecided; review the evidence and record architect-approved intent if a decision is still open.");
+      } else if (!item.evaluation_proven && !analyzerGap && !ownershipBlocker) {
+        nextActions.push("No complete evaluator receipt is recorded; inspect this scope and rerun the check.");
+      }
+      const next = nextActions.map((action) => `<p>Next action: ${esc(action)}</p>`).join("");
+      const uncertainEvidence = item.status === "UNKNOWN" || item.undecided > 0
+        ? `<p>Affected scope: ${scope}</p>${evidence}${next}` : "";
+      return `<li><strong class="atlas-rule-status ${esc(item.status.toLowerCase())}">${esc(item.status)}</strong> · ${rule} (${esc(item.kind)}) · ${scope} · ${esc(item.reason)}`
         + `${item.count ? ` · ${countLabel(item.count, "recorded result")}` : ""}`
-        + `${item.undecided ? ` · ${countLabel(item.undecided, "undecided result")}` : ""}</li>`;
+        + `${item.undecided ? ` · ${countLabel(item.undecided, "undecided result")}` : ""}`
+        + `${uncertainEvidence}</li>`;
       }).join("")}</ul>` : "<p>Rule assessments were not recorded.</p>"}</details>`;
   }
   function atlasEvidenceMarkup() {
@@ -3165,11 +3205,11 @@
     const agentEdges = scene.declared.filter((edge) => edge.decided_by === "agent").length;
     const observed = scene.edges.filter((edge) => !edge.declaration);
     root.querySelector(".atlas-summary").textContent = scene.moduleOverview
-      ? viewMode === "target" ? `${countLabel(scene.nodes.length, "declared module")} · ${countLabel(scene.edges.length, "authored module relationship")}`
-        : `${countLabel(scene.nodes.length, "observed module")} · ${countLabel(observed.length, "local dependency", "local dependencies")} · ${countLabel(observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : null, "import site")}`
+      ? viewMode === "target" ? `Current level: ${countLabel(scene.nodes.length, "declared module")} · ${countLabel(scene.edges.length, "authored module relationship")}`
+        : `Current level: ${countLabel(scene.nodes.length, "observed module")} · ${countLabel(observed.length, "local dependency", "local dependencies")} · ${countLabel(observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : null, "import site")}`
       : viewMode === "target"
-      ? `${countLabel(scene.declared.length, "declared requirement")} at this level · agent decisions: ${agentComponents}/${countLabel(scene.nodes.length, "component")}, ${agentEdges}/${countLabel(scene.declared.length, "dependency", "dependencies")}`
-      : `${countLabel(observed.length, "observed dependency", "observed dependencies")} · ${countLabel(observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : null, "import")} at this level · ${viewMode === "diff" ? "recorded failures highlighted; unproven permission UNKNOWN" : "source facts"}`;
+      ? `Current level: ${countLabel(scene.nodes.length, "component")} · ${countLabel(scene.declared.length, "dependency", "dependencies")} · agent-authored contract entries (authorship only): ${agentComponents}/${scene.nodes.length} components, ${agentEdges}/${scene.declared.length} dependencies`
+      : `Current level: ${countLabel(observed.length, "observed dependency", "observed dependencies")} · ${countLabel(observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : null, "import")} · ${viewMode === "diff" ? "recorded failures highlighted; unproven permission UNKNOWN" : "source facts"}`;
     cardHeights.clear(); scene.nodes.forEach((node) => {
       const chips = viewMode !== "target" && !scene.moduleOverview && node.component
         ? Number(atlasComponentFindingCount(node.id) > 0) + Number(atlasInsideDeviationCount(node.id) > 0) : 0;

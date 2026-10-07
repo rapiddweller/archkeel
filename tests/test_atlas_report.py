@@ -121,13 +121,15 @@ def _atlas(page):
     ]
     data["rule_assessments"] = [
         {
-            "id": data["reference_ids"][row[0]],
-            "kind": data["reference_ids"][row[1]],
-            "status": row[2],
-            "count": row[3],
-            "undecided": row[4],
-            "reason": data["reference_ids"][row[5]],
-            "scope": data["reference_ids"][row[6]],
+            **row,
+            "id": data["reference_ids"][row["id"]],
+            "kind": data["reference_ids"][row["kind"]],
+            "reason": data["reference_ids"][row["reason"]],
+            "scope": data["reference_ids"][row["scope"]],
+            "components": [data["reference_ids"][index] for index in row["components"]],
+            "evidence": [
+                {**entry, "id": data["reference_ids"][entry["id"]]} for entry in row["evidence"]
+            ],
         }
         for row in data["rule_assessments"]
     ]
@@ -187,6 +189,9 @@ def test_default_report_is_one_authentic_repository_with_sparse_native_cells(tmp
             "undecided": item.undecided,
             "reason": item.reason,
             "scope": item.scope,
+            "components": list(item.components),
+            "evaluation_proven": item.evaluation_proven,
+            "evidence": [],
         }
         for item in result.rule_assessments or ()
     ]
@@ -236,7 +241,8 @@ def test_atlas_header_shows_four_status_cards_with_native_rule_counts(tmp_path):
             count = sum(item.status == status for item in result.rule_assessments)
             assert f"<h3>{count} rule{'s' if count != 1 else ''}</h3>" in card
         else:
-            assert "Count unavailable" in card
+            assert "Status definition" in card
+            assert "which occurred" in card
     assert '<article class="verdict-card"' not in details
     assert f"Whole-run rules: {result.declared_rules}" in details
     assert f"Source observation: {result.observation_complete}" in details

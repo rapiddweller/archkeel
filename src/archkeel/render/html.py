@@ -732,7 +732,7 @@ def _atlas_rule_status_cards(result: RunResult) -> str:
         (
             "NOT CHECKED",
             "A check was not performed or could not be completed. Read its scope and explanation. "
-            "No separate count is recorded.",
+            "This status definition does not itself say which occurred.",
         ),
     )
     cards = []
@@ -743,10 +743,74 @@ def _atlas_rule_status_cards(result: RunResult) -> str:
             else None
         )
         label = (
-            f"{count} rule{'s' if count != 1 else ''}" if count is not None else "Count unavailable"
+            "Status definition"
+            if status == "NOT CHECKED"
+            else f"{count} rule{'s' if count != 1 else ''}"
+            if count is not None
+            else "No recorded count"
         )
         cards.append(_verdict_card(VerdictRow(label, "", status, reason)))
     return "".join(cards)
+
+
+def _atlas_review_claims(data: dict[str, object]) -> str:
+    atlas = data.get("atlas")
+    if not isinstance(atlas, dict):
+        return ""
+    claim = atlas.get("oversized_insides")
+    if not isinstance(claim, dict):
+        return ""
+    if claim.get("status") == "UNKNOWN":
+        body = (
+            "UNKNOWN: the module inventory or module dependency edges needed for this "
+            "comparison are unavailable."
+        )
+        table = ""
+        label = "Review question · components larger than their level · UNKNOWN"
+    else:
+        basis = (
+            f"Comparison basis at the top level: {claim['components']} components and "
+            f"{claim['component_edges']} observed cross-component edges. A candidate has more "
+            "modules than components at that level, or more inner module edges than those "
+            "cross-component edges."
+        )
+        candidates = claim.get("candidates", [])
+        label = (
+            f"Review question · components larger than their level · {len(candidates)} candidate"
+            f"{'s' if len(candidates) != 1 else ''}"
+            if candidates
+            else "Review question · components larger than their level · no candidates measured"
+        )
+        body = basis + (
+            " No candidates were measured."
+            if not candidates
+            else " Candidates are review questions, not violations or proof that a component "
+            "should split."
+        )
+        if candidates:
+            rows = "".join(
+                "<tr><td>"
+                + (
+                    f'<a href="?component={_text(item["component_id"])}" '
+                    f'data-atlas-component-route="{_text(item["component_id"])}">'
+                    f"{_text(item['scope'])}</a>"
+                    if item.get("component_id")
+                    else _text(item["scope"])
+                )
+                + f"</td><td>{item['modules']}</td><td>{item['inner_edges']}</td></tr>"
+                for item in candidates
+            )
+            table = (
+                '<div class="table-wrap"><table class="data-table"><thead><tr>'
+                "<th>Component</th><th>Modules</th><th>Inner module edges</th></tr></thead>"
+                f"<tbody>{rows}</tbody></table></div>"
+            )
+        else:
+            table = ""
+    return (
+        '<details class="report-section report-evidence atlas-review-claim">'
+        f"<summary>{_text(label)}</summary><p>{body}</p>{table}</details>"
+    )
 
 
 def _atlas_content(
@@ -795,11 +859,12 @@ def _atlas_content(
       <div><span class="eyebrow">Architecture Atlas</span><h1>{_text(repository)}</h1>
       <p><code>{_text(observation.source.git_head)}</code>
       · {observation.coverage.files_parsed} observed files
-      · {components} components</p></div>
+      · {components} whole-contract components</p></div>
       <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
       </section>
       {status_header}
       {_atlas_section(data)}
+      {_atlas_review_claims(data)}
       <details class="atlas-source"><summary>Snapshot and audit</summary>
       <p>Source digest <code>{_text(observation.source.source_digest)}</code>
       · Dirty {_text(observation.source.dirty)}.</p>
