@@ -412,10 +412,21 @@ def test_real_cli_init_results_match_the_published_schema(validator, tmp_path: P
     assert payload["open_decision_count"] >= len(payload["open_decisions"])
     assert payload["open_decisions_complete"] is full
 
-    old_packet = copy.deepcopy(payload)
-    del old_packet["open_decision_count"]
-    del old_packet["open_decisions_complete"]
-    assert validator.is_valid(old_packet)
+    for field in ("open_decision_count", "open_decisions_complete", "draft_sizes"):
+        missing = copy.deepcopy(payload)
+        del missing[field]
+        assert not validator.is_valid(missing), field
+        missing[field] = None
+        assert not validator.is_valid(missing), field
+
+    repeated = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
+    diagnostic = json.loads(repeated.stdout)
+    assert repeated.returncode == 2
+    assert validator.is_valid(diagnostic)
+    assert all(
+        diagnostic[field] is None
+        for field in ("open_decision_count", "open_decisions_complete", "draft_sizes")
+    )
 
     for size in (
         {"label": "core", "modules": True, "inner_edges": 0},

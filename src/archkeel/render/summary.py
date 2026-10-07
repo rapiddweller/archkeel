@@ -121,8 +121,8 @@ def _open_decisions_lines(result: RunResult) -> str:
     header = f"\n\n{count} open decision(s) remain."
     if result.open_decisions_complete is False:
         header += (
-            f" Showing {len(result.open_decisions)} observed crossing(s); omitted pairs remain "
-            "undecided."
+            f" {len(result.open_decisions)} observed crossing(s) in compact result; "
+            "omitted pairs remain undecided."
         )
     heaviest = [item for item in result.open_decisions if item.observed][:5]
     if not heaviest:
@@ -130,7 +130,7 @@ def _open_decisions_lines(result: RunResult) -> str:
     lines = "\n".join(
         f"  {item.source} -> {item.target}: {item.import_sites} import site(s)" for item in heaviest
     )
-    return f"{header} Heaviest observed:\n{lines}"
+    return f"{header} Heaviest {len(heaviest)} observed:\n{lines}"
 
 
 def _report_filter_line(result: RunResult) -> str:
