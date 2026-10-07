@@ -113,9 +113,17 @@ def _agent_decisions_line(result: RunResult) -> str:
 
 def _open_decisions_lines(result: RunResult) -> str:
     """Name the open decisions left, heaviest observed edges first; never their rule JSON."""
-    if not result.open_decisions:
+    count = result.open_decision_count
+    if count is None:
+        count = len(result.open_decisions)
+    if not count:
         return ""
-    header = f"\n\n{len(result.open_decisions)} open decision(s) remain."
+    header = f"\n\n{count} open decision(s) remain."
+    if result.open_decisions_complete is False:
+        header += (
+            f" Showing {len(result.open_decisions)} observed crossing(s); omitted pairs remain "
+            "undecided."
+        )
     heaviest = [item for item in result.open_decisions if item.observed][:5]
     if not heaviest:
         return header

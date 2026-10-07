@@ -79,7 +79,7 @@ def _repository(root: Path, packages: tuple[str, ...] = ("archkeel",)) -> Path:
 
 
 def _init(root: Path, capsys: pytest.CaptureFixture) -> dict:
-    assert main(["init", "--root", str(root), "--json"]) == 0
+    assert main(["init", "--root", str(root), "--json", "--full"]) == 0
     return json.loads(capsys.readouterr().out)
 
 

@@ -1318,6 +1318,9 @@ class RunResult:
     delta: ArchitectureDelta | None = None
     provenance: CheckProvenance | None = None
     open_decisions: tuple[OpenDecision, ...] = ()
+    # AD-15: compact `init` reports observed crossings but retains the exact full count.
+    open_decision_count: int | None = None
+    open_decisions_complete: bool | None = None
     # AD-16: (agent-decided rules, total rules), from `ir.decisions.agent_decisions`.
     agent_decisions: tuple[int, int] | None = None
     # AD-35: review-claim counts, from `ir.decisions.review_claims`.

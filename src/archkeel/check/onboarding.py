@@ -15,7 +15,12 @@ from tempfile import TemporaryDirectory
 from typing import Final
 
 from archkeel.ir.codec import CONTRACT_SCHEMA_VERSION, contract_bytes
-from archkeel.ir.decisions import DOCUMENT_PATH, identifier, open_decisions
+from archkeel.ir.decisions import (
+    DOCUMENT_PATH,
+    identifier,
+    open_decision_summary,
+    open_decisions,
+)
 from archkeel.ir.identity import module_identity
 from archkeel.ir.model import (
     ArchitectureContract,
@@ -386,6 +391,7 @@ def run_init(
     source: str | tuple[str, ...] | None,
     namespace: str | None,
     force: bool,
+    full: bool = False,
     analyzer: Analyzer,
     language: Language = "python",
     tsconfig: str | None = None,
@@ -477,12 +483,16 @@ def run_init(
             ).encode(),
         }
     )
-    # AD-15: init declares no dependency rule, so every ordered pair among the drafted
-    # components is open; pass them in, since no contract has declared them yet.
-    decisions = open_decisions(
-        observed.observation,
-        _drafted_ownership(contract),
-    )
+    # AD-15: init has no dependency rule, so count every undecided pair while showing
+    # only observed crossings unless the caller explicitly asks for the full list.
+    ownership = _drafted_ownership(contract)
+    if full:
+        decisions = open_decisions(observed.observation, ownership)
+        decision_count = len(decisions)
+        decisions_complete = True
+    else:
+        decisions, decision_count = open_decision_summary(observed.observation, ownership)
+        decisions_complete = len(decisions) == decision_count
     result = RunResult(
         "init",
         0,
@@ -492,6 +502,8 @@ def run_init(
         python_version=observed.observation.python_version,
         artifact=CONTRACT_PATH,
         open_decisions=decisions,
+        open_decision_count=decision_count,
+        open_decisions_complete=decisions_complete,
         draft_sizes=_draft_sizes(sizes),
         measurements=measure_python_ratchets(observed.observation),
     )

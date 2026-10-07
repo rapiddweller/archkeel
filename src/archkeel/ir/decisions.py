@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Derive undecided component pairs from one observation alone (AD-15).
 
-One function reads the projected dependency decisions and the observed component edges, so
-validation and a report rendered later from `architecture.json` bytes share one derivation.
+Decision summaries and full lists read the same projected dependency decisions and observed
+component edges, so validation and reports share one derivation.
 """
 
 from __future__ import annotations
@@ -236,6 +236,49 @@ def open_decisions(
             key=lambda item: (-item.import_sites, item.source, item.target),
         )
     )
+
+
+def open_decision_summary(
+    observation: Observation,
+    components: tuple[ComponentOwnershipInput, ...] | None = None,
+) -> tuple[tuple[OpenDecision, ...], int]:
+    """Return observed undecided crossings and the exact total without building every pair."""
+    if requires_declared(observation):
+        return (), 0
+    resolved = (
+        component_owners(observation)
+        if components is None
+        else _ownership_with_exact_modules(components)
+    )
+    labels = {label for label, _, _ in resolved}
+    decided = _decided_component_pairs(observation, resolved)
+    decided_count = sum(
+        source in labels and target in labels and source != target for source, target in decided
+    )
+    total = len(labels) * (len(labels) - 1) - decided_count
+    sites = _component_import_sites(observation, resolved)
+    observed = sorted(
+        (
+            (source, target, count)
+            for (source, target), count in sites.items()
+            if source != target
+            and source in labels
+            and target in labels
+            and (source, target) not in decided
+        ),
+        key=lambda item: (-item[2], item[0], item[1]),
+    )
+    packages = {label: package for label, package, _ in resolved if package}
+    exact_components = {label: component for component in resolved for label in (component[0],)}
+    decisions = tuple(
+        (
+            _open_decision(source, target, packages, count)
+            if not exact_components[source][2] and not exact_components[target][2]
+            else _exact_open_decision(source, target, exact_components, count)
+        )
+        for source, target, count in observed
+    )
+    return decisions, total
 
 
 def identifier(label: str) -> str:

@@ -322,8 +322,9 @@ def build_parser() -> _Parser:
         description=(
             "Observes the configured source roots and proposes components from their layout.\n"
             "Python can detect its top-level package from pyproject.toml or package markers.\n"
-            "It writes no dependency rule: every ordered component pair is an open decision,\n"
-            "reported by import weight for the architect to allow or forbid.\n\n"
+            "It writes no dependency rule: every undecided ordered component pair remains open.\n"
+            "The default JSON lists observed crossings and reports the exact total; --full\n"
+            "includes unobserved pairs too.\n\n"
             "Examples:\n"
             "  archkeel init\n"
             "  archkeel init --source lib/shop --namespace shop --json\n"
@@ -337,6 +338,11 @@ def build_parser() -> _Parser:
         ),
     )
     _observing(init, None)
+    init.add_argument(
+        "--full",
+        action="store_true",
+        help="Include every open component pair in JSON, including unobserved pairs.",
+    )
     init.add_argument(
         "--source",
         action="append",
@@ -425,6 +431,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     source=tuple(args.source) if args.source is not None else None,
                     namespace=args.namespace,
                     force=args.force,
+                    full=args.full,
                     analyzer=observer_for(
                         args.language,
                         collector_argv=tuple(args.collector_argv) if args.collector_argv else None,
