@@ -466,10 +466,13 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
         del result["python_version"]
     if observation.runtime is None:
         del result["runtime"]
-    elif observation.runtime.required is None:
+    else:
         runtime = result["runtime"]
         if isinstance(runtime, dict):
-            del runtime["required"]
+            if observation.runtime.required is None:
+                del runtime["required"]
+            if observation.runtime.requirement_state == "declared":
+                del runtime["requirement_state"]
     if observation.producer is None:
         del result["producer"]
     del result["sections"]
@@ -688,8 +691,11 @@ def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
             if snapshot.get("runtime") is None:
                 del snapshot["runtime"]
             runtime = snapshot.get("runtime")
-            if isinstance(runtime, dict) and runtime.get("required") is None:
-                del runtime["required"]
+            if isinstance(runtime, dict):
+                if runtime.get("required") is None:
+                    del runtime["required"]
+                if runtime.get("requirement_state") == "declared":
+                    del runtime["requirement_state"]
             if snapshot.get("producer") is None:
                 del snapshot["producer"]
     result["dimensions"] = {

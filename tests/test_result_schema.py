@@ -384,6 +384,21 @@ def test_real_cli_demo_results_match_the_published_schema(validator, results) ->
     )
 
 
+def test_legacy_cli_result_without_review_fields_matches_schema(validator, results) -> None:
+    for name, result in results.items():
+        payload = copy.deepcopy(result)
+        payload.pop("widenings")
+        payload.pop("amendment_status")
+        assert validator.is_valid(payload), name
+
+    payload = copy.deepcopy(results["clean-report"])
+
+    for field, malformed in (("widenings", "invalid"), ("amendment_status", "invalid")):
+        payload[field] = malformed
+        assert not validator.is_valid(payload), field
+        del payload[field]
+
+
 def test_real_dart_delta_matches_the_published_schema(validator, tmp_path: Path) -> None:
     result = _observe(tmp_path, {"lib/a.dart": ""})
     assert result.exit_code == 0 and result.observation is not None

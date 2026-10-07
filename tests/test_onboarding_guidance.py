@@ -159,6 +159,8 @@ def test_dependency_examples_execute_to_pass_and_name_unapproved_edge(
     storage.update(fragments[0])
     for component in contract["components"]:
         if "public" in component:
+            if component["label"] == "domain":
+                component["responsibilities"] = ["Define domain records independently of storage."]
             component["decided_by"] = "architect"
     for rule in contract["rules"]:
         rule["rationale"] = {

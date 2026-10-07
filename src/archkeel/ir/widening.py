@@ -10,8 +10,9 @@ rationale or provenance text is the one kind of difference the design calls neut
 closed: a difference no classifier below recognises — an unrecognised rule kind's presence, a
 field no set-based or boolean rule names — is reported as a widening rather than passed over,
 because a silent "neutral" here is exactly the hole issue #11 is filed against. `check` reads
-both contract revisions with `check/git.py` and hands them to `contract_widenings`, which stays
-a pure function over two `ArchitectureContract` values, the way `ir.baseline` derives a
+both contract revisions with `check/git.py` and hands them to
+`contract_widening_changes`, which stays a pure function over two `ArchitectureContract` values,
+the way `ir.baseline` derives a
 fingerprint without reading Git itself.
 """
 
@@ -43,6 +44,19 @@ from .model import (
     RootLayoutRule,
     SiblingIsolationRule,
     last_name,
+)
+
+__all__ = (
+    "AMENDMENT_SCHEMA_VERSION",
+    "Amendment",
+    "verify_amendment",
+    "WideningChange",
+    "contract_widening_changes",
+    "baseline_widening_changes",
+    "measurement_budget_changes",
+    "contract_widenings",
+    "baseline_widenings",
+    "measurement_budget_widenings",
 )
 
 

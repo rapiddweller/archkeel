@@ -134,8 +134,6 @@
       "host_order",
       "host_source",
       "failures",
-      "widenings",
-      "amendment_status",
       "baseline_new",
       "baseline_resolved",
       "delta",

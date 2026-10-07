@@ -22,11 +22,14 @@ conflicts with source evidence; existing imports are not permission.
 2. Review component ownership and public interfaces. Nonempty namespace
    initializers need explicit `exact_modules` ownership. Future interfaces belong
    in `planned`, not `public`.
-3. Record approved dependencies and reasons. For example, add this to the existing
-   storage component without replacing its ownership or public fields:
+3. Record each architect-approved component's responsibility and dependencies. For
+   example, add this to the existing storage component without replacing its ownership
+   or public fields:
 
 ```json
 {
+  "responsibilities": ["Persist and retrieve domain records."],
+  "decided_by": "architect",
   "requires": [
     {
       "component": "domain",

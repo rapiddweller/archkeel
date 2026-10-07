@@ -60,12 +60,14 @@ Ignore `/test-artifacts/` in `.gitignore` for default report output, or choose `
 Restore missing configuration in existing setups or select `--config PATH`; use `init`
 only for a new setup. Without Git history, run `git init` and create a commit first.
 
-For example, after approving `storage -> domain`, add this fragment to the existing
-`storage` component. Replace the example reason with the decision owner's actual reason;
-keep its existing ownership and public interface fields.
+For example, after defining storage's responsibility and approving `storage -> domain`,
+add this fragment to the existing `storage` component. Replace the example reason with
+the decision owner's actual reason; keep its existing ownership and public interface fields.
 
 ```json
 {
+  "responsibilities": ["Persist and retrieve domain records."],
+  "decided_by": "architect",
   "requires": [
     {
       "component": "domain",
