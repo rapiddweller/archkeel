@@ -9,6 +9,7 @@ from pathlib import PurePosixPath
 
 from archkeel.ir.architecture_graph import ArchitectureReport, Coverage
 from archkeel.ir.architecture_projection import ArchitectureProjection
+from archkeel.ir.decisions import rule_assessment_applies_to_component, rule_uncertainty_evidence
 from archkeel.ir.model import Observation, RunResult, stable_id
 from archkeel.ir.module_explore import ModuleExploreLevel, ModuleStatistic, module_exploration
 
@@ -132,7 +133,6 @@ def _components_payload(
             "selector_prefix",
             "packages",
             "exact_modules",
-            "scope",
         ):
             del item[field]
         del item["reason"]
@@ -442,20 +442,67 @@ def _modules_payload(
 
 def _rule_assessments_payload(
     result: RunResult,
+    model: Observation,
+    projection: ArchitectureProjection,
     references: dict[str, int],
-) -> list[list[object]]:
-    return [
-        [
-            references.setdefault(item.id, len(references)),
-            references.setdefault(item.kind, len(references)),
-            item.status,
-            item.count,
-            item.undecided,
-            references.setdefault(item.reason, len(references)),
-            references.setdefault(item.scope, len(references)),
-        ]
-        for item in result.rule_assessments or ()
-    ]
+) -> list[dict[str, object]]:
+    evidence = rule_uncertainty_evidence(model)
+    scopes = {item.declaration.id: item.parent_id for item in projection.permission_rules}
+    components = {item.id: item for item in projection.components}
+    rows: list[dict[str, object]] = []
+    for item in result.rule_assessments or ():
+        scope_id = scopes.get(item.id)
+        scope = components[scope_id].scope if scope_id in components else item.scope
+        uncertainty = evidence.get(item.id) if item.status == "UNKNOWN" or item.undecided else None
+        records = uncertainty.evidence if uncertainty is not None else ()
+        rows.append(
+            {
+                "id": references.setdefault(item.id, len(references)),
+                "kind": references.setdefault(item.kind, len(references)),
+                "status": item.status,
+                "count": item.count,
+                "undecided": item.undecided,
+                "reason": references.setdefault(item.reason, len(references)),
+                "scope": references.setdefault(scope, len(references)),
+                "scope_id": scope_id,
+                "components": [
+                    references.setdefault(value, len(references)) for value in item.components
+                ],
+                "component_ids": [
+                    component.id
+                    for component in projection.components
+                    if item.components
+                    and rule_assessment_applies_to_component(
+                        item, scope_id, component.parent_id, component.label
+                    )
+                ],
+                "evaluation_proven": item.evaluation_proven,
+                "uncertainty_actions": [
+                    {
+                        "cause": action.cause.value,
+                        "architect_actionable": action.architect_actionable,
+                        "next_action": references.setdefault(action.next_action, len(references)),
+                    }
+                    for action in uncertainty.actions
+                ]
+                if uncertainty is not None
+                else [],
+                "evidence_count": len(records),
+                "evidence": [
+                    {
+                        "id": references.setdefault(record.id, len(references)),
+                        "kind": record.kind,
+                        "title": record.title,
+                        "subjects": record.subjects[:3],
+                        "subject_count": len(record.subjects),
+                        "evidence_class": record.evidence_class.value,
+                        "reason": record.data.get("reason"),
+                    }
+                    for record in records[:5]
+                ],
+            }
+        )
+    return rows
 
 
 def atlas_payload(
@@ -483,7 +530,7 @@ def atlas_payload(
         },
         "declared_rules": result.declared_rules,
         "observation_complete": result.observation_complete,
-        "rule_assessments": _rule_assessments_payload(result, references),
+        "rule_assessments": _rule_assessments_payload(result, model, projection, references),
         "status": projection.status,
         "reason": projection.reason,
         "components": _components_payload(report, projection, root.modules, references),
