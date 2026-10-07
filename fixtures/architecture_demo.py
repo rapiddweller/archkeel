@@ -79,7 +79,7 @@ REPORT_CASES = {
     "target-present": ("target-module-present", 0),
     "target-absent": ("target-module-absent", 0),
     "target-store": ("target-hierarchy-positive", 0),
-    "empty-responsibility": ("target-empty-responsibilities", 0),
+    "empty-responsibility": ("target-empty-responsibilities", 2),
 }
 
 

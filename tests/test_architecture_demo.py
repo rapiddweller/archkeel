@@ -885,6 +885,24 @@ def test_target_empty_responsibilities_keeps_store_rule_unknown_in_cli_json(
     variant = next(item for item in CATALOG if item.id == "target-empty-responsibilities")
     root = _prepare_repo(tmp_path, dict(variant.files))
 
+    assert main(["validate", "--root", str(root), "--json"]) == 2
+    validation = json.loads(capsys.readouterr().out)
+    assert [item["code"] for item in validation["diagnostics"]] == [
+        "responsibility.missing",
+        "responsibility.missing",
+    ]
+    assert sorted(
+        (item["subject"], item["pointer"], item["contract_path"])
+        for item in validation["diagnostics"]
+    ) == [
+        (
+            "api in shop/store/architecture-contract.json",
+            "/components/0/responsibilities",
+            "shop/store/architecture-contract.json",
+        ),
+        ("app", "/components/2/responsibilities", "architecture-contract.json"),
+    ]
+
     assert main(["report", "--root", str(root), "--json"]) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["declared_rules"] == "UNKNOWN"
