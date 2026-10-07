@@ -50,7 +50,7 @@ def _model() -> dict[str, object]:
     model = _base_model(git_head="a" * 40)
     model.update(
         {
-            "schema_version": "test",
+            "schema_version": "1.3.0",
             "declarations": [rule],
             "imports": [fact],
             "violations": [violation],

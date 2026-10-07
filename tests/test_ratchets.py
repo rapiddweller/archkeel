@@ -375,6 +375,9 @@ def test_ratchets_require_same_measurement_profile(change: str) -> None:
         candidate["source"]["scope"] = ["another/**/*.py"]
     elif change == "schema":
         candidate["schema_version"] = "next"
+        with pytest.raises(ValueError, match="unsupported observation schema_version"):
+            parse_observation(candidate)
+        candidate["schema_version"] = "2.0.0"
     else:
         candidate["analyzer"]["code_digest"] = "e" * 64
     delta = _delta(accepted, candidate)
