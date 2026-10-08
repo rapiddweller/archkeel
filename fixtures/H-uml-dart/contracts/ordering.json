@@ -24,7 +24,8 @@
         {
           "component": "domain",
           "through": [
-            "commerce.ordering.domain"
+            "commerce.ordering.domain.orders.order",
+            "commerce.ordering.domain.pricing.discount_policy"
           ],
           "rationale": "Use domain invariants and pricing.",
           "decided_by": "architect"
@@ -32,7 +33,7 @@
         {
           "component": "ports",
           "through": [
-            "commerce.ordering.ports"
+            "commerce.ordering.ports.order_repository"
           ],
           "rationale": "Persist orders through the port.",
           "decided_by": "architect"
@@ -57,7 +58,17 @@
       "provenance": [
         "docs/target.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "requires": [
+        {
+          "component": "domain",
+          "through": [
+            "commerce.ordering.domain.orders.order"
+          ],
+          "rationale": "Expose Order values through the persistence contract.",
+          "decided_by": "architect"
+        }
+      ]
     },
     {
       "id": "domain",
@@ -82,7 +93,17 @@
       "inside": "contracts/domain.json"
     }
   ],
-  "rules": [],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Each component states its approved outbound dependencies; absent pairs are forbidden.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "architect"
+    }
+  ],
   "declarations": {
     "uml": {
       "schema_version": "1.1.0",

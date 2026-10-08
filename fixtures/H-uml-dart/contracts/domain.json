@@ -19,7 +19,8 @@
       "provenance": [
         "docs/target.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "requires": []
     },
     {
       "id": "pricing",
@@ -44,7 +45,7 @@
         {
           "component": "orders",
           "through": [
-            "commerce.ordering.domain.orders"
+            "commerce.ordering.domain.orders.order"
           ],
           "rationale": "Apply pricing to order line values without making order lifecycle depend on pricing.",
           "decided_by": "architect"
@@ -52,7 +53,17 @@
       ]
     }
   ],
-  "rules": [],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Each component states its approved outbound dependencies; absent pairs are forbidden.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "architect"
+    }
+  ],
   "declarations": {
     "uml": {
       "schema_version": "1.1.0",

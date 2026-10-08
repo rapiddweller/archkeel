@@ -10,7 +10,7 @@
       ],
       "namespace": "commerce.presentation.controller",
       "public": [
-        "commerce.presentation.controller.CheckoutController"
+        "commerce.presentation.controller:CheckoutController"
       ],
       "responsibilities": [
         "Validate request fields and call the checkout service."

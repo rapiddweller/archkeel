@@ -25,9 +25,10 @@
         {
           "component": "ordering",
           "through": [
-            "commerce.ordering.application"
+            "commerce.ordering.application",
+            "commerce.ordering.domain.orders"
           ],
-          "rationale": "Use the checkout application API.",
+          "rationale": "Map OrderLine request values to the application checkout API.",
           "decided_by": "architect"
         }
       ]
@@ -42,7 +43,8 @@
       "namespace": "commerce.ordering",
       "public": [
         "commerce.ordering.application",
-        "commerce.ordering.ports"
+        "commerce.ordering.ports",
+        "commerce.ordering.domain.orders"
       ],
       "responsibilities": [
         "Own checkout use cases, persistence ports and order policy."
@@ -81,9 +83,9 @@
           "component": "ordering",
           "through": [
             "commerce.ordering.ports",
-            "commerce.ordering.domain"
+            "commerce.ordering.domain.orders"
           ],
-          "rationale": "Implement the order persistence port and format domain values.",
+          "rationale": "Implement the persistence port and exchange order values.",
           "decided_by": "architect"
         }
       ]
@@ -135,7 +137,17 @@
       ]
     }
   ],
-  "rules": [],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Each component states its approved outbound dependencies; absent pairs are forbidden.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "architect"
+    }
+  ],
   "declarations": {
     "uml": {
       "schema_version": "1.1.0",

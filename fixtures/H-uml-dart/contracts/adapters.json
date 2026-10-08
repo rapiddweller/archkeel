@@ -19,7 +19,8 @@
       "provenance": [
         "docs/target.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "requires": []
     },
     {
       "id": "diagnostics",
@@ -39,10 +40,21 @@
       "provenance": [
         "docs/target.md"
       ],
+      "decided_by": "architect",
+      "requires": []
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Each component states its approved outbound dependencies; absent pairs are forbidden.",
+      "provenance": [
+        "docs/target.md"
+      ],
       "decided_by": "architect"
     }
   ],
-  "rules": [],
   "declarations": {
     "uml": {
       "schema_version": "1.1.0",

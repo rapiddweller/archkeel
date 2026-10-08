@@ -308,3 +308,58 @@ def test_dart_private_fields_and_classifier_scopes_are_truthful():
     )
     assert [item.name for item in checkout_ctor.signature.parameters] == ["repository"]
     assert [item.name for item in controller_ctor.signature.parameters] == ["checkout"]
+
+
+def test_multicomponent_target_scopes_decide_all_dependency_pairs():
+    expected = {
+        "architecture-contract.json": {
+            "presentation": {"ordering"},
+            "ordering": set(),
+            "adapters": {"ordering"},
+            "composition": {"presentation", "ordering", "adapters"},
+        },
+        "contracts/ordering.json": {
+            "application": {"domain", "ports"},
+            "ports": {"domain"},
+            "domain": set(),
+        },
+        "contracts/domain.json": {"orders": set(), "pricing": {"orders"}},
+        "contracts/adapters.json": {"memory": set(), "diagnostics": set()},
+    }
+    for path, expected_requires in expected.items():
+        contract = parse_contract(json.loads((FIXTURE / path).read_text()))
+        components = {item.label: item for item in contract.components}
+        assert set(components) == set(expected_requires)
+        assert len(contract.components) > 1
+        assert [rule.id for rule in contract.rules if rule.kind == "complete_requires"] == [
+            "REQUIRES-COMPLETE"
+        ]
+        assert all(
+            rule.provenance == (PROVENANCE,) and rule.decided_by == "architect"
+            for rule in contract.rules
+            if rule.kind == "complete_requires"
+        )
+        for source, expected_targets in expected_requires.items():
+            requires = components[source].requires or ()
+            assert {entry.component for entry in requires} == expected_targets
+            for entry in requires:
+                assert entry.rationale and entry.decided_by == "architect"
+                published_modules = {
+                    item.partition(":")[0] for item in components[entry.component].public or ()
+                }
+                assert all(
+                    any(
+                        module == published or module.startswith(f"{published}.")
+                        for published in published_modules
+                    )
+                    for module in entry.through
+                )
+
+    domain = parse_contract(json.loads((FIXTURE / "contracts/domain.json").read_text()))
+    domain_components = {item.label: item for item in domain.components}
+    assert {item.component for item in domain_components["orders"].requires or ()} == set()
+    assert {item.component for item in domain_components["pricing"].requires or ()} == {"orders"}
+    presentation = parse_contract(json.loads((FIXTURE / "contracts/presentation.json").read_text()))
+    assert presentation.components[0].public == (
+        "commerce.presentation.controller:CheckoutController",
+    )
