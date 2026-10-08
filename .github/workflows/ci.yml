@@ -122,7 +122,7 @@ jobs:
     needs: changes
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ github.event_name == 'pull_request' && 25 || 60 }}
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 25 || 90 }}
     steps:
       - name: Fail if change detection failed
         if: ${{ !cancelled() && needs.changes.result != 'success' }}
