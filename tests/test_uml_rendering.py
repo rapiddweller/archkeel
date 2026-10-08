@@ -319,12 +319,14 @@ def test_mixin_classifier_and_composition_have_distinct_uml_notation(tmp_path):
     playwright, browser, page = _browser_page(api, html, errors=errors)
     try:
         page.locator('[data-flow-view="target"]').click()
+        page.locator('.flow-nodes [data-uml-id="core"]').dblclick()
+        page.locator('.flow-nodes [data-uml-id="module"]').dblclick()
         card = page.locator('.flow-nodes [data-label="Auditable"]')
         assert card.get_attribute("data-uml-kind") == "mixin"
         edge = page.locator('.flow-edges [data-relationship-kind="mixes_in"]')
         line = edge.locator(".line")
-        assert line.evaluate("node => getComputedStyle(node).markerEnd").endswith(
-            "#flow-arrow-uml-mixes_in)"
+        assert "#flow-arrow-uml-mixes_in" in line.evaluate(
+            "node => getComputedStyle(node).markerEnd"
         )
         assert line.evaluate("node => getComputedStyle(node).strokeDasharray") == "6px, 4px"
         assert not errors
