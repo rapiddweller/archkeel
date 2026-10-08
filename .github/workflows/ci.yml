@@ -120,12 +120,12 @@ jobs:
 
   check:
     needs: changes
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: ${{ github.event_name == 'pull_request' && 25 || 60 }}
     steps:
       - name: Fail if change detection failed
-        if: always() && needs.changes.result != 'success'
+        if: ${{ !cancelled() && needs.changes.result != 'success' }}
         run: exit 1
 
       - name: Check out source
@@ -404,7 +404,7 @@ jobs:
 
   mermaid:
     needs: changes
-    if: always() && needs.changes.result == 'success' && needs.changes.outputs.mermaid == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.mermaid == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

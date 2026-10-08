@@ -162,6 +162,12 @@ def test_pr_report_gate_runs_its_browser_sample_and_propagates_failure(tmp_path,
 def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     check = workflow.split("  check:\n", 1)[1].split("\n  collector-safety-windows:", 1)[0]
+    assert "if: ${{ !cancelled() }}" in check
+    classifier_failure = check.split("- name: Fail if change detection failed\n", 1)[1].split(
+        "\n      - name:", 1
+    )[0]
+    assert "if: ${{ !cancelled() && needs.changes.result != 'success' }}" in classifier_failure
+    assert "run: exit 1" in classifier_failure
     assert "BASE: ${{ github.event.pull_request.base.sha }}" in check
     assert "run: make ci-core-check\n" in check
     assert "run: make ci-report-check\n" in check
@@ -186,6 +192,11 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
         in workflow
     )
     assert "run: make mermaid" in workflow
+    mermaid = workflow.split("  mermaid:\n", 1)[1].split("\n    steps:\n", 1)[0]
+    assert (
+        "if: ${{ !cancelled() && needs.changes.result == 'success' && "
+        "needs.changes.outputs.mermaid == 'true' }}"
+    ) in mermaid
     native = workflow.split("  typescript-native:\n", 1)[1].split("\n  github-order-report:", 1)[0]
     assert "os: [ubuntu-latest, windows-latest]" in native
     assert 'python: ["3.11.12", "3.12.10"]' in native
