@@ -35,11 +35,11 @@
 
 **Interfaces:** Produce the complete proposed source/module/class/member/signature inventory in Target JSON and a compact source-layout table in `docs/target.md`. Task 3 implements those names/signatures. No `lib` source yet.
 
-- [ ] Write a failing target-validation test for responsibilities/provenance, ownership, three meaningful component levels and required UML inventory/relationships.
-- [ ] Author the fixture Target for the spec's journey/boundaries. Decide exact names/signatures once in the Target. Plan generic state, enhanced enum, nullable/Future/Stream signatures, factory vs generative construction, Flutter view/state lifecycle and constructor injection where they serve the journey.
-- [ ] Include an external Flutter referenced endpoint and required inheritance relationship. Do not invent unsupported graph kinds/traits; document their absence.
-- [ ] Validate the contract tree and target graph without observing nonexistent source; verify permissions are closed and module/member ownership is coherent. Record intended source-only variants and expected aspects rather than guessing whole-report PASS.
-- [ ] Run focused structural tests, review the diff and commit. Fresh task review before source implementation.
+- [x] Write a failing target-validation test for responsibilities/provenance, ownership, three meaningful component levels and required UML inventory/relationships.
+- [x] Author the fixture Target for the spec's journey/boundaries. Decide exact names/signatures once in the Target. Plan generic state, enhanced enum, nullable/Future/Stream signatures, factory vs generative construction, Flutter view/state lifecycle and constructor injection where they serve the journey.
+- [x] Include an external Flutter referenced endpoint and required inheritance relationship. Do not invent unsupported graph kinds/traits; document their absence.
+- [x] Validate the contract tree and target graph without observing nonexistent source; verify permissions are closed and module/member ownership is coherent. Record intended source-only variants and expected aspects rather than guessing whole-report PASS.
+- [x] Run focused structural tests, review the diff and commit. Fresh task review before source implementation.
 
 ## Task 2: Correct generic Analyzer element identity
 
@@ -47,9 +47,9 @@
 
 **Interfaces:** Native SourceFacts and existing shared graph only. The generic factory and inherited-method regressions live in `tests/test_dart_inner_collect.py` (`test_native_generic_redirected_factory_stays_unknown_in_core_graph`, `test_native_generic_inherited_call_resolves_in_core_graph`).
 
-- [ ] Add RED regressions: generic redirected factory construction must remain partial/UNKNOWN; inherited generic local calls must resolve to the selected base declaration, as non-generic controls already do. Verify through strict facts and Core creates/calls comparisons, not message strings.
-- [ ] Inspect official Analyzer element API and use canonical declaration identity for instantiated members at the shared lookup boundary. Do not special-case class names, strip generic strings, or treat factories as generative. External targets remain unresolved.
-- [ ] Run focused regression tests, native Dart format/analyze, and relevant existing constructor/inheritance/provenance tests. Review the diff and commit; fresh review before the app task.
+- [x] Add RED regressions: generic redirected factory construction must remain partial/UNKNOWN; inherited generic local calls must resolve to the selected base declaration, as non-generic controls already do. Verify through strict facts and Core creates/calls comparisons, not message strings.
+- [x] Inspect official Analyzer element API and use canonical declaration identity for instantiated members at the shared lookup boundary. Do not special-case class names, strip generic strings, or treat factories as generative. External targets remain unresolved.
+- [x] Run focused regression tests, native Dart format/analyze, and relevant existing constructor/inheritance/provenance tests. Review the diff and commit; fresh review before the app task.
 
 ## Task 3: Runnable Flutter flow
 
@@ -57,10 +57,10 @@
 
 **Interfaces:** Implement Task 1's inventory, with the Target immutable unless a documented design defect is reviewed. App entry `lib/main.dart`; Flutter tests drive real widgets and async state, not a Python mock.
 
-- [ ] Write and run focused failing behavior tests for catalog→cart→checkout→order detail, offline/error retry preserving the cart, duplicate submit protection and disposal/stream cleanup.
-- [ ] Implement the spec using platform widgets/state/navigation and deterministic services. Avoid generic command buses, fake product abstractions, timing-dependent tests and unneeded dependencies.
-- [ ] Add `make flutter-demo-check` to orchestrate explicit `flutter pub get`, format check, analyze, tests and web build; capture exact SDK versions and test output. Keep analysis itself installation-free.
-- [ ] Verify actual Flutter behavior and build; review/correct only source code, not Target to match observed facts. Commit; fresh task review.
+- [x] Write and run focused failing behavior tests for catalog→cart→checkout→order detail, offline/error retry preserving the cart, duplicate submit protection and disposal/stream cleanup.
+- [x] Implement the spec using platform widgets/state/navigation and deterministic services. Avoid generic command buses, fake product abstractions, timing-dependent tests and unneeded dependencies.
+- [x] Add `make flutter-demo-check` to orchestrate explicit `flutter pub get`, format check, analyze, tests and web build; capture exact SDK versions and test output. Keep analysis itself installation-free.
+- [x] Verify actual Flutter behavior and build; review/correct only source code, not Target to match observed facts. Commit; fresh task review.
 
 ## Task 4: ArchKeel integration, mutations, browser and limitations
 
@@ -68,10 +68,14 @@
 
 **Interfaces:** Reuse Variant, replay, existing report parser/comparison and browser helpers. Source-only cases `flutter-shop`, `flutter-signature-fail`, `flutter-missing-member-fail`, `flutter-forbidden-dependency-fail`, `flutter-dynamic-unknown`, `flutter-unsupported-declaration`.
 
-- [ ] Write failing end-to-end assertions for target byte identity, exact signature/member/dependency findings, local PASS evidence, required external/dynamic relationship UNKNOWN and unsupported-declaration gaps. Assert actual report and coverage semantics rather than assuming exit codes.
-- [ ] Add six catalog cases and shared replay integration without special collector behavior. Expose generated demo guide entries. Keep expensive new browser checks focused on this fixture.
-- [ ] Exercise desktop/mobile deep navigation in all three views, evidence, sibling/cross-boundary relationships, FAIL/UNKNOWN detail and stable payload. Save screenshots/reports locally.
-- [ ] Run the unchanged pinned Compass source snapshot with the ordinary native collector; record manifest/digests, selected source scope, diagnostics and unresolved calls. Use no network or external package sources during the scan.
-- [ ] Record a concise evidence-backed matrix against Compass, TodoMVC and Ente: demonstrated, syntax-only, UNKNOWN/rejected, unmodeled, feasible follow-up. Fix confirmed correctness defects in the smallest shared place with a regression; larger capability extensions remain explicit proposals.
-- [ ] Run focused Flutter/Dart/catalog/browser tests, `make lint typecheck`, `make check`, `make demo-uml`, `make against BASE=origin/main`; build/smoke only if packaging changed. Preserve existing baseline ceilings and explicit UNKNOWNs.
-- [ ] Fresh whole-change review, parent integration acceptance and updated completion evidence. Keep commits local.
+- [x] Write failing end-to-end assertions for target byte identity, exact signature/member/dependency findings, local PASS evidence, required external/dynamic relationship UNKNOWN and unsupported-declaration gaps. Assert actual report and coverage semantics rather than assuming exit codes.
+- [x] Add six catalog cases and shared replay integration without special collector behavior. Expose generated demo guide entries. Keep expensive new browser checks focused on this fixture.
+- [x] Exercise desktop/mobile deep navigation in all three views, evidence, sibling/cross-boundary relationships, FAIL/UNKNOWN detail and stable payload. Save screenshots/reports locally.
+- [x] Run the unchanged pinned Compass source snapshot with the ordinary native collector; record manifest/digests, selected source scope, diagnostics and unresolved calls. Use no network or external package sources during the scan.
+- [x] Record a concise evidence-backed matrix against Compass, TodoMVC and Ente: demonstrated, syntax-only, UNKNOWN/rejected, unmodeled, feasible follow-up. Fix confirmed correctness defects in the smallest shared place with a regression; larger capability extensions remain explicit proposals.
+- [x] Run focused Flutter/Dart/catalog/browser tests, `make lint typecheck`, `make check`, `make demo-uml`, `make against BASE=origin/main`; build/smoke only if packaging changed. Preserve existing baseline ceilings and explicit UNKNOWNs.
+- [x] Fresh whole-change review, parent integration acceptance and updated completion evidence. Keep commits local.
+
+## Completion
+
+Accepted locally at product commit `19052fdb6dceb88dd355de0c23765d9366a5d0a5`. Fresh `make check`: 6,101 passed, 283 skipped; full browser gate: 649 passed plus generated-report acceptance. UML demo and package smoke passed. Flutter runtime, self-observation and against receipts are recorded with their exact revisions in `test-artifacts/flutter-demo/verification.md`. Independent Luna reviews passed; remaining semantic and mobile-runtime limits stay explicit. No CI, push or merge.
