@@ -263,7 +263,7 @@ def test_language_uml_demo_keeps_declared_target_separate_from_observation(
 )
 def test_language_uml_demo_uses_shared_browser_acceptance(tmp_path, capsys, variant, exit_code):
     api = pytest.importorskip("playwright.sync_api")
-    from tools.report_browser import _check_inner_uml
+    from tools.report_browser import _check_atlas_interactions, _check_inner_uml
 
     output = tmp_path / "architecture.json"
     assert replay(variant, output) == exit_code
@@ -277,6 +277,10 @@ def test_language_uml_demo_uses_shared_browser_acceptance(tmp_path, capsys, vari
             page.goto(output.with_suffix(".report.html").as_uri())
             if variant.startswith("uml-dart-"):
                 page.screenshot(path=str(tmp_path / f"{variant}-overview.png"), full_page=True)
+            for width in (1440, 375):
+                page.set_viewport_size({"width": width, "height": 1000})
+                _check_atlas_interactions(page)
+            page.set_viewport_size({"width": 1440, "height": 1000})
             _check_inner_uml(page, variant, tmp_path)
             assert not errors
         finally:
