@@ -34,6 +34,21 @@ The initial Target was authored before app source. A narrowly scoped architectur
 
 All component responsibilities, requirements, declarations, and edges cite this document and use `decided_by: agent`. `complete_requires` closes each component boundary. Presentation may use domain ports/use cases and generic state, but may not bypass repositories into data services. Data repositories may use data services and domain values; services remain below repositories. Domain components depend only on other domain components needed by the model (cart→catalog, orders→cart, checkout→cart/orders). Composition constructs the concrete graph and may depend on presentation, domain, data, and state.
 
+## Baseline observed component graph
+
+This marked graph records baseline source imports; it is separate from the root Target's authored `requires` permissions. It draws the observed imports that those permissions allow. Composition-to-state remains a Target permission, but is unused by direct imports and is omitted here.
+
+<!-- archkeel-component-graph -->
+```mermaid
+flowchart LR
+    composition --> data
+    composition --> domain
+    composition --> presentation
+    data --> domain
+    presentation --> domain
+    presentation --> state
+```
+
 The Target includes external `ChangeNotifier`, `StatelessWidget`, `StatefulWidget`, and `State<ShopApp>` inheritance endpoints, plus `runApp`. These SDK endpoints are referenced, not app-owned; unresolved Flutter SDK evidence remains UNKNOWN and must not be removed to make the report green. Shared UML has no traits for `final`/`sealed`, generic bounds, or mixin-specific behavior; callback execution and runtime lifecycle transitions are also not represented.
 
 ## Reviewed corrections (2026-10-08)

@@ -107,7 +107,7 @@ dart-native:
 	cd src/archkeel/analyzer/dart/native && "$(DART_EXECUTABLE)" analyze
 	DART_EXECUTABLE="$(DART_EXECUTABLE)" $(UV) run --locked python -m pytest -q \
 		tests/test_dart_profile.py tests/test_dart_inner_collect.py tests/test_dart_unknowns.py \
-		tests/test_uml_source_facts.py tests/test_dart_uml_acceptance.py
+		tests/test_uml_source_facts.py tests/test_dart_uml_acceptance.py tests/test_flutter_demo.py
 
 # Compare against the immutable output captured from the former Node collector.
 typescript-differential:

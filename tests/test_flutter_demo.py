@@ -5,12 +5,15 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import json
 from pathlib import Path
 
 from archkeel.ir.codec import load_inside_contract_tree, parse_contract
 from archkeel.ir.target_graph import declared_tree_graph
+from fixtures.architecture_demo import CATALOG, _page_payload, materialized_fixture, replay
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "I-flutter-shop"
 ROOT_CONTRACT = "architecture-contract.json"
@@ -96,10 +99,160 @@ def test_flutter_target_has_agent_owned_responsibilities_and_closed_permissions(
         {
             "component": "cart",
             "through": ["shop.presentation.shopping.cart.cart_view_model"],
-            "rationale": "Add a selected product through the cart view model required by the catalog action.",
+            "rationale": (
+                "Add a selected product through the cart view model required by the catalog action."
+            ),
             "decided_by": "agent",
         }
     ]
+
+
+def test_flutter_mutations_keep_target_identical_and_change_only_dart_sources() -> None:
+    expected_ids = {
+        "flutter-shop",
+        "flutter-signature-fail",
+        "flutter-missing-member-fail",
+        "flutter-forbidden-dependency-fail",
+        "flutter-dynamic-unknown",
+        "flutter-unsupported-declaration",
+    }
+    variants = {item.id: item for item in CATALOG if item.id.startswith("flutter-")}
+    assert set(variants) == expected_ids
+
+    target_bytes = {
+        path: (FIXTURE / path).read_bytes() for path in (*TARGET_CONTRACTS, *PROVENANCE)
+    }
+    for variant in variants.values():
+        assert variant.fixture == FIXTURE
+        assert bool(variant.files) == (variant.id != "flutter-shop")
+        assert all(path.startswith("lib/") and path.endswith(".dart") for path in variant.files)
+        with materialized_fixture(variant) as root:
+            assert not (root / ".dart_tool").exists()
+            assert not (root / "build").exists()
+            assert {
+                path: (root / path).read_bytes() for path in (*TARGET_CONTRACTS, *PROVENANCE)
+            } == target_bytes
+
+
+def test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct(
+    tmp_path: Path,
+) -> None:
+    cases = (
+        ("flutter-shop", 0, "UNKNOWN", "PASS"),
+        ("flutter-signature-fail", 2, "FAIL", "PASS"),
+        ("flutter-missing-member-fail", 2, "FAIL", "PASS"),
+        ("flutter-forbidden-dependency-fail", 2, "UNKNOWN", "PASS"),
+        ("flutter-dynamic-unknown", 0, "UNKNOWN", "PASS"),
+        ("flutter-unsupported-declaration", 2, "UNKNOWN", "FAIL"),
+    )
+    reports = {}
+    validations = {}
+    for variant_id, expected_exit, expected_comparison, expected_coverage in cases:
+        output = tmp_path / f"{variant_id}.json"
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            actual_exit = replay(variant_id, output)
+        assert actual_exit == expected_exit, variant_id
+        summaries = [
+            json.loads(line)
+            for line in stdout.getvalue().splitlines()
+            if line.startswith("{") and line.endswith("}")
+        ]
+        validation, report_summary = summaries
+        validations[variant_id] = validation
+        assert validation["command"] == "validate"
+        assert report_summary["command"] == "report"
+        assert report_summary["coverage"]["status"] == expected_coverage
+        assert report_summary["observation_complete"] == (
+            "UNKNOWN" if expected_coverage == "FAIL" else "PASS"
+        )
+
+        report_html = output.with_suffix(".report.html")
+        main = json.loads(_page_payload(report_html.read_text(encoding="utf-8")))
+        detail = report_html.with_name(main["atlas"]["detail_page"])
+        payload = json.loads(_page_payload(detail.read_text(encoding="utf-8")))
+        reports[variant_id] = (report_summary, payload)
+        if expected_coverage == "FAIL":
+            gaps = report_summary["coverage"]["failures"]
+            assert any(
+                item["kind"] == "UnsupportedDeclaration"
+                and item["subjects"] == ["lib/domain/orders/order.dart:12"]
+                for item in gaps
+            )
+            assert payload["comparison"] is None
+            continue
+        comparison = payload["comparison"]
+        assert comparison["status"] == expected_comparison
+        assert all(item["evidence_ids"] for item in comparison["assessments"])
+
+    base = reports["flutter-shop"][0]
+    assert base["observation_complete"] == "PASS"
+    assert base["coverage"]["files_discovered"] == 21
+    assert base["measurements"]["scalars"]["unknown_positions"] == 35
+    assert base["declared_rules"] == "UNKNOWN"
+    base_detail = reports["flutter-shop"][1]
+    assert len(base_detail["target"]["relationships"]) == 100
+    assert (
+        sum(item["aspect"] == "relationship" for item in base_detail["comparison"]["assessments"])
+        == 87
+    )
+    assert sum(item["status"] == "PASS" for item in base_detail["comparison"]["assessments"]) == 786
+    assert (
+        sum(item["status"] == "UNKNOWN" for item in base_detail["comparison"]["assessments"]) == 35
+    )
+    assert all(
+        item["status"] == "PASS"
+        for item in base["rule_assessments"]
+        if item["kind"] == "complete_requires"
+    )
+
+    signature = reports["flutter-signature-fail"][1]["comparison"]["assessments"]
+    signature_fail = [
+        item
+        for item in signature
+        if (item["subject_id"], item["aspect"], item["status"])
+        == ("domain:order-line-total", "signature", "FAIL")
+    ]
+    assert len(signature_fail) == 1
+    signature_evidence = {
+        item["id"]: item for item in reports["flutter-signature-fail"][1]["observed"]["evidence"]
+    }
+    assert any(
+        signature_evidence[item]["file"] == "lib/domain/orders/order.dart"
+        for item in signature_fail[0]["evidence_ids"]
+    )
+
+    member = reports["flutter-missing-member-fail"][1]["comparison"]["assessments"]
+    assert [
+        (item["subject_id"], item["aspect"], item["status"])
+        for item in member
+        if item["status"] == "FAIL"
+    ] == [("domain:status-completed", "existence", "FAIL")]
+
+    forbidden_summary = reports["flutter-forbidden-dependency-fail"][0]
+    assert forbidden_summary["declared_rules"] == "FAIL"
+    assert forbidden_summary["violations_by_component_pair"] == [["presentation", "data", 1]]
+    assert any(
+        item["kind"] == "complete_requires"
+        and item["scope"] == "root"
+        and item["status"] == "FAIL"
+        and item["count"] == 1
+        for item in forbidden_summary["rule_assessments"]
+    )
+    assert any(
+        item["code"] == "graph.drift"
+        for item in validations["flutter-forbidden-dependency-fail"]["diagnostics"]
+    )
+
+    dynamic = reports["flutter-dynamic-unknown"][1]["comparison"]["assessments"]
+    assert [
+        (item["subject_id"], item["aspect"], item["status"])
+        for item in dynamic
+        if item["subject_id"] == "presentation:orders-vm-calls-watch"
+    ] == [("presentation:orders-vm-calls-watch", "relationship", "UNKNOWN")]
+    assert (
+        reports["flutter-dynamic-unknown"][0]["measurements"]["scalars"]["unknown_positions"] == 36
+    )
 
 
 def test_flutter_target_owns_three_meaningful_component_levels_and_all_modules() -> None:

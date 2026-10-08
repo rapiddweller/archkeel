@@ -32,6 +32,8 @@ from fixtures.demo_catalog_dart import VARIANTS as _DART_VARIANTS
 from fixtures.demo_catalog_dependencies import VARIANTS as _DEPENDENCY_VARIANTS
 from fixtures.demo_catalog_evidence import VARIANTS as _EVIDENCE_VARIANTS
 from fixtures.demo_catalog_exact_ownership import VARIANTS as _EXACT_OWNERSHIP_VARIANTS
+from fixtures.demo_catalog_flutter import FLUTTER_FIXTURE_DIR
+from fixtures.demo_catalog_flutter import VARIANTS as _FLUTTER_VARIANTS
 from fixtures.demo_catalog_interfaces import VARIANTS as _INTERFACE_VARIANTS
 from fixtures.demo_catalog_layout import VARIANTS as _LAYOUT_VARIANTS
 from fixtures.demo_catalog_showcase import VARIANTS as _SHOWCASE_VARIANTS
@@ -59,6 +61,7 @@ CATALOG: tuple[Variant, ...] = (
     *_UML_VARIANTS,
     *_EXACT_OWNERSHIP_VARIANTS,
     *_DART_VARIANTS,
+    *_FLUTTER_VARIANTS,
 )
 
 
@@ -70,6 +73,12 @@ REPORT_CASES = {
     "uml-dart-missing-member-fail": ("uml-dart-missing-member-fail", 2),
     "uml-dart-forbidden-dependency-fail": ("uml-dart-forbidden-dependency-fail", 2),
     "uml-dart-partial-unknown": ("uml-dart-partial-unknown", 0),
+    "uml-flutter-shop": ("flutter-shop", 0),
+    "uml-flutter-signature-fail": ("flutter-signature-fail", 2),
+    "uml-flutter-missing-member-fail": ("flutter-missing-member-fail", 2),
+    "uml-flutter-forbidden-dependency-fail": ("flutter-forbidden-dependency-fail", 2),
+    "uml-flutter-dynamic-unknown": ("flutter-dynamic-unknown", 0),
+    "uml-flutter-unsupported-declaration": ("flutter-unsupported-declaration", 2),
     "uml-typescript": ("uml-typescript", 0),
     "uml-typescript-match": ("uml-typescript-match", 0),
     "uml-typescript-mismatch": ("uml-typescript-mismatch", 2),
@@ -99,6 +108,12 @@ UML_DEMO_COMPARISONS = {
     "uml-dart-missing-member-fail": "FAIL",
     "uml-dart-forbidden-dependency-fail": "PASS",
     "uml-dart-partial-unknown": "UNKNOWN",
+    "uml-flutter-shop": "UNKNOWN",
+    "uml-flutter-signature-fail": "FAIL",
+    "uml-flutter-missing-member-fail": "FAIL",
+    "uml-flutter-forbidden-dependency-fail": "UNKNOWN",
+    "uml-flutter-dynamic-unknown": "UNKNOWN",
+    "uml-flutter-unsupported-declaration": "UNKNOWN",
     "uml-typescript": "UNKNOWN",
     "uml-typescript-match": "PASS",
     "uml-typescript-mismatch": "FAIL",
@@ -128,6 +143,19 @@ make demo-uml OUTPUT=build/uml-demo
 Dart has independent Target PASS, signature/member and dependency FAIL, and partial-resolution
 UNKNOWN cases. TypeScript includes PASS, FAIL and UNKNOWN UML cases; unsupported or ambiguous
 source facts stay UNKNOWN.
+
+Flutter adds a nested shop journey with source-only signature, enum-member, dependency, dynamic,
+and unsupported-declaration cases. The base keeps external framework and inferred-type facts
+UNKNOWN rather than treating them as resolved relationships.
+
+| Variant | Expected evidence |
+|---|---|
+| `flutter-shop` | Local comparison passes; unresolved source facts keep UML UNKNOWN. |
+| `flutter-signature-fail` | `OrderLine.lineTotalCents` signature FAIL. |
+| `flutter-missing-member-fail` | `OrderStatus.completed` existence FAIL. |
+| `flutter-forbidden-dependency-fail` | `complete_requires` FAIL for presentation → data. |
+| `flutter-dynamic-unknown` | Dynamic `watchAll` call remains UNKNOWN. |
+| `flutter-unsupported-declaration` | Extension yields a coverage gap and UNKNOWN observation. |
 
 The [catalog](../fixtures/architecture_demo.py) owns all variants, overlays and expected
 outcomes. Check-protocol and test-only variants cannot replay as reports.
@@ -233,7 +261,7 @@ def uml_suite(output_dir: Path) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     for name, comparison_status in UML_DEMO_COMPARISONS.items():
         variant, expected_exit = REPORT_CASES[name]
-        row = next(item for item in _UML_VARIANTS if item.id == variant)
+        row = next(item for item in CATALOG if item.id == variant)
         output = output_dir / f"{name}.json"
         captured = io.StringIO()
         with contextlib.redirect_stdout(captured):
@@ -249,6 +277,20 @@ def uml_suite(output_dir: Path) -> int:
             raise ValueError(f"{name}: report summary did not prove {row.expected_declared_rules}")
         if not output.is_file() or not output.with_suffix(".report.html").is_file():
             raise ValueError(f"{name}: report JSON and HTML must both be written")
+        if variant == "flutter-unsupported-declaration":
+            report_summary = next(item for item in summaries if item.get("command") == "report")
+            failures = report_summary["coverage"]["failures"]
+            if (
+                report_summary["observation_complete"] != "UNKNOWN"
+                or report_summary["coverage"]["status"] != "FAIL"
+                or not any(item["kind"] == "UnsupportedDeclaration" for item in failures)
+            ):
+                raise ValueError(f"{name}: expected explicit unsupported-declaration coverage")
+            print(
+                f"{name}: exit={actual_exit} declared_rules={row.expected_declared_rules} "
+                "uml=UNKNOWN (comparison unavailable because coverage is incomplete)"
+            )
+            continue
         report_html = output.with_suffix(".report.html")
         main = json.loads(_page_payload(report_html.read_text(encoding="utf-8")))
         detail = report_html.with_name(main["atlas"]["detail_page"])
@@ -281,7 +323,12 @@ def materialized_fixture(variant: Variant) -> Iterator[Path]:
     """Yield a clean-baseline demo tree with its catalog overlay applied."""
     with tempfile.TemporaryDirectory(prefix="archkeel-demo-") as temporary:
         root = Path(temporary) / variant.fixture.name
-        shutil.copytree(variant.fixture, root)
+        ignored = (
+            shutil.ignore_patterns(".dart_tool", "build")
+            if variant.fixture.resolve() == FLUTTER_FIXTURE_DIR.resolve()
+            else None
+        )
+        shutil.copytree(variant.fixture, root, ignore=ignored)
         if variant.against is not None:
             apply_overlay(root, variant.against.base_files)
         for command in (

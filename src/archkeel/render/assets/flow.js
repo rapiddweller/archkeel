@@ -2527,7 +2527,8 @@
 
   function switchArchitectureView(nextView) {
     if (SIDECAR) {
-      const graph = nextView === "target" ? DATA.target : nextView === "diagram" ? DATA.observed : null;
+      const graph = ["target", "diff"].includes(nextView) ? DATA.target
+        : nextView === "diagram" ? DATA.observed : null;
       const counterpart = graph && umlPath.length ? scopeCounterpart(umlPath.at(-1), graph).entity : null;
       if (counterpart) umlPath = lexicalRoute(counterpart.id, null, graph.origin);
       viewMode = nextView; umlSelection = null; scopeNotice = null;
@@ -2801,12 +2802,22 @@
 
   function atlasDetailsHref(module, level) {
     const assignment = viewMode === "target" ? module : level.modules.find((item) => item.id === module.id);
-    const route = assignment?.component_id && ATLAS.detail_page
-      ? `${ATLAS.detail_page}?component=${encodeURIComponent(assignment.component_id)}`
+    const targetCounterparts = viewMode === "diff" ? ATLAS.declared_modules.filter((item) =>
+      module.path && item.path ? item.path === module.path : item.name === module.name) : [];
+    const targetCounterpart = targetCounterparts.length === 1 ? targetCounterparts[0] : null;
+    const componentId = targetCounterpart
+      ? targetCounterpart.component_id || assignment?.component_id
+      : assignment?.component_id;
+    const route = componentId && ATLAS.detail_page
+      ? `${ATLAS.detail_page}?component=${encodeURIComponent(componentId)}`
       : `${ATLAS.detail_page || "architecture.detail.html"}?component=unassigned`;
     const href = route.startsWith("?") ? `${ATLAS.detail_page || "architecture.detail.html"}${route}` : route;
     const query = atlasEntryQuery(level); query.set("module", module.id);
     if (viewMode === "target") query.set("origin", "declared");
+    if (targetCounterpart) {
+      query.set("module", targetCounterpart.id);
+      query.set("origin", "declared");
+    }
     return `${href}${href.includes("?") ? "&" : "?"}${query}`;
   }
 

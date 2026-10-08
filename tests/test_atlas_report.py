@@ -1827,6 +1827,19 @@ def test_target_counterpart_and_planned_classifier_open_declared_members(tmp_pat
                 )
                 == "true"
             )
+        page.goto(index.as_uri() + "?scope=core&view=diagram&theme=dark")
+        page.locator('.flow-nodes [data-label="core.py"]').dblclick()
+        page.wait_for_url("**/architecture.detail.html?*")
+        page.get_by_role("button", name="Diff", exact=True).click()
+        assert "origin=declared" in page.url and "module=declared-module" in page.url
+        page.locator('.flow-nodes [data-uml-id="future"]').dblclick()
+        assert page.locator('.flow-nodes [data-uml-id="execute"]').count() == 1
+        page.goto(index.as_uri() + "?scope=core&view=diff&theme=dark")
+        page.locator('.flow-nodes [data-label="core.py"]').dblclick()
+        page.wait_for_url("**/architecture.detail.html?*")
+        assert "origin=declared" in page.url and "module=declared-module" in page.url
+        page.locator('.flow-nodes [data-uml-id="future"]').dblclick()
+        assert page.locator('.flow-nodes [data-uml-id="execute"]').count() == 1
         page.goto(index.as_uri() + "?scope=core&view=target&theme=dark")
         page.locator('.flow-nodes [data-uml-id="declared-module"]').press("Enter")
         assert "module=declared-module" in page.url and "origin=declared" in page.url

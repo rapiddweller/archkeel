@@ -19,6 +19,10 @@ Dart has independent Target PASS, signature/member and dependency FAIL, and part
 UNKNOWN cases. TypeScript includes PASS, FAIL and UNKNOWN UML cases; unsupported or ambiguous
 source facts stay UNKNOWN.
 
+Flutter adds a nested shop journey with source-only signature, enum-member, dependency, dynamic,
+and unsupported-declaration cases. The base keeps external framework and inferred-type facts
+UNKNOWN rather than treating them as resolved relationships.
+
 The [catalog](../fixtures/architecture_demo.py) owns all variants, overlays and expected
 outcomes. Check-protocol and test-only variants cannot replay as reports.
 [Tests](../tests/test_architecture_demo.py) verify the catalog; the guide omits its full inventory.
