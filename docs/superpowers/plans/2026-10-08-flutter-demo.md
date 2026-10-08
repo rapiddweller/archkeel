@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Work only in `/Users/akell/.codex/worktrees/dart-uml-sourcefacts/archkeel`, branch `feat/dart-uml-sourcefacts`.
+- Work on branch `feat/dart-uml-sourcefacts` in the repository checkout.
 - Demo package/namespace `shop`; fixture `fixtures/I-flutter-shop`; source root `lib`.
 - Target authored before source; no Target from As-Is; unchanged Target bytes across source variants.
 - Agent-authored permissions stay `decided_by: agent`. Required external Flutter inheritance remains in Target even when UNKNOWN.
@@ -45,7 +45,7 @@
 
 **Files:** `src/archkeel/analyzer/dart/native/lib/collector.dart`, `tests/test_dart_inner_collect.py`; existing Dart architecture decision/known-limits notes if needed.
 
-**Interfaces:** Native SourceFacts and existing shared graph only. Reproduce `/private/tmp/flutter-generic-factory-source.dart` and the generic inherited method in `/private/tmp/flutter-construct-clean-source.dart`; source and raw receipts documented in `/private/tmp/flutter-construct-probes.md`.
+**Interfaces:** Native SourceFacts and existing shared graph only. The generic factory and inherited-method regressions live in `tests/test_dart_inner_collect.py` (`test_native_generic_redirected_factory_stays_unknown_in_core_graph`, `test_native_generic_inherited_call_resolves_in_core_graph`).
 
 - [ ] Add RED regressions: generic redirected factory construction must remain partial/UNKNOWN; inherited generic local calls must resolve to the selected base declaration, as non-generic controls already do. Verify through strict facts and Core creates/calls comparisons, not message strings.
 - [ ] Inspect official Analyzer element API and use canonical declaration identity for instantiated members at the shared lookup boundary. Do not special-case class names, strip generic strings, or treat factories as generative. External targets remain unresolved.

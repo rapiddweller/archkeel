@@ -857,7 +857,7 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
         page.locator(".flow-back").click()
         page.locator('.flow-nodes [data-label="State"]').dblclick()
         ready = page.locator('.flow-nodes [data-label="READY"][data-uml-kind="enum_literal"]')
-        if name == "uml-partial" and view in {"diagram", "diff"}:
+        if name == "uml-partial" and view == "diagram":
             assert ready.count() == 0
             for kind in ("attribute", "binding"):
                 assert (
@@ -866,6 +866,25 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
                     ).count()
                     == 1
                 )
+        elif name == "uml-partial" and view == "diff":
+            assert ready.count() == 1
+            assert ready.get_attribute("data-assessment-status") == "UNKNOWN"
+            target_ready = next(
+                entity
+                for entity in report.target.entities
+                if entity.qualified_name.endswith(".State.READY") and entity.kind == "enum_literal"
+            )
+            observed_ready = [
+                entity
+                for entity in report.observed.entities
+                if entity.qualified_name.endswith(".State.READY")
+            ]
+            assert {entity.kind for entity in observed_ready} == {"attribute", "binding"}
+            assert not any(
+                match.target_id == target_ready.id
+                and any(entity.id in match.observed_ids for entity in observed_ready)
+                for match in report.comparison.correspondences
+            )
         else:
             assert ready.count() == 1
             assert ready.locator(".stereotype").text_content() == "«enumeration literal»"
@@ -888,7 +907,19 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
             assert page.locator('.flow-edges [data-relationship-kind="instance_of"]').count() > 0
         item.press("Space")
         _show_details(page)
+        if view == "diff":
+            page.get_by_role("heading", name="As-Is binding", exact=True).wait_for()
+            expected_as_is = (
+                "new constructors[0]()"
+                if language == "typescript" and name == "uml-typescript-partial"
+                else "new Unit()"
+                if language == "typescript"
+                else "Unit()"
+            )
         inspector = page.locator(".flow-inspector-content").inner_text()
+        if view == "diff":
+            assert "AS-IS BINDING" in inspector
+            assert f"item = {expected_as_is}" in inspector
         if language == "typescript":
             assert "binding" in inspector
             if view in {"diagram", "diff"}:

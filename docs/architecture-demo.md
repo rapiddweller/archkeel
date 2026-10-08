@@ -23,6 +23,15 @@ Flutter adds a nested shop journey with source-only signature, enum-member, depe
 and unsupported-declaration cases. The base keeps external framework and inferred-type facts
 UNKNOWN rather than treating them as resolved relationships.
 
+| Variant | Expected evidence |
+|---|---|
+| `flutter-shop` | Local comparison passes; unresolved source facts keep UML UNKNOWN. |
+| `flutter-signature-fail` | `OrderLine.lineTotalCents` signature FAIL. |
+| `flutter-missing-member-fail` | `OrderStatus.completed` existence FAIL. |
+| `flutter-forbidden-dependency-fail` | `complete_requires` FAIL for presentation → data. |
+| `flutter-dynamic-unknown` | Dynamic `watchAll` call remains UNKNOWN. |
+| `flutter-unsupported-declaration` | Extension yields a coverage gap and UNKNOWN observation. |
+
 The [catalog](../fixtures/architecture_demo.py) owns all variants, overlays and expected
 outcomes. Check-protocol and test-only variants cannot replay as reports.
 [Tests](../tests/test_architecture_demo.py) verify the catalog; the guide omits its full inventory.

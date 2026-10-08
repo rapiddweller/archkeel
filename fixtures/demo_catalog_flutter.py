@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from archkeel.ir.model import stable_id
 from fixtures.demo_catalog_support import Variant
 
 FLUTTER_FIXTURE_DIR = Path(__file__).resolve().parent / "I-flutter-shop"
@@ -44,8 +45,8 @@ VARIANTS: tuple[Variant, ...] = (
         summary="Widen OrderLine.lineTotalCents from int to num. The Dart source remains valid, "
         "but the Target's closed member signature no longer matches.",
         files={_ORDER: _replace(_ORDER, "int get lineTotalCents", "num get lineTotalCents")},
-        expected_violations=(),
-        expected_codes=(),
+        expected_violations=(stable_id("UML-TARGET", "architecture-contract.json"),),
+        expected_codes=("rule.violated",),
         fixture=FLUTTER_FIXTURE_DIR,
         expected_declared_rules="FAIL",
     ),
@@ -56,8 +57,8 @@ VARIANTS: tuple[Variant, ...] = (
         summary="Remove the unused completed enum literal. The closed OrderStatus inventory "
         "reports a precise existence mismatch without breaking Dart compilation.",
         files={_ORDER: _replace(_ORDER, "  completed('Completed');", "  ;")},
-        expected_violations=(),
-        expected_codes=(),
+        expected_violations=(stable_id("UML-TARGET", "architecture-contract.json"),),
+        expected_codes=("rule.violated",),
         fixture=FLUTTER_FIXTURE_DIR,
         expected_declared_rules="FAIL",
     ),
@@ -81,8 +82,8 @@ VARIANTS: tuple[Variant, ...] = (
                 1,
             )
         },
-        expected_violations=(),
-        expected_codes=(),
+        expected_violations=("REQUIRES-COMPLETE",),
+        expected_codes=("graph.drift", "rule.violated"),
         fixture=FLUTTER_FIXTURE_DIR,
         expected_declared_rules="FAIL",
     ),
@@ -125,6 +126,8 @@ VARIANTS: tuple[Variant, ...] = (
         },
         expected_violations=(),
         expected_codes=(),
+        expected_kinds=("parse_error",),
+        expected_unknowns=(("UnsupportedDeclaration", "lib/domain/orders/order.dart:12"),),
         fixture=FLUTTER_FIXTURE_DIR,
         expected_declared_rules="UNKNOWN",
     ),

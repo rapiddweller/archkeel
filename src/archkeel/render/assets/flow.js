@@ -1385,12 +1385,23 @@
     const observed = viewMode === "diff" && graph.origin === "declared" ? DATA.observed : null;
     const observedById = new Map((observed ? architectureEntities(observed) : []).map((entity) => [entity.id, entity]));
     const counterparts = new Map();
+    const observedByTarget = new Map();
     for (const match of context.comparison?.correspondences || []) {
-      if (match.observed_ids.length !== 1 || !byId.has(match.target_id)) continue;
+      if (match.observed_ids.length !== 1 || !byId.has(match.target_id)
+          || !observedById.has(match.observed_ids[0])) continue;
       const id = match.observed_ids[0];
       if (!counterparts.has(id)) counterparts.set(id, new Set());
       counterparts.get(id).add(match.target_id);
+      if (!observedByTarget.has(match.target_id)) observedByTarget.set(match.target_id, new Set());
+      observedByTarget.get(match.target_id).add(id);
     }
+    const uniqueObservedCounterpart = (id) => {
+      const observedIds = observedByTarget.get(id);
+      if (observedIds?.size !== 1) return null;
+      const [observedId] = observedIds;
+      return counterparts.get(observedId)?.size === 1
+        ? observedById.get(observedId) || null : null;
+    };
     const targetEntry = (id) => ({ id, entity: byId.get(id), sourceGraph: graph,
       local: localIds.has(id) || id === scope });
     const observedEntry = (id, local = false) => ({ id: `observed:${id}`,
@@ -1487,6 +1498,8 @@
     }
     const nodes = [...entries.values()].map(({ id, entity, sourceGraph, local }) => {
       const children = graphIndexes.get(sourceGraph).children.get(entity.id) || [];
+      const observedCounterpart = viewMode === "diff" && sourceGraph === graph
+        && graph.origin === "declared" ? uniqueObservedCounterpart(entity.id) : null;
       const boundary = (sourceGraph.origin === "observed" ? DATA.target?.component_intents || [] : sourceGraph.component_intents)
         .find((item) => item.component_id === entity.id);
       const assessments = sourceGraph === graph ? architectureAssessments(context, entity.id)
@@ -1503,17 +1516,20 @@
         lines: [...entries.slice(0, 3).map((entry) => ({ text: umlMember(entry),
           static: entry.modifiers.includes("static") })),
           ...(entries.length > 3 ? [{ text: `… ${entries.length - 3} more · Open selected`, static: false }] : [])] }));
+      const meta = entity.kind === "enum_literal" ? ""
+        : ["method", "function", "attribute", "binding"].includes(entity.kind)
+        ? umlMember(entity, !["method", "function"].includes(entity.kind))
+        : entity.presence === "referenced" ? "Referenced symbol"
+        : entity.kind === "component" ? `Architecture boundary${boundary?.role && boundary.role !== "component" ? ` · Role: ${boundary.role}` : ""} · ${children.length} inner element${children.length === 1 ? "" : "s"}`
+        : entity.kind === "package" ? `Namespace group${sourceGraph !== graph ? " · observed" : ""} · ${children.length} inner element${children.length === 1 ? "" : "s"}`
+        : entity.kind === "module" ? `${sourceGraph !== graph ? "Observed · " : ""}${entity.file_path?.split("/").at(-1) || "File not declared"} · ${children.length} inner element${children.length === 1 ? "" : "s"}`
+        : sourceGraph !== graph ? `Observed · ${unexpected.some((item) => item.observed_ids.includes(entity.id)) ? "unlisted definition" : "relationship endpoint"}`
+        : `${children.length} inner element${children.length === 1 ? "" : "s"}`;
       return { id, kind: entity.kind, entity, sourceGraph, assessments,
+        observedCounterpart,
         label: architectureLabel(entity, sourceGraph),
-        meta: entity.kind === "enum_literal" ? ""
-          : ["method", "function", "attribute", "binding"].includes(entity.kind)
-          ? umlMember(entity, !["method", "function"].includes(entity.kind))
-          : entity.presence === "referenced" ? "Referenced symbol"
-          : entity.kind === "component" ? `Architecture boundary${boundary?.role && boundary.role !== "component" ? ` · Role: ${boundary.role}` : ""} · ${children.length} inner element${children.length === 1 ? "" : "s"}`
-          : entity.kind === "package" ? `Namespace group${sourceGraph !== graph ? " · observed" : ""} · ${children.length} inner element${children.length === 1 ? "" : "s"}`
-          : entity.kind === "module" ? `${sourceGraph !== graph ? "Observed · " : ""}${entity.file_path?.split("/").at(-1) || "File not declared"} · ${children.length} inner element${children.length === 1 ? "" : "s"}`
-          : sourceGraph !== graph ? `Observed · ${unexpected.some((item) => item.observed_ids.includes(entity.id)) ? "unlisted definition" : "relationship endpoint"}`
-          : `${children.length} inner element${children.length === 1 ? "" : "s"}`,
+        meta: observedCounterpart?.kind === "binding"
+          ? `${meta} · As-Is: ${umlMember(observedCounterpart)}` : meta,
         sections, memberCounts: { literals: literals.length, fields: fields.length, methods: methods.length }, outside: !local,
         tooltip: `${entity.kind}: ${entity.qualified_name}. ${entity.presence}. ${entity.responsibilities.join(" ")}` };
     });
@@ -2022,6 +2038,7 @@
       ${assignedModules.length ? `<h3>Assigned code · ${assignedModules.length} module${assignedModules.length === 1 ? "" : "s"}</h3><ul class="plain">${assignedModules.map((item) => `<li><code>${esc(item.file_path || item.qualified_name)}</code></li>`).join("")}</ul>` : ""}
       ${entity?.definition_contexts?.length ? `<h3>Definition context</h3><p>Recorded under control flow. Runtime name binding is not proven.</p><ol>${entity.definition_contexts.map((item) => `<li><code>${esc(item.kind)} · ${esc(item.branch)}</code></li>`).join("")}</ol>` : ""}
       ${entity?.initializer != null ? `<h3>Static assignment site</h3><p><code>${esc(umlMember(entity))}</code></p><p>Source value assigned at this site. This does not identify a live object or its current value.</p>` : ""}
+      ${node?.observedCounterpart?.kind === "binding" ? `<h3>As-Is binding</h3><p><code>${esc(umlMember(node.observedCounterpart))}</code></p><p>Observed source fact linked by a unique Core correspondence. It does not identify a live object or its current value.</p>` : ""}
       ${decisionGaps.length ? `<h3>Open dependency decisions</h3><p>These observed component imports have no declared dependency decision. This is not a Core UNKNOWN verdict.</p><ul>${decisionGaps.map((gap) => `<li>${esc(architectureLabel(architectureEntity(gap.source_id, DATA.target), DATA.target))} → ${esc(architectureLabel(architectureEntity(gap.target_id, DATA.target), DATA.target))}</li>`).join("")}</ul>` : ""}
       ${externalScopes.length ? `<h3>External dependency permissions</h3><ul>${externalScopes.map((rule) => `<li><strong>${esc(rule.dependency)}</strong> · <code>${esc(rule.id)}</code><p>Allowed prefixes: ${entries(rule.allowed_sources)}<br>Exact modules: ${entries(rule.exact_sources)}</p><p>${esc(rule.rationale)}</p><p>Decided by ${esc(rule.decided_by)} · ${rule.provenance.map(esc).join(" · ")}</p></li>`).join("")}</ul>` : ""}
       ${boundary ? `<h3>Component intent</h3><dl class="kv">
