@@ -580,6 +580,177 @@ void main() {
     assert explicit["targets"] == ()
 
 
+def test_native_generic_redirected_factory_stays_unknown_in_core_graph(tmp_path: Path) -> None:
+    from archkeel.check.uml_compare import compare_graphs
+    from archkeel.ir.architecture_graph import ArchitectureGraph, Entity, Relationship
+
+    _write_package(
+        tmp_path,
+        """abstract interface class Repository<T> {
+  factory Repository() = MemoryRepository<T>;
+}
+class MemoryRepository<T> implements Repository<T> {
+  MemoryRepository();
+}
+Repository<int> make() => Repository<int>();
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    factory_call = next(
+        record
+        for section in facts.sections
+        if section.name == "calls"
+        for record in section.records
+        if record.data.get("expression") == "Repository<int>()"
+    )
+    assert factory_call.data.get("status") == "resolved"
+    assert factory_call.data.get("targets") == ("commerce.main.Repository",)
+    assert factory_call.data.get("construction").get("status") == "partially_resolved"
+
+    graph = _source_graph(facts)
+    names = {entity.id: entity.qualified_name for entity in graph.entities}
+    [creation] = [
+        edge
+        for edge in graph.relationships
+        if edge.kind == "creates" and edge.expression == "Repository<int>()"
+    ]
+    assert creation.resolution == "partial"
+    assert creation.target_id is None
+    assert names[creation.candidate_ids[0]] == "commerce.main.Repository"
+
+    target = ArchitectureGraph(
+        "declared",
+        (
+            Entity(
+                "make",
+                "function",
+                "commerce.main.make",
+                "dart",
+                presence="planned",
+                provenance=("test",),
+            ),
+            Entity(
+                "repository",
+                "interface",
+                "commerce.main.Repository",
+                "dart",
+                presence="planned",
+                provenance=("test",),
+            ),
+        ),
+        (Relationship("factory-create", "creates", "make", "repository", provenance=("test",)),),
+    )
+    assessment = next(
+        item
+        for item in compare_graphs(graph, target).assessments
+        if item.subject_id == "factory-create" and item.aspect == "relationship"
+    )
+    assert assessment.status == "UNKNOWN"
+
+
+def test_native_generic_inherited_call_resolves_in_core_graph(tmp_path: Path) -> None:
+    from archkeel.check.uml_compare import compare_graphs
+    from archkeel.ir.architecture_graph import ArchitectureGraph, Entity, Relationship
+
+    _write_package(
+        tmp_path,
+        """class Base<T> {
+  T echo(T value) => value;
+}
+class Derived<T> extends Base<T> {
+  T forward(T value) => echo(value);
+}
+void external() { print('external'); }
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    call = next(
+        record
+        for section in facts.sections
+        if section.name == "calls"
+        for record in section.records
+        if record.data.get("expression") == "echo(value)"
+    )
+    assert call.data.get("status") == "resolved"
+    assert call.data.get("targets") == ("commerce.main.Base.echo",)
+    external_call = next(
+        record
+        for section in facts.sections
+        if section.name == "calls"
+        for record in section.records
+        if record.data.get("expression") == "print('external')"
+    )
+    assert external_call.data.get("status") == "unresolved"
+    assert external_call.data.get("targets") == ()
+
+    graph = _source_graph(facts)
+    names = {entity.id: entity.qualified_name for entity in graph.entities}
+    [resolved_call] = [
+        edge
+        for edge in graph.relationships
+        if edge.kind == "calls" and edge.expression == "echo(value)"
+    ]
+    assert resolved_call.resolution == "resolved"
+    assert names[resolved_call.source_id] == "commerce.main.Derived.forward"
+    assert names[resolved_call.target_id] == "commerce.main.Base.echo"
+    [unresolved_external] = [
+        edge
+        for edge in graph.relationships
+        if edge.kind == "calls" and edge.expression == "print('external')"
+    ]
+    assert unresolved_external.resolution == "unresolved"
+    assert unresolved_external.target_id is None
+
+    target = ArchitectureGraph(
+        "declared",
+        (
+            Entity(
+                "base",
+                "class",
+                "commerce.main.Base",
+                "dart",
+                presence="planned",
+                provenance=("test",),
+            ),
+            Entity(
+                "derived",
+                "class",
+                "commerce.main.Derived",
+                "dart",
+                presence="planned",
+                provenance=("test",),
+            ),
+            Entity(
+                "echo",
+                "method",
+                "commerce.main.Base.echo",
+                "dart",
+                parent_id="base",
+                presence="planned",
+                provenance=("test",),
+            ),
+            Entity(
+                "forward",
+                "method",
+                "commerce.main.Derived.forward",
+                "dart",
+                parent_id="derived",
+                presence="planned",
+                provenance=("test",),
+            ),
+        ),
+        (Relationship("generic-call", "calls", "forward", "echo", provenance=("test",)),),
+    )
+    assessment = next(
+        item
+        for item in compare_graphs(graph, target).assessments
+        if item.subject_id == "generic-call" and item.aspect == "relationship"
+    )
+    assert assessment.status == "PASS"
+
+
 def test_native_import_combinators_intersect_and_preserve_empty_dependencies(
     tmp_path: Path,
 ) -> None:

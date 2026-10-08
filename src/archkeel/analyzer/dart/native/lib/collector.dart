@@ -77,7 +77,6 @@ class DartCollector {
   final Map<Element, String> definitions = HashMap.identity();
   final Map<String, Map<String, Object?>> symbolByQualified = {};
   final Map<String, Map<String, Object?>> symbolById = {};
-  final Set<Element> factories = HashSet.identity();
   final Map<String, String> modules = {};
   final Map<String, String> packages = {};
   final Map<String, DartSource> sourceByRel = {};
@@ -683,8 +682,11 @@ class DartCollector {
           as String;
 
   void _indexElement(Element? element, String qualified) {
-    if (element != null) definitions[element] = qualified;
+    if (element != null) definitions[element.baseElement] = qualified;
   }
+
+  String? _definitionOf(Element? element) =>
+      element == null ? null : definitions[element.baseElement];
 
   void _indexVariable(VariableElement? element, String qualified) {
     if (element == null) return;
@@ -729,8 +731,6 @@ class DartCollector {
             : '${owner['name']}.$suffix';
         final element = member.declaredFragment?.element;
         _indexElement(element, '$ownerName.$constructorName');
-        if (member.factoryKeyword != null && element != null)
-          factories.add(element);
       }
     }
   }
@@ -779,7 +779,7 @@ class DartCollector {
     NamedType type,
     String kind,
   ) {
-    final target = definitions[type.type?.element];
+    final target = _definitionOf(type.type?.element);
     final targetRecord = target == null ? null : symbolByQualified[target];
     final isResolved = targetRecord?['kind'] == 'class';
     return {
@@ -813,7 +813,7 @@ class DartCollector {
     List<Map<String, Object?>> resultBindings = const [],
     Map<String, Object?>? construction,
   }) {
-    final targetName = definitions[target];
+    final targetName = _definitionOf(target);
     final targetRecord = targetName == null
         ? null
         : symbolByQualified[targetName];
@@ -1475,7 +1475,7 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
   final Map<AstNode, Map<String, Object?>> resultBindings = HashMap.identity();
 
   void _withDefinition(AstNode node, Element? element, void Function() visit) {
-    final next = collector.definitions[element];
+    final next = collector._definitionOf(element);
     final record = next == null ? null : collector.symbolByQualified[next];
     final oldScope = scope;
     final oldId = scopeId;
@@ -1617,15 +1617,13 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
     final context = _functionContext;
     if (context != null) {
       final classElement = node.constructorName.type.type?.element;
-      final className = collector.definitions[classElement];
+      final className = collector._definitionOf(classElement);
       final local =
           className != null &&
           collector.symbolByQualified.containsKey(className);
       final constructor = node.constructorName.element;
       final generative =
-          local &&
-          constructor != null &&
-          !collector.factories.contains(constructor);
+          local && constructor != null && constructor.isGenerative;
       final construction = <String, Object?>{
         'status': !local || constructor == null
             ? 'unresolved'
@@ -1679,7 +1677,7 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
     final context = _sourceContext;
     if (context != null) {
       final prefix = node.prefix.element;
-      if (collector.definitions.containsKey(prefix)) {
+      if (collector._definitionOf(prefix) != null) {
         collector._site(
           source,
           node.prefix,
@@ -1738,7 +1736,7 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
       return;
     }
     final context = _sourceContext;
-    if (context != null && collector.definitions.containsKey(node.element)) {
+    if (context != null && collector._definitionOf(node.element) != null) {
       collector._site(
         source,
         node,
