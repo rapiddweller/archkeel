@@ -16,6 +16,7 @@ FIXTURE = Path(__file__).parents[1] / "fixtures" / "J-compass"
 PROVENANCE = ("docs/target.md",)
 CONTRACTS = (
     "architecture-contract.json",
+    "contracts/application.json",
     "contracts/presentation.json",
     "contracts/domain.json",
     "contracts/data.json",
@@ -99,7 +100,25 @@ def test_compass_target_has_nested_responsibilities_and_principal_uml() -> None:
     assert len([edge for edge in graph.relationships if edge.kind == "mixes_in"]) == 11
     assert len([edge for edge in graph.relationships if edge.kind == "realizes"]) == 11
     assert len([edge for edge in graph.relationships if edge.kind == "inherits"]) == 6
-    assert any(edge.kind == "calls" for edge in graph.relationships)
+    entity_by_id = {entity.id: entity for entity in graph.entities}
+    booking_create_from = (
+        "compass.domain.use_cases.booking.booking_create_use_case.BookingCreateUseCase.createFrom"
+    )
+    booking_call = [
+        edge
+        for edge in graph.relationships
+        if edge.kind == "calls"
+        and entity_by_id[edge.source_id].qualified_name
+        == "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel._createBooking"
+        and entity_by_id[edge.target_id].qualified_name == booking_create_from
+    ]
+    assert len(booking_call) == 1
+    assert any(
+        entity.kind == "symbol"
+        and entity.presence == "referenced"
+        and entity.qualified_name == booking_create_from
+        for entity in graph.entities
+    )
     scopes = {scope.scope_id: scope.mode for scope in graph.target_scopes}
     mixins = [entity for entity in graph.entities if entity.kind == "mixin"]
     assert len(mixins) == 11
@@ -133,6 +152,31 @@ def test_compass_target_has_nested_responsibilities_and_principal_uml() -> None:
         "UserRepository",
     ):
         assert any(entity.qualified_name.endswith("." + name) for entity in graph.entities)
+
+
+def test_compass_application_target_separates_composition_and_navigation() -> None:
+    root = json.loads((FIXTURE / CONTRACTS[0]).read_text(encoding="utf-8"))
+    app = json.loads((FIXTURE / "contracts/application.json").read_text(encoding="utf-8"))
+    application = next(
+        component for component in root["components"] if component["id"] == "application"
+    )
+    assert application["inside"] == "contracts/application.json"
+    app_modules = {
+        component["id"]: set(component["exact_modules"]) for component in app["components"]
+    }
+    assert app_modules == {
+        "application-composition": {
+            "compass.config.assets",
+            "compass.config.dependencies",
+            "compass.main",
+            "compass.main_development",
+            "compass.main_staging",
+        },
+        "application-navigation": {
+            "compass.routing.router",
+            "compass.routing.routes",
+        },
+    }
 
 
 def test_compass_target_is_source_authored_and_hash_receipt_is_current() -> None:

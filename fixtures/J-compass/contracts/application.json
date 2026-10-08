@@ -1,0 +1,842 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "application-composition",
+      "label": "Environment and app composition",
+      "role": "component",
+      "packages": [
+        "compass.config",
+        "compass.main"
+      ],
+      "public": [
+        "compass.config.assets",
+        "compass.config.dependencies",
+        "compass.main",
+        "compass.main_development",
+        "compass.main_staging"
+      ],
+      "responsibilities": [
+        "Select local or remote providers and compose the application shell."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Route definitions and navigation",
+          "through": [
+            "compass.routing.router"
+          ],
+          "rationale": "The app shell delegates route construction to the navigation boundary.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.config",
+      "exact_modules": [
+        "compass.config.assets",
+        "compass.config.dependencies",
+        "compass.main",
+        "compass.main_development",
+        "compass.main_staging"
+      ]
+    },
+    {
+      "id": "application-navigation",
+      "label": "Route definitions and navigation",
+      "role": "component",
+      "packages": [
+        "compass.routing"
+      ],
+      "public": [
+        "compass.routing.router",
+        "compass.routing.routes"
+      ],
+      "responsibilities": [
+        "Define route paths and map auth-aware routes to feature screens and ViewModels."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "compass.routing",
+      "exact_modules": [
+        "compass.routing.router",
+        "compass.routing.routes"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Dependencies outside the declared component boundaries are not part of the Target.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "mod-compass-config-assets",
+          "kind": "module",
+          "qualified_name": "compass.config.assets",
+          "parent_id": "application-composition",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide static asset references for the application."
+          ],
+          "file_path": "lib/config/assets.dart"
+        },
+        {
+          "id": "mod-compass-config-dependencies",
+          "kind": "module",
+          "qualified_name": "compass.config.dependencies",
+          "parent_id": "application-composition",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct local and remote dependency provider lists."
+          ],
+          "file_path": "lib/config/dependencies.dart"
+        },
+        {
+          "id": "mod-compass-main",
+          "kind": "module",
+          "qualified_name": "compass.main",
+          "parent_id": "application-composition",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Build the localized application shell."
+          ],
+          "file_path": "lib/main.dart"
+        },
+        {
+          "id": "mod-compass-main-development",
+          "kind": "module",
+          "qualified_name": "compass.main_development",
+          "parent_id": "application-composition",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Start the local-data development application."
+          ],
+          "file_path": "lib/main_development.dart"
+        },
+        {
+          "id": "mod-compass-main-staging",
+          "kind": "module",
+          "qualified_name": "compass.main_staging",
+          "parent_id": "application-composition",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Start the remote-data staging application."
+          ],
+          "file_path": "lib/main_staging.dart"
+        },
+        {
+          "id": "mod-compass-routing-router",
+          "kind": "module",
+          "qualified_name": "compass.routing.router",
+          "parent_id": "application-navigation",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Configure feature routes and auth-aware redirects."
+          ],
+          "file_path": "lib/routing/router.dart"
+        },
+        {
+          "id": "mod-compass-routing-routes",
+          "kind": "module",
+          "qualified_name": "compass.routing.routes",
+          "parent_id": "application-navigation",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define route locations and the booking detail path."
+          ],
+          "file_path": "lib/routing/routes.dart"
+        },
+        {
+          "id": "class-compass-main-mainapp",
+          "kind": "class",
+          "qualified_name": "compass.main.MainApp",
+          "parent_id": "mod-compass-main",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Configure localization, theme and routed application shell."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "function-compass-routing-router-router",
+          "kind": "function",
+          "qualified_name": "compass.routing.router.router",
+          "parent_id": "mod-compass-routing-router",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create the auth-aware GoRouter."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "authRepository",
+                "annotation": "AuthRepository",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "GoRouter"
+          }
+        },
+        {
+          "id": "method-compass-main-mainapp-build",
+          "kind": "method",
+          "qualified_name": "compass.main.MainApp.build",
+          "parent_id": "class-compass-main-mainapp",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Build the application shell."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "context",
+                "annotation": "BuildContext",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Widget"
+          }
+        },
+        {
+          "id": "method-compass-routing-router-redirect",
+          "kind": "function",
+          "qualified_name": "compass.routing.router._redirect",
+          "parent_id": "mod-compass-routing-router",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Select login or home when auth state requires redirect."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "context",
+                "annotation": "BuildContext",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "state",
+                "annotation": "GoRouterState",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<String?>"
+          }
+        },
+        {
+          "id": "class-compass-routing-routes-routes",
+          "kind": "class",
+          "qualified_name": "compass.routing.routes.Routes",
+          "parent_id": "mod-compass-routing-routes",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Own named navigation locations."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-compass-routing-routes-routes-home",
+          "kind": "attribute",
+          "qualified_name": "compass.routing.routes.Routes.home",
+          "parent_id": "class-compass-routing-routes-routes",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare a route location."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "attribute-compass-routing-routes-routes-login",
+          "kind": "attribute",
+          "qualified_name": "compass.routing.routes.Routes.login",
+          "parent_id": "class-compass-routing-routes-routes",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare a route location."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "attribute-compass-routing-routes-routes-search",
+          "kind": "attribute",
+          "qualified_name": "compass.routing.routes.Routes.search",
+          "parent_id": "class-compass-routing-routes-routes",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare a route location."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "attribute-compass-routing-routes-routes-searchrelative",
+          "kind": "attribute",
+          "qualified_name": "compass.routing.routes.Routes.searchRelative",
+          "parent_id": "class-compass-routing-routes-routes",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare a route location."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "attribute-compass-routing-routes-routes-results",
+          "kind": "attribute",
+          "qualified_name": "compass.routing.routes.Routes.results",
+          "parent_id": "class-compass-routing-routes-routes",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare a route location."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "attribute-compass-routing-routes-routes-resultsrelative",
+          "kind": "attribute",
+          "qualified_name": "compass.routing.routes.Routes.resultsRelative",
+          "parent_id": "class-compass-routing-routes-routes",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare a route location."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "attribute-compass-routing-routes-routes-activities",
+          "kind": "attribute",
+          "qualified_name": "compass.routing.routes.Routes.activities",
+          "parent_id": "class-compass-routing-routes-routes",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare a route location."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "attribute-compass-routing-routes-routes-activitiesrelative",
+          "kind": "attribute",
+          "qualified_name": "compass.routing.routes.Routes.activitiesRelative",
+          "parent_id": "class-compass-routing-routes-routes",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare a route location."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "attribute-compass-routing-routes-routes-booking",
+          "kind": "attribute",
+          "qualified_name": "compass.routing.routes.Routes.booking",
+          "parent_id": "class-compass-routing-routes-routes",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare a route location."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "attribute-compass-routing-routes-routes-bookingrelative",
+          "kind": "attribute",
+          "qualified_name": "compass.routing.routes.Routes.bookingRelative",
+          "parent_id": "class-compass-routing-routes-routes",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare a route location."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "method-compass-routing-routes-routes-bookingwithid",
+          "kind": "method",
+          "qualified_name": "compass.routing.routes.Routes.bookingWithId",
+          "parent_id": "class-compass-routing-routes-routes",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Build the booking detail location."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-main-main",
+          "kind": "function",
+          "qualified_name": "compass.main.main",
+          "parent_id": "mod-compass-main",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Start the selected Compass environment."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "method-compass-main-development-main",
+          "kind": "function",
+          "qualified_name": "compass.main_development.main",
+          "parent_id": "mod-compass-main-development",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Start the selected Compass environment."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "method-compass-main-staging-main",
+          "kind": "function",
+          "qualified_name": "compass.main_staging.main",
+          "parent_id": "mod-compass-main-staging",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Start the selected Compass environment."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "function-compass-config-dependencies-providerslocal-getter",
+          "kind": "function",
+          "qualified_name": "compass.config.dependencies.providersLocal::getter",
+          "parent_id": "mod-compass-config-dependencies",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Supply the development providers backed by local assets and in-memory itinerary state."
+          ],
+          "signature": {
+            "parameters": [],
+            "returns": "List<SingleChildWidget>"
+          }
+        },
+        {
+          "id": "function-compass-config-dependencies-providersremote-getter",
+          "kind": "function",
+          "qualified_name": "compass.config.dependencies.providersRemote::getter",
+          "parent_id": "mod-compass-config-dependencies",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Supply the remote providers backed by API clients and token storage."
+          ],
+          "signature": {
+            "parameters": [],
+            "returns": "List<SingleChildWidget>"
+          }
+        }
+      ],
+      "relationships": [
+        {
+          "id": "calls-default-main-selects-development",
+          "kind": "calls",
+          "source_id": "method-compass-main-main",
+          "target_id": "method-compass-main-development-main",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "calls-development-uses-local-provider-graph",
+          "kind": "calls",
+          "source_id": "method-compass-main-development-main",
+          "target_id": "function-compass-config-dependencies-providerslocal-getter",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "calls-staging-uses-remote-provider-graph",
+          "kind": "calls",
+          "source_id": "method-compass-main-staging-main",
+          "target_id": "function-compass-config-dependencies-providersremote-getter",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "calls-app-shell-creates-router",
+          "kind": "calls",
+          "source_id": "method-compass-main-mainapp-build",
+          "target_id": "function-compass-routing-router-router",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "calls-router-uses-auth-redirect",
+          "kind": "calls",
+          "source_id": "function-compass-routing-router-router",
+          "target_id": "method-compass-routing-router-redirect",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "mod-compass-config-assets",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-config-dependencies",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-main",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-main-development",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-main-staging",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-routing-router",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-routing-routes",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

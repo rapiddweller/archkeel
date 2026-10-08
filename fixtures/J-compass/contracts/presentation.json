@@ -2964,9 +2964,32 @@
             "kind": "public",
             "basis": "declared"
           }
+        },
+        {
+          "id": "ref-booking-create-from-use-case",
+          "kind": "symbol",
+          "qualified_name": "compass.domain.use_cases.booking.booking_create_use_case.BookingCreateUseCase.createFrom",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the booking creation use case declared in the domain contract."
+          ]
         }
       ],
-      "relationships": [],
+      "relationships": [
+        {
+          "id": "calls-booking-viewmodel-creates-booking",
+          "kind": "calls",
+          "source_id": "method-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-createbooking",
+          "target_id": "ref-booking-create-from-use-case",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
       "scopes": [
         {
           "scope_id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",

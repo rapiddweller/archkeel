@@ -10,4 +10,4 @@ Principal contracts cover auth/session, search and itinerary state, result/activ
 
 Source input digest: `c6c1b8fe62fbc950af3b3dc4a033cac300bdeec2564e563909504a69df753e72` (111 Dart files; `pubspec.yaml` is configuration, not a module).
 
-Target bundle SHA-256: `4db4b21258ccd218eeb12d2d8c97a2bf1f30adc351fed040f0803d868b6718be`
+Target bundle SHA-256: `17a34e8182418f1500442a965db85d6e694e55d7776754ea60f4c997f0667127`
