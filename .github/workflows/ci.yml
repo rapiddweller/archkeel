@@ -122,7 +122,7 @@ jobs:
     needs: changes
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ github.event_name == 'pull_request' && 15 || 60 }}
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 20 || 60 }}
     steps:
       - name: Fail if change detection failed
         if: always() && needs.changes.result != 'success'
