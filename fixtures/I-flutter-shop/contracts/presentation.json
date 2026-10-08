@@ -384,6 +384,28 @@
           }
         },
         {
+          "id": "orders-vm-class-state",
+          "kind": "method",
+          "qualified_name": "shop.presentation.orders.orders_view_model.OrdersViewModel.state",
+          "parent_id": "orders-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose order loading, empty, ready, or failure state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "AsyncState<List<Order>>"
+          }
+        },
+        {
           "id": "orders-vm-class-load",
           "kind": "method",
           "qualified_name": "shop.presentation.orders.orders_view_model.OrdersViewModel.load",
@@ -486,6 +508,19 @@
           }
         },
         {
+          "id": "stream-subscription-cancel-ref",
+          "kind": "symbol",
+          "qualified_name": "dart:async.StreamSubscription.cancel",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the owned order subscription cleanup operation."
+          ]
+        },
+        {
           "id": "ref-order-load-all",
           "kind": "symbol",
           "qualified_name": "shop.domain.orders.order_repository.OrderRepository.loadAll",
@@ -562,6 +597,24 @@
           ]
         },
         {
+          "id": "orders-page-reads-state",
+          "kind": "references",
+          "source_id": "orders-page-class-build",
+          "target_id": "orders-vm-class-state",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "orders-vm-state-reads-field",
+          "kind": "references",
+          "source_id": "orders-vm-class-state",
+          "target_id": "orders-vm-state",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
           "id": "orders-vm-calls-load-all",
           "kind": "calls",
           "source_id": "orders-vm-class-load",
@@ -575,6 +628,15 @@
           "kind": "calls",
           "source_id": "orders-vm-class-load",
           "target_id": "ref-order-watch",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "orders-vm-cancels-subscription",
+          "kind": "calls",
+          "source_id": "orders-vm-class-dispose",
+          "target_id": "stream-subscription-cancel-ref",
           "provenance": [
             "docs/target.md"
           ]

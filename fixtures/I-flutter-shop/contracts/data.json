@@ -934,6 +934,41 @@
           }
         },
         {
+          "id": "store-dispose",
+          "kind": "method",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore.dispose",
+          "parent_id": "memory-store-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Close the owned order-change stream."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<void>"
+          }
+        },
+        {
+          "id": "stream-controller-close-ref",
+          "kind": "symbol",
+          "qualified_name": "dart:async.StreamController.close",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the owned stream controller cleanup operation."
+          ]
+        },
+        {
           "id": "ref-catalog-repository-class",
           "kind": "symbol",
           "qualified_name": "shop.domain.catalog.catalog_repository.CatalogRepository",
@@ -974,6 +1009,15 @@
         }
       ],
       "relationships": [
+        {
+          "id": "store-closes-order-stream",
+          "kind": "calls",
+          "source_id": "store-dispose",
+          "target_id": "stream-controller-close-ref",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
         {
           "id": "catalog-impl-calls-fetch",
           "kind": "calls",

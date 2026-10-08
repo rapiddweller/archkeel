@@ -159,6 +159,53 @@ def test_flutter_target_pins_journey_signatures_member_scopes_and_flutter_inheri
         )
     assert names["shop.state.async_state.AsyncState.AsyncState"].signature.returns == "AsyncState"
     assert names["shop.domain.orders.order.Order.Order"].signature.returns == "Order"
+    assert names["shop.app.shop_app.ShopApp.createState"].signature.returns == "State<ShopApp>"
+    assert names["shop.app.shop_app._ShopAppState.dispose"].signature.returns == "void"
+    assert (
+        names["shop.data.services.memory_store.MemoryStore.dispose"].signature.returns
+        == "Future<void>"
+    )
+
+    assert (
+        names[
+            "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.state"
+        ].signature.returns
+        == "AsyncState<List<Product>>"
+    )
+    assert (
+        names[
+            "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.isOnline"
+        ].signature.returns
+        == "bool"
+    )
+    assert (
+        names[
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.lines"
+        ].signature.returns
+        == "List<CartLine>"
+    )
+    assert (
+        names[
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.totalCents"
+        ].signature.returns
+        == "int"
+    )
+    assert (
+        names[
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.isPlacingOrder"
+        ].signature.returns
+        == "bool"
+    )
+    assert (
+        names[
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.state"
+        ].signature.returns
+        == "AsyncState<Order>"
+    )
+    assert (
+        names["shop.presentation.orders.orders_view_model.OrdersViewModel.state"].signature.returns
+        == "AsyncState<List<Order>>"
+    )
 
     for classifier in (
         "shop.domain.catalog.product.Product",
@@ -168,6 +215,9 @@ def test_flutter_target_pins_journey_signatures_member_scopes_and_flutter_inheri
         "shop.domain.orders.order.OrderLine",
         "shop.domain.orders.order.OrderStatus",
         "shop.state.async_state.AsyncState",
+        "shop.app.shop_app.ShopApp",
+        "shop.app.shop_app._ShopAppState",
+        "shop.data.services.memory_store.MemoryStore",
     ):
         assert any(
             scope.scope_id == names[classifier].id and scope.mode == "closed"
@@ -187,18 +237,63 @@ def test_flutter_target_pins_journey_signatures_member_scopes_and_flutter_inheri
         ),
         (
             "creates",
-            "shop.app.shop_app.ShopApp.build",
+            "shop.app.shop_app._ShopAppState.build",
             "shop.presentation.shopping.catalog.catalog_page.CatalogPage",
         ),
         (
             "creates",
-            "shop.app.shop_app.ShopApp.build",
+            "shop.app.shop_app._ShopAppState.build",
             "shop.presentation.shopping.cart.cart_page.CartPage",
         ),
         (
             "creates",
-            "shop.app.shop_app.ShopApp.build",
+            "shop.app.shop_app._ShopAppState.build",
             "shop.presentation.orders.orders_page.OrdersPage",
+        ),
+        (
+            "creates",
+            "shop.app.shop_app.ShopApp.createState",
+            "shop.app.shop_app._ShopAppState",
+        ),
+        (
+            "inherits",
+            "shop.app.shop_app.ShopApp",
+            "package:flutter/widgets.dart.StatefulWidget",
+        ),
+        (
+            "inherits",
+            "shop.app.shop_app._ShopAppState",
+            "package:flutter/widgets.dart.State<ShopApp>",
+        ),
+        (
+            "calls",
+            "shop.app.shop_app._ShopAppState.dispose",
+            "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.dispose",
+        ),
+        (
+            "calls",
+            "shop.app.shop_app._ShopAppState.dispose",
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.dispose",
+        ),
+        (
+            "calls",
+            "shop.app.shop_app._ShopAppState.dispose",
+            "shop.presentation.orders.orders_view_model.OrdersViewModel.dispose",
+        ),
+        (
+            "calls",
+            "shop.app.shop_app._ShopAppState.dispose",
+            "shop.data.services.memory_store.MemoryStore.dispose",
+        ),
+        (
+            "calls",
+            "shop.presentation.orders.orders_view_model.OrdersViewModel.dispose",
+            "dart:async.StreamSubscription.cancel",
+        ),
+        (
+            "calls",
+            "shop.data.services.memory_store.MemoryStore.dispose",
+            "dart:async.StreamController.close",
         ),
         (
             "calls",
@@ -209,6 +304,26 @@ def test_flutter_target_pins_journey_signatures_member_scopes_and_flutter_inheri
             "calls",
             "shop.presentation.shopping.cart.cart_page.CartPage.build",
             "shop.presentation.shopping.cart.cart_view_model.CartViewModel.checkout",
+        ),
+        (
+            "references",
+            "shop.presentation.shopping.catalog.catalog_page.CatalogPage.build",
+            "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.state",
+        ),
+        (
+            "references",
+            "shop.presentation.shopping.cart.cart_page.CartPage.build",
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.lines",
+        ),
+        (
+            "references",
+            "shop.presentation.shopping.cart.cart_page.CartPage.build",
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.state",
+        ),
+        (
+            "references",
+            "shop.presentation.orders.orders_page.OrdersPage.build",
+            "shop.presentation.orders.orders_view_model.OrdersViewModel.state",
         ),
         (
             "calls",

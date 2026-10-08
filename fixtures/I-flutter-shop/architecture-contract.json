@@ -310,6 +310,25 @@
           "annotation": "DemoBackend"
         },
         {
+          "id": "app-store",
+          "kind": "attribute",
+          "qualified_name": "shop.app.shop_app.ShopApp._store",
+          "parent_id": "shop-app-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Own the in-memory store for the app lifetime."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "MemoryStore"
+        },
+        {
           "id": "app-catalog-vm",
           "kind": "attribute",
           "qualified_name": "shop.app.shop_app.ShopApp._catalog",
@@ -392,6 +411,12 @@
                 "default_known": true
               },
               {
+                "name": "store",
+                "annotation": "MemoryStore",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
                 "name": "catalog",
                 "annotation": "CatalogViewModel",
                 "kind": "positional",
@@ -414,9 +439,9 @@
           }
         },
         {
-          "id": "shop-app-build",
+          "id": "shop-app-create-state",
           "kind": "method",
-          "qualified_name": "shop.app.shop_app.ShopApp.build",
+          "qualified_name": "shop.app.shop_app.ShopApp.createState",
           "parent_id": "shop-app-class",
           "language": "dart",
           "presence": "planned",
@@ -424,7 +449,47 @@
             "docs/target.md"
           ],
           "responsibilities": [
-            "Create the Flutter application rooted at the catalog."
+            "Create the state that owns routing and app-lifetime cleanup."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "State<ShopApp>"
+          }
+        },
+        {
+          "id": "shop-app-state-class",
+          "kind": "class",
+          "qualified_name": "shop.app.shop_app._ShopAppState",
+          "parent_id": "module-shop-app",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Own the app route table and dispose app-lifetime dependencies on unmount."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "shop-app-state-build",
+          "kind": "method",
+          "qualified_name": "shop.app.shop_app._ShopAppState.build",
+          "parent_id": "shop-app-state-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create the Flutter application and its route table."
           ],
           "visibility": {
             "kind": "public",
@@ -443,6 +508,28 @@
           }
         },
         {
+          "id": "shop-app-state-dispose",
+          "kind": "method",
+          "qualified_name": "shop.app.shop_app._ShopAppState.dispose",
+          "parent_id": "shop-app-state-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Dispose every app-owned view model and close the memory-store stream."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "void"
+          }
+        },
+        {
           "id": "flutter-change-notifier",
           "kind": "class",
           "qualified_name": "package:flutter/foundation.dart.ChangeNotifier",
@@ -456,6 +543,26 @@
           "id": "flutter-stateless-widget",
           "kind": "class",
           "qualified_name": "package:flutter/widgets.dart.StatelessWidget",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "flutter-stateful-widget",
+          "kind": "class",
+          "qualified_name": "package:flutter/widgets.dart.StatefulWidget",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "flutter-state-shop-app",
+          "kind": "class",
+          "qualified_name": "package:flutter/widgets.dart.State<ShopApp>",
           "language": "dart",
           "presence": "referenced",
           "provenance": [
@@ -614,7 +721,7 @@
             "Hold a constructor-injected app dependency for the process lifetime."
           ],
           "annotation": "ShopApp",
-          "initializer": "ShopApp(backend, catalogViewModel, cartViewModel, ordersViewModel)"
+          "initializer": "ShopApp(backend, store, catalogViewModel, cartViewModel, ordersViewModel)"
         },
         {
           "id": "ref-demo-backend-class",
@@ -770,6 +877,58 @@
           ],
           "responsibilities": [
             "Reference the declaration owned by another component: shop.presentation.orders.order_detail_page.OrderDetailPage."
+          ]
+        },
+        {
+          "id": "ref-catalog-vm-class-dispose",
+          "kind": "symbol",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.dispose",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.dispose."
+          ]
+        },
+        {
+          "id": "ref-cart-vm-class-dispose",
+          "kind": "symbol",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.dispose",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.presentation.shopping.cart.cart_view_model.CartViewModel.dispose."
+          ]
+        },
+        {
+          "id": "ref-orders-vm-class-dispose",
+          "kind": "symbol",
+          "qualified_name": "shop.presentation.orders.orders_view_model.OrdersViewModel.dispose",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.presentation.orders.orders_view_model.OrdersViewModel.dispose."
+          ]
+        },
+        {
+          "id": "ref-store-dispose",
+          "kind": "symbol",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore.dispose",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.data.services.memory_store.MemoryStore.dispose."
           ]
         }
       ],
@@ -1018,9 +1177,36 @@
           ]
         },
         {
+          "id": "shop-app-creates-state",
+          "kind": "creates",
+          "source_id": "shop-app-create-state",
+          "target_id": "shop-app-state-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "shop-app-inherits-stateful-widget",
+          "kind": "inherits",
+          "source_id": "shop-app-class",
+          "target_id": "flutter-stateful-widget",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "shop-app-state-inherits-state",
+          "kind": "inherits",
+          "source_id": "shop-app-state-class",
+          "target_id": "flutter-state-shop-app",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
           "id": "app-creates-catalog-page",
           "kind": "creates",
-          "source_id": "shop-app-build",
+          "source_id": "shop-app-state-build",
           "target_id": "ref-catalog-page-class",
           "provenance": [
             "docs/target.md"
@@ -1029,7 +1215,7 @@
         {
           "id": "app-creates-cart-page",
           "kind": "creates",
-          "source_id": "shop-app-build",
+          "source_id": "shop-app-state-build",
           "target_id": "ref-cart-page-class",
           "provenance": [
             "docs/target.md"
@@ -1038,7 +1224,7 @@
         {
           "id": "app-creates-orders-page",
           "kind": "creates",
-          "source_id": "shop-app-build",
+          "source_id": "shop-app-state-build",
           "target_id": "ref-orders-page-class",
           "provenance": [
             "docs/target.md"
@@ -1047,17 +1233,44 @@
         {
           "id": "app-creates-order-detail-page",
           "kind": "creates",
-          "source_id": "shop-app-build",
+          "source_id": "shop-app-state-build",
           "target_id": "ref-order-detail-page-class",
           "provenance": [
             "docs/target.md"
           ]
         },
         {
-          "id": "inherits-shop-app-class",
-          "kind": "inherits",
-          "source_id": "shop-app-class",
-          "target_id": "flutter-stateless-widget",
+          "id": "state-disposes-catalog-vm",
+          "kind": "calls",
+          "source_id": "shop-app-state-dispose",
+          "target_id": "ref-catalog-vm-class-dispose",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "state-disposes-cart-vm",
+          "kind": "calls",
+          "source_id": "shop-app-state-dispose",
+          "target_id": "ref-cart-vm-class-dispose",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "state-disposes-orders-vm",
+          "kind": "calls",
+          "source_id": "shop-app-state-dispose",
+          "target_id": "ref-orders-vm-class-dispose",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "state-disposes-memory-store",
+          "kind": "calls",
+          "source_id": "shop-app-state-dispose",
+          "target_id": "ref-store-dispose",
           "provenance": [
             "docs/target.md"
           ]
@@ -1096,13 +1309,26 @@
         },
         {
           "scope_id": "shop-app-class",
-          "mode": "open",
+          "mode": "closed",
           "entity_kinds": [
             "attribute",
             "method"
           ],
           "relationship_kinds": [],
-          "rationale": "Widget and view-model implementation details may grow; this inventory pins the user-facing journey and lifecycle members.",
+          "rationale": "Declare every direct member of shop.app.shop_app.ShopApp.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "shop-app-state-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.app.shop_app._ShopAppState.",
           "provenance": [
             "docs/target.md"
           ]

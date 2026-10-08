@@ -339,6 +339,50 @@
           }
         },
         {
+          "id": "catalog-vm-class-state",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.state",
+          "parent_id": "catalog-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose catalog loading, data, empty, or failure state to the screen."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "AsyncState<List<Product>>"
+          }
+        },
+        {
+          "id": "catalog-vm-class-online",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.isOnline",
+          "parent_id": "catalog-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the current offline/cache mode to the screen."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "bool"
+          }
+        },
+        {
           "id": "catalog-vm-class-load",
           "kind": "method",
           "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.load",
@@ -566,6 +610,25 @@
           "annotation": "Cart"
         },
         {
+          "id": "cart-vm-state",
+          "kind": "attribute",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel._state",
+          "parent_id": "cart-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retain checkout loading, success, or failure state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "AsyncState<Order>"
+        },
+        {
           "id": "cart-vm-in-flight",
           "kind": "attribute",
           "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel._isPlacingOrder",
@@ -630,6 +693,94 @@
               }
             ],
             "returns": "CartViewModel"
+          }
+        },
+        {
+          "id": "cart-vm-class-lines",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.lines",
+          "parent_id": "cart-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose an immutable line snapshot for rendering."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "List<CartLine>"
+          }
+        },
+        {
+          "id": "cart-vm-class-total",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.totalCents",
+          "parent_id": "cart-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the cart total in whole cents."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "int"
+          }
+        },
+        {
+          "id": "cart-vm-class-placing",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.isPlacingOrder",
+          "parent_id": "cart-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose whether checkout is in progress."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "cart-vm-class-state",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.state",
+          "parent_id": "cart-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose checkout loading, success, or failure state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "AsyncState<Order>"
           }
         },
         {
@@ -812,6 +963,114 @@
           "kind": "calls",
           "source_id": "catalog-vm-class-ctor",
           "target_id": "catalog-vm-class-load",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "catalog-page-reads-catalog-state",
+          "kind": "references",
+          "source_id": "catalog-page-class-build",
+          "target_id": "catalog-vm-class-state",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "catalog-page-reads-online-mode",
+          "kind": "references",
+          "source_id": "catalog-page-class-build",
+          "target_id": "catalog-vm-class-online",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "cart-page-reads-lines",
+          "kind": "references",
+          "source_id": "cart-page-class-build",
+          "target_id": "cart-vm-class-lines",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "cart-page-reads-total",
+          "kind": "references",
+          "source_id": "cart-page-class-build",
+          "target_id": "cart-vm-class-total",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "cart-page-reads-submit-state",
+          "kind": "references",
+          "source_id": "cart-page-class-build",
+          "target_id": "cart-vm-class-state",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "cart-page-reads-in-flight",
+          "kind": "references",
+          "source_id": "cart-page-class-build",
+          "target_id": "cart-vm-class-placing",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "catalog-vm-state-reads-field",
+          "kind": "references",
+          "source_id": "catalog-vm-class-state",
+          "target_id": "catalog-vm-state",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "catalog-vm-online-reads-status",
+          "kind": "references",
+          "source_id": "catalog-vm-class-online",
+          "target_id": "catalog-vm-status",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "cart-vm-lines-reads-cart",
+          "kind": "references",
+          "source_id": "cart-vm-class-lines",
+          "target_id": "cart-vm-cart",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "cart-vm-total-reads-cart",
+          "kind": "references",
+          "source_id": "cart-vm-class-total",
+          "target_id": "cart-vm-cart",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "cart-vm-state-reads-field",
+          "kind": "references",
+          "source_id": "cart-vm-class-state",
+          "target_id": "cart-vm-state",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "cart-vm-placing-reads-field",
+          "kind": "references",
+          "source_id": "cart-vm-class-placing",
+          "target_id": "cart-vm-in-flight",
           "provenance": [
             "docs/target.md"
           ]
