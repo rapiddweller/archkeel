@@ -1,6 +1,6 @@
 # Flutter shop architecture demo
 
-This original Flutter fixture models one shop journey: load a catalog, add products, edit a cart, place an order, then list and open orders. It uses Flutter SDK widgets and ChangeNotifier, a deterministic async backend, and an in-memory cache. It has no HTTP server, durable database, payments, auth, plugins, or generated app code.
+This Flutter fixture models one shop journey: load a three-item catalog, add products, edit a cart, place an order, then list and open orders. It uses Flutter widgets, ChangeNotifier, a deterministic async backend, and an in-memory cache. Offline catalog and order reads use cached values; failed checkout preserves the cart for retry. It has no HTTP server, durable database, payments, auth, plugins, or generated app code. Run `make flutter-demo-check` from the repository root to fetch SDK packages, format-check, analyze, run widget tests, and build the web app under `test-artifacts/flutter-demo/web`.
 
 The independent Target is in `architecture-contract.json` and mounted contracts; `docs/target.md` records ownership, source paths, and intended evidence. The app uses a `StatefulWidget`: its private `State` owns route construction and disposes all three view models plus the injected `MemoryStore`; the store closes its owned stream. The external `ChangeNotifier`/`StatelessWidget`/`StatefulWidget` inheritance edges are requirements even if the collector cannot resolve Flutter SDK source, so aggregate comparison may remain UNKNOWN. No Target is generated from source facts.
 

@@ -1,8 +1,9 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 DART_EXECUTABLE ?= dart
+FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety typescript-native dart-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart dart-setup demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing
+.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety typescript-native dart-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart dart-setup demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
 
 check: lint typecheck test
 
@@ -174,6 +175,17 @@ demo-dart:
 
 dart-setup:
 	DART_EXECUTABLE="$(DART_EXECUTABLE)" $(UV) run --locked archkeel-dart-setup
+
+flutter-demo-check:
+	@command -v "$(FLUTTER_EXECUTABLE)" >/dev/null 2>&1 || test -x "$(FLUTTER_EXECUTABLE)" || { echo "Flutter SDK not found: $(FLUTTER_EXECUTABLE)"; exit 2; }
+	@command -v "$(DART_EXECUTABLE)" >/dev/null 2>&1 || test -x "$(DART_EXECUTABLE)" || { echo "Dart SDK not found: $(DART_EXECUTABLE)"; exit 2; }
+	"$(FLUTTER_EXECUTABLE)" --version --machine
+	"$(DART_EXECUTABLE)" --version
+	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" pub get
+	"$(DART_EXECUTABLE)" format --output=none --set-exit-if-changed fixtures/I-flutter-shop/lib fixtures/I-flutter-shop/test
+	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" analyze
+	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" test
+	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" build web --output "$(abspath test-artifacts/flutter-demo/web)"
 
 demo-snapshot-check:
 	@$(UV) run --locked python -m fixtures.reproduce_snapshot_check
