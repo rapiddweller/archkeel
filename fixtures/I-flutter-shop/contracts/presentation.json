@@ -411,7 +411,7 @@
         {
           "id": "orders-vm-class-state",
           "kind": "method",
-          "qualified_name": "shop.presentation.orders.orders_view_model.OrdersViewModel.state",
+          "qualified_name": "shop.presentation.orders.orders_view_model.OrdersViewModel.state::getter",
           "parent_id": "orders-vm-class",
           "language": "dart",
           "presence": "planned",

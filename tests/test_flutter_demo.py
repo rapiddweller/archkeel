@@ -193,6 +193,70 @@ def test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct(
     assert base["measurements"]["scalars"]["unknown_positions"] == 35
     assert base["declared_rules"] == "UNKNOWN"
     base_detail = reports["flutter-shop"][1]
+    getter_names = {
+        item["qualified_name"]
+        for item in base_detail["target"]["entities"]
+        if item["qualified_name"].endswith("::getter")
+    }
+    assert getter_names == {
+        "shop.domain.cart.cart.Cart.lines::getter",
+        "shop.domain.cart.cart.Cart.totalCents::getter",
+        "shop.domain.cart.cart.CartLine.lineTotalCents::getter",
+        "shop.domain.orders.order.OrderLine.lineTotalCents::getter",
+        "shop.presentation.orders.orders_view_model.OrdersViewModel.state::getter",
+        "shop.presentation.shopping.cart.cart_view_model.CartViewModel.lines::getter",
+        "shop.presentation.shopping.cart.cart_view_model.CartViewModel.totalCents::getter",
+        "shop.presentation.shopping.cart.cart_view_model.CartViewModel.isPlacingOrder::getter",
+        "shop.presentation.shopping.cart.cart_view_model.CartViewModel.state::getter",
+        "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.state::getter",
+        "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.isOnline::getter",
+    }
+    getter_ids = {
+        item["id"]
+        for item in base_detail["target"]["entities"]
+        if item["qualified_name"] in getter_names
+    }
+    getter_assessments = [
+        item
+        for item in base_detail["comparison"]["assessments"]
+        if item["subject_id"] in getter_ids
+    ]
+    assert {item["subject_id"] for item in getter_assessments} == getter_ids
+    assert all(item["status"] == "PASS" for item in getter_assessments)
+    observed_entities = {item["id"]: item for item in base_detail["observed"]["entities"]}
+    observed_getter_edges = {
+        (
+            item["kind"],
+            observed_entities[item["source_id"]]["qualified_name"],
+            observed_entities[item["target_id"]]["qualified_name"],
+        )
+        for item in base_detail["observed"]["relationships"]
+        if item["kind"] == "references"
+        and item["resolution"] == "resolved"
+        and observed_entities[item["target_id"]]["qualified_name"] in getter_names
+    }
+    assert {
+        (
+            "references",
+            "shop.presentation.shopping.catalog.catalog_page.CatalogPage.build",
+            "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.state::getter",
+        ),
+        (
+            "references",
+            "shop.presentation.shopping.cart.cart_page.CartPage.build",
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.lines::getter",
+        ),
+        (
+            "references",
+            "shop.presentation.shopping.cart.cart_page.CartPage.build",
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.state::getter",
+        ),
+        (
+            "references",
+            "shop.presentation.orders.orders_page.OrdersPage.build",
+            "shop.presentation.orders.orders_view_model.OrdersViewModel.state::getter",
+        ),
+    } <= observed_getter_edges
     assert len(base_detail["target"]["relationships"]) == 101
     assert (
         sum(item["aspect"] == "relationship" for item in base_detail["comparison"]["assessments"])
@@ -298,7 +362,7 @@ def test_flutter_target_pins_journey_signatures_member_scopes_and_flutter_inheri
         for edge in graph.relationships
     }
 
-    assert "shop.domain.cart.cart.Cart.totalCents" in names
+    assert "shop.domain.cart.cart.Cart.totalCents::getter" in names
     assert "shop.domain.orders.order.Order.Order.fromCart" in names
     assert "shop.presentation.shopping.catalog.catalog_page.CatalogPage._catalogBody" in names
     assert "shop.data.services.demo_backend.DemoBackend._checkRequest" in names
@@ -344,42 +408,44 @@ def test_flutter_target_pins_journey_signatures_member_scopes_and_flutter_inheri
 
     assert (
         names[
-            "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.state"
+            "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.state::getter"
         ].signature.returns
         == "AsyncState<List<Product>>"
     )
     assert (
         names[
-            "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.isOnline"
+            "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.isOnline::getter"
         ].signature.returns
         == "bool"
     )
     assert (
         names[
-            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.lines"
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.lines::getter"
         ].signature.returns
         == "List<CartLine>"
     )
     assert (
         names[
-            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.totalCents"
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.totalCents::getter"
         ].signature.returns
         == "int"
     )
     assert (
         names[
-            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.isPlacingOrder"
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.isPlacingOrder::getter"
         ].signature.returns
         == "bool"
     )
     assert (
         names[
-            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.state"
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.state::getter"
         ].signature.returns
         == "AsyncState<Order>"
     )
     assert (
-        names["shop.presentation.orders.orders_view_model.OrdersViewModel.state"].signature.returns
+        names[
+            "shop.presentation.orders.orders_view_model.OrdersViewModel.state::getter"
+        ].signature.returns
         == "AsyncState<List<Order>>"
     )
 
@@ -494,22 +560,22 @@ def test_flutter_target_pins_journey_signatures_member_scopes_and_flutter_inheri
         (
             "references",
             "shop.presentation.shopping.catalog.catalog_page.CatalogPage.build",
-            "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.state",
+            "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.state::getter",
         ),
         (
             "references",
             "shop.presentation.shopping.cart.cart_page.CartPage.build",
-            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.lines",
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.lines::getter",
         ),
         (
             "references",
             "shop.presentation.shopping.cart.cart_page.CartPage.build",
-            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.state",
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.state::getter",
         ),
         (
             "references",
             "shop.presentation.orders.orders_page.OrdersPage.build",
-            "shop.presentation.orders.orders_view_model.OrdersViewModel.state",
+            "shop.presentation.orders.orders_view_model.OrdersViewModel.state::getter",
         ),
         (
             "calls",
