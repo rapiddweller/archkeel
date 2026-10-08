@@ -5,6 +5,7 @@
 - `snapshot.dart` used only the pubspec SDK lower bound to stage package language and never checked whether the running Dart SDK satisfied the full range. Incompatible and malformed ranges now create `SdkConstraintError` coverage gaps and skip those sources; supported ranges retain their lower-bound language version.
 - `collector.dart` filtered only syntactic diagnostics. It now uses Analyzer diagnostic codes for malformed, unsupported, illegal, and inconsistent language overrides; affected libraries get a `LanguageVersionError` gap and no declaration inventory. `RuntimeInfo.required` remains the native collector's `>=3.9,<4` requirement.
 - Added real-process tests for incompatible/future SDK ranges, malformed constraints, future/malformed overrides, and supported 3.9/2.19 overrides. Added a CLI/Core control asserting unsupported language input cannot produce aggregate PASS.
+- The SDK range regression derives compatibility from `facts.runtime.version`: `>=3.9.0 <3.10.0` is accepted when the actual runtime is within that range (including CI's 3.9 leg) and rejected above its upper bound; `>=3.99.0 <4.0.0` is rejected for configured 3.9/3.12 versions. Added and verified a library/part override mismatch control.
 - Windows TypeScript and Dart native matrix setup steps now run the POSIX `dart-setup` recipe under Bash. Main-only matrix triggers remain unchanged.
 
 ## Verification
@@ -17,6 +18,7 @@
 - Ruby YAML parse of `.github/workflows/ci.yml` and `git diff --check`: passed. No Windows or Main matrix execution was attempted.
 - No D-self regeneration was needed: the Python source tree and its measured policy were unchanged.
 - `make against BASE=05c56a18786d5d0e97e9725b06a435a9ae72c5f1`: passed after commit; the selector used the committed amendment (`amendment_status=valid`, `exit_code=0`, `widenings=[]`, `calls_unresolved=714`).
+- Targeted runtime-aware range and part-mismatch rerun on Dart 3.12.2: `3 passed, 28 deselected`; test file Ruff format/check passed.
 
 ## Exact migration amendment
 

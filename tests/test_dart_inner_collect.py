@@ -869,25 +869,36 @@ def test_native_unsupported_declaration_cannot_claim_full_coverage(tmp_path: Pat
 
 
 @pytest.mark.parametrize(
-    "sdk_constraint",
-    [">=3.9.0 <3.10.0", ">=3.99.0 <4.0.0"],
+    ("sdk_constraint", "minimum", "maximum"),
+    [
+        (">=3.9.0 <3.10.0", (3, 9, 0), (3, 10, 0)),
+        (">=3.99.0 <4.0.0", (3, 99, 0), (4, 0, 0)),
+    ],
 )
-def test_native_incompatible_project_sdk_is_unknown(tmp_path: Path, sdk_constraint: str) -> None:
+def test_native_project_sdk_range_is_checked(
+    tmp_path: Path,
+    sdk_constraint: str,
+    minimum: tuple[int, int, int],
+    maximum: tuple[int, int, int],
+) -> None:
     _write_package(tmp_path, "class Item { final int id = 1; }\n")
     (tmp_path / "pubspec.yaml").write_text(
         f"name: commerce\nenvironment:\n  sdk: '{sdk_constraint}'\n", encoding="utf-8"
     )
 
     facts = _native_facts(tmp_path)
+    running_version = tuple(int(part) for part in facts.runtime.version.split("."))
+    compatible = minimum <= running_version < maximum
 
-    assert facts.coverage.full_scope is False
-    assert any(gap.kind == "SdkConstraintError" for gap in facts.coverage.gaps)
-    assert not any(
-        record.data.get("member_inventories")
-        for section in facts.sections
-        if section.name == "symbols"
-        for record in section.records
-    )
+    assert facts.coverage.full_scope is compatible
+    assert any(gap.kind == "SdkConstraintError" for gap in facts.coverage.gaps) == (not compatible)
+    if not compatible:
+        assert not any(
+            record.data.get("member_inventories")
+            for section in facts.sections
+            if section.name == "symbols"
+            for record in section.records
+        )
 
 
 @pytest.mark.parametrize(
@@ -907,6 +918,24 @@ def test_native_language_version_overrides_are_checked_by_analyzer(
     assert facts.coverage.full_scope is complete
     if not complete:
         assert any(gap.kind == "LanguageVersionError" for gap in facts.coverage.gaps)
+
+
+def test_native_library_part_language_version_mismatch_is_unknown(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        "// @dart=3.9\npart 'part.dart';\nclass Main {}\n",
+    )
+    (tmp_path / "lib/part.dart").write_text(
+        "// @dart=2.19\npart of 'main.dart';\nclass Part {}\n", encoding="utf-8"
+    )
+    (tmp_path / "pubspec.yaml").write_text(
+        "name: commerce\nenvironment:\n  sdk: '>=3.9.0 <4.0.0'\n", encoding="utf-8"
+    )
+
+    facts = _native_facts(tmp_path)
+
+    assert facts.coverage.full_scope is False
+    assert any(gap.kind == "LanguageVersionError" for gap in facts.coverage.gaps)
 
 
 def test_native_malformed_project_sdk_is_unknown(tmp_path: Path) -> None:
