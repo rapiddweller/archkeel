@@ -4,6 +4,8 @@
 """Verify that an installed distribution can scan without another checkout."""
 
 import json
+import os
+import shutil
 import subprocess
 import sys
 from importlib.resources import files
@@ -171,6 +173,74 @@ def typescript() -> None:
         assert report["producer"]["name"] == "archkeel-typescript-imports", report["producer"]
 
 
+def dart() -> None:
+    """Exercise the native collector shipped in the installed wheel or sdist."""
+    executable = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
+    assert executable is not None, "installed Dart smoke requires DART_EXECUTABLE"
+    prepared = subprocess.run(
+        [sys.executable, "-m", "archkeel.analyzer.dart.setup"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env={**os.environ, "DART_EXECUTABLE": executable},
+    )
+    assert prepared.returncode == 0, (prepared.stdout, prepared.stderr)
+    with TemporaryDirectory(prefix="archkeel-smoke-dart-") as temporary:
+        root = Path(temporary)
+        (root / "lib").mkdir()
+        (root / "lib/item.dart").write_text(
+            "class Item {\n  final String id;\n  Item(this.id);\n  String label() => id;\n}\n"
+        )
+        (root / "pubspec.yaml").write_text("name: smoke_app\nversion: 0.1.0\n")
+        (root / "architecture-contract.json").write_text(
+            '{"schema_version":"2.1.0","components":[],"rules":[]}\n'
+        )
+        (root / "archkeel.toml").write_text(
+            '[scan]\nlanguage = "dart"\nroots = ["lib"]\nnamespace = "sample"\n'
+            'contract = "architecture-contract.json"\n'
+        )
+        for args in (
+            ("init", "-q"),
+            ("config", "user.email", "smoke@example.invalid"),
+            ("config", "user.name", "Archkeel smoke test"),
+            ("add", "."),
+            ("commit", "-qm", "Dart smoke fixture"),
+        ):
+            subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+        output = root / "architecture.json"
+        report = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "archkeel.cli",
+                "report",
+                "--root",
+                str(root),
+                "--output",
+                str(output),
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env={**os.environ, "DART_EXECUTABLE": executable},
+        )
+        assert report.returncode == 0, (report.stdout, report.stderr)
+        assert json.loads(report.stdout)["observation_complete"] == "PASS"
+        from archkeel.ir.codec import decode_canonical_model, parse_observation
+        from archkeel.ir.source_graph import observed_graph
+
+        observation = parse_observation(
+            decode_canonical_model(json.loads(output.read_text(encoding="utf-8")))
+        )
+        assert observation.producer and observation.producer.name == "archkeel-dart-analyzer"
+        assert observation.runtime and observation.runtime.name == "dart"
+        assert any(
+            item.kind == "class" and item.qualified_name == "sample.item.Item"
+            for item in observed_graph(observation).entities
+        )
+
+
 if __name__ == "__main__":
     main()
     typescript()
+    dart()

@@ -5,7 +5,7 @@
 
 Every line is a real `validate` and `report` on a committed copy of `fixtures/G-dart` with one
 row's overlay applied; nothing here decides an outcome, it only groups what the runs answered.
-The grouping is the product's promise for a profile that reads directives only: what it can
+The grouping is the product's promise for a static Dart profile: what it can
 decide reads PASS or FAIL, what it cannot decide reads UNKNOWN, and what it cannot read or
 evaluate at all is refused, never passed.
 

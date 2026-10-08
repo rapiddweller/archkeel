@@ -173,17 +173,10 @@ def test_uml_demo_uses_independent_target_and_recorded_core_comparison(
                 item.status == "UNKNOWN" and item.subject_id == "ready"
                 for item in report.comparison.assessments
             )
-        elif variant == "uml-dart":
-            assert any(
-                item.status == "UNKNOWN" and item.subject_id == "run"
-                for item in report.comparison.assessments
-            )
         assert not any(item.status == "FAIL" for item in report.comparison.assessments)
 
 
-@pytest.mark.parametrize(
-    "variant,language", [("uml-dart", "dart"), ("uml-typescript", "typescript")]
-)
+@pytest.mark.parametrize("variant,language", [("uml-typescript", "typescript")])
 def test_language_uml_demo_keeps_declared_target_separate_from_observation(
     tmp_path, capsys, variant, language
 ):
@@ -206,52 +199,43 @@ def test_language_uml_demo_keeps_declared_target_separate_from_observation(
         "type_alias",
         "constant",
     }
-    if language == "dart":
-        assert not any(e.kind in {"class", "method", "function"} for e in report.observed.entities)
-        assert report.comparison and any(
-            a.status == "UNKNOWN" and a.subject_id == "run" for a in report.comparison.assessments
-        )
-        assert not any(a.status == "FAIL" for a in report.comparison.assessments)
-    else:
-        names = {entity.qualified_name: entity for entity in report.observed.entities}
-        assert {
-            "demo.src.core_x2e_ts.Port",
-            "demo.src.core_x2e_ts.Base",
-            "demo.src.core_x2e_ts.Client",
-            "demo.src.core_x2e_ts.Client.run",
-            "demo.src.core_x2e_ts.Client._token",
-            "demo.src.core_x2e_ts.State.READY",
-            "demo.src.core_x2e_ts.build.item",
-        } <= names.keys()
-        assert all(entity.language == "typescript" for entity in names.values())
-        assert not (
-            {entity.id for entity in report.observed.entities}
-            & {entity.id for entity in report.target.entities if entity.kind != "component"}
-        )
-        endpoints = {entity.id: entity.qualified_name for entity in report.observed.entities}
-        relationships = {
-            (item.kind, endpoints[item.source_id], endpoints[item.target_id])
-            for item in report.observed.relationships
-            if item.target_id is not None
-        }
-        assert (
-            "inherits",
-            "demo.src.core_x2e_ts.Client",
-            "demo.src.core_x2e_ts.Base",
-        ) in relationships
-        assert (
-            "realizes",
-            "demo.src.core_x2e_ts.Client",
-            "demo.src.core_x2e_ts.Port",
-        ) in relationships
-        assert (
-            "instance_of",
-            "demo.src.core_x2e_ts.build.item",
-            "demo.src.core_x2e_ts.Unit",
-        ) in relationships
-        assert report.comparison and not any(
-            a.status == "FAIL" for a in report.comparison.assessments
-        )
+    names = {entity.qualified_name: entity for entity in report.observed.entities}
+    assert {
+        "demo.src.core_x2e_ts.Port",
+        "demo.src.core_x2e_ts.Base",
+        "demo.src.core_x2e_ts.Client",
+        "demo.src.core_x2e_ts.Client.run",
+        "demo.src.core_x2e_ts.Client._token",
+        "demo.src.core_x2e_ts.State.READY",
+        "demo.src.core_x2e_ts.build.item",
+    } <= names.keys()
+    assert all(entity.language == "typescript" for entity in names.values())
+    assert not (
+        {entity.id for entity in report.observed.entities}
+        & {entity.id for entity in report.target.entities if entity.kind != "component"}
+    )
+    endpoints = {entity.id: entity.qualified_name for entity in report.observed.entities}
+    relationships = {
+        (item.kind, endpoints[item.source_id], endpoints[item.target_id])
+        for item in report.observed.relationships
+        if item.target_id is not None
+    }
+    assert (
+        "inherits",
+        "demo.src.core_x2e_ts.Client",
+        "demo.src.core_x2e_ts.Base",
+    ) in relationships
+    assert (
+        "realizes",
+        "demo.src.core_x2e_ts.Client",
+        "demo.src.core_x2e_ts.Port",
+    ) in relationships
+    assert (
+        "instance_of",
+        "demo.src.core_x2e_ts.build.item",
+        "demo.src.core_x2e_ts.Unit",
+    ) in relationships
+    assert report.comparison and not any(a.status == "FAIL" for a in report.comparison.assessments)
     assert all(
         any(
             a.subject_id == identity and a.aspect == "existence" and a.status == "PASS"
@@ -269,7 +253,11 @@ def test_language_uml_demo_keeps_declared_target_separate_from_observation(
         ("uml-complete", 0),
         ("uml-mismatch", 2),
         ("uml-partial", 0),
-        ("uml-dart", 0),
+        ("uml-dart-match", 0),
+        ("uml-dart-signature-fail", 2),
+        ("uml-dart-missing-member-fail", 2),
+        ("uml-dart-forbidden-dependency-fail", 2),
+        ("uml-dart-partial-unknown", 0),
         ("uml-typescript", 0),
     ],
 )
@@ -287,6 +275,8 @@ def test_language_uml_demo_uses_shared_browser_acceptance(tmp_path, capsys, vari
             errors = []
             page.on("pageerror", lambda error: errors.append(str(error)))
             page.goto(output.with_suffix(".report.html").as_uri())
+            if variant.startswith("uml-dart-"):
+                page.screenshot(path=str(tmp_path / f"{variant}-overview.png"), full_page=True)
             _check_inner_uml(page, variant, tmp_path)
             assert not errors
         finally:

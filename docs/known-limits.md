@@ -59,11 +59,13 @@ See [adapter limits](architecture/typescript-foundation-proposal.md#evidence-and
 
 ## Dart profile
 
-Only directive headers are observed. Imports without `show` prove edges, not used
-names; relevant symbol checks remain UNKNOWN. Conditional alternatives all count
-as edges. Parts belong to their library. Own package resolution uses the namespace,
-not host `package_config.json`. Type/construct rules and unmeasured budgets are
-refused; dependent review claims remain UNKNOWN. Use explicit source and namespace.
+The native Analyzer records declarations, classifier members, syntax signatures,
+and resolved bases, calls, references, constructions and local bindings. It does
+not prove runtime dispatch, live object identity, or exhaustive call-site coverage.
+Dynamic dispatch, missing resolver inputs, malformed units and unsupported
+declarations stay UNKNOWN. Own-package resolution uses the package name from
+`pubspec.yaml`; snapshot resolution inputs must be present. Python-only
+type/construct rules and unmeasured budgets remain unsupported or UNKNOWN.
 
 ## Scope and nested contracts
 

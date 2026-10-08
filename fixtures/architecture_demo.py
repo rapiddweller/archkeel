@@ -11,6 +11,9 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import io
+import json
+import re
 import shutil
 import subprocess
 import sys
@@ -20,6 +23,7 @@ from pathlib import Path
 
 from archkeel.cli import html_path
 from archkeel.cli import main as archkeel_main
+from archkeel.ir.graph_codec import parse_report
 from fixtures.demo_catalog_check import VARIANTS as _CHECK_PROTOCOL_VARIANTS
 from fixtures.demo_catalog_check_regressions import VARIANTS as _CHECK_REGRESSION_VARIANTS
 from fixtures.demo_catalog_compatibility import VARIANTS as _COMPATIBILITY_VARIANTS
@@ -61,7 +65,11 @@ CATALOG: tuple[Variant, ...] = (
 REPORT_CASES = {
     "uml-match": ("uml-match", 0),
     "uml-complete": ("uml-complete", 0),
-    "uml-dart": ("uml-dart", 0),
+    "uml-dart-match": ("uml-dart-match", 0),
+    "uml-dart-signature-fail": ("uml-dart-signature-fail", 2),
+    "uml-dart-missing-member-fail": ("uml-dart-missing-member-fail", 2),
+    "uml-dart-forbidden-dependency-fail": ("uml-dart-forbidden-dependency-fail", 2),
+    "uml-dart-partial-unknown": ("uml-dart-partial-unknown", 0),
     "uml-typescript": ("uml-typescript", 0),
     "uml-typescript-match": ("uml-typescript-match", 0),
     "uml-typescript-mismatch": ("uml-typescript-mismatch", 2),
@@ -80,6 +88,21 @@ REPORT_CASES = {
     "target-absent": ("target-module-absent", 0),
     "target-store": ("target-hierarchy-positive", 0),
     "empty-responsibility": ("target-empty-responsibilities", 2),
+}
+UML_DEMO_COMPARISONS = {
+    "uml-match": "PASS",
+    "uml-complete": "UNKNOWN",
+    "uml-mismatch": "FAIL",
+    "uml-partial": "UNKNOWN",
+    "uml-dart-match": "PASS",
+    "uml-dart-signature-fail": "FAIL",
+    "uml-dart-missing-member-fail": "FAIL",
+    "uml-dart-forbidden-dependency-fail": "PASS",
+    "uml-dart-partial-unknown": "UNKNOWN",
+    "uml-typescript": "UNKNOWN",
+    "uml-typescript-match": "PASS",
+    "uml-typescript-mismatch": "FAIL",
+    "uml-typescript-partial": "UNKNOWN",
 }
 
 
@@ -102,8 +125,9 @@ For Python, Dart and TypeScript UML examples:
 make demo-uml OUTPUT=build/uml-demo
 ```
 
-Dart inner observation remains unavailable. TypeScript includes PASS, FAIL and UNKNOWN UML cases;
-unsupported or ambiguous source facts stay UNKNOWN.
+Dart has independent Target PASS, signature/member and dependency FAIL, and partial-resolution
+UNKNOWN cases. TypeScript includes PASS, FAIL and UNKNOWN UML cases; unsupported or ambiguous
+source facts stay UNKNOWN.
 
 The [catalog](../fixtures/architecture_demo.py) owns all variants, overlays and expected
 outcomes. Check-protocol and test-only variants cannot replay as reports.
@@ -118,6 +142,7 @@ def main(argv: list[str]) -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--markdown", action="store_true")
     mode.add_argument("--replay", metavar="VARIANT", help="Replay one catalog variant.")
+    mode.add_argument("--uml-suite", action="store_true", help="Replay all language UML cases.")
     parser.add_argument(
         "--output", type=Path, help="New report JSON path; HTML is written beside it."
     )
@@ -129,6 +154,14 @@ def main(argv: list[str]) -> int:
         (Path(__file__).resolve().parent.parent / "docs/architecture-demo.md").write_text(text)
         print(text)
         return 0
+    if args.uml_suite:
+        if args.output is None:
+            parser.error("--uml-suite requires --output")
+        try:
+            return uml_suite(args.output)
+        except (OSError, ValueError, subprocess.CalledProcessError) as error:
+            print(f"Dart UML demo suite failed: {error}", file=sys.stderr)
+            return 2
     if args.output is None:
         parser.error("--replay requires --output")
     try:
@@ -192,6 +225,55 @@ def replay(variant_id: str, output: Path) -> int:
             if path.is_file() and path.stat().st_size == 0:
                 path.unlink()
         raise
+
+
+def uml_suite(output_dir: Path) -> int:
+    """Run all UML cases and verify actual exits, report verdicts and artifacts."""
+    output_dir = output_dir.resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for name, comparison_status in UML_DEMO_COMPARISONS.items():
+        variant, expected_exit = REPORT_CASES[name]
+        row = next(item for item in _UML_VARIANTS if item.id == variant)
+        output = output_dir / f"{name}.json"
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            actual_exit = replay(variant, output)
+        if actual_exit != expected_exit:
+            raise ValueError(f"{name}: exit {actual_exit}, expected {expected_exit}")
+        summaries = [
+            json.loads(line)
+            for line in captured.getvalue().splitlines()
+            if line.startswith("{") and line.endswith("}")
+        ]
+        if not summaries or summaries[-1].get("declared_rules") != row.expected_declared_rules:
+            raise ValueError(f"{name}: report summary did not prove {row.expected_declared_rules}")
+        if not output.is_file() or not output.with_suffix(".report.html").is_file():
+            raise ValueError(f"{name}: report JSON and HTML must both be written")
+        report_html = output.with_suffix(".report.html")
+        main = json.loads(_page_payload(report_html.read_text(encoding="utf-8")))
+        detail = report_html.with_name(main["atlas"]["detail_page"])
+        detail_payload = json.loads(_page_payload(detail.read_text(encoding="utf-8")))
+        report = parse_report(
+            {
+                key: value
+                for key, value in detail_payload.items()
+                if key not in {"initial_scope", "initial_view", "navigation"}
+            }
+        )
+        if report.comparison is None or report.comparison.status != comparison_status:
+            raise ValueError(f"{name}: UML comparison status differs from {comparison_status}")
+        print(
+            f"{name}: exit={actual_exit} declared_rules={row.expected_declared_rules} "
+            f"uml={comparison_status}"
+        )
+    return 0
+
+
+def _page_payload(html: str) -> str:
+    match = re.search(r'<script[^>]*id="flow-data"[^>]*>(.*?)</script>', html, re.DOTALL)
+    if match is None:
+        raise ValueError("report HTML is missing its flow-data payload")
+    return match.group(1)
 
 
 @contextlib.contextmanager

@@ -37,8 +37,16 @@ jobs:
       - name: Install supported runtimes
         run: uv python install 3.11.12 3.12.10
 
+      - name: Install Dart SDK
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: "3.12.2"
+
       - name: Install locked dependencies
         run: uv sync --locked
+
+      - name: Prepare native Dart analyzer
+        run: make dart-setup
 
       - name: Check source and distributions
         run: make release-check

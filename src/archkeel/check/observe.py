@@ -142,8 +142,8 @@ _SOURCE_REMEDY: Final[dict[Language, str]] = {
     "python": "Inspect the reported failure using the declared target runtime; "
     "rerun after resolving its cause.",
     "typescript": "Correct the reported TypeScript configuration or import resolution and retry.",
-    "dart": "Correct the reported directive, URI, part declaration or pubspec name; "
-    "rerun after resolving its cause.",
+    "dart": "Correct the reported Dart source syntax, directive, URI, part declaration or "
+    "pubspec name; rerun after resolving its cause.",
 }
 
 

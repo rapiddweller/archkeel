@@ -285,7 +285,7 @@ def test_what_the_profile_cannot_decide_is_refused(tmp_path: Path, contract: dic
     assert [item.kind for item in result.diagnostics] == ["rule_unsupported_by_profile"]
 
 
-def test_unmeasured_scalars_and_absent_signals_are_null(tmp_path: Path) -> None:
+def test_unmeasured_scalars_stay_null_and_static_claims_are_counts(tmp_path: Path) -> None:
     result = _observe(tmp_path, {"lib/a.dart": "import 'b.dart';\n", "lib/b.dart": ""})
     observation = result.observation
     assert observation is not None
@@ -304,10 +304,10 @@ def test_unmeasured_scalars_and_absent_signals_are_null(tmp_path: Path) -> None:
     payload = result_payload(RunResult("report", 0, measurements=measurements))
     assert parse_measurements(payload["measurements"], "result") == measurements
     claims = review_claims(observation)
-    assert claims.unreferenced_symbols is None and claims.unread_bindings is None
-    assert claims.type_fanin is None and claims.repeated_logic is None
+    assert claims.unreferenced_symbols == 0 and claims.unread_bindings is None
+    assert claims.type_fanin == 0 and claims.repeated_logic is None
     raw = decode_canonical_model(decode_json(canonical_report_bytes(observation)))
-    assert raw["symbols"] is None and raw["references"] is None and raw["bindings"] is None
+    assert raw["symbols"] == [] and raw["references"] == [] and raw["bindings"] == []
     assert parse_observation(raw) == observation
 
 

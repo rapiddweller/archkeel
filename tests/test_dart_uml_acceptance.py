@@ -62,6 +62,108 @@ def test_checkout_cli_report_fulfills_independent_target(tmp_path: Path) -> None
     assert all(item.status == "PASS" for item in comparison.assessments), comparison.assessments
 
 
+def test_dart_demo_variants_keep_the_complete_target_unchanged(tmp_path: Path, capsys) -> None:
+    from fixtures.architecture_demo import CATALOG, materialized_fixture, replay
+
+    variants = {item.id: item for item in CATALOG if item.id.startswith("uml-dart-")}
+    assert set(variants) == {
+        "uml-dart-match",
+        "uml-dart-signature-fail",
+        "uml-dart-missing-member-fail",
+        "uml-dart-forbidden-dependency-fail",
+        "uml-dart-partial-unknown",
+    }
+    target_files = [FIXTURE / "docs/target.md", FIXTURE / "architecture-contract.json"]
+    target_files += sorted((FIXTURE / "contracts").glob("*.json"))
+    target_bytes = {path.relative_to(FIXTURE): path.read_bytes() for path in target_files}
+    assert all(
+        set(item.files)
+        <= {
+            "lib/ordering/domain/orders/order.dart",
+            "lib/ordering/domain/pricing/discount_policy.dart",
+        }
+        for item in variants.values()
+    )
+
+    for name, variant in variants.items():
+        with materialized_fixture(variant) as root:
+            assert {
+                path.relative_to(FIXTURE): (root / path.relative_to(FIXTURE)).read_bytes()
+                for path in target_files
+            } == target_bytes
+        output = tmp_path / f"{name}.json"
+        assert replay(name, output) == (2 if variant.expected_declared_rules == "FAIL" else 0)
+        result = json.loads(capsys.readouterr().out.splitlines()[-1])
+        assert result["declared_rules"] == variant.expected_declared_rules
+        observation = parse_observation(
+            decode_canonical_model(json.loads(output.read_text(encoding="utf-8")))
+        )
+        assert all(failure.kind != "parse_error" for failure in observation.coverage.failures)
+        if name == "uml-dart-forbidden-dependency-fail":
+            rule = next(
+                item
+                for item in result["rule_assessments"]
+                if item["id"] == "ordering:domain:REQUIRES-COMPLETE"
+            )
+            assert rule["status"] == "FAIL" and rule["count"] == 1
+            evidence = {item.id: item for item in observation.evidence}
+            assert any(
+                item.data.get("source_module") == "commerce.ordering.domain.orders.order"
+                and item.data.get("target_module")
+                == "commerce.ordering.domain.pricing.discount_policy"
+                and any(
+                    evidence[identity].file == "lib/ordering/domain/orders/order.dart"
+                    and evidence[identity].line > 0
+                    for identity in item.evidence_ids
+                )
+                for item in observation.records("imports") or ()
+            )
+
+
+def test_dart_demo_signature_and_missing_member_fail_at_deep_target_scope(tmp_path: Path) -> None:
+    from fixtures.architecture_demo import replay
+
+    for name, subject, aspect in (
+        ("uml-dart-signature-fail", "ordering:domain:valid-quantity", "signature"),
+        ("uml-dart-missing-member-fail", "ordering:domain:cancelled", "existence"),
+    ):
+        output = tmp_path / f"{name}.json"
+        assert replay(name, output) == 2
+        model = parse_observation(
+            decode_canonical_model(json.loads(output.read_text(encoding="utf-8")))
+        )
+        comparison = compare_graphs(observed_graph(model), _target_graph()[1])
+        failed = [item for item in comparison.assessments if item.status == "FAIL"]
+        assert [(item.subject_id, item.aspect) for item in failed] == [(subject, aspect)]
+        evidence = {item.id: item for item in model.evidence}
+        assert failed[0].evidence_ids
+        assert all(
+            evidence[item].file == "lib/ordering/domain/orders/order.dart"
+            and evidence[item].line > 0
+            for item in failed[0].evidence_ids
+        )
+
+
+def test_dart_demo_partial_source_keeps_required_call_unknown(tmp_path: Path) -> None:
+    from fixtures.architecture_demo import replay
+
+    output = tmp_path / "partial.json"
+    assert replay("uml-dart-partial-unknown", output) == 0
+    model = parse_observation(
+        decode_canonical_model(json.loads(output.read_text(encoding="utf-8")))
+    )
+    comparison = compare_graphs(observed_graph(model), _target_graph()[1])
+    unknown = [item for item in comparison.assessments if item.status == "UNKNOWN"]
+    unresolved = next(
+        item
+        for item in unknown
+        if item.subject_id == "ordering:domain:percentage-calls-clamp"
+        and item.aspect == "relationship"
+    )
+    assert "unresolved" in unresolved.reason.lower()
+    assert comparison.status == "UNKNOWN"
+
+
 def _target_graph():
     path = "architecture-contract.json"
     payload = (FIXTURE / path).read_bytes()

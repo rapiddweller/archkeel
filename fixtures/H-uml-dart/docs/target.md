@@ -7,7 +7,7 @@ The package and scan namespace are both `commerce`. Dart module identities use t
 | User journey / check | Scope and expected entities | PASS | FAIL | UNKNOWN | Supporting artifact |
 |---|---|---|---|---|---|
 | Submit an order | `main()` → `CheckoutController.submit` → `CheckoutService.checkout` → `OrderRepository.save` | Declared public path and permissions match the design | A known forbidden dependency or signature/ownership conflict | Imports or calls cannot be resolved completely | Root and `contracts/presentation.json`, `contracts/ordering.json` |
-| Enforce order rules | `ordering.domain.orders.order.Order`, `OrderLine`, `OrderStatus` and members | Closed member inventory matches source | Known missing member or extra member | Dart member inventory is unavailable or incomplete | `contracts/domain.json` |
+| Enforce order rules | `ordering.domain.orders.order.Order`, `OrderLine`, `OrderStatus` and members | Closed member inventory matches source | Known missing member or extra member | Malformed source or unresolved required sites prevent proof | `contracts/domain.json` |
 | Price an order | `DiscountPolicy`, `DiscountBase` and `PercentageDiscount` | Implementation realizes the policy with the declared signature | Known realization or signature conflict | Inheritance/realization evidence is unavailable | `contracts/domain.json` |
 | Persist and format | `InMemoryOrderRepository`, `formatReceipt` | Adapter stays behind ordering's port and exposes declared members | Known ownership or dependency conflict | Cross-component implementation evidence is unavailable | `contracts/adapters.json` |
 | Validate Target structure | Three component levels, responsibilities, provenance, module identities, endpoints and signatures | Native contract tree and UML graph validate | Invalid owner, endpoint or signature | Missing mounted contract | `tests/test_dart_uml_acceptance.py` |
@@ -15,3 +15,15 @@ The package and scan namespace are both `commerce`. Dart module identities use t
 Each class, interface and enum has a closed scope for its direct members. Modules have no Dart identifier visibility; visibility is declared only for classifier and member identifiers. Module and call scopes remain open because this Target does not claim exhaustive coverage for those inventories; incomplete evidence must remain UNKNOWN rather than PASS or absence FAIL. `PercentageDiscount` extends `DiscountBase`, realizes `DiscountPolicy`, and delegates clamping to `super.clampDiscount`; these are static Target relations, not runtime proof. `CheckoutRequest` is declared once as the presentation data class, with final `requestId` and `lines` fields and a positional constructor signature. The shared Target modifier vocabulary has no `final` trait, so finalness remains a Dart source requirement rather than a comparable Target fact. Composition dependencies and static calls are declared, but constructor argument flow and controller object creation are not modeled. The table describes expected acceptance results; source comparison and report acceptance are separate evidence.
 
 Each multicomponent contract has `complete_requires`. The root permits presentation, adapters and composition dependencies as listed; ordering permits application→domain/ports and ports→domain; domain permits pricing→orders and forbids orders→pricing; adapter siblings have no dependency between them. Every `through` path is within the target component's published module surface. The presentation surface names `CheckoutController` with the documented `module:Name` form; Dart's Target uses its existing module identity.
+
+Observed root import snapshot; Target permissions are declared separately above.
+
+<!-- archkeel-component-graph -->
+```mermaid
+flowchart LR
+  composition --> presentation
+  composition --> ordering
+  composition --> adapters
+  presentation --> ordering
+  adapters --> ordering
+```

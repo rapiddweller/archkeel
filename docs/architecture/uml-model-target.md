@@ -30,9 +30,10 @@ existing widening gate.
 
 Python records definitions, members, signatures, explicit bases, contexts and
 static assignment sites. Classifier, attribute and instance coverage remains
-partial. Static sites do not prove live object identity, lifetime or composition.
-Dart and TypeScript currently observe imports/directives; inner comparisons remain
-UNKNOWN even when their Target diagrams contain classes and operations.
+partial. Dart's native Analyzer records declarations, members, signatures and
+resolved static sites. TypeScript records lexical declarations and statically
+bound relationships. Static sites do not prove live object identity, lifetime,
+runtime dispatch or composition; unsupported and unresolved facts stay UNKNOWN.
 
 Contract 2.1 retains its original bytes and digest; UML requires 2.2. Graph/Target
 format 1.1.0 adds enum literals; 1.0.0 remains readable with its original vocabulary.

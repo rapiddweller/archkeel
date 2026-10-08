@@ -413,11 +413,11 @@ def test_unmeasured_scalars_are_null_and_measured_ones_are_counts(tmp_path: Path
         assert type(scalars[name]) is int, name
     coverage = payload["coverage"]
     assert isinstance(coverage, dict)
-    assert coverage["calls_analyzed"] is None
-    assert coverage["calls_unresolved"] is None
+    assert coverage["calls_analyzed"] == 0
+    assert coverage["calls_unresolved"] == 0
 
 
-def test_claims_without_their_signal_are_unknown_not_zero(tmp_path: Path) -> None:
+def test_unmeasured_claims_stay_unknown_and_static_claims_are_counts(tmp_path: Path) -> None:
     root = dart_package(
         tmp_path / "pkg",
         {"lib/ui/b.dart": "import 'package:app/core/api.dart';\n\nclass B {}\n"},
@@ -425,14 +425,14 @@ def test_claims_without_their_signal_are_unknown_not_zero(tmp_path: Path) -> Non
     result, observation, payload = report_dart(root)
     assert result.exit_code == 0, result.diagnostics
     assert observation is not None
-    assert observation.records("references") is None
-    assert observation.records("bindings") is None
+    assert observation.records("references") == ()
+    assert observation.records("bindings") == ()
     claims = payload["claims"]
     assert isinstance(claims, dict)
-    assert claims["unreferenced_symbols"] is None
+    assert claims["unreferenced_symbols"] == 5
     assert claims["unread_bindings"] is None
     assert result.claims is not None
-    assert result.claims.unreferenced_symbols is None
+    assert result.claims.unreferenced_symbols == 5
     assert result.claims.unread_bindings is None
 
 
@@ -444,14 +444,18 @@ def test_dart_observation_sections_it_does_not_observe_are_empty(tmp_path: Path)
     assert observation is not None
     for section in (
         "calls",
-        "typing_signals",
-        "constructs",
+        "references",
+        "bindings",
         "contexts",
         "context_evidence",
     ):
         assert observation.records(section) == (), section
-    # Absent, not empty: a claim reading symbols must say UNKNOWN, never "0 candidates".
-    assert observation.records("symbols") is None
+    # These Python-only inventories stay absent; empty does not claim support.
+    assert observation.records("typing_signals") is None
+    assert observation.records("constructs") is None
+    symbols = observation.records("symbols")
+    assert symbols is not None
+    assert any(item.data.get("qualified_name", "").endswith(".B") for item in symbols)
     assert observation.coverage.files_discovered == len(LIBRARIES) + 1
     assert list(observation.source.scope) == ["lib/**/*.dart"]
 
