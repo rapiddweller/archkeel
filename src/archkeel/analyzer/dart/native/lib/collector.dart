@@ -8,6 +8,7 @@ import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/type.dart';
 import 'package:analyzer/error/error.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
@@ -75,6 +76,7 @@ class DartCollector {
   final List<Map<String, Object?>> calls = [];
   final List<Map<String, Object?>> references = [];
   final Map<Element, String> definitions = HashMap.identity();
+  final Map<AstNode, String> definitionIdsByNode = HashMap.identity();
   final Map<String, Map<String, Object?>> symbolByQualified = {};
   final Map<String, Map<String, Object?>> symbolById = {};
   final Map<String, String> modules = {};
@@ -595,6 +597,11 @@ class DartCollector {
           'extension declarations have no shared UML entity kind',
         );
       } else if (declaration is FunctionDeclaration) {
+        final accessorKind = declaration.isGetter
+            ? 'getter'
+            : declaration.isSetter
+            ? 'setter'
+            : null;
         final id = _function(
           source,
           declaration,
@@ -602,6 +609,10 @@ class DartCollector {
           null,
           declaration.functionExpression.parameters,
           declaration.returnType?.toSource(),
+          false,
+          null,
+          null,
+          accessorKind,
         );
         _indexElement(
           declaration.declaredFragment?.element,
@@ -712,18 +723,10 @@ class DartCollector {
           );
         }
       } else if (member is MethodDeclaration) {
-        final record = symbols.firstWhere(
-          (item) =>
-              item['data'] is Map<String, Object?> &&
-              (item['data'] as Map<String, Object?>)['source_file'] ==
-                  source.rel &&
-              (item['data'] as Map<String, Object?>)['qualified_name'] ==
-                  '$ownerName.${member.name.lexeme}',
-        );
-        _indexElement(
-          member.declaredFragment?.element,
-          symbolsByIdName(record['id'] as String),
-        );
+        final id = definitionIdsByNode[member];
+        if (id != null) {
+          _indexElement(member.declaredFragment?.element, symbolsByIdName(id));
+        }
       } else if (member is ConstructorDeclaration) {
         final suffix = member.name?.lexeme;
         final constructorName = suffix == null
@@ -805,7 +808,7 @@ class DartCollector {
     DartSource source,
     AstNode node,
     String scope,
-    String scopeId,
+    String? scopeId,
     String expression,
     Element? target, {
     required bool call,
@@ -826,12 +829,13 @@ class DartCollector {
     final id = _id(call ? 'DARTCALL' : 'DARTREF', [
       source.rel,
       node.offset,
-      scopeId,
+      scopeId ?? '',
       expression,
+      if (use != null) use,
     ]);
     final data = <String, Object?>{
       'source_scope': scope,
-      'source_definition_id': scopeId,
+      if (scopeId != null) 'source_definition_id': scopeId,
       'source_module': moduleForSource[source.rel] ?? source.module,
       'source_file': source.rel,
       'expression': expression,
@@ -863,11 +867,11 @@ class DartCollector {
     DartSource source,
     VariableDeclaration node,
     String scope,
-    String scopeId,
+    String? scopeId,
   ) {
     final name = node.name.lexeme;
     final qualified = '$scope.$name';
-    final id = _id('DARTBIND', [source.rel, node.offset, scopeId, name]);
+    final id = _id('DARTBIND', [source.rel, node.offset, scopeId ?? '', name]);
     final initializer =
         node.initializer is InstanceCreationExpression ||
             node.initializer is MethodInvocation ||
@@ -1037,6 +1041,11 @@ class DartCollector {
         }
       } else if (member is MethodDeclaration) {
         final name = member.name.lexeme;
+        final accessorKind = member.isGetter
+            ? 'getter'
+            : member.isSetter
+            ? 'setter'
+            : null;
         methods.add(
           _function(
             source,
@@ -1046,6 +1055,9 @@ class DartCollector {
             member.parameters,
             member.returnType?.toSource(),
             member.isStatic,
+            null,
+            null,
+            accessorKind,
           ),
         );
       } else if (member is ConstructorDeclaration) {
@@ -1096,36 +1108,32 @@ class DartCollector {
     bool isStatic = false,
     String? methodKind,
     Map<String, String>? fieldTypes,
+    String? accessorKind,
   ]) {
     final qualifiedParent = parent?['qualified'] as String?;
     final parentId = parent?['id'] as String?;
-    final qualified = qualifiedParent == null
+    final baseQualified = qualifiedParent == null
         ? source.module + '.' + name
         : qualifiedParent + '.' + name;
-    final id = _id('DARTDEF', [
-      source.rel,
-      node.offset,
-      qualified,
-      parent == null ? 'function' : 'method',
-    ]);
+    final qualified = accessorKind == null
+        ? baseQualified
+        : '$baseQualified::$accessorKind';
+    final kind = parent == null ? 'function' : 'method';
+    final id = _id('DARTDEF', [source.rel, node.offset, qualified, kind]);
     final params = _params(source, list, fieldTypes ?? const {});
+    definitionIdsByNode[node] = id;
     _addSymbol(
       _record(
         id,
         'source',
-        parent == null ? 'function' : 'method',
+        kind,
         qualified + ' declaration',
         [qualified],
         [_cite(source, node)],
         {
-          ..._meta(
-            source,
-            node,
-            name,
-            parent == null ? 'function' : 'method',
-            qualifiedParent,
-            parentId,
-          ),
+          ..._meta(source, node, name, kind, qualifiedParent, parentId),
+          'qualified_name': qualified,
+          if (accessorKind != null) 'accessor_kind': accessorKind,
           'annotation': null,
           'returns':
               (methodKind == 'constructor' || methodKind == 'factory') &&
@@ -1152,11 +1160,24 @@ class DartCollector {
     for (final item in list.parameters) {
       var actual = item;
       String? defaultValue;
+      var defaultKnown = true;
       var kind = item.isNamed ? 'keyword_only' : 'positional';
       if (item is DefaultFormalParameter) {
         actual = item.parameter;
         defaultValue = item.defaultValue?.toSource();
         if (item.isOptional && defaultValue == null) defaultValue = 'null';
+      }
+      final inheritedParameter = actual is SuperFormalParameter
+          ? _superParameterElement(actual)
+          : null;
+      if (actual is SuperFormalParameter) {
+        defaultKnown = inheritedParameter != null;
+        defaultValue = inheritedParameter?.defaultValueCode;
+        if (inheritedParameter != null &&
+            defaultValue == null &&
+            item.isOptional) {
+          defaultValue = 'null';
+        }
       }
       final name = switch (actual) {
         SimpleFormalParameter() => actual.name?.lexeme,
@@ -1179,7 +1200,7 @@ class DartCollector {
         SimpleFormalParameter() => actual.type?.toSource(),
         FieldFormalParameter() =>
           actual.type?.toSource() ?? fieldTypes[actual.name.lexeme],
-        SuperFormalParameter() => actual.type?.toSource(),
+        SuperFormalParameter() => _superParameterType(actual),
         FunctionTypedFormalParameter() =>
           '${actual.returnType?.toSource() ?? 'dynamic'} Function'
               '${actual.typeParameters?.toSource() ?? ''}'
@@ -1189,7 +1210,8 @@ class DartCollector {
       };
       final supported = switch (actual) {
         SimpleFormalParameter() || FunctionTypedFormalParameter() => true,
-        FieldFormalParameter() || SuperFormalParameter() => type != null,
+        FieldFormalParameter() => type != null,
+        SuperFormalParameter() => _superParameterIsKnown(actual),
         _ => false,
       };
       if (!supported) {
@@ -1206,10 +1228,30 @@ class DartCollector {
         'annotation': type,
         'kind': kind,
         'default': defaultValue,
-        'default_known': true,
+        'default_known': defaultKnown,
       });
     }
     return (values: result, complete: complete);
+  }
+
+  String? _superParameterType(SuperFormalParameter parameter) {
+    final inherited = _superParameterElement(parameter);
+    if (inherited == null || inherited.type is InvalidType) return null;
+    return inherited.type.getDisplayString();
+  }
+
+  bool _superParameterIsKnown(SuperFormalParameter parameter) {
+    final inherited = _superParameterElement(parameter);
+    return inherited != null && inherited.type is! InvalidType;
+  }
+
+  FormalParameterElement? _superParameterElement(
+    SuperFormalParameter parameter,
+  ) {
+    final element = parameter.declaredFragment?.element;
+    return element is SuperFormalParameterElement
+        ? element.superConstructorParameter
+        : null;
   }
 
   String _variable(
@@ -1471,6 +1513,9 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
   final ResolvedUnitResult resolved;
   String? scope;
   String? scopeId;
+  bool syntheticScope = false;
+  String? enclosingScope;
+  String? enclosingScopeId;
   Map<String, Object?>? binding;
   final Map<AstNode, Map<String, Object?>> resultBindings = HashMap.identity();
 
@@ -1488,15 +1533,19 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
     scopeId = oldId;
   }
 
-  (String, String)? get _sourceContext {
+  (String, String?)? get _sourceContext {
     final local = binding;
     if (local != null)
       return (local['qualified_name'] as String, local['id'] as String);
     return _functionContext;
   }
 
-  (String, String)? get _functionContext {
-    if (scope != null && scopeId != null) return (scope!, scopeId!);
+  (String, String?)? get _functionContext {
+    if (scope != null) {
+      return syntheticScope
+          ? (enclosingScope ?? scope!, enclosingScopeId)
+          : (scope!, scopeId);
+    }
     return null;
   }
 
@@ -1507,6 +1556,37 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
       node.declaredFragment?.element,
       () => super.visitFunctionDeclaration(node),
     );
+  }
+
+  @override
+  void visitFunctionExpression(FunctionExpression node) {
+    if (node.parent is FunctionDeclaration) {
+      super.visitFunctionExpression(node);
+      return;
+    }
+    final previousScope = scope;
+    final previousScopeId = scopeId;
+    final previousBinding = binding;
+    final previousSyntheticScope = syntheticScope;
+    final previousEnclosingScope = enclosingScope;
+    final previousEnclosingScopeId = enclosingScopeId;
+    scope = '${previousScope ?? source.module}._closure_${node.offset}';
+    scopeId = previousScopeId;
+    enclosingScope = previousSyntheticScope
+        ? previousEnclosingScope
+        : previousScope;
+    enclosingScopeId = previousSyntheticScope
+        ? previousEnclosingScopeId
+        : previousScopeId;
+    syntheticScope = true;
+    binding = null;
+    super.visitFunctionExpression(node);
+    scope = previousScope;
+    scopeId = previousScopeId;
+    syntheticScope = previousSyntheticScope;
+    enclosingScope = previousEnclosingScope;
+    enclosingScopeId = previousEnclosingScopeId;
+    binding = previousBinding;
   }
 
   @override
@@ -1659,14 +1739,13 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
   void visitPropertyAccess(PropertyAccess node) {
     final context = _sourceContext;
     if (context != null) {
-      collector._site(
+      _emitReference(
         source,
         node,
         context.$1,
         context.$2,
         node.toSource(),
         node.propertyName.element,
-        call: false,
       );
     }
     super.visitPropertyAccess(node);
@@ -1688,14 +1767,13 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
           call: false,
         );
       }
-      collector._site(
+      _emitReference(
         source,
         node,
         context.$1,
         context.$2,
         node.toSource(),
         node.element,
-        call: false,
       );
     }
     super.visitPrefixedIdentifier(node);
@@ -1728,7 +1806,7 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
     final parent = node.parent;
     if (parent is MethodInvocation && identical(parent.methodName, node) ||
         parent is NamedType ||
-        parent is Declaration ||
+        node.inDeclarationContext() ||
         parent is VariableDeclaration && identical(parent.name, node) ||
         parent is PropertyAccess && identical(parent.propertyName, node) ||
         parent is PrefixedIdentifier) {
@@ -1736,17 +1814,76 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
       return;
     }
     final context = _sourceContext;
-    if (context != null && collector._definitionOf(node.element) != null) {
-      collector._site(
-        source,
-        node,
-        context.$1,
-        context.$2,
-        node.name,
-        node.element,
-        call: false,
-      );
+    final target = node.element;
+    if (context != null && _hasLocalReferenceTarget(node, target)) {
+      _emitReference(source, node, context.$1, context.$2, node.name, target);
     }
     super.visitSimpleIdentifier(node);
+  }
+
+  void _emitReference(
+    DartSource source,
+    AstNode node,
+    String scope,
+    String? scopeId,
+    String expression,
+    Element? readElement,
+  ) {
+    final parent = node.parent;
+    if (parent is AssignmentExpression &&
+        identical(parent.leftHandSide, node)) {
+      final writeElement = parent.writeElement;
+      if (parent.operator.lexeme == '=') {
+        collector._site(
+          source,
+          node,
+          scope,
+          scopeId,
+          expression,
+          writeElement,
+          call: false,
+          use: 'write',
+        );
+      } else {
+        collector._site(
+          source,
+          node,
+          scope,
+          scopeId,
+          expression,
+          parent.readElement ?? readElement,
+          call: false,
+          use: 'read',
+        );
+        collector._site(
+          source,
+          node,
+          scope,
+          scopeId,
+          expression,
+          writeElement,
+          call: false,
+          use: 'write',
+        );
+      }
+      return;
+    }
+    collector._site(
+      source,
+      node,
+      scope,
+      scopeId,
+      expression,
+      readElement,
+      call: false,
+    );
+  }
+
+  bool _hasLocalReferenceTarget(AstNode node, Element? readElement) {
+    if (collector._definitionOf(readElement) != null) return true;
+    final parent = node.parent;
+    return parent is AssignmentExpression &&
+        identical(parent.leftHandSide, node) &&
+        collector._definitionOf(parent.writeElement) != null;
   }
 }

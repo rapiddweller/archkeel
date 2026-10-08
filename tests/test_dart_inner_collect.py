@@ -1282,3 +1282,247 @@ def test_native_pubspec_symlink_is_rejected_before_read(tmp_path: Path) -> None:
     )
     assert result.returncode != 0
     assert b"regular pubspec.yaml" in result.stderr
+
+
+def test_native_callback_locals_use_their_function_expression_scope(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """void invoke(void Function() callback) => callback();
+void work() {
+  invoke(() { final value = 'first'; print(value); });
+  invoke(() { final value = 'second'; print(value); });
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    symbols = [
+        record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "binding" and record.data.get("name") == "value"
+    ]
+
+    assert len(symbols) == 2
+    assert len({record.data.get("qualified_name") for record in symbols}) == 2
+    assert len({record.data.get("lexical_parent_id") for record in symbols}) == 1
+    target_ids = {
+        record.data.get("targets")[0]
+        for section in facts.sections
+        if section.name == "references"
+        for record in section.records
+        if record.data.get("expression") == "value"
+    }
+    assert target_ids == {record.data.get("qualified_name") for record in symbols}
+
+
+def test_native_getter_and_setter_references_bind_to_their_own_declarations(
+    tmp_path: Path,
+) -> None:
+    _write_package(
+        tmp_path,
+        """class Box {
+  String get value => 'read';
+  set value(String next) {}
+}
+String get status => 'ready';
+set status(String value) {}
+void use(Box box) {
+  final read = box.value;
+  box.value = 'write';
+  final current = status;
+  status = 'changed';
+  box.value += 'more';
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    accessors = [
+        record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method" and record.data.get("name") == "value"
+    ]
+    assert len(accessors) == 2
+    assert {record.data.get("accessor_kind") for record in accessors} == {"getter", "setter"}
+    accessors_by_kind = {record.data.get("accessor_kind"): record for record in accessors}
+    assert len({record.data.get("qualified_name") for record in accessors}) == 2
+    evidence = {item.id: item for item in facts.evidence}
+    by_line = {
+        evidence[record.evidence_ids[0]].line: record.data.get("targets")
+        for section in facts.sections
+        if section.name == "references"
+        for record in section.records
+        if record.data.get("expression") == "box.value"
+    }
+    all_references_by_line = {
+        evidence[record.evidence_ids[0]].line: record.data.get("targets")
+        for section in facts.sections
+        if section.name == "references"
+        for record in section.records
+    }
+    assert by_line[8] == (accessors_by_kind["getter"].data.get("qualified_name"),)
+    assert by_line[9] == (accessors_by_kind["setter"].data.get("qualified_name"),)
+    assert by_line[8] != by_line[9]
+
+    top_level = [
+        record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "function" and record.data.get("name") == "status"
+    ]
+    assert len(top_level) == 2
+    assert {record.data.get("accessor_kind") for record in top_level} == {"getter", "setter"}
+    top_level_by_kind = {record.data.get("accessor_kind"): record for record in top_level}
+    assert len({record.data.get("qualified_name") for record in top_level}) == 2
+    assert all_references_by_line[10] == (top_level_by_kind["getter"].data.get("qualified_name"),)
+    assert all_references_by_line[11] == (top_level_by_kind["setter"].data.get("qualified_name"),)
+    assert all_references_by_line[10] != all_references_by_line[11]
+    compound = {
+        record.data.get("use"): record.data.get("targets")
+        for section in facts.sections
+        if section.name == "references"
+        for record in section.records
+        if evidence[record.evidence_ids[0]].line == 12
+        and record.data.get("expression") == "box.value"
+    }
+    assert compound == {
+        "read": (accessors_by_kind["getter"].data.get("qualified_name"),),
+        "write": (accessors_by_kind["setter"].data.get("qualified_name"),),
+    }
+
+
+def test_native_super_formal_inherits_resolved_type_and_default(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """class Parent {
+  Parent({String key = 'x'});
+}
+class Child extends Parent {
+  Child({super.key});
+}
+class DynamicParent {
+  DynamicParent({dynamic value});
+}
+class DynamicChild extends DynamicParent {
+  DynamicChild({super.value});
+}
+class GenericParent<T> {
+  GenericParent({required T value});
+}
+class GenericChild extends GenericParent<String> {
+  GenericChild({required super.value});
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    methods = {
+        record.data.get("qualified_name"): record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method"
+    }
+    child = methods["commerce.main.Child.Child"].data
+    assert child.get("signature_complete") is True
+    key = child.get("parameters")[0]
+    assert key.get("name") == "key"
+    assert key.get("annotation") == "String"
+    assert key.get("kind") == "keyword_only"
+    assert key.get("default") == "'x'"
+    assert key.get("default_known") is True
+
+    dynamic_child = methods["commerce.main.DynamicChild.DynamicChild"].data
+    assert dynamic_child.get("signature_complete") is True
+    value = dynamic_child.get("parameters")[0]
+    assert value.get("annotation") == "dynamic"
+    assert value.get("default_known") is True
+
+    generic_child = methods["commerce.main.GenericChild.GenericChild"].data
+    generic_value = generic_child.get("parameters")[0]
+    assert generic_value.get("annotation") == "String"
+    assert generic_value.get("default") is None
+    assert generic_value.get("default_known") is True
+
+
+def test_native_unresolved_super_formal_stays_present_but_incomplete(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """class Child extends MissingParent {
+  Child({super.key});
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    child = next(
+        record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method"
+        and record.data.get("qualified_name") == "commerce.main.Child.Child"
+    )
+    assert child.data.get("signature_complete") is False
+    key = child.data.get("parameters")[0]
+    assert key.get("name") == "key"
+    assert key.get("annotation") is None
+    assert key.get("kind") == "keyword_only"
+    assert key.get("default") is None
+    assert key.get("default_known") is False
+
+    from archkeel.check.uml_compare import compare_graphs
+    from archkeel.ir.architecture_graph import ArchitectureGraph, Entity, Parameter, Signature
+
+    observed = _source_graph(facts)
+    target = ArchitectureGraph(
+        "declared",
+        (
+            Entity(
+                "target-child",
+                "class",
+                "commerce.main.Child",
+                "dart",
+                provenance=("independent-target-spec",),
+            ),
+            Entity(
+                "target-constructor",
+                "method",
+                "commerce.main.Child.Child",
+                "dart",
+                parent_id="target-child",
+                signature=Signature(
+                    (Parameter("key", "String", "keyword_only", None),),
+                    "Child",
+                ),
+                provenance=("independent-target-spec",),
+            ),
+        ),
+    )
+    comparison = compare_graphs(observed, target)
+    assert comparison.status == "UNKNOWN"
+    signature = next(
+        item
+        for item in comparison.assessments
+        if item.subject_id == "target-constructor" and item.aspect == "signature"
+    )
+    assert signature.status == "UNKNOWN"
+
+
+def test_native_duplicate_functions_remain_an_explicit_gap(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """String value() => 'first';
+String value() => 'second';
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+
+    assert facts.coverage.full_scope is False
+    assert any(gap.kind == "DuplicateDeclaration" for gap in facts.coverage.gaps)
