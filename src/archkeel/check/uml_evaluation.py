@@ -15,6 +15,7 @@ from archkeel.ir.model import (
     ObservationResult,
     Record,
     Section,
+    UmlEligibility,
     stable_id,
 )
 from archkeel.ir.source_graph import observed_graph
@@ -24,7 +25,9 @@ from archkeel.ir.trace import validate_evidence_classes
 from .uml_compare import compare_graphs
 
 
-def _records(declaration: Record, comparison: GraphComparison) -> dict[str, list[Record]]:
+def _records(
+    declaration: Record, comparison: GraphComparison, *, partial: bool = False
+) -> dict[str, list[Record]]:
     receipts: list[Record] = []
     violations: list[Record] = []
     unknowns: list[Record] = []
@@ -52,7 +55,8 @@ def _records(declaration: Record, comparison: GraphComparison) -> dict[str, list
             "evidence_ids": evidence,
             "data": {
                 "scope": "root",
-                "assessment_complete": comparison.status != "UNKNOWN"
+                "assessment_complete": not partial
+                and comparison.status != "UNKNOWN"
                 and not any(item.status == "UNKNOWN" for item in comparison.assessments),
                 "comparison": json.loads(json.dumps(asdict(comparison))),
             },
@@ -112,7 +116,8 @@ def _validate_receipt_identity(declaration: Record, receipts: tuple[Record, ...]
 
 def evaluate_uml(result: ObservationResult) -> ObservationResult:
     model = result.observation
-    if model is None or result.diagnostics:
+    partial = result.uml_eligibility == UmlEligibility.AUTHENTICATED_PARTIAL
+    if model is None or (result.diagnostics and not partial):
         return result
     declarations = tuple(
         record
@@ -129,13 +134,19 @@ def evaluate_uml(result: ObservationResult) -> ObservationResult:
             "violations": [],
             "unknowns": [],
         }
+        partial_receipt = False
         for declaration in declarations:
             _validate_receipt_identity(declaration, model.records("scope_observations") or ())
             compared = compare_graphs(observed, recorded_target_graph(model, declaration))
-            projected: dict[str, list[Record]] = _records(declaration, compared)
+            if partial and compared.status == "PASS":
+                continue
+            projected: dict[str, list[Record]] = _records(declaration, compared, partial=partial)
             for name, records in projected.items():
                 destination: list[Record] = additions[name]
                 destination.extend(records)
+            partial_receipt = partial_receipt or bool(projected["scope_observations"])
+        if partial and not partial_receipt:
+            return replace(result, uml_eligibility=UmlEligibility.BLOCKED)
         known = {record.id: record for section in model.sections for record in section.records}
         for records in additions.values():
             for record in records:
@@ -178,6 +189,7 @@ def evaluate_uml(result: ObservationResult) -> ObservationResult:
         return replace(
             result,
             diagnostics=(
+                *result.diagnostics,
                 Diagnostic(
                     "parse_error",
                     model.contract.path,

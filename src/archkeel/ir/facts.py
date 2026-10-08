@@ -22,6 +22,7 @@ RuntimeRequirementState: TypeAlias = Literal[
     "requirement_missing",
     "requirement_invalid",
 ]
+SOURCE_RESOLUTION_GAP_KIND = "source_resolution_gap"
 
 RECORD_FIELDS = (
     "id",

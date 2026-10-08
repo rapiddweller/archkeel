@@ -1003,11 +1003,18 @@ class DiagnosticError(ValueError):
         super().__init__(diagnostic.unknown_claim)
 
 
+class UmlEligibility(StrEnum):
+    BLOCKED = "blocked"
+    VALIDATED_PARTIAL_SOURCE = "validated_partial_source"
+    AUTHENTICATED_PARTIAL = "authenticated_partial"
+
+
 @dataclass(frozen=True, slots=True)
 class ObservationResult:
     observation: Observation | None
     coverage: Coverage | None
     diagnostics: tuple[Diagnostic, ...]
+    uml_eligibility: UmlEligibility = UmlEligibility.BLOCKED
 
     def __post_init__(self) -> None:
         if self.observation is not None and self.observation.coverage != self.coverage:

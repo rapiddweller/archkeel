@@ -33,6 +33,7 @@ from archkeel.ir.model import (
     Record,
     RootLayoutRule,
     Section,
+    UmlEligibility,
     contract_relative_path,
     public_api_id,
     stable_id,
@@ -383,9 +384,9 @@ def _append_targets(
 def assemble_uml(result: ObservationResult, contract_root: Path, path: str) -> ObservationResult:
     model = result.observation
     if model is None or any(item.code == "contract.invalid" for item in result.diagnostics):
-        return result
+        return replace(result, uml_eligibility=UmlEligibility.BLOCKED)
     if any(item.kind == "inside_contract_incomplete" for item in model.coverage.failures):
-        return result
+        return replace(result, uml_eligibility=UmlEligibility.BLOCKED)
     known = {record.id: record for section in model.sections for record in section.records}
     recorded_targets = tuple(
         record for record in known.values() if record.kind in TARGET_GRAPH_RECORD_KINDS
@@ -405,7 +406,7 @@ def assemble_uml(result: ObservationResult, contract_root: Path, path: str) -> O
             for record in known.values()
         )
     ):
-        return result
+        return replace(result, uml_eligibility=UmlEligibility.BLOCKED)
     root = contract_root.resolve()
 
     pointer = "/"
@@ -435,6 +436,7 @@ def assemble_uml(result: ObservationResult, contract_root: Path, path: str) -> O
     except (OSError, ValueError) as error:
         return replace(
             result,
+            uml_eligibility=UmlEligibility.BLOCKED,
             diagnostics=(
                 *result.diagnostics,
                 Diagnostic(
@@ -448,5 +450,12 @@ def assemble_uml(result: ObservationResult, contract_root: Path, path: str) -> O
             ),
         )
     if not projected:
-        return result
-    return replace(result, observation=replace(model, sections=sections))
+        return replace(result, uml_eligibility=UmlEligibility.BLOCKED)
+    eligibility = (
+        UmlEligibility.AUTHENTICATED_PARTIAL
+        if result.uml_eligibility == UmlEligibility.VALIDATED_PARTIAL_SOURCE
+        else UmlEligibility.BLOCKED
+    )
+    return replace(
+        result, observation=replace(model, sections=sections), uml_eligibility=eligibility
+    )

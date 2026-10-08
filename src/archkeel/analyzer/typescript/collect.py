@@ -12,6 +12,7 @@ from typing import Final
 
 from archkeel.analyzer.runtime import collector_provenance
 from archkeel.ir.facts import (
+    SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
     Capabilities,
     CollectionCoverage,
@@ -730,7 +731,14 @@ class _Collection:
             result["reason"] = "multiple classifier definition sites share the target name"
         return result
 
-    def _gap(self, reason: str, evidence: tuple[str, ...] = (), module: str = "") -> None:
+    def _gap(
+        self,
+        reason: str,
+        evidence: tuple[str, ...] = (),
+        module: str = "",
+        *,
+        kind: str = "collection_gap",
+    ) -> None:
         identity = stable_id("UNKNOWN", reason, *evidence, module)
         self.gaps.setdefault(
             identity,
@@ -738,7 +746,7 @@ class _Collection:
                 item_id=identity,
                 evidence_class=EvidenceClass.UNKNOWN,
                 area="source",
-                kind="collection_gap",
+                kind=kind,
                 title=reason,
                 subjects=[module],
                 evidence_ids=list(evidence),
@@ -761,7 +769,10 @@ class _Collection:
             if rel not in self.queue:
                 self.queue.append(rel)
         elif content is not None:
-            self._gap(f"Local dependency outside selected source scope: {rel}")
+            self._gap(
+                f"Local dependency outside selected source scope: {rel}",
+                kind=SOURCE_RESOLUTION_GAP_KIND,
+            )
         return content
 
     def _file(self, rel: str) -> None:
@@ -818,9 +829,19 @@ class _Collection:
         for reference in syntax.references:
             evidence = self._cite(rel, reference.span)
             if reference.form == "require" and (not cjs or syntax.shadows_require):
-                self._gap("Unproven or shadowed require call", (evidence,), module)
+                self._gap(
+                    "Unproven or shadowed require call",
+                    (evidence,),
+                    module,
+                    kind=SOURCE_RESOLUTION_GAP_KIND,
+                )
             elif reference.specifier is None:
-                self._gap(f"Computed {reference.form} cannot be resolved", (evidence,), module)
+                self._gap(
+                    f"Computed {reference.form} cannot be resolved",
+                    (evidence,),
+                    module,
+                    kind=SOURCE_RESOLUTION_GAP_KIND,
+                )
             else:
                 self._import(rel, module, reference, evidence, form)
 
@@ -876,7 +897,7 @@ class _Collection:
         )
 
     def _unresolved(self, module: str, identity: str, specifier: str, reason: str) -> ImportTarget:
-        self._gap(reason, (), module)
+        self._gap(reason, (), module, kind=SOURCE_RESOLUTION_GAP_KIND)
         return UnresolvedTarget(identity, specifier, reason)
 
     def _target(
@@ -951,7 +972,8 @@ class _Collection:
                 self._gap(
                     f"Runtime implementation unavailable for declaration: {path}"
                     if declaration
-                    else f"CommonJS runtime file is unavailable: {specifier}"
+                    else f"CommonJS runtime file is unavailable: {specifier}",
+                    kind=SOURCE_RESOLUTION_GAP_KIND,
                 )
         self._observe(path)
         if not type_only and (not relative or found.directory_package or common_lookup):
@@ -962,7 +984,7 @@ class _Collection:
                 reason = f"Local directory runtime metadata is not proven: {specifier}"
             else:
                 reason = f"Local alias runtime conditions are not proven: {specifier}"
-            self._gap(reason, (), module)
+            self._gap(reason, (), module, kind=SOURCE_RESOLUTION_GAP_KIND)
         file = runtime if not type_only and runtime else path
         return LocalTarget(
             identity, module_identity(self.namespace, file), file, runtime, declaration

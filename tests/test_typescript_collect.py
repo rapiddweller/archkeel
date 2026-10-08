@@ -202,11 +202,22 @@ def test_computed_shadowed_and_unresolved_imports_leave_explicit_gaps(tmp_path: 
     assert "Unproven or shadowed require call" in gaps
     assert "Unresolved module: ./not-here.js" in gaps
     assert any(isinstance(item, UnresolvedTarget) for item in facts.imports)
+    assert {
+        item.kind
+        for item in facts.coverage.gaps
+        if item.title
+        in {
+            "Computed dynamic_import cannot be resolved",
+            "Unproven or shadowed require call",
+            "Unresolved module: ./not-here.js",
+        }
+    } == {"source_resolution_gap"}
 
 
 def test_syntax_and_config_errors_cannot_claim_complete_coverage(tmp_path: Path) -> None:
     facts = _facts(tmp_path, {"src/main.ts": "const = ;\n"})
     assert any(item.startswith("Syntax error in src/main.ts") for item in _gaps(facts))
+    assert all(item.kind == "collection_gap" for item in facts.coverage.gaps)
     broken = tmp_path / "broken"
     config = _facts(broken, {"src/main.ts": "export {};"}, {"extends": "../absent.json"})
     assert not config.coverage.full_scope
