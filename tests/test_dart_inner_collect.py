@@ -868,6 +868,59 @@ def test_native_unsupported_declaration_cannot_claim_full_coverage(tmp_path: Pat
     assert any(gap.kind == "UnsupportedDeclaration" for gap in facts.coverage.gaps)
 
 
+@pytest.mark.parametrize(
+    "sdk_constraint",
+    [">=3.9.0 <3.10.0", ">=3.99.0 <4.0.0"],
+)
+def test_native_incompatible_project_sdk_is_unknown(tmp_path: Path, sdk_constraint: str) -> None:
+    _write_package(tmp_path, "class Item { final int id = 1; }\n")
+    (tmp_path / "pubspec.yaml").write_text(
+        f"name: commerce\nenvironment:\n  sdk: '{sdk_constraint}'\n", encoding="utf-8"
+    )
+
+    facts = _native_facts(tmp_path)
+
+    assert facts.coverage.full_scope is False
+    assert any(gap.kind == "SdkConstraintError" for gap in facts.coverage.gaps)
+    assert not any(
+        record.data.get("member_inventories")
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+    )
+
+
+@pytest.mark.parametrize(
+    ("override", "complete"),
+    [("3.99", False), ("3.9", True), ("2.19", True), ("3.x", False)],
+)
+def test_native_language_version_overrides_are_checked_by_analyzer(
+    tmp_path: Path, override: str, complete: bool
+) -> None:
+    _write_package(tmp_path, f"// @dart={override}\nclass Item {{ final int id = 1; }}\n")
+    (tmp_path / "pubspec.yaml").write_text(
+        "name: commerce\nenvironment:\n  sdk: '>=3.9.0 <4.0.0'\n", encoding="utf-8"
+    )
+
+    facts = _native_facts(tmp_path)
+
+    assert facts.coverage.full_scope is complete
+    if not complete:
+        assert any(gap.kind == "LanguageVersionError" for gap in facts.coverage.gaps)
+
+
+def test_native_malformed_project_sdk_is_unknown(tmp_path: Path) -> None:
+    _write_package(tmp_path, "class Item {}\n")
+    (tmp_path / "pubspec.yaml").write_text(
+        "name: commerce\nenvironment:\n  sdk: '>=3.9 broken'\n", encoding="utf-8"
+    )
+
+    facts = _native_facts(tmp_path)
+
+    assert facts.coverage.full_scope is False
+    assert any(gap.kind == "SdkConstraintError" for gap in facts.coverage.gaps)
+
+
 def test_native_missing_selected_root_is_an_explicit_gap(tmp_path: Path) -> None:
     _write_package(tmp_path, "class Main {}\n")
     facts = _native_facts(tmp_path, ("lib/missing",))

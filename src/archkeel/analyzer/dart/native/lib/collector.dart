@@ -22,6 +22,23 @@ const sectionNames = [
   'bindings',
 ];
 
+final _languageVersionDiagnosticCodes = {
+  for (final name in [
+    'illegal_language_version_override',
+    'inconsistent_language_version_override',
+    'invalid_language_version_override_at_sign',
+    'invalid_language_version_override_equals',
+    'invalid_language_version_override_greater',
+    'invalid_language_version_override_location',
+    'invalid_language_version_override_lower_case',
+    'invalid_language_version_override_number',
+    'invalid_language_version_override_prefix',
+    'invalid_language_version_override_trailing_characters',
+    'invalid_language_version_override_two_slashes',
+  ])
+    errorCodeByUniqueName(name)!,
+};
+
 String _hash(List<int> value) => sha256.convert(value).toString();
 String _id(String prefix, List<Object?> values) =>
     prefix + '-' + _hash(utf8.encode(values.join('\u001f'))).substring(0, 16);
@@ -188,6 +205,32 @@ class DartCollector {
             1,
             'LibraryError',
             'library did not resolve completely',
+          );
+          continue;
+        }
+        final languageVersionErrors = result.units
+            .expand((unit) => unit.diagnostics)
+            .where(
+              (diagnostic) => _languageVersionDiagnosticCodes.contains(
+                diagnostic.diagnosticCode,
+              ),
+            )
+            .toList();
+        if (languageVersionErrors.isNotEmpty) {
+          _gap(
+            source.rel,
+            1,
+            'LanguageVersionError',
+            'unsupported or inconsistent language version override: ' +
+                languageVersionErrors
+                    .map(
+                      (diagnostic) =>
+                          diagnostic.diagnosticCode.lowerCaseName +
+                          '@' +
+                          diagnostic.offset.toString(),
+                    )
+                    .toSet()
+                    .join(', '),
           );
           continue;
         }

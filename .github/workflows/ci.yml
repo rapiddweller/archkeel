@@ -301,7 +301,8 @@ jobs:
         run: uv sync --locked --python ${{ matrix.python }}
 
       - name: Prepare native Dart analyzer
-        run: make dart-setup
+        shell: bash
+        run: make dart-setup SHELL=bash
 
       - name: Verify native TypeScript collector
         shell: bash
@@ -343,7 +344,8 @@ jobs:
         run: uv sync --locked
 
       - name: Prepare native Dart analyzer
-        run: make dart-setup
+        shell: bash
+        run: make dart-setup SHELL=bash
 
       - name: Verify native Dart collector
         shell: bash

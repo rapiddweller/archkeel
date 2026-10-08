@@ -300,16 +300,36 @@ class DartSnapshot {
     final environment = pubspecData['environment'] as YamlMap?;
     final sdk = environment?['sdk'];
     final runningVersion = Version.parse(Platform.version.split(' ').first);
-    final minimum = sdk is String
-        ? (VersionConstraint.parse(sdk) is VersionRange
-              ? (VersionConstraint.parse(sdk) as VersionRange).min
-              : null)
-        : runningVersion;
-    if (minimum == null || minimum.major != runningVersion.major) {
-      throw const FormatException(
-        'pubspec SDK range does not identify this Dart major version',
-      );
+    var constraint = VersionConstraint.any;
+    if (sdk != null) {
+      try {
+        if (sdk is! String)
+          throw const FormatException('SDK range must be a string');
+        constraint = VersionConstraint.parse(sdk);
+      } on FormatException {
+        for (final source in sources) {
+          _invalid(
+            source,
+            0,
+            'SdkConstraintError',
+            'pubspec SDK constraint is malformed',
+          );
+        }
+      }
     }
+    if (!constraint.allows(runningVersion)) {
+      for (final source in sources) {
+        _invalid(
+          source,
+          0,
+          'SdkConstraintError',
+          'pubspec SDK constraint does not include the running Dart SDK',
+        );
+      }
+    }
+    final minimum = constraint is VersionRange && constraint.min != null
+        ? constraint.min!
+        : runningVersion;
     final tool = Directory(p.join(root.path, '.dart_tool'))..createSync();
     File(p.join(tool.path, 'package_config.json')).writeAsStringSync(
       jsonEncode({

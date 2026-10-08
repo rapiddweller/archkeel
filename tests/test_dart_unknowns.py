@@ -16,6 +16,8 @@ from the documented additive fields.
 """
 
 import json
+import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -33,6 +35,7 @@ from test_dart_directives import (
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import render_result, run_report
 from archkeel.check.validation import inside_diagnostics, run_validate
+from archkeel.cli import main as cli_main
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
 from archkeel.ir.model import Observation, Record
@@ -177,6 +180,30 @@ def test_undecided_imports_are_counted_once_per_rule(tmp_path: Path) -> None:
     assert record.subjects == ("app.ui.a", "app.ui.b", "app.ui.c")
     assert record.data.get("undecided") == 3
     assert _scalars(payload)["unknown_positions"] == 3
+
+
+def test_validate_never_passes_unsupported_dart_language_input(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dart = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
+    if dart is None:
+        pytest.skip("Dart SDK is not installed; CLI language checks require Dart")
+    monkeypatch.setenv("DART_EXECUTABLE", dart)
+    monkeypatch.setenv("DART_SUPPRESS_ANALYTICS", "true")
+    root = dart_package(
+        tmp_path / "pkg",
+        {"lib/core/api.dart": "// @dart=3.99\nclass Api {}\n"},
+        rules=(),
+    )
+
+    exit_code = cli_main(["validate", "--root", str(root), "--json"])
+    result = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 2
+    assert result["observation_complete"] != "PASS"
+    assert result["declared_rules"] != "PASS"
 
 
 def test_no_show_import_of_a_library_that_exports_is_unknown(tmp_path: Path) -> None:
