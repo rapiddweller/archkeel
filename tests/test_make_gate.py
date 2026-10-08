@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -157,6 +158,70 @@ def test_pr_report_gate_runs_its_browser_sample_and_propagates_failure(tmp_path,
         else ["browser-install", "pr-report-test"]
     )
     assert result.returncode == (0 if failed is None else 2)
+
+
+@pytest.mark.parametrize("fail_pytest", [False, True])
+def test_report_browser_runs_parallel_full_suite_before_evidence(
+    tmp_path: Path, fail_pytest: bool
+) -> None:
+    calls = tmp_path / "uv-calls.jsonl"
+    runner = tmp_path / "uv"
+    runner.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, os, sys\n"
+        "with open(os.environ['UV_CALLS'], 'a', encoding='utf-8') as stream:\n"
+        "    stream.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+        "if (\n"
+        "    os.environ.get('FAIL_REPORT_PYTEST') == '1'\n"
+        "    and '-m' in sys.argv\n"
+        "    and 'pytest' in sys.argv\n"
+        "):\n"
+        "    raise SystemExit(7)\n"
+    )
+    runner.chmod(0o755)
+    result = subprocess.run(
+        ["make", "report-browser"],
+        cwd=ROOT,
+        env={
+            **os.environ,
+            "OUTPUT": "",
+            "UV": str(runner),
+            "UV_CALLS": str(calls),
+            "FAIL_REPORT_PYTEST": "1" if fail_pytest else "0",
+        },
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    invocations = [json.loads(line) for line in calls.read_text().splitlines()]
+    assert invocations[0][:10] == [
+        "run",
+        "--locked",
+        "--with",
+        "playwright==1.62.0",
+        "python",
+        "-m",
+        "pytest",
+        "-n",
+        "2",
+        "--dist=loadfile",
+    ]
+    assert "--max-worker-restart=0" in invocations[0]
+    if fail_pytest:
+        assert len(invocations) == 1
+        assert result.returncode == 2
+    else:
+        assert len(invocations) == 2
+        assert invocations[1] == [
+            "run",
+            "--locked",
+            "--with",
+            "playwright==1.62.0",
+            "python",
+            "-m",
+            "tools.report_browser",
+        ]
+        assert result.returncode == 0, result.stderr
 
 
 def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
