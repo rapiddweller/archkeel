@@ -454,6 +454,8 @@ def assemble_uml(result: ObservationResult, contract_root: Path, path: str) -> O
     eligibility = (
         UmlEligibility.AUTHENTICATED_PARTIAL
         if result.uml_eligibility == UmlEligibility.VALIDATED_PARTIAL_SOURCE
+        and result.partial_uml_diagnostics
+        and result.diagnostics == result.partial_uml_diagnostics
         else UmlEligibility.BLOCKED
     )
     return replace(

@@ -19,6 +19,7 @@ from archkeel.check.uml import assemble_uml
 from archkeel.check.uml_evaluation import evaluate_uml
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.facts import SourceFacts
+from archkeel.ir.model import Diagnostic, UmlEligibility
 from archkeel.ir.protocol import CollectionError, CollectionRequest
 from archkeel.ir.report_graph import architecture_report
 
@@ -139,6 +140,31 @@ def _project(
 
 def _live(root: Path, config: ScanConfig):
     return run_report(root, config=config, analyzer=Observer(_TypeScriptCollector()))
+
+
+def _partial_candidate(root: Path, config: ScanConfig):
+    commit = subprocess.run(
+        ("git", "rev-parse", "HEAD"), cwd=root, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    return Observer(_TypeScriptCollector())(
+        root,
+        roots=config.roots,
+        namespace=config.namespace,
+        contract=config.contract,
+        git_head=commit,
+        dirty=False,
+        contract_root=root,
+        language="typescript",
+    )
+
+
+def _runtime_blocker() -> Diagnostic:
+    return Diagnostic(
+        "runtime_mismatch",
+        "runtime",
+        "Runtime validity changed after partial eligibility was established.",
+        "Resolve the runtime mismatch and repeat the observation.",
+    )
 
 
 def test_partial_typescript_report_keeps_observed_fail_and_unknown_in_live_and_saved_reports(
@@ -385,3 +411,75 @@ def test_incomplete_nested_contract_never_enables_partial_uml(tmp_path: Path) ->
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert model.coverage.status == "FAIL"
     assert architecture_report(model).comparison is None
+
+
+def test_blocker_added_before_target_authentication_revokes_partial_eligibility(
+    tmp_path: Path,
+) -> None:
+    root, config = _project(tmp_path / "blocker-before-target")
+    candidate = _partial_candidate(root, config)
+    assert candidate.uml_eligibility == UmlEligibility.VALIDATED_PARTIAL_SOURCE
+    candidate = replace(candidate, diagnostics=(*candidate.diagnostics, _runtime_blocker()))
+
+    assembled = assemble_uml(candidate, root, config.contract)
+    assert assembled.uml_eligibility == UmlEligibility.BLOCKED
+    result = evaluate_uml(assembled)
+
+    assert result.uml_eligibility == UmlEligibility.BLOCKED
+    assert result.observation is not None
+    assert architecture_report(result.observation).comparison is None
+
+
+def test_empty_diagnostic_snapshot_cannot_authorize_custom_partial_result(tmp_path: Path) -> None:
+    root, config = _project(tmp_path / "empty-snapshot")
+    custom = replace(
+        _partial_candidate(root, config),
+        uml_eligibility=UmlEligibility.AUTHENTICATED_PARTIAL,
+        partial_uml_diagnostics=(),
+    )
+
+    result = evaluate_uml(assemble_uml(custom, root, config.contract))
+
+    assert result.uml_eligibility == UmlEligibility.BLOCKED
+    assert result.observation is not None
+    assert architecture_report(result.observation).comparison is None
+
+
+def test_blocker_added_after_target_authentication_revokes_partial_eligibility(
+    tmp_path: Path,
+) -> None:
+    root, config = _project(tmp_path / "blocker-after-target")
+    authenticated = assemble_uml(_partial_candidate(root, config), root, config.contract)
+    assert authenticated.uml_eligibility == UmlEligibility.AUTHENTICATED_PARTIAL
+    authenticated = replace(
+        authenticated, diagnostics=(*authenticated.diagnostics, _runtime_blocker())
+    )
+
+    result = evaluate_uml(authenticated)
+
+    assert result.uml_eligibility == UmlEligibility.BLOCKED
+    assert result.observation is not None
+    assert architecture_report(result.observation).comparison is None
+
+
+def test_comparison_exception_revokes_eligibility_before_retry(tmp_path: Path, monkeypatch) -> None:
+    root, config = _project(tmp_path / "comparison-exception")
+    authenticated = assemble_uml(_partial_candidate(root, config), root, config.contract)
+    assert authenticated.uml_eligibility == UmlEligibility.AUTHENTICATED_PARTIAL
+
+    def failed_comparison(*_args, **_kwargs):
+        raise ValueError("comparison failed")
+
+    monkeypatch.setattr("archkeel.check.uml_evaluation.compare_graphs", failed_comparison)
+    failed = evaluate_uml(authenticated)
+    assert failed.uml_eligibility == UmlEligibility.BLOCKED
+    assert any(
+        "comparison cannot be established" in item.unknown_claim for item in failed.diagnostics
+    )
+
+    monkeypatch.undo()
+    retried = evaluate_uml(failed)
+
+    assert retried.uml_eligibility == UmlEligibility.BLOCKED
+    assert retried.observation is not None
+    assert architecture_report(retried.observation).comparison is None

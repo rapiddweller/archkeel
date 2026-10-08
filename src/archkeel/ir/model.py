@@ -1015,6 +1015,7 @@ class ObservationResult:
     coverage: Coverage | None
     diagnostics: tuple[Diagnostic, ...]
     uml_eligibility: UmlEligibility = UmlEligibility.BLOCKED
+    partial_uml_diagnostics: tuple[Diagnostic, ...] = ()
 
     def __post_init__(self) -> None:
         if self.observation is not None and self.observation.coverage != self.coverage:

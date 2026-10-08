@@ -116,8 +116,17 @@ def _validate_receipt_identity(declaration: Record, receipts: tuple[Record, ...]
 
 def evaluate_uml(result: ObservationResult) -> ObservationResult:
     model = result.observation
-    partial = result.uml_eligibility == UmlEligibility.AUTHENTICATED_PARTIAL
-    if model is None or (result.diagnostics and not partial):
+    authenticated = result.uml_eligibility == UmlEligibility.AUTHENTICATED_PARTIAL
+    partial = (
+        authenticated
+        and bool(result.partial_uml_diagnostics)
+        and result.diagnostics == result.partial_uml_diagnostics
+    )
+    if authenticated and not partial:
+        return replace(result, uml_eligibility=UmlEligibility.BLOCKED)
+    if model is None:
+        return replace(result, uml_eligibility=UmlEligibility.BLOCKED)
+    if result.diagnostics and not partial:
         return result
     declarations = tuple(
         record
@@ -188,6 +197,7 @@ def evaluate_uml(result: ObservationResult) -> ObservationResult:
     except ValueError as error:
         return replace(
             result,
+            uml_eligibility=UmlEligibility.BLOCKED,
             diagnostics=(
                 *result.diagnostics,
                 Diagnostic(

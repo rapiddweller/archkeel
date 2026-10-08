@@ -320,7 +320,13 @@ def _observe(
             if _partial_uml_source_is_eligible(facts, model, runtime)
             else UmlEligibility.BLOCKED
         )
-        return ObservationResult(model, model.coverage, diagnostics, eligibility)
+        return ObservationResult(
+            model,
+            model.coverage,
+            diagnostics,
+            eligibility,
+            diagnostics if eligibility == UmlEligibility.VALIDATED_PARTIAL_SOURCE else (),
+        )
     except OSError as error:
         return _failure(
             "parse_error",
