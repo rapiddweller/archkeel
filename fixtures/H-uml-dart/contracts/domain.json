@@ -1,0 +1,846 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "orders",
+      "label": "orders",
+      "role": "component",
+      "packages": [
+        "commerce.ordering.domain.orders"
+      ],
+      "namespace": "commerce.ordering.domain.orders",
+      "public": [
+        "commerce.ordering.domain.orders.order"
+      ],
+      "responsibilities": [
+        "Own order identity, line items and lifecycle transitions."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "pricing",
+      "label": "pricing",
+      "role": "component",
+      "packages": [
+        "commerce.ordering.domain.pricing"
+      ],
+      "namespace": "commerce.ordering.domain.pricing",
+      "public": [
+        "commerce.ordering.domain.pricing.discount_policy"
+      ],
+      "responsibilities": [
+        "Compute totals and apply discount policy."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "architect",
+      "requires": [
+        {
+          "component": "orders",
+          "through": [
+            "commerce.ordering.domain.orders"
+          ],
+          "rationale": "Apply pricing to order line values without making order lifecycle depend on pricing.",
+          "decided_by": "architect"
+        }
+      ]
+    }
+  ],
+  "rules": [],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "order-module",
+          "kind": "module",
+          "qualified_name": "commerce.ordering.domain.orders.order",
+          "parent_id": "orders",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Own order values and lifecycle rules."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "file_path": "lib/ordering/domain/orders/order.dart"
+        },
+        {
+          "id": "order",
+          "kind": "class",
+          "qualified_name": "commerce.ordering.domain.orders.order.Order",
+          "parent_id": "order-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Enforce order lifecycle and line-item invariants."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "order-ctor",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.domain.orders.order.Order.Order",
+          "parent_id": "order",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create an order with its identifier and initial lines."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "lines",
+                "annotation": "List<OrderLine>",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "const []"
+              }
+            ],
+            "returns": "Order"
+          }
+        },
+        {
+          "id": "order-id",
+          "kind": "attribute",
+          "qualified_name": "commerce.ordering.domain.orders.order.Order.id",
+          "parent_id": "order",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the immutable order identifier."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "order-lines",
+          "kind": "attribute",
+          "qualified_name": "commerce.ordering.domain.orders.order.Order._lines",
+          "parent_id": "order",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Keep mutable line storage private."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "List<OrderLine>"
+        },
+        {
+          "id": "order-status",
+          "kind": "attribute",
+          "qualified_name": "commerce.ordering.domain.orders.order.Order.status",
+          "parent_id": "order",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the current lifecycle state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "OrderStatus"
+        },
+        {
+          "id": "order-add-line",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.domain.orders.order.Order.addLine",
+          "parent_id": "order",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Add a positive-quantity line before placement."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "line",
+                "annotation": "OrderLine",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "order-place",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.domain.orders.order.Order.place",
+          "parent_id": "order",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Move a non-empty draft order to placed."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "order-total",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.domain.orders.order.Order.total",
+          "parent_id": "order",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the sum of line totals."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "int"
+          }
+        },
+        {
+          "id": "order-max-lines",
+          "kind": "attribute",
+          "qualified_name": "commerce.ordering.domain.orders.order.Order.maxLines",
+          "parent_id": "order",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Bound order line count."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int",
+          "modifiers": [
+            "static"
+          ]
+        },
+        {
+          "id": "line",
+          "kind": "class",
+          "qualified_name": "commerce.ordering.domain.orders.order.OrderLine",
+          "parent_id": "order-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent one priced quantity in an order."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "line-ctor",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.domain.orders.order.OrderLine.OrderLine",
+          "parent_id": "line",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create one line with a unit price and quantity."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "sku",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "quantity",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "unitPriceCents",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "OrderLine"
+          }
+        },
+        {
+          "id": "line-sku",
+          "kind": "attribute",
+          "qualified_name": "commerce.ordering.domain.orders.order.OrderLine.sku",
+          "parent_id": "line",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Identify the catalog item."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "line-quantity",
+          "kind": "attribute",
+          "qualified_name": "commerce.ordering.domain.orders.order.OrderLine.quantity",
+          "parent_id": "line",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Store the purchased quantity."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "line-price",
+          "kind": "attribute",
+          "qualified_name": "commerce.ordering.domain.orders.order.OrderLine.unitPriceCents",
+          "parent_id": "line",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Store the price in minor currency units."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "line-total",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.domain.orders.order.OrderLine.totalCents",
+          "parent_id": "line",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Calculate quantity times unit price."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "int"
+          }
+        },
+        {
+          "id": "status",
+          "kind": "enum",
+          "qualified_name": "commerce.ordering.domain.orders.order.OrderStatus",
+          "parent_id": "order-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Name order lifecycle states."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "draft",
+          "kind": "enum_literal",
+          "qualified_name": "commerce.ordering.domain.orders.order.OrderStatus.draft",
+          "parent_id": "status",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent an unplaced order."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "placed",
+          "kind": "enum_literal",
+          "qualified_name": "commerce.ordering.domain.orders.order.OrderStatus.placed",
+          "parent_id": "status",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent a placed order."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "cancelled",
+          "kind": "enum_literal",
+          "qualified_name": "commerce.ordering.domain.orders.order.OrderStatus.cancelled",
+          "parent_id": "status",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent a cancelled order."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "order-id-alias",
+          "kind": "type_alias",
+          "qualified_name": "commerce.ordering.domain.orders.order.OrderId",
+          "parent_id": "order-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Name order identifiers."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "currency-scale",
+          "kind": "constant",
+          "qualified_name": "commerce.ordering.domain.orders.order.CURRENCY_SCALE",
+          "parent_id": "order-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Document the cents-to-currency scale."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "valid-quantity",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.domain.orders.order.Order.isValidQuantity",
+          "parent_id": "order",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Check the local positive-quantity invariant."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "quantity",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          },
+          "modifiers": [
+            "static"
+          ]
+        },
+        {
+          "id": "pricing-module",
+          "kind": "module",
+          "qualified_name": "commerce.ordering.domain.pricing.discount_policy",
+          "parent_id": "pricing",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Own discount policy and calculation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "file_path": "lib/ordering/domain/pricing/discount_policy.dart"
+        },
+        {
+          "id": "discount-policy",
+          "kind": "interface",
+          "qualified_name": "commerce.ordering.domain.pricing.discount_policy.DiscountPolicy",
+          "parent_id": "pricing-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define the discount calculation boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "discount-method",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.domain.pricing.discount_policy.DiscountPolicy.discountCents",
+          "parent_id": "discount-policy",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return a discount for a subtotal."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "subtotalCents",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "int"
+          }
+        },
+        {
+          "id": "percentage-discount",
+          "kind": "class",
+          "qualified_name": "commerce.ordering.domain.pricing.discount_policy.PercentageDiscount",
+          "parent_id": "pricing-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Apply a fixed percentage discount."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "discount-ctor",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.domain.pricing.discount_policy.PercentageDiscount.PercentageDiscount",
+          "parent_id": "percentage-discount",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Configure the discount percentage."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "percent",
+                "annotation": "int",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "0"
+              }
+            ],
+            "returns": "PercentageDiscount"
+          }
+        },
+        {
+          "id": "discount-rate",
+          "kind": "attribute",
+          "qualified_name": "commerce.ordering.domain.pricing.discount_policy.PercentageDiscount.percent",
+          "parent_id": "percentage-discount",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Store the discount percentage."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "discount-calc",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.domain.pricing.discount_policy.PercentageDiscount.discountCents",
+          "parent_id": "percentage-discount",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Calculate a bounded discount in cents."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "subtotalCents",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "int"
+          }
+        },
+        {
+          "id": "discount-cap",
+          "kind": "constant",
+          "qualified_name": "commerce.ordering.domain.pricing.discount_policy.MAX_DISCOUNT_PERCENT",
+          "parent_id": "pricing-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Cap discounts at one hundred percent."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        }
+      ],
+      "relationships": [
+        {
+          "id": "add-line-reference",
+          "kind": "references",
+          "source_id": "order-add-line",
+          "target_id": "line",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "order-total-calls-line-total",
+          "kind": "calls",
+          "source_id": "order-total",
+          "target_id": "line-total",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "order-place-status",
+          "kind": "references",
+          "source_id": "order-place",
+          "target_id": "status",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "percentage-realizes-policy",
+          "kind": "realizes",
+          "source_id": "percentage-discount",
+          "target_id": "discount-policy",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "percentage-implements-calc",
+          "kind": "calls",
+          "source_id": "discount-calc",
+          "target_id": "discount-method",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "add-line-validates-quantity",
+          "kind": "calls",
+          "source_id": "order-add-line",
+          "target_id": "valid-quantity",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "order-module",
+          "mode": "closed",
+          "entity_kinds": [
+            "class",
+            "interface",
+            "enum",
+            "enum_literal",
+            "method",
+            "function",
+            "attribute",
+            "type_alias",
+            "constant",
+            "binding"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Require complete classifier and member declarations for order.dart; source observation decides whether that inventory can be certified.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "pricing-module",
+          "mode": "closed",
+          "entity_kinds": [
+            "class",
+            "interface",
+            "enum",
+            "enum_literal",
+            "method",
+            "function",
+            "attribute",
+            "type_alias",
+            "constant",
+            "binding"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Require complete policy and implementation member declarations.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

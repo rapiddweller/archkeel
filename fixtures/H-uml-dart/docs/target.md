@@ -1,23 +1,15 @@
-# Dart UML demo Target
+# Dart checkout Target
 
-The demo component owns the port, implementation and request entry point.
-Client extends Base, implements Port and delegates run to helper. App imports core
-and calls helper. Build creates Unit and assigns it to item. State names two literals.
-Client has private token storage, a static limit and reset. Text is a type alias;
-VERSION is a constant. The contract is independent of collector output.
+This independent Target describes a small checkout package. The composition root owns `lib/main.dart`; presentation maps requests to ordering; ordering owns application, ports and domain; adapters implement ports and format receipts. `inside` expresses component ownership. UML `parent_id` expresses module and lexical ownership.
 
-The current Dart collector observes imports, not inner definitions or calls.
-Target shows the declared design. As-Is shows recorded modules and imports.
-Diff must retain unsupported inner observations as UNKNOWN, never PASS or absence FAIL.
-This demo does not certify language UML parity or exhaustive inventories.
+The package and scan namespace are both `commerce`. Dart module identities use the path below `lib` with `.dart` removed: `lib/ordering/domain/orders/order.dart` is `commerce.ordering.domain.orders.order`. No source facts are used to create this Target.
 
-Replay with make demo-architecture VARIANT=uml-dart OUTPUT=demo-output/uml-dart.json.
-Use a fresh output path. make demo-uml generates all three language reports.
+| User journey / check | Scope and expected entities | PASS | FAIL | UNKNOWN | Supporting artifact |
+|---|---|---|---|---|---|
+| Submit an order | `presentation.controller.CheckoutController` → `ordering.application.CheckoutService` → `OrderRepository` | Declared public path and permissions match the design | A known forbidden dependency or signature/ownership conflict | Imports or calls cannot be resolved completely | Root and `contracts/presentation.json`, `contracts/ordering.json` |
+| Enforce order rules | `ordering.domain.orders.order.Order`, `OrderLine`, `OrderStatus` and members | Closed member inventory matches source | Known missing member or extra member | Dart member inventory is unavailable or incomplete | `contracts/domain.json` |
+| Price an order | `DiscountPolicy` and `PercentageDiscount` | Implementation realizes the policy with the declared signature | Known realization or signature conflict | Inheritance/realization evidence is unavailable | `contracts/domain.json` |
+| Persist and format | `InMemoryOrderRepository`, `formatReceipt` | Adapter stays behind ordering's port and exposes declared members | Known ownership or dependency conflict | Cross-component implementation evidence is unavailable | `contracts/adapters.json` |
+| Validate Target structure | Three component levels, responsibilities, provenance, module identities, endpoints and signatures | Native contract tree and UML graph validate | Invalid owner, endpoint or signature | Missing mounted contract | `tests/test_dart_uml_acceptance.py` |
 
-Tracked in #339 (demos) and #340 (complete ArchKeel Target).
-
-<!-- archkeel-component-graph -->
-```mermaid
-flowchart LR
-    demo
-```
+Classifier/member scopes are closed per module where the declared inventory is deliberate. Module, import and call inventories remain open: the current Dart profile records directives only, so it cannot certify those inventories or turn unsupported members into PASS or absence FAIL. The table describes the intended acceptance outcomes; the existing flat source is not an implementation of this Target. Source implementation and report acceptance are later tasks.

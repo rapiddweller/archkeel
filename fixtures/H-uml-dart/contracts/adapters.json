@@ -1,0 +1,341 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "memory",
+      "label": "memory",
+      "role": "component",
+      "packages": [
+        "commerce.adapters.memory"
+      ],
+      "namespace": "commerce.adapters.memory",
+      "public": [
+        "commerce.adapters.memory.in_memory_order_repository"
+      ],
+      "responsibilities": [
+        "Store orders in process memory for the demo."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "diagnostics",
+      "label": "diagnostics",
+      "role": "component",
+      "packages": [
+        "commerce.adapters.diagnostics"
+      ],
+      "namespace": "commerce.adapters.diagnostics",
+      "public": [
+        "commerce.adapters.diagnostics.receipt_formatter"
+      ],
+      "responsibilities": [
+        "Format a stable checkout receipt for display."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": [],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "memory-module",
+          "kind": "module",
+          "qualified_name": "commerce.adapters.memory.in_memory_order_repository",
+          "parent_id": "memory",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Own the process-local order store."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "file_path": "lib/adapters/memory/in_memory_order_repository.dart"
+        },
+        {
+          "id": "memory-repository",
+          "kind": "class",
+          "qualified_name": "commerce.adapters.memory.in_memory_order_repository.InMemoryOrderRepository",
+          "parent_id": "memory-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Store orders by identifier for one process."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "memory-ctor",
+          "kind": "method",
+          "qualified_name": "commerce.adapters.memory.in_memory_order_repository.InMemoryOrderRepository.InMemoryOrderRepository",
+          "parent_id": "memory-repository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create an empty order store."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "InMemoryOrderRepository"
+          }
+        },
+        {
+          "id": "orders-map",
+          "kind": "attribute",
+          "qualified_name": "commerce.adapters.memory.in_memory_order_repository.InMemoryOrderRepository._orders",
+          "parent_id": "memory-repository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Keep the order index private."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Map<String, Order>"
+        },
+        {
+          "id": "memory-save",
+          "kind": "method",
+          "qualified_name": "commerce.adapters.memory.in_memory_order_repository.InMemoryOrderRepository.save",
+          "parent_id": "memory-repository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Replace the order indexed by its identifier."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "order",
+                "annotation": "Order",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "memory-find",
+          "kind": "method",
+          "qualified_name": "commerce.adapters.memory.in_memory_order_repository.InMemoryOrderRepository.findById",
+          "parent_id": "memory-repository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the stored order when present."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Order?"
+          }
+        },
+        {
+          "id": "diagnostics-module",
+          "kind": "module",
+          "qualified_name": "commerce.adapters.diagnostics.receipt_formatter",
+          "parent_id": "diagnostics",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Own receipt formatting."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "file_path": "lib/adapters/diagnostics/receipt_formatter.dart"
+        },
+        {
+          "id": "receipt-function",
+          "kind": "function",
+          "qualified_name": "commerce.adapters.diagnostics.receipt_formatter.formatReceipt",
+          "parent_id": "diagnostics-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Format an order identifier and total."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "order",
+                "annotation": "Order",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "receipt-prefix",
+          "kind": "constant",
+          "qualified_name": "commerce.adapters.diagnostics.receipt_formatter.RECEIPT_PREFIX",
+          "parent_id": "diagnostics-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Name the stable receipt prefix."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "repository-port-ref",
+          "kind": "symbol",
+          "qualified_name": "commerce.ordering.ports.order_repository.OrderRepository",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the order port owned by ordering."
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "save-indexes-order",
+          "kind": "references",
+          "source_id": "memory-save",
+          "target_id": "orders-map",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "find-reads-order-index",
+          "kind": "references",
+          "source_id": "memory-find",
+          "target_id": "orders-map",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "memory-realizes-port",
+          "kind": "realizes",
+          "source_id": "memory-repository",
+          "target_id": "repository-port-ref",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "memory-module",
+          "mode": "closed",
+          "entity_kinds": [
+            "class",
+            "interface",
+            "enum",
+            "enum_literal",
+            "method",
+            "function",
+            "attribute",
+            "type_alias",
+            "constant",
+            "binding"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare all in-memory adapter members.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "diagnostics-module",
+          "mode": "closed",
+          "entity_kinds": [
+            "class",
+            "interface",
+            "enum",
+            "enum_literal",
+            "method",
+            "function",
+            "attribute",
+            "type_alias",
+            "constant",
+            "binding"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare all receipt formatter definitions.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

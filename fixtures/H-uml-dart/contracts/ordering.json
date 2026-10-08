@@ -1,0 +1,382 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "application",
+      "label": "application",
+      "role": "component",
+      "packages": [
+        "commerce.ordering.application"
+      ],
+      "namespace": "commerce.ordering.application",
+      "public": [
+        "commerce.ordering.application.checkout_service"
+      ],
+      "responsibilities": [
+        "Coordinate validation, pricing and order persistence."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "architect",
+      "requires": [
+        {
+          "component": "domain",
+          "through": [
+            "commerce.ordering.domain"
+          ],
+          "rationale": "Use domain invariants and pricing.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "ports",
+          "through": [
+            "commerce.ordering.ports"
+          ],
+          "rationale": "Persist orders through the port.",
+          "decided_by": "architect"
+        }
+      ]
+    },
+    {
+      "id": "ports",
+      "label": "ports",
+      "role": "component",
+      "packages": [
+        "commerce.ordering.ports"
+      ],
+      "namespace": "commerce.ordering.ports",
+      "public": [
+        "commerce.ordering.ports.order_repository"
+      ],
+      "responsibilities": [
+        "Define the order persistence boundary."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "domain",
+      "label": "domain",
+      "role": "component",
+      "packages": [
+        "commerce.ordering.domain"
+      ],
+      "namespace": "commerce.ordering.domain",
+      "public": [
+        "commerce.ordering.domain.orders.order",
+        "commerce.ordering.domain.pricing.discount_policy"
+      ],
+      "responsibilities": [
+        "Own order lifecycle, line items and pricing policy."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "architect",
+      "inside": "contracts/domain.json"
+    }
+  ],
+  "rules": [],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "checkout-module",
+          "kind": "module",
+          "qualified_name": "commerce.ordering.application.checkout_service",
+          "parent_id": "application",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Coordinate the checkout use case."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "file_path": "lib/ordering/application/checkout_service.dart"
+        },
+        {
+          "id": "checkout-service",
+          "kind": "class",
+          "qualified_name": "commerce.ordering.application.checkout_service.CheckoutService",
+          "parent_id": "checkout-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Validate and persist one order."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "checkout-ctor",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.application.checkout_service.CheckoutService.CheckoutService",
+          "parent_id": "checkout-service",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive the order persistence port."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "repository",
+                "annotation": "OrderRepository",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "CheckoutService"
+          }
+        },
+        {
+          "id": "checkout-method",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.application.checkout_service.CheckoutService.checkout",
+          "parent_id": "checkout-service",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Save a validated order and return its receipt."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "order",
+                "annotation": "Order",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "requestId",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "'local'"
+              }
+            ],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "repository-module",
+          "kind": "module",
+          "qualified_name": "commerce.ordering.ports.order_repository",
+          "parent_id": "ports",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare order persistence operations."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "file_path": "lib/ordering/ports/order_repository.dart"
+        },
+        {
+          "id": "repository-port",
+          "kind": "interface",
+          "qualified_name": "commerce.ordering.ports.order_repository.OrderRepository",
+          "parent_id": "repository-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define saving and looking up orders."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "save-order",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.ports.order_repository.OrderRepository.save",
+          "parent_id": "repository-port",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Save one order."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "order",
+                "annotation": "Order",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "find-order",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.ports.order_repository.OrderRepository.findById",
+          "parent_id": "repository-port",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Look up one order by identifier."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Order?"
+          }
+        },
+        {
+          "id": "checkout-receipt-id",
+          "kind": "binding",
+          "qualified_name": "commerce.ordering.application.checkout_service.CheckoutService.checkout.receiptId",
+          "parent_id": "checkout-method",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Record the identifier used for the checkout receipt."
+          ],
+          "initializer": "order.id"
+        },
+        {
+          "id": "order-id-ref",
+          "kind": "symbol",
+          "qualified_name": "commerce.ordering.domain.orders.order.Order.id",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the order identifier read for a receipt."
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "checkout-saves-order",
+          "kind": "calls",
+          "source_id": "checkout-method",
+          "target_id": "save-order",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "receipt-id-from-order",
+          "kind": "references",
+          "source_id": "checkout-receipt-id",
+          "target_id": "order-id-ref",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "checkout-module",
+          "mode": "closed",
+          "entity_kinds": [
+            "class",
+            "interface",
+            "enum",
+            "enum_literal",
+            "method",
+            "function",
+            "attribute",
+            "type_alias",
+            "constant",
+            "binding"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare all CheckoutService members.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "repository-module",
+          "mode": "closed",
+          "entity_kinds": [
+            "class",
+            "interface",
+            "enum",
+            "enum_literal",
+            "method",
+            "function",
+            "attribute",
+            "type_alias",
+            "constant",
+            "binding"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare all persistence port members.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}
