@@ -166,7 +166,7 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     assert "run: make ci-core-check\n" in check
     assert "run: make ci-report-check\n" in check
     assert "continue-on-error" not in check
-    assert "timeout-minutes: ${{ github.event_name == 'pull_request' && 20 || 60 }}" in check
+    assert "timeout-minutes: ${{ github.event_name == 'pull_request' && 25 || 60 }}" in check
     assert "run: make ci-pr-check\n" in check
     assert "run: make ci-pr-report-check\n" in check
     for heading in ("Run full core checks", "Run full report checks"):
@@ -195,8 +195,16 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     safety = workflow.split("  collector-safety-windows:\n", 1)[1].split(
         "\n  typescript-native:", 1
     )[0]
-    assert "if: github.event_name == 'push' && needs.changes.outputs.core == 'true'" in safety
+    assert "if: needs.changes.outputs.core == 'true'" in safety
+    dart = workflow.split("  dart-native:\n", 1)[1].split("\n  github-order-report:", 1)[0]
+    assert "if: needs.changes.outputs.core == 'true'" in dart
+    assert "if: github.event_name == 'push' && needs.changes.outputs.core == 'true'" not in dart
     assert "collector-runtimes:" not in workflow
+    makefile = (ROOT / "Makefile").read_text()
+    pr_tests = makefile.split("pr-test:\n", 1)[1].split("\npr-report-test:", 1)[0]
+    dart_tests = makefile.split("dart-native:\n", 1)[1].split("\n# Compare against", 1)[0]
+    assert "tests/test_flutter_demo.py" in pr_tests
+    assert "tests/test_flutter_demo.py" not in dart_tests
 
 
 @pytest.mark.parametrize("renderer_exit", [0, 1])

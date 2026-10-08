@@ -1,10 +1,11 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Replace this process with the prepared native Dart collector."""
+"""Run the prepared native Dart collector and return its exit status."""
 
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 
@@ -20,8 +21,7 @@ def main() -> int:
     if Path(executable).suffix.lower() in {".bat", ".cmd"}:
         raise SystemExit("Dart SDK must expose a native executable, not a .bat/.cmd shim")
     argv = [executable, f"--packages={packages.resolve()}", str(script.resolve())]
-    os.execvpe(executable, argv, os.environ)
-    return 127
+    return subprocess.run(argv, check=False).returncode
 
 
 if __name__ == "__main__":

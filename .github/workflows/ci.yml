@@ -122,7 +122,7 @@ jobs:
     needs: changes
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ github.event_name == 'pull_request' && 20 || 60 }}
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 25 || 60 }}
     steps:
       - name: Fail if change detection failed
         if: always() && needs.changes.result != 'success'
@@ -221,7 +221,7 @@ jobs:
 
   collector-safety-windows:
     needs: changes
-    if: github.event_name == 'push' && needs.changes.outputs.core == 'true'
+    if: needs.changes.outputs.core == 'true'
     runs-on: windows-latest
     timeout-minutes: 10
     strategy:
@@ -312,7 +312,7 @@ jobs:
 
   dart-native:
     needs: changes
-    if: github.event_name == 'push' && needs.changes.outputs.core == 'true'
+    if: needs.changes.outputs.core == 'true'
     strategy:
       fail-fast: false
       matrix:
