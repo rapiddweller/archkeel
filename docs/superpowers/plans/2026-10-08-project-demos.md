@@ -136,6 +136,8 @@
 
 **Measured prerequisite (Task 6b):** source graph construction rejected seven valid closure-local call bindings because it rebuilt their qualified names from the enclosing call owner. Reconcile an existing name binding by its validated declaration identity and lexical name, preserving its parent and known metadata; keep conflicting identities, parents, names, initializers and known metadata blocked. Preserve Python annotation/context enrichment and attribute/subscript behavior. Add native closure/nested-call positives, collision negatives and shared Python/TypeScript regressions; no protocol or collector-scope change. Review separately before continuing the full-project proof.
 
+**Measured prerequisite (Task 6c):** the source audit found four native declaration losses: redirecting-factory defaults incorrectly become null, generic constructor return types lose type variables, implicit setter returns lose void, and private named constructors use the public composite name for visibility. Keep the semantic Target; repair only proven native facts using typed constructor/parameter links and source syntax. Unavailable or invalid redirect bindings retain generic unsupported blocking; no Core gate or source-gap classification expansion. Review focused positive/negative regressions before full-project acceptance.
+
 - [ ] Add tests for full input/library scope and non-null comparison; forbidden internal edge → architecture FAIL; deep required member/signature change → UML FAIL; a formerly proven required call made dynamic → relationship UNKNOWN.
 - [ ] Collect all 111 files. Require the complete selected input inventory and `comparison != null`; preserve any source-coverage FAIL/diagnostics and allow only evidence-backed UNKNOWNs such as missing SDK/external call types. A partial comparison does not claim semantic completeness.
 - [ ] For each variant, assert unchanged selected path set and Target digest, exact changed source anchor and expected rule/relationship assessment. The UNKNOWN test must compare the same target obligation before/after and prove the new dynamic call changes its result to UNKNOWN.
@@ -153,6 +155,7 @@
 
 - [ ] Map runtime/composition/API, auth/JWT, profile/following, article/feed/favorite/comment/tag, services/repositories and persistence responsibilities to every app module.
 - [ ] Close principal source class/member contracts for one request journey from route/dependency through service to repository. Explicitly state SQL/template/stub and external database behavior not measured by Python facts.
+- [ ] Declare the source-backed `login` → `jwt.create_access_token_for_user` call before collection. The current profile resolves this imported module member; custom repository receiver calls remain partially resolved and cannot serve as the required PASS baseline.
 - [ ] Test path ownership and Target schema without collection; freeze Target digest. Commit and review before Task 8.
 
 ### Task 8: Prove Python full app Target and variants
@@ -162,6 +165,7 @@
 **Interface:** consumes the frozen Task 7 Target; produces full 72-file Python base plus source-only architecture FAIL, deep UML FAIL and UNKNOWN.
 
 - [ ] Test complete selected Python module set and non-null comparison. Preserve truthful source-coverage status if bounded gaps remain. Add one forbidden internal dependency mutation, one required nested member/signature mismatch, and one required call changed from typed/resolved to dynamic so its relationship becomes UNKNOWN.
+- [ ] Prove the same `login` → `create_access_token_for_user` call changes PASS → UNKNOWN when only the login invocation becomes `getattr(jwt, "create_access_token_for_user")(... )`; preserve the separate register call. Do not infer custom repository receiver dispatch to make this example pass.
 - [ ] Verify every mutation preserves path selection, pinned upstream input hashes other than the changed overlay, Target bytes and exact assessment evidence. Keep SQL/data-flow and external library semantics unknown.
 - [ ] Record measured completeness, comparison/assessment counts, source hashes and reasons; do not run archived app/tests or install its dependencies. Commit and review.
 
