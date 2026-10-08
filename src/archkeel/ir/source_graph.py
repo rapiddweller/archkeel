@@ -38,7 +38,7 @@ _VISIBILITIES: tuple[VisibilityKind, ...] = get_args(VisibilityKind)
 _BASES: tuple[VisibilityBasis, ...] = get_args(VisibilityBasis)
 _PARAMETERS: tuple[ParameterKind, ...] = get_args(ParameterKind)
 _MODIFIERS: tuple[ModifierKind, ...] = get_args(ModifierKind)
-_CLASSIFIER_RELATIONSHIPS: tuple[RelationshipKind, ...] = ("inherits", "realizes")
+_CLASSIFIER_RELATIONSHIPS: tuple[RelationshipKind, ...] = ("inherits", "realizes", "mixes_in")
 
 
 def _choice(value: JsonValue, choices: tuple[_Choice, ...], default: _Choice) -> _Choice:
@@ -135,9 +135,17 @@ def _symbol(record: Record, language: str) -> Entity:
         if category not in {"static_constant", "dynamic_binding"}
         else ("constant" if category == "static_constant" else "binding")
     )
-    if kind == "class" and data.get("class_kind") in {"protocol", "enum"}:
-        kind = "interface" if data.get("class_kind") == "protocol" else "enum"
+    class_kind = _text(data.get("class_kind"))
+    if kind == "class":
+        if class_kind == "protocol":
+            kind = "interface"
+        elif class_kind == "enum":
+            kind = "enum"
+        elif class_kind == "mixin":
+            kind = "mixin"
     modifiers: list[ModifierKind] = []
+    if data.get("mixin_capable") is True:
+        modifiers.append("mixin")
     for key, modifier in (("async", "async"), ("frozen_object", "frozen")):
         if data.get(key) is True:
             modifiers.append(_choice(modifier, _MODIFIERS, "async"))
@@ -653,7 +661,7 @@ def _partial_inventory_coverage(
     result.append(
         Coverage(
             entity.id,
-            relationship_kinds=("inherits", "realizes"),
+            relationship_kinds=("inherits", "realizes", "mixes_in"),
             status="partial" if entity.qualified_name in base_modules else "unavailable",
             reason="explicit bases are recorded; the classifier inventory is not exhaustive"
             if entity.qualified_name in base_modules
@@ -734,6 +742,7 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
         "class",
         "interface",
         "enum",
+        "mixin",
         "method",
         "function",
         "type_alias",
@@ -769,7 +778,7 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
         result.append(
             Coverage(
                 item.id,
-                relationship_kinds=("inherits", "realizes"),
+                relationship_kinds=("inherits", "realizes", "mixes_in"),
                 status="complete" if complete else "partial",
                 reason=None if complete else "a base binding or classifier kind is not proven",
             )

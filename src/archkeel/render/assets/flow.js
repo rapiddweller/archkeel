@@ -85,7 +85,7 @@
   // second, hand-written color/dash list.
 
   const svg = root.querySelector(".flow-graph");
-  for (const kind of ["calls", "imports", "references", "creates", "instance_of"]) {
+  for (const kind of ["calls", "imports", "references", "creates", "instance_of", "mixes_in"]) {
     const marker = svg.querySelector("#flow-arrow-declared").cloneNode(true);
     marker.id = `flow-arrow-uml-${kind}`;
     marker.querySelector("path").style.stroke = `var(--uml-${kind})`;
@@ -416,7 +416,7 @@
       icon.appendChild(el("path", { d: "M4,0 h11 l6,6 v16 h-17 z M15,0 v6 h6" }));
     } else if (kind === "interface") {
       icon.appendChild(el("circle", { cx: "11", cy: "10", r: "8" }));
-    } else if (["class", "enum"].includes(kind)) {
+    } else if (["class", "mixin", "enum"].includes(kind)) {
       icon.append(el("rect", { x: "1", y: "0", width: "21", height: "23" }),
         el("path", { d: kind === "class" ? "M1,8 h21 M1,15 h21" : "M1,8 h21" }));
     } else if (["method", "function"].includes(kind)) {
@@ -436,14 +436,17 @@
     });
     group.appendChild(el("rect", {
       class: "card", width: String(CARD.w), height: String(cardHeight(node.id)),
-      rx: ["class", "interface", "enum"].includes(node.kind) ? "2" : "8",
+      rx: ["class", "interface", "enum", "mixin"].includes(node.kind) ? "2" : "8",
     }));
     group.appendChild(el("path", { class: "uml-kind-accent", d: `M16,2 H${CARD.w - 16}` }));
     if (node.violation) group.appendChild(el("rect", {
       class: "tick violated", width: "3", height: String(cardHeight(node.id) - 24), x: "0", y: "12",
     }));
     const kind = el("text", { class: "stereotype", x: "16", y: "19" });
-    kind.textContent = `«${node.kind === "enum" ? "enumeration" : node.kind === "enum_literal" ? "enumeration literal" : node.kind}»${node.outside ? " · outside" : ""}`;
+    const stereotype = node.kind === "class" && node.entity?.modifiers.includes("mixin")
+      ? "mixin class" : node.kind === "enum" ? "enumeration"
+        : node.kind === "enum_literal" ? "enumeration literal" : node.kind;
+    kind.textContent = `«${stereotype}»${node.outside ? " · outside" : ""}`;
     group.appendChild(kind);
     const name = createWrappedText(node.label, {
       class: "label", x: "16", y: "37",
@@ -1375,7 +1378,7 @@
         if (localIds.has(current)) return current;
         if (current === scope) return current === id && byId.get(current).kind !== "component" ? current : null;
         const entity = byId.get(current);
-        if (!classifier && ["class", "interface", "enum"].includes(entity.kind)) classifier = current;
+        if (!classifier && ["class", "interface", "enum", "mixin"].includes(entity.kind)) classifier = current;
         if (!module && entity.kind === "module") module = current;
         if (coarse && !component && entity.kind === "component") component = current;
         current = architectureParent(entity, graph);
@@ -1424,7 +1427,7 @@
         }
         if (observedLocalIds.has(current)) return observedEntry(current, true);
         const entity = observedById.get(current);
-        if (!classifier && ["class", "interface", "enum"].includes(entity.kind)) classifier = current;
+        if (!classifier && ["class", "interface", "enum", "mixin"].includes(entity.kind)) classifier = current;
         if (!module && entity.kind === "module") module = current;
         child = current;
         current = architectureParent(entity, observed);
@@ -2136,7 +2139,7 @@
 
     const kinds = [...new Set(complete.edges.map((edge) => edge.relationshipKind))].sort();
     if (!kinds.includes(relationshipKind)) relationshipKind = null;
-    const directScope = ["module", "class", "interface", "enum"].includes(
+    const directScope = ["module", "class", "interface", "enum", "mixin"].includes(
       architectureEntity(context.scope, context.graph)?.kind);
     const directOverview = directScope && !focusLabel && !relationshipKind
       && !violationsOnly.checked && !showExternalSymbols;
@@ -2217,14 +2220,14 @@
     if (umlSelection && !(umlSelection.type === "node" ? scene.nodes : edges)
       .some((item) => item.id === umlSelection.id)) umlSelection = null;
     const classifiers = scene.nodes.some((node) => !node.outside
-      && ["class", "interface", "enum"].includes(node.kind));
-    const hierarchy = edges.filter((edge) => ["inherits", "realizes"].includes(edge.relationshipKind));
+      && ["class", "interface", "enum", "mixin"].includes(node.kind));
+    const hierarchy = edges.filter((edge) => ["inherits", "realizes", "mixes_in"].includes(edge.relationshipKind));
     const hierarchyNodes = new Set(hierarchy.flatMap((edge) => [edge.source, edge.target]));
     // A mostly disconnected type inventory needs a grid, not rows behind one small hierarchy.
     const rankHierarchy = hierarchyNodes.size * 2 >= scene.nodes.length;
     const ranks = computeRanks({ components: scene.nodes.map((node) => ({ label: node.id })) },
       edges.filter((edge) => edge.source !== edge.target && edge.resolution !== "partial"
-        && (!classifiers || rankHierarchy && ["inherits", "realizes"].includes(edge.relationshipKind))));
+        && (!classifiers || rankHierarchy && ["inherits", "realizes", "mixes_in"].includes(edge.relationshipKind))));
     scene.nodes.forEach((node) => { node.rank = ranks.get(node.id); });
     filterStatus.textContent = focusLabel || relationshipKind || elementKind
       ? `${[focusLabel ? "Direct neighbors" : null, elementKind ? `Elements: ${elementKind}` : null, relationshipKind ? `Relationships: ${relationshipKind}` : null].filter(Boolean).join(" · ")} · ${scene.nodes.length} of ${complete.nodes.length} elements · ${edges.length} of ${complete.edges.length} connections`

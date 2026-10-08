@@ -9,11 +9,13 @@ import hashlib
 import os
 import shutil
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from archkeel.ir.facts_codec import decode_response, encode_request
+from archkeel.ir.facts_validation import validate_source_facts
 from archkeel.ir.protocol import CollectionRequest, DartSettings, SnapshotInput, SourceScope
 
 _REPO = Path(__file__).parents[1]
@@ -464,6 +466,149 @@ class Implements implements Alias {}
     )
 
 
+def test_native_mixin_declarations_and_with_compositions_are_shared_classifier_facts(
+    tmp_path: Path,
+) -> None:
+    _write_package(
+        tmp_path,
+        """part 'main.freezed.dart';
+class Root {}
+class Base extends Root {}
+class Child extends Base with Stamp, Track, Shared {}
+enum Status with Track { started, ended }
+""",
+    )
+    (tmp_path / "lib/main.freezed.dart").write_text(
+        """part of 'main.dart';
+mixin Stamp on Root { String get stamp => 'stamp'; }
+mixin Track {}
+mixin class Shared {}
+mixin _$Order { String get id; }
+class Order with _$Order {}
+""",
+        encoding="utf-8",
+    )
+
+    facts = _native_facts(tmp_path)
+    graph = _source_graph(facts)
+    by_id = {item.id: item for item in graph.entities}
+    by_name = {item.qualified_name: item for item in graph.entities}
+    symbols = [
+        item for section in facts.sections if section.name == "symbols" for item in section.records
+    ]
+    mixin_records = {
+        item.data.get("qualified_name"): item
+        for item in symbols
+        if item.data.get("class_kind") == "mixin"
+    }
+    assert set(mixin_records) == {
+        "commerce.main.Stamp",
+        "commerce.main.Track",
+        "commerce.main._$Order",
+    }
+    assert {name for name, entity in by_name.items() if entity.kind == "mixin"} == set(
+        mixin_records
+    )
+    assert by_name["commerce.main.Shared"].kind == "class"
+    assert "mixin" in by_name["commerce.main.Shared"].modifiers
+    assert by_name["commerce.main._$Order.id::getter"].kind == "method"
+    assert (
+        by_name["commerce.main._$Order.id::getter"].parent_id == by_name["commerce.main._$Order"].id
+    )
+
+    edges = {
+        (
+            by_id[edge.source_id].qualified_name,
+            edge.kind,
+            by_id[edge.target_id].qualified_name if edge.target_id else None,
+        )
+        for edge in graph.relationships
+        if edge.kind in {"inherits", "mixes_in"}
+    }
+    assert edges == {
+        ("commerce.main.Base", "inherits", "commerce.main.Root"),
+        ("commerce.main.Child", "inherits", "commerce.main.Base"),
+        ("commerce.main.Child", "mixes_in", "commerce.main.Stamp"),
+        ("commerce.main.Child", "mixes_in", "commerce.main.Track"),
+        ("commerce.main.Child", "mixes_in", "commerce.main.Shared"),
+        ("commerce.main.Status", "mixes_in", "commerce.main.Track"),
+        ("commerce.main.Order", "mixes_in", "commerce.main._$Order"),
+    }
+    assert ("commerce.main.Child", "inherits", "commerce.main.Stamp") not in edges
+    evidence = {item.id: item for item in facts.evidence}
+    generated = mixin_records["commerce.main._$Order"]
+    assert evidence[generated.evidence_ids[0]].file == "lib/main.freezed.dart"
+    assert any(
+        gap.kind == "UnsupportedDeclaration" and "on" in gap.title for gap in facts.coverage.gaps
+    )
+    assert any(
+        receipt.scope_id == by_name["commerce.main.Stamp"].id
+        and "mixes_in" in receipt.relationship_kinds
+        and receipt.status == "partial"
+        for receipt in graph.coverage
+    )
+
+    symbol_index = next(
+        index for index, section in enumerate(facts.sections) if section.name == "symbols"
+    )
+    symbol_section = facts.sections[symbol_index]
+    symbol_index_in_section = next(
+        index
+        for index, record in enumerate(symbol_section.records)
+        if record.data.get("base_declarations")
+    )
+    symbol_record = symbol_section.records[symbol_index_in_section]
+    bases = symbol_record.data.get("base_declarations")
+    invalid_base = replace(
+        bases[0],
+        entries=tuple(
+            (key, "compose") if key == "relationship_kind" else (key, value)
+            for key, value in bases[0].entries
+        ),
+    )
+    invalid_record = replace(
+        symbol_record,
+        data=replace(
+            symbol_record.data,
+            entries=tuple(
+                (key, (invalid_base, *bases[1:])) if key == "base_declarations" else (key, value)
+                for key, value in symbol_record.data.entries
+            ),
+        ),
+    )
+    invalid_section = replace(
+        symbol_section,
+        records=tuple(
+            invalid_record if index == symbol_index_in_section else record
+            for index, record in enumerate(symbol_section.records)
+        ),
+    )
+    invalid_facts = replace(
+        facts,
+        sections=tuple(
+            invalid_section if index == symbol_index else section
+            for index, section in enumerate(facts.sections)
+        ),
+    )
+    with pytest.raises(ValueError, match="invalid typed base declaration"):
+        validate_source_facts(invalid_facts)
+
+
+def test_native_with_clause_does_not_confirm_an_ordinary_class_as_a_mixin(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        "class Ordinary {}\nclass InvalidUse with Ordinary {}\n",
+    )
+    facts = _native_facts(tmp_path)
+    graph = _source_graph(facts)
+    entities = {item.id: item for item in graph.entities}
+    [edge] = [item for item in graph.relationships if item.kind == "mixes_in"]
+    assert entities[edge.source_id].qualified_name == "commerce.main.InvalidUse"
+    assert edge.target_id is None
+    assert edge.resolution == "unresolved"
+    assert edge.reason and "mixin" in edge.reason.lower()
+
+
 def test_native_sites_keep_unprovable_and_shadowed_bindings_unknown(tmp_path: Path) -> None:
     _write_package(
         tmp_path,
@@ -537,8 +682,9 @@ void main() {
     assert repeated_run.resolution == "partial"
     assert facts.coverage.full_scope is False
     assert any(gap.kind == "DuplicateDeclaration" for gap in facts.coverage.gaps)
-    assert any(
-        gap.kind == "UnsupportedDeclaration" and "mixin" in gap.title for gap in facts.coverage.gaps
+    assert not any(
+        gap.kind == "UnsupportedDeclaration" and "mixin declarations" in gap.title
+        for gap in facts.coverage.gaps
     )
     assert any(
         gap.kind == "UnsupportedDeclaration" and "extension" in gap.title.lower()

@@ -1050,7 +1050,7 @@ def test_classifier_relations_allow_referenced_external_symbols(kind) -> None:
     )
 
 
-@pytest.mark.parametrize("classifier", ["class", "interface", "enum"])
+@pytest.mark.parametrize("classifier", ["class", "interface", "enum", "mixin"])
 def test_planned_classifier_fields_and_nested_definitions_remain_valid(classifier) -> None:
     raw = _contract()
     target = raw["declarations"]["uml"]

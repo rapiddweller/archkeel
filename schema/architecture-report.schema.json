@@ -245,6 +245,7 @@
             "class",
             "interface",
             "enum",
+            "mixin",
             "enum_literal",
             "method",
             "function",
@@ -302,7 +303,8 @@
               "static",
               "class",
               "async",
-              "frozen"
+              "frozen",
+              "mixin"
             ]
           }
         },
@@ -527,6 +529,7 @@
             "references",
             "inherits",
             "realizes",
+            "mixes_in",
             "creates",
             "instance_of",
             "owns",
@@ -655,6 +658,7 @@
               "class",
               "interface",
               "enum",
+              "mixin",
               "enum_literal",
               "method",
               "function",
@@ -675,6 +679,7 @@
               "references",
               "inherits",
               "realizes",
+              "mixes_in",
               "creates",
               "instance_of",
               "owns",
@@ -769,6 +774,7 @@
               "class",
               "interface",
               "enum",
+              "mixin",
               "enum_literal",
               "method",
               "function",
@@ -789,6 +795,7 @@
               "references",
               "inherits",
               "realizes",
+              "mixes_in",
               "creates",
               "instance_of",
               "owns",

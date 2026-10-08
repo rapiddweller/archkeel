@@ -15,6 +15,7 @@
   --uml-references: #b3becb;
   --uml-creates: #76d8c6;
   --uml-instance_of: #8fd8ef;
+  --uml-mixes_in: #76d8c6;
   --ck-target-surface: #192029;
   --ck-target-border: #64748b;
   --ck-target-frame: #10151c;
@@ -1574,6 +1575,7 @@ code {
   pointer-events: none;
 }
 .uml-card.class { --uml-kind-color: var(--uml-class); }
+.uml-card.mixin { --uml-kind-color: var(--uml-mixes_in); }
 .uml-card.interface { --uml-kind-color: var(--uml-instance_of); }
 .uml-card.enum,
 .uml-card.enum_literal { --uml-kind-color: var(--uml-enum); }
@@ -1960,6 +1962,7 @@ code {
     --uml-references: #475569;
     --uml-creates: #0f766e;
     --uml-instance_of: #0369a1;
+    --uml-mixes_in: #0f766e;
     --uml-class: #6d28d9;
     --uml-enum: #a21caf;
     --ck-target-surface: #eef2f8;

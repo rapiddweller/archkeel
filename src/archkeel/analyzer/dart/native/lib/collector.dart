@@ -519,6 +519,7 @@ class DartCollector {
           declaration,
           declaration.namePart.typeName.lexeme,
           classKind,
+          mixinCapable: declaration.mixinKeyword != null,
         );
         _indexElement(
           declaration.declaredFragment?.element,
@@ -582,12 +583,22 @@ class DartCollector {
           owner,
         );
       } else if (declaration is MixinDeclaration) {
-        _gap(
-          source.rel,
-          declaration.offset,
-          'UnsupportedDeclaration',
-          'mixin declarations have no shared UML entity kind',
+        final name = declaration.name.lexeme;
+        final owner = _classifier(source, declaration, name, 'mixin');
+        _indexElement(
+          declaration.declaredFragment?.element,
+          owner['qualified'] as String,
         );
+        _members(source, declaration.members, owner);
+        _indexClassMembers(source, declaration.members, owner);
+        if (declaration.onClause != null) {
+          _gap(
+            source.rel,
+            declaration.onClause!.offset,
+            'UnsupportedDeclaration',
+            'mixin on constraints are not represented in the shared classifier graph',
+          );
+        }
       } else if (declaration is ExtensionDeclaration ||
           declaration is ExtensionTypeDeclaration) {
         _gap(
@@ -740,11 +751,14 @@ class DartCollector {
 
   void _emitBases(DartSource source, ResolvedUnitResult resolved) {
     for (final declaration in resolved.unit.declarations) {
-      if (declaration is! ClassDeclaration && declaration is! EnumDeclaration)
+      if (declaration is! ClassDeclaration &&
+          declaration is! EnumDeclaration &&
+          declaration is! MixinDeclaration)
         continue;
       final name = switch (declaration) {
         ClassDeclaration value => value.namePart.typeName.lexeme,
         EnumDeclaration value => value.namePart.typeName.lexeme,
+        MixinDeclaration value => value.name.lexeme,
         _ => '',
       };
       final record = symbolByQualified['${source.module}.$name'];
@@ -759,7 +773,7 @@ class DartCollector {
       if (declaration is ClassDeclaration) {
         for (final type
             in declaration.withClause?.mixinTypes ?? const <NamedType>[]) {
-          bases.add(_baseFact(source, type, 'inherits'));
+          bases.add(_baseFact(source, type, 'mixes_in'));
         }
         for (final type
             in declaration.implementsClause?.interfaces ??
@@ -767,6 +781,16 @@ class DartCollector {
           bases.add(_baseFact(source, type, 'realizes'));
         }
       } else if (declaration is EnumDeclaration) {
+        for (final type
+            in declaration.withClause?.mixinTypes ?? const <NamedType>[]) {
+          bases.add(_baseFact(source, type, 'mixes_in'));
+        }
+        for (final type
+            in declaration.implementsClause?.interfaces ??
+                const <NamedType>[]) {
+          bases.add(_baseFact(source, type, 'realizes'));
+        }
+      } else if (declaration is MixinDeclaration) {
         for (final type
             in declaration.implementsClause?.interfaces ??
                 const <NamedType>[]) {
@@ -784,7 +808,12 @@ class DartCollector {
   ) {
     final target = _definitionOf(type.type?.element);
     final targetRecord = target == null ? null : symbolByQualified[target];
-    final isResolved = targetRecord?['kind'] == 'class';
+    final targetData = targetRecord?['data'] as Map<String, Object?>?;
+    final classifierTarget = targetRecord?['kind'] == 'class';
+    final mixinTarget =
+        targetData?['class_kind'] == 'mixin' ||
+        targetData?['mixin_capable'] == true;
+    final isResolved = classifierTarget && (kind != 'mixes_in' || mixinTarget);
     return {
       'id': _id('DARTBASE', [source.rel, type.offset, kind]),
       'relationship_kind': kind,
@@ -795,6 +824,8 @@ class DartCollector {
       'expression': type.toSource(),
       'reason': isResolved
           ? 'Analyzer resolved local declared type'
+          : kind == 'mixes_in'
+          ? 'with target is not proven to be a local mixin-capable declaration'
           : 'base type is external or unresolved',
       'evidence_ids': [_cite(source, type)],
     };
@@ -948,6 +979,7 @@ class DartCollector {
     AstNode node,
     String name,
     String classKind, {
+    bool mixinCapable = false,
     List<String>? enumMembers,
     List<Map<String, Object?>>? enumAttributes,
   }) {
@@ -965,6 +997,7 @@ class DartCollector {
         {
           ..._meta(source, node, name, 'class', null, null),
           'class_kind': classKind,
+          if (mixinCapable) 'mixin_capable': true,
           'enum_members': enumMembers ?? <String>[],
           'attribute_declarations': attributes,
           'member_inventories': [

@@ -20,6 +20,7 @@ EntityKind: TypeAlias = Literal[
     "class",
     "interface",
     "enum",
+    "mixin",
     "enum_literal",
     "method",
     "function",
@@ -30,13 +31,14 @@ EntityKind: TypeAlias = Literal[
     "symbol",
 ]
 GraphSchemaVersion: TypeAlias = Literal["1.2.0", "1.1.0", "1.0.0"]
-_CLASSIFIER_KINDS: frozenset[EntityKind] = frozenset({"class", "interface", "enum"})
+_CLASSIFIER_KINDS: frozenset[EntityKind] = frozenset({"class", "interface", "enum", "mixin"})
 RelationshipKind: TypeAlias = Literal[
     "imports",
     "calls",
     "references",
     "inherits",
     "realizes",
+    "mixes_in",
     "creates",
     "instance_of",
     "owns",
@@ -48,7 +50,7 @@ VisibilityBasis: TypeAlias = Literal["language", "convention", "declared", "unkn
 ParameterKind: TypeAlias = Literal[
     "positional_only", "positional", "keyword_only", "varargs", "kwargs", "unknown"
 ]
-ModifierKind: TypeAlias = Literal["abstract", "static", "class", "async", "frozen"]
+ModifierKind: TypeAlias = Literal["abstract", "static", "class", "async", "frozen", "mixin"]
 DefinitionContextKind: TypeAlias = Literal[
     "if", "for", "async_for", "while", "try", "try_star", "with", "async_with", "match"
 ]
@@ -639,7 +641,7 @@ class ArchitectureGraph:
                 raise ValueError("unknown relationship source")
             if edge.target_id is not None and edge.target_id not in entities:
                 raise ValueError("unknown relationship target")
-            if self.origin == "declared" and edge.kind in {"inherits", "realizes"}:
+            if self.origin == "declared" and edge.kind in {"inherits", "realizes", "mixes_in"}:
                 for identity in (edge.source_id, edge.target_id):
                     if identity is None:
                         continue
@@ -648,6 +650,19 @@ class ArchitectureGraph:
                         endpoint.kind == "symbol" and endpoint.presence == "referenced"
                     ):
                         raise ValueError("classifier relationship needs classifier endpoints")
+                if edge.kind == "mixes_in" and edge.target_id is not None:
+                    source = entities[edge.source_id]
+                    target = entities[edge.target_id]
+                    if source.kind not in {"class", "enum"} and not (
+                        source.kind == "symbol" and source.presence == "referenced"
+                    ):
+                        raise ValueError("mixes_in relationship needs a class or enum source")
+                    if (
+                        target.kind != "mixin"
+                        and not (target.kind == "class" and "mixin" in target.modifiers)
+                        and not (target.kind == "symbol" and target.presence == "referenced")
+                    ):
+                        raise ValueError("mixes_in relationship needs a mixin-capable target")
             if edge.kind == "requires":
                 rationale: str = edge.reason or ""
                 if (
