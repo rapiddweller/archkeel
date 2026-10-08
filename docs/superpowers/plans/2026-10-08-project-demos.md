@@ -141,6 +141,10 @@
 
 **Interfaces:** consumes Task 1's 72 Python app files, 79-file app provenance and pinned RealWorld documentation. Produces an independent responsibility/library/UML map and Target hash.
 
+**Measured prerequisite:** the pinned project declares `[tool.poetry.dependencies].python = "^3.9"`; the current reader only accepts `[project].requires-python`. Repair this at `src/archkeel/analyzer/runtime.py` and `src/archkeel/check/runtime.py`, with focused `tests/test_runtime.py` coverage, before authoring the Target. Preserve the upstream `pyproject.toml` bytes.
+
+- [ ] Keep a present project requirement authoritative, including invalid values; use Poetry only when that key is absent. Reuse `packaging` for PEP 440 ranges and normalize supported positive-major numeric caret ranges (`^3.9` means `>=3.9,<4.0`). Unsupported forms stay blocking under the existing runtime state with truthful generic invalid-or-unsupported metadata diagnostics. No new protocol field, compatibility machinery, package manager or dependency. Test precedence, boundary versions and unsupported/invalid forms; keep runtime failures ineligible for partial UML.
+
 - [ ] Map runtime/composition/API, auth/JWT, profile/following, article/feed/favorite/comment/tag, services/repositories and persistence responsibilities to every app module.
 - [ ] Close principal source class/member contracts for one request journey from route/dependency through service to repository. Explicitly state SQL/template/stub and external database behavior not measured by Python facts.
 - [ ] Test path ownership and Target schema without collection; freeze Target digest. Commit and review before Task 8.
