@@ -13,3 +13,5 @@ fixtures/D-self/*.html
 /*.report.html
 /test-artifacts/
 fixtures/D-self/architecture.json
+**/.dart_tool/
+**/build/

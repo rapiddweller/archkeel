@@ -15,7 +15,7 @@ from archkeel.ir.facts import AnalyzerInfo, RuntimeInfo, RuntimeRequirementState
 Language = Literal["python", "dart", "typescript"]
 _ANALYZERS: dict[Language, str] = {
     "python": "archkeel-python-analyzer",
-    "dart": "archkeel-dart-directives",
+    "dart": "archkeel-dart-analyzer",
     "typescript": "archkeel-typescript-imports",
 }
 # A parser change can change facts without changing a line of this package.

@@ -42,11 +42,11 @@ def _profile_model(analyzer: str) -> dict[str, Any]:
             "call_resolution_percent",
         ):
             model["coverage"][key] = None
-    if analyzer in {
-        "archkeel-dart-directives",
-        "archkeel-typescript-imports",
-    }:
+    if analyzer == "archkeel-typescript-imports":
         for section in ("symbols", "references", "bindings"):
+            model[section] = None
+    if analyzer == "archkeel-dart-analyzer":
+        for section in ("typing_signals", "constructs"):
             model[section] = None
     if analyzer == "archkeel-typescript-imports":
         for section in ("calls", "typing_signals", "constructs"):
@@ -68,7 +68,7 @@ def test_profile_codec_accepts_only_valid_nullable_call_groups() -> None:
     with pytest.raises(ValueError, match="call measurements are required"):
         parse_observation(python)
 
-    dart = _profile_model("archkeel-dart-directives")
+    dart = _profile_model("archkeel-dart-analyzer")
     assert parse_observation(dart).coverage.calls_analyzed is None
     legacy_dart = deepcopy(dart)
     legacy_dart["coverage"].update(
@@ -181,7 +181,7 @@ def test_unmeasured_accepted_lock_versions_preserve_legacy_reads(
     from test_git_lock import _lock
 
     raw = json.loads(_lock(_profile_model("archkeel-python-analyzer")))
-    fresh = measure_python_ratchets(parse_observation(_profile_model("archkeel-dart-directives")))
+    fresh = measure_python_ratchets(parse_observation(_profile_model("archkeel-dart-analyzer")))
     raw["schema_version"] = version
     raw["measurements"] = asdict(fresh)
     raw["measurements"]["calls_total"] = total

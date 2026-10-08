@@ -617,7 +617,10 @@ def _section_coverage(
         status, reason = "unavailable", "profile does not publish this section"
     elif observation.coverage.status != "PASS":
         status, reason = "partial", "source observation is incomplete"
-    elif section == "calls" and observation.analyzer.name == "archkeel-typescript-imports":
+    elif (
+        section == "calls"
+        and "calls_unresolved" in profile_for(observation.analyzer.name).unmeasured
+    ):
         status, reason = (
             "partial",
             "observed call sites do not certify an exhaustive module call inventory",
@@ -701,7 +704,11 @@ def _member_inventory_coverage(
                 and observation.coverage.status == "PASS"
                 and (
                     "enum_literal" not in kinds
-                    or observation.analyzer.name == "archkeel-typescript-imports"
+                    or observation.analyzer.name
+                    in {
+                        "archkeel-dart-analyzer",
+                        "archkeel-typescript-imports",
+                    }
                 )
             )
             result.append(
@@ -782,13 +789,7 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
             continue
         for section, entity_kinds, relationships in sections:
             available = (
-                section not in profile.absent_sections
-                and observation.records(section) is not None
-                and not (
-                    section == "calls"
-                    and "calls_unresolved" in profile.unmeasured
-                    and profile.analyzer != "archkeel-typescript-imports"
-                )
+                section not in profile.absent_sections and observation.records(section) is not None
             )
             result.append(
                 _section_coverage(

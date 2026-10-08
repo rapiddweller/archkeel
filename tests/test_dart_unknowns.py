@@ -565,7 +565,7 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
     assert claims["unread_bindings"] is not None
     assert architecture is not None
     model = json.loads(architecture)
-    assert model["analyzer"]["name"] != "archkeel-dart-directives"
+    assert model["analyzer"]["name"] != "archkeel-dart-analyzer"
     observation = parse_observation(decode_canonical_model(model))
     records = observation.records("imports") or ()
     assert len(records) == 2

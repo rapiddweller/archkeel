@@ -606,7 +606,13 @@ def evaluate_source(
     )
     declared_sections = set(facts.capabilities.sections)
     features = set(facts.capabilities.resolution_features)
-    if facts.profile == "archkeel-typescript-imports":
+    if facts.profile == "archkeel-dart-analyzer":
+        inner_uml_sections = {"imports", "unknowns", "symbols", "calls", "references", "bindings"}
+        if declared_sections != inner_uml_sections or facts.capabilities.resolution_features != (
+            "inner-uml-v1",
+        ):
+            raise ProtocolError("source sections or resolution features are not registered")
+    elif facts.profile == "archkeel-typescript-imports":
         native_import_features = {
             "literal-imports",
             "relative-specifiers",

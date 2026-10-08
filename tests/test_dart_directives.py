@@ -563,18 +563,15 @@ def _cli_report(root: Path) -> tuple[int, dict[str, object]]:
     return run.returncode, json.loads(run.stdout)
 
 
-def test_pubspec_name_differing_from_namespace_is_unverifiable(tmp_path: Path) -> None:
-    root = dart_package(tmp_path / "pkg", {"lib/ui/b.dart": "class B {}\n"}, pubspec="name: shop\n")
-    code, payload = _cli_report(root)
-    assert code == 2
-    diagnostics = payload["diagnostics"]
-    assert isinstance(diagnostics, list)
-    assert any(
-        item["kind"] == "parse_error"
-        and "shop" in f"{item['subject']} {item['unknown_claim']}"
-        and "app" in f"{item['subject']} {item['unknown_claim']}"
-        for item in diagnostics
-    ), diagnostics
+def test_pubspec_name_resolves_package_uris_not_module_namespace(tmp_path: Path) -> None:
+    root = dart_package(
+        tmp_path / "pkg",
+        {"lib/ui/b.dart": "import 'package:shop/core/api.dart';\nclass B {}\n"},
+        pubspec="name: shop\n",
+    )
+    observation = complete(observe_dart(root))
+    assert "app.ui.b" in modules(observation)
+    assert edges(observation, "app.ui.b") == {("app.core.api", None)}
 
 
 @pytest.mark.parametrize(
@@ -583,14 +580,20 @@ def test_pubspec_name_differing_from_namespace_is_unverifiable(tmp_path: Path) -
         "name: app\n",
         "# The package.\nname: 'app' # own name\nversion: 1.0.0\n",
         'description: x\nname: "app"\ndependencies:\n  name: other\n',
-        None,
     ],
 )
-def test_matching_or_absent_pubspec_passes(tmp_path: Path, pubspec: str | None) -> None:
+def test_matching_pubspec_passes(tmp_path: Path, pubspec: str) -> None:
     root = dart_package(tmp_path / "pkg", {"lib/ui/b.dart": "class B {}\n"}, pubspec=pubspec)
     code, payload = _cli_report(root)
     assert code == 0, payload
     assert payload["observation_complete"] == "PASS"
+
+
+def test_missing_pubspec_is_unverifiable(tmp_path: Path) -> None:
+    root = dart_package(tmp_path / "pkg", {"lib/ui/b.dart": "class B {}\n"}, pubspec=None)
+    code, payload = _cli_report(root)
+    assert code == 2
+    assert payload["observation_complete"] == "UNKNOWN"
 
 
 # ---------------------------------------------------------------------------------------------
@@ -618,4 +621,4 @@ def test_two_scans_of_the_same_bytes_are_identical(tmp_path: Path) -> None:
     assert one is not None
     assert one == again == other
     model = json.loads(one)
-    assert model["analyzer"]["name"] == "archkeel-dart-directives"
+    assert model["analyzer"]["name"] == "archkeel-dart-analyzer"

@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety typescript-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing
+.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety typescript-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart dart-setup demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing
 
 check: lint typecheck test
 
@@ -160,6 +160,9 @@ demo-onboarding:
 
 demo-dart:
 	@$(UV) run --locked python -m fixtures.reproduce_dart
+
+dart-setup:
+	$(UV) run --locked archkeel-dart-setup
 
 demo-snapshot-check:
 	@$(UV) run --locked python -m fixtures.reproduce_snapshot_check

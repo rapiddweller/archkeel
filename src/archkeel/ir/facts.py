@@ -225,7 +225,7 @@ SourceSectionName: TypeAlias = Literal[
     "unknowns",
 ]
 SourceProfile: TypeAlias = Literal[
-    "archkeel-python-analyzer", "archkeel-dart-directives", "archkeel-typescript-imports"
+    "archkeel-python-analyzer", "archkeel-dart-analyzer", "archkeel-typescript-imports"
 ]
 
 

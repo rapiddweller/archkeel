@@ -6,12 +6,9 @@
       "id": "TARGET-ENTRY",
       "label": "entry",
       "role": "component",
-      "packages": [
-        "archkeel.analyzer.dart.entry",
-        "archkeel.analyzer.dart.collect"
-      ],
+      "packages": ["archkeel.analyzer.dart"],
       "responsibilities": [
-        "Serve the protocol and collect the declared Dart profile."
+        "Launch the prepared native Dart Analyzer collector through the shared protocol."
       ],
       "forbidden_responsibilities": [
         "Architecture policy."
@@ -20,42 +17,8 @@
         "docs/architecture/language-adapter-target.md"
       ],
       "decided_by": "agent",
-      "exact_modules": [
-        "archkeel.analyzer.dart"
-      ],
-      "requires": [
-        {
-          "component": "source",
-          "rationale": "Read directive IR and resolve library URIs.",
-          "decided_by": "agent"
-        }
-      ],
+      "exact_modules": ["archkeel.analyzer.dart"],
       "public": []
-    },
-    {
-      "id": "TARGET-SOURCE",
-      "label": "source",
-      "role": "component",
-      "packages": [
-        "archkeel.analyzer.dart.lexer",
-        "archkeel.analyzer.dart.directives",
-        "archkeel.analyzer.dart.resolve"
-      ],
-      "responsibilities": [
-        "Parse Dart directive headers and resolve supported URIs into source facts."
-      ],
-      "forbidden_responsibilities": [
-        "Claiming full-Dart semantic analysis or evaluating architecture policy."
-      ],
-      "provenance": [
-        "docs/architecture/language-adapter-target.md"
-      ],
-      "decided_by": "agent",
-      "public": [
-        "archkeel.analyzer.dart.lexer",
-        "archkeel.analyzer.dart.directives",
-        "archkeel.analyzer.dart.resolve"
-      ]
     }
   ],
   "rules": [
@@ -104,20 +67,16 @@
         "responsibility": "Serve the shared process protocol."
       },
       {
-        "path": "src/archkeel/analyzer/dart/collect.py",
-        "responsibility": "Gather directive facts with explicit coverage."
+        "path": "src/archkeel/analyzer/dart/native/lib/collector.dart",
+        "responsibility": "Collect Analyzer-backed Dart declarations and source coverage."
       },
       {
-        "path": "src/archkeel/analyzer/dart/lexer.py",
-        "responsibility": "Read Dart directive tokens."
+        "path": "src/archkeel/analyzer/dart/native/lib/snapshot.dart",
+        "responsibility": "Validate and stage source inputs for bounded Analyzer resolution."
       },
       {
-        "path": "src/archkeel/analyzer/dart/directives.py",
-        "responsibility": "Own the language-local DirectiveModel."
-      },
-      {
-        "path": "src/archkeel/analyzer/dart/resolve.py",
-        "responsibility": "Resolve Dart library and package URIs."
+        "path": "src/archkeel/analyzer/dart/setup.py",
+        "responsibility": "Prepare pinned native collector dependencies on explicit request."
       }
     ]
   }

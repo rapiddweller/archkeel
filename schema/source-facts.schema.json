@@ -955,7 +955,7 @@
         "profile": {
           "enum": [
             "archkeel-python-analyzer",
-            "archkeel-dart-directives",
+            "archkeel-dart-analyzer",
             "archkeel-typescript-imports"
           ]
         },

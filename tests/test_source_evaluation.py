@@ -177,6 +177,105 @@ def test_typescript_inner_uml_receipt_measures_only_published_facts() -> None:
     )
 
 
+def _dart_inner_facts(*, sections: list[str] | None = None, features: list[str] | None = None):
+    payload = json.loads(
+        (
+            Path(__file__).parent / "fixtures/collection-protocol/response-typescript.json"
+        ).read_bytes()
+    )
+    facts = payload["facts"]
+    registered_sections = sections or [
+        "imports",
+        "unknowns",
+        "symbols",
+        "calls",
+        "references",
+        "bindings",
+    ]
+    facts["profile"] = "archkeel-dart-analyzer"
+    facts["capabilities"]["sections"] = registered_sections
+    facts["capabilities"]["resolution_features"] = (
+        ["inner-uml-v1"] if features is None else features
+    )
+    facts["sections"].extend(
+        {"name": name, "records": []}
+        for name in registered_sections
+        if name not in {section["name"] for section in facts["sections"]}
+    )
+    return decode_response(json.dumps(payload).encode()).facts
+
+
+def test_dart_inner_uml_requires_and_accepts_the_exact_native_receipt() -> None:
+    from jsonschema import Draft202012Validator
+
+    from archkeel.check.evaluation.evaluate import evaluate_source
+
+    contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": []})
+    facts = _dart_inner_facts()
+    Draft202012Validator(
+        json.loads((Path(__file__).parents[1] / "schema/source-facts.schema.json").read_bytes())
+    ).validate(json.loads(encode_response(CollectionResponse(facts))))
+    measured = evaluate_source(facts, contract, roots=("src",), namespace="project")
+
+    assert measured.observed_sections == frozenset(
+        {"imports", "unknowns", "symbols", "calls", "references", "bindings"}
+    )
+    assert measured.coverage["calls_analyzed"] == 0
+
+
+@pytest.mark.parametrize(
+    ("sections", "features"),
+    [
+        (["imports", "unknowns"], ["inner-uml-v1"]),
+        (["imports", "unknowns", "symbols", "calls", "references", "bindings"], []),
+        (
+            ["imports", "unknowns", "symbols", "calls", "references", "bindings"],
+            ["inner-uml-v1", "unsupported-extra"],
+        ),
+    ],
+)
+def test_dart_rejects_unregistered_inner_uml_receipts(
+    sections: list[str], features: list[str]
+) -> None:
+    from archkeel.check.evaluation.evaluate import evaluate_source
+
+    facts = _dart_inner_facts(sections=sections, features=features)
+    contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": []})
+    with pytest.raises(ProtocolError, match="registered"):
+        evaluate_source(facts, contract, roots=("src",), namespace="project")
+
+
+def test_removed_dart_profile_identity_is_rejected() -> None:
+    payload = json.loads(
+        (
+            Path(__file__).parent / "fixtures/collection-protocol/response-typescript.json"
+        ).read_bytes()
+    )
+    payload["facts"]["profile"] = "archkeel-dart-directives"
+
+    with pytest.raises(ProtocolError, match="profile"):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_dart_profile_cannot_answer_a_typescript_request() -> None:
+    from archkeel.analyzer.process import _requested_facts
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        SnapshotInput,
+        SourceScope,
+        TypeScriptSettings,
+    )
+
+    request = CollectionRequest(
+        SnapshotInput("/source", "a" * 40, False),
+        SourceScope(("src",), "project"),
+        TypeScriptSettings(),
+    )
+
+    with pytest.raises(ProtocolError, match="requested language"):
+        _requested_facts(_dart_inner_facts(), request)
+
+
 @pytest.mark.parametrize(
     ("sections", "features"),
     [

@@ -179,7 +179,7 @@ def test_legacy_signatures_keep_unknown_parameter_details(observation) -> None:
     )
 
 
-def test_dart_directive_profile_never_claims_a_complete_empty_call_graph(observation) -> None:
+def test_dart_inner_profile_keeps_missing_symbols_unknown_and_calls_partial(observation) -> None:
     dart = replace(
         observation,
         analyzer=replace(observation.analyzer, name=DART_ANALYZER),
@@ -189,13 +189,10 @@ def test_dart_directive_profile_never_claims_a_complete_empty_call_graph(observa
         + (Section("calls", ()),),
     )
     graph = _graph(dart)
-    unsupported = [
-        item
-        for item in graph.coverage
-        if "calls" in item.relationship_kinds or "class" in item.entity_kinds
-    ]
-    assert unsupported
-    assert all(item.status == "unavailable" and item.reason for item in unsupported)
+    calls = [item for item in graph.coverage if "calls" in item.relationship_kinds]
+    symbols = [item for item in graph.coverage if "class" in item.entity_kinds]
+    assert calls and all(item.status == "partial" and item.reason for item in calls)
+    assert symbols and all(item.status == "unavailable" and item.reason for item in symbols)
 
 
 def test_typescript_recorded_calls_have_partial_coverage(observation) -> None:

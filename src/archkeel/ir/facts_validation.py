@@ -71,6 +71,7 @@ _STRING_FIELDS = frozenset(
         "parameter",
         "attribute",
         "path",
+        "source_file",
     }
 )
 _OPTIONAL_STRINGS = frozenset(
@@ -326,6 +327,8 @@ def validate_source_bindings(
     evidence: Mapping[str, Evidence],
     *,
     import_ids: Collection[str],
+    selected_inputs: Collection[str],
+    allow_part_evidence: bool = False,
 ) -> None:
     """Bind source records and their evidence to the same observed module."""
     _unique(module_paths.values(), "module path")
@@ -357,7 +360,14 @@ def validate_source_bindings(
             ):
                 raise ValueError(f"source record {field} disagrees with its module")
         if not record.evidence_ids or any(
-            evidence[item].file != source_path for item in record.evidence_ids
+            evidence[item].file != source_path
+            and not (
+                allow_part_evidence
+                and record.data.get("source_file") == evidence[item].file
+                and evidence[item].file in selected_inputs
+                and evidence[item].file not in modules_by_path
+            )
+            for item in record.evidence_ids
         ):
             raise ValueError("source record evidence disagrees with its module")
 
@@ -387,7 +397,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
     if len(facts.files) > facts.coverage.files_parsed:
         raise ValueError("observed modules exceed parsed files")
     if (
-        facts.profile != "archkeel-dart-directives"
+        facts.profile != "archkeel-dart-analyzer"
         and len(facts.files) != facts.coverage.files_parsed
     ):
         raise ValueError("each parsed source file needs an observed module")
@@ -471,6 +481,8 @@ def validate_source_facts(facts: SourceFacts) -> None:
         {item.module: item.package for item in facts.files},
         base_by_id,
         import_ids=imports,
+        selected_inputs=selected_inputs,
+        allow_part_evidence=facts.profile == "archkeel-dart-analyzer",
     )
     for target in facts.imports:
         data = record_by_id[target.import_id].data
