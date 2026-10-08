@@ -1041,6 +1041,64 @@ def _source_graph(facts):
     return observed_graph(observation)
 
 
+def test_native_closure_result_binding_keeps_lexical_identity_and_exact_call_site(
+    tmp_path: Path,
+) -> None:
+    _write_package(
+        tmp_path,
+        """class Inner {}
+Inner makeInner() => Inner();
+class Box { Box(Inner value); }
+void register(void Function() callback) {}
+void configure() {
+  register(() {
+    final value = Box(makeInner());
+  });
+}
+""",
+    )
+    facts = _native_facts(tmp_path)
+    sections = {section.name: section.records for section in facts.sections}
+    configure = next(
+        record
+        for record in sections["symbols"]
+        if record.data.get("qualified_name", "").endswith(".configure")
+    )
+    binding = next(
+        record
+        for record in sections["symbols"]
+        if record.kind == "binding" and record.data.get("name") == "value"
+    )
+    outer = next(
+        record
+        for record in sections["calls"]
+        if record.data.get("expression") == "Box(makeInner())"
+    )
+    inner = next(
+        record for record in sections["calls"] if record.data.get("expression") == "makeInner()"
+    )
+
+    [site] = outer.data.get("result_bindings")
+    assert site.get("id") == binding.id
+    assert site.get("name") == "value"
+    assert "_closure_" in binding.data.get("qualified_name")
+    assert binding.data.get("lexical_parent_id") == configure.id
+    assert outer.data.get("source_definition_id") == configure.id
+    assert not inner.data.get("result_bindings")
+
+    graph = _source_graph(facts)
+    observed_binding = next(item for item in graph.entities if item.id == binding.id)
+    assert observed_binding.qualified_name == binding.data.get("qualified_name")
+    assert observed_binding.parent_id == configure.id
+    assert observed_binding.initializer == "Box(makeInner())"
+    assert any(
+        edge.kind == "creates" and edge.source_id == configure.id for edge in graph.relationships
+    )
+    assert any(
+        edge.kind == "instance_of" and edge.source_id == binding.id for edge in graph.relationships
+    )
+
+
 def test_native_declarations_project_enum_literals_interfaces_and_signatures(
     tmp_path: Path,
 ) -> None:
