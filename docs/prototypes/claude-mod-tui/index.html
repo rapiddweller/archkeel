@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ArchKeel TUI · design prototype</title>
+<style>
+  :root { color-scheme:dark; font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#090d13; color:#e5edf5 }
+  * { box-sizing:border-box }
+  body { margin:0; padding:30px; min-width:850px }
+  .terminal { max-width:1440px; margin:auto; border:1px solid #394555; border-radius:14px; overflow:hidden; box-shadow:0 28px 90px #0009; background:#101722 }
+  .chrome { height:42px; display:flex; align-items:center; gap:8px; padding:0 17px; background:#19222e; color:#a7b6c6; font-size:12px; border-bottom:1px solid #334152 }
+  .dot { width:11px; height:11px; border-radius:50%; background:#ff6a70 }
+  .dot:nth-child(2) { background:#ffc859 }.dot:nth-child(3) { background:#59dab0 }
+  .chrome-title { margin:auto; letter-spacing:.09em }
+  header { display:flex; align-items:flex-start; justify-content:space-between; padding:24px 30px 20px; gap:20px }
+  .eyebrow { color:#72ddca; font-size:12px; letter-spacing:.15em }
+  h1 { font-size:25px; margin:4px 0 5px; letter-spacing:-.03em }
+  .subtle { color:#9cadbf; font-size:13px }
+  .snapshot { color:#b5c7d9; border:1px solid #3c4b5d; padding:7px 10px; border-radius:5px; font-size:12px; white-space:nowrap }
+  .verdicts { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; padding:0 30px 20px }
+  .verdict { border:1px solid #3a4654; background:#17212d; padding:13px 15px; min-height:72px; border-radius:7px }
+  .verdict strong { display:block; font-size:15px; letter-spacing:.07em }
+  .verdict span { display:block; margin-top:4px; color:#9baec0; font-size:12px }
+  .pass { border-top:3px solid #58ddbb }.pass strong { color:#63e0c0 }
+  .fail { border-top:3px solid #ff6975 }.fail strong { color:#ff7882 }
+  .unknown { border-top:3px solid #f4c467 }.unknown strong { color:#f4c467 }
+  .unchecked { border-top:3px solid #7d91a7 }.unchecked strong { color:#aab8c7 }
+  .grid { display:grid; grid-template-columns:280px minmax(340px,1fr) 370px; border-top:1px solid #334152; min-height:515px }
+  .panel { padding:20px; min-width:0 }
+  .panel + .panel { border-left:1px solid #334152 }
+  .panel-label { color:#8eafc7; font-size:12px; letter-spacing:.11em; margin:0 0 16px }
+  .filter { color:#a6b6c6; border:1px solid #3e5062; background:#0d141d; padding:9px 12px; border-radius:5px; margin-bottom:16px; width:100%; font:inherit; outline:none }
+  .filter:focus { border-color:#65d6c3 }
+  .component { width:100%; display:flex; justify-content:space-between; gap:6px; border:0; color:#b8c7d6; background:transparent; text-align:left; padding:10px 11px; border-radius:5px; font:inherit; cursor:pointer }
+  .component:hover,.component[aria-selected="true"] { background:#1e3b43; color:#ecfffc }
+  .component[aria-selected="true"] { box-shadow:inset 3px 0 #5de1c5 }
+  .count { color:#ff8d94 }
+  .hint { margin-top:28px; color:#8395a6; font-size:12px; line-height:1.7 }
+  .crumb { color:#88decf; font-size:12px; margin-bottom:11px }
+  h2 { font-size:21px; margin:0 0 4px }
+  .responsibility { color:#aebed0; font-size:13px; margin-bottom:24px }
+  .section { color:#d4e5f1; border-bottom:1px solid #354456; padding-bottom:8px; margin:20px 0 10px; font-size:13px; letter-spacing:.06em }
+  .edge { display:flex; align-items:baseline; gap:12px; padding:9px 0; border-bottom:1px solid #23313f; font-size:13px }
+  .arrow { color:#69dac2 }.edge-note { color:#a3b1c0; margin-left:auto; white-space:nowrap; font-size:12px }
+  .finding { background:#2b202a; border:1px solid #8b4d57; border-left:3px solid #ff6975; padding:11px 13px; border-radius:5px; margin:9px 0; font-size:13px }
+  .finding b { color:#ff8f99 }.finding small { display:block; color:#bdc5cf; margin-top:5px; font-size:12px }
+  .quiet { color:#aebac7; font-size:13px }
+  .evidence { padding:13px 14px; background:#0c151e; border:1px solid #394c5d; border-radius:6px }
+  .key { color:#83d9c7; font-size:12px; letter-spacing:.08em }
+  .evidence h3 { font-size:15px; margin:8px 0; color:#f1f6fa }
+  .evidence p { color:#b6c4d2; font-size:13px; margin:8px 0 }
+  .code { color:#f0cb79; overflow-wrap:anywhere; font-size:12px; display:block; padding-top:8px }
+  .next { margin-top:18px; padding:12px 14px; border:1px solid #405263; border-radius:6px; color:#c6d3df; font-size:13px }
+  .next strong { color:#7fe0cc; display:block; margin-bottom:5px }
+  footer { display:flex; justify-content:space-between; gap:10px; padding:13px 30px; border-top:1px solid #334152; background:#131d28; color:#9daec0; font-size:12px }
+  kbd { color:#dbf7ef; background:#344456; border-radius:3px; padding:2px 5px; font:inherit }
+  @media(max-width:1160px) { .grid { grid-template-columns:210px 1fr }.panel:last-child { grid-column:1 / -1; border-left:0; border-top:1px solid #334152 }.snapshot { display:none } }
+</style>
+<div class="terminal">
+  <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="chrome-title">ARCHKEEL · ARCHITECTURE REVIEW</span></div>
+  <header>
+    <div><div class="eyebrow">READ-ONLY EXPLORER / DESIGN PROTOTYPE</div><h1>See the boundary. Check the evidence.</h1><div class="subtle">Illustrative snapshot · filtering changes the view, never the verdict.</div></div>
+    <div class="snapshot">shop / architecture.json<br>snapshot 2026-10-08</div>
+  </header>
+  <div class="verdicts" aria-label="Independent statuses">
+    <div class="verdict pass"><strong>✓ PASS</strong><span>Source observation complete</span></div>
+    <div class="verdict fail"><strong>× FAIL</strong><span>Declared rules · 2 findings</span></div>
+    <div class="verdict unknown"><strong>? UNKNOWN</strong><span>1 rule lacks proof</span></div>
+    <div class="verdict unchecked"><strong>– NOT CHECKED</strong><span>Change expectation absent</span></div>
+  </div>
+  <main class="grid">
+    <nav class="panel" aria-label="Components">
+      <p class="panel-label">01 / COMPONENTS</p>
+      <input class="filter" id="filter" aria-label="Filter components" placeholder="/  filter components">
+      <div id="components"></div>
+      <div class="hint">Observed imports are evidence.<br>They do not grant permission.</div>
+    </nav>
+    <section class="panel" id="focus" aria-live="polite"></section>
+    <aside class="panel" id="detail" aria-live="polite"></aside>
+  </main>
+  <footer><span><kbd>↑↓</kbd> select &nbsp; <kbd>/</kbd> filter &nbsp; <kbd>Esc</kbd> clear</span><span>archkeel report --input architecture.json · mock data</span></footer>
+</div>
+<script>
+const items = [
+  { id:'app', role:'Application orchestration', edges:[['app','store','observed · declared']], findings:[], evidence:'No selected finding. Open a component with findings to inspect a rule and its source.' },
+  { id:'cli', role:'Command-line entry points', edges:[['cli','app','observed · declared']], findings:[], evidence:'No selected finding. This component has no illustrative rule violation.' },
+  { id:'store', role:'Order storage and persistence', edges:[['store','model','observed · undeclared'],['store','app','observed · undeclared']], findings:[['STORE-REQUIRES-COMPLETE','store → app is outside declared requires','shop/store.py:18'],['STORE-NO-APP','Store imports an application entry point','shop/store.py:18']], evidence:'The import was observed. The declared requires set does not allow store → app.' },
+  { id:'model', role:'Domain objects', edges:[], findings:[], evidence:'No selected finding. A separate rule is UNKNOWN until scope evidence is complete.' },
+];
+let selected = 2;
+const escapeHtml = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function render() {
+  const query = document.querySelector('#filter').value.toLowerCase();
+  document.querySelector('#components').innerHTML = items.map((x,i) => x.id.includes(query) ? `<button class="component" data-index="${i}" aria-selected="${i===selected}"><span>${i===selected?'›':' '} ${escapeHtml(x.id)}</span><span class="count">${x.findings.length || ''}</span></button>` : '').join('');
+  const x=items[selected];
+  document.querySelector('#focus').innerHTML = `<p class="panel-label">02 / SELECTED COMPONENT</p><div class="crumb">shop / ${escapeHtml(x.id)}</div><h2>${escapeHtml(x.id)}</h2><div class="responsibility">${escapeHtml(x.role)}</div><div class="section">OBSERVED RELATIONSHIPS</div>${x.edges.length ? x.edges.map(e=>`<div class="edge"><span>${escapeHtml(e[0])}</span><span class="arrow">→</span><span>${escapeHtml(e[1])}</span><span class="edge-note">${escapeHtml(e[2])}</span></div>`).join('') : '<p class="quiet">No imports shown in this mock.</p>'}<div class="section">FINDINGS IN THIS COMPONENT</div>${x.findings.length ? x.findings.map(f=>`<div class="finding"><b>× ${escapeHtml(f[0])}</b><small>${escapeHtml(f[1])}</small></div>`).join('') : '<p class="quiet">No selected findings. Global UNKNOWN remains visible above.</p>'}`;
+  document.querySelector('#detail').innerHTML = `<p class="panel-label">03 / EVIDENCE & NEXT ACTION</p><div class="evidence"><div class="key">${x.findings.length?'RULE ASSESSMENT · FAIL':'SELECTED SCOPE'}</div><h3>${escapeHtml(x.findings[0]?.[0] || x.id)}</h3><p>${escapeHtml(x.evidence)}</p>${x.findings.length?`<span class="code">${escapeHtml(x.findings[0][2])}</span>`:''}</div><div class="next"><strong>NEXT ACTION</strong>${x.findings.length?'Inspect the source and decide whether the import or the declared boundary should change.':'Inspect another component or the UNKNOWN rule. Do not infer PASS from this filtered view.'}</div><p class="hint">Source locations refer to the saved snapshot; check the working tree before editing.</p>`;
+  document.querySelectorAll('.component').forEach(b=>b.onclick=()=>{ selected=Number(b.dataset.index); render(); });
+}
+document.addEventListener('keydown', e=>{
+  if (e.key==='/' && document.activeElement.id!=='filter') { e.preventDefault(); document.querySelector('#filter').focus(); }
+  if (e.key==='Escape') { document.querySelector('#filter').value=''; document.querySelector('#filter').blur(); render(); }
+  if (document.activeElement.id==='filter') return;
+  if (e.key==='ArrowDown'||e.key==='j'||e.key==='ArrowUp'||e.key==='k') { e.preventDefault(); selected=(selected+(e.key==='ArrowDown'||e.key==='j'?1:-1)+items.length)%items.length; render(); }
+});
+document.querySelector('#filter').addEventListener('input',render);
+render();
+</script>
+</html>
