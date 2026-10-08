@@ -160,6 +160,7 @@ def _symbol(record: Record, language: str) -> Entity:
         evidence_ids=record.evidence_ids,
         record_ids=(record.id,),
         definition_contexts=_definition_contexts(data.get("definition_contexts")),
+        initializer=_text(data.get("initializer")) if kind == "binding" else None,
     )
 
 

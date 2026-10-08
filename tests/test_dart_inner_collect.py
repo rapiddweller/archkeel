@@ -305,7 +305,14 @@ def test_native_declarations_match_the_independently_reviewed_checkout_target() 
         name = classifier["qualified_name"]
         observed_members = {
             member.rsplit(".", 1)[-1]
-            for member in [*attributes, *actual]
+            for member in [
+                *attributes,
+                *(
+                    name
+                    for name, record in actual.items()
+                    if record.data.get("parent") == classifier["qualified_name"]
+                ),
+            ]
             if member.startswith(name + ".")
         } | enum_literals.get(name, set())
         expected_members = {
@@ -314,6 +321,262 @@ def test_native_declarations_match_the_independently_reviewed_checkout_target() 
             if item.get("presence") == "planned" and item.get("parent_id") == classifier["id"]
         }
         assert observed_members == expected_members, name
+
+
+def test_native_sites_project_all_reviewed_target_relationships() -> None:
+    import json
+    from hashlib import sha256
+
+    from archkeel.check.uml_compare import compare_graphs
+    from archkeel.ir.codec import load_inside_contract_tree, parse_contract
+    from archkeel.ir.target_graph import declared_tree_graph
+
+    root = _REPO / "fixtures/H-uml-dart"
+    facts = _native_facts(root)
+    graph = _source_graph(facts)
+    target_entities = []
+    target_relationships = []
+    root_payload = json.loads((root / "architecture-contract.json").read_text(encoding="utf-8"))
+    target_entities.extend(root_payload["declarations"]["uml"]["entities"])
+    target_relationships.extend(root_payload["declarations"]["uml"]["relationships"])
+    for path in sorted((root / "contracts").glob("*.json")):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        target_entities.extend(payload["declarations"]["uml"]["entities"])
+        target_relationships.extend(payload["declarations"]["uml"]["relationships"])
+    declarations = {item["id"]: item["qualified_name"] for item in target_entities}
+    expected = {
+        (item["kind"], declarations[item["source_id"]], declarations[item["target_id"]])
+        for item in target_relationships
+        if item["kind"] in {"inherits", "realizes", "calls", "references", "creates", "instance_of"}
+    }
+    assert len(expected) == 20
+    by_id = {item.id: item for item in graph.entities}
+    observed = {
+        (item.kind, by_id[item.source_id].qualified_name, by_id[item.target_id].qualified_name)
+        for item in graph.relationships
+        if item.resolution == "resolved" and item.target_id is not None
+    }
+    assert expected <= observed, sorted(expected - observed)
+    checkout_save = next(
+        dict(record.data.entries)
+        for section in facts.sections
+        if section.name == "calls"
+        for record in section.records
+        if record.data.get("expression") == "_repository.save(order)"
+    )
+    assert checkout_save["targets"] == (
+        "commerce.ordering.ports.order_repository.OrderRepository.save",
+    )
+    assert not any("InMemoryOrderRepository.save" in name for name in checkout_save["targets"])
+    root_bytes = (root / "architecture-contract.json").read_bytes()
+    tree = load_inside_contract_tree(
+        "architecture-contract.json",
+        parse_contract(json.loads(root_bytes)),
+        sha256(root_bytes).hexdigest(),
+        "architecture-contract.json",
+        lambda path: ((root / path).read_bytes(), path),
+    )
+    target = declared_tree_graph(tree, root_path="architecture-contract.json")
+    comparison = compare_graphs(graph, target)
+    relationship_assessments = [
+        item for item in comparison.assessments if item.aspect == "relationship"
+    ]
+    assert len(relationship_assessments) == 20
+    assert all(item.status == "PASS" for item in relationship_assessments), relationship_assessments
+
+
+def test_native_local_binding_reference_projects_without_fabricated_call(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """class Order { final String id = ''; }
+String receipt(Order order) { final receiptId = order.id; return receiptId; }
+""",
+    )
+    facts = _native_facts(tmp_path)
+    graph = _source_graph(facts)
+    by_id = {item.id: item for item in graph.entities}
+    binding = next(item for item in graph.entities if item.kind == "binding")
+    assert binding.qualified_name == "commerce.main.receipt.receiptId"
+    assert binding.initializer == "order.id"
+    assert any(
+        item.kind == "references"
+        and item.source_id == binding.id
+        and item.target_id is not None
+        and by_id[item.target_id].qualified_name == "commerce.main.Order.id"
+        for item in graph.relationships
+    )
+    assert not facts.sections[[section.name for section in facts.sections].index("calls")].records
+
+
+def test_native_sites_keep_unprovable_and_shadowed_bindings_unknown(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """import 'model.dart' as m show Widget;
+import 'hidden.dart' hide Hidden;
+import 'package:absent/external.dart';
+
+class UsesMixin with LocalMixin {}
+mixin LocalMixin {}
+extension TextTools on String { String get reversed => this; }
+
+class Widget {
+  Widget.named();
+  factory Widget.factory() => Widget.named();
+  static void run() {}
+}
+
+class Repeated { void run() {} }
+class Repeated { void run() {} }
+
+void helper() {}
+void main() {
+  m.Widget.run();
+  final named = m.Widget.named();
+  final factory = Widget.factory();
+  final helper = () {};
+  helper();
+  Missing.run();
+  Hidden.run();
+  dynamic value;
+  value.run();
+  Repeated().run();
+}
+""",
+    )
+    (tmp_path / "lib/model.dart").write_text(
+        "class Widget { Widget.named(); static void run() {} }\n", encoding="utf-8"
+    )
+    (tmp_path / "lib/hidden.dart").write_text(
+        "class Hidden { static void run() {} }\n", encoding="utf-8"
+    )
+    facts = _native_facts(tmp_path)
+    calls = [
+        dict(record.data.entries)
+        for section in facts.sections
+        if section.name == "calls"
+        for record in section.records
+    ]
+    assert next(item for item in calls if item["expression"] == "m.Widget.run()")["targets"] == (
+        "commerce.model.Widget.run",
+    )
+    for expression in ("helper()", "Missing.run()", "Hidden.run()", "value.run()"):
+        site = next(item for item in calls if item["expression"] == expression)
+        assert site["status"] == "unresolved", (expression, site)
+        assert site["targets"] == (), (expression, site)
+
+    constructions = {
+        item["expression"]: dict(item["construction"].entries)
+        for item in calls
+        if item.get("construction") is not None
+    }
+    assert constructions["m.Widget.named()"]["status"] == "resolved"
+    assert constructions["Widget.factory()"]["status"] == "partially_resolved"
+    assert constructions["Repeated()"]["status"] == "resolved"
+    graph = _source_graph(facts)
+    repeated_run = next(
+        item
+        for item in graph.relationships
+        if item.kind == "calls" and item.expression == "Repeated().run()"
+    )
+    assert repeated_run.resolution == "partial"
+    assert facts.coverage.full_scope is False
+    assert any(gap.kind == "DuplicateDeclaration" for gap in facts.coverage.gaps)
+    assert any(
+        gap.kind == "UnsupportedDeclaration" and "mixin" in gap.title for gap in facts.coverage.gaps
+    )
+    assert any(
+        gap.kind == "UnsupportedDeclaration" and "extension" in gap.title.lower()
+        for gap in facts.coverage.gaps
+    )
+
+
+def test_native_missing_named_constructor_is_not_a_resolved_construction(
+    tmp_path: Path,
+) -> None:
+    _write_package(
+        tmp_path,
+        """class Widget {}
+void main() {
+  final implicit = Widget();
+  final missing = Widget.missing();
+  final explicitMissing = new Widget.missing();
+}
+""",
+    )
+    facts = _native_facts(tmp_path)
+    sites = {
+        item["expression"]: item
+        for section in facts.sections
+        if section.name == "calls"
+        for record in section.records
+        if (item := dict(record.data.entries)).get("expression")
+    }
+    assert dict(sites["Widget()"]["construction"].entries) == {
+        "status": "resolved",
+        "targets": ("commerce.main.Widget",),
+        "candidates_truncated": False,
+        "reason": "Analyzer resolved a local generative constructor",
+    }
+    assert sites["Widget.missing()"]["status"] == "unresolved"
+    assert sites["Widget.missing()"]["targets"] == ()
+    explicit = dict(sites["new Widget.missing()"]["construction"].entries)
+    assert explicit["status"] == "unresolved"
+    assert explicit["targets"] == ()
+
+
+def test_native_import_combinators_intersect_and_preserve_empty_dependencies(
+    tmp_path: Path,
+) -> None:
+    _write_package(
+        tmp_path,
+        "import 'b.dart' show A, B show B;\nvoid use(B value) {}\n",
+    )
+    (tmp_path / "lib/b.dart").write_text("class A {}\nclass B {}\n", encoding="utf-8")
+    (tmp_path / "lib/empty.dart").write_text(
+        "import 'b.dart' show A hide A;\nvoid empty() {}\n", encoding="utf-8"
+    )
+    facts = _native_facts(tmp_path)
+    imports = [
+        dict(record.data.entries)
+        for section in facts.sections
+        if section.name == "imports"
+        for record in section.records
+    ]
+    selected = [item for item in imports if item["source_module"] == "commerce.main"]
+    assert len(selected) == 1
+    assert selected[0]["symbol"] == "B"
+    assert selected[0]["symbols_known"] is True
+    empty_dependency = next(item for item in imports if item["source_module"] == "commerce.empty")
+    assert empty_dependency["target_module"] == "commerce.b"
+    assert empty_dependency["symbol"] is None
+    assert empty_dependency["symbols_known"] is False
+
+
+def test_native_sites_keep_part_declarations_in_the_library_scope(tmp_path: Path) -> None:
+    _write_package(tmp_path, "part 'part.dart';\nvoid helper() {}\n")
+    (tmp_path / "lib/part.dart").write_text(
+        "part of 'main.dart';\nvoid caller() { helper(); }\n", encoding="utf-8"
+    )
+    facts = _native_facts(tmp_path)
+    call = next(
+        dict(record.data.entries)
+        for section in facts.sections
+        if section.name == "calls"
+        for record in section.records
+        if record.data.get("expression") == "helper()"
+    )
+    assert call["source_scope"] == "commerce.main.caller"
+    assert call["source_module"] == "commerce.main"
+    assert call["targets"] == ("commerce.main.helper",)
+    evidence = {item.id: item for item in facts.evidence}
+    record = next(
+        record
+        for section in facts.sections
+        if section.name == "calls"
+        for record in section.records
+        if record.data.get("expression") == "helper()"
+    )
+    assert evidence[record.evidence_ids[0]].file == "lib/part.dart"
 
 
 def _native_facts(root: Path, roots: tuple[str, ...] = ("lib",)):

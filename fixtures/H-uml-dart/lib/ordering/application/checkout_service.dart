@@ -9,6 +9,7 @@ class CheckoutService {
   String checkout(Order order, {String requestId = 'local'}) {
     order.place();
     _repository.save(order);
-    return '$requestId:${order.total()}';
+    final receiptId = order.id;
+    return '$requestId:$receiptId:${order.total()}';
   }
 }

@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:collection';
 import 'dart:io';
 
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/visitor.dart';
+import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/error/error.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
@@ -52,6 +55,12 @@ class DartCollector {
   final Map<String, Map<String, Object?>> evidence = {};
   final List<Map<String, Object?>> unknowns = [];
   final List<Map<String, Object?>> symbols = [];
+  final List<Map<String, Object?>> calls = [];
+  final List<Map<String, Object?>> references = [];
+  final Map<Element, String> definitions = HashMap.identity();
+  final Map<String, Map<String, Object?>> symbolByQualified = {};
+  final Map<String, Map<String, Object?>> symbolById = {};
+  final Set<Element> factories = HashSet.identity();
   final Map<String, String> modules = {};
   final Map<String, String> packages = {};
   final Map<String, DartSource> sourceByRel = {};
@@ -101,8 +110,8 @@ class DartCollector {
         'imports': imports,
         'unknowns': unknowns,
         'symbols': symbols,
-        'calls': [],
-        'references': [],
+        'calls': calls,
+        'references': references,
         'bindings': [],
       };
       final facts = <String, Object?>{
@@ -160,6 +169,7 @@ class DartCollector {
     List<DartSource> sources,
     Map<String, String> invalidSources,
   ) async {
+    final libraries = <(DartSource, List<(DartSource, ResolvedUnitResult)>)>[];
     final contexts = AnalysisContextCollection(
       includedPaths: [root],
       sdkPath: p.dirname(p.dirname(Platform.resolvedExecutable)),
@@ -221,6 +231,7 @@ class DartCollector {
           );
           continue;
         }
+        final units = <(DartSource, ResolvedUnitResult)>[];
         for (final unit in result.units) {
           final rel = p
               .relative(unit.path, from: root)
@@ -249,7 +260,20 @@ class DartCollector {
             sourceUnit.text,
             sourceUnit.bytes,
           );
-          _walk(libraryUnit, unit.unit);
+          units.add((libraryUnit, unit));
+        }
+        libraries.add((main, units));
+      }
+      // Index every selected declaration before resolving any source site.
+      for (final library in libraries) {
+        for (final entry in library.$2) {
+          _walk(entry.$1, entry.$2.unit);
+        }
+      }
+      for (final library in libraries) {
+        for (final entry in library.$2) {
+          _emitBases(entry.$1, entry.$2);
+          _emitSites(entry.$1, entry.$2);
         }
       }
     } finally {
@@ -291,24 +315,35 @@ class DartCollector {
             ExportDirective value => value.combinators,
             _ => const <Combinator>[],
           };
-          final shown = combinators
-              .whereType<ShowCombinator>()
-              .expand(
-                (combinator) => combinator.shownNames.map((name) => name.name),
-              )
-              .toList();
-          final hidden = combinators
-              .whereType<HideCombinator>()
-              .expand(
-                (combinator) => combinator.hiddenNames.map((name) => name.name),
-              )
-              .toSet();
-          final symbols = shown.isEmpty
+          Set<String>? shown;
+          final hidden = <String>{};
+          for (final combinator in combinators) {
+            if (combinator is ShowCombinator) {
+              final names = combinator.shownNames
+                  .map((name) => name.name)
+                  .toSet();
+              if (shown == null) {
+                shown = names;
+              } else {
+                shown.retainAll(names);
+              }
+            } else if (combinator is HideCombinator) {
+              final names = combinator.hiddenNames
+                  .map((name) => name.name)
+                  .toSet();
+              if (shown == null) {
+                hidden.addAll(names);
+              } else {
+                shown.removeAll(names);
+              }
+            }
+          }
+          final selected =
+              shown?.where((name) => !hidden.contains(name)).toList()?..sort();
+          final symbols = selected == null || selected.isEmpty
               ? <String?>[null]
-              : shown
-                    .where((name) => !hidden.contains(name))
-                    .cast<String?>()
-                    .toList();
+              : selected.cast<String?>();
+          final symbolsKnown = selected != null && selected.isNotEmpty;
           for (final symbol in symbols) {
             final id = _id('DARTIMP', [
               source.rel,
@@ -336,7 +371,7 @@ class DartCollector {
                       (directive is ImportDirective
                           ? directive.prefix?.name
                           : null),
-                  'symbols_known': shown.isNotEmpty,
+                  'symbols_known': symbolsKnown,
                   'relative_level': 0,
                   'under_type_checking': false,
                   'ordinary_module': true,
@@ -440,8 +475,25 @@ class DartCollector {
           declaration.namePart.typeName.lexeme,
           classKind,
         );
+        _indexElement(
+          declaration.declaredFragment?.element,
+          owner['qualified'] as String,
+        );
         _classBody(source, declaration.body, owner);
+        _indexClassMembers(
+          source,
+          declaration.body is BlockClassBody
+              ? (declaration.body as BlockClassBody).members
+              : const <ClassMember>[],
+          owner,
+        );
       } else if (declaration is EnumDeclaration) {
+        for (final constant in declaration.body.constants) {
+          _indexElement(
+            constant.declaredFragment?.element,
+            '${source.module}.${declaration.namePart.typeName.lexeme}.${constant.name.lexeme}',
+          );
+        }
         final enumAttributes = declaration.body.constants.map((constant) {
           final name = constant.name.lexeme;
           return {
@@ -472,17 +524,35 @@ class DartCollector {
               .map((constant) => constant.name.lexeme)
               .toList(),
         );
-        _members(source, declaration.body.members, owner);
-      } else if (declaration is MixinDeclaration) {
-        final owner = _classifier(
-          source,
-          declaration,
-          declaration.name.lexeme,
-          'mixin',
+        _indexElement(
+          declaration.declaredFragment?.element,
+          owner['qualified'] as String,
         );
         _members(source, declaration.body.members, owner);
+        _indexClassMembers(
+          source,
+          declaration.body is BlockClassBody
+              ? (declaration.body as BlockClassBody).members
+              : const <ClassMember>[],
+          owner,
+        );
+      } else if (declaration is MixinDeclaration) {
+        _gap(
+          source.rel,
+          declaration.offset,
+          'UnsupportedDeclaration',
+          'mixin declarations have no shared UML entity kind',
+        );
+      } else if (declaration is ExtensionDeclaration ||
+          declaration is ExtensionTypeDeclaration) {
+        _gap(
+          source.rel,
+          declaration.offset,
+          'UnsupportedDeclaration',
+          'extension declarations have no shared UML entity kind',
+        );
       } else if (declaration is FunctionDeclaration) {
-        _function(
+        final id = _function(
           source,
           declaration,
           declaration.name.lexeme,
@@ -490,30 +560,46 @@ class DartCollector {
           declaration.functionExpression.parameters,
           declaration.returnType?.toSource(),
         );
+        _indexElement(
+          declaration.declaredFragment?.element,
+          symbolsByIdName(id),
+        );
       } else if (declaration is GenericTypeAlias) {
-        _simple(
+        final id = _simple(
           source,
           declaration,
           declaration.name.lexeme,
           'alias',
           declaration.type.toSource(),
         );
+        _indexElement(
+          declaration.declaredFragment?.element,
+          symbolsByIdName(id),
+        );
       } else if (declaration is FunctionTypeAlias) {
-        _simple(
+        final id = _simple(
           source,
           declaration,
           declaration.name.lexeme,
           'alias',
           declaration.returnType?.toSource(),
         );
+        _indexElement(
+          declaration.declaredFragment?.element,
+          symbolsByIdName(id),
+        );
       } else if (declaration is TopLevelVariableDeclaration) {
         for (final variable in declaration.variables.variables) {
-          _variable(
+          final id = _variable(
             source,
             variable,
             null,
             declaration.variables.type?.toSource(),
             declaration.variables.isConst,
+          );
+          _indexVariable(
+            variable.declaredFragment?.element,
+            symbolsByIdName(id),
           );
         }
       } else {
@@ -538,6 +624,243 @@ class DartCollector {
       case EmptyClassBody():
         _members(source, const <ClassMember>[], owner);
     }
+  }
+
+  void _addSymbol(Map<String, Object?> record) {
+    symbols.add(record);
+    final data = record['data'] as Map<String, Object?>;
+    final name = data['qualified_name'] as String;
+    symbolByQualified[name] = record;
+    symbolById[record['id'] as String] = record;
+  }
+
+  String symbolsByIdName(String id) =>
+      (symbolById[id]!['data'] as Map<String, Object?>)['qualified_name']
+          as String;
+
+  void _indexElement(Element? element, String qualified) {
+    if (element != null) definitions[element] = qualified;
+  }
+
+  void _indexVariable(VariableElement? element, String qualified) {
+    if (element == null) return;
+    _indexElement(element, qualified);
+    if (element is PropertyInducingElement) {
+      _indexElement(element.getter, qualified);
+      _indexElement(element.setter, qualified);
+    }
+  }
+
+  void _indexClassMembers(
+    DartSource source,
+    List<ClassMember> members,
+    Map<String, Object?> owner,
+  ) {
+    for (final member in members) {
+      final ownerName = owner['qualified'] as String;
+      if (member is FieldDeclaration) {
+        for (final variable in member.fields.variables) {
+          _indexVariable(
+            variable.declaredFragment?.element,
+            '$ownerName.${variable.name.lexeme}',
+          );
+        }
+      } else if (member is MethodDeclaration) {
+        final record = symbols.firstWhere(
+          (item) =>
+              item['data'] is Map<String, Object?> &&
+              (item['data'] as Map<String, Object?>)['source_file'] ==
+                  source.rel &&
+              (item['data'] as Map<String, Object?>)['qualified_name'] ==
+                  '$ownerName.${member.name.lexeme}',
+        );
+        _indexElement(
+          member.declaredFragment?.element,
+          symbolsByIdName(record['id'] as String),
+        );
+      } else if (member is ConstructorDeclaration) {
+        final suffix = member.name?.lexeme;
+        final constructorName = suffix == null
+            ? owner['name'] as String
+            : '${owner['name']}.$suffix';
+        final element = member.declaredFragment?.element;
+        _indexElement(element, '$ownerName.$constructorName');
+        if (member.factoryKeyword != null && element != null)
+          factories.add(element);
+      }
+    }
+  }
+
+  void _emitBases(DartSource source, ResolvedUnitResult resolved) {
+    for (final declaration in resolved.unit.declarations) {
+      if (declaration is! ClassDeclaration && declaration is! EnumDeclaration)
+        continue;
+      final name = switch (declaration) {
+        ClassDeclaration value => value.namePart.typeName.lexeme,
+        EnumDeclaration value => value.namePart.typeName.lexeme,
+        _ => '',
+      };
+      final record = symbolByQualified['${source.module}.$name'];
+      if (record == null) continue;
+      final bases = <Map<String, Object?>>[];
+      if (declaration is ClassDeclaration &&
+          declaration.extendsClause != null) {
+        bases.add(
+          _baseFact(source, declaration.extendsClause!.superclass, 'inherits'),
+        );
+      }
+      if (declaration is ClassDeclaration) {
+        for (final type
+            in declaration.withClause?.mixinTypes ?? const <NamedType>[]) {
+          bases.add(_baseFact(source, type, 'inherits'));
+        }
+        for (final type
+            in declaration.implementsClause?.interfaces ??
+                const <NamedType>[]) {
+          bases.add(_baseFact(source, type, 'realizes'));
+        }
+      } else if (declaration is EnumDeclaration) {
+        for (final type
+            in declaration.implementsClause?.interfaces ??
+                const <NamedType>[]) {
+          bases.add(_baseFact(source, type, 'realizes'));
+        }
+      }
+      (record['data'] as Map<String, Object?>)['base_declarations'] = bases;
+    }
+  }
+
+  Map<String, Object?> _baseFact(
+    DartSource source,
+    NamedType type,
+    String kind,
+  ) {
+    final target = definitions[type.element];
+    final isResolved = target != null && symbolByQualified.containsKey(target);
+    return {
+      'id': _id('DARTBASE', [source.rel, type.offset, kind]),
+      'relationship_kind': kind,
+      'status': isResolved ? 'resolved' : 'unresolved',
+      'targets': isResolved ? [target] : <String>[],
+      'candidate_count': isResolved ? 1 : 0,
+      'candidates_truncated': false,
+      'expression': type.toSource(),
+      'reason': isResolved
+          ? 'Analyzer resolved local declared type'
+          : 'base type is external or unresolved',
+      'evidence_ids': [_cite(source, type)],
+    };
+  }
+
+  void _emitSites(DartSource source, ResolvedUnitResult resolved) {
+    resolved.unit.accept(_DartSiteVisitor(this, source, resolved));
+  }
+
+  Map<String, Object?> _site(
+    DartSource source,
+    AstNode node,
+    String scope,
+    String scopeId,
+    String expression,
+    Element? target, {
+    required bool call,
+    String? use,
+    List<Map<String, Object?>> resultBindings = const [],
+    Map<String, Object?>? construction,
+  }) {
+    final targetName = definitions[target];
+    final targetRecord = targetName == null
+        ? null
+        : symbolByQualified[targetName];
+    final isAllowedCallTarget =
+        !call ||
+        construction != null && targetRecord?['kind'] == 'class' ||
+        targetRecord?['kind'] == 'method' ||
+        targetRecord?['kind'] == 'function';
+    final isResolved = targetName != null && isAllowedCallTarget;
+    final id = _id(call ? 'DARTCALL' : 'DARTREF', [
+      source.rel,
+      node.offset,
+      scopeId,
+      expression,
+    ]);
+    final data = <String, Object?>{
+      'source_scope': scope,
+      'source_definition_id': scopeId,
+      'source_module': moduleForSource[source.rel] ?? source.module,
+      'source_file': source.rel,
+      'expression': expression,
+      'status': isResolved ? 'resolved' : 'unresolved',
+      'targets': isResolved ? [targetName] : <String>[],
+      'candidate_count': isResolved ? 1 : 0,
+      'candidates_truncated': false,
+      'reason': isResolved
+          ? 'Analyzer resolved the source element'
+          : 'target is external, dynamic, or unresolved',
+      if (!call) 'use': use ?? 'read',
+      if (resultBindings.isNotEmpty) 'result_bindings': resultBindings,
+      if (construction != null) 'construction': construction,
+    };
+    final record = _record(
+      id,
+      'source',
+      call ? 'call' : 'reference',
+      expression,
+      [scope],
+      [_cite(source, node)],
+      data,
+    );
+    (call ? calls : references).add(record);
+    return record;
+  }
+
+  Map<String, Object?> _localBinding(
+    DartSource source,
+    VariableDeclaration node,
+    String scope,
+    String scopeId,
+  ) {
+    final name = node.name.lexeme;
+    final qualified = '$scope.$name';
+    final id = _id('DARTBIND', [source.rel, node.offset, scopeId, name]);
+    final initializer =
+        node.initializer is InstanceCreationExpression ||
+            node.initializer is MethodInvocation ||
+            node.initializer is FunctionExpressionInvocation
+        ? null
+        : node.initializer?.toSource();
+    final annotation = switch (node.parent) {
+      VariableDeclarationList(:final type) => type?.toSource(),
+      _ => null,
+    };
+    final data = <String, Object?>{
+      ..._meta(source, node, name, 'binding', scope, scopeId),
+      'symbol_category': 'dynamic_binding',
+      'annotation': annotation,
+      'initializer': initializer,
+      'definition_contexts': <Object?>[],
+    };
+    final record = _record(
+      id,
+      'source',
+      'binding',
+      '$qualified declaration',
+      [qualified],
+      [_cite(source, node)],
+      data,
+    );
+    _addSymbol(record);
+    final element = node.declaredFragment?.element;
+    _indexElement(element, qualified);
+    return {
+      'id': id,
+      'name': name,
+      'qualified_name': qualified,
+      'initializer': initializer,
+      'annotation': annotation,
+      'element': element,
+      'evidence_ids': [_cite(source, node)],
+    };
   }
 
   Map<String, Object?> _meta(
@@ -582,7 +905,7 @@ class DartCollector {
     final qualified = source.module + '.' + name;
     final id = _id('DARTDEF', [source.rel, node.offset, qualified, 'class']);
     final attributes = enumAttributes ?? <Map<String, Object?>>[];
-    symbols.add(
+    _addSymbol(
       _record(
         id,
         'source',
@@ -741,7 +1064,7 @@ class DartCollector {
       parent == null ? 'function' : 'method',
     ]);
     final params = _params(source, list, fieldTypes ?? const {});
-    symbols.add(
+    _addSymbol(
       _record(
         id,
         'source',
@@ -844,7 +1167,7 @@ class DartCollector {
     return (values: result, complete: complete);
   }
 
-  void _variable(
+  String _variable(
     DartSource source,
     VariableDeclaration node,
     String? parent,
@@ -852,7 +1175,7 @@ class DartCollector {
     bool isConst,
   ) {
     final name = node.name.lexeme;
-    _simple(
+    return _simple(
       source,
       node,
       name,
@@ -863,7 +1186,7 @@ class DartCollector {
     );
   }
 
-  void _simple(
+  String _simple(
     DartSource source,
     AstNode node,
     String name,
@@ -876,7 +1199,7 @@ class DartCollector {
         ? source.module + '.' + name
         : parent + '.' + name;
     final id = _id('DARTDEF', [source.rel, node.offset, qualified, kind]);
-    symbols.add(
+    _addSymbol(
       _record(
         id,
         'source',
@@ -886,11 +1209,13 @@ class DartCollector {
         [_cite(source, node)],
         {
           ..._meta(source, node, name, kind, parent, null),
+          if (kind == 'alias') 'symbol_category': 'type_alias',
           'annotation': annotation,
           'constant': constant,
         },
       ),
     );
+    return id;
   }
 
   String _cite(DartSource source, AstNode? node, [bool file = false]) {
@@ -1090,5 +1415,295 @@ class DartCollector {
         'evidence_id': evidenceId,
       };
     }).toList();
+  }
+}
+
+class _DartSiteVisitor extends RecursiveAstVisitor<void> {
+  _DartSiteVisitor(this.collector, this.source, this.resolved);
+
+  final DartCollector collector;
+  final DartSource source;
+  final ResolvedUnitResult resolved;
+  String? scope;
+  String? scopeId;
+  Map<String, Object?>? binding;
+  final Map<AstNode, Map<String, Object?>> resultBindings = HashMap.identity();
+
+  void _withDefinition(AstNode node, Element? element, void Function() visit) {
+    final next = collector.definitions[element];
+    final record = next == null ? null : collector.symbolByQualified[next];
+    final oldScope = scope;
+    final oldId = scopeId;
+    if (next != null && record != null) {
+      scope = next;
+      scopeId = record['id'] as String;
+    }
+    visit();
+    scope = oldScope;
+    scopeId = oldId;
+  }
+
+  (String, String)? get _sourceContext {
+    final local = binding;
+    if (local != null)
+      return (local['qualified_name'] as String, local['id'] as String);
+    return _functionContext;
+  }
+
+  (String, String)? get _functionContext {
+    if (scope != null && scopeId != null) return (scope!, scopeId!);
+    return null;
+  }
+
+  @override
+  void visitFunctionDeclaration(FunctionDeclaration node) {
+    _withDefinition(
+      node,
+      node.declaredFragment?.element,
+      () => super.visitFunctionDeclaration(node),
+    );
+  }
+
+  @override
+  void visitMethodDeclaration(MethodDeclaration node) {
+    _withDefinition(
+      node,
+      node.declaredFragment?.element,
+      () => super.visitMethodDeclaration(node),
+    );
+  }
+
+  @override
+  void visitConstructorDeclaration(ConstructorDeclaration node) {
+    _withDefinition(
+      node,
+      node.declaredFragment?.element,
+      () => super.visitConstructorDeclaration(node),
+    );
+  }
+
+  @override
+  void visitVariableDeclaration(VariableDeclaration node) {
+    final isLocal =
+        node.parent is VariableDeclarationList &&
+        ((node.parent as AstNode).parent is VariableDeclarationStatement ||
+            (node.parent as AstNode).parent is ForPartsWithDeclarations);
+    final currentScope = scope;
+    final currentScopeId = scopeId;
+    if (!isLocal || currentScope == null || currentScopeId == null) {
+      super.visitVariableDeclaration(node);
+      return;
+    }
+    final local = collector._localBinding(
+      source,
+      node,
+      currentScope,
+      currentScopeId,
+    );
+    final initializer = node.initializer;
+    if (initializer != null &&
+        (initializer is InstanceCreationExpression ||
+            initializer is MethodInvocation ||
+            initializer is FunctionExpressionInvocation)) {
+      resultBindings[initializer] = local;
+    }
+    final oldBinding = binding;
+    binding = local;
+    super.visitVariableDeclaration(node);
+    binding = oldBinding;
+  }
+
+  List<Map<String, Object?>> _bindingPayload(AstNode node) {
+    final local = resultBindings[node];
+    if (local == null) return const [];
+    return [
+      {
+        'id': local['id'],
+        'name': local['name'],
+        'target_kind': 'name',
+        'annotation': local['annotation'],
+        'initializer': node.toSource(),
+        'evidence_ids': local['evidence_ids'],
+        'definition_contexts': <Object?>[],
+      },
+    ];
+  }
+
+  @override
+  void visitMethodInvocation(MethodInvocation node) {
+    final context = _functionContext;
+    if (context != null) {
+      collector._site(
+        source,
+        node,
+        context.$1,
+        context.$2,
+        node.toSource(),
+        node.methodName.element,
+        call: true,
+        resultBindings: _bindingPayload(node),
+      );
+    }
+    super.visitMethodInvocation(node);
+  }
+
+  @override
+  void visitFunctionExpressionInvocation(FunctionExpressionInvocation node) {
+    final context = _functionContext;
+    if (context != null) {
+      collector._site(
+        source,
+        node,
+        context.$1,
+        context.$2,
+        node.toSource(),
+        node.function is SimpleIdentifier
+            ? (node.function as SimpleIdentifier).element
+            : null,
+        call: true,
+        resultBindings: _bindingPayload(node),
+      );
+    }
+    super.visitFunctionExpressionInvocation(node);
+  }
+
+  @override
+  void visitInstanceCreationExpression(InstanceCreationExpression node) {
+    final context = _functionContext;
+    if (context != null) {
+      final classElement = node.constructorName.type.type?.element;
+      final className = collector.definitions[classElement];
+      final local =
+          className != null &&
+          collector.symbolByQualified.containsKey(className);
+      final constructor = node.constructorName.element;
+      final generative =
+          local &&
+          constructor != null &&
+          !collector.factories.contains(constructor);
+      final construction = <String, Object?>{
+        'status': !local || constructor == null
+            ? 'unresolved'
+            : generative
+            ? 'resolved'
+            : 'partially_resolved',
+        'targets': local && constructor != null ? [className] : <String>[],
+        'candidates_truncated': false,
+        'reason': !local
+            ? 'constructor target is external, dynamic, or unresolved'
+            : constructor == null
+            ? 'Analyzer did not resolve a local constructor'
+            : generative
+            ? 'Analyzer resolved a local generative constructor'
+            : 'factory construction does not prove a local instance target',
+      };
+      collector._site(
+        source,
+        node,
+        context.$1,
+        context.$2,
+        node.toSource(),
+        constructor == null ? null : classElement,
+        call: true,
+        resultBindings: _bindingPayload(node),
+        construction: construction,
+      );
+    }
+    super.visitInstanceCreationExpression(node);
+  }
+
+  @override
+  void visitPropertyAccess(PropertyAccess node) {
+    final context = _sourceContext;
+    if (context != null) {
+      collector._site(
+        source,
+        node,
+        context.$1,
+        context.$2,
+        node.toSource(),
+        node.propertyName.element,
+        call: false,
+      );
+    }
+    super.visitPropertyAccess(node);
+  }
+
+  @override
+  void visitPrefixedIdentifier(PrefixedIdentifier node) {
+    final context = _sourceContext;
+    if (context != null) {
+      final prefix = node.prefix.element;
+      if (collector.definitions.containsKey(prefix)) {
+        collector._site(
+          source,
+          node.prefix,
+          context.$1,
+          context.$2,
+          node.prefix.name,
+          prefix,
+          call: false,
+        );
+      }
+      collector._site(
+        source,
+        node,
+        context.$1,
+        context.$2,
+        node.toSource(),
+        node.element,
+        call: false,
+      );
+    }
+    super.visitPrefixedIdentifier(node);
+  }
+
+  @override
+  void visitNamedType(NamedType node) {
+    final parent = node.parent;
+    final isBase =
+        parent is ExtendsClause ||
+        parent is WithClause ||
+        parent is ImplementsClause;
+    final context = _sourceContext;
+    if (!isBase && context != null) {
+      collector._site(
+        source,
+        node,
+        context.$1,
+        context.$2,
+        node.toSource(),
+        node.element,
+        call: false,
+      );
+    }
+    super.visitNamedType(node);
+  }
+
+  @override
+  void visitSimpleIdentifier(SimpleIdentifier node) {
+    final parent = node.parent;
+    if (parent is MethodInvocation && identical(parent.methodName, node) ||
+        parent is NamedType ||
+        parent is Declaration ||
+        parent is VariableDeclaration && identical(parent.name, node) ||
+        parent is PropertyAccess && identical(parent.propertyName, node) ||
+        parent is PrefixedIdentifier) {
+      super.visitSimpleIdentifier(node);
+      return;
+    }
+    final context = _sourceContext;
+    if (context != null && collector.definitions.containsKey(node.element)) {
+      collector._site(
+        source,
+        node,
+        context.$1,
+        context.$2,
+        node.name,
+        node.element,
+        call: false,
+      );
+    }
+    super.visitSimpleIdentifier(node);
   }
 }
