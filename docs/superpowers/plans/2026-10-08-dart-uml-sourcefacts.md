@@ -90,21 +90,22 @@ Closed scopes are deliberate inventory requirements, not a decoration. Require c
 - [ ] Add failing tests for current-profile protocol acceptance, invalid capability rejection, language mismatch, and explicit rejection of removed profile identities. Missing current evidence still remains UNKNOWN.
 - [ ] Extend the existing registration and assembly paths; validate source identity and member receipts at the existing trust boundary.
 - [ ] Permit explicit complete Dart enum/member receipts; keep module-level inventories partial unless separately proven. Calls present in a section do not prove exhaustive dispatch.
-- [ ] Run focused collection/profile/member-inventory/source-graph tests and `make lint typecheck`; review and commit the coherent change.
+- [ ] Run focused collection/profile/member-inventory/source-graph tests and `make lint typecheck`; stage for independent review. Commit the profile migration together with Task 3's producer so no commit leaves the default Dart collector incompatible with Core.
 - [ ] Fresh Luna task review: both specification compliance and correctness required.
 
 ## Task 3: Collect native declarations and whole-unit coverage
 
-**Files:** proposed `packages/dart-collector/pubspec.yaml`, `pubspec.lock`, `bin/collect.dart`, narrowly scoped `lib/` source as needed; `tests/test_dart_inner_collect.py`; Make setup/check targets and package README.
+**Files:** `src/archkeel/analyzer/dart/native/pubspec.yaml`, `pubspec.lock`, `bin/collect.dart`, narrowly scoped native `lib/` source as needed; replace the existing Dart Python entry with a thin runtime launcher and explicit setup command; `tests/test_dart_inner_collect.py`; Make setup/check targets and package README.
 
 **Interfaces:** One stdin request and stdout response using existing collection protocol 2.0.0 and Task 2's profile. Emit existing SourceFacts record shapes directly; adapter-local ASTs never cross the port. Include collector source/dependency identity and actual Dart runtime in provenance.
 
 - [ ] Add a failing native-process test for the independently specified H-uml-dart source from Task 1: classifiers, enum literals, fields, functions/methods, signatures, named/optional parameters, visibility, static members, aliases and constants retain source locations and identities.
-- [ ] Pin official Analyzer 10.2.0, resolve and lock dependencies explicitly. Invoke the prepared collector without package resolution during analysis.
+- [ ] Pin official Analyzer 10.2.0 and commit its lockfile. Ship the native package source in the existing wheel/sdist; ignore/exclude `.dart_tool` and local build products. Add `archkeel-dart-setup` and `make dart-setup` as explicit dependency preparation for the installed native package. During scans the existing Python entry launches native `dart` with the prepared absolute `--packages` and script paths, replacing itself rather than collecting/merging two results. Missing SDK/setup must fail clearly; no downloads or import-only success during scans.
 - [ ] Validate requests and selected paths. Parse complete units with the official AST; use direct declarations for inventory receipts, excluding inherited/synthetic members.
 - [ ] Add negative checks for malformed units, invalid parts, duplicate declarations and unsupported declaration kinds. Only certify complete inventories when every relevant declaration is represented.
 - [ ] Record and validate every non-SDK source/configuration input used for resolution. Keep paths outside the snapshot unavailable unless the existing port explicitly permits and records them.
-- [ ] Run Dart format/analyze and focused real-process tests; review and commit.
+- [ ] Implement the independently authored demo source from Task 1 and validate it with the actual Dart compiler/analyzer; do not rewrite its Target to match output.
+- [ ] Run Dart format/analyze and focused real-process tests; review and commit together with Task 2's reviewed profile migration.
 - [ ] Fresh Luna task review before relationship implementation.
 
 ## Task 4: Publish resolved sites and explicit limits
