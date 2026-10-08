@@ -101,7 +101,7 @@
       "label": "presentation",
       "role": "component",
       "packages": [
-        "compass.presentation"
+        "compass.ui"
       ],
       "public": [],
       "responsibilities": [
@@ -153,7 +153,7 @@
           "decided_by": "agent"
         }
       ],
-      "namespace": "compass.presentation",
+      "namespace": "compass.ui",
       "inside": "contracts/presentation.json"
     },
     {
@@ -227,7 +227,7 @@
       "label": "utilities",
       "role": "component",
       "packages": [
-        "compass.utilities"
+        "compass.utils"
       ],
       "public": [],
       "responsibilities": [
@@ -239,7 +239,7 @@
       ],
       "decided_by": "agent",
       "requires": [],
-      "namespace": "compass.utilities",
+      "namespace": "compass.utils",
       "inside": "contracts/utilities.json"
     }
   ],

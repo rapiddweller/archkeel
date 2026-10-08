@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 from archkeel.ir.codec import load_inside_contract_tree, parse_contract
+from archkeel.ir.facts import in_scope
 from archkeel.ir.target_graph import declared_tree_graph
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "J-compass"
@@ -72,6 +73,26 @@ def test_compass_target_covers_every_library_and_part_once() -> None:
             parent = part.removesuffix(".freezed.dart").removesuffix(".g.dart") + ".dart"
             assert parent in dart_inputs
             assert f"part '{Path(part).name}';" in (FIXTURE / parent).read_text(encoding="utf-8")
+
+
+def test_compass_nested_package_ownership_stays_inside_each_parent_component() -> None:
+    root = json.loads((FIXTURE / CONTRACTS[0]).read_text(encoding="utf-8"))
+    for parent in root["components"]:
+        nested_path = parent.get("inside")
+        if nested_path is None:
+            continue
+        nested = json.loads((FIXTURE / nested_path).read_text(encoding="utf-8"))
+        for child in nested["components"]:
+            for package in child["packages"]:
+                contained = any(
+                    in_scope(package, parent_package) for parent_package in parent["packages"]
+                )
+                assert contained, (parent["id"], package, parent["packages"])
+            for module in child.get("exact_modules", []):
+                contained = any(
+                    in_scope(module, parent_package) for parent_package in parent["packages"]
+                )
+                assert contained, (parent["id"], module, parent["packages"])
 
 
 def test_compass_target_has_nested_responsibilities_and_principal_uml() -> None:
