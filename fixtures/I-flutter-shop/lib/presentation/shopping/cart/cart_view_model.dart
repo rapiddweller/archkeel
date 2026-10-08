@@ -6,7 +6,7 @@ import 'package:shop/domain/orders/order.dart';
 import 'package:shop/state/async_state.dart';
 
 class CartViewModel extends ChangeNotifier {
-  CartViewModel(this._placeOrder);
+  CartViewModel(PlaceOrder placeOrder) : _placeOrder = placeOrder;
 
   final PlaceOrder _placeOrder;
   final Cart _cart = Cart();

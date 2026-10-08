@@ -12,12 +12,16 @@ import 'package:shop/presentation/shopping/catalog/catalog_view_model.dart';
 
 class ShopApp extends StatefulWidget {
   const ShopApp(
-    this._backend,
-    this._store,
-    this._catalog,
-    this._cart,
-    this._orders,
-  );
+    DemoBackend backend,
+    MemoryStore store,
+    CatalogViewModel catalog,
+    CartViewModel cart,
+    OrdersViewModel orders,
+  ) : _backend = backend,
+      _store = store,
+      _catalog = catalog,
+      _cart = cart,
+      _orders = orders;
 
   final DemoBackend _backend;
   final MemoryStore _store;
@@ -40,8 +44,7 @@ class _ShopAppState extends State<ShopApp> {
         return switch ((settings.name, settings.arguments)) {
           ('/', _) => MaterialPageRoute<void>(
             settings: settings,
-            builder: (_) =>
-                CatalogPage(widget._catalog, widget._cart, widget._orders),
+            builder: (_) => CatalogPage(widget._catalog, widget._cart),
           ),
           ('/cart', _) => MaterialPageRoute<void>(
             settings: settings,

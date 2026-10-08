@@ -478,6 +478,28 @@
           }
         },
         {
+          "id": "backend-check-request",
+          "kind": "method",
+          "qualified_name": "shop.data.services.demo_backend.DemoBackend._checkRequest",
+          "parent_id": "demo-backend-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reject offline requests and consume one pending failure."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "void"
+          }
+        },
+        {
           "id": "backend-online",
           "kind": "attribute",
           "qualified_name": "shop.data.services.demo_backend.DemoBackend._isOnline",
@@ -514,28 +536,6 @@
             "basis": "declared"
           },
           "annotation": "bool"
-        },
-        {
-          "id": "backend-ctor",
-          "kind": "method",
-          "qualified_name": "shop.data.services.demo_backend.DemoBackend.DemoBackend",
-          "parent_id": "demo-backend-class",
-          "language": "dart",
-          "presence": "planned",
-          "provenance": [
-            "docs/target.md"
-          ],
-          "responsibilities": [
-            "Start the demo in online mode."
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
-          "signature": {
-            "parameters": [],
-            "returns": "DemoBackend"
-          }
         },
         {
           "id": "backend-is-online",

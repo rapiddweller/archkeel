@@ -20,7 +20,16 @@
         "docs/target.md"
       ],
       "decided_by": "agent",
-      "requires": [],
+      "requires": [
+        {
+          "component": "cart",
+          "through": [
+            "shop.presentation.shopping.cart.cart_view_model"
+          ],
+          "rationale": "Add a selected product through the cart view model required by the catalog action.",
+          "decided_by": "agent"
+        }
+      ],
       "namespace": "shop.presentation.shopping.catalog"
     },
     {
@@ -169,12 +178,6 @@
                 "annotation": "CartViewModel",
                 "kind": "positional",
                 "default_known": true
-              },
-              {
-                "name": "orders",
-                "annotation": "OrdersViewModel",
-                "kind": "positional",
-                "default_known": true
               }
             ],
             "returns": "CatalogPage"
@@ -202,6 +205,41 @@
               {
                 "name": "context",
                 "annotation": "BuildContext",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Widget"
+          }
+        },
+        {
+          "id": "catalog-page-render-body",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_page.CatalogPage._catalogBody",
+          "parent_id": "catalog-page-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Render the catalog async state and its product rows."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "context",
+                "annotation": "BuildContext",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "state",
+                "annotation": "AsyncState<List<Product>>",
                 "kind": "positional",
                 "default_known": true
               }
@@ -1078,7 +1116,7 @@
         {
           "id": "catalog-page-calls-add",
           "kind": "calls",
-          "source_id": "catalog-page-class-build",
+          "source_id": "catalog-page-render-body",
           "target_id": "cart-vm-class-add",
           "provenance": [
             "docs/target.md"
@@ -1152,6 +1190,15 @@
           "kind": "inherits",
           "source_id": "cart-page-class",
           "target_id": "ref-flutter-stateless-widget",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "catalog-page-build-calls-body",
+          "kind": "calls",
+          "source_id": "catalog-page-class-build",
+          "target_id": "catalog-page-render-body",
           "provenance": [
             "docs/target.md"
           ]

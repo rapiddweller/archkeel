@@ -6,7 +6,7 @@ import 'package:shop/domain/orders/order_repository.dart';
 import 'package:shop/state/async_state.dart';
 
 class OrdersViewModel extends ChangeNotifier {
-  OrdersViewModel(this._repository) {
+  OrdersViewModel(OrderRepository repository) : _repository = repository {
     load();
   }
 

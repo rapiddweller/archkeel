@@ -5,7 +5,9 @@ import 'package:shop/domain/checkout/shop_status.dart';
 import 'package:shop/state/async_state.dart';
 
 class CatalogViewModel extends ChangeNotifier {
-  CatalogViewModel(this._repository, this._status) {
+  CatalogViewModel(CatalogRepository repository, ShopStatus status)
+    : _repository = repository,
+      _status = status {
     load();
   }
 
@@ -20,7 +22,7 @@ class CatalogViewModel extends ChangeNotifier {
 
   AsyncState<List<Product>> get state => _state;
 
-  bool get isOnline => _repository.isOnline();
+  bool get isOnline => _status.isOnline();
 
   Future<void> load() async {
     _state = const AsyncState(LoadPhase.loading, null, null);
@@ -42,17 +44,7 @@ class CatalogViewModel extends ChangeNotifier {
 
   Future<void> setOnline(bool online) async {
     _status.setOnline(online);
-    if (online) {
-      await load();
-    } else {
-      final cached = _state.value;
-      _state = AsyncState(
-        cached == null || cached.isEmpty ? LoadPhase.empty : LoadPhase.ready,
-        cached ?? const [],
-        null,
-      );
-      _notify();
-    }
+    await load();
   }
 
   void _notify() {

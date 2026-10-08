@@ -241,7 +241,7 @@
             "docs/target.md"
           ],
           "responsibilities": [
-            "Expose and control the demo’s online/offline mode."
+            "Expose and control the demo\u2019s online/offline mode."
           ],
           "file_path": "lib/domain/checkout/shop_status.dart"
         },
@@ -1163,7 +1163,7 @@
         {
           "id": "order-from-cart",
           "kind": "method",
-          "qualified_name": "shop.domain.orders.order.Order.fromCart",
+          "qualified_name": "shop.domain.orders.order.Order.Order.fromCart",
           "parent_id": "order-class",
           "language": "dart",
           "presence": "planned",

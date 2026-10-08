@@ -85,11 +85,21 @@ def test_flutter_target_has_agent_owned_responsibilities_and_closed_permissions(
             rule["provenance"] == list(PROVENANCE) and rule["decided_by"] == "agent"
             for rule in payload["rules"]
         )
-        assert all(
-            requirement["rationale"] and requirement["decided_by"] == "agent"
-            for component in payload["components"]
-            for requirement in component.get("requires", [])
-        )
+    assert all(
+        requirement["rationale"] and requirement["decided_by"] == "agent"
+        for component in payload["components"]
+        for requirement in component.get("requires", [])
+    )
+    shopping = json.loads((FIXTURE / "contracts/shopping.json").read_text(encoding="utf-8"))
+    catalog = next(item for item in shopping["components"] if item["id"] == "catalog")
+    assert catalog["requires"] == [
+        {
+            "component": "cart",
+            "through": ["shop.presentation.shopping.cart.cart_view_model"],
+            "rationale": "Add a selected product through the cart view model required by the catalog action.",
+            "decided_by": "agent",
+        }
+    ]
 
 
 def test_flutter_target_owns_three_meaningful_component_levels_and_all_modules() -> None:
@@ -134,6 +144,17 @@ def test_flutter_target_pins_journey_signatures_member_scopes_and_flutter_inheri
     }
 
     assert "shop.domain.cart.cart.Cart.totalCents" in names
+    assert "shop.domain.orders.order.Order.Order.fromCart" in names
+    assert "shop.presentation.shopping.catalog.catalog_page.CatalogPage._catalogBody" in names
+    assert "shop.data.services.demo_backend.DemoBackend._checkRequest" in names
+    assert "shop.data.services.demo_backend.DemoBackend.DemoBackend" not in names
+    catalog_parameters = names[
+        "shop.presentation.shopping.catalog.catalog_page.CatalogPage.CatalogPage"
+    ].signature.parameters
+    assert [(parameter.name, parameter.annotation) for parameter in catalog_parameters] == [
+        ("catalog", "CatalogViewModel"),
+        ("cart", "CartViewModel"),
+    ]
     assert names["shop.domain.cart.cart.CartLine.quantity"].annotation == "int"
     assert (
         names["shop.domain.checkout.place_order.PlaceOrder.call"].signature.returns
@@ -234,6 +255,16 @@ def test_flutter_target_pins_journey_signatures_member_scopes_and_flutter_inheri
             "creates",
             "shop.main.main",
             "shop.app.shop_app.ShopApp",
+        ),
+        (
+            "calls",
+            "shop.presentation.shopping.catalog.catalog_page.CatalogPage.build",
+            "shop.presentation.shopping.catalog.catalog_page.CatalogPage._catalogBody",
+        ),
+        (
+            "calls",
+            "shop.presentation.shopping.catalog.catalog_page.CatalogPage._catalogBody",
+            "shop.presentation.shopping.cart.cart_view_model.CartViewModel.addProduct",
         ),
         (
             "creates",

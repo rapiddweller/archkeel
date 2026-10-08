@@ -4,7 +4,9 @@ import 'package:shop/domain/orders/order.dart';
 import 'package:shop/domain/orders/order_repository.dart';
 
 class MemoryOrderRepository implements OrderRepository {
-  MemoryOrderRepository(this._backend, this._store);
+  MemoryOrderRepository(DemoBackend backend, MemoryStore store)
+    : _backend = backend,
+      _store = store;
 
   final DemoBackend _backend;
   final MemoryStore _store;

@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:shop/domain/catalog/product.dart';
-import 'package:shop/presentation/orders/orders_view_model.dart';
 import 'package:shop/presentation/shopping/cart/cart_view_model.dart';
 import 'package:shop/presentation/shopping/catalog/catalog_view_model.dart';
 import 'package:shop/state/async_state.dart';
 
 class CatalogPage extends StatelessWidget {
-  const CatalogPage(this.catalog, this.cart, this.orders);
+  const CatalogPage(this.catalog, this.cart);
 
   final CatalogViewModel catalog;
   final CartViewModel cart;
-  final OrdersViewModel orders;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -32,7 +30,7 @@ class CatalogPage extends StatelessWidget {
       ],
     ),
     body: ListenableBuilder(
-      listenable: catalog,
+      listenable: Listenable.merge([catalog, cart]),
       builder: (context, _) => Column(
         children: [
           SwitchListTile(

@@ -4,7 +4,9 @@ import 'package:shop/domain/catalog/catalog_repository.dart';
 import 'package:shop/domain/catalog/product.dart';
 
 class CachedCatalogRepository implements CatalogRepository {
-  CachedCatalogRepository(this._backend, this._store);
+  CachedCatalogRepository(DemoBackend backend, MemoryStore store)
+    : _backend = backend,
+      _store = store;
 
   final DemoBackend _backend;
   final MemoryStore _store;

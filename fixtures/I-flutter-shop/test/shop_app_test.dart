@@ -133,6 +133,28 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('offline mode restores cached products after a failed refresh', (
+    tester,
+  ) async {
+    final shop = _TestShop();
+    await tester.pumpWidget(shop.app);
+    await tester.pumpAndSettle();
+    expect(find.text('Trail Mix'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('toggle-online')));
+    await tester.pumpAndSettle();
+    shop.backend.failNextRequest();
+    await tester.tap(find.byKey(const ValueKey('toggle-online')));
+    await tester.pumpAndSettle();
+    expect(find.text('Could not load catalog'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('toggle-online')));
+    await tester.pumpAndSettle();
+    expect(find.text('Offline: cached catalog'), findsOneWidget);
+    expect(find.text('Trail Mix'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('ignores duplicate checkout taps while submission is pending', (
     tester,
   ) async {
@@ -159,7 +181,24 @@ void main() {
     expect(orders.placeCalls, 1);
     expect(find.text('Placing order…'), findsOneWidget);
 
+    await tester.pageBack();
+    await tester.pump();
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const ValueKey('add-oat-bar')))
+          .onPressed,
+      isNull,
+    );
+
     orders.completePending();
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const ValueKey('add-oat-bar')))
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byKey(const ValueKey('open-cart')));
     await tester.pumpAndSettle();
     expect(find.text('Order placed'), findsOneWidget);
     expect(orders.placeCalls, 1);

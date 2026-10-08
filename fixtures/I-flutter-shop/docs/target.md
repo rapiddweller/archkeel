@@ -1,6 +1,6 @@
 # Flutter shop Target
 
-This Target is authored before app source. `shop` is the package and scan namespace; module identities are `shop.` plus the path under `lib/` without `.dart`. Component ownership follows composition, presentation → shopping → catalog/cart, and sibling domain/data/state areas. The module inventory below is complete for the planned fixture; every listed module has its declaration inventory and provenance in the mounted UML contracts.
+The initial Target was authored before app source. A narrowly scoped architecture review later corrected four modeling defects; the corrections are recorded below. `shop` is the package and scan namespace; module identities are `shop.` plus the path under `lib/` without `.dart`. Component ownership follows composition, presentation → shopping → catalog/cart, and sibling domain/data/state areas. The module inventory below is complete for the planned fixture; every listed module has its declaration inventory and provenance in the mounted UML contracts.
 
 ## Source layout
 
@@ -35,6 +35,12 @@ This Target is authored before app source. `shop` is the package and scan namesp
 All component responsibilities, requirements, declarations, and edges cite this document and use `decided_by: agent`. `complete_requires` closes each component boundary. Presentation may use domain ports/use cases and generic state, but may not bypass repositories into data services. Data repositories may use data services and domain values; services remain below repositories. Domain components depend only on other domain components needed by the model (cart→catalog, orders→cart, checkout→cart/orders). Composition constructs the concrete graph and may depend on presentation, domain, data, and state.
 
 The Target includes external `ChangeNotifier`, `StatelessWidget`, `StatefulWidget`, and `State<ShopApp>` inheritance endpoints, plus `runApp`. These SDK endpoints are referenced, not app-owned; unresolved Flutter SDK evidence remains UNKNOWN and must not be removed to make the report green. Shared UML has no traits for `final`/`sealed`, generic bounds, or mixin-specific behavior; callback execution and runtime lifecycle transitions are also not represented.
+
+## Reviewed corrections (2026-10-08)
+
+Independent review of the authored Target against the runnable source found narrow modeling defects. `CatalogPage` no longer receives the unused `OrdersViewModel`; composition owns route construction. The catalog component now explicitly requires the cart view-model module because its add action calls that boundary. The private `_catalogBody(BuildContext, AsyncState<List<Product>>): Widget` helper is declared and owns the required add-product call, making the renderer's delegation visible. The `Order.fromCart` factory uses Dart's constructor-qualified identity, `Order.Order.fromCart`. `DemoBackend` has no explicit constructor requirement because Dart supplies its default constructor; its private `_checkRequest(): void` helper is declared to complete the closed member inventory. These corrections preserve the original workflow and permission policy.
+
+Expected UNKNOWN evidence remains explicit: inferred `main` binding annotations/references, `State.widget`-mediated calls, external Flutter SDK endpoints, and execution of the `CartPage` checkout tear-off. These are not changed to synthetic direct calls or app-owned SDK declarations to force a PASS.
 
 ## Intended source-only checks
 

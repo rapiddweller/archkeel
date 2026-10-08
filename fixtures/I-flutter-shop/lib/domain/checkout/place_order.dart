@@ -4,7 +4,9 @@ import 'package:shop/domain/orders/order.dart';
 import 'package:shop/domain/orders/order_repository.dart';
 
 class PlaceOrder {
-  PlaceOrder(this._status, this._repository);
+  PlaceOrder(ShopStatus status, OrderRepository repository)
+    : _status = status,
+      _repository = repository;
 
   final ShopStatus _status;
   final OrderRepository _repository;
