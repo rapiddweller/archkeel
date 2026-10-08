@@ -32,7 +32,7 @@
 - **Dart generated parts:** all 111 physical inputs map to exactly 89 library owners; generated parts are not independent Target modules. Tasks 1 and 6.
 - **Partial UML under source-coverage failure:** design and test one shared Core boundary before project proofs. Only authenticated, validated partial observations are eligible; coverage status and diagnostics remain unchanged. Do not whitelist diagnostic strings, create a second graph/receipt, or let incomplete evidence produce aggregate PASS. Task 4.
 - **Python non-Python boundaries:** SQL, `.pyi` and `.mako` remain preserved provenance, not Python facts. Task 8.
-- **Nest decorators/packages:** do not infer framework route/DI/ORM execution from dropped decorators or resolve ambient package installs. The UNKNOWN example must add a new dynamic required call and prove the assessment changed. Task 11.
+- **Nest decorators/packages:** do not infer framework route/DI/ORM execution from dropped decorators or resolve ambient package installs. The UNKNOWN example must make a required invocation (`calls` or `creates`) dynamic and prove the same relationship assessment changed. Task 11.
 
 ## Pinned project preflight
 
@@ -180,6 +180,7 @@
 
 - [ ] Define module/controller/service/entity/DTO/auth/persistence responsibilities and assign every one of the 41 prepared build modules exactly once.
 - [ ] Close principal method/member contracts for auth, article/feed/favorite/comment/profile/follow/tag and persistence. State that decorator-based route/DI/ORM runtime edges are claimed only if source facts actually support them.
+- [ ] Declare the source-backed `UserService.create` → `User` construction obligation before collection; Task 11 will make that invocation dynamic against the same Target. Property-method receiver dispatch remains an explicit profile limitation.
 - [ ] Test ownership and Target validity without collection. Record Target hash and commit/review before Task 11.
 
 ### Task 11: Prove Nest/Mikro full build Target and variants
@@ -189,7 +190,7 @@
 **Interface:** consumes Task 1's untouched 45-file upstream manifest, 41 prepared build inputs and frozen Task 10 Target. Produces non-null base and three source-only mutations.
 
 - [ ] First verify the 45 original files remain byte-identical, the two derived config copies match their templates and the upstream 39 runtime files are all present. Resolve using only explicitly recorded config/package-metadata inputs; never inspect ambient `node_modules`.
-- [ ] Add tests for non-null comparison with all 41 prepared inputs and truthful coverage FAIL if a bounded source gap remains; forbidden internal dependency → architecture FAIL; nested required member/signature mismatch → UML FAIL; and a previously proven required call whose receiver is changed to dynamic → UNKNOWN. The UNKNOWN assertion must show the new call's assessment transition; merely missing decorators/packages does not satisfy it.
+- [ ] Add tests for non-null comparison with all 41 prepared inputs and truthful coverage FAIL if a bounded source gap remains; forbidden internal dependency → architecture FAIL; nested required member/signature mismatch → UML FAIL; and a previously proven required invocation (`calls` or `creates`) made dynamic → UNKNOWN. Use the source-backed `new User(...)` → `new (User as any)(...)` construction in `UserService.create`, retaining the exact Target `creates` obligation. The UNKNOWN assertion must show that same relationship assessment transition; merely missing decorators/packages does not satisfy it.
 - [ ] Inspect exact pinned package manifests/lock entries for any supported export shape. Fix only a measured shared TypeScript profile defect necessary to preserve internal source facts or comparison. Do not infer Nest decorators or package execution; keep unsupported behavior UNKNOWN.
 - [ ] Assert each variant retains all 41 prepared input paths and the same Target digest, and identify exact changed source evidence. Record external unresolveds/decorators and actual verdicts; commit/review.
 
