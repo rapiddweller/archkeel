@@ -87,8 +87,8 @@
 
 **Interface:** preserve existing SourceFacts schema; emit source-faithful declaration/member identity and signature completeness.
 
-- [ ] Add RED tests for same-named locals in separate function-expression scopes; getter/setter member records sharing a Dart property name; true duplicate declarations; resolved and missing/invalid `super.key` element types; and a non-null comparison with an UNKNOWN incomplete signature.
-- [ ] Verify failures at the focused collector and Core paths. For unresolved inherited parameters, preserve the parameter fact with `signature_complete=false`; never encode `dynamic` or an Analyzer error type as proven. For local identity, keep function-expression scopes distinct. For accessors, preserve both operations and resolve each from its actual declaration, without lossy merging.
+- [ ] Add RED tests for same-named locals in separate function-expression scopes; getter/setter member records sharing a Dart property name; true duplicate declarations; resolved and missing/invalid `super.key` element types; and a non-null comparison with an UNKNOWN incomplete signature. Include `Parent({String key = 'x'})` and `Child({super.key})` to verify the inherited default is read from a trustworthy resolved parent parameter or remains UNKNOWN.
+- [ ] Verify failures at the focused collector and Core paths. For unresolved inherited parameters, preserve the parameter fact with `signature_complete=false`; do not guess `dynamic` or an Analyzer error type from failed resolution. An explicitly source-declared `dynamic` remains known. For local identity, keep function-expression scopes distinct. For accessors, preserve both operations and resolve each from its actual declaration, without lossy merging.
 - [ ] Fix the smallest shared collector/indexing cause and run focused tests plus existing constructor/inheritance/provenance checks. Commit and independently review before Compass Target validation.
 
 ### Task 3: Add shared Dart mixin and `with` semantics

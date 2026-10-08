@@ -36,6 +36,10 @@ def test_compass_snapshot_preserves_libraries_and_generated_parts() -> None:
     generated = [item for item in dart if item.get("generated") is True]
     libraries = [item for item in dart if item.get("generated") is False]
     assert (len(dart), len(libraries), len(generated)) == (111, 89, 22)
+    assert {item["path"] for item in files if not item["path"].endswith(".dart")} == {
+        "LICENSE",
+        "pubspec.yaml",
+    }
     actual_dart = {
         path.relative_to(ROOT / fixture).as_posix()
         for path in (ROOT / fixture / "lib").rglob("*.dart")
@@ -122,6 +126,13 @@ def test_nest_snapshot_preserves_original_and_derived_build_inputs() -> None:
 
     originals = snapshot["original_src_files"]
     assert len(originals) == 45
+    upstream_base = (
+        "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/"
+        "a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/"
+    )
+    for item in originals:
+        assert item["source_path"] == item["path"]
+        assert item["source_url"] == upstream_base + item["source_path"]
     build = [item for item in originals if item["build_input"]]
     excluded = [item for item in originals if not item["build_input"]]
     assert len([item for item in originals if item["path"].endswith(".ts")]) == 42
@@ -138,9 +149,9 @@ def test_nest_snapshot_preserves_original_and_derived_build_inputs() -> None:
     assert {item["path"] for item in excluded} == expected_excluded
 
     derived = snapshot["derived_files"]
-    assert {item["source_path"] for item in derived} == {
-        "src/config.ts.example",
-        "src/mikro-orm.config.ts.example",
+    assert {item["source_path"]: item["path"] for item in derived} == {
+        "src/config.ts.example": "src/config.ts",
+        "src/mikro-orm.config.ts.example": "src/mikro-orm.config.ts",
     }
     assert len(build) + len(derived) == 41
     actual_src = {
@@ -160,6 +171,14 @@ def test_nest_snapshot_preserves_original_and_derived_build_inputs() -> None:
         assert _sha256(source) == item["source_sha256"] == item["sha256"]
 
     support = snapshot["support_files"]
+    assert {item["path"] for item in support} == {
+        "LICENSE",
+        "UPSTREAM_README.md",
+        "package.json",
+        "yarn.lock",
+        "tsconfig.json",
+        "tsconfig.build.json",
+    }
     upstream_readme = next(item for item in support if item["source_path"] == "README.md")
     assert upstream_readme["path"] == "UPSTREAM_README.md"
     for item in support:
