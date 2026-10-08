@@ -27,7 +27,7 @@
 
 ## Review focus
 
-- **Dart inherited `super.key` without SDK inputs:** retain the parameter record with `signature_complete=false` if Analyzer gives an invalid/missing type; comparison for the signature is UNKNOWN while the whole comparison remains non-null. Do not label absent type knowledge as a syntax gap. Task 2.
+- **Dart inherited `super.key` without SDK inputs:** preserve the source parameter; if Analyzer cannot resolve its inherited type, record `signature_complete=false` and compare it as UNKNOWN. Do not infer `dynamic` from failed resolution; an explicitly source-declared `dynamic` remains a known annotation. Do not infer an implicit `null` default from omitted child syntax when a resolved parent parameter has a non-null default; use that Analyzer fact only when trustworthy, otherwise keep it UNKNOWN. Add a `Parent({String key = 'x'})` / `Child({super.key})` regression. Do not label absent type knowledge as a syntax gap. Task 2.
 - **Dart local/accessor identity:** local identities include lexical function-expression scope; getter/setter preserve both source operations without first-match element misbinding or lossy merging. Real ambiguous duplicates stay gaps. Task 2.
 - **Dart generated parts:** all 111 physical inputs map to exactly 89 library owners; generated parts are not independent Target modules. Tasks 1 and 6.
 - **Partial UML under source-coverage failure:** design and test one shared Core boundary before project proofs. Only authenticated, validated partial observations are eligible; coverage status and diagnostics remain unchanged. Do not whitelist diagnostic strings, create a second graph/receipt, or let incomplete evidence produce aggregate PASS. Task 4.
@@ -67,9 +67,9 @@
 ### Task 1: Preserve selected source snapshots and provenance
 
 **Files:**
-- Create `fixtures/J-compass/app/lib/**`, `app/pubspec.yaml`, `LICENSE`, `SNAPSHOT.json`.
+- Create `fixtures/J-compass/lib/**`, root `pubspec.yaml`, `LICENSE`, `SNAPSHOT.json`; retain original `compass_app/app/...` source paths in provenance. Keep Dart files and pubspec at the collector root so `package:` imports and native snapshot discovery work without a wrapper layer.
 - Create `fixtures/K-python-realworld/app/**` (all 79 app files), `LICENSE`, `README.rst`, `pyproject.toml`, `setup.cfg`, `poetry.lock`, `alembic.ini`, `SNAPSHOT.json` with the 125-entry tree manifest.
-- Create `fixtures/L-nest-realworld/src/**` (all 45 originals plus two derived config copies), `LICENSE`, `README.md`, `package.json`, `yarn.lock`, `tsconfig.json`, `tsconfig.build.json`, `SNAPSHOT.json`.
+- Create `fixtures/L-nest-realworld/src/**` (all 45 originals plus two derived config copies), `LICENSE`, `UPSTREAM_README.md`, `package.json`, `yarn.lock`, `tsconfig.json`, `tsconfig.build.json`, `SNAPSHOT.json`. Preserve the pinned README under `UPSTREAM_README.md`; later Target authorship owns fixture `README.md`.
 - Modify `tests/test_repository_hygiene.py`; create `tests/test_project_demo_snapshots.py`.
 
 **Interfaces:** outputs immutable source path/hash/URL lists. Keep original and derived Nest inputs distinguishable; keep full Python tree provenance while only vendoring the selected app.

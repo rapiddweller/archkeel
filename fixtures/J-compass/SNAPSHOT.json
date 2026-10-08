@@ -1,0 +1,818 @@
+{
+  "commit": "5541c59ab8e9d7e74c1a35ef22bd43a487fc596c",
+  "files": [
+    {
+      "path": "LICENSE",
+      "role": "license",
+      "sha256": "687c3d4c3a553c0fa995e9d3c35b245872fa4a0f5c2bd6494decc2fa410f7ce9",
+      "source_path": "LICENSE",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/LICENSE"
+    },
+    {
+      "generated": false,
+      "path": "lib/config/assets.dart",
+      "sha256": "8f8e0ffbbfaf900521dd2cbc592707eff5c6e5dfe0dac76557afba93ab6b91f3",
+      "source_path": "compass_app/app/lib/config/assets.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/config/assets.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/config/dependencies.dart",
+      "sha256": "dc6bfaa805be42b9c68c1f82ec080b1a7365fd117eea186ee6f9c5097a557c3e",
+      "source_path": "compass_app/app/lib/config/dependencies.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/config/dependencies.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/activity/activity_repository.dart",
+      "sha256": "4d4116a3b6f7de606865dddac4cf854f3d3633ab2fdb9c8dadfc89894daea1fe",
+      "source_path": "compass_app/app/lib/data/repositories/activity/activity_repository.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/activity/activity_repository.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/activity/activity_repository_local.dart",
+      "sha256": "2f5f7ffb398a1a9c1617274d28426c99ffd58eed6f6283e1e12ab7a00250cd8a",
+      "source_path": "compass_app/app/lib/data/repositories/activity/activity_repository_local.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/activity/activity_repository_local.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/activity/activity_repository_remote.dart",
+      "sha256": "c9afd9241078eb22802036e870c511332b23d168439a548b4f20b2ebd5ce0a9e",
+      "source_path": "compass_app/app/lib/data/repositories/activity/activity_repository_remote.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/activity/activity_repository_remote.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/auth/auth_repository.dart",
+      "sha256": "03cd619c3f357f888a48c84fa577af0c840e35cf7bdc36211900e2dcad007a32",
+      "source_path": "compass_app/app/lib/data/repositories/auth/auth_repository.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/auth/auth_repository.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/auth/auth_repository_dev.dart",
+      "sha256": "e7ca924fa272c4fe48440430681ae83add5053132396d99e4d0ca9f54a8f518f",
+      "source_path": "compass_app/app/lib/data/repositories/auth/auth_repository_dev.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/auth/auth_repository_dev.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/auth/auth_repository_remote.dart",
+      "sha256": "75305b8043434f2a7553d05939eae41e97e3f30f80afd30f0bb6173af44ae52a",
+      "source_path": "compass_app/app/lib/data/repositories/auth/auth_repository_remote.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/auth/auth_repository_remote.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/booking/booking_repository.dart",
+      "sha256": "a5c1e0d8cfaf180ed1b921f6d7868376852845ae4201aa184774a8b2c6a9becd",
+      "source_path": "compass_app/app/lib/data/repositories/booking/booking_repository.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/booking/booking_repository.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/booking/booking_repository_local.dart",
+      "sha256": "1599e0d3f06decbdd813ff640218232c9bfb37b5deeb603ada199bd11eb166fd",
+      "source_path": "compass_app/app/lib/data/repositories/booking/booking_repository_local.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/booking/booking_repository_local.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/booking/booking_repository_remote.dart",
+      "sha256": "fa660b01c1c4c9a5969431d42610507a6686ce95e227332e47a1b83df961a1de",
+      "source_path": "compass_app/app/lib/data/repositories/booking/booking_repository_remote.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/booking/booking_repository_remote.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/continent/continent_repository.dart",
+      "sha256": "849af958e5cb51e9964b0958d7030e1d9d394528adea76a125fd0a8f24c3b924",
+      "source_path": "compass_app/app/lib/data/repositories/continent/continent_repository.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/continent/continent_repository.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/continent/continent_repository_local.dart",
+      "sha256": "75b558034a3cb17c0f11a5738fdb2cda149d4128c0df688f9da6f96399493290",
+      "source_path": "compass_app/app/lib/data/repositories/continent/continent_repository_local.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/continent/continent_repository_local.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/continent/continent_repository_remote.dart",
+      "sha256": "df2796221fdeb5f676af8e14ac855e8693dcb9cebeebfbd4ab6a65a53ce67cb8",
+      "source_path": "compass_app/app/lib/data/repositories/continent/continent_repository_remote.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/continent/continent_repository_remote.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/destination/destination_repository.dart",
+      "sha256": "59c1f312b8a05ee995f0a2c4ea1dd114f2539c372ad108d00d8047f9c9e4a68f",
+      "source_path": "compass_app/app/lib/data/repositories/destination/destination_repository.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/destination/destination_repository.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/destination/destination_repository_local.dart",
+      "sha256": "92e5fa4fdc5561aed757d7fb2075df133439cf8035e06c43c77e99246be48b60",
+      "source_path": "compass_app/app/lib/data/repositories/destination/destination_repository_local.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/destination/destination_repository_local.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/destination/destination_repository_remote.dart",
+      "sha256": "69d3527cb0995a7a9f031424e507f71402935fe1bf74d5a4a83e01075a44fd9b",
+      "source_path": "compass_app/app/lib/data/repositories/destination/destination_repository_remote.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/destination/destination_repository_remote.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/itinerary_config/itinerary_config_repository.dart",
+      "sha256": "9a758645d672e3c3881de9a1a8d0dd8ed7b9650d13e733d35389f688490e7531",
+      "source_path": "compass_app/app/lib/data/repositories/itinerary_config/itinerary_config_repository.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/itinerary_config/itinerary_config_repository.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/itinerary_config/itinerary_config_repository_memory.dart",
+      "sha256": "ac163d864f6a622675ea9adbbfc42d29b24024f35de2d61f26a9be166731cd1a",
+      "source_path": "compass_app/app/lib/data/repositories/itinerary_config/itinerary_config_repository_memory.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/itinerary_config/itinerary_config_repository_memory.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/user/user_repository.dart",
+      "sha256": "89dd79675c0c65685b96ce976950ca34fdb7da2a53d0a1606d1dd69e450e8579",
+      "source_path": "compass_app/app/lib/data/repositories/user/user_repository.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/user/user_repository.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/user/user_repository_local.dart",
+      "sha256": "6d61461745baff5579ac197282e835de44bad76172dfe789b6b3d9fba60f8d3f",
+      "source_path": "compass_app/app/lib/data/repositories/user/user_repository_local.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/user/user_repository_local.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/repositories/user/user_repository_remote.dart",
+      "sha256": "ddb50183e027e0f72e04dbf7bfc7035d241cf2d593703b688efaf67894967394",
+      "source_path": "compass_app/app/lib/data/repositories/user/user_repository_remote.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/repositories/user/user_repository_remote.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/services/api/api_client.dart",
+      "sha256": "7e5f2e49be4654ca0860db82ca9c37775075055ebe1643a994f305b4b78dbd37",
+      "source_path": "compass_app/app/lib/data/services/api/api_client.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/api/api_client.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/services/api/auth_api_client.dart",
+      "sha256": "4d3b44eb4e864880b2ac44b839390148958bb6114353e92212fd9749066ed8f9",
+      "source_path": "compass_app/app/lib/data/services/api/auth_api_client.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/api/auth_api_client.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/services/api/model/booking/booking_api_model.dart",
+      "sha256": "c2e383df77058f1b8c2bd461388f1eca87453093ed64c5b66b57b2d3c77116c8",
+      "source_path": "compass_app/app/lib/data/services/api/model/booking/booking_api_model.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/api/model/booking/booking_api_model.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/data/services/api/model/booking/booking_api_model.dart",
+      "path": "lib/data/services/api/model/booking/booking_api_model.freezed.dart",
+      "sha256": "d0122db8a01fe0532a669f678480a462d0945436c90b00ba255fdf95945332ff",
+      "source_path": "compass_app/app/lib/data/services/api/model/booking/booking_api_model.freezed.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/api/model/booking/booking_api_model.freezed.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/data/services/api/model/booking/booking_api_model.dart",
+      "path": "lib/data/services/api/model/booking/booking_api_model.g.dart",
+      "sha256": "74c632c63c7739fe4b8b4f64d4a3418e9985b84a621c96f313909e9f41501125",
+      "source_path": "compass_app/app/lib/data/services/api/model/booking/booking_api_model.g.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/api/model/booking/booking_api_model.g.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/services/api/model/login_request/login_request.dart",
+      "sha256": "30657c0b5c2a35a653c5e781c5a583e6381ef8803c10b1805a74615ac7edaf71",
+      "source_path": "compass_app/app/lib/data/services/api/model/login_request/login_request.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/api/model/login_request/login_request.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/data/services/api/model/login_request/login_request.dart",
+      "path": "lib/data/services/api/model/login_request/login_request.freezed.dart",
+      "sha256": "a3327321afe6c3d536a0f0fee3ed7318c51009e65fb212fa6de59d643d80a994",
+      "source_path": "compass_app/app/lib/data/services/api/model/login_request/login_request.freezed.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/api/model/login_request/login_request.freezed.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/data/services/api/model/login_request/login_request.dart",
+      "path": "lib/data/services/api/model/login_request/login_request.g.dart",
+      "sha256": "245bd4f1df9d6fb13c9898d1ef488b3c13db4de399866c0b0dc2c2584f9d3fd9",
+      "source_path": "compass_app/app/lib/data/services/api/model/login_request/login_request.g.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/api/model/login_request/login_request.g.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/services/api/model/login_response/login_response.dart",
+      "sha256": "1098b300efb357192e4cdb9574c61ec010825288b5a79139ed2c9443f31858ac",
+      "source_path": "compass_app/app/lib/data/services/api/model/login_response/login_response.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/api/model/login_response/login_response.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/data/services/api/model/login_response/login_response.dart",
+      "path": "lib/data/services/api/model/login_response/login_response.freezed.dart",
+      "sha256": "e6539b4bec9293a4fac6686b140967bd1400274cfd6d844b1d09fefb6e8f40fd",
+      "source_path": "compass_app/app/lib/data/services/api/model/login_response/login_response.freezed.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/api/model/login_response/login_response.freezed.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/data/services/api/model/login_response/login_response.dart",
+      "path": "lib/data/services/api/model/login_response/login_response.g.dart",
+      "sha256": "b4e33417436e233e7477d0c92728e742a42843dd2a86060590761f191a7bae31",
+      "source_path": "compass_app/app/lib/data/services/api/model/login_response/login_response.g.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/api/model/login_response/login_response.g.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/services/api/model/user/user_api_model.dart",
+      "sha256": "2a39edaec464d083694cf98c509fe00eb287ec1410eb803ea6b7e853d7db4f90",
+      "source_path": "compass_app/app/lib/data/services/api/model/user/user_api_model.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/api/model/user/user_api_model.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/data/services/api/model/user/user_api_model.dart",
+      "path": "lib/data/services/api/model/user/user_api_model.freezed.dart",
+      "sha256": "4e59a71d29fbe700c4be5a6f5170d18ba84afca4df53d124c644cd03bd365c99",
+      "source_path": "compass_app/app/lib/data/services/api/model/user/user_api_model.freezed.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/api/model/user/user_api_model.freezed.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/data/services/api/model/user/user_api_model.dart",
+      "path": "lib/data/services/api/model/user/user_api_model.g.dart",
+      "sha256": "7562bb498e9de89de60533f2b8abfc58ca7181dbea93b0afdca90f9439a82a90",
+      "source_path": "compass_app/app/lib/data/services/api/model/user/user_api_model.g.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/api/model/user/user_api_model.g.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/services/local/local_data_service.dart",
+      "sha256": "de6e4a56b694431446d62f8e94eee2d4c97ff7bc5cee4e7260533f3b4eda2056",
+      "source_path": "compass_app/app/lib/data/services/local/local_data_service.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/local/local_data_service.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/data/services/shared_preferences_service.dart",
+      "sha256": "3b7012c2bb16d73cde2ce3ab0001be5c2bf83f7891a937601b4e674bd7e22082",
+      "source_path": "compass_app/app/lib/data/services/shared_preferences_service.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/data/services/shared_preferences_service.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/domain/models/activity/activity.dart",
+      "sha256": "a23b79e7f16e3be1c1506e5026a6b1363829d9faa571daaf23d6f3e155b75143",
+      "source_path": "compass_app/app/lib/domain/models/activity/activity.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/activity/activity.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/domain/models/activity/activity.dart",
+      "path": "lib/domain/models/activity/activity.freezed.dart",
+      "sha256": "4401a1d115cf2ea292486c262a2bac688265a5121df186891c13d8d4a637e6b7",
+      "source_path": "compass_app/app/lib/domain/models/activity/activity.freezed.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/activity/activity.freezed.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/domain/models/activity/activity.dart",
+      "path": "lib/domain/models/activity/activity.g.dart",
+      "sha256": "afffa653d5d7ab5072afd423d0469293127db76aa187cb36ad1059a77772db3e",
+      "source_path": "compass_app/app/lib/domain/models/activity/activity.g.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/activity/activity.g.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/domain/models/booking/booking.dart",
+      "sha256": "ad701bdb852d4b5ad760cf4800b63f76d2f932d72a648782ee2d17b25fc80983",
+      "source_path": "compass_app/app/lib/domain/models/booking/booking.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/booking/booking.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/domain/models/booking/booking.dart",
+      "path": "lib/domain/models/booking/booking.freezed.dart",
+      "sha256": "2796de9df6a5aef156aeece5d0da36ce285503feef70c25743935e2c5ef48817",
+      "source_path": "compass_app/app/lib/domain/models/booking/booking.freezed.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/booking/booking.freezed.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/domain/models/booking/booking.dart",
+      "path": "lib/domain/models/booking/booking.g.dart",
+      "sha256": "b315ccdd8c358f9a31fffebb7fdcf9cbe69c29af0303b33d760c899ce92e5919",
+      "source_path": "compass_app/app/lib/domain/models/booking/booking.g.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/booking/booking.g.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/domain/models/booking/booking_summary.dart",
+      "sha256": "f7648283456d6600301b1f6134a1e5f70fd2a4952b535310d33aaf111d5ddcc1",
+      "source_path": "compass_app/app/lib/domain/models/booking/booking_summary.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/booking/booking_summary.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/domain/models/booking/booking_summary.dart",
+      "path": "lib/domain/models/booking/booking_summary.freezed.dart",
+      "sha256": "d446c8347f9f92effd946451e1daced6cd90b0f26f228f770a01baddc8a07848",
+      "source_path": "compass_app/app/lib/domain/models/booking/booking_summary.freezed.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/booking/booking_summary.freezed.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/domain/models/booking/booking_summary.dart",
+      "path": "lib/domain/models/booking/booking_summary.g.dart",
+      "sha256": "3f765128a27bf0b7717e302697f014b76659aa7bad1753392a379d6348618210",
+      "source_path": "compass_app/app/lib/domain/models/booking/booking_summary.g.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/booking/booking_summary.g.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/domain/models/continent/continent.dart",
+      "sha256": "dc293c179b7ad5660dfe8cb2aaac0f5b71b1e576880aea7b77475cbee74a7c6c",
+      "source_path": "compass_app/app/lib/domain/models/continent/continent.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/continent/continent.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/domain/models/continent/continent.dart",
+      "path": "lib/domain/models/continent/continent.freezed.dart",
+      "sha256": "ab61a3a98d3b4298db06187023df8aeb9c2456a51bcdff8807232bdd695f253f",
+      "source_path": "compass_app/app/lib/domain/models/continent/continent.freezed.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/continent/continent.freezed.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/domain/models/continent/continent.dart",
+      "path": "lib/domain/models/continent/continent.g.dart",
+      "sha256": "e95bf0ef57079fda7b00d75daf1627591b4976dae82662e34522d987172395e8",
+      "source_path": "compass_app/app/lib/domain/models/continent/continent.g.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/continent/continent.g.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/domain/models/destination/destination.dart",
+      "sha256": "a8329221a9f8cf8ddf698877072314510bef0d1e01853f81af9694c1465b80b4",
+      "source_path": "compass_app/app/lib/domain/models/destination/destination.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/destination/destination.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/domain/models/destination/destination.dart",
+      "path": "lib/domain/models/destination/destination.freezed.dart",
+      "sha256": "f3d844b45f407f7e6e0d13eeefdad798123e3cb0df113758231181cb13b5e9f8",
+      "source_path": "compass_app/app/lib/domain/models/destination/destination.freezed.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/destination/destination.freezed.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/domain/models/destination/destination.dart",
+      "path": "lib/domain/models/destination/destination.g.dart",
+      "sha256": "d3af1620431353218d9202da071e9d4f7c69b06635c6ce027d8e427411118163",
+      "source_path": "compass_app/app/lib/domain/models/destination/destination.g.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/destination/destination.g.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/domain/models/itinerary_config/itinerary_config.dart",
+      "sha256": "29f25ba0ea1bcb30f3f139755fe2c3791143aa493179e2caedb647c1680c4f4b",
+      "source_path": "compass_app/app/lib/domain/models/itinerary_config/itinerary_config.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/itinerary_config/itinerary_config.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/domain/models/itinerary_config/itinerary_config.dart",
+      "path": "lib/domain/models/itinerary_config/itinerary_config.freezed.dart",
+      "sha256": "1a4ca0a9b4f77bb4165fc4a81425a05446923292fa65ab033f615ae9a28b864b",
+      "source_path": "compass_app/app/lib/domain/models/itinerary_config/itinerary_config.freezed.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/itinerary_config/itinerary_config.freezed.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/domain/models/itinerary_config/itinerary_config.dart",
+      "path": "lib/domain/models/itinerary_config/itinerary_config.g.dart",
+      "sha256": "7d540d40cc6d17f223577408501dc60d6a39dfee5485c30779942ef2c0d55758",
+      "source_path": "compass_app/app/lib/domain/models/itinerary_config/itinerary_config.g.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/itinerary_config/itinerary_config.g.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/domain/models/user/user.dart",
+      "sha256": "96ae0d2015e171e310ed4f8b30012629f57c481596c7bf7eb86a7b4f5e2291d2",
+      "source_path": "compass_app/app/lib/domain/models/user/user.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/user/user.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/domain/models/user/user.dart",
+      "path": "lib/domain/models/user/user.freezed.dart",
+      "sha256": "dc955c22602878152df95503b51247e4a6494599cf7175bb7d7ffbfd31a53bf4",
+      "source_path": "compass_app/app/lib/domain/models/user/user.freezed.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/user/user.freezed.dart"
+    },
+    {
+      "generated": true,
+      "parent_library": "lib/domain/models/user/user.dart",
+      "path": "lib/domain/models/user/user.g.dart",
+      "sha256": "6c31f9ac9d58d88475672429efdc3908694174d9846c019a6eff13faec87ba20",
+      "source_path": "compass_app/app/lib/domain/models/user/user.g.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/models/user/user.g.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/domain/use_cases/booking/booking_create_use_case.dart",
+      "sha256": "b8de4c8ba5c739f9720cc1d6ce6315704aa1f72d95a4a1062b673fc5b8002038",
+      "source_path": "compass_app/app/lib/domain/use_cases/booking/booking_create_use_case.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/use_cases/booking/booking_create_use_case.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/domain/use_cases/booking/booking_share_use_case.dart",
+      "sha256": "1353f69bba890af974ab7a06ae8594f4da273a40191ebf14b1aac8e8facf1510",
+      "source_path": "compass_app/app/lib/domain/use_cases/booking/booking_share_use_case.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/domain/use_cases/booking/booking_share_use_case.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/main.dart",
+      "sha256": "0021796281304ef7daecbe7e259b2cdb5f7ebd575bfd07501b3f86d8bc7a200b",
+      "source_path": "compass_app/app/lib/main.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/main.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/main_development.dart",
+      "sha256": "7200af114666dd0fb051de3c49edebf32d908107ff19f8321952f1cd472cef30",
+      "source_path": "compass_app/app/lib/main_development.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/main_development.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/main_staging.dart",
+      "sha256": "557f0a829fb155d3c664c5413e9d08fb8e65f4d9f84ed170ab8b2db7b55a8db4",
+      "source_path": "compass_app/app/lib/main_staging.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/main_staging.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/routing/router.dart",
+      "sha256": "475d78d540968197d43979aeced22e8b5cbc15fa2a09a271ce56eb50472ecfd1",
+      "source_path": "compass_app/app/lib/routing/router.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/routing/router.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/routing/routes.dart",
+      "sha256": "0c5d2fffd1d870334c9e185bf8011c2f33563528c7d79860dfc68e21892357ce",
+      "source_path": "compass_app/app/lib/routing/routes.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/routing/routes.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/activities/view_models/activities_viewmodel.dart",
+      "sha256": "82e068b392e767ca80172378a5203d314e4f5e65eaaaf11872019e6a9ecf844f",
+      "source_path": "compass_app/app/lib/ui/activities/view_models/activities_viewmodel.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/activities/view_models/activities_viewmodel.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/activities/widgets/activities_header.dart",
+      "sha256": "c62371d115d6e846001e934e5c2606dda8ea07e35c51b5d6a39b78e1dfb7bd50",
+      "source_path": "compass_app/app/lib/ui/activities/widgets/activities_header.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/activities/widgets/activities_header.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/activities/widgets/activities_list.dart",
+      "sha256": "d36dd7ac480f8812d512908d35e7f9bfbe7fae90eac68791dab2d73a27f8eb76",
+      "source_path": "compass_app/app/lib/ui/activities/widgets/activities_list.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/activities/widgets/activities_list.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/activities/widgets/activities_screen.dart",
+      "sha256": "fc96a3c3f19201c91195612d12a74b6f46f69d4b5a35784b7b0172f85116b166",
+      "source_path": "compass_app/app/lib/ui/activities/widgets/activities_screen.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/activities/widgets/activities_screen.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/activities/widgets/activities_title.dart",
+      "sha256": "8f43e688ee0302a68588a3220ba838388816139e6a8f6c8c7ae731c68cf30218",
+      "source_path": "compass_app/app/lib/ui/activities/widgets/activities_title.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/activities/widgets/activities_title.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/activities/widgets/activity_entry.dart",
+      "sha256": "13f2eb978399524f66ac7bb4878414e6ceef70288e0f642e993df4ae208373c7",
+      "source_path": "compass_app/app/lib/ui/activities/widgets/activity_entry.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/activities/widgets/activity_entry.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/activities/widgets/activity_time_of_day.dart",
+      "sha256": "89dda2c8b24532806a21c790de8858b37e9866ce02a55fd8a3ee3e0d666252b2",
+      "source_path": "compass_app/app/lib/ui/activities/widgets/activity_time_of_day.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/activities/widgets/activity_time_of_day.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/auth/login/view_models/login_viewmodel.dart",
+      "sha256": "667acac0c8fd4f6ecf18060629aacb1d18bd84a06dfcd8e8a2e19c23a7a6b03a",
+      "source_path": "compass_app/app/lib/ui/auth/login/view_models/login_viewmodel.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/auth/login/view_models/login_viewmodel.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/auth/login/widgets/login_screen.dart",
+      "sha256": "ad1faa849a8d7233b7021db63691508bf5cc49bbcecde5818588b1c7c9ee2515",
+      "source_path": "compass_app/app/lib/ui/auth/login/widgets/login_screen.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/auth/login/widgets/login_screen.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/auth/login/widgets/tilted_cards.dart",
+      "sha256": "c815e918a24f07afbad648e683a5c1bb67bf7ff54c2b1a140b4cb3a42acf20ce",
+      "source_path": "compass_app/app/lib/ui/auth/login/widgets/tilted_cards.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/auth/login/widgets/tilted_cards.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/auth/logout/view_models/logout_viewmodel.dart",
+      "sha256": "be2142427e5f5b626cb7ab59807820ee0962a50d39847726098426e850ccd4b1",
+      "source_path": "compass_app/app/lib/ui/auth/logout/view_models/logout_viewmodel.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/auth/logout/view_models/logout_viewmodel.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/auth/logout/widgets/logout_button.dart",
+      "sha256": "4e34a7bb25485facabdd69e83018ad561e48fa89eeefe10ea6f54d9efe9a3528",
+      "source_path": "compass_app/app/lib/ui/auth/logout/widgets/logout_button.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/auth/logout/widgets/logout_button.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/booking/view_models/booking_viewmodel.dart",
+      "sha256": "8b0c1f4db82dcc1223aa527ae4cf07feb8c65f50d12f015ab1f2738d15688abf",
+      "source_path": "compass_app/app/lib/ui/booking/view_models/booking_viewmodel.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/booking/view_models/booking_viewmodel.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/booking/widgets/booking_body.dart",
+      "sha256": "1601f4117771bcea6bf886261e6e42141f02bdc85e26b5b07071fee7ef991504",
+      "source_path": "compass_app/app/lib/ui/booking/widgets/booking_body.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/booking/widgets/booking_body.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/booking/widgets/booking_header.dart",
+      "sha256": "a987c76e64bbcbbb3cd83595d753fefb90b5c46a359382bf23feda1f857bfcaa",
+      "source_path": "compass_app/app/lib/ui/booking/widgets/booking_header.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/booking/widgets/booking_header.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/booking/widgets/booking_screen.dart",
+      "sha256": "e087ea3d8fa5bc047903ad778061d054bd52d675dab1cc4f746650d6813f6368",
+      "source_path": "compass_app/app/lib/ui/booking/widgets/booking_screen.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/booking/widgets/booking_screen.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/core/localization/applocalization.dart",
+      "sha256": "108381d40acc3329932bbb90e3d83f4440815ff03be8aceebbe6e266704a8bd2",
+      "source_path": "compass_app/app/lib/ui/core/localization/applocalization.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/core/localization/applocalization.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/core/themes/colors.dart",
+      "sha256": "0b6a7271e273b47e1ac55f53fcc4df551dfa61241010222473fc942481c3fe33",
+      "source_path": "compass_app/app/lib/ui/core/themes/colors.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/core/themes/colors.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/core/themes/dimens.dart",
+      "sha256": "688ecca05d3b1374c67c103de2da6ff628af837b6e18cbfc42ab9f61c8d25578",
+      "source_path": "compass_app/app/lib/ui/core/themes/dimens.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/core/themes/dimens.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/core/themes/theme.dart",
+      "sha256": "409390f2dc8ce2595f8852cec103afdbbfc846f4e9d194e28224aad3be0c3ea0",
+      "source_path": "compass_app/app/lib/ui/core/themes/theme.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/core/themes/theme.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/core/ui/back_button.dart",
+      "sha256": "6db1b0e488ad834e359d7221ac0a5393b12425afd072cb7181c385ec7f5f7950",
+      "source_path": "compass_app/app/lib/ui/core/ui/back_button.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/core/ui/back_button.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/core/ui/blur_filter.dart",
+      "sha256": "496080053115d7e4f6447199dd20a21b620f13daee051c2c211a0d1951b7db87",
+      "source_path": "compass_app/app/lib/ui/core/ui/blur_filter.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/core/ui/blur_filter.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/core/ui/custom_checkbox.dart",
+      "sha256": "f11d91176bde3b0774b33a80613f2175f0a9458c76f5cec96dbabf76aebdd459",
+      "source_path": "compass_app/app/lib/ui/core/ui/custom_checkbox.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/core/ui/custom_checkbox.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/core/ui/date_format_start_end.dart",
+      "sha256": "cad09d6915d0cb2d1ae71da57506b83a25e2e629d52024654c33745f2809ed1d",
+      "source_path": "compass_app/app/lib/ui/core/ui/date_format_start_end.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/core/ui/date_format_start_end.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/core/ui/error_indicator.dart",
+      "sha256": "0d387249e4b31312da500f4b9e9977791af63af2c052a7298ac4ef41303849aa",
+      "source_path": "compass_app/app/lib/ui/core/ui/error_indicator.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/core/ui/error_indicator.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/core/ui/home_button.dart",
+      "sha256": "477c2fa6bc57c64bf7aa1194b0469af28ba59874a75cfc4b73f7b32f888ad1f4",
+      "source_path": "compass_app/app/lib/ui/core/ui/home_button.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/core/ui/home_button.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/core/ui/scroll_behavior.dart",
+      "sha256": "f74ac5a84bbea3a46cb42df5371fce67fcfeb2e5e75ce86b2654d8c8487c2e7c",
+      "source_path": "compass_app/app/lib/ui/core/ui/scroll_behavior.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/core/ui/scroll_behavior.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/core/ui/search_bar.dart",
+      "sha256": "be7d8919fe9d94ce96c2ef6f41ec281b45ce40483279f53bf2d22938a5f8225c",
+      "source_path": "compass_app/app/lib/ui/core/ui/search_bar.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/core/ui/search_bar.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/core/ui/tag_chip.dart",
+      "sha256": "95ec689d62cc0a3599128d35c47e73074c4e1deadab82b72bd3e4aba26999f52",
+      "source_path": "compass_app/app/lib/ui/core/ui/tag_chip.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/core/ui/tag_chip.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/home/view_models/home_viewmodel.dart",
+      "sha256": "472faa2a01b4bbda53d755d9271e6362ed4a2dc1689d45c238543f219c43ca7b",
+      "source_path": "compass_app/app/lib/ui/home/view_models/home_viewmodel.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/home/view_models/home_viewmodel.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/home/widgets/home_screen.dart",
+      "sha256": "7eb1b9947ab8a8c74757a3a6eba6ef1f8d6500afe4d7dd13a8b7cb433e941783",
+      "source_path": "compass_app/app/lib/ui/home/widgets/home_screen.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/home/widgets/home_screen.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/home/widgets/home_screen_container.dart",
+      "sha256": "51e1b4d875e4098ef0e3fe28939115432224867abbb9ff1440bfde4e7e627bd5",
+      "source_path": "compass_app/app/lib/ui/home/widgets/home_screen_container.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/home/widgets/home_screen_container.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/home/widgets/home_title.dart",
+      "sha256": "c67129c178f59eb844ba1ba1457bec67b9a72846f5f15480b81069734e6441e9",
+      "source_path": "compass_app/app/lib/ui/home/widgets/home_title.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/home/widgets/home_title.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/results/view_models/results_viewmodel.dart",
+      "sha256": "adbdd937edf2486502824661a67838da2583f5f7a403787a6e39425bf7d7ce26",
+      "source_path": "compass_app/app/lib/ui/results/view_models/results_viewmodel.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/results/view_models/results_viewmodel.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/results/widgets/result_card.dart",
+      "sha256": "e237e991843ebb2a0e51ebfda9e1b91c2840733818c978be50dda031108b2fba",
+      "source_path": "compass_app/app/lib/ui/results/widgets/result_card.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/results/widgets/result_card.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/results/widgets/results_screen.dart",
+      "sha256": "80ca3dcd0acf2806fc74c068ba8cea0562ea380c736f9db398d1d3b578785e09",
+      "source_path": "compass_app/app/lib/ui/results/widgets/results_screen.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/results/widgets/results_screen.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/search_form/view_models/search_form_viewmodel.dart",
+      "sha256": "5f6139cde896c4aa42f64f6f93984a3ffbc5ae114c6126fc6acc27350d78659b",
+      "source_path": "compass_app/app/lib/ui/search_form/view_models/search_form_viewmodel.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/search_form/view_models/search_form_viewmodel.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/search_form/widgets/search_form_continent.dart",
+      "sha256": "a0386c57a8115f1e20a076f70f1657fd70f607d6f29f1d332c5c3c674d2fe3c4",
+      "source_path": "compass_app/app/lib/ui/search_form/widgets/search_form_continent.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/search_form/widgets/search_form_continent.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/search_form/widgets/search_form_date.dart",
+      "sha256": "e32d00f2578787c5159fd3811788fa5516272ed8d8d0b64b0ffc8f296d4cab62",
+      "source_path": "compass_app/app/lib/ui/search_form/widgets/search_form_date.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/search_form/widgets/search_form_date.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/search_form/widgets/search_form_guests.dart",
+      "sha256": "42aff1ce2a12023cca6ba13a4fb92d19bc36c3bd851064954a7a02ff2120eb24",
+      "source_path": "compass_app/app/lib/ui/search_form/widgets/search_form_guests.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/search_form/widgets/search_form_guests.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/search_form/widgets/search_form_screen.dart",
+      "sha256": "2a456d6efda29c03ba3782b28d658db77599c5d89e0fcf7ba0197723f3e542c5",
+      "source_path": "compass_app/app/lib/ui/search_form/widgets/search_form_screen.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/search_form/widgets/search_form_screen.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/ui/search_form/widgets/search_form_submit.dart",
+      "sha256": "45b5863224a514e9620a530780862519f60681b899ec33ea900bbf63fb66a320",
+      "source_path": "compass_app/app/lib/ui/search_form/widgets/search_form_submit.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/ui/search_form/widgets/search_form_submit.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/utils/command.dart",
+      "sha256": "d3f51206298a5a9f300454f023be84d1c5c467a690087789926f5e0560e5286b",
+      "source_path": "compass_app/app/lib/utils/command.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/utils/command.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/utils/image_error_listener.dart",
+      "sha256": "71a4a485fbc1f010d2f54815aa5b139d75d1982aab344ef25d798dd70a07d139",
+      "source_path": "compass_app/app/lib/utils/image_error_listener.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/utils/image_error_listener.dart"
+    },
+    {
+      "generated": false,
+      "path": "lib/utils/result.dart",
+      "sha256": "98ca98623a7ccc8666c0a73e12f5716b4a15194cd2b21b63b1d930b536e5c9b9",
+      "source_path": "compass_app/app/lib/utils/result.dart",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/lib/utils/result.dart"
+    },
+    {
+      "path": "pubspec.yaml",
+      "sha256": "860134363aa30801f4f2ccf253a94c9eb418914496ec92240c29020ece51b350",
+      "source_path": "compass_app/app/pubspec.yaml",
+      "source_url": "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app/app/pubspec.yaml"
+    }
+  ],
+  "repository": "flutter/samples"
+}
