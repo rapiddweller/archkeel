@@ -33,7 +33,7 @@
 
 **Files:** `fixtures/I-flutter-shop/{README.md,pubspec.yaml,archkeel.toml,architecture-contract.json,contracts/*.json,docs/target.md}`; `tests/test_flutter_demo.py`.
 
-**Interfaces:** Produce the complete proposed source/module/class/member/signature inventory in Target JSON and a compact source-layout table in `docs/target.md`. Task 2 implements those names/signatures. No `lib` source yet.
+**Interfaces:** Produce the complete proposed source/module/class/member/signature inventory in Target JSON and a compact source-layout table in `docs/target.md`. Task 3 implements those names/signatures. No `lib` source yet.
 
 - [ ] Write a failing target-validation test for responsibilities/provenance, ownership, three meaningful component levels and required UML inventory/relationships.
 - [ ] Author the fixture Target for the spec's journey/boundaries. Decide exact names/signatures once in the Target. Plan generic state, enhanced enum, nullable/Future/Stream signatures, factory vs generative construction, Flutter view/state lifecycle and constructor injection where they serve the journey.
@@ -41,7 +41,17 @@
 - [ ] Validate the contract tree and target graph without observing nonexistent source; verify permissions are closed and module/member ownership is coherent. Record intended source-only variants and expected aspects rather than guessing whole-report PASS.
 - [ ] Run focused structural tests, review the diff and commit. Fresh task review before source implementation.
 
-## Task 2: Runnable Flutter flow
+## Task 2: Correct generic Analyzer element identity
+
+**Files:** `src/archkeel/analyzer/dart/native/lib/collector.dart`, `tests/test_dart_inner_collect.py`; existing Dart architecture decision/known-limits notes if needed.
+
+**Interfaces:** Native SourceFacts and existing shared graph only. Reproduce `/private/tmp/flutter-generic-factory-source.dart` and the generic inherited method in `/private/tmp/flutter-construct-clean-source.dart`; source and raw receipts documented in `/private/tmp/flutter-construct-probes.md`.
+
+- [ ] Add RED regressions: generic redirected factory construction must remain partial/UNKNOWN; inherited generic local calls must resolve to the selected base declaration, as non-generic controls already do. Verify through strict facts and Core creates/calls comparisons, not message strings.
+- [ ] Inspect official Analyzer element API and use canonical declaration identity for instantiated members at the shared lookup boundary. Do not special-case class names, strip generic strings, or treat factories as generative. External targets remain unresolved.
+- [ ] Run focused regression tests, native Dart format/analyze, and relevant existing constructor/inheritance/provenance tests. Review the diff and commit; fresh review before the app task.
+
+## Task 3: Runnable Flutter flow
 
 **Files:** `fixtures/I-flutter-shop/lib/**/*.dart`, `test/*.dart`, minimal `web/index.html`, `pubspec.lock`, `.gitignore`, `analysis_options.yaml` only if needed; Makefile and fixture README.
 
@@ -52,7 +62,7 @@
 - [ ] Add `make flutter-demo-check` to orchestrate explicit `flutter pub get`, format check, analyze, tests and web build; capture exact SDK versions and test output. Keep analysis itself installation-free.
 - [ ] Verify actual Flutter behavior and build; review/correct only source code, not Target to match observed facts. Commit; fresh task review.
 
-## Task 3: ArchKeel integration, mutations, browser and limitations
+## Task 4: ArchKeel integration, mutations, browser and limitations
 
 **Files:** `fixtures/demo_catalog_flutter.py`, `fixtures/architecture_demo.py`, `tests/test_flutter_demo.py`, `tools/report_browser.py`, Makefile as needed, fixture README and `docs/architecture-demo.md`; focused native collector tests only for confirmed gaps.
 
