@@ -81,10 +81,6 @@
           "responsibilities": [
             "Own order values and lifecycle rules."
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "file_path": "lib/ordering/domain/orders/order.dart"
         },
         {
@@ -584,10 +580,6 @@
           "responsibilities": [
             "Own discount policy and calculation."
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "file_path": "lib/ordering/domain/pricing/discount_policy.dart"
         },
         {

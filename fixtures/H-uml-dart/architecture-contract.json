@@ -94,10 +94,7 @@
       "id": "composition",
       "label": "composition",
       "role": "component",
-      "packages": [
-        "commerce"
-      ],
-      "namespace": "commerce",
+      "packages": [],
       "public": [
         "commerce.main"
       ],
@@ -121,7 +118,8 @@
         {
           "component": "ordering",
           "through": [
-            "commerce.ordering.application"
+            "commerce.ordering.application",
+            "commerce.ordering.domain.orders"
           ],
           "rationale": "Construct the checkout service.",
           "decided_by": "architect"
@@ -134,6 +132,9 @@
           "rationale": "Construct the concrete order repository.",
           "decided_by": "architect"
         }
+      ],
+      "exact_modules": [
+        "commerce.main"
       ]
     }
   ],
@@ -165,10 +166,6 @@
           "responsibilities": [
             "Own the checkout composition root."
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "file_path": "lib/main.dart"
         },
         {

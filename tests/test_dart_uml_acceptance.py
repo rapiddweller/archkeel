@@ -326,6 +326,38 @@ def test_multicomponent_target_scopes_decide_all_dependency_pairs():
         "contracts/domain.json": {"orders": set(), "pricing": {"orders"}},
         "contracts/adapters.json": {"memory": set(), "diagnostics": set()},
     }
+    expected_through = {
+        "architecture-contract.json": {
+            "presentation": {
+                "ordering": ("commerce.ordering.application", "commerce.ordering.domain.orders")
+            },
+            "ordering": {},
+            "adapters": {
+                "ordering": ("commerce.ordering.ports", "commerce.ordering.domain.orders")
+            },
+            "composition": {
+                "presentation": ("commerce.presentation.controller",),
+                "ordering": ("commerce.ordering.application", "commerce.ordering.domain.orders"),
+                "adapters": ("commerce.adapters.memory",),
+            },
+        },
+        "contracts/ordering.json": {
+            "application": {
+                "domain": (
+                    "commerce.ordering.domain.orders.order",
+                    "commerce.ordering.domain.pricing.discount_policy",
+                ),
+                "ports": ("commerce.ordering.ports.order_repository",),
+            },
+            "ports": {"domain": ("commerce.ordering.domain.orders.order",)},
+            "domain": {},
+        },
+        "contracts/domain.json": {
+            "orders": {},
+            "pricing": {"orders": ("commerce.ordering.domain.orders.order",)},
+        },
+        "contracts/adapters.json": {"memory": {}, "diagnostics": {}},
+    }
     for path, expected_requires in expected.items():
         contract = parse_contract(json.loads((FIXTURE / path).read_text()))
         components = {item.label: item for item in contract.components}
@@ -344,6 +376,7 @@ def test_multicomponent_target_scopes_decide_all_dependency_pairs():
             assert {entry.component for entry in requires} == expected_targets
             for entry in requires:
                 assert entry.rationale and entry.decided_by == "architect"
+                assert entry.through == expected_through[path][source][entry.component]
                 published_modules = {
                     item.partition(":")[0] for item in components[entry.component].public or ()
                 }
@@ -363,3 +396,45 @@ def test_multicomponent_target_scopes_decide_all_dependency_pairs():
     assert presentation.components[0].public == (
         "commerce.presentation.controller:CheckoutController",
     )
+
+
+def test_composition_owns_only_main_and_modules_have_no_visibility():
+    _, graph = _target_graph()
+    contract = parse_contract(json.loads((FIXTURE / "architecture-contract.json").read_text()))
+    composition = next(item for item in contract.components if item.label == "composition")
+    assert composition.packages == ()
+    assert composition.exact_modules == ("commerce.main",)
+    assert contract.component_for("commerce.main") == composition
+
+    modules = [entity for entity in graph.entities if entity.kind == "module"]
+    assert len(modules) == 8
+    contract_paths = [
+        FIXTURE / "architecture-contract.json",
+        *sorted((FIXTURE / "contracts").glob("*.json")),
+    ]
+    declared_modules = [
+        entity
+        for path in contract_paths
+        for entity in json.loads(path.read_text())
+        .get("declarations", {})
+        .get("uml", {})
+        .get("entities", [])
+        if entity["kind"] == "module"
+    ]
+    assert len(declared_modules) == len(modules)
+    assert all("visibility" not in entity for entity in declared_modules)
+    assert all(entity.visibility.kind == "unknown" for entity in modules)
+
+    expected_through = {
+        "presentation": ("commerce.presentation.controller",),
+        "ordering": ("commerce.ordering.application", "commerce.ordering.domain.orders"),
+        "adapters": ("commerce.adapters.memory",),
+    }
+    requires = {entry.component: entry.through for entry in composition.requires}
+    assert requires == expected_through
+    by_id = {item.id: item for item in contract.components}
+    for target, paths in requires.items():
+        published = {entry.partition(":")[0] for entry in by_id[target].public or ()}
+        assert all(
+            any(path == item or path.startswith(f"{item}.") for item in published) for path in paths
+        )

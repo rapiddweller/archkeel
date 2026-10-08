@@ -40,10 +40,6 @@
           "responsibilities": [
             "Own the request-facing checkout controller."
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "file_path": "lib/presentation/controller.dart"
         },
         {

@@ -72,10 +72,6 @@
           "responsibilities": [
             "Own the process-local order store."
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "file_path": "lib/adapters/memory/in_memory_order_repository.dart"
         },
         {
@@ -208,10 +204,6 @@
           "responsibilities": [
             "Own receipt formatting."
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "file_path": "lib/adapters/diagnostics/receipt_formatter.dart"
         },
         {

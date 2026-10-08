@@ -121,10 +121,6 @@
           "responsibilities": [
             "Coordinate the checkout use case."
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "file_path": "lib/ordering/application/checkout_service.dart"
         },
         {
@@ -223,10 +219,6 @@
           "responsibilities": [
             "Declare order persistence operations."
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "file_path": "lib/ordering/ports/order_repository.dart"
         },
         {
