@@ -1,0 +1,1202 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "repositories",
+      "label": "repositories",
+      "role": "component",
+      "packages": [
+        "shop.data.repositories"
+      ],
+      "public": [
+        "shop.data.repositories.cached_catalog_repository",
+        "shop.data.repositories.memory_order_repository"
+      ],
+      "responsibilities": [
+        "Coordinate demo service reads with local caches while implementing domain ports."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "services",
+          "through": [
+            "shop.data.services.demo_backend",
+            "shop.data.services.memory_store"
+          ],
+          "rationale": "Read and persist values through the service boundary.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "shop.data.repositories"
+    },
+    {
+      "id": "services",
+      "label": "services",
+      "role": "component",
+      "packages": [
+        "shop.data.services"
+      ],
+      "public": [
+        "shop.data.services.demo_backend",
+        "shop.data.services.memory_store"
+      ],
+      "responsibilities": [
+        "Provide deterministic async responses, online/offline state, and in-memory cached values/events."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "shop.data.services"
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Unlisted component dependencies are outside the approved demo boundary.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-catalog-repo",
+          "kind": "module",
+          "qualified_name": "shop.data.repositories.cached_catalog_repository",
+          "parent_id": "repositories",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Use online catalog data or the cached catalog when offline."
+          ],
+          "file_path": "lib/data/repositories/cached_catalog_repository.dart"
+        },
+        {
+          "id": "module-order-repo",
+          "kind": "module",
+          "qualified_name": "shop.data.repositories.memory_order_repository",
+          "parent_id": "repositories",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Coordinate order submission and cached order reads."
+          ],
+          "file_path": "lib/data/repositories/memory_order_repository.dart"
+        },
+        {
+          "id": "module-backend",
+          "kind": "module",
+          "qualified_name": "shop.data.services.demo_backend",
+          "parent_id": "services",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return deterministic async data and simulate connectivity or a failed request."
+          ],
+          "file_path": "lib/data/services/demo_backend.dart"
+        },
+        {
+          "id": "module-memory-store",
+          "kind": "module",
+          "qualified_name": "shop.data.services.memory_store",
+          "parent_id": "services",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Keep catalog and orders in memory and publish order changes."
+          ],
+          "file_path": "lib/data/services/memory_store.dart"
+        },
+        {
+          "id": "cached-catalog-repository-class",
+          "kind": "class",
+          "qualified_name": "shop.data.repositories.cached_catalog_repository.CachedCatalogRepository",
+          "parent_id": "module-catalog-repo",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Use cached products offline and refresh the cache from the backend online."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "catalog-impl-backend",
+          "kind": "attribute",
+          "qualified_name": "shop.data.repositories.cached_catalog_repository.CachedCatalogRepository._backend",
+          "parent_id": "cached-catalog-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Fetch online catalog responses."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "DemoBackend"
+        },
+        {
+          "id": "catalog-impl-store",
+          "kind": "attribute",
+          "qualified_name": "shop.data.repositories.cached_catalog_repository.CachedCatalogRepository._store",
+          "parent_id": "cached-catalog-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Read and write the in-memory catalog cache."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "MemoryStore"
+        },
+        {
+          "id": "catalog-impl-ctor",
+          "kind": "method",
+          "qualified_name": "shop.data.repositories.cached_catalog_repository.CachedCatalogRepository.CachedCatalogRepository",
+          "parent_id": "cached-catalog-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Inject the deterministic backend and local cache."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "backend",
+                "annotation": "DemoBackend",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "store",
+                "annotation": "MemoryStore",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "CachedCatalogRepository"
+          }
+        },
+        {
+          "id": "catalog-impl-load",
+          "kind": "method",
+          "qualified_name": "shop.data.repositories.cached_catalog_repository.CachedCatalogRepository.loadCatalog",
+          "parent_id": "cached-catalog-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Load remote products online or cached products offline."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<List<Product>>"
+          }
+        },
+        {
+          "id": "catalog-impl-online",
+          "kind": "method",
+          "qualified_name": "shop.data.repositories.cached_catalog_repository.CachedCatalogRepository.isOnline",
+          "parent_id": "cached-catalog-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose current service connectivity."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "memory-order-repository-class",
+          "kind": "class",
+          "qualified_name": "shop.data.repositories.memory_order_repository.MemoryOrderRepository",
+          "parent_id": "module-order-repo",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Persist online submissions and serve cached order history."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "order-impl-backend",
+          "kind": "attribute",
+          "qualified_name": "shop.data.repositories.memory_order_repository.MemoryOrderRepository._backend",
+          "parent_id": "memory-order-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Submit orders and fetch online history."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "DemoBackend"
+        },
+        {
+          "id": "order-impl-store",
+          "kind": "attribute",
+          "qualified_name": "shop.data.repositories.memory_order_repository.MemoryOrderRepository._store",
+          "parent_id": "memory-order-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Cache orders and provide local stream updates."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "MemoryStore"
+        },
+        {
+          "id": "order-impl-ctor",
+          "kind": "method",
+          "qualified_name": "shop.data.repositories.memory_order_repository.MemoryOrderRepository.MemoryOrderRepository",
+          "parent_id": "memory-order-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Inject the backend and memory store."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "backend",
+                "annotation": "DemoBackend",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "store",
+                "annotation": "MemoryStore",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "MemoryOrderRepository"
+          }
+        },
+        {
+          "id": "order-impl-place",
+          "kind": "method",
+          "qualified_name": "shop.data.repositories.memory_order_repository.MemoryOrderRepository.place",
+          "parent_id": "memory-order-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Submit online and cache the returned order."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "order",
+                "annotation": "Order",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Order>"
+          }
+        },
+        {
+          "id": "order-impl-load",
+          "kind": "method",
+          "qualified_name": "shop.data.repositories.memory_order_repository.MemoryOrderRepository.loadAll",
+          "parent_id": "memory-order-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Fetch online order history or read the cache offline."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<List<Order>>"
+          }
+        },
+        {
+          "id": "order-impl-watch",
+          "kind": "method",
+          "qualified_name": "shop.data.repositories.memory_order_repository.MemoryOrderRepository.watchAll",
+          "parent_id": "memory-order-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose local order change notifications."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Stream<List<Order>>"
+          }
+        },
+        {
+          "id": "order-impl-find",
+          "kind": "method",
+          "qualified_name": "shop.data.repositories.memory_order_repository.MemoryOrderRepository.findById",
+          "parent_id": "memory-order-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Find an order in the local cache."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Order?>"
+          }
+        },
+        {
+          "id": "demo-backend-class",
+          "kind": "class",
+          "qualified_name": "shop.data.services.demo_backend.DemoBackend",
+          "parent_id": "module-backend",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return fixed async demo data and implement the online-state port."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "backend-online",
+          "kind": "attribute",
+          "qualified_name": "shop.data.services.demo_backend.DemoBackend._isOnline",
+          "parent_id": "demo-backend-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retain current connection state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "bool"
+        },
+        {
+          "id": "backend-fail-next",
+          "kind": "attribute",
+          "qualified_name": "shop.data.services.demo_backend.DemoBackend._failNextRequest",
+          "parent_id": "demo-backend-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Inject one deterministic failure for retry tests."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "bool"
+        },
+        {
+          "id": "backend-ctor",
+          "kind": "method",
+          "qualified_name": "shop.data.services.demo_backend.DemoBackend.DemoBackend",
+          "parent_id": "demo-backend-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Start the demo in online mode."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "DemoBackend"
+          }
+        },
+        {
+          "id": "backend-is-online",
+          "kind": "method",
+          "qualified_name": "shop.data.services.demo_backend.DemoBackend.isOnline",
+          "parent_id": "demo-backend-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose current connectivity."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "backend-set-online",
+          "kind": "method",
+          "qualified_name": "shop.data.services.demo_backend.DemoBackend.setOnline",
+          "parent_id": "demo-backend-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Switch online/offline behavior and notify listeners."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "online",
+                "annotation": "bool",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "backend-fail-next-method",
+          "kind": "method",
+          "qualified_name": "shop.data.services.demo_backend.DemoBackend.failNextRequest",
+          "parent_id": "demo-backend-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Fail the next online request once."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "backend-fetch-catalog",
+          "kind": "method",
+          "qualified_name": "shop.data.services.demo_backend.DemoBackend.fetchCatalog",
+          "parent_id": "demo-backend-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return deterministic products asynchronously."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<List<Product>>"
+          }
+        },
+        {
+          "id": "backend-submit-order",
+          "kind": "method",
+          "qualified_name": "shop.data.services.demo_backend.DemoBackend.submitOrder",
+          "parent_id": "demo-backend-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Accept one order asynchronously or return a deterministic failure."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "order",
+                "annotation": "Order",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Order>"
+          }
+        },
+        {
+          "id": "backend-fetch-orders",
+          "kind": "method",
+          "qualified_name": "shop.data.services.demo_backend.DemoBackend.fetchOrders",
+          "parent_id": "demo-backend-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return deterministic order history asynchronously."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<List<Order>>"
+          }
+        },
+        {
+          "id": "memory-store-class",
+          "kind": "class",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore",
+          "parent_id": "module-memory-store",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retain the in-process catalog and orders and publish order changes."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "store-catalog",
+          "kind": "attribute",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore._catalog",
+          "parent_id": "memory-store-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Cache the last fetched catalog."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "List<Product>"
+        },
+        {
+          "id": "store-orders",
+          "kind": "attribute",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore._orders",
+          "parent_id": "memory-store-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Index cached orders by identifier."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Map<String, Order>"
+        },
+        {
+          "id": "store-order-events",
+          "kind": "attribute",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore._orderChanges",
+          "parent_id": "memory-store-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Publish copied order lists to subscribers."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "StreamController<List<Order>>"
+        },
+        {
+          "id": "store-ctor",
+          "kind": "method",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore.MemoryStore",
+          "parent_id": "memory-store-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create an empty in-process cache and event controller."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "MemoryStore"
+          }
+        },
+        {
+          "id": "store-read-catalog",
+          "kind": "method",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore.readCatalog",
+          "parent_id": "memory-store-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the cached catalog."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "List<Product>"
+          }
+        },
+        {
+          "id": "store-save-catalog",
+          "kind": "method",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore.saveCatalog",
+          "parent_id": "memory-store-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Replace the cached catalog."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "products",
+                "annotation": "List<Product>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "store-read-orders",
+          "kind": "method",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore.readOrders",
+          "parent_id": "memory-store-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the cached order history."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "List<Order>"
+          }
+        },
+        {
+          "id": "store-save-orders",
+          "kind": "method",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore.saveOrders",
+          "parent_id": "memory-store-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Replace cached history and publish a new order-list snapshot."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "orders",
+                "annotation": "List<Order>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "store-watch-orders",
+          "kind": "method",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore.watchOrders",
+          "parent_id": "memory-store-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the broadcast stream of cached order snapshots."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Stream<List<Order>>"
+          }
+        },
+        {
+          "id": "store-find-order",
+          "kind": "method",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore.findOrder",
+          "parent_id": "memory-store-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Find a cached order when present."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Order?"
+          }
+        },
+        {
+          "id": "ref-catalog-repository-class",
+          "kind": "symbol",
+          "qualified_name": "shop.domain.catalog.catalog_repository.CatalogRepository",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.domain.catalog.catalog_repository.CatalogRepository."
+          ]
+        },
+        {
+          "id": "ref-order-repository-class",
+          "kind": "symbol",
+          "qualified_name": "shop.domain.orders.order_repository.OrderRepository",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.domain.orders.order_repository.OrderRepository."
+          ]
+        },
+        {
+          "id": "ref-shop-status-class",
+          "kind": "symbol",
+          "qualified_name": "shop.domain.checkout.shop_status.ShopStatus",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.domain.checkout.shop_status.ShopStatus."
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "catalog-impl-calls-fetch",
+          "kind": "calls",
+          "source_id": "catalog-impl-load",
+          "target_id": "backend-fetch-catalog",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "catalog-impl-calls-save-cache",
+          "kind": "calls",
+          "source_id": "catalog-impl-load",
+          "target_id": "store-save-catalog",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "catalog-impl-calls-read-cache",
+          "kind": "calls",
+          "source_id": "catalog-impl-load",
+          "target_id": "store-read-catalog",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "order-impl-calls-submit",
+          "kind": "calls",
+          "source_id": "order-impl-place",
+          "target_id": "backend-submit-order",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "order-impl-calls-save",
+          "kind": "calls",
+          "source_id": "order-impl-place",
+          "target_id": "store-save-orders",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "order-impl-calls-fetch",
+          "kind": "calls",
+          "source_id": "order-impl-load",
+          "target_id": "backend-fetch-orders",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "order-impl-calls-read",
+          "kind": "calls",
+          "source_id": "order-impl-load",
+          "target_id": "store-read-orders",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "order-impl-calls-watch",
+          "kind": "calls",
+          "source_id": "order-impl-watch",
+          "target_id": "store-watch-orders",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "order-impl-calls-find",
+          "kind": "calls",
+          "source_id": "order-impl-find",
+          "target_id": "store-find-order",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "catalog-impl-realizes-port",
+          "kind": "realizes",
+          "source_id": "cached-catalog-repository-class",
+          "target_id": "ref-catalog-repository-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "order-impl-realizes-port",
+          "kind": "realizes",
+          "source_id": "memory-order-repository-class",
+          "target_id": "ref-order-repository-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "backend-realizes-status",
+          "kind": "realizes",
+          "source_id": "demo-backend-class",
+          "target_id": "ref-shop-status-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "module-catalog-repo",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "module-order-repo",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "module-backend",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "module-memory-store",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "cached-catalog-repository-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.data.repositories.cached_catalog_repository.CachedCatalogRepository.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "memory-order-repository-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.data.repositories.memory_order_repository.MemoryOrderRepository.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "demo-backend-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.data.services.demo_backend.DemoBackend.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "memory-store-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.data.services.memory_store.MemoryStore.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

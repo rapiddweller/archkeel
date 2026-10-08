@@ -1,0 +1,1017 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "catalog",
+      "label": "catalog",
+      "role": "component",
+      "packages": [
+        "shop.presentation.shopping.catalog"
+      ],
+      "public": [
+        "shop.presentation.shopping.catalog.catalog_page",
+        "shop.presentation.shopping.catalog.catalog_view_model"
+      ],
+      "responsibilities": [
+        "Load and display the catalog, expose retry and offline state, and add selected products to the cart."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "shop.presentation.shopping.catalog"
+    },
+    {
+      "id": "cart",
+      "label": "cart",
+      "role": "component",
+      "packages": [
+        "shop.presentation.shopping.cart"
+      ],
+      "public": [
+        "shop.presentation.shopping.cart.cart_page",
+        "shop.presentation.shopping.cart.cart_view_model"
+      ],
+      "responsibilities": [
+        "Edit cart quantities and submit one checkout while preserving the cart on failure."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "shop.presentation.shopping.cart"
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Unlisted component dependencies are outside the approved demo boundary.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-catalog-page",
+          "kind": "module",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_page",
+          "parent_id": "catalog",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Render products and dispatch cart or order navigation intent to the app routes."
+          ],
+          "file_path": "lib/presentation/shopping/catalog/catalog_page.dart"
+        },
+        {
+          "id": "module-catalog-vm",
+          "kind": "module",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model",
+          "parent_id": "catalog",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Load cached or online products and guard updates after disposal."
+          ],
+          "file_path": "lib/presentation/shopping/catalog/catalog_view_model.dart"
+        },
+        {
+          "id": "module-cart-page",
+          "kind": "module",
+          "qualified_name": "shop.presentation.shopping.cart.cart_page",
+          "parent_id": "cart",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Render cart quantities, totals, and checkout feedback."
+          ],
+          "file_path": "lib/presentation/shopping/cart/cart_page.dart"
+        },
+        {
+          "id": "module-cart-vm",
+          "kind": "module",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model",
+          "parent_id": "cart",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Edit the cart and reject duplicate or late checkout updates."
+          ],
+          "file_path": "lib/presentation/shopping/cart/cart_view_model.dart"
+        },
+        {
+          "id": "catalog-page-class",
+          "kind": "class",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_page.CatalogPage",
+          "parent_id": "module-catalog-page",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Build the catalog screen and route to cart or orders."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "catalog-page-class-ctor",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_page.CatalogPage.CatalogPage",
+          "parent_id": "catalog-page-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive the view state required by this screen."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "catalog",
+                "annotation": "CatalogViewModel",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "cart",
+                "annotation": "CartViewModel",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "orders",
+                "annotation": "OrdersViewModel",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "CatalogPage"
+          }
+        },
+        {
+          "id": "catalog-page-class-build",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_page.CatalogPage.build",
+          "parent_id": "catalog-page-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Build this Flutter screen from its current state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "context",
+                "annotation": "BuildContext",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Widget"
+          }
+        },
+        {
+          "id": "catalog-vm-class",
+          "kind": "class",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel",
+          "parent_id": "module-catalog-vm",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Own async catalog state, retry, and disposal guards."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "catalog-vm-repository",
+          "kind": "attribute",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel._repository",
+          "parent_id": "catalog-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Load the catalog through its domain port."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "CatalogRepository"
+        },
+        {
+          "id": "catalog-vm-status",
+          "kind": "attribute",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel._status",
+          "parent_id": "catalog-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose and change the shared connection mode."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "ShopStatus"
+        },
+        {
+          "id": "catalog-vm-state",
+          "kind": "attribute",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel._state",
+          "parent_id": "catalog-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retain loading, empty, ready, or failed catalog state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "AsyncState<List<Product>>"
+        },
+        {
+          "id": "catalog-vm-disposed",
+          "kind": "attribute",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel._disposed",
+          "parent_id": "catalog-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Prevent late async completion from notifying disposed listeners."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "bool"
+        },
+        {
+          "id": "catalog-vm-class-ctor",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.CatalogViewModel",
+          "parent_id": "catalog-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Inject catalog and connection ports."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "repository",
+                "annotation": "CatalogRepository",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "status",
+                "annotation": "ShopStatus",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "CatalogViewModel"
+          }
+        },
+        {
+          "id": "catalog-vm-class-load",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.load",
+          "parent_id": "catalog-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Load online or cached products and publish their state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<void>"
+          }
+        },
+        {
+          "id": "catalog-vm-class-retry",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.retry",
+          "parent_id": "catalog-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retry a failed catalog load."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<void>"
+          }
+        },
+        {
+          "id": "catalog-vm-class-set-online",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.setOnline",
+          "parent_id": "catalog-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Switch connection mode and refresh when online."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "online",
+                "annotation": "bool",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<void>"
+          }
+        },
+        {
+          "id": "catalog-vm-class-dispose",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.dispose",
+          "parent_id": "catalog-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Stop view-model updates after widget disposal."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "cart-page-class",
+          "kind": "class",
+          "qualified_name": "shop.presentation.shopping.cart.cart_page.CartPage",
+          "parent_id": "module-cart-page",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Render editable cart state and a retryable checkout action."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "cart-page-class-ctor",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.cart.cart_page.CartPage.CartPage",
+          "parent_id": "cart-page-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive the view state required by this screen."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "viewModel",
+                "annotation": "CartViewModel",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "CartPage"
+          }
+        },
+        {
+          "id": "cart-page-class-build",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.cart.cart_page.CartPage.build",
+          "parent_id": "cart-page-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Build this Flutter screen from its current state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "context",
+                "annotation": "BuildContext",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Widget"
+          }
+        },
+        {
+          "id": "cart-vm-class",
+          "kind": "class",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel",
+          "parent_id": "module-cart-vm",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Own cart state and one in-flight checkout operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "cart-vm-place-order",
+          "kind": "attribute",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel._placeOrder",
+          "parent_id": "cart-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Submit the current cart through the use case."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "PlaceOrder"
+        },
+        {
+          "id": "cart-vm-cart",
+          "kind": "attribute",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel._cart",
+          "parent_id": "cart-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retain current product quantities and totals."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Cart"
+        },
+        {
+          "id": "cart-vm-in-flight",
+          "kind": "attribute",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel._isPlacingOrder",
+          "parent_id": "cart-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Prevent a second checkout while one is pending."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "bool"
+        },
+        {
+          "id": "cart-vm-disposed",
+          "kind": "attribute",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel._disposed",
+          "parent_id": "cart-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Prevent late async completion from notifying disposed listeners."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "bool"
+        },
+        {
+          "id": "cart-vm-class-ctor",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.CartViewModel",
+          "parent_id": "cart-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Inject the checkout use case."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "placeOrder",
+                "annotation": "PlaceOrder",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "CartViewModel"
+          }
+        },
+        {
+          "id": "cart-vm-class-add",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.addProduct",
+          "parent_id": "cart-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Add one selected product to the cart."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "product",
+                "annotation": "Product",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "cart-vm-class-quantity",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.setQuantity",
+          "parent_id": "cart-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Set a product quantity and update cart state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "productId",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "quantity",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "cart-vm-class-checkout",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.checkout",
+          "parent_id": "cart-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Submit at most one checkout and preserve cart on failure."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Order?>"
+          }
+        },
+        {
+          "id": "cart-vm-class-dispose",
+          "kind": "method",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.dispose",
+          "parent_id": "cart-vm-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Stop view-model updates after widget disposal."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "ref-catalog-load",
+          "kind": "symbol",
+          "qualified_name": "shop.domain.catalog.catalog_repository.CatalogRepository.loadCatalog",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.domain.catalog.catalog_repository.CatalogRepository.loadCatalog."
+          ]
+        },
+        {
+          "id": "ref-cart-add",
+          "kind": "symbol",
+          "qualified_name": "shop.domain.cart.cart.Cart.add",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.domain.cart.cart.Cart.add."
+          ]
+        },
+        {
+          "id": "ref-place-call",
+          "kind": "symbol",
+          "qualified_name": "shop.domain.checkout.place_order.PlaceOrder.call",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.domain.checkout.place_order.PlaceOrder.call."
+          ]
+        },
+        {
+          "id": "ref-flutter-change-notifier",
+          "kind": "symbol",
+          "qualified_name": "package:flutter/foundation.dart.ChangeNotifier",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: package:flutter/foundation.dart.ChangeNotifier."
+          ]
+        },
+        {
+          "id": "ref-flutter-stateless-widget",
+          "kind": "symbol",
+          "qualified_name": "package:flutter/widgets.dart.StatelessWidget",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: package:flutter/widgets.dart.StatelessWidget."
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "catalog-vm-class-starts-load",
+          "kind": "calls",
+          "source_id": "catalog-vm-class-ctor",
+          "target_id": "catalog-vm-class-load",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "catalog-page-calls-add",
+          "kind": "calls",
+          "source_id": "catalog-page-class-build",
+          "target_id": "cart-vm-class-add",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "cart-page-calls-checkout",
+          "kind": "calls",
+          "source_id": "cart-page-class-build",
+          "target_id": "cart-vm-class-checkout",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "catalog-vm-calls-load-catalog",
+          "kind": "calls",
+          "source_id": "catalog-vm-class-load",
+          "target_id": "ref-catalog-load",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "cart-vm-calls-add",
+          "kind": "calls",
+          "source_id": "cart-vm-class-add",
+          "target_id": "ref-cart-add",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "cart-vm-calls-checkout",
+          "kind": "calls",
+          "source_id": "cart-vm-class-checkout",
+          "target_id": "ref-place-call",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "catalog-vm-inherits-change-notifier",
+          "kind": "inherits",
+          "source_id": "catalog-vm-class",
+          "target_id": "ref-flutter-change-notifier",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "cart-vm-inherits-change-notifier",
+          "kind": "inherits",
+          "source_id": "cart-vm-class",
+          "target_id": "ref-flutter-change-notifier",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-catalog-page-class",
+          "kind": "inherits",
+          "source_id": "catalog-page-class",
+          "target_id": "ref-flutter-stateless-widget",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-cart-page-class",
+          "kind": "inherits",
+          "source_id": "cart-page-class",
+          "target_id": "ref-flutter-stateless-widget",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "module-catalog-page",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "module-catalog-vm",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "module-cart-page",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "module-cart-vm",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "catalog-page-class",
+          "mode": "open",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Widget and view-model implementation details may grow; this inventory pins the user-facing journey and lifecycle members.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "catalog-vm-class",
+          "mode": "open",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Widget and view-model implementation details may grow; this inventory pins the user-facing journey and lifecycle members.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "cart-page-class",
+          "mode": "open",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Widget and view-model implementation details may grow; this inventory pins the user-facing journey and lifecycle members.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "cart-vm-class",
+          "mode": "open",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Widget and view-model implementation details may grow; this inventory pins the user-facing journey and lifecycle members.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

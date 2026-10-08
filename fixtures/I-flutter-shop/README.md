@@ -1,0 +1,9 @@
+# Flutter shop architecture demo
+
+This original Flutter fixture models one shop journey: load a catalog, add products, edit a cart, place an order, then list and open orders. It uses Flutter SDK widgets and ChangeNotifier, a deterministic async backend, and an in-memory cache. It has no HTTP server, durable database, payments, auth, plugins, or generated app code.
+
+The independent Target is in `architecture-contract.json` and mounted contracts; `docs/target.md` records ownership, source paths, and intended evidence. The external `ChangeNotifier`/`StatelessWidget` inheritance edges are requirements even if the collector cannot resolve Flutter SDK source, so aggregate comparison may remain UNKNOWN. No Target is generated from source facts.
+
+Reference research is limited to the linked, pinned source slices: [Flutter Compass](https://github.com/flutter/samples/tree/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/compass_app), [Flutter Architecture Samples](https://github.com/brianegan/flutter_architecture_samples/tree/d898d1329e04e5b5fbdef1285b39ef975a6b8efa), and [Ente Auth](https://github.com/ente/ente/tree/6c853a7b676f9a910564c9efe0e38bde0d2b1871/mobile/apps/auth). Ente Auth is AGPL-3.0 and was read as reference only; no code or assets are copied. The demo selects smaller original flows rather than matching production breadth.
+
+Dart shared UML does not express final/sealed modifiers, generic bounds, mixin-specific semantics, callback execution, or runtime state transitions. The Target closes domain and state member inventories, keeps selected widget/view-model inventories open with a stated limitation, and requires Flutter inheritance even where resolution is unavailable.

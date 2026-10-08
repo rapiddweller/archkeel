@@ -1,0 +1,5 @@
+[scan]
+language = "dart"
+roots = ["lib"]
+namespace = "shop"
+contract = "architecture-contract.json"
