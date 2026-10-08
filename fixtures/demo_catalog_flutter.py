@@ -47,7 +47,7 @@ VARIANTS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         fixture=FLUTTER_FIXTURE_DIR,
-        expected_declared_rules="UNKNOWN",
+        expected_declared_rules="FAIL",
     ),
     Variant(
         id="flutter-missing-member-fail",
@@ -59,7 +59,7 @@ VARIANTS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         fixture=FLUTTER_FIXTURE_DIR,
-        expected_declared_rules="UNKNOWN",
+        expected_declared_rules="FAIL",
     ),
     Variant(
         id="flutter-forbidden-dependency-fail",

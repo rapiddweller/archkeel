@@ -1682,6 +1682,16 @@ def test_offline_atlas_and_uml_share_shell_empty_scope_and_url_theme(tmp_path):
         assert page.locator("#flow-heading").inner_text() == "Architecture map · core"
         page.get_by_role("button", name="Target", exact=True).click()
         assert "No declared subcomponents" in page.locator(".flow-alternative").inner_text()
+        module = next(item for item in graph.entities if item.qualified_name == "sample.core")
+        page.goto(index.as_uri() + "?scope=core&content=modules&view=diff&theme=light")
+        atlas = json.loads(page.locator("#flow-data").text_content())["atlas"]
+        assert all(
+            module.id not in item["observed_ids"] for item in atlas["module_correspondences"]
+        )
+        page.locator('.flow-nodes [data-label="core.py"]').dblclick()
+        page.wait_for_url("**/architecture.detail.html?*")
+        query = parse_qs(urlsplit(page.url).query)
+        assert query["module"] == [module.id] and "origin" not in query
         assert not errors
     finally:
         browser.close()

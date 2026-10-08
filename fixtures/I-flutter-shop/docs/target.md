@@ -12,7 +12,7 @@ The initial Target was authored before app source. A narrowly scoped architectur
 | Presentation / shopping / catalog | `lib/presentation/shopping/catalog/catalog_view_model.dart` | Load cache/network state, retry, and stop late updates after disposal. |
 | Presentation / shopping / cart | `lib/presentation/shopping/cart/cart_page.dart` | Edit quantities, show totals, and retry checkout. |
 | Presentation / shopping / cart | `lib/presentation/shopping/cart/cart_view_model.dart` | Own cart, in-flight submit guard, and disposal guard. |
-| Presentation / orders | `lib/presentation/orders/orders_page.dart` | Render order history and open detail. |
+| Presentation / orders | `lib/presentation/orders/orders_page.dart` | Render order history, show cached status, and open detail. |
 | Presentation / orders | `lib/presentation/orders/order_detail_page.dart` | Render one immutable order snapshot. |
 | Presentation / orders | `lib/presentation/orders/orders_view_model.dart` | Load orders, subscribe to changes, and cancel on disposal. |
 | Domain / catalog | `lib/domain/catalog/product.dart` | Product identity, display name, and price in cents. |
@@ -29,6 +29,8 @@ The initial Target was authored before app source. A narrowly scoped architectur
 | State | `lib/state/async_state.dart` | Generic typed loading/empty/ready/failed state. |
 
 `ShopApp` creates a private `State`; that state owns the route table and creates catalog, cart, orders, and detail screens. On unmount, `_ShopAppState.dispose` disposes the catalog/cart/orders view models and closes the injected `MemoryStore` stream. `OrdersViewModel.dispose` cancels its subscription; disposed view models ignore late async completions. Screens consume `CatalogViewModel.state/isOnline`, `CartViewModel.lines/totalCents/state/isPlacingOrder`, and `OrdersViewModel.state`; cart lines are an immutable view snapshot and all changes go through view-model commands. The catalog journey is `main` → `ShopApp` → `CatalogPage` → catalog/cart view models → domain ports/use case → repository implementations → backend/cache. `CatalogViewModel` starts its initial load on construction; `OrdersViewModel` starts loading and subscribes on construction, so widget builds stay side-effect free. Orders continue through a typed `Stream<List<Order>>` from the cache to `OrdersViewModel`, and the selected immutable order is shown by `OrderDetailPage`. Composition uses positional constructor injection. `CartViewModel` owns a one-flight submit guard and disposed flag; `OrdersViewModel` owns/cancels its stream subscription; each async view model suppresses late updates after disposal. Domain and generic state classifiers have closed direct-member scopes. Widget/view-model scopes remain open only for framework/private presentation helpers; their required screen, command, state, and lifecycle members are still enumerated. Module call/import inventories are intentionally open because the Target asserts the user journey, not every incidental Flutter call or import.
+
+`OrdersPage` receives `isOnline` as a route-time snapshot from the already-owned catalog view model and shows `Offline: cached orders` while offline. This demo changes connectivity from the catalog screen, so the snapshot does not become stale during an Orders route; no new connectivity service or view-model dependency is needed.
 
 ## Ownership and permission policy
 

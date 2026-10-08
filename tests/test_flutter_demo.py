@@ -160,8 +160,10 @@ def test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct(
         ]
         validation, report_summary = summaries
         validations[variant_id] = validation
+        variant = next(item for item in CATALOG if item.id == variant_id)
         assert validation["command"] == "validate"
         assert report_summary["command"] == "report"
+        assert report_summary["declared_rules"] == variant.expected_declared_rules
         assert report_summary["coverage"]["status"] == expected_coverage
         assert report_summary["observation_complete"] == (
             "UNKNOWN" if expected_coverage == "FAIL" else "PASS"
@@ -191,12 +193,12 @@ def test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct(
     assert base["measurements"]["scalars"]["unknown_positions"] == 35
     assert base["declared_rules"] == "UNKNOWN"
     base_detail = reports["flutter-shop"][1]
-    assert len(base_detail["target"]["relationships"]) == 100
+    assert len(base_detail["target"]["relationships"]) == 101
     assert (
         sum(item["aspect"] == "relationship" for item in base_detail["comparison"]["assessments"])
-        == 87
+        == 88
     )
-    assert sum(item["status"] == "PASS" for item in base_detail["comparison"]["assessments"]) == 786
+    assert sum(item["status"] == "PASS" for item in base_detail["comparison"]["assessments"]) == 791
     assert (
         sum(item["status"] == "UNKNOWN" for item in base_detail["comparison"]["assessments"]) == 35
     )

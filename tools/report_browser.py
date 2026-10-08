@@ -455,7 +455,21 @@ def _open_uml_details(page: Page, name: str, output: Path) -> None:
     page.wait_for_url("**/*.detail.html?*")
     assert page.url.startswith("file:") and ".detail.html" in page.url
     query = parse_qs(urlsplit(page.url).query)
-    assert query["module"] == [module["id"]]
+    view = parse_qs(urlsplit(page.url).query).get("view", ["diagram"])[0]
+    target_module_ids = {item["id"] for item in data["declared_modules"]}
+    counterparts = (
+        {
+            item["target_id"]
+            for item in data["module_correspondences"]
+            if item["target_id"] in target_module_ids and item["observed_ids"] == [module["id"]]
+        }
+        if view == "diff"
+        else set()
+    )
+    assert len(counterparts) <= 1
+    expected_module_id = next(iter(counterparts), module["id"])
+    assert query["module"] == [expected_module_id]
+    assert query.get("origin", ["observed"])[0] == ("declared" if counterparts else "observed")
     assert query["return_selected"] == [module["id"]]
 
 

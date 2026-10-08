@@ -112,6 +112,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('open-orders')));
     await tester.pumpAndSettle();
+    expect(find.text('Offline: cached orders'), findsOneWidget);
     expect(find.text('Order #1'), findsOneWidget);
     expect(
       await MemoryOrderRepository(shop.backend, shop.store).loadAll(),

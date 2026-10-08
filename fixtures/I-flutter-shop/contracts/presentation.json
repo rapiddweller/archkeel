@@ -119,12 +119,31 @@
             "docs/target.md"
           ],
           "responsibilities": [
-            "Render order loading/list states and route to details."
+            "Render order loading/list states, expose cached status, and route to details."
           ],
           "visibility": {
             "kind": "public",
             "basis": "declared"
           }
+        },
+        {
+          "id": "orders-page-is-online",
+          "kind": "attribute",
+          "qualified_name": "shop.presentation.orders.orders_page.OrdersPage.isOnline",
+          "parent_id": "orders-page-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Show whether the order snapshot is using the offline cache."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "bool"
         },
         {
           "id": "orders-page-class-ctor",
@@ -148,6 +167,12 @@
               {
                 "name": "viewModel",
                 "annotation": "OrdersViewModel",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "isOnline",
+                "annotation": "bool",
                 "kind": "positional",
                 "default_known": true
               }
@@ -601,6 +626,15 @@
           "kind": "references",
           "source_id": "orders-page-class-build",
           "target_id": "orders-vm-class-state",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "orders-page-reads-connectivity",
+          "kind": "references",
+          "source_id": "orders-page-class-build",
+          "target_id": "orders-page-is-online",
           "provenance": [
             "docs/target.md"
           ]

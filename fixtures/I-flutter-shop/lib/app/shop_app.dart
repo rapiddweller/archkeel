@@ -52,7 +52,8 @@ class _ShopAppState extends State<ShopApp> {
           ),
           ('/orders', _) => MaterialPageRoute<void>(
             settings: settings,
-            builder: (_) => OrdersPage(widget._orders),
+            builder: (_) =>
+                OrdersPage(widget._orders, widget._catalog.isOnline),
           ),
           ('/order', final Order order) => MaterialPageRoute<void>(
             settings: settings,

@@ -215,6 +215,19 @@ def _declared_modules(report: ArchitectureReport) -> list[dict[str, object]]:
     return modules
 
 
+def _module_correspondences(report: ArchitectureReport) -> list[dict[str, object]]:
+    if report.observed is None or report.target is None or report.comparison is None:
+        return []
+    target_modules = {item.id for item in report.target.entities if item.kind == "module"}
+    observed_modules = {item.id for item in report.observed.entities if item.kind == "module"}
+    return [
+        {"target_id": item.target_id, "observed_ids": list(item.observed_ids)}
+        for item in report.comparison.correspondences
+        if item.target_id in target_modules
+        and any(identity in observed_modules for identity in item.observed_ids)
+    ]
+
+
 def _finding_payload(
     model: Observation,
     projection: ArchitectureProjection,
@@ -543,6 +556,7 @@ def atlas_payload(
             for module in root.modules
         ),
         "declared_modules": _declared_modules(report),
+        "module_correspondences": _module_correspondences(report),
         "symbol_coverages": symbol_coverages,
         "assignments": [
             [

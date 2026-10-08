@@ -2802,8 +2802,12 @@
 
   function atlasDetailsHref(module, level) {
     const assignment = viewMode === "target" ? module : level.modules.find((item) => item.id === module.id);
-    const targetCounterparts = viewMode === "diff" ? ATLAS.declared_modules.filter((item) =>
-      module.path && item.path ? item.path === module.path : item.name === module.name) : [];
+    const targetCounterparts = viewMode === "diff"
+      ? (ATLAS.module_correspondences || [])
+        .filter((item) => item.observed_ids.length === 1 && item.observed_ids[0] === module.id)
+        .map((item) => ATLAS.declared_modules.find((target) => target.id === item.target_id))
+        .filter(Boolean)
+      : [];
     const targetCounterpart = targetCounterparts.length === 1 ? targetCounterparts[0] : null;
     const componentId = targetCounterpart
       ? targetCounterpart.component_id || assignment?.component_id
