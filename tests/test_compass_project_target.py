@@ -318,6 +318,8 @@ def test_compass_target_tracks_source_constructor_signatures_and_visibility() ->
         "compass.data.services.api.model.user.user_api_model._$UserApiModel",
         "compass.domain.use_cases.booking.booking_create_use_case.BookingCreateUseCase._fetchDestination",
         "compass.utils.command.Command._execute",
+        "compass.utils.result.Ok.Ok._",
+        "compass.utils.result.Error.Error._",
     ):
         assert entities[name].visibility.kind == "private"
         assert entities[name].visibility.spelling == name.rsplit(".", 1)[-1]

@@ -659,8 +659,9 @@
             "Expose generic asynchronous state or result behavior."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "language",
+            "spelling": "_"
           },
           "signature": {
             "parameters": [
@@ -730,8 +731,9 @@
             "Expose generic asynchronous state or result behavior."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "language",
+            "spelling": "_"
           },
           "signature": {
             "parameters": [
