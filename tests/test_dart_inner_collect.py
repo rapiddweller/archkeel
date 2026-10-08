@@ -1621,6 +1621,12 @@ def test_native_unresolved_super_formal_stays_present_but_incomplete(tmp_path: P
     assert key.get("kind") == "keyword_only"
     assert key.get("default") is None
     assert key.get("default_known") is False
+    assert [gap.kind for gap in facts.coverage.gaps] == ["source_resolution_gap"]
+    gap = facts.coverage.gaps[0]
+    evidence = {item.id: item for item in facts.evidence}
+    assert gap.evidence_ids
+    assert all(evidence[item].file == "lib/main.dart" for item in gap.evidence_ids)
+    assert all(evidence[item].line == 2 for item in gap.evidence_ids)
 
     from archkeel.check.uml_compare import compare_graphs
     from archkeel.ir.architecture_graph import ArchitectureGraph, Entity, Parameter, Signature
@@ -1658,6 +1664,59 @@ def test_native_unresolved_super_formal_stays_present_but_incomplete(tmp_path: P
         if item.subject_id == "target-constructor" and item.aspect == "signature"
     )
     assert signature.status == "UNKNOWN"
+
+
+def test_native_unmatched_resolved_super_parameter_stays_generic_gap(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """class Parent {
+  Parent({required String other});
+}
+class Child extends Parent {
+  Child({super.key});
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    child = next(
+        record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method"
+        and record.data.get("qualified_name") == "commerce.main.Child.Child"
+    )
+    assert child.data.get("signature_complete") is False
+    key = child.data.get("parameters")[0]
+    assert key.get("name") == "key"
+    assert key.get("annotation") is None
+    assert {gap.kind for gap in facts.coverage.gaps} == {"UnsupportedParameter"}
+
+
+def test_native_invalid_inherited_super_parameter_type_stays_generic_gap(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """class Parent {
+  Parent({required MissingType key});
+}
+class Child extends Parent {
+  Child({super.key});
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    child = next(
+        record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method"
+        and record.data.get("qualified_name") == "commerce.main.Child.Child"
+    )
+    assert child.data.get("signature_complete") is False
+    assert {gap.kind for gap in facts.coverage.gaps} == {"UnsupportedParameter"}
 
 
 def test_native_duplicate_functions_remain_an_explicit_gap(tmp_path: Path) -> None:

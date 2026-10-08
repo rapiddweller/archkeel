@@ -1249,11 +1249,19 @@ class DartCollector {
       };
       if (!supported) {
         complete = false;
+        final unresolvedSuperclass =
+            actual is SuperFormalParameter &&
+            _superclassBindingUnavailable(actual);
         _gap(
           source.rel,
           item.offset,
-          'UnsupportedParameter',
-          'parameter type is not represented in the shared signature',
+          unresolvedSuperclass
+              ? 'source_resolution_gap'
+              : 'UnsupportedParameter',
+          unresolvedSuperclass
+              ? 'inherited parameter is unavailable because the superclass binding is unresolved'
+              : 'parameter type is not represented in the shared signature',
+          evidenceIds: unresolvedSuperclass ? [_cite(source, actual)] : null,
         );
       }
       result.add({
@@ -1285,6 +1293,27 @@ class DartCollector {
     return element is SuperFormalParameterElement
         ? element.superConstructorParameter
         : null;
+  }
+
+  bool _superclassBindingUnavailable(SuperFormalParameter parameter) {
+    final parameterElement = parameter.declaredFragment?.element;
+    if (parameterElement is! SuperFormalParameterElement) return false;
+    final constructor = parameter
+        .thisOrAncestorOfType<ConstructorDeclaration>();
+    final constructorElement = parameterElement.enclosingElement;
+    if (constructor == null || constructorElement is! ConstructorElement) {
+      return false;
+    }
+    if (constructor.declaredFragment?.element != constructorElement)
+      return false;
+    final declaration = constructor.thisOrAncestorOfType<ClassDeclaration>();
+    final classElement = declaration?.declaredFragment?.element;
+    if (declaration == null || classElement == null) return false;
+    if (constructorElement.enclosingElement != classElement) return false;
+    final superclass = declaration.extendsClause?.superclass;
+    return superclass != null &&
+        superclass.element == null &&
+        superclass.type is InvalidType;
   }
 
   String _variable(
