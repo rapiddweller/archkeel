@@ -251,7 +251,14 @@ def test_typescript_init_requires_explicit_inputs(
                 "pyproject.toml": '[project]\nname = "sample"\nrequires-python = ">=3.11"\n',
             },
         ),
-        ("dart", "lib", {"lib/core/api.dart": "const value = 1;"}),
+        (
+            "dart",
+            "lib",
+            {
+                "lib/core/api.dart": "const value = 1;",
+                "pubspec.yaml": "name: sample\nenvironment:\n  sdk: '>=2.19.0 <4.0.0'\n",
+            },
+        ),
     ],
 )
 def test_explicit_python_and_dart_onboarding_remains_available(

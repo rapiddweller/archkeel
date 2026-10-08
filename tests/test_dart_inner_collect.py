@@ -112,6 +112,29 @@ String describe(Order order, {required bool verbose}) =>
     assert facts.coverage.full_scope is True
 
 
+@pytest.mark.parametrize(
+    ("sdk_range", "full_scope"),
+    [
+        (">=2.0.0 <4.0.0", False),
+        (">=2.12.0 <4.0.0", True),
+        (">=2.19.0 <4.0.0", True),
+        ("<4.0.0", False),
+    ],
+)
+def test_native_process_rejects_unsupported_package_language_floor(
+    tmp_path: Path, sdk_range: str, full_scope: bool
+) -> None:
+    _write_package(
+        tmp_path,
+        "class Order {}\n",
+        pubspec=f"name: commerce\nenvironment:\n  sdk: '{sdk_range}'\n",
+    )
+    facts = _native_facts(tmp_path)
+    assert facts.coverage.full_scope is full_scope
+    if not full_scope:
+        assert any(gap.kind == "SdkConstraintError" for gap in facts.coverage.gaps)
+
+
 def test_native_process_marks_duplicate_declarations_incomplete(tmp_path: Path) -> None:
     dart = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
     if dart is None:
@@ -653,9 +676,9 @@ def _native_facts(root: Path, roots: tuple[str, ...] = ("lib",)):
     return decode_response(result.stdout).facts
 
 
-def _write_package(root: Path, source: str) -> None:
+def _write_package(root: Path, source: str, *, pubspec: str = "name: commerce\n") -> None:
     root.mkdir(parents=True, exist_ok=True)
-    (root / "pubspec.yaml").write_text("name: commerce\n", encoding="utf-8")
+    (root / "pubspec.yaml").write_text(pubspec, encoding="utf-8")
     path = root / "lib/main.dart"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(source, encoding="utf-8")

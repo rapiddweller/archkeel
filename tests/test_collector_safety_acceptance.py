@@ -39,6 +39,7 @@ def _request_for(root: Path, language: str = "python") -> CollectionRequest:
         scope = request.scope
     return replace(
         request,
+        protocol_version="2.0.0" if language == "dart" else request.protocol_version,
         snapshot=replace(request.snapshot, root=str(root)),
         resolver=resolver,
         scope=scope,

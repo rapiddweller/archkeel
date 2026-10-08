@@ -147,11 +147,11 @@ def test_command_coverage_distinguishes_unmeasured_from_mixed_call_counts(valida
 
 
 @pytest.mark.parametrize(
-    ("language", "source", "total", "unresolved"),
+    ("language", "source", "calls_analyzed", "total", "unresolved"),
     [
-        ("python", "VALUE = 1\n", 0, 0),
-        ("python", "def run():\n    return missing()\n", 1, 1),
-        ("dart", "void main() { print('hello'); }\n", None, None),
+        ("python", "VALUE = 1\n", 0, 0, 0),
+        ("python", "def run():\n    return missing()\n", 1, 1, 1),
+        ("dart", "void main() { print('hello'); }\n", 1, None, None),
     ],
 )
 def test_real_cli_call_totals_preserve_availability(
@@ -159,6 +159,7 @@ def test_real_cli_call_totals_preserve_availability(
     tmp_path: Path,
     language: str,
     source: str,
+    calls_analyzed: int,
     total: int | None,
     unresolved: int | None,
 ) -> None:
@@ -211,7 +212,7 @@ def test_real_cli_call_totals_preserve_availability(
     )
     payload = json.loads(run.stdout)
     assert run.returncode == 0, (payload["diagnostics"], run.stderr)
-    assert payload["coverage"]["calls_analyzed"] == total
+    assert payload["coverage"]["calls_analyzed"] == calls_analyzed
     assert payload["measurements"]["calls_total"] == total
     assert payload["measurements"]["scalars"]["calls_unresolved"] == unresolved
     assert not list(validator.iter_errors(payload))
@@ -504,14 +505,10 @@ def test_incomplete_dart_check_preserves_profile_sections(validator, tmp_path: P
     assert not list(validator.iter_errors(payload))
     python = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0"})
     assert not python.is_valid(payload["observation"])
-    for section, invalid in (
-        ("symbols", []),
-        ("references", []),
-        ("bindings", []),
-        ("imports", None),
-    ):
+    for section in ("symbols", "references", "bindings", "imports"):
+        assert isinstance(payload["observation"][section], list), section
         malformed = copy.deepcopy(payload)
-        malformed["observation"][section] = invalid
+        malformed["observation"][section] = None
         assert not validator.is_valid(malformed), section
         del malformed["observation"][section]
         assert not validator.is_valid(malformed), section

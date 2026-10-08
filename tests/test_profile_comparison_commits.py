@@ -27,7 +27,11 @@ def test_committed_profile_check_ignores_working_tree_and_keeps_scope(
     for relative, content in {
         source: value,
         f"shop/data/b.{suffix}": value,
-        "pyproject.toml": '[project]\nname="fixture"\nversion="0.0.0"\nrequires-python=">=3.11"\n',
+        ("pubspec.yaml" if language == "dart" else "pyproject.toml"): (
+            "name: fixture\nenvironment:\n  sdk: '>=2.19.0 <4.0.0'\n"
+            if language == "dart"
+            else '[project]\nname="fixture"\nversion="0.0.0"\nrequires-python=">=3.11"\n'
+        ),
         "architecture-contract.json": '{"schema_version":"2.1.0","components":[],"rules":[]}\n',
     }.items():
         path = fixture / relative

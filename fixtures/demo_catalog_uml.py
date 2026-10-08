@@ -237,7 +237,7 @@ VARIANTS += (
             + "\nint previewDiscount(DiscountPolicy policy, int cents) => "
             "policy.discountCents(cents);\n"
         },
-        expected_violations=(stable_id("REQUIRES-COMPLETE", "contracts/domain.json"),),
+        expected_violations=("ordering:domain:REQUIRES-COMPLETE",),
         expected_codes=("rule.violated",),
         expected_declared_rules="FAIL",
         **DART_BASE,

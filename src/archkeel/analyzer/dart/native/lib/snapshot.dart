@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:analyzer/dart/analysis/features.dart';
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/error/error.dart';
@@ -327,9 +328,44 @@ class DartSnapshot {
         );
       }
     }
-    final minimum = constraint is VersionRange && constraint.min != null
-        ? constraint.min!
-        : runningVersion;
+    Version? minimum;
+    if (sdk == null || constraint.isAny) {
+      minimum = runningVersion;
+    } else if (constraint is VersionRange) {
+      minimum = constraint.min;
+    }
+    if (minimum == null) {
+      for (final source in sources) {
+        _invalid(
+          source,
+          0,
+          'SdkConstraintError',
+          'pubspec SDK constraint has no unambiguous source language lower bound',
+        );
+      }
+    }
+    final languageMinimum = minimum ?? runningVersion;
+    final packageLanguageVersion = Version(
+      languageMinimum.major,
+      languageMinimum.minor,
+      0,
+    );
+    final minimumSupported = Feature.non_nullable.releaseVersion;
+    // Analyzer misses old package defaults; null safety is this Dart 3 collector's source floor.
+    if (minimum != null &&
+        (minimumSupported == null ||
+            packageLanguageVersion < minimumSupported)) {
+      for (final source in sources) {
+        _invalid(
+          source,
+          0,
+          'SdkConstraintError',
+          minimumSupported == null
+              ? 'Analyzer does not declare its minimum supported language version'
+              : 'pubspec SDK constraint selects a language version below Analyzer support',
+        );
+      }
+    }
     final tool = Directory(p.join(root.path, '.dart_tool'))..createSync();
     File(p.join(tool.path, 'package_config.json')).writeAsStringSync(
       jsonEncode({
@@ -340,7 +376,9 @@ class DartSnapshot {
             'rootUri': '../',
             'packageUri': 'lib/',
             'languageVersion':
-                minimum.major.toString() + '.' + minimum.minor.toString(),
+                languageMinimum.major.toString() +
+                '.' +
+                languageMinimum.minor.toString(),
           },
         ],
       }),
