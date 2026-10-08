@@ -279,7 +279,7 @@ def test_native_declarations_match_the_independently_reviewed_checkout_target() 
         assert record.kind == expected_record_kind, name
         data = dict(record.data.entries)
         if kind in {"class", "interface", "enum"}:
-            expected_class_kind = {"class": "class", "interface": "interface", "enum": "enum"}[kind]
+            expected_class_kind = {"class": "class", "interface": "protocol", "enum": "enum"}[kind]
             assert data["class_kind"] == expected_class_kind, name
         if kind in {"method", "function"}:
             signature = expected.get("signature", {})
@@ -345,6 +345,113 @@ def _write_package(root: Path, source: str) -> None:
     path = root / "lib/main.dart"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(source, encoding="utf-8")
+
+
+def _source_graph(facts):
+    from archkeel.ir.model import (
+        AnalyzerInfo,
+        ContractInfo,
+        Coverage,
+        Observation,
+        Section,
+        SourceInfo,
+    )
+    from archkeel.ir.source_graph import observed_graph
+
+    observation = Observation(
+        schema_version="2.1.0",
+        analyzer=AnalyzerInfo(facts.adapter.name, facts.adapter.version, facts.adapter.code_digest),
+        source=SourceInfo(
+            facts.source.git_head,
+            facts.source.dirty,
+            facts.source.source_digest,
+            ("lib",),
+        ),
+        contract=ContractInfo("2.1.0", "0" * 64, "contract.json"),
+        coverage=Coverage(
+            "PASS" if facts.coverage.full_scope else "UNKNOWN",
+            len(facts.files),
+            facts.coverage.files_read,
+            facts.coverage.files_parsed,
+            None,
+            None,
+            None,
+            None,
+            100.0 if facts.coverage.full_scope else 0.0,
+            None,
+            (),
+        ),
+        sections=tuple(Section(section.name, section.records) for section in facts.sections),
+        evidence=facts.evidence,
+    )
+    return observed_graph(observation)
+
+
+def test_native_declarations_project_enum_literals_interfaces_and_signatures(
+    tmp_path: Path,
+) -> None:
+    _write_package(
+        tmp_path,
+        """enum State { pending, complete }
+abstract interface class Repository { void save(String value); }
+void configure(String id, void callback(String value), {required String title, String? subtitle}) {}
+void optionalPositional([String? label]) {}
+class Box { Box(this.value); final String value; }
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    graph = _source_graph(facts)
+    entities = {entity.qualified_name: entity for entity in graph.entities}
+
+    literals = {name: entities[f"commerce.main.State.{name}"] for name in ("pending", "complete")}
+    evidence = {item.id: item for item in graph.evidence}
+    assert all(entity.kind == "enum_literal" for entity in literals.values())
+    assert all(entity.id.startswith("DARTATTR") for entity in literals.values())
+    assert all(
+        len(entity.evidence_ids) == 1
+        and evidence[entity.evidence_ids[0]].file == "lib/main.dart"
+        and evidence[entity.evidence_ids[0]].line == 1
+        for entity in literals.values()
+    )
+    state_fact = next(
+        record
+        for section in facts.sections
+        for record in section.records
+        if section.name == "symbols" and record.data.get("name") == "State"
+    )
+    attribute_inventory = next(
+        inventory
+        for inventory in state_fact.data.get("member_inventories")
+        if inventory.get("kind") == "attribute"
+    )
+    assert attribute_inventory.get("status") == "complete"
+    assert set(attribute_inventory.get("definition_ids")) == {
+        entity.id for entity in literals.values()
+    }
+    assert entities["commerce.main.Repository"].kind == "interface"
+    save = entities["commerce.main.Repository.save"].signature
+    assert save is not None
+    assert save.parameters[0].annotation == "String"
+
+    configured = entities["commerce.main.configure"].signature
+    assert configured is not None
+    required_positional, callback, title, subtitle = configured.parameters
+    assert required_positional.kind == "positional"
+    assert required_positional.default_known and required_positional.default is None
+    assert callback.annotation is not None and "Function" in callback.annotation
+    assert "String value" in callback.annotation
+    assert title.kind == "keyword_only" and title.default_known and title.default is None
+    assert subtitle.kind == "keyword_only" and subtitle.default_known and subtitle.default == "null"
+
+    positional = entities["commerce.main.optionalPositional"].signature
+    assert positional is not None
+    assert positional.parameters[0].kind == "positional"
+    assert positional.parameters[0].default_known
+    assert positional.parameters[0].default == "null"
+    constructor = entities["commerce.main.Box.Box"].signature
+    assert constructor is not None
+    assert constructor.parameters[0].annotation == "String"
 
 
 def test_native_malformed_unit_is_unknown_and_not_counted_parsed(tmp_path: Path) -> None:

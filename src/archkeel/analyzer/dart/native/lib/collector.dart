@@ -433,7 +433,7 @@ class DartCollector {
       if (declaration is ClassDeclaration) {
         final classKind = declaration.interfaceKeyword == null
             ? 'class'
-            : 'interface';
+            : 'protocol';
         final owner = _classifier(
           source,
           declaration,
@@ -442,11 +442,32 @@ class DartCollector {
         );
         _classBody(source, declaration.body, owner);
       } else if (declaration is EnumDeclaration) {
+        final enumAttributes = declaration.body.constants.map((constant) {
+          final name = constant.name.lexeme;
+          return {
+            'name': name,
+            'annotation': null,
+            'visibility': {
+              'kind': 'public',
+              'basis': 'language',
+              'spelling': name,
+            },
+            'definition_id': _id('DARTATTR', [
+              source.rel,
+              constant.offset,
+              source.module + '.' + declaration.namePart.typeName.lexeme,
+              name,
+            ]),
+            'evidence_ids': [_cite(source, constant)],
+            'static': true,
+          };
+        }).toList();
         final owner = _classifier(
           source,
           declaration,
           declaration.namePart.typeName.lexeme,
           'enum',
+          enumAttributes: enumAttributes,
           enumMembers: declaration.body.constants
               .map((constant) => constant.name.lexeme)
               .toList(),
@@ -556,9 +577,11 @@ class DartCollector {
     String name,
     String classKind, {
     List<String>? enumMembers,
+    List<Map<String, Object?>>? enumAttributes,
   }) {
     final qualified = source.module + '.' + name;
     final id = _id('DARTDEF', [source.rel, node.offset, qualified, 'class']);
+    final attributes = enumAttributes ?? <Map<String, Object?>>[];
     symbols.add(
       _record(
         id,
@@ -571,13 +594,15 @@ class DartCollector {
           ..._meta(source, node, name, 'class', null, null),
           'class_kind': classKind,
           'enum_members': enumMembers ?? <String>[],
-          'attribute_declarations': <Map<String, Object?>>[],
+          'attribute_declarations': attributes,
           'member_inventories': [
             {
               'schema_version': '1.0.0',
               'kind': 'attribute',
               'status': 'complete',
-              'definition_ids': <String>[],
+              'definition_ids': attributes
+                  .map((attribute) => attribute['definition_id'] as String)
+                  .toList(),
               'reason': null,
             },
             {
@@ -591,7 +616,12 @@ class DartCollector {
         },
       ),
     );
-    return {'id': id, 'name': name, 'qualified': qualified};
+    return {
+      'id': id,
+      'name': name,
+      'qualified': qualified,
+      'attributes': attributes,
+    };
   }
 
   void _members(
@@ -599,7 +629,17 @@ class DartCollector {
     List<ClassMember> members,
     Map<String, Object?> owner,
   ) {
-    final attrs = <Map<String, Object?>>[];
+    final attrs =
+        (owner['attributes'] as List<Map<String, Object?>>?)?.toList() ??
+        <Map<String, Object?>>[];
+    final fieldTypes = <String, String>{};
+    for (final member in members.whereType<FieldDeclaration>()) {
+      final type = member.fields.type?.toSource();
+      if (type == null) continue;
+      for (final variable in member.fields.variables) {
+        fieldTypes[variable.name.lexeme] = type;
+      }
+    }
     final methods = <String>[];
     for (final member in members) {
       if (member is FieldDeclaration) {
@@ -655,6 +695,7 @@ class DartCollector {
             null,
             true,
             member.factoryKeyword == null ? 'constructor' : 'factory',
+            fieldTypes,
           ),
         );
       } else {
@@ -686,6 +727,7 @@ class DartCollector {
     String? returns, [
     bool isStatic = false,
     String? methodKind,
+    Map<String, String>? fieldTypes,
   ]) {
     final qualifiedParent = parent?['qualified'] as String?;
     final parentId = parent?['id'] as String?;
@@ -698,7 +740,7 @@ class DartCollector {
       qualified,
       parent == null ? 'function' : 'method',
     ]);
-    final params = _params(list);
+    final params = _params(source, list, fieldTypes ?? const {});
     symbols.add(
       _record(
         id,
@@ -722,28 +764,31 @@ class DartCollector {
                   parent != null
               ? parent['name']
               : returns,
-          'parameters': params,
+          'parameters': params.values,
           'method_kind': methodKind ?? (isStatic ? 'static' : 'instance'),
+          'signature_complete': params.complete,
         },
       ),
     );
     return id;
   }
 
-  List<Map<String, Object?>> _params(FormalParameterList? list) {
-    if (list == null) return [];
+  ({List<Map<String, Object?>> values, bool complete}) _params(
+    DartSource source,
+    FormalParameterList? list,
+    Map<String, String> fieldTypes,
+  ) {
+    if (list == null) return (values: <Map<String, Object?>>[], complete: true);
     final result = <Map<String, Object?>>[];
+    var complete = true;
     for (final item in list.parameters) {
       var actual = item;
       String? defaultValue;
-      var kind = 'positional';
-      final delimiter = list.leftDelimiter;
-      if (delimiter != null && item.offset > delimiter.offset) {
-        kind = delimiter.lexeme == '{' ? 'keyword_only' : 'optional';
-      }
+      var kind = item.isNamed ? 'keyword_only' : 'positional';
       if (item is DefaultFormalParameter) {
         actual = item.parameter;
         defaultValue = item.defaultValue?.toSource();
+        if (item.isOptional && defaultValue == null) defaultValue = 'null';
       }
       final name = switch (actual) {
         SimpleFormalParameter() => actual.name?.lexeme,
@@ -752,13 +797,42 @@ class DartCollector {
         FunctionTypedFormalParameter() => actual.name.lexeme,
         _ => null,
       };
-      if (name == null) continue;
+      if (name == null) {
+        complete = false;
+        _gap(
+          source.rel,
+          item.offset,
+          'UnsupportedParameter',
+          'parameter form is not represented in the shared signature',
+        );
+        continue;
+      }
       final type = switch (actual) {
         SimpleFormalParameter() => actual.type?.toSource(),
-        FieldFormalParameter() => actual.type?.toSource(),
+        FieldFormalParameter() =>
+          actual.type?.toSource() ?? fieldTypes[actual.name.lexeme],
         SuperFormalParameter() => actual.type?.toSource(),
+        FunctionTypedFormalParameter() =>
+          '${actual.returnType?.toSource() ?? 'dynamic'} Function'
+              '${actual.typeParameters?.toSource() ?? ''}'
+              '${actual.parameters.toSource()}'
+              '${actual.question == null ? '' : '?'}',
         _ => null,
       };
+      final supported = switch (actual) {
+        SimpleFormalParameter() || FunctionTypedFormalParameter() => true,
+        FieldFormalParameter() || SuperFormalParameter() => type != null,
+        _ => false,
+      };
+      if (!supported) {
+        complete = false;
+        _gap(
+          source.rel,
+          item.offset,
+          'UnsupportedParameter',
+          'parameter type is not represented in the shared signature',
+        );
+      }
       result.add({
         'name': name,
         'annotation': type,
@@ -767,7 +841,7 @@ class DartCollector {
         'default_known': true,
       });
     }
-    return result;
+    return (values: result, complete: complete);
   }
 
   void _variable(
