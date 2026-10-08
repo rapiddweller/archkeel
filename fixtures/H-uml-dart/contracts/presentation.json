@@ -151,7 +151,7 @@
             "docs/target.md"
           ],
           "responsibilities": [
-            "Identify the request."
+            "Hold the final checkout request identifier."
           ],
           "visibility": {
             "kind": "public",
@@ -170,7 +170,7 @@
             "docs/target.md"
           ],
           "responsibilities": [
-            "Carry requested order lines."
+            "Hold the final requested order lines."
           ],
           "visibility": {
             "kind": "public",
@@ -206,6 +206,60 @@
             ],
             "returns": "String"
           }
+        },
+        {
+          "id": "checkout-field",
+          "kind": "attribute",
+          "qualified_name": "commerce.presentation.controller.CheckoutController._checkout",
+          "parent_id": "controller-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retain the injected checkout service."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "CheckoutService"
+        },
+        {
+          "id": "request-ctor",
+          "kind": "method",
+          "qualified_name": "commerce.presentation.controller.CheckoutRequest.CheckoutRequest",
+          "parent_id": "request",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create a request with its identifier and requested lines."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "requestId",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "lines",
+                "annotation": "List<OrderLine>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "CheckoutRequest"
+          }
         }
       ],
       "relationships": [
@@ -217,26 +271,55 @@
           "provenance": [
             "docs/target.md"
           ]
+        },
+        {
+          "id": "controller-ctor-retains-checkout",
+          "kind": "references",
+          "source_id": "controller-ctor",
+          "target_id": "checkout-field",
+          "provenance": [
+            "docs/target.md"
+          ]
         }
       ],
       "scopes": [
         {
           "scope_id": "controller-module",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "Module and call inventories stay open until the collector can certify their completeness.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "controller-class",
           "mode": "closed",
           "entity_kinds": [
-            "class",
-            "interface",
-            "enum",
-            "enum_literal",
-            "method",
-            "function",
             "attribute",
-            "type_alias",
-            "constant",
-            "binding"
+            "method"
           ],
           "relationship_kinds": [],
-          "rationale": "Declare the request controller and input members.",
+          "rationale": "Declare every direct member of commerce.presentation.controller.CheckoutController.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "request",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of commerce.presentation.controller.CheckoutRequest.",
           "provenance": [
             "docs/target.md"
           ]

@@ -295,21 +295,15 @@
       "scopes": [
         {
           "scope_id": "main-module",
-          "mode": "closed",
+          "mode": "open",
           "entity_kinds": [
-            "class",
-            "interface",
-            "enum",
-            "enum_literal",
-            "method",
-            "function",
-            "attribute",
-            "type_alias",
-            "constant",
-            "binding"
+            "module"
           ],
-          "relationship_kinds": [],
-          "rationale": "Declare main.dart symbols; module, call and runtime wiring inventories remain open.",
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "Module and call inventories stay open until the collector can certify their completeness.",
           "provenance": [
             "docs/target.md"
           ]

@@ -311,6 +311,25 @@
           "responsibilities": [
             "Reference the order identifier read for a receipt."
           ]
+        },
+        {
+          "id": "repository-field",
+          "kind": "attribute",
+          "qualified_name": "commerce.ordering.application.checkout_service.CheckoutService._repository",
+          "parent_id": "checkout-service",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retain the injected order persistence port."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "OrderRepository"
         }
       ],
       "relationships": [
@@ -331,47 +350,69 @@
           "provenance": [
             "docs/target.md"
           ]
+        },
+        {
+          "id": "checkout-ctor-retains-repository",
+          "kind": "references",
+          "source_id": "checkout-ctor",
+          "target_id": "repository-field",
+          "provenance": [
+            "docs/target.md"
+          ]
         }
       ],
       "scopes": [
         {
           "scope_id": "checkout-module",
-          "mode": "closed",
+          "mode": "open",
           "entity_kinds": [
-            "class",
-            "interface",
-            "enum",
-            "enum_literal",
-            "method",
-            "function",
-            "attribute",
-            "type_alias",
-            "constant",
-            "binding"
+            "module"
           ],
-          "relationship_kinds": [],
-          "rationale": "Declare all CheckoutService members.",
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "Module and call inventories stay open until the collector can certify their completeness.",
           "provenance": [
             "docs/target.md"
           ]
         },
         {
           "scope_id": "repository-module",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "Module and call inventories stay open until the collector can certify their completeness.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "checkout-service",
           "mode": "closed",
           "entity_kinds": [
-            "class",
-            "interface",
-            "enum",
-            "enum_literal",
-            "method",
-            "function",
             "attribute",
-            "type_alias",
-            "constant",
-            "binding"
+            "method"
           ],
           "relationship_kinds": [],
-          "rationale": "Declare all persistence port members.",
+          "rationale": "Declare every direct member of commerce.ordering.application.checkout_service.CheckoutService.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "repository-port",
+          "mode": "closed",
+          "entity_kinds": [
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of commerce.ordering.ports.order_repository.OrderRepository.",
           "provenance": [
             "docs/target.md"
           ]

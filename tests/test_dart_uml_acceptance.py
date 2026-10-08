@@ -195,8 +195,7 @@ def test_checkout_target_owns_three_nested_levels_and_independent_uml_intent():
         assert edge.source_id in entities
         assert edge.target_id in entities
         assert edge.provenance == (PROVENANCE,)
-    assert graph.target_scopes and all(scope.mode == "closed" for scope in graph.target_scopes)
-    assert all(not scope.relationship_kinds for scope in graph.target_scopes)
+    assert graph.target_scopes
 
 
 def test_checkout_target_rejects_an_unowned_uml_endpoint():
@@ -214,3 +213,98 @@ def test_checkout_target_rejects_a_member_mounted_under_its_module():
     member["parent_id"] = "order-module"
     with pytest.raises(ValueError, match="planned attribute without a classifier"):
         declared_graph(parse_contract(payload)).validate()
+
+
+def test_dart_private_fields_and_classifier_scopes_are_truthful():
+    _, graph = _target_graph()
+    entities = {entity.id: entity for entity in graph.entities}
+    modules = {entity.id for entity in graph.entities if entity.kind == "module"}
+    module_scopes = {
+        scope.scope_id: scope for scope in graph.target_scopes if scope.scope_id in modules
+    }
+    assert len(module_scopes) == len(modules)
+    assert all(scope.mode == "open" for scope in module_scopes.values())
+    assert all("open" in scope.rationale.lower() for scope in module_scopes.values())
+    assert all(set(scope.entity_kinds) == {"module"} for scope in module_scopes.values())
+    assert all(
+        set(scope.relationship_kinds) == {"calls", "imports"} for scope in module_scopes.values()
+    )
+
+    classifiers = {
+        entity.id: entity
+        for entity in graph.entities
+        if entity.presence == "planned" and entity.kind in {"class", "interface", "enum"}
+    }
+    closed_scopes = {
+        scope.scope_id: scope for scope in graph.target_scopes if scope.mode == "closed"
+    }
+    assert closed_scopes.keys() == classifiers.keys()
+    for classifier_id, scope in closed_scopes.items():
+        direct_member_kinds = {
+            entity.kind
+            for entity in graph.entities
+            if entity.parent_id == classifier_id
+            and entity.kind in {"attribute", "method", "enum_literal"}
+        }
+        assert set(scope.entity_kinds) == direct_member_kinds
+        assert not scope.relationship_kinds
+
+    percent = next(
+        entity
+        for entity in graph.entities
+        if entity.qualified_name.endswith("PercentageDiscount._percent")
+    )
+    assert percent.visibility.kind == "private"
+    assert percent.qualified_name.endswith("._percent")
+    assert all(
+        entity.qualified_name.rsplit(".", 1)[-1].startswith("_")
+        for entity in graph.entities
+        if entity.visibility.kind == "private"
+    )
+    discount_ctor = next(
+        entity
+        for entity in graph.entities
+        if entity.qualified_name.endswith("PercentageDiscount.PercentageDiscount")
+    )
+    assert [
+        (item.name, item.kind, item.default) for item in discount_ctor.signature.parameters
+    ] == [("percent", "keyword_only", "0")]
+    request = next(
+        entity for entity in graph.entities if entity.qualified_name.endswith("CheckoutRequest")
+    )
+    constructor = next(
+        entity
+        for entity in graph.entities
+        if entity.qualified_name.endswith("CheckoutRequest.CheckoutRequest")
+    )
+    assert constructor.parent_id == request.id
+    assert [(item.name, item.annotation) for item in constructor.signature.parameters] == [
+        ("requestId", "String"),
+        ("lines", "List<OrderLine>"),
+    ]
+    assert constructor.signature.returns == "CheckoutRequest"
+    request_fields = {
+        entity.qualified_name.rsplit(".", 1)[-1]: entity
+        for entity in graph.entities
+        if entity.parent_id == request.id
+    }
+    assert set(request_fields) == {"requestId", "lines", "CheckoutRequest"}
+    assert all(request_fields[name].kind == "attribute" for name in ("requestId", "lines"))
+    assert entities["ordering:repository-field"].visibility.kind == "private"
+    assert entities["presentation:checkout-field"].visibility.kind == "private"
+    assert all(
+        item.responsibilities
+        for item in (entities["ordering:repository-field"], entities["presentation:checkout-field"])
+    )
+    checkout_ctor = next(
+        entity
+        for entity in graph.entities
+        if entity.qualified_name.endswith("CheckoutService.CheckoutService")
+    )
+    controller_ctor = next(
+        entity
+        for entity in graph.entities
+        if entity.qualified_name.endswith("CheckoutController.CheckoutController")
+    )
+    assert [item.name for item in checkout_ctor.signature.parameters] == ["repository"]
+    assert [item.name for item in controller_ctor.signature.parameters] == ["checkout"]

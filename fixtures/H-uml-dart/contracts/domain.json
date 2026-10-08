@@ -677,7 +677,7 @@
         {
           "id": "discount-rate",
           "kind": "attribute",
-          "qualified_name": "commerce.ordering.domain.pricing.discount_policy.PercentageDiscount.percent",
+          "qualified_name": "commerce.ordering.domain.pricing.discount_policy.PercentageDiscount._percent",
           "parent_id": "percentage-discount",
           "language": "dart",
           "presence": "planned",
@@ -685,7 +685,7 @@
             "docs/target.md"
           ],
           "responsibilities": [
-            "Store the discount percentage."
+            "Store the discount percentage privately."
           ],
           "visibility": {
             "kind": "private",
@@ -857,47 +857,119 @@
           "provenance": [
             "docs/target.md"
           ]
+        },
+        {
+          "id": "discount-calc-reads-percent",
+          "kind": "references",
+          "source_id": "discount-calc",
+          "target_id": "discount-rate",
+          "provenance": [
+            "docs/target.md"
+          ]
         }
       ],
       "scopes": [
         {
           "scope_id": "order-module",
-          "mode": "closed",
+          "mode": "open",
           "entity_kinds": [
-            "class",
-            "interface",
-            "enum",
-            "enum_literal",
-            "method",
-            "function",
-            "attribute",
-            "type_alias",
-            "constant",
-            "binding"
+            "module"
           ],
-          "relationship_kinds": [],
-          "rationale": "Require complete classifier and member declarations for order.dart; source observation decides whether that inventory can be certified.",
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "Module and call inventories stay open until the collector can certify their completeness.",
           "provenance": [
             "docs/target.md"
           ]
         },
         {
           "scope_id": "pricing-module",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "Module and call inventories stay open until the collector can certify their completeness.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "discount-base",
           "mode": "closed",
           "entity_kinds": [
-            "class",
-            "interface",
-            "enum",
-            "enum_literal",
-            "method",
-            "function",
-            "attribute",
-            "type_alias",
-            "constant",
-            "binding"
+            "method"
           ],
           "relationship_kinds": [],
-          "rationale": "Require complete policy and implementation member declarations.",
+          "rationale": "Declare every direct member of commerce.ordering.domain.pricing.discount_policy.DiscountBase.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "discount-policy",
+          "mode": "closed",
+          "entity_kinds": [
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of commerce.ordering.domain.pricing.discount_policy.DiscountPolicy.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "line",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of commerce.ordering.domain.orders.order.OrderLine.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "order",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of commerce.ordering.domain.orders.order.Order.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "percentage-discount",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of commerce.ordering.domain.pricing.discount_policy.PercentageDiscount.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "status",
+          "mode": "closed",
+          "entity_kinds": [
+            "enum_literal"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of commerce.ordering.domain.orders.order.OrderStatus.",
           "provenance": [
             "docs/target.md"
           ]

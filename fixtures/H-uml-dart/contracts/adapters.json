@@ -294,43 +294,44 @@
       ],
       "scopes": [
         {
-          "scope_id": "memory-module",
-          "mode": "closed",
+          "scope_id": "diagnostics-module",
+          "mode": "open",
           "entity_kinds": [
-            "class",
-            "interface",
-            "enum",
-            "enum_literal",
-            "method",
-            "function",
-            "attribute",
-            "type_alias",
-            "constant",
-            "binding"
+            "module"
           ],
-          "relationship_kinds": [],
-          "rationale": "Declare all in-memory adapter members.",
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "Module and call inventories stay open until the collector can certify their completeness.",
           "provenance": [
             "docs/target.md"
           ]
         },
         {
-          "scope_id": "diagnostics-module",
+          "scope_id": "memory-module",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "Module and call inventories stay open until the collector can certify their completeness.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "memory-repository",
           "mode": "closed",
           "entity_kinds": [
-            "class",
-            "interface",
-            "enum",
-            "enum_literal",
-            "method",
-            "function",
             "attribute",
-            "type_alias",
-            "constant",
-            "binding"
+            "method"
           ],
           "relationship_kinds": [],
-          "rationale": "Declare all receipt formatter definitions.",
+          "rationale": "Declare every direct member of commerce.adapters.memory.in_memory_order_repository.InMemoryOrderRepository.",
           "provenance": [
             "docs/target.md"
           ]
