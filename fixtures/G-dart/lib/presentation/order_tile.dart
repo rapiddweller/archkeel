@@ -6,7 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shop/domain/domain.dart' show Order;
 
 class OrderTile extends StatelessWidget {
-  const OrderTile({super.key, required this.order});
+  const OrderTile({Key? super.key, required this.order});
 
   final Order order;
 

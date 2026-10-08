@@ -128,8 +128,8 @@ def test_legacy_report_is_readable_but_not_comparable() -> None:
 @pytest.mark.parametrize("missing", ["", " ", "unknown", "UNKNOWN"])
 def test_equal_incomplete_producer_cannot_pass_a_language_delta(field: str, missing: str) -> None:
     raw = _model(git_head="a" * 40)
-    raw["analyzer"]["name"] = "archkeel-dart-directives"
-    for section in ("symbols", "references", "bindings"):
+    raw["analyzer"]["name"] = "archkeel-dart-analyzer"
+    for section in ("typing_signals", "constructs"):
         raw[section] = None
     producer = {"name": "directive-parser", "version": "1.0.0", "code_digest": "b" * 64}
     producer[field] = missing
@@ -153,8 +153,8 @@ def test_equal_incomplete_producer_cannot_pass_a_language_delta(field: str, miss
 @pytest.mark.parametrize("missing", ["", " ", "unknown", "UNKNOWN"])
 def test_equal_incomplete_runtime_cannot_pass_a_language_delta(field: str, missing: str) -> None:
     raw = _model(git_head="a" * 40)
-    raw["analyzer"]["name"] = "archkeel-dart-directives"
-    for section in ("symbols", "references", "bindings"):
+    raw["analyzer"]["name"] = "archkeel-dart-analyzer"
+    for section in ("typing_signals", "constructs"):
         raw[section] = None
     runtime = {"name": "cpython", "version": "3.11.12"}
     runtime[field] = missing
@@ -177,8 +177,8 @@ def test_equal_incomplete_runtime_cannot_pass_a_language_delta(field: str, missi
 @pytest.mark.parametrize("labels", ["analyzer", "producer", "both"])
 def test_producer_distribution_label_does_not_change_identical_parser_bytes(labels: str) -> None:
     raw = _model(git_head="a" * 40)
-    raw["analyzer"]["name"] = "archkeel-dart-directives"
-    for section in ("symbols", "references", "bindings"):
+    raw["analyzer"]["name"] = "archkeel-dart-analyzer"
+    for section in ("typing_signals", "constructs"):
         raw[section] = None
     baseline = replace(
         parse_observation(raw),
@@ -216,7 +216,7 @@ def test_changed_or_missing_producer_identity_is_incomparable(
     producer: AnalyzerInfo | None,
 ) -> None:
     raw = _model(git_head="a" * 40)
-    raw["analyzer"]["name"] = "archkeel-dart-directives"
+    raw["analyzer"]["name"] = "archkeel-dart-analyzer"
     for section in PROFILES["dart"].absent_sections:
         raw[section] = None
     baseline = replace(
@@ -289,7 +289,7 @@ def test_different_analyzer_profile_is_incomparable() -> None:
             baseline,
             replace(
                 baseline,
-                analyzer=replace(baseline.analyzer, name="archkeel-dart-directives"),
+                analyzer=replace(baseline.analyzer, name="archkeel-dart-analyzer"),
             ),
             baseline_digest="a" * 64,
             head_digest="b" * 64,

@@ -1,0 +1,1339 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "composition",
+      "label": "composition",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "shop.main",
+        "shop.app.shop_app"
+      ],
+      "responsibilities": [
+        "Wire the application, deterministic backend, repositories, view models, and Flutter entry widget."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "presentation",
+          "through": [
+            "shop.presentation.shopping",
+            "shop.presentation.orders"
+          ],
+          "rationale": "Construct the app shell and its user-facing screens.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "domain",
+          "through": [
+            "shop.domain.catalog",
+            "shop.domain.cart",
+            "shop.domain.checkout",
+            "shop.domain.orders"
+          ],
+          "rationale": "Wire domain ports and use cases into the app.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "data",
+          "through": [
+            "shop.data.repositories",
+            "shop.data.services"
+          ],
+          "rationale": "Construct the demo backend, cache, and repository adapters.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "state",
+          "through": [
+            "shop.state.async_state"
+          ],
+          "rationale": "Supply view models with the shared async state value.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "shop.main",
+        "shop.app.shop_app"
+      ]
+    },
+    {
+      "id": "presentation",
+      "label": "presentation",
+      "role": "component",
+      "packages": [
+        "shop.presentation"
+      ],
+      "public": [
+        "shop.presentation.shopping",
+        "shop.presentation.orders"
+      ],
+      "responsibilities": [
+        "Render the shopping and order journeys and translate user actions into view-model commands."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "domain",
+          "through": [
+            "shop.domain.catalog",
+            "shop.domain.cart",
+            "shop.domain.checkout",
+            "shop.domain.orders"
+          ],
+          "rationale": "Serve catalog, cart, checkout, and order journeys through domain APIs.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "state",
+          "through": [
+            "shop.state.async_state"
+          ],
+          "rationale": "Represent async presentation state.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "shop.presentation",
+      "inside": "contracts/presentation.json"
+    },
+    {
+      "id": "domain",
+      "label": "domain",
+      "role": "component",
+      "packages": [
+        "shop.domain"
+      ],
+      "public": [
+        "shop.domain.catalog",
+        "shop.domain.cart",
+        "shop.domain.orders",
+        "shop.domain.checkout"
+      ],
+      "responsibilities": [
+        "Own product, cart, order, repository-port, and checkout policy types."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "shop.domain",
+      "inside": "contracts/domain.json"
+    },
+    {
+      "id": "data",
+      "label": "data",
+      "role": "component",
+      "packages": [
+        "shop.data"
+      ],
+      "public": [
+        "shop.data.repositories",
+        "shop.data.services"
+      ],
+      "responsibilities": [
+        "Provide deterministic async data services, an in-memory cache, and repository implementations."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "domain",
+          "through": [
+            "shop.domain.catalog",
+            "shop.domain.orders",
+            "shop.domain.checkout"
+          ],
+          "rationale": "Implement domain ports and consume domain values in the data layer.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "shop.data",
+      "inside": "contracts/data.json"
+    },
+    {
+      "id": "state",
+      "label": "state",
+      "role": "component",
+      "packages": [
+        "shop.state"
+      ],
+      "public": [
+        "shop.state.async_state"
+      ],
+      "responsibilities": [
+        "Represent generic loading, empty, ready, and failed view state."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "shop.state",
+      "inside": "contracts/state.json"
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Unlisted component dependencies are outside the approved demo boundary.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-main",
+          "kind": "module",
+          "qualified_name": "shop.main",
+          "parent_id": "composition",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Initialize the demo dependency graph and launch one app."
+          ],
+          "file_path": "lib/main.dart"
+        },
+        {
+          "id": "main-function",
+          "kind": "function",
+          "qualified_name": "shop.main.main",
+          "parent_id": "module-main",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Build the app’s shared services and enter Flutter."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "app-version-constant",
+          "kind": "constant",
+          "qualified_name": "shop.main.APP_VERSION",
+          "parent_id": "module-main",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the demo version."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "module-shop-app",
+          "kind": "module",
+          "qualified_name": "shop.app.shop_app",
+          "parent_id": "composition",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Compose Flutter navigation and screen dependencies."
+          ],
+          "file_path": "lib/app/shop_app.dart"
+        },
+        {
+          "id": "shop-app-class",
+          "kind": "class",
+          "qualified_name": "shop.app.shop_app.ShopApp",
+          "parent_id": "module-shop-app",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Own MaterialApp composition and the app route table."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "app-backend",
+          "kind": "attribute",
+          "qualified_name": "shop.app.shop_app.ShopApp._backend",
+          "parent_id": "shop-app-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Observe online state for the catalog screen."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "DemoBackend"
+        },
+        {
+          "id": "app-store",
+          "kind": "attribute",
+          "qualified_name": "shop.app.shop_app.ShopApp._store",
+          "parent_id": "shop-app-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Own the in-memory store for the app lifetime."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "MemoryStore"
+        },
+        {
+          "id": "app-catalog-vm",
+          "kind": "attribute",
+          "qualified_name": "shop.app.shop_app.ShopApp._catalog",
+          "parent_id": "shop-app-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Supply catalog state to the initial screen."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "CatalogViewModel"
+        },
+        {
+          "id": "app-cart-vm",
+          "kind": "attribute",
+          "qualified_name": "shop.app.shop_app.ShopApp._cart",
+          "parent_id": "shop-app-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Supply the shared cart state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "CartViewModel"
+        },
+        {
+          "id": "app-orders-vm",
+          "kind": "attribute",
+          "qualified_name": "shop.app.shop_app.ShopApp._orders",
+          "parent_id": "shop-app-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Supply saved-order state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "OrdersViewModel"
+        },
+        {
+          "id": "shop-app-constructor",
+          "kind": "method",
+          "qualified_name": "shop.app.shop_app.ShopApp.ShopApp",
+          "parent_id": "shop-app-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive the services and view models wired by main."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "backend",
+                "annotation": "DemoBackend",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "store",
+                "annotation": "MemoryStore",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "catalog",
+                "annotation": "CatalogViewModel",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "cart",
+                "annotation": "CartViewModel",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "orders",
+                "annotation": "OrdersViewModel",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "ShopApp"
+          }
+        },
+        {
+          "id": "shop-app-create-state",
+          "kind": "method",
+          "qualified_name": "shop.app.shop_app.ShopApp.createState",
+          "parent_id": "shop-app-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create the state that owns routing and app-lifetime cleanup."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "State<ShopApp>"
+          }
+        },
+        {
+          "id": "shop-app-state-class",
+          "kind": "class",
+          "qualified_name": "shop.app.shop_app._ShopAppState",
+          "parent_id": "module-shop-app",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Own the app route table and dispose app-lifetime dependencies on unmount."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "shop-app-state-build",
+          "kind": "method",
+          "qualified_name": "shop.app.shop_app._ShopAppState.build",
+          "parent_id": "shop-app-state-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create the Flutter application and its route table."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "context",
+                "annotation": "BuildContext",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Widget"
+          }
+        },
+        {
+          "id": "shop-app-state-dispose",
+          "kind": "method",
+          "qualified_name": "shop.app.shop_app._ShopAppState.dispose",
+          "parent_id": "shop-app-state-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Dispose every app-owned view model and close the memory-store stream."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "flutter-change-notifier",
+          "kind": "class",
+          "qualified_name": "package:flutter/foundation.dart.ChangeNotifier",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "flutter-stateless-widget",
+          "kind": "class",
+          "qualified_name": "package:flutter/widgets.dart.StatelessWidget",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "flutter-stateful-widget",
+          "kind": "class",
+          "qualified_name": "package:flutter/widgets.dart.StatefulWidget",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "flutter-state-shop-app",
+          "kind": "class",
+          "qualified_name": "package:flutter/widgets.dart.State<ShopApp>",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "flutter-run-app",
+          "kind": "function",
+          "qualified_name": "package:flutter/widgets.dart.runApp",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "backend-binding",
+          "kind": "binding",
+          "qualified_name": "shop.main.main.backend",
+          "parent_id": "main-function",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold a constructor-injected app dependency for the process lifetime."
+          ],
+          "annotation": "DemoBackend",
+          "initializer": "DemoBackend()"
+        },
+        {
+          "id": "store-binding",
+          "kind": "binding",
+          "qualified_name": "shop.main.main.store",
+          "parent_id": "main-function",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold a constructor-injected app dependency for the process lifetime."
+          ],
+          "annotation": "MemoryStore",
+          "initializer": "MemoryStore()"
+        },
+        {
+          "id": "catalog-repo-binding",
+          "kind": "binding",
+          "qualified_name": "shop.main.main.catalogRepository",
+          "parent_id": "main-function",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold a constructor-injected app dependency for the process lifetime."
+          ],
+          "annotation": "CachedCatalogRepository",
+          "initializer": "CachedCatalogRepository(backend, store)"
+        },
+        {
+          "id": "order-repo-binding",
+          "kind": "binding",
+          "qualified_name": "shop.main.main.orderRepository",
+          "parent_id": "main-function",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold a constructor-injected app dependency for the process lifetime."
+          ],
+          "annotation": "MemoryOrderRepository",
+          "initializer": "MemoryOrderRepository(backend, store)"
+        },
+        {
+          "id": "place-order-binding",
+          "kind": "binding",
+          "qualified_name": "shop.main.main.placeOrder",
+          "parent_id": "main-function",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold a constructor-injected app dependency for the process lifetime."
+          ],
+          "annotation": "PlaceOrder",
+          "initializer": "PlaceOrder(backend, orderRepository)"
+        },
+        {
+          "id": "catalog-vm-binding",
+          "kind": "binding",
+          "qualified_name": "shop.main.main.catalogViewModel",
+          "parent_id": "main-function",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold a constructor-injected app dependency for the process lifetime."
+          ],
+          "annotation": "CatalogViewModel",
+          "initializer": "CatalogViewModel(catalogRepository, backend)"
+        },
+        {
+          "id": "cart-vm-binding",
+          "kind": "binding",
+          "qualified_name": "shop.main.main.cartViewModel",
+          "parent_id": "main-function",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold a constructor-injected app dependency for the process lifetime."
+          ],
+          "annotation": "CartViewModel",
+          "initializer": "CartViewModel(placeOrder)"
+        },
+        {
+          "id": "orders-vm-binding",
+          "kind": "binding",
+          "qualified_name": "shop.main.main.ordersViewModel",
+          "parent_id": "main-function",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold a constructor-injected app dependency for the process lifetime."
+          ],
+          "annotation": "OrdersViewModel",
+          "initializer": "OrdersViewModel(orderRepository)"
+        },
+        {
+          "id": "app-binding",
+          "kind": "binding",
+          "qualified_name": "shop.main.main.app",
+          "parent_id": "main-function",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold a constructor-injected app dependency for the process lifetime."
+          ],
+          "annotation": "ShopApp",
+          "initializer": "ShopApp(backend, store, catalogViewModel, cartViewModel, ordersViewModel)"
+        },
+        {
+          "id": "ref-demo-backend-class",
+          "kind": "symbol",
+          "qualified_name": "shop.data.services.demo_backend.DemoBackend",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.data.services.demo_backend.DemoBackend."
+          ]
+        },
+        {
+          "id": "ref-memory-store-class",
+          "kind": "symbol",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.data.services.memory_store.MemoryStore."
+          ]
+        },
+        {
+          "id": "ref-cached-catalog-repository-class",
+          "kind": "symbol",
+          "qualified_name": "shop.data.repositories.cached_catalog_repository.CachedCatalogRepository",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.data.repositories.cached_catalog_repository.CachedCatalogRepository."
+          ]
+        },
+        {
+          "id": "ref-memory-order-repository-class",
+          "kind": "symbol",
+          "qualified_name": "shop.data.repositories.memory_order_repository.MemoryOrderRepository",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.data.repositories.memory_order_repository.MemoryOrderRepository."
+          ]
+        },
+        {
+          "id": "ref-place-order-class",
+          "kind": "symbol",
+          "qualified_name": "shop.domain.checkout.place_order.PlaceOrder",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.domain.checkout.place_order.PlaceOrder."
+          ]
+        },
+        {
+          "id": "ref-catalog-vm-class",
+          "kind": "symbol",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel."
+          ]
+        },
+        {
+          "id": "ref-cart-vm-class",
+          "kind": "symbol",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.presentation.shopping.cart.cart_view_model.CartViewModel."
+          ]
+        },
+        {
+          "id": "ref-orders-vm-class",
+          "kind": "symbol",
+          "qualified_name": "shop.presentation.orders.orders_view_model.OrdersViewModel",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.presentation.orders.orders_view_model.OrdersViewModel."
+          ]
+        },
+        {
+          "id": "ref-catalog-page-class",
+          "kind": "symbol",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_page.CatalogPage",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.presentation.shopping.catalog.catalog_page.CatalogPage."
+          ]
+        },
+        {
+          "id": "ref-cart-page-class",
+          "kind": "symbol",
+          "qualified_name": "shop.presentation.shopping.cart.cart_page.CartPage",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.presentation.shopping.cart.cart_page.CartPage."
+          ]
+        },
+        {
+          "id": "ref-orders-page-class",
+          "kind": "symbol",
+          "qualified_name": "shop.presentation.orders.orders_page.OrdersPage",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.presentation.orders.orders_page.OrdersPage."
+          ]
+        },
+        {
+          "id": "ref-order-detail-page-class",
+          "kind": "symbol",
+          "qualified_name": "shop.presentation.orders.order_detail_page.OrderDetailPage",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.presentation.orders.order_detail_page.OrderDetailPage."
+          ]
+        },
+        {
+          "id": "ref-catalog-vm-class-dispose",
+          "kind": "symbol",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.dispose",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.dispose."
+          ]
+        },
+        {
+          "id": "ref-cart-vm-class-dispose",
+          "kind": "symbol",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.dispose",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.presentation.shopping.cart.cart_view_model.CartViewModel.dispose."
+          ]
+        },
+        {
+          "id": "ref-orders-vm-class-dispose",
+          "kind": "symbol",
+          "qualified_name": "shop.presentation.orders.orders_view_model.OrdersViewModel.dispose",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.presentation.orders.orders_view_model.OrdersViewModel.dispose."
+          ]
+        },
+        {
+          "id": "ref-store-dispose",
+          "kind": "symbol",
+          "qualified_name": "shop.data.services.memory_store.MemoryStore.dispose",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the declaration owned by another component: shop.data.services.memory_store.MemoryStore.dispose."
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "main-creates-backend",
+          "kind": "creates",
+          "source_id": "main-function",
+          "target_id": "ref-demo-backend-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-binding-is-backend",
+          "kind": "instance_of",
+          "source_id": "backend-binding",
+          "target_id": "ref-demo-backend-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-creates-store",
+          "kind": "creates",
+          "source_id": "main-function",
+          "target_id": "ref-memory-store-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-binding-is-store",
+          "kind": "instance_of",
+          "source_id": "store-binding",
+          "target_id": "ref-memory-store-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-creates-catalogRepository",
+          "kind": "creates",
+          "source_id": "main-function",
+          "target_id": "ref-cached-catalog-repository-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-binding-is-catalogRepository",
+          "kind": "instance_of",
+          "source_id": "catalog-repo-binding",
+          "target_id": "ref-cached-catalog-repository-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-creates-orderRepository",
+          "kind": "creates",
+          "source_id": "main-function",
+          "target_id": "ref-memory-order-repository-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-binding-is-orderRepository",
+          "kind": "instance_of",
+          "source_id": "order-repo-binding",
+          "target_id": "ref-memory-order-repository-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-creates-placeOrder",
+          "kind": "creates",
+          "source_id": "main-function",
+          "target_id": "ref-place-order-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-binding-is-placeOrder",
+          "kind": "instance_of",
+          "source_id": "place-order-binding",
+          "target_id": "ref-place-order-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-creates-catalogViewModel",
+          "kind": "creates",
+          "source_id": "main-function",
+          "target_id": "ref-catalog-vm-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-binding-is-catalogViewModel",
+          "kind": "instance_of",
+          "source_id": "catalog-vm-binding",
+          "target_id": "ref-catalog-vm-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-creates-cartViewModel",
+          "kind": "creates",
+          "source_id": "main-function",
+          "target_id": "ref-cart-vm-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-binding-is-cartViewModel",
+          "kind": "instance_of",
+          "source_id": "cart-vm-binding",
+          "target_id": "ref-cart-vm-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-creates-ordersViewModel",
+          "kind": "creates",
+          "source_id": "main-function",
+          "target_id": "ref-orders-vm-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-binding-is-ordersViewModel",
+          "kind": "instance_of",
+          "source_id": "orders-vm-binding",
+          "target_id": "ref-orders-vm-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-creates-app",
+          "kind": "creates",
+          "source_id": "main-function",
+          "target_id": "shop-app-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-binding-is-app",
+          "kind": "instance_of",
+          "source_id": "app-binding",
+          "target_id": "shop-app-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-reads-backend",
+          "kind": "references",
+          "source_id": "main-function",
+          "target_id": "backend-binding",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-reads-store",
+          "kind": "references",
+          "source_id": "main-function",
+          "target_id": "store-binding",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-reads-catalogRepository",
+          "kind": "references",
+          "source_id": "main-function",
+          "target_id": "catalog-repo-binding",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-reads-orderRepository",
+          "kind": "references",
+          "source_id": "main-function",
+          "target_id": "order-repo-binding",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-reads-placeOrder",
+          "kind": "references",
+          "source_id": "main-function",
+          "target_id": "place-order-binding",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-reads-catalogViewModel",
+          "kind": "references",
+          "source_id": "main-function",
+          "target_id": "catalog-vm-binding",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-reads-cartViewModel",
+          "kind": "references",
+          "source_id": "main-function",
+          "target_id": "cart-vm-binding",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-reads-ordersViewModel",
+          "kind": "references",
+          "source_id": "main-function",
+          "target_id": "orders-vm-binding",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-calls-run-app",
+          "kind": "calls",
+          "source_id": "main-function",
+          "target_id": "flutter-run-app",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "shop-app-creates-state",
+          "kind": "creates",
+          "source_id": "shop-app-create-state",
+          "target_id": "shop-app-state-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "shop-app-inherits-stateful-widget",
+          "kind": "inherits",
+          "source_id": "shop-app-class",
+          "target_id": "flutter-stateful-widget",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "shop-app-state-inherits-state",
+          "kind": "inherits",
+          "source_id": "shop-app-state-class",
+          "target_id": "flutter-state-shop-app",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "app-creates-catalog-page",
+          "kind": "creates",
+          "source_id": "shop-app-state-build",
+          "target_id": "ref-catalog-page-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "app-creates-cart-page",
+          "kind": "creates",
+          "source_id": "shop-app-state-build",
+          "target_id": "ref-cart-page-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "app-creates-orders-page",
+          "kind": "creates",
+          "source_id": "shop-app-state-build",
+          "target_id": "ref-orders-page-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "app-creates-order-detail-page",
+          "kind": "creates",
+          "source_id": "shop-app-state-build",
+          "target_id": "ref-order-detail-page-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "state-disposes-catalog-vm",
+          "kind": "calls",
+          "source_id": "shop-app-state-dispose",
+          "target_id": "ref-catalog-vm-class-dispose",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "state-disposes-cart-vm",
+          "kind": "calls",
+          "source_id": "shop-app-state-dispose",
+          "target_id": "ref-cart-vm-class-dispose",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "state-disposes-orders-vm",
+          "kind": "calls",
+          "source_id": "shop-app-state-dispose",
+          "target_id": "ref-orders-vm-class-dispose",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "state-disposes-memory-store",
+          "kind": "calls",
+          "source_id": "shop-app-state-dispose",
+          "target_id": "ref-store-dispose",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "module-main",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "module-shop-app",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "shop-app-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.app.shop_app.ShopApp.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "shop-app-state-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.app.shop_app._ShopAppState.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

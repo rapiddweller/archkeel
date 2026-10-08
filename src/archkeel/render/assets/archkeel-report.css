@@ -2272,7 +2272,8 @@ code {
 .atlas-questions {
   list-style:none;
   padding:0;
-  margin:16px 0
+  margin:16px 0;
+  overflow-wrap:anywhere
 }
 .atlas-questions>li {
   padding:4px 0;

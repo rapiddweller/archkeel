@@ -1,0 +1,328 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "async-state",
+      "label": "async-state",
+      "role": "component",
+      "packages": [
+        "shop.state.async_state"
+      ],
+      "public": [
+        "shop.state.async_state"
+      ],
+      "responsibilities": [
+        "Represent a typed value and the status of its asynchronous load."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "shop.state.async_state"
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Unlisted component dependencies are outside the approved demo boundary.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-async-state",
+          "kind": "module",
+          "qualified_name": "shop.state.async_state",
+          "parent_id": "async-state",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent typed load state without business policy."
+          ],
+          "file_path": "lib/state/async_state.dart"
+        },
+        {
+          "id": "load-phase-enum",
+          "kind": "enum",
+          "qualified_name": "shop.state.async_state.LoadPhase",
+          "parent_id": "module-async-state",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Name the stable loading phases rendered by the views."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "phase-idle",
+          "kind": "enum_literal",
+          "qualified_name": "shop.state.async_state.LoadPhase.idle",
+          "parent_id": "load-phase-enum",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent the idle presentation phase."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "phase-loading",
+          "kind": "enum_literal",
+          "qualified_name": "shop.state.async_state.LoadPhase.loading",
+          "parent_id": "load-phase-enum",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent the loading presentation phase."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "phase-empty",
+          "kind": "enum_literal",
+          "qualified_name": "shop.state.async_state.LoadPhase.empty",
+          "parent_id": "load-phase-enum",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent the empty presentation phase."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "phase-ready",
+          "kind": "enum_literal",
+          "qualified_name": "shop.state.async_state.LoadPhase.ready",
+          "parent_id": "load-phase-enum",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent the ready presentation phase."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "phase-failed",
+          "kind": "enum_literal",
+          "qualified_name": "shop.state.async_state.LoadPhase.failed",
+          "parent_id": "load-phase-enum",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent the failed presentation phase."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "async-state-class",
+          "kind": "class",
+          "qualified_name": "shop.state.async_state.AsyncState",
+          "parent_id": "module-async-state",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Pair a typed nullable value or error with its load phase."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "async-state-phase",
+          "kind": "attribute",
+          "qualified_name": "shop.state.async_state.AsyncState.phase",
+          "parent_id": "async-state-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Identify the visible async state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "LoadPhase"
+        },
+        {
+          "id": "async-state-value",
+          "kind": "attribute",
+          "qualified_name": "shop.state.async_state.AsyncState.value",
+          "parent_id": "async-state-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Carry data only when available."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "T?"
+        },
+        {
+          "id": "async-state-error",
+          "kind": "attribute",
+          "qualified_name": "shop.state.async_state.AsyncState.error",
+          "parent_id": "async-state-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retain a failure for retry and display."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Object?"
+        },
+        {
+          "id": "async-state-ctor",
+          "kind": "method",
+          "qualified_name": "shop.state.async_state.AsyncState.AsyncState",
+          "parent_id": "async-state-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct one typed state snapshot."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "phase",
+                "annotation": "LoadPhase",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "value",
+                "annotation": "T?",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "error",
+                "annotation": "Object?",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "AsyncState"
+          }
+        }
+      ],
+      "relationships": [],
+      "scopes": [
+        {
+          "scope_id": "module-async-state",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "load-phase-enum",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method",
+            "enum_literal"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.state.async_state.LoadPhase.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "async-state-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.state.async_state.AsyncState.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

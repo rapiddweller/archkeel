@@ -16,6 +16,8 @@ from the documented additive fields.
 """
 
 import json
+import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -33,6 +35,7 @@ from test_dart_directives import (
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import render_result, run_report
 from archkeel.check.validation import inside_diagnostics, run_validate
+from archkeel.cli import main as cli_main
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
 from archkeel.ir.model import Observation, Record
@@ -177,6 +180,30 @@ def test_undecided_imports_are_counted_once_per_rule(tmp_path: Path) -> None:
     assert record.subjects == ("app.ui.a", "app.ui.b", "app.ui.c")
     assert record.data.get("undecided") == 3
     assert _scalars(payload)["unknown_positions"] == 3
+
+
+def test_validate_never_passes_unsupported_dart_language_input(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dart = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
+    if dart is None:
+        pytest.skip("Dart SDK is not installed; CLI language checks require Dart")
+    monkeypatch.setenv("DART_EXECUTABLE", dart)
+    monkeypatch.setenv("DART_SUPPRESS_ANALYTICS", "true")
+    root = dart_package(
+        tmp_path / "pkg",
+        {"lib/core/api.dart": "// @dart=3.99\nclass Api {}\n"},
+        rules=(),
+    )
+
+    exit_code = cli_main(["validate", "--root", str(root), "--json"])
+    result = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 2
+    assert result["observation_complete"] != "PASS"
+    assert result["declared_rules"] != "PASS"
 
 
 def test_no_show_import_of_a_library_that_exports_is_unknown(tmp_path: Path) -> None:
@@ -413,11 +440,11 @@ def test_unmeasured_scalars_are_null_and_measured_ones_are_counts(tmp_path: Path
         assert type(scalars[name]) is int, name
     coverage = payload["coverage"]
     assert isinstance(coverage, dict)
-    assert coverage["calls_analyzed"] is None
-    assert coverage["calls_unresolved"] is None
+    assert coverage["calls_analyzed"] == 0
+    assert coverage["calls_unresolved"] == 0
 
 
-def test_claims_without_their_signal_are_unknown_not_zero(tmp_path: Path) -> None:
+def test_unmeasured_claims_stay_unknown_and_static_claims_are_counts(tmp_path: Path) -> None:
     root = dart_package(
         tmp_path / "pkg",
         {"lib/ui/b.dart": "import 'package:app/core/api.dart';\n\nclass B {}\n"},
@@ -425,14 +452,14 @@ def test_claims_without_their_signal_are_unknown_not_zero(tmp_path: Path) -> Non
     result, observation, payload = report_dart(root)
     assert result.exit_code == 0, result.diagnostics
     assert observation is not None
-    assert observation.records("references") is None
-    assert observation.records("bindings") is None
+    assert observation.records("references") == ()
+    assert observation.records("bindings") == ()
     claims = payload["claims"]
     assert isinstance(claims, dict)
-    assert claims["unreferenced_symbols"] is None
+    assert claims["unreferenced_symbols"] == 5
     assert claims["unread_bindings"] is None
     assert result.claims is not None
-    assert result.claims.unreferenced_symbols is None
+    assert result.claims.unreferenced_symbols == 5
     assert result.claims.unread_bindings is None
 
 
@@ -444,14 +471,18 @@ def test_dart_observation_sections_it_does_not_observe_are_empty(tmp_path: Path)
     assert observation is not None
     for section in (
         "calls",
-        "typing_signals",
-        "constructs",
+        "references",
+        "bindings",
         "contexts",
         "context_evidence",
     ):
         assert observation.records(section) == (), section
-    # Absent, not empty: a claim reading symbols must say UNKNOWN, never "0 candidates".
-    assert observation.records("symbols") is None
+    # These Python-only inventories stay absent; empty does not claim support.
+    assert observation.records("typing_signals") is None
+    assert observation.records("constructs") is None
+    symbols = observation.records("symbols")
+    assert symbols is not None
+    assert any(item.data.get("qualified_name", "").endswith(".B") for item in symbols)
     assert observation.coverage.files_discovered == len(LIBRARIES) + 1
     assert list(observation.source.scope) == ["lib/**/*.dart"]
 
@@ -565,7 +596,7 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
     assert claims["unread_bindings"] is not None
     assert architecture is not None
     model = json.loads(architecture)
-    assert model["analyzer"]["name"] != "archkeel-dart-directives"
+    assert model["analyzer"]["name"] != "archkeel-dart-analyzer"
     observation = parse_observation(decode_canonical_model(model))
     records = observation.records("imports") or ()
     assert len(records) == 2

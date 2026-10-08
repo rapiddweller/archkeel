@@ -253,6 +253,7 @@ def test_existing_explicit_language_init_still_works(tmp_path: Path, language: s
         (source / "model.py").write_text("VALUE = 1\n")
     else:
         (source / "model.dart").write_text("const value = 1;\n")
+        (root / "pubspec.yaml").write_text("name: shop\nenvironment:\n  sdk: '>=2.19.0 <4.0.0'\n")
     result = _invoke(
         root, "init", "--language", language, "--source", source_arg, "--namespace", "shop"
     )

@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "9d3089fc49400ab64dfd5ee2ab08e727690e088266cd6aa4c1b7af8a3c59b1f0",
+  "after_digest": "47d5848f42a4a03fd2d824facb838b50387ee1cb5eac5955cdfb188cfe8ea6b9",
+  "before_baseline_digest": "cd7275afc0abb0e0dc7226fbca9f81c77257e422bfaf6438be5c7b3f1176e3eb",
+  "before_digest": "ccb13016bd6857a20552146753d1e025c8b4ce72c522a3e6d404340969dea171",
+  "decided_by": "Implementing agent (recording user-approved native/no-legacy migration plan)",
+  "rationale": "Record the user-approved native/no-legacy Dart migration: move Dart source facts and responsibility to the native analyzer package, assign entry ownership and responsibility to archkeel.analyzer.dart, and remove the obsolete source component. Bind only these exact recursive policy changes and the current baseline; do not weaken policy.",
+  "schema_version": "2.0.0"
+}

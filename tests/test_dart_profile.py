@@ -6,15 +6,13 @@
 from __future__ import annotations
 
 import json
-import platform
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from archkeel.analyzer.dart.directives import read_header
-from archkeel.analyzer.dart.lexer import DirectiveError
 from archkeel.check.observation import OBSERVATION_VERSION
 from archkeel.check.ports import ScanConfig
 from archkeel.check.ratchets import measure_python_ratchets
@@ -90,46 +88,20 @@ def _imports(result: ObservationResult) -> set[tuple[str, str, str | None]]:
     }
 
 
-def test_dart_observation_identifies_its_actual_python_parser_runtime(tmp_path: Path) -> None:
+def test_dart_observation_identifies_its_actual_native_runtime(tmp_path: Path) -> None:
     result = _observe(tmp_path, {"lib/main.dart": "void main() {}\n"})
     assert result.exit_code == 0
     model = result.observation
     assert model is not None
     assert model.runtime is not None
-    assert model.runtime.name == "python"
-    assert model.runtime.version == platform.python_version()
+    assert model.runtime.name == "dart"
+    assert re.fullmatch(r"\d+\.\d+\.\d+", model.runtime.version)
+    assert model.runtime.required == ">=3.9,<4"
     assert model.producer is not None
     assert model.producer != model.analyzer
-    assert model.producer.name == "archkeel-dart-directives"
+    assert model.producer.name == "archkeel-dart-analyzer"
     assert model.analyzer.version == OBSERVATION_VERSION
     assert len(model.producer.code_digest) == 64
-
-
-def test_header_grammar_reads_every_directive_form() -> None:
-    header = read_header(
-        "#!/usr/bin/env dart\n/// Doc.\n/* a /* nested */ b */\n@Tags(['x', (1)])\n"
-        "@pkg.Meta()\nlibrary app.main;\n"
-        "import r'a.dart' deferred as a show X, Y hide Z;\n"
-        "import 'b' '.dart' if (dart.library.io) '''c.dart''' if (x.y == 'z') \"d.dart\";\n"
-        "export 'e.dart' hide Q;\npart 'f.dart';\n"
-        "void main() { const s = \"import 'g.dart';\"; }\nimport 'never.dart';\n"
-    )
-    assert [(item.kind, item.uris, item.shown) for item in header.directives] == [
-        ("import", ("a.dart",), ("X", "Y")),
-        ("import", ("b.dart", "c.dart", "d.dart"), ()),
-        ("export", ("e.dart",), ()),
-    ]
-    assert [part.uri for part in header.parts] == ["f.dart"]
-    assert read_header("part of 'main.dart';\nclass A {}\n").part_of == "main.dart"
-
-
-@pytest.mark.parametrize(
-    "source",
-    ["import 'a$b.dart';\n", "import 'a${b}.dart';\n", "import 'a.dart'\nclass A {}\n", "/* x"],
-)
-def test_header_outside_the_grammar_is_an_error(source: str) -> None:
-    with pytest.raises(DirectiveError):
-        read_header(source)
 
 
 def test_uris_map_to_dotted_modules_and_parts_are_not_modules(tmp_path: Path) -> None:
@@ -175,7 +147,7 @@ def test_undecidable_input_is_exit_2(tmp_path: Path, files: dict[str, str]) -> N
     assert {item.kind for item in result.diagnostics} == {"parse_error"}
 
 
-def test_pubspec_name_must_be_the_namespace(tmp_path: Path) -> None:
+def test_pubspec_name_is_not_the_module_namespace(tmp_path: Path) -> None:
     result = _observe(tmp_path, {"lib/a.dart": ""})
     assert result.exit_code == 0
     (tmp_path / "pubspec.yaml").write_text("name: other # comment\n")
@@ -189,8 +161,12 @@ def test_pubspec_name_must_be_the_namespace(tmp_path: Path) -> None:
         contract_root=tmp_path,
         language="dart",
     )
-    assert mismatch.exit_code == 2
-    assert "'other'" in mismatch.diagnostics[0].unknown_claim
+    assert mismatch.exit_code == 0, mismatch.diagnostics
+    assert mismatch.observation is not None
+    modules = {
+        item.data.get("qualified_name") for item in mismatch.observation.records("modules") or ()
+    }
+    assert modules == {"app.a"}
 
 
 def test_dart_inside_rules_without_declared_package_coverage_are_unknown(tmp_path: Path) -> None:
@@ -309,7 +285,7 @@ def test_what_the_profile_cannot_decide_is_refused(tmp_path: Path, contract: dic
     assert [item.kind for item in result.diagnostics] == ["rule_unsupported_by_profile"]
 
 
-def test_unmeasured_scalars_and_absent_signals_are_null(tmp_path: Path) -> None:
+def test_unmeasured_scalars_stay_null_and_static_claims_are_counts(tmp_path: Path) -> None:
     result = _observe(tmp_path, {"lib/a.dart": "import 'b.dart';\n", "lib/b.dart": ""})
     observation = result.observation
     assert observation is not None
@@ -328,10 +304,10 @@ def test_unmeasured_scalars_and_absent_signals_are_null(tmp_path: Path) -> None:
     payload = result_payload(RunResult("report", 0, measurements=measurements))
     assert parse_measurements(payload["measurements"], "result") == measurements
     claims = review_claims(observation)
-    assert claims.unreferenced_symbols is None and claims.unread_bindings is None
-    assert claims.type_fanin is None and claims.repeated_logic is None
+    assert claims.unreferenced_symbols == 0 and claims.unread_bindings is None
+    assert claims.type_fanin == 0 and claims.repeated_logic is None
     raw = decode_canonical_model(decode_json(canonical_report_bytes(observation)))
-    assert raw["symbols"] is None and raw["references"] is None and raw["bindings"] is None
+    assert raw["symbols"] == [] and raw["references"] == [] and raw["bindings"] == []
     assert parse_observation(raw) == observation
 
 

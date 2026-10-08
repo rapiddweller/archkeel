@@ -35,6 +35,7 @@ Issues = "https://github.com/rapiddweller/archkeel/issues"
 
 [project.scripts]
 archkeel = "archkeel.cli:main"
+archkeel-dart-setup = "archkeel.analyzer.dart.setup:main"
 
 [build-system]
 # Hatchling maps the single schema/ source into wheels without a custom build hook.

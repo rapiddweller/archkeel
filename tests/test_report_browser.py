@@ -121,7 +121,8 @@ def test_native_atlas_acceptance_rejects_a_corrupted_core_status(tmp_path, varia
             browser.close()
 
 
-def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path):
+@pytest.mark.parametrize("initial_view", ["diagram", "diff"])
+def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path, initial_view):
     api = pytest.importorskip("playwright.sync_api")
     from tools.report_browser import _check_inner_uml
 
@@ -143,16 +144,36 @@ def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path):
                 ),
             )
             main = architecture.with_suffix(".report.html").as_uri()
-            page.goto(main + "?theme=dark")
+            page.goto(main + f"?theme=dark&view={initial_view}")
+            from archkeel.ir.codec import decode_canonical_model, parse_observation
+            from archkeel.ir.report_graph import architecture_report
+
+            report = architecture_report(
+                parse_observation(decode_canonical_model(json.loads(architecture.read_text())))
+            )
+            atlas = json.loads(page.locator("#flow-data").text_content())["atlas"]
+            target_modules = {item.id for item in report.target.entities if item.kind == "module"}
+            observed_modules = {
+                item.id for item in report.observed.entities if item.kind == "module"
+            }
+            expected_module_correspondences = [
+                {"target_id": item.target_id, "observed_ids": list(item.observed_ids)}
+                for item in report.comparison.correspondences
+                if item.target_id in target_modules
+                and any(identity in observed_modules for identity in item.observed_ids)
+            ]
+            assert atlas["module_correspondences"] == expected_module_correspondences
             heading = page.locator(".atlas-heading").inner_text()
             verdict = page.locator(".atlas-status").inner_text()
-            page.get_by_role("button", name="Diff", exact=True).click()
             _check_inner_uml(page, "uml-complete", tmp_path)
             assert page.url.split("?")[0].endswith("architecture.detail.html")
             data = json.loads(page.locator("#flow-data").text_content())
-            module_id = parse_qs(urlsplit(page.url).query)["module"][0]
-            return_scope = parse_qs(urlsplit(page.url).query).get("return_scope", [None])[0]
-            assert parse_qs(urlsplit(page.url).query)["return_selected"] == [module_id]
+            detail_query = parse_qs(urlsplit(page.url).query)
+            source_selection = detail_query["return_selected"][0]
+            return_scope = detail_query.get("return_scope", [None])[0]
+            assert source_selection in {
+                item.id for item in report.observed.entities if item.kind == "module"
+            }
             assert "atlas" not in data
             assert page.locator(".atlas-heading").inner_text() == heading
             detail_status = page.locator(".atlas-detail-status")
@@ -168,13 +189,20 @@ def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path):
             assert page.locator("html").get_attribute("data-theme") == "dark"
             assert page.locator(".theme-toggle").count() == 1
             page.locator('[data-lexical-depth="1"]').click()
-            client = next(
+            observed_client = next(
                 item
                 for item in data["observed"]["entities"]
                 if item["qualified_name"] == "demo.core.Client"
             )
-            page.locator(f'.flow-nodes [data-uml-id="{client["id"]}"]').press("Enter")
-            assert parse_qs(urlsplit(page.url).query)["scope"] == [client["id"]]
+            client_counterparts = {
+                item.target_id
+                for item in report.comparison.correspondences
+                if item.observed_ids == (observed_client["id"],)
+            }
+            assert len(client_counterparts) <= 1
+            client_id = next(iter(client_counterparts), observed_client["id"])
+            page.locator(f'.flow-nodes [data-uml-id="{client_id}"]').press("Enter")
+            assert parse_qs(urlsplit(page.url).query)["scope"] == [client_id]
             page.reload()
             assert page.locator('.flow-nodes [data-label="reset"]').count() == 1
             assert (
@@ -190,8 +218,8 @@ def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path):
             assert page.url.startswith(main + "?")
             assert parse_qs(urlsplit(page.url).query) == {
                 "scope": [return_scope],
-                "view": ["diff"],
-                "selected": [module_id],
+                "view": [initial_view],
+                "selected": [source_selection],
                 "theme": ["dark"],
             }
             assert page.locator('[data-atlas="true"]').is_visible()

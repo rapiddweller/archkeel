@@ -47,7 +47,7 @@
         "name": {
           "enum": [
             "archkeel-python-analyzer",
-            "archkeel-dart-directives",
+            "archkeel-dart-analyzer",
             "archkeel-typescript-imports"
           ]
         },
@@ -379,7 +379,7 @@
           "analyzer": {
             "properties": {
               "name": {
-                "const": "archkeel-dart-directives"
+                "const": "archkeel-dart-analyzer"
               }
             }
           }
@@ -387,23 +387,17 @@
       },
       "then": {
         "properties": {
-          "symbols": {
-            "type": "null"
-          },
-          "references": {
-            "type": "null"
-          },
-          "bindings": {
-            "type": "null"
-          },
+          "symbols": { "type": "array" },
+          "references": { "type": "array" },
+          "bindings": { "type": "array" },
           "calls": {
             "type": "array"
           },
           "typing_signals": {
-            "type": "array"
+            "type": "null"
           },
           "constructs": {
-            "type": "array"
+            "type": "null"
           },
           "coverage": {
             "properties": {

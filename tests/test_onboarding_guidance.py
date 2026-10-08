@@ -245,6 +245,7 @@ def test_demo_owns_the_namespace_facade_without_expanding_package_permissions(
 
 def test_dart_draft_keeps_unmeasured_scalars_unavailable(tmp_path: Path) -> None:
     root = repository(tmp_path)
+    (root / "pubspec.yaml").write_text("name: demo\nenvironment:\n  sdk: '>=2.19.0 <4.0.0'\n")
     (root / "lib").mkdir()
     (root / "lib/api.dart").write_text("const value = 1;\n")
     result, _ = run_init(

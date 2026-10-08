@@ -13,7 +13,7 @@ import os
 import sys
 from dataclasses import asdict
 from pathlib import Path
-from urllib.parse import parse_qs, urlencode, urlsplit
+from urllib.parse import parse_qs, urlencode, urljoin, urlsplit
 
 try:
     from playwright.sync_api import Browser, Page, sync_playwright
@@ -31,9 +31,11 @@ from archkeel.ir.report_projection import architecture_projection
 from fixtures.architecture_demo import REPORT_CASES, replay
 
 
-def _make_reports(output: Path) -> dict[str, Path]:
+def _make_reports(
+    output: Path, cases: dict[str, tuple[str, int]] = REPORT_CASES
+) -> dict[str, Path]:
     reports = {}
-    for name, (variant, expected_exit) in REPORT_CASES.items():
+    for name, (variant, expected_exit) in cases.items():
         report = output / f"{name}.json"
         stdout = io.StringIO()
         stderr = io.StringIO()
@@ -336,11 +338,115 @@ def _check_module_graph(page: Page) -> None:
     )
 
 
-def _open_uml_details(page: Page) -> None:
+def _assert_visible_hit_paths(page: Page) -> None:
+    nodes = page.locator(".flow-nodes [data-uml-id]")
+    assert nodes.evaluate_all("""items => {
+      const boxes = items.map(n => n.querySelector('.card').getBoundingClientRect());
+      return boxes.every((a, i) => boxes.slice(i + 1).every(b =>
+        a.right <= b.left + 1 || b.right <= a.left + 1
+        || a.bottom <= b.top + 1 || b.bottom <= a.top + 1));
+    }""")
+    edges = page.locator(".flow-edges .edge")
+    assert edges.evaluate_all("""items => items.every(edge => {
+      const line = edge.querySelector('.line'), hit = edge.querySelector('.hit');
+      return line.getAttribute('d') === hit.getAttribute('d');
+    })""")
+
+
+def _open_uml_details(page: Page, name: str, output: Path) -> None:
     payload = json.loads(page.locator("#flow-data").text_content() or "{}")
     if "atlas" not in payload:
         return
     data = payload["atlas"]
+    if name.startswith("uml-flutter-"):
+        return
+    if any(Path(item["path"]).name == "order.dart" for item in data["modules"]):
+        if name.startswith("uml-dart-"):
+            receipts = {
+                item.get("scope_id"): item
+                for item in data["rule_assessments"]
+                if data["reference_ids"][item["kind"]] == "complete_requires"
+                and item.get("scope_id") in {None, "ordering", "ordering:domain"}
+            }
+            receipts = {
+                {None: "root", "ordering": "ordering", "ordering:domain": "domain"}[scope]: item
+                for scope, item in receipts.items()
+            }
+            assert set(receipts) == {"root", "ordering", "domain"}
+            for scope, receipt in receipts.items():
+                expected_status = (
+                    "FAIL"
+                    if name == "uml-dart-forbidden-dependency-fail" and scope == "domain"
+                    else "PASS"
+                )
+                assert receipt["status"] == expected_status
+                assert receipt["evaluation_proven"] is True
+                assert receipt["reason"]
+        root_pairs = {
+            (edge.get_attribute("data-uml-source"), edge.get_attribute("data-uml-target"))
+            for edge in page.locator('.flow-edges [data-uml-kind="dependency"]').all()
+        }
+        assert {
+            ("composition", "presentation"),
+            ("composition", "ordering"),
+            ("composition", "adapters"),
+            ("presentation", "ordering"),
+            ("adapters", "ordering"),
+        } <= root_pairs
+        _assert_visible_hit_paths(page)
+        expected = {
+            "ordering": {"application", "domain", "ports"},
+            "ordering:domain": {"orders", "pricing"},
+            "ordering:domain:orders": {"order.dart"},
+        }
+        for label, scope in (
+            ("ordering", "ordering"),
+            ("domain", "ordering:domain"),
+            ("orders", "ordering:domain:orders"),
+        ):
+            page.locator(f'.flow-nodes [data-label="{label}"]').press("Enter")
+            assert parse_qs(urlsplit(page.url).query)["scope"] == [scope]
+            assert (
+                set(
+                    page.locator(".flow-nodes [data-uml-id]").evaluate_all(
+                        "items => items.map(item => item.dataset.label)"
+                    )
+                )
+                == expected[scope]
+            )
+            if scope in {"ordering", "ordering:domain"}:
+                selected = "domain" if scope == "ordering" else "orders"
+                page.locator(f'.flow-nodes [data-label="{selected}"]').press("Space")
+                _show_details(page)
+                facts = page.locator(".flow-inspector-content").inner_text().lower()
+                assert "responsibility" in facts and "evidence" in facts
+            assert page.locator(".flow-views [data-flow-view]").count() == 3
+            for view in ("target", "diff", "diagram"):
+                page.locator(f'[data-flow-view="{view}"]').click()
+                assert parse_qs(urlsplit(page.url).query)["scope"] == [scope]
+                assert page.locator("#flow-data").text_content()
+            assert (
+                set(
+                    page.locator(".flow-nodes [data-uml-id]").evaluate_all(
+                        "items => items.map(item => item.dataset.label)"
+                    )
+                )
+                == expected[scope]
+            )
+            _assert_visible_hit_paths(page)
+            if scope == "ordering:domain":
+                page.locator("#flow").screenshot(path=str(output / "nested-component.png"))
+            if scope == "ordering:domain:orders":
+                _check_module_graph(page)
+        module = next(item for item in data["modules"] if Path(item["path"]).name == "order.dart")
+        page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').dblclick()
+        page.wait_for_url("**/*.detail.html?*")
+        query = parse_qs(urlsplit(page.url).query)
+        assert query["module"] == [module["id"]]
+        assert query["return_scope"] == ["ordering:domain:orders"]
+        assert query["return_selected"] == [module["id"]]
+        return
+
     module = next(item for item in data["modules"] if Path(item["path"]).stem == "core")
     component = next(item for item in data["components"] if item["label"] == "demo")
     page.locator(f'.flow-nodes [data-uml-id="{component["id"]}"]').press("Enter")
@@ -349,7 +455,21 @@ def _open_uml_details(page: Page) -> None:
     page.wait_for_url("**/*.detail.html?*")
     assert page.url.startswith("file:") and ".detail.html" in page.url
     query = parse_qs(urlsplit(page.url).query)
-    assert query["module"] == [module["id"]]
+    view = parse_qs(urlsplit(page.url).query).get("view", ["diagram"])[0]
+    target_module_ids = {item["id"] for item in data["declared_modules"]}
+    counterparts = (
+        {
+            item["target_id"]
+            for item in data["module_correspondences"]
+            if item["target_id"] in target_module_ids and item["observed_ids"] == [module["id"]]
+        }
+        if view == "diff"
+        else set()
+    )
+    assert len(counterparts) <= 1
+    expected_module_id = next(iter(counterparts), module["id"])
+    assert query["module"] == [expected_module_id]
+    assert query.get("origin", ["observed"])[0] == ("declared" if counterparts else "observed")
     assert query["return_selected"] == [module["id"]]
 
 
@@ -359,8 +479,273 @@ def _show_details(page: Page) -> None:
         toggle.click()
 
 
+def _check_dart_uml_detail(
+    page: Page, name: str, module_url: str, payload: str, output: Path
+) -> None:
+    core_payload = {
+        key: value
+        for key, value in json.loads(payload).items()
+        if key not in {"initial_scope", "initial_view", "navigation"}
+    }
+    report = parse_report(core_payload)
+    expected_assessment = {
+        "uml-dart-signature-fail": ("ordering:domain:valid-quantity", "signature", "FAIL"),
+        "uml-dart-missing-member-fail": ("ordering:domain:cancelled", "existence", "FAIL"),
+        "uml-dart-partial-unknown": (
+            "ordering:domain:percentage-calls-clamp",
+            "relationship",
+            "UNKNOWN",
+        ),
+    }.get(name)
+    if expected_assessment:
+        matches = [
+            item
+            for item in report.comparison.assessments
+            if (item.subject_id, item.aspect, item.status) == expected_assessment
+        ]
+        assert len(matches) == 1 and matches[0].evidence_ids
+        if expected_assessment[2] == "UNKNOWN":
+            assert "unresolved" in matches[0].reason.lower()
+    for view in ("diagram", "target", "diff"):
+        page.goto(module_url, wait_until="load")
+        page.locator(f'[data-flow-view="{view}"]').click()
+        assert page.locator(".flow-views [data-flow-view]").count() == 3
+        assert {
+            key: value
+            for key, value in json.loads(page.locator("#flow-data").text_content() or "{}").items()
+            if key not in {"initial_scope", "initial_view", "navigation"}
+        } == core_payload
+        nodes = page.locator(".flow-nodes [data-uml-id]")
+        assert {"class", "enum", "constant", "type_alias"} <= set(
+            nodes.evaluate_all("items => items.map(item => item.dataset.umlKind)")
+        )
+        assert page.locator('.flow-nodes [data-label="Order"]').is_visible()
+        assert nodes.evaluate_all("""items => {
+          const boxes = items.map(n => n.querySelector('.card').getBoundingClientRect());
+          return boxes.every((a, i) => boxes.slice(i + 1).every(b =>
+            a.right <= b.left + 1 || b.right <= a.left + 1
+            || a.bottom <= b.top + 1 || b.bottom <= a.top + 1));
+        }""")
+        edges = page.locator(".flow-edges .edge")
+        assert edges.evaluate_all("""items => items.every(edge => {
+          const line = edge.querySelector('.line'), hit = edge.querySelector('.hit');
+          return line.getAttribute('d') === hit.getAttribute('d');
+        })""")
+        page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-uml.png"))
+        page.locator('.flow-nodes [data-label="Order"]').dblclick()
+        member_names = set(
+            page.locator(".flow-nodes [data-uml-id]").evaluate_all(
+                "items => items.map(item => item.dataset.label)"
+            )
+        )
+        assert {"id", "status", "_lines", "maxLines", "isValidQuantity", "addLine"} <= member_names
+        edges = page.locator(".flow-edges .edge")
+        assert edges.count() > 0
+        assert edges.evaluate_all("""items => items.every(edge => {
+          const line = edge.querySelector('.line'), hit = edge.querySelector('.hit');
+          return line.getAttribute('d') === hit.getAttribute('d');
+        })""")
+        method = page.locator('.flow-nodes [data-label="isValidQuantity"]')
+        assert method.get_attribute("data-uml-kind") == "method"
+        method.press("Space")
+        _show_details(page)
+        details = page.locator(".flow-inspector-content").inner_text()
+        assert "quantity" in details and "bool" in details
+        assert page.locator("#flow-data").text_content() == payload
+        page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-member.png"))
+        page.locator(".flow-back").click()
+        assert page.locator(".flow-nodes [data-label=Order]").count() == 1
+        if view == "diff":
+            page.locator(".flow-back").click()
+            assert parse_qs(urlsplit(page.url).query)["scope"] == ["ordering:domain:orders"]
+            for scope in ("ordering:domain", "ordering", None):
+                page.locator(".flow-back").click()
+                query = parse_qs(urlsplit(page.url).query)
+                assert query.get("scope", [None])[0] == scope
+
+    if name == "uml-dart-missing-member-fail":
+        page.goto(module_url, wait_until="load")
+        enum = page.locator('.flow-nodes [data-label="OrderStatus"]')
+        enum.scroll_into_view_if_needed()
+        enum.dblclick()
+        page.wait_for_function("new URL(location.href).searchParams.has('scope')")
+        page.locator('[data-flow-view="target"]').click()
+        page.locator('[data-flow-view="diff"]').click()
+        missing_literal = page.locator('.flow-nodes [data-label="cancelled"]')
+        assert missing_literal.count() == 1, page.locator(".flow-nodes [data-uml-id]").evaluate_all(
+            "items => items.map(item => item.dataset.label)"
+        )
+        missing_literal.press("Space")
+        _show_details(page)
+        assert "cancelled" in page.locator(".flow-inspector-content").inner_text()
+        page.locator("#flow").screenshot(path=str(output / f"{name}-diff-cancelled.png"))
+    elif name == "uml-dart-partial-unknown":
+        payload_data = json.loads(payload)
+        main_url = urljoin(module_url, payload_data["navigation"]["main_href"])
+        page.goto(main_url, wait_until="load")
+        for component in ("ordering", "domain", "pricing"):
+            page.locator(f'.flow-nodes [data-label="{component}"]').press("Enter")
+        module_id = next(
+            item["id"]
+            for item in json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"][
+                "modules"
+            ]
+            if Path(item["path"]).name == "discount_policy.dart"
+        )
+        page.locator(f'.flow-nodes [data-uml-id="{module_id}"]').dblclick()
+        page.wait_for_url("**/*.detail.html?*")
+        page.locator('.flow-nodes [data-label="PercentageDiscount"]').dblclick()
+        page.locator('[data-flow-view="diff"]').click()
+        method = page.locator('.flow-nodes [data-label="discountCents"]')
+        method.press("Space")
+        _show_details(page)
+        details = page.locator(".flow-inspector-content").inner_text().lower()
+        assert "discountcents" in details
+        page.locator("#flow").screenshot(path=str(output / f"{name}-diff-pricing-method.png"))
+    elif name == "uml-dart-forbidden-dependency-fail":
+        payload_data = json.loads(payload)
+        main_url = urljoin(module_url, payload_data["navigation"]["main_href"])
+        page.goto(main_url, wait_until="load")
+        for component in ("ordering", "domain"):
+            page.locator(f'.flow-nodes [data-label="{component}"]').press("Enter")
+        page.locator('[data-flow-view="diff"]').click()
+        edge = page.locator(
+            '.flow-edges [data-uml-kind="dependency"]'
+            '[data-uml-source="ordering:domain:orders"]'
+            '[data-uml-target="ordering:domain:pricing"]'
+        )
+        assert edge.count() == 1
+        page.locator("#flow").screenshot(path=str(output / f"{name}-diff-domain-edge.png"))
+
+
+def _check_flutter_uml_detail(page: Page, name: str, output: Path) -> None:
+    route, module_name, classifier, member = {
+        "uml-flutter-shop": (
+            ("presentation", "shopping", "cart"),
+            "cart_page.dart",
+            "CartPage",
+            "build",
+        ),
+        "uml-flutter-signature-fail": (
+            ("domain", "orders"),
+            "order.dart",
+            "OrderLine",
+            "lineTotalCents",
+        ),
+        "uml-flutter-missing-member-fail": (
+            ("domain", "orders"),
+            "order.dart",
+            "OrderStatus",
+            "completed",
+        ),
+        "uml-flutter-forbidden-dependency-fail": (
+            ("presentation", "shopping", "cart"),
+            "cart_page.dart",
+            "CartPage",
+            "build",
+        ),
+        "uml-flutter-dynamic-unknown": (
+            ("presentation", "orders"),
+            "orders_view_model.dart",
+            "OrdersViewModel",
+            "load",
+        ),
+    }[name]
+    report_url = page.url
+    for width in (1440, 375):
+        page.set_viewport_size({"width": width, "height": 1000})
+        page.goto(report_url, wait_until="load")
+        page.get_by_role("button", name="As-Is", exact=True).click()
+        scope = None
+        for label in route:
+            node = page.locator(f'.flow-nodes [data-label="{label}"]')
+            assert node.count() == 1, f"{name}: missing component {label}"
+            scope = node.get_attribute("data-uml-id")
+            node.press("Enter")
+            assert parse_qs(urlsplit(page.url).query)["scope"] == [scope]
+        _check_module_graph(page)
+        current = json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"]
+        module = next(item for item in current["modules"] if Path(item["path"]).name == module_name)
+        page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').dblclick()
+        page.wait_for_url("**/*.detail.html?*")
+        module_url = page.url
+        detail_payload = json.loads(page.locator("#flow-data").text_content() or "{}")
+        core_payload = {
+            key: value
+            for key, value in detail_payload.items()
+            if key not in {"initial_scope", "initial_view", "navigation"}
+        }
+        assessments = core_payload["comparison"]["assessments"]
+        if name == "uml-flutter-signature-fail":
+            expected = ("domain:order-line-total", "signature", "FAIL")
+            evidence_file = "lib/domain/orders/order.dart"
+        elif name == "uml-flutter-missing-member-fail":
+            expected = ("domain:status-completed", "existence", "FAIL")
+            evidence_file = "lib/domain/orders/order.dart"
+        elif name == "uml-flutter-dynamic-unknown":
+            expected = ("presentation:orders-vm-calls-watch", "relationship", "UNKNOWN")
+            evidence_file = None
+        else:
+            expected = None
+            evidence_file = None
+        if expected:
+            matches = [
+                item
+                for item in assessments
+                if (item["subject_id"], item["aspect"], item["status"]) == expected
+            ]
+            assert len(matches) == 1 and matches[0]["evidence_ids"]
+            if evidence_file:
+                evidence = {item["id"]: item for item in core_payload["observed"]["evidence"]}
+                assert any(
+                    evidence[item]["file"] == evidence_file for item in matches[0]["evidence_ids"]
+                )
+        if name == "uml-flutter-forbidden-dependency-fail":
+            result = json.loads((output / f"{name}.result.json").read_text(encoding="utf-8"))
+            assert result["declared_rules"] == "FAIL"
+            assert result["violations_by_component_pair"] == [["presentation", "data", 1]]
+            assert any(
+                item["kind"] == "complete_requires"
+                and item["scope"] == "root"
+                and item["status"] == "FAIL"
+                and item["count"] == 1
+                for item in result["rule_assessments"]
+            )
+        for view in ("diagram", "target", "diff"):
+            page.goto(module_url, wait_until="load")
+            page.locator(f'[data-flow-view="{view}"]').click()
+            assert {
+                key: value
+                for key, value in json.loads(
+                    page.locator("#flow-data").text_content() or "{}"
+                ).items()
+                if key not in {"initial_scope", "initial_view", "navigation"}
+            } == core_payload
+            page.locator(f'.flow-nodes [data-label="{classifier}"]').dblclick()
+            names = set(
+                page.locator(".flow-nodes [data-uml-id]").evaluate_all(
+                    "items => items.map(item => item.dataset.label)"
+                )
+            )
+            if name == "uml-flutter-missing-member-fail" and view == "diagram":
+                assert member not in names
+            else:
+                assert member in names
+                item = page.locator(f'.flow-nodes [data-label="{member}"]')
+                item.press("Space")
+                _show_details(page)
+                details = page.locator(".flow-inspector-content").inner_text().lower()
+                assert member.lower() in details
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            page.locator("#flow").screenshot(path=str(output / f"{name}-{width}-{view}.png"))
+            assert page.locator(".flow-views [data-flow-view]").count() == 3
+
+
 def _check_inner_uml(page: Page, name: str, output: Path) -> None:
-    _open_uml_details(page)
+    _open_uml_details(page, name, output)
+    if name.startswith("uml-flutter-"):
+        _check_flutter_uml_detail(page, name, output)
+        return
     module_url = page.url
     payload = page.locator("#flow-data").text_content()
     fields = json.loads(payload or "{}")
@@ -377,7 +762,16 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
         "uml-complete": "UNKNOWN",
         "uml-mismatch": "FAIL",
         "uml-partial": "UNKNOWN",
-        "uml-dart": "UNKNOWN",
+        "uml-dart-match": "PASS",
+        "uml-dart-signature-fail": "FAIL",
+        "uml-dart-missing-member-fail": "FAIL",
+        "uml-dart-forbidden-dependency-fail": "PASS",
+        "uml-dart-partial-unknown": "UNKNOWN",
+        "uml-flutter-shop": "UNKNOWN",
+        "uml-flutter-signature-fail": "FAIL",
+        "uml-flutter-missing-member-fail": "FAIL",
+        "uml-flutter-forbidden-dependency-fail": "UNKNOWN",
+        "uml-flutter-dynamic-unknown": "UNKNOWN",
         "uml-typescript": "UNKNOWN",
         "uml-typescript-match": "PASS",
         "uml-typescript-mismatch": "FAIL",
@@ -385,6 +779,9 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
     }[name]
     assert report.comparison.status == expected
     language = next(e.language for e in report.target.entities if e.kind == "module")
+    if language == "dart":
+        _check_dart_uml_detail(page, name, module_url, payload, output)
+        return
     annotation = {"python": "str", "dart": "String", "typescript": "string"}[language]
     returns = "None" if language == "python" else "void"
     for view in ("diagram", "target", "diff"):
@@ -393,17 +790,6 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
         assert page.locator(".atlas-heading").count() == 1
         assert page.locator(".flow-views [data-flow-view]").count() == 3
         assert page.locator('.flow-nodes [data-uml-kind="component"]').count() == 0
-        if language == "dart" and view in {"diagram", "diff"}:
-            assert not any(
-                e.kind in {"class", "method", "function"} for e in report.observed.entities
-            )
-            _show_details(page)
-            details = page.locator(".flow-inspector-content").inner_text().lower()
-            assert "source file" in details and "coverage" in details and "unavailable" in details
-            assert page.locator(".flow-nodes [data-uml-id]").count() == 0
-            page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-modules.png"))
-            assert page.locator("#flow-data").text_content() == payload
-            continue
         if language == "typescript":
             source_names = {entity.qualified_name for entity in report.observed.entities}
             assert "demo.src.core_x2e_ts.Client" in source_names
@@ -471,7 +857,7 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
         page.locator(".flow-back").click()
         page.locator('.flow-nodes [data-label="State"]').dblclick()
         ready = page.locator('.flow-nodes [data-label="READY"][data-uml-kind="enum_literal"]')
-        if name == "uml-partial" and view in {"diagram", "diff"}:
+        if name == "uml-partial" and view == "diagram":
             assert ready.count() == 0
             for kind in ("attribute", "binding"):
                 assert (
@@ -480,6 +866,25 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
                     ).count()
                     == 1
                 )
+        elif name == "uml-partial" and view == "diff":
+            assert ready.count() == 1
+            assert ready.get_attribute("data-assessment-status") == "UNKNOWN"
+            target_ready = next(
+                entity
+                for entity in report.target.entities
+                if entity.qualified_name.endswith(".State.READY") and entity.kind == "enum_literal"
+            )
+            observed_ready = [
+                entity
+                for entity in report.observed.entities
+                if entity.qualified_name.endswith(".State.READY")
+            ]
+            assert {entity.kind for entity in observed_ready} == {"attribute", "binding"}
+            assert not any(
+                match.target_id == target_ready.id
+                and any(entity.id in match.observed_ids for entity in observed_ready)
+                for match in report.comparison.correspondences
+            )
         else:
             assert ready.count() == 1
             assert ready.locator(".stereotype").text_content() == "«enumeration literal»"
@@ -502,7 +907,19 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
             assert page.locator('.flow-edges [data-relationship-kind="instance_of"]').count() > 0
         item.press("Space")
         _show_details(page)
+        if view == "diff":
+            page.get_by_role("heading", name="As-Is binding", exact=True).wait_for()
+            expected_as_is = (
+                "new constructors[0]()"
+                if language == "typescript" and name == "uml-typescript-partial"
+                else "new Unit()"
+                if language == "typescript"
+                else "Unit()"
+            )
         inspector = page.locator(".flow-inspector-content").inner_text()
+        if view == "diff":
+            assert "AS-IS BINDING" in inspector
+            assert f"item = {expected_as_is}" in inspector
         if language == "typescript":
             assert "binding" in inspector
             if view in {"diagram", "diff"}:
@@ -510,6 +927,20 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
         else:
             assert "live object" in inspector
         assert page.locator("#flow-data").text_content() == payload
+
+
+def _check_flutter_unsupported(page: Page, name: str, output: Path) -> None:
+    result = json.loads((output / f"{name}.result.json").read_text(encoding="utf-8"))
+    assert result["coverage"]["status"] == "FAIL"
+    unsupported = [
+        item for item in result["coverage"]["failures"] if item["kind"] == "UnsupportedDeclaration"
+    ]
+    assert [item["subjects"] for item in unsupported] == [["lib/domain/orders/order.dart:12"]]
+    payload = json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"]
+    assert payload["status"] == "UNKNOWN"
+    assert page.locator(".atlas-status").is_visible()
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    page.locator("#flow").screenshot(path=str(output / f"{name}-incomplete.png"))
 
 
 def _check_wide_inventory(page: Page) -> None:
@@ -615,9 +1046,16 @@ def main() -> int:
         type=Path,
         default=Path(os.environ.get("OUTPUT", "test-artifacts/report-browser")),
     )
-    output = parser.parse_args().output.resolve()
+    parser.add_argument("--flutter-only", action="store_true")
+    args = parser.parse_args()
+    output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    reports = _make_reports(output)
+    cases = REPORT_CASES
+    if args.flutter_only:
+        cases = {
+            name: value for name, value in REPORT_CASES.items() if name.startswith("uml-flutter-")
+        }
+    reports = _make_reports(output, cases)
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
             headless=True, channel=os.environ.get("PLAYWRIGHT_CHANNEL")
@@ -632,15 +1070,19 @@ def main() -> int:
                         _check_atlas_interactions(page)
                     if name.startswith("uml-"):
                         page.set_viewport_size({"width": 1440, "height": 1000})
-                        _check_inner_uml(page, name, output)
+                        if name == "uml-flutter-unsupported-declaration":
+                            _check_flutter_unsupported(page, name, output)
+                        else:
+                            _check_inner_uml(page, name, output)
                     if name == "wide":
                         _check_wide_inventory(page)
                     assert not errors, f"{name}: {errors}"
                 finally:
                     _finish(page, name, output)
-            _check_no_javascript(browser, reports["mixed"], output)
-            _check_report_verdicts(browser, reports, output)
-            _capture_assets(browser, reports, output)
+            if not args.flutter_only:
+                _check_no_javascript(browser, reports["mixed"], output)
+                _check_report_verdicts(browser, reports, output)
+                _capture_assets(browser, reports, output)
         finally:
             browser.close()
     print(f"Browser acceptance artifacts: {output}")

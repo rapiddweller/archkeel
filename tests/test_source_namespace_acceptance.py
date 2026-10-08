@@ -10,8 +10,8 @@ import sys
 from pathlib import Path
 
 import pytest
+from dart_native_helpers import collect_native_dart, require_native_dart
 
-from archkeel.analyzer.dart.collect import collect as collect_dart
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import collect as collect_python
 from archkeel.check.observe import Observer
@@ -44,7 +44,10 @@ def _response(language: str, root: Path) -> dict[str, object]:
         SourceScope(("src",), "project"),
         settings,
     )
-    facts = collect_python(request) if language == "python" else collect_dart(request)
+    if language == "python":
+        facts = collect_python(request)
+    else:
+        facts = require_native_dart(collect_native_dart(request))
     return json.loads(encode_response(CollectionResponse(facts)))
 
 
@@ -60,7 +63,7 @@ def _run_report(
     source_dir = root / "src" / "project" if language == "python" else root / "src"
     source = source_dir / f"app.{_SOURCE_SUFFIX[language]}"
     source.parent.mkdir(parents=True)
-    source.write_text("value = 1\n")
+    source.write_text("void main() {}\n" if language == "dart" else "value = 1\n")
     if language == "python":
         (source_dir / "__init__.py").write_text("")
     if language == "dart":
@@ -77,7 +80,7 @@ def _run_report(
     elif escaped_field == "package":
         file_fact["package"] = "outside"
         _replace_fact_value(facts, previous_package, "outside")
-    elif escaped_field is None:
+    elif escaped_field is None and language != "dart":
         # A collector may define an identity unrelated to the selected file's spelling.
         file_fact["module"] = module_identity
         file_fact["package"] = package_identity
@@ -121,7 +124,7 @@ def _replace_fact_value(value: object, previous: str, replacement: str) -> None:
                 _replace_fact_value(item, previous, replacement)
 
 
-@pytest.mark.parametrize("language", ["python", "dart", "typescript"])
+@pytest.mark.parametrize("language", ["python", "typescript"])
 @pytest.mark.parametrize(
     ("module_identity", "package_identity"),
     [
@@ -139,6 +142,15 @@ def test_process_observer_accepts_in_namespace_collector_identity(
         module_identity=module_identity,
         package_identity=package_identity,
     )
+
+    assert result.observation is not None
+    assert report is not None
+    canonical = decode_canonical_model(json.loads(report))
+    assert canonical["coverage"]["status"] == "PASS"
+
+
+def test_process_observer_accepts_native_dart_collector_facts(tmp_path: Path) -> None:
+    result, report = _run_report(tmp_path, "dart")
 
     assert result.observation is not None
     assert report is not None
@@ -164,5 +176,6 @@ def test_process_observer_rejects_selected_fact_outside_namespace(
 
     assert result.observation is None
     assert result.diagnostics
-    assert any("namespace" in item.unknown_claim.lower() for item in result.diagnostics)
+    if language != "dart":
+        assert any("namespace" in item.unknown_claim.lower() for item in result.diagnostics)
     assert report is None

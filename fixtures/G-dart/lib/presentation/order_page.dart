@@ -13,7 +13,7 @@ import 'order_tile.dart';
 part 'order_page_state.dart';
 
 class OrderPage extends StatefulWidget {
-  const OrderPage({super.key, required this.repository});
+  const OrderPage({Key? super.key, required this.repository});
 
   final OrderRepository repository;
 

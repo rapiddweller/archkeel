@@ -27,7 +27,11 @@ def test_gallery_builds_real_reports_with_working_dark_links(tmp_path):
     assert {row["status"] for row in rows} >= {"PASS", "FAIL", "UNKNOWN"}
     assert {row["id"] for row in rows} >= {
         "tour",
-        "uml-dart",
+        "uml-dart-match",
+        "uml-dart-signature-fail",
+        "uml-dart-missing-member-fail",
+        "uml-dart-forbidden-dependency-fail",
+        "uml-dart-partial-unknown",
         "dart-clean",
         "dart-tour",
         "typescript-clean",

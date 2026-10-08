@@ -13,6 +13,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from dart_native_helpers import collect_native_dart, require_native_dart
 from test_collection_protocol import _request
 from test_source_evaluation import _facts
 
@@ -28,7 +29,14 @@ from archkeel.ir.facts_codec import (
     decode_response,
     encode_response,
 )
-from archkeel.ir.protocol import CollectionError, CollectionResponse
+from archkeel.ir.protocol import (
+    CollectionError,
+    CollectionRequest,
+    CollectionResponse,
+    DartSettings,
+    SnapshotInput,
+    SourceScope,
+)
 from archkeel.ir.trace import trace_valid_violations
 
 
@@ -193,6 +201,88 @@ def test_import_evidence_must_name_its_actual_source_file(evidence_ids: list[str
     payload = _payload()
     payload["facts"]["sections"][0]["records"][0]["evidence_ids"] = evidence_ids
     with pytest.raises(ProtocolError):
+        _decode(payload)
+
+
+@pytest.mark.parametrize("language", ["python", "typescript"])
+def test_source_file_cannot_borrow_another_module_evidence(language: str) -> None:
+    if language == "python":
+        payload = _payload()
+    else:
+        payload = json.loads(
+            (
+                Path(__file__).parent / "fixtures/collection-protocol/response-typescript.json"
+            ).read_bytes()
+        )
+    facts = payload["facts"]
+    record = next(
+        record
+        for section in facts["sections"]
+        if section["name"] == "imports"
+        for record in section["records"]
+    )
+    if language == "typescript":
+        module = copy.deepcopy(facts["files"][0])
+        module.update(
+            id="FILE-other",
+            rel_path="src/other.ts",
+            module="project.src.other_x2e_ts",
+            evidence_id="E-other",
+        )
+        facts["files"].append(module)
+        facts["inputs"].append({"path": "src/other.ts", "digest": "e" * 64, "role": "selected"})
+        facts["coverage"].update(
+            selected_files=["src/app.ts", "src/other.ts"], files_read=2, files_parsed=2
+        )
+        facts["evidence"].append(
+            {
+                "id": "E-other",
+                "file": "src/other.ts",
+                "line": 1,
+                "end_line": 1,
+                "column": 0,
+                "excerpt": "",
+            }
+        )
+        source_path = "src/other.ts"
+    else:
+        source_path = "src/store.py"
+    record["data"]["source_file"] = source_path
+    record["evidence_ids"] = ["E-other" if language == "typescript" else "E-store"]
+
+    with pytest.raises(ProtocolError, match="source record evidence disagrees"):
+        _decode(payload)
+
+
+def test_dart_part_evidence_cannot_borrow_another_module(tmp_path: Path) -> None:
+    (tmp_path / "pubspec.yaml").write_text("name: project\n", encoding="utf-8")
+    library = tmp_path / "lib/main.dart"
+    library.parent.mkdir()
+    library.write_text("part 'detail.dart';\nclass Main {}\n", encoding="utf-8")
+    (tmp_path / "lib/detail.dart").write_text(
+        "part of 'main.dart';\nclass Detail {}\n", encoding="utf-8"
+    )
+    (tmp_path / "lib/other.dart").write_text("class Other {}\n", encoding="utf-8")
+    request = CollectionRequest(
+        SnapshotInput(str(tmp_path), "a" * 40, False),
+        SourceScope(("lib",), "project"),
+        DartSettings(),
+    )
+    facts = require_native_dart(collect_native_dart(request))
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    records = next(
+        section["records"]
+        for section in payload["facts"]["sections"]
+        if section["name"] == "symbols"
+    )
+    main = next(record for record in records if record["data"].get("name") == "Main")
+    other_evidence = next(
+        item["id"] for item in payload["facts"]["evidence"] if item["file"] == "lib/other.dart"
+    )
+    main["data"]["source_file"] = "lib/other.dart"
+    main["evidence_ids"] = [other_evidence]
+
+    with pytest.raises(ProtocolError, match="source record evidence disagrees"):
         _decode(payload)
 
 

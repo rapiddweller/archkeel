@@ -1,5 +1,8 @@
 # AD-194 Language demos retain capability gaps
 
+Historical scope: Dart's original import-only demo was replaced by the Analyzer-backed source
+demo in [AD-211](ad-211-dart-source-facts-use-the-official-analyzer.md).
+
 Use independent UML Targets and the shared renderer for Python, Dart and TypeScript
 demos. Python observes inner definitions; Dart and TypeScript currently supply
 imports, so unsupported inner comparisons remain UNKNOWN.

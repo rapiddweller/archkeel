@@ -182,7 +182,7 @@ class ProcessCollector:
 def _requested_facts(facts: SourceFacts, request: CollectionRequest) -> None:
     profiles: dict[str, SourceProfile] = {
         "python": "archkeel-python-analyzer",
-        "dart": "archkeel-dart-directives",
+        "dart": "archkeel-dart-analyzer",
         "typescript": "archkeel-typescript-imports",
     }
     if facts.profile != profiles[request.resolver.language]:

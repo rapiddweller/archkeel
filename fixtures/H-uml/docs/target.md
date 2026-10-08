@@ -21,12 +21,11 @@ Use fresh output paths. Match is PASS. Mismatch changes run's return type:
 its signature is FAIL. Partial replaces READY with auto(): literal existence is
 UNKNOWN. The Target is unchanged in all three runs.
 
-Dart and TypeScript currently collect imports, not inner UML definitions.
-These Python examples do not claim equivalent capabilities for those profiles.
+These examples prove the Python collector against its independent Target. Dart and TypeScript
+have separate source-only reports and retain their own unsupported facts as UNKNOWN.
 
 Use make demo-uml OUTPUT=<fresh-directory> for Python, Dart and TypeScript reports.
-Each language has an independently declared Target. Dart/TypeScript inner observations
-remain UNKNOWN until their collectors support them.
+Each language has an independently declared Target; see the catalog for source-fact verdicts.
 
 Tracked in #339 (demo acceptance) and #340 (inner Target contracts).
 

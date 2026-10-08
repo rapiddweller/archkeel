@@ -166,7 +166,7 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     assert "run: make ci-core-check\n" in check
     assert "run: make ci-report-check\n" in check
     assert "continue-on-error" not in check
-    assert "timeout-minutes: ${{ github.event_name == 'pull_request' && 15 || 60 }}" in check
+    assert "timeout-minutes: ${{ github.event_name == 'pull_request' && 20 || 60 }}" in check
     assert "run: make ci-pr-check\n" in check
     assert "run: make ci-pr-report-check\n" in check
     for heading in ("Run full core checks", "Run full report checks"):

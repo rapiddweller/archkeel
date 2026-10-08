@@ -23,7 +23,7 @@ ObservedSection: TypeAlias = Literal[
 ]
 
 PYTHON_ANALYZER: Final = "archkeel-python-analyzer"
-DART_ANALYZER: Final = "archkeel-dart-directives"
+DART_ANALYZER: Final = "archkeel-dart-analyzer"
 TYPESCRIPT_ANALYZER: Final = "archkeel-typescript-imports"
 
 
@@ -71,7 +71,7 @@ DART: Final = Profile(
     unmeasured=frozenset(
         {"typing_positions", "calls_unresolved", "private_crossings", "untyped_private_accesses"}
     ),
-    absent_sections=frozenset({"symbols", "references", "bindings"}),
+    absent_sections=frozenset({"typing_signals", "constructs"}),
     # Only `dart:` URIs are the SDK; reusing Python's set would exempt `package:http` (A2).
     standard_library=frozenset({"dart"}),
     sdk_libraries=frozenset(

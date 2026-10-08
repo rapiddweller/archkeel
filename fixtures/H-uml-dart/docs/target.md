@@ -1,23 +1,29 @@
-# Dart UML demo Target
+# Dart checkout Target
 
-The demo component owns the port, implementation and request entry point.
-Client extends Base, implements Port and delegates run to helper. App imports core
-and calls helper. Build creates Unit and assigns it to item. State names two literals.
-Client has private token storage, a static limit and reset. Text is a type alias;
-VERSION is a constant. The contract is independent of collector output.
+This independent Target describes a small checkout package. The composition component owns only `commerce.main` through exact module ownership; it wires presentation, ordering and adapters, calls the controller entry point, and supplies request/order values. Its grants name only the published controller, application, order and memory-adapter paths. Presentation maps requests to ordering; ordering owns application, ports and domain; adapters implement ports and format receipts. Ordering publishes its order module so presentation and composition can supply request values and adapters can exchange order values. `inside` expresses component ownership. UML `parent_id` expresses module and lexical ownership.
 
-The current Dart collector observes imports, not inner definitions or calls.
-Target shows the declared design. As-Is shows recorded modules and imports.
-Diff must retain unsupported inner observations as UNKNOWN, never PASS or absence FAIL.
-This demo does not certify language UML parity or exhaustive inventories.
+The package and scan namespace are both `commerce`. Dart module identities use the path below `lib` with `.dart` removed: `lib/ordering/domain/orders/order.dart` is `commerce.ordering.domain.orders.order`. No source facts are used to create this Target.
 
-Replay with make demo-architecture VARIANT=uml-dart OUTPUT=demo-output/uml-dart.json.
-Use a fresh output path. make demo-uml generates all three language reports.
+| User journey / check | Scope and expected entities | PASS | FAIL | UNKNOWN | Supporting artifact |
+|---|---|---|---|---|---|
+| Submit an order | `main()` → `CheckoutController.submit` → `CheckoutService.checkout` → `OrderRepository.save` | Declared public path and permissions match the design | A known forbidden dependency or signature/ownership conflict | Imports or calls cannot be resolved completely | Root and `contracts/presentation.json`, `contracts/ordering.json` |
+| Enforce order rules | `ordering.domain.orders.order.Order`, `OrderLine`, `OrderStatus` and members | Closed member inventory matches source | Known missing member or extra member | Malformed source or unresolved required sites prevent proof | `contracts/domain.json` |
+| Price an order | `DiscountPolicy`, `DiscountBase` and `PercentageDiscount` | Implementation realizes the policy with the declared signature | Known realization or signature conflict | Inheritance/realization evidence is unavailable | `contracts/domain.json` |
+| Persist and format | `InMemoryOrderRepository`, `formatReceipt` | Adapter stays behind ordering's port and exposes declared members | Known ownership or dependency conflict | Cross-component implementation evidence is unavailable | `contracts/adapters.json` |
+| Validate Target structure | Three component levels, responsibilities, provenance, module identities, endpoints and signatures | Native contract tree and UML graph validate | Invalid owner, endpoint or signature | Missing mounted contract | `tests/test_dart_uml_acceptance.py` |
 
-Tracked in #339 (demos) and #340 (complete ArchKeel Target).
+Each class, interface and enum has a closed scope for its direct members. Modules have no Dart identifier visibility; visibility is declared only for classifier and member identifiers. Module and call scopes remain open because this Target does not claim exhaustive coverage for those inventories; incomplete evidence must remain UNKNOWN rather than PASS or absence FAIL. `PercentageDiscount` extends `DiscountBase`, realizes `DiscountPolicy`, and delegates clamping to `super.clampDiscount`; these are static Target relations, not runtime proof. `CheckoutRequest` is declared once as the presentation data class, with final `requestId` and `lines` fields and a positional constructor signature. The shared Target modifier vocabulary has no `final` trait, so finalness remains a Dart source requirement rather than a comparable Target fact. Composition dependencies and static calls are declared, but constructor argument flow and controller object creation are not modeled. The table describes expected acceptance results; source comparison and report acceptance are separate evidence.
+
+Each multicomponent contract has `complete_requires`. The root permits presentation, adapters and composition dependencies as listed; ordering permits application→domain/ports and ports→domain; domain permits pricing→orders and forbids orders→pricing; adapter siblings have no dependency between them. Every `through` path is within the target component's published module surface. The presentation surface names `CheckoutController` with the documented `module:Name` form; Dart's Target uses its existing module identity.
+
+Observed root import snapshot; Target permissions are declared separately above.
 
 <!-- archkeel-component-graph -->
 ```mermaid
 flowchart LR
-    demo
+  composition --> presentation
+  composition --> ordering
+  composition --> adapters
+  presentation --> ordering
+  adapters --> ordering
 ```

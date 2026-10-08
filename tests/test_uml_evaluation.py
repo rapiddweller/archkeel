@@ -290,7 +290,7 @@ def test_adapter_cannot_add_a_second_uml_target_beside_the_authenticated_one(tmp
     assert result.diagnostics and "authenticated" in result.diagnostics[0].unknown_claim
 
 
-def test_dart_directive_profile_does_not_claim_python_uml_capabilities(tmp_path):
+def test_dart_native_profile_records_current_uml_receipt(tmp_path):
     contract = _contract()
     for entity in contract["declarations"]["uml"]["entities"]:
         entity["language"] = "dart"
@@ -300,16 +300,26 @@ def test_dart_directive_profile_does_not_claim_python_uml_capabilities(tmp_path)
             "lib/core.dart": (
                 "int helper(int value) => value;\nint run(int value) => helper(value);\n"
             ),
+            "pubspec.yaml": "name: sample\nenvironment:\n  sdk: '>=2.19.0 <4.0.0'\n",
             "contract.json": json.dumps(contract),
-            "docs/target.md": "The directive profile cannot observe operations.\n",
+            "docs/target.md": "The native Dart profile records operations for this target.\n",
         },
     )
     config = ScanConfig(("lib",), "sample", "contract.json", "0" * 64, language="dart")
     model = _model(root, config)
     rule = _uml_rule(model)
-    assert rule.status == "UNKNOWN" and not rule.evaluation_proven
-    assert any(record.rule_ids == (rule.id,) for record in model.records("unknowns"))
-    assert not any(record.rule_ids == (rule.id,) for record in model.records("violations"))
+    assert rule.status == "PASS" and rule.evaluation_proven
+    assert any(
+        call.data.get("expression") == "helper(value)" and call.data.get("status") == "resolved"
+        for call in model.records("calls")
+    )
+    receipt = next(
+        item for item in model.records("scope_observations") if item.rule_ids == (rule.id,)
+    )
+    assert receipt.kind == "rule_evaluation"
+    assert receipt.data.get("assessment_complete") is True
+    assert receipt.data.get("comparison") is not None
+    assert receipt.fact_ids and receipt.evidence_ids
 
 
 def test_empty_explicit_target_records_unknown_instead_of_a_pass_receipt(tmp_path):

@@ -1,5 +1,8 @@
 # AD-97 A Dart profile observes directives, and what it cannot see is UNKNOWN
 
+Historical scope: this records the original directive-only profile. Current Analyzer-backed
+source UML and its limits are recorded in [AD-211](ad-211-dart-source-facts-use-the-official-analyzer.md).
+
 The Dart profile observes directives, not symbol usage. `show` proves listed names; imports without
 it prove edges but leave names unknown. Unsupported rules and invalid syntax exit two; unavailable
 measurements stay null, and dependent claims stay UNKNOWN.

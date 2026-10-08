@@ -154,7 +154,9 @@ it performs no live approvals. More cases are in the [demo catalog](docs/archite
 ## Scope and limits
 
 Archkeel observes static source in configured roots. Python support covers imports, calls, and declared boundaries.
-Dart supports imports. TypeScript also records lexical UML declarations and statically bound relationships;
+Dart records declarations, members, signatures and resolved static sites through the official Analyzer
+(Dart SDK `>=3.9,<4`; run `make dart-setup` once before scanning).
+TypeScript also records lexical UML declarations and statically bound relationships;
 ambiguous bindings and unsupported constructs remain UNKNOWN. TypeScript roots may name files or directories.
 Archkeel does not prove runtime behavior, performance, or the quality of every design decision.
 Separate test trees need their own scan and contract.
@@ -164,6 +166,8 @@ Exit meanings are defined [per command](docs/reference.md#exit-codes).
 Read the [docs](docs/README.md).
 
 ## Development
+
+Install Dart SDK `>=3.9,<4` and run `make dart-setup` before Dart demos, checks or smoke tests.
 
 ```bash
 make check              # lint, types, tests

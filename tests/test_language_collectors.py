@@ -9,7 +9,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from archkeel.analyzer.dart.collect import collect as collect_dart
+from dart_native_helpers import collect_native_dart, require_native_dart
+
 from archkeel.analyzer.python.collect import collect as collect_python
 from archkeel.ir.facts import ExternalPackageTarget, LocalTarget
 from archkeel.ir.facts_codec import (
@@ -112,9 +113,9 @@ def test_dart_collects_part_libraries_and_typed_import_targets(tmp_path: Path) -
     (package / "local.dart").write_text("class Local {}\n")
     (package / "detail.dart").write_text("part of 'main.dart';\n")
 
-    facts = collect_dart(_request(tmp_path, "dart"))
+    facts = require_native_dart(collect_native_dart(_request(tmp_path, "dart")))
 
-    assert facts.profile == "archkeel-dart-directives"
+    assert facts.profile == "archkeel-dart-analyzer"
     assert {file.rel_path for file in facts.files} == {"src/main.dart", "src/local.dart"}
     assert {item.path for item in facts.inputs if item.role == "selected"} == {
         "src/main.dart",
@@ -133,7 +134,7 @@ def test_dart_unresolved_directive_is_a_coverage_unknown(tmp_path: Path) -> None
     (tmp_path / "pubspec.yaml").write_text("name: sample\n")
     (package / "main.dart").write_text("import 'missing.dart';\n")
 
-    facts = collect_dart(_request(tmp_path, "dart"))
+    facts = require_native_dart(collect_native_dart(_request(tmp_path, "dart")))
 
     assert facts.coverage.gaps
     assert facts.coverage.gaps[0].evidence_class.value == "UNKNOWN"

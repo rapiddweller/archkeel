@@ -9,11 +9,13 @@ Install [uv](https://docs.astral.sh/uv/), then:
 ```bash
 uv python install 3.11.12 3.12.10
 uv sync --locked
+make dart-setup
 ```
 
 `.python-version` pins 3.11.12: CI runs the gate on it, and the saved self-observation records it.
 The runtime test in `make check` also starts `python3.12`, so 3.12 must be on your `PATH`.
 Flow browser tests and Mermaid rendering require Node.js 22; CI installs it for these tools.
+Dart checks need an SDK in `>=3.9,<4`; `make dart-setup` prepares the pinned native Analyzer.
 
 ## Before you push
 
@@ -30,7 +32,7 @@ regressions may first surface on Main. The PR check has a 15-minute cap.
 
 Every Main push runs the full `make ci`: all tests, build/smoke, TypeScript demos, report timing,
 browser acceptance and Mermaid. Native collector matrices also run on Main, including
-Linux/Windows and Python 3.11/3.12. Use `make ci BASE=origin/main` locally for that full scope.
+Linux/Windows and Dart 3.9/3.12. Use `make ci BASE=origin/main` locally for that full scope.
 Obsolete PR runs cancel automatically; Main runs remain independent with a 60-minute check cap.
 
 Every push to `main` also builds and publishes the [current architecture report](https://rapiddweller.github.io/archkeel/).
@@ -42,7 +44,7 @@ Pages jobs run serially, and superseded revisions do not replace the current Mai
 GitHub Pages must use **GitHub Actions** as its publishing source.
 
 Run `make report-pages` to generate the same site in `test-artifacts/pages/`: an entry page,
-the current report and 24 Python/Dart/TypeScript demos with shared detail pages and canonical
+the current report and the Python, Dart and TypeScript demos with shared detail pages and canonical
 JSON. Demo links open in the dark theme; `/demos/` leads to the gallery.
 
 ## Regenerate the self-observation

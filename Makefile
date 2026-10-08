@@ -1,7 +1,9 @@
 .DEFAULT_GOAL := check
 UV ?= uv
+DART_EXECUTABLE ?= dart
+FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety typescript-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing
+.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety typescript-native dart-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart dart-setup demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
 
 check: lint typecheck test
 
@@ -97,6 +99,16 @@ typescript-native:
 		tests/test_typescript_resolve.py tests/test_typescript_provenance.py \
 		tests/test_typescript_init_acceptance.py tests/test_typescript_demo.py
 
+dart-native:
+	@test -n "$(DART_EXECUTABLE)" || { echo "DART_EXECUTABLE must name an installed Dart SDK"; exit 2; }
+	@command -v "$(DART_EXECUTABLE)" >/dev/null 2>&1 || test -x "$(DART_EXECUTABLE)" || { echo "Dart SDK not found: $(DART_EXECUTABLE)"; exit 2; }
+	@test -f src/archkeel/analyzer/dart/native/.dart_tool/package_config.json || { echo "Native Dart dependencies are missing; run make dart-setup"; exit 2; }
+	"$(DART_EXECUTABLE)" format --output=none --set-exit-if-changed src/archkeel/analyzer/dart/native
+	cd src/archkeel/analyzer/dart/native && "$(DART_EXECUTABLE)" analyze
+	DART_EXECUTABLE="$(DART_EXECUTABLE)" $(UV) run --locked python -m pytest -q \
+		tests/test_dart_profile.py tests/test_dart_inner_collect.py tests/test_dart_unknowns.py \
+		tests/test_uml_source_facts.py tests/test_dart_uml_acceptance.py tests/test_flutter_demo.py
+
 # Compare against the immutable output captured from the former Node collector.
 typescript-differential:
 	ARCHKEEL_DIFFERENTIAL_OUTPUT="$(or $(OUTPUT),test-artifacts/typescript-differential)" \
@@ -161,6 +173,20 @@ demo-onboarding:
 demo-dart:
 	@$(UV) run --locked python -m fixtures.reproduce_dart
 
+dart-setup:
+	DART_EXECUTABLE="$(DART_EXECUTABLE)" $(UV) run --locked archkeel-dart-setup
+
+flutter-demo-check:
+	@command -v "$(FLUTTER_EXECUTABLE)" >/dev/null 2>&1 || test -x "$(FLUTTER_EXECUTABLE)" || { echo "Flutter SDK not found: $(FLUTTER_EXECUTABLE)"; exit 2; }
+	@command -v "$(DART_EXECUTABLE)" >/dev/null 2>&1 || test -x "$(DART_EXECUTABLE)" || { echo "Dart SDK not found: $(DART_EXECUTABLE)"; exit 2; }
+	"$(FLUTTER_EXECUTABLE)" --version --machine
+	"$(DART_EXECUTABLE)" --version
+	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" pub get
+	"$(DART_EXECUTABLE)" format --output=none --set-exit-if-changed fixtures/I-flutter-shop/lib fixtures/I-flutter-shop/test
+	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" analyze
+	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" test
+	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" build web --output "$(abspath test-artifacts/flutter-demo/web)"
+
 demo-snapshot-check:
 	@$(UV) run --locked python -m fixtures.reproduce_snapshot_check
 
@@ -174,13 +200,7 @@ demo-architecture:
 
 demo-uml:
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
-	@$(MAKE) demo-architecture VARIANT=uml-match OUTPUT="$(OUTPUT)/python.json"
-	@$(MAKE) demo-architecture VARIANT=uml-complete OUTPUT="$(OUTPUT)/python-complete.json"
-	@$(MAKE) demo-architecture VARIANT=uml-dart OUTPUT="$(OUTPUT)/dart.json"
-	@$(MAKE) demo-architecture VARIANT=uml-typescript OUTPUT="$(OUTPUT)/typescript.json"
-	@$(MAKE) demo-architecture VARIANT=uml-typescript-match OUTPUT="$(OUTPUT)/typescript-match.json"
-	@$(MAKE) demo-architecture VARIANT=uml-typescript-mismatch OUTPUT="$(OUTPUT)/typescript-mismatch.json"
-	@$(MAKE) demo-architecture VARIANT=uml-typescript-partial OUTPUT="$(OUTPUT)/typescript-partial.json"
+	@DART_EXECUTABLE="$(DART_EXECUTABLE)" $(UV) run --locked python -m fixtures.architecture_demo --uml-suite --output "$(OUTPUT)"
 
 # The figure is derived from the run above, so a test compares it with a fresh render.
 loop-figure:

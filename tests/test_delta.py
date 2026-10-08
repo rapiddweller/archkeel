@@ -542,14 +542,14 @@ def test_dart_delta_ignores_python_version_when_dart_runtime_matches() -> None:
     after = _model(git_head="2" * 40)
     for raw, python_version in ((before, "3.11.0"), (after, "3.12.0")):
         raw["analyzer"] = {
-            "name": "archkeel-dart-directives",
+            "name": "archkeel-dart-analyzer",
             "version": "1.0.0",
             "code_digest": "a" * 64,
         }
         raw["python_version"] = python_version
         raw["runtime"] = {"name": "dart", "version": "3.6.0"}
         raw["producer"] = {"name": "dart-parser", "version": "3.6.0", "code_digest": "b" * 64}
-        for section in ("symbols", "references", "bindings"):
+        for section in ("typing_signals", "constructs"):
             raw[section] = None
 
     delta = build_architecture_delta(
@@ -560,4 +560,4 @@ def test_dart_delta_ignores_python_version_when_dart_runtime_matches() -> None:
         checker_digest="c" * 64,
     )
 
-    assert delta.analyzer.name == "archkeel-dart-directives"
+    assert delta.analyzer.name == "archkeel-dart-analyzer"

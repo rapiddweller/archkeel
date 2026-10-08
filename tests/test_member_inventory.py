@@ -140,6 +140,76 @@ def test_legacy_field_inventory_stays_unknown(tmp_path):
     assert "UNKNOWN" in {a.status for a in comparison.assessments}
 
 
+def test_dart_receipts_prove_enum_members_but_keep_module_calls_partial(tmp_path):
+    observation = _observation(
+        tmp_path,
+        "from enum import StrEnum\nclass State(StrEnum):\n READY = 'ready'\n"
+        "def helper(): return 1\ndef run(): return helper()\n",
+    )
+    symbols = list(observation.records("symbols") or ())
+    state = next(item for item in symbols if item.data.get("name") == "State")
+    inventories = tuple(
+        RecordData(
+            tuple(
+                (
+                    key,
+                    "complete" if key == "status" else None if key == "reason" else value,
+                )
+                for key, value in item.entries
+            )
+        )
+        if isinstance(item, RecordData) and item.get("kind") == "attribute"
+        else item
+        for item in state.data.get("member_inventories")
+    )
+    state = replace(
+        state,
+        data=RecordData(
+            tuple(
+                (key, inventories if key == "member_inventories" else value)
+                for key, value in state.data.entries
+            )
+        ),
+    )
+    from archkeel.ir.model import Section
+
+    observation = replace(
+        observation,
+        analyzer=replace(observation.analyzer, name="archkeel-dart-analyzer"),
+        sections=tuple(
+            Section(
+                section.name,
+                tuple(state if item.id == state.id else item for item in section.records),
+            )
+            if section.name == "symbols"
+            else section
+            for section in observation.sections
+        ),
+    )
+    graph = observed_graph(observation)
+    state_coverage = [
+        item
+        for item in graph.coverage
+        if item.scope_id == state.id and "enum_literal" in item.entity_kinds
+    ]
+    module = next(item for item in graph.entities if item.kind == "module")
+    module_calls = [
+        item
+        for item in graph.coverage
+        if item.scope_id == module.id and "calls" in item.relationship_kinds
+    ]
+    module_symbols = [
+        item
+        for item in graph.coverage
+        if item.scope_id == module.id and "class" in item.entity_kinds
+    ]
+
+    assert state_coverage and all(item.status == "complete" for item in state_coverage)
+    assert observation.records("calls")
+    assert module_calls and all(item.status == "partial" for item in module_calls)
+    assert module_symbols and all(item.status == "partial" for item in module_symbols)
+
+
 @pytest.mark.parametrize("alter", ["foreign", "omit", "kind", "reason"])
 def test_inventory_rejects_inconsistent_receipts(tmp_path, alter):
     observation = _observation(tmp_path, "class Data:\n value: str\n def run(self): ...\n")

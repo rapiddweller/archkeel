@@ -298,7 +298,7 @@ def test_saved_query_rejects_rule_facet_for_non_violation_modes(tmp_path, capsys
     assert list(tmp_path.iterdir()) == []
 
 
-def test_saved_dart_query_preserves_unmeasured_source_sections(tmp_path, capsys):
+def test_saved_dart_query_preserves_current_profile_sections(tmp_path, capsys):
     root = tmp_path / "repo"
     root.mkdir()
     config = _committed(
@@ -319,7 +319,8 @@ def test_saved_dart_query_preserves_unmeasured_source_sections(tmp_path, capsys)
     assert main(["report", "--input", str(saved), "--only", "architecture", "--json"]) == 0
     assert capsys.readouterr().out.encode() == result_bytes(live)
     raw = decode_canonical_model(json.loads(packet))
-    assert raw["coverage"]["calls_analyzed"] is None and raw["symbols"] is None
+    assert raw["coverage"]["calls_analyzed"] == 0
+    assert raw["symbols"] == []
 
 
 def test_saved_typescript_query_matches_native_cli_without_collector_or_repository(

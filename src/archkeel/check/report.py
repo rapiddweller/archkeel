@@ -676,4 +676,6 @@ def _validate_saved_sources(model: Observation) -> None:
         module_packages,
         {item.id: item for item in model.evidence},
         import_ids={item.id for item in model.records("imports") or ()},
+        selected_inputs={item.file for item in model.evidence},
+        allow_part_evidence=model.analyzer.name == "archkeel-dart-analyzer",
     )

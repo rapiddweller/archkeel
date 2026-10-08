@@ -181,7 +181,89 @@ VARIANTS += (
 )
 
 
-for language in ("dart", "typescript"):
+DART_FIXTURE_DIR = UML_FIXTURE_DIR.with_name("H-uml-dart")
+DART_ORDER_SOURCE = (DART_FIXTURE_DIR / "lib/ordering/domain/orders/order.dart").read_text()
+DART_DISCOUNT_SOURCE = (
+    DART_FIXTURE_DIR / "lib/ordering/domain/pricing/discount_policy.dart"
+).read_text()
+DART_BASE = {
+    "section": "class_c",
+    "item": "ContractDeclarations.uml",
+    "fixture": DART_FIXTURE_DIR,
+}
+VARIANTS += (
+    Variant(
+        id="uml-dart-match",
+        summary="Native Dart source matches its independently authored nested Target.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        expected_declared_rules="PASS",
+        **DART_BASE,
+    ),
+    Variant(
+        id="uml-dart-signature-fail",
+        summary="A deep Order method signature differs from the unchanged Target.",
+        files={
+            "lib/ordering/domain/orders/order.dart": DART_ORDER_SOURCE.replace(
+                "isValidQuantity(int quantity)", "isValidQuantity(num quantity)"
+            )
+        },
+        expected_violations=(stable_id("UML-TARGET", "architecture-contract.json"),),
+        expected_codes=("rule.violated",),
+        expected_declared_rules="FAIL",
+        **DART_BASE,
+    ),
+    Variant(
+        id="uml-dart-missing-member-fail",
+        summary="A Target-only enum literal is absent from valid Dart source.",
+        files={
+            "lib/ordering/domain/orders/order.dart": DART_ORDER_SOURCE.replace(
+                "enum OrderStatus { draft, placed, cancelled }",
+                "enum OrderStatus { draft, placed }",
+            )
+        },
+        expected_violations=(stable_id("UML-TARGET", "architecture-contract.json"),),
+        expected_codes=("rule.violated",),
+        expected_declared_rules="FAIL",
+        **DART_BASE,
+    ),
+    Variant(
+        id="uml-dart-forbidden-dependency-fail",
+        summary="Order source adds an unapproved cross-component pricing dependency.",
+        files={
+            "lib/ordering/domain/orders/order.dart": "import '../pricing/discount_policy.dart';\n"
+            + DART_ORDER_SOURCE
+            + "\nint previewDiscount(DiscountPolicy policy, int cents) => "
+            "policy.discountCents(cents);\n"
+        },
+        expected_violations=("ordering:domain:REQUIRES-COMPLETE",),
+        expected_codes=("rule.violated",),
+        expected_declared_rules="FAIL",
+        **DART_BASE,
+    ),
+    Variant(
+        id="uml-dart-partial-unknown",
+        summary="A dynamic receiver leaves one Target-required call unresolved.",
+        files={
+            "lib/ordering/domain/pricing/discount_policy.dart": DART_DISCOUNT_SOURCE.replace(
+                "int discountCents(int subtotalCents) => super.clampDiscount(\n    subtotalCents,",
+                "int discountCents(int subtotalCents) {\n"
+                "    final dynamic base = this;\n"
+                "    return base.clampDiscount(\n    subtotalCents,",
+            ).replace(
+                "subtotalCents * _percent.clamp(0, MAX_DISCOUNT_PERCENT) ~/ 100,\n  );",
+                "subtotalCents * _percent.clamp(0, MAX_DISCOUNT_PERCENT) ~/ 100,\n  );\n  }",
+            )
+        },
+        expected_violations=(),
+        expected_codes=(),
+        expected_declared_rules="UNKNOWN",
+        **DART_BASE,
+    ),
+)
+
+for language in ("typescript",):
     fixture = UML_FIXTURE_DIR.with_name("H-uml-" + language)
     VARIANTS += (
         Variant(

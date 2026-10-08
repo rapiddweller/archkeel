@@ -65,7 +65,7 @@
         "archkeel.analyzer.dart"
       ],
       "responsibilities": [
-        "Own Dart directive parsing, URI resolution and source-fact collection."
+        "Launch the prepared native Dart Analyzer collector and publish Dart source facts."
       ],
       "forbidden_responsibilities": [
         "Unsupported full-Dart claims, governance policy and sibling adapter imports."

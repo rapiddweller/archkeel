@@ -1,0 +1,326 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "controller",
+      "label": "controller",
+      "role": "component",
+      "packages": [
+        "commerce.presentation.controller"
+      ],
+      "namespace": "commerce.presentation.controller",
+      "public": [
+        "commerce.presentation.controller:CheckoutController"
+      ],
+      "responsibilities": [
+        "Validate request fields and call the checkout service."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": [],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "controller-module",
+          "kind": "module",
+          "qualified_name": "commerce.presentation.controller",
+          "parent_id": "controller",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Own the request-facing checkout controller."
+          ],
+          "file_path": "lib/presentation/controller.dart"
+        },
+        {
+          "id": "controller-class",
+          "kind": "class",
+          "qualified_name": "commerce.presentation.controller.CheckoutController",
+          "parent_id": "controller-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Map a checkout request to the application API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "controller-ctor",
+          "kind": "method",
+          "qualified_name": "commerce.presentation.controller.CheckoutController.CheckoutController",
+          "parent_id": "controller-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive the checkout service."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "checkout",
+                "annotation": "CheckoutService",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "CheckoutController"
+          }
+        },
+        {
+          "id": "controller-checkout",
+          "kind": "method",
+          "qualified_name": "commerce.presentation.controller.CheckoutController.submit",
+          "parent_id": "controller-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Submit a checkout and return its receipt."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "request",
+                "annotation": "CheckoutRequest",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "request",
+          "kind": "class",
+          "qualified_name": "commerce.presentation.controller.CheckoutRequest",
+          "parent_id": "controller-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Carry an identifier and requested lines."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "request-id",
+          "kind": "attribute",
+          "qualified_name": "commerce.presentation.controller.CheckoutRequest.requestId",
+          "parent_id": "request",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold the final checkout request identifier."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "request-lines",
+          "kind": "attribute",
+          "qualified_name": "commerce.presentation.controller.CheckoutRequest.lines",
+          "parent_id": "request",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold the final requested order lines."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "List<OrderLine>"
+        },
+        {
+          "id": "controller-map",
+          "kind": "method",
+          "qualified_name": "commerce.presentation.controller.CheckoutController._requestId",
+          "parent_id": "controller-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Read the stable request identifier."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "request",
+                "annotation": "CheckoutRequest",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "checkout-field",
+          "kind": "attribute",
+          "qualified_name": "commerce.presentation.controller.CheckoutController._checkout",
+          "parent_id": "controller-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retain the injected checkout service."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "CheckoutService"
+        },
+        {
+          "id": "request-ctor",
+          "kind": "method",
+          "qualified_name": "commerce.presentation.controller.CheckoutRequest.CheckoutRequest",
+          "parent_id": "request",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create a request with its identifier and requested lines."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "requestId",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "lines",
+                "annotation": "List<OrderLine>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "CheckoutRequest"
+          }
+        }
+      ],
+      "relationships": [
+        {
+          "id": "submit-maps-request",
+          "kind": "calls",
+          "source_id": "controller-checkout",
+          "target_id": "controller-map",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "controller-ctor-retains-checkout",
+          "kind": "references",
+          "source_id": "controller-ctor",
+          "target_id": "checkout-field",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "controller-module",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "Module and call inventories stay open until the collector can certify their completeness.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "controller-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of commerce.presentation.controller.CheckoutController.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "request",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of commerce.presentation.controller.CheckoutRequest.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -248,17 +248,19 @@ def test_parse_rejects_invalid_coverage_rules():
         parse_observation(raw)
 
 
-def test_dart_profile_accepts_its_absent_sections_as_null():
+def test_dart_profile_keeps_only_unpublished_sections_null():
     raw = raw_observation()
-    raw["analyzer"]["name"] = "archkeel-dart-directives"
-    for section in ("symbols", "references", "bindings"):
+    raw["analyzer"]["name"] = "archkeel-dart-analyzer"
+    for section in ("typing_signals", "constructs"):
         raw[section] = None
 
     observation = parse_observation(raw)
 
-    assert observation.records("symbols") is None
-    assert observation.records("references") is None
-    assert observation.records("bindings") is None
+    assert observation.records("symbols") == ()
+    assert observation.records("references") == ()
+    assert observation.records("bindings") == ()
+    assert observation.records("typing_signals") is None
+    assert observation.records("constructs") is None
 
 
 def test_python_profile_rejects_a_null_required_section():
@@ -279,8 +281,8 @@ def test_unknown_analyzer_identity_is_rejected():
 
 def test_dart_profile_rejects_a_null_section_it_does_not_declare_absent():
     raw = raw_observation()
-    raw["analyzer"]["name"] = "archkeel-dart-directives"
-    for section in ("symbols", "references", "bindings"):
+    raw["analyzer"]["name"] = "archkeel-dart-analyzer"
+    for section in ("typing_signals", "constructs"):
         raw[section] = None
     raw["calls"] = None
 

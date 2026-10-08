@@ -1,0 +1,1796 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "domain-catalog",
+      "label": "catalog",
+      "role": "component",
+      "packages": [
+        "shop.domain.catalog"
+      ],
+      "public": [
+        "shop.domain.catalog.product",
+        "shop.domain.catalog.catalog_repository"
+      ],
+      "responsibilities": [
+        "Define product values and the catalog read port."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "shop.domain.catalog"
+    },
+    {
+      "id": "domain-cart",
+      "label": "cart",
+      "role": "component",
+      "packages": [
+        "shop.domain.cart"
+      ],
+      "public": [
+        "shop.domain.cart.cart"
+      ],
+      "responsibilities": [
+        "Maintain cart lines, quantities, and integer-cent totals."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "catalog",
+          "through": [
+            "shop.domain.catalog.product"
+          ],
+          "rationale": "Cart lines contain catalog products.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "shop.domain.cart"
+    },
+    {
+      "id": "domain-orders",
+      "label": "orders",
+      "role": "component",
+      "packages": [
+        "shop.domain.orders"
+      ],
+      "public": [
+        "shop.domain.orders.order",
+        "shop.domain.orders.order_repository"
+      ],
+      "responsibilities": [
+        "Define order values, lifecycle labels, and the order persistence port."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "cart",
+          "through": [
+            "shop.domain.cart.cart"
+          ],
+          "rationale": "Create an order snapshot from cart lines.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "shop.domain.orders"
+    },
+    {
+      "id": "domain-checkout",
+      "label": "checkout",
+      "role": "component",
+      "packages": [
+        "shop.domain.checkout"
+      ],
+      "public": [
+        "shop.domain.checkout.place_order",
+        "shop.domain.checkout.shop_status"
+      ],
+      "responsibilities": [
+        "Reject offline checkout and coordinate creation and persistence of one order."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "cart",
+          "through": [
+            "shop.domain.cart.cart"
+          ],
+          "rationale": "Create the submitted order from the current cart.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "orders",
+          "through": [
+            "shop.domain.orders.order",
+            "shop.domain.orders.order_repository"
+          ],
+          "rationale": "Assign order identity and persist the placed order.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "shop.domain.checkout"
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Unlisted component dependencies are outside the approved demo boundary.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-product",
+          "kind": "module",
+          "qualified_name": "shop.domain.catalog.product",
+          "parent_id": "domain-catalog",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define the catalog value shown and priced by the demo."
+          ],
+          "file_path": "lib/domain/catalog/product.dart"
+        },
+        {
+          "id": "module-catalog-port",
+          "kind": "module",
+          "qualified_name": "shop.domain.catalog.catalog_repository",
+          "parent_id": "domain-catalog",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define the asynchronous catalog read boundary."
+          ],
+          "file_path": "lib/domain/catalog/catalog_repository.dart"
+        },
+        {
+          "id": "module-cart",
+          "kind": "module",
+          "qualified_name": "shop.domain.cart.cart",
+          "parent_id": "domain-cart",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Maintain cart lines, quantities, and totals."
+          ],
+          "file_path": "lib/domain/cart/cart.dart"
+        },
+        {
+          "id": "module-order",
+          "kind": "module",
+          "qualified_name": "shop.domain.orders.order",
+          "parent_id": "domain-orders",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Snapshot cart contents and represent order lifecycle values."
+          ],
+          "file_path": "lib/domain/orders/order.dart"
+        },
+        {
+          "id": "module-order-port",
+          "kind": "module",
+          "qualified_name": "shop.domain.orders.order_repository",
+          "parent_id": "domain-orders",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define asynchronous place, list, watch, and lookup operations."
+          ],
+          "file_path": "lib/domain/orders/order_repository.dart"
+        },
+        {
+          "id": "module-place-order",
+          "kind": "module",
+          "qualified_name": "shop.domain.checkout.place_order",
+          "parent_id": "domain-checkout",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reject offline checkout and coordinate one order submission."
+          ],
+          "file_path": "lib/domain/checkout/place_order.dart"
+        },
+        {
+          "id": "module-shop-status",
+          "kind": "module",
+          "qualified_name": "shop.domain.checkout.shop_status",
+          "parent_id": "domain-checkout",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose and control the demo\u2019s online/offline mode."
+          ],
+          "file_path": "lib/domain/checkout/shop_status.dart"
+        },
+        {
+          "id": "product-class",
+          "kind": "class",
+          "qualified_name": "shop.domain.catalog.product.Product",
+          "parent_id": "module-product",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent a product identifier, display name, and price in cents."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "product-id",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.catalog.product.Product.id",
+          "parent_id": "product-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Identify the product."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "product-name",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.catalog.product.Product.name",
+          "parent_id": "product-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Name the product in catalog and order details."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "product-price",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.catalog.product.Product.priceCents",
+          "parent_id": "product-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Keep price arithmetic in whole cents."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "product-ctor",
+          "kind": "method",
+          "qualified_name": "shop.domain.catalog.product.Product.Product",
+          "parent_id": "product-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create a product with an integer-cent price."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "name",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "priceCents",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Product"
+          }
+        },
+        {
+          "id": "catalog-repository-class",
+          "kind": "interface",
+          "qualified_name": "shop.domain.catalog.catalog_repository.CatalogRepository",
+          "parent_id": "module-catalog-port",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define the domain-facing asynchronous catalog read port."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "catalog-load",
+          "kind": "method",
+          "qualified_name": "shop.domain.catalog.catalog_repository.CatalogRepository.loadCatalog",
+          "parent_id": "catalog-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Read online products or the permitted cached catalog."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<List<Product>>"
+          }
+        },
+        {
+          "id": "catalog-is-online",
+          "kind": "method",
+          "qualified_name": "shop.domain.catalog.catalog_repository.CatalogRepository.isOnline",
+          "parent_id": "catalog-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose whether the latest catalog source is online."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "cart-class",
+          "kind": "class",
+          "qualified_name": "shop.domain.cart.cart.Cart",
+          "parent_id": "module-cart",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Maintain unique product lines and their integer-cent total."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "cart-lines",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.cart.cart.Cart._lines",
+          "parent_id": "cart-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold one line per selected product."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "List<CartLine>"
+        },
+        {
+          "id": "cart-ctor",
+          "kind": "method",
+          "qualified_name": "shop.domain.cart.cart.Cart.Cart",
+          "parent_id": "cart-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Start with an empty cart."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Cart"
+          }
+        },
+        {
+          "id": "cart-lines-getter",
+          "kind": "method",
+          "qualified_name": "shop.domain.cart.cart.Cart.lines",
+          "parent_id": "cart-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the current cart lines for display."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "List<CartLine>"
+          }
+        },
+        {
+          "id": "cart-total",
+          "kind": "method",
+          "qualified_name": "shop.domain.cart.cart.Cart.totalCents",
+          "parent_id": "cart-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Sum line totals without floating-point currency math."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "int"
+          }
+        },
+        {
+          "id": "cart-add",
+          "kind": "method",
+          "qualified_name": "shop.domain.cart.cart.Cart.add",
+          "parent_id": "cart-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Add a product or increase its existing quantity."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "product",
+                "annotation": "Product",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "cart-set-quantity",
+          "kind": "method",
+          "qualified_name": "shop.domain.cart.cart.Cart.setQuantity",
+          "parent_id": "cart-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Set a line quantity or remove it at zero."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "productId",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "quantity",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "cart-remove",
+          "kind": "method",
+          "qualified_name": "shop.domain.cart.cart.Cart.remove",
+          "parent_id": "cart-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Remove a product line."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "productId",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "cart-clear",
+          "kind": "method",
+          "qualified_name": "shop.domain.cart.cart.Cart.clear",
+          "parent_id": "cart-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Clear the cart only after a successful order."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "cart-line-class",
+          "kind": "class",
+          "qualified_name": "shop.domain.cart.cart.CartLine",
+          "parent_id": "module-cart",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent one product and its requested quantity."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "cart-line-product",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.cart.cart.CartLine.product",
+          "parent_id": "cart-line-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retain product name and price for the line."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Product"
+        },
+        {
+          "id": "cart-line-quantity",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.cart.cart.CartLine.quantity",
+          "parent_id": "cart-line-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retain the chosen item count."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "cart-line-ctor",
+          "kind": "method",
+          "qualified_name": "shop.domain.cart.cart.CartLine.CartLine",
+          "parent_id": "cart-line-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create a quantity line for one product."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "product",
+                "annotation": "Product",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "quantity",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "CartLine"
+          }
+        },
+        {
+          "id": "cart-line-total",
+          "kind": "method",
+          "qualified_name": "shop.domain.cart.cart.CartLine.lineTotalCents",
+          "parent_id": "cart-line-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Multiply unit price by quantity."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "int"
+          }
+        },
+        {
+          "id": "order-status-enum",
+          "kind": "enum",
+          "qualified_name": "shop.domain.orders.order.OrderStatus",
+          "parent_id": "module-order",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Name order lifecycle states and their user-facing labels."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "status-placed",
+          "kind": "enum_literal",
+          "qualified_name": "shop.domain.orders.order.OrderStatus.placed",
+          "parent_id": "order-status-enum",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent the placed order state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "status-completed",
+          "kind": "enum_literal",
+          "qualified_name": "shop.domain.orders.order.OrderStatus.completed",
+          "parent_id": "order-status-enum",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent the completed order state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "status-label",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.orders.order.OrderStatus.label",
+          "parent_id": "order-status-enum",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the status text shown in the order list and detail."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "status-ctor",
+          "kind": "method",
+          "qualified_name": "shop.domain.orders.order.OrderStatus.OrderStatus",
+          "parent_id": "order-status-enum",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Associate a display label with each lifecycle value."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "label",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "OrderStatus"
+          }
+        },
+        {
+          "id": "order-line-class",
+          "kind": "class",
+          "qualified_name": "shop.domain.orders.order.OrderLine",
+          "parent_id": "module-order",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Keep an immutable purchased-item snapshot independent of catalog updates."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "order-line-product-id",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.orders.order.OrderLine.productId",
+          "parent_id": "order-line-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Identify the purchased product."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "order-line-name",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.orders.order.OrderLine.name",
+          "parent_id": "order-line-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Preserve the purchased display name."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "order-line-unit-price",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.orders.order.OrderLine.unitPriceCents",
+          "parent_id": "order-line-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Preserve the purchased unit price in cents."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "order-line-quantity",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.orders.order.OrderLine.quantity",
+          "parent_id": "order-line-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Preserve the purchased quantity."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "order-line-ctor",
+          "kind": "method",
+          "qualified_name": "shop.domain.orders.order.OrderLine.OrderLine",
+          "parent_id": "order-line-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create an immutable order-line snapshot."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "productId",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "name",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "unitPriceCents",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "quantity",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "OrderLine"
+          }
+        },
+        {
+          "id": "order-line-total",
+          "kind": "method",
+          "qualified_name": "shop.domain.orders.order.OrderLine.lineTotalCents",
+          "parent_id": "order-line-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Compute the purchased line total in cents."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "int"
+          }
+        },
+        {
+          "id": "order-class",
+          "kind": "class",
+          "qualified_name": "shop.domain.orders.order.Order",
+          "parent_id": "module-order",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent one placed order with its immutable itemized total."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "order-id",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.orders.order.Order.id",
+          "parent_id": "order-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Identify the order for list/detail routes."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "order-lines",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.orders.order.Order.lines",
+          "parent_id": "order-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Keep the purchased item snapshots."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "List<OrderLine>"
+        },
+        {
+          "id": "order-total",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.orders.order.Order.totalCents",
+          "parent_id": "order-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Keep the submitted whole-cent total."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "order-status",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.orders.order.Order.status",
+          "parent_id": "order-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose its lifecycle state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "OrderStatus"
+        },
+        {
+          "id": "order-ctor",
+          "kind": "method",
+          "qualified_name": "shop.domain.orders.order.Order.Order",
+          "parent_id": "order-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create an order from a prepared snapshot."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "lines",
+                "annotation": "List<OrderLine>",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "totalCents",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "status",
+                "annotation": "OrderStatus",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Order"
+          }
+        },
+        {
+          "id": "order-from-cart",
+          "kind": "method",
+          "qualified_name": "shop.domain.orders.order.Order.Order.fromCart",
+          "parent_id": "order-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Build an order snapshot from the current cart."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "cart",
+                "annotation": "Cart",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "id",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Order"
+          }
+        },
+        {
+          "id": "order-repository-class",
+          "kind": "interface",
+          "qualified_name": "shop.domain.orders.order_repository.OrderRepository",
+          "parent_id": "module-order-port",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define asynchronous order writes, reads, and change notifications."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "order-place",
+          "kind": "method",
+          "qualified_name": "shop.domain.orders.order_repository.OrderRepository.place",
+          "parent_id": "order-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Persist a placed order."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "order",
+                "annotation": "Order",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Order>"
+          }
+        },
+        {
+          "id": "order-load-all",
+          "kind": "method",
+          "qualified_name": "shop.domain.orders.order_repository.OrderRepository.loadAll",
+          "parent_id": "order-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Load cached or online order history."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<List<Order>>"
+          }
+        },
+        {
+          "id": "order-watch",
+          "kind": "method",
+          "qualified_name": "shop.domain.orders.order_repository.OrderRepository.watchAll",
+          "parent_id": "order-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Publish order-list changes as they occur. "
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Stream<List<Order>>"
+          }
+        },
+        {
+          "id": "order-find",
+          "kind": "method",
+          "qualified_name": "shop.domain.orders.order_repository.OrderRepository.findById",
+          "parent_id": "order-repository-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Find a stored order when it exists."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Order?>"
+          }
+        },
+        {
+          "id": "place-order-class",
+          "kind": "class",
+          "qualified_name": "shop.domain.checkout.place_order.PlaceOrder",
+          "parent_id": "module-place-order",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reject offline checkout and submit one identified order."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "place-status",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.checkout.place_order.PlaceOrder._status",
+          "parent_id": "place-order-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reject checkout when the demo is offline."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "ShopStatus"
+        },
+        {
+          "id": "place-repository",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.checkout.place_order.PlaceOrder._repository",
+          "parent_id": "place-order-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Persist the successfully submitted order."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "OrderRepository"
+        },
+        {
+          "id": "place-sequence",
+          "kind": "attribute",
+          "qualified_name": "shop.domain.checkout.place_order.PlaceOrder._nextOrderNumber",
+          "parent_id": "place-order-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Generate stable, distinct in-process order identifiers."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "place-ctor",
+          "kind": "method",
+          "qualified_name": "shop.domain.checkout.place_order.PlaceOrder.PlaceOrder",
+          "parent_id": "place-order-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Inject online state and the order persistence port."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "status",
+                "annotation": "ShopStatus",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "repository",
+                "annotation": "OrderRepository",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "PlaceOrder"
+          }
+        },
+        {
+          "id": "place-call",
+          "kind": "method",
+          "qualified_name": "shop.domain.checkout.place_order.PlaceOrder.call",
+          "parent_id": "place-order-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create and persist one order when online."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "cart",
+                "annotation": "Cart",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Order>"
+          }
+        },
+        {
+          "id": "shop-status-class",
+          "kind": "interface",
+          "qualified_name": "shop.domain.checkout.shop_status.ShopStatus",
+          "parent_id": "module-shop-status",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define the connection state and toggle exposed to presentation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "shop-status-get",
+          "kind": "method",
+          "qualified_name": "shop.domain.checkout.shop_status.ShopStatus.isOnline",
+          "parent_id": "shop-status-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Report whether online operations are available."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "shop-status-set",
+          "kind": "method",
+          "qualified_name": "shop.domain.checkout.shop_status.ShopStatus.setOnline",
+          "parent_id": "shop-status-class",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Change the demo connection state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "online",
+                "annotation": "bool",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        }
+      ],
+      "relationships": [
+        {
+          "id": "place-calls-repository",
+          "kind": "calls",
+          "source_id": "place-call",
+          "target_id": "order-place",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "place-calls-order-factory",
+          "kind": "calls",
+          "source_id": "place-call",
+          "target_id": "order-from-cart",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "cart-add-creates-line",
+          "kind": "creates",
+          "source_id": "cart-add",
+          "target_id": "cart-line-class",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "module-product",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "module-catalog-port",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "module-cart",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "module-order",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "module-order-port",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "module-place-order",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "module-shop-status",
+          "mode": "open",
+          "entity_kinds": [
+            "module"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports"
+          ],
+          "rationale": "The Target names required journey edges, not a complete file import or call inventory.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "product-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.domain.catalog.product.Product.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "catalog-repository-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.domain.catalog.catalog_repository.CatalogRepository.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "cart-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.domain.cart.cart.Cart.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "cart-line-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.domain.cart.cart.CartLine.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "order-status-enum",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method",
+            "enum_literal"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.domain.orders.order.OrderStatus.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "order-line-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.domain.orders.order.OrderLine.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "order-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.domain.orders.order.Order.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "order-repository-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.domain.orders.order_repository.OrderRepository.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "place-order-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.domain.checkout.place_order.PlaceOrder.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "shop-status-class",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare every direct member of shop.domain.checkout.shop_status.ShopStatus.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}
