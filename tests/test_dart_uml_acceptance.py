@@ -71,6 +71,74 @@ def test_checkout_target_owns_three_nested_levels_and_independent_uml_intent():
     )
 
     entities = {entity.id: entity for entity in graph.entities}
+    composition = labels["composition"].component_id
+    root_dependencies = {
+        edge.target_id
+        for edge in graph.relationships
+        if edge.kind == "requires" and edge.source_id == composition
+    }
+    assert root_dependencies == {
+        labels["presentation"].component_id,
+        labels["ordering"].component_id,
+        labels["adapters"].component_id,
+    }
+    names = {entity.id: entity.qualified_name for entity in entities.values()}
+    assert "commerce.main.CheckoutRequest" not in names.values()
+    assert any(
+        edge.kind == "calls"
+        and names[edge.source_id] == "commerce.main.main"
+        and names[edge.target_id] == "commerce.presentation.controller.CheckoutController.submit"
+        for edge in graph.relationships
+    )
+    assert any(
+        edge.kind == "creates"
+        and names[edge.source_id] == "commerce.main.main"
+        and names[edge.target_id]
+        == "commerce.ordering.application.checkout_service.CheckoutService"
+        for edge in graph.relationships
+    )
+    assert any(
+        edge.kind == "creates"
+        and names[edge.source_id] == "commerce.main.main"
+        and names[edge.target_id]
+        == "commerce.adapters.memory.in_memory_order_repository.InMemoryOrderRepository"
+        for edge in graph.relationships
+    )
+    repository_binding = next(
+        entity for entity in entities.values() if entity.qualified_name.endswith("main.repository")
+    )
+    assert repository_binding.kind == "binding"
+    assert repository_binding.parent_id == next(
+        entity.id for entity in entities.values() if entity.qualified_name == "commerce.main.main"
+    )
+    assert repository_binding.initializer == "InMemoryOrderRepository()"
+    assert any(
+        edge.kind == "instance_of"
+        and edge.source_id == repository_binding.id
+        and names[edge.target_id]
+        == "commerce.adapters.memory.in_memory_order_repository.InMemoryOrderRepository"
+        for edge in graph.relationships
+    )
+    assert any(
+        edge.kind == "inherits"
+        and names[edge.source_id]
+        == "commerce.ordering.domain.pricing.discount_policy.PercentageDiscount"
+        and names[edge.target_id] == "commerce.ordering.domain.pricing.discount_policy.DiscountBase"
+        for edge in graph.relationships
+    )
+    assert any(
+        edge.kind == "realizes"
+        and names[edge.source_id].endswith("PercentageDiscount")
+        and names[edge.target_id].endswith("DiscountPolicy")
+        for edge in graph.relationships
+    )
+    assert any(
+        edge.kind == "calls"
+        and names[edge.source_id].endswith("PercentageDiscount.discountCents")
+        and names[edge.target_id]
+        == "commerce.ordering.domain.pricing.discount_policy.DiscountBase.clampDiscount"
+        for edge in graph.relationships
+    )
     assert "commerce.ordering.domain.orders.order.Order.status" in {
         entity.qualified_name for entity in entities.values()
     }

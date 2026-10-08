@@ -739,6 +739,59 @@
             "kind": "public",
             "basis": "declared"
           }
+        },
+        {
+          "id": "discount-base",
+          "kind": "class",
+          "qualified_name": "commerce.ordering.domain.pricing.discount_policy.DiscountBase",
+          "parent_id": "pricing-module",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide shared discount clamping behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "clamp-discount",
+          "kind": "method",
+          "qualified_name": "commerce.ordering.domain.pricing.discount_policy.DiscountBase.clampDiscount",
+          "parent_id": "discount-base",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Clamp a requested discount to the subtotal range."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "subtotalCents",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "requestedCents",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "int"
+          }
         }
       ],
       "relationships": [
@@ -779,19 +832,28 @@
           ]
         },
         {
-          "id": "percentage-implements-calc",
+          "id": "add-line-validates-quantity",
           "kind": "calls",
-          "source_id": "discount-calc",
-          "target_id": "discount-method",
+          "source_id": "order-add-line",
+          "target_id": "valid-quantity",
           "provenance": [
             "docs/target.md"
           ]
         },
         {
-          "id": "add-line-validates-quantity",
+          "id": "percentage-inherits-base",
+          "kind": "inherits",
+          "source_id": "percentage-discount",
+          "target_id": "discount-base",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "percentage-calls-clamp",
           "kind": "calls",
-          "source_id": "order-add-line",
-          "target_id": "valid-quantity",
+          "source_id": "discount-calc",
+          "target_id": "clamp-discount",
           "provenance": [
             "docs/target.md"
           ]

@@ -106,7 +106,33 @@
       "provenance": [
         "docs/target.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "requires": [
+        {
+          "component": "presentation",
+          "through": [
+            "commerce.presentation.controller"
+          ],
+          "rationale": "Construct the request controller and enter the checkout flow.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "ordering",
+          "through": [
+            "commerce.ordering.application"
+          ],
+          "rationale": "Construct the checkout service.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "adapters",
+          "through": [
+            "commerce.adapters.memory"
+          ],
+          "rationale": "Construct the concrete order repository.",
+          "decided_by": "architect"
+        }
+      ]
     }
   ],
   "rules": [],
@@ -156,24 +182,6 @@
           }
         },
         {
-          "id": "checkout-alias",
-          "kind": "type_alias",
-          "qualified_name": "commerce.main.CheckoutRequest",
-          "parent_id": "main-module",
-          "language": "dart",
-          "presence": "planned",
-          "provenance": [
-            "docs/target.md"
-          ],
-          "responsibilities": [
-            "Name the composition input type."
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          }
-        },
-        {
           "id": "app-version",
           "kind": "constant",
           "qualified_name": "commerce.main.APP_VERSION",
@@ -190,9 +198,100 @@
             "kind": "public",
             "basis": "declared"
           }
+        },
+        {
+          "id": "controller-submit-ref",
+          "kind": "symbol",
+          "qualified_name": "commerce.presentation.controller.CheckoutController.submit",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the presentation entry operation owned by presentation."
+          ]
+        },
+        {
+          "id": "checkout-service-ref",
+          "kind": "symbol",
+          "qualified_name": "commerce.ordering.application.checkout_service.CheckoutService",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the application service constructed by composition."
+          ]
+        },
+        {
+          "id": "memory-repository-ref",
+          "kind": "symbol",
+          "qualified_name": "commerce.adapters.memory.in_memory_order_repository.InMemoryOrderRepository",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the concrete repository constructed by composition."
+          ]
+        },
+        {
+          "id": "repository-binding",
+          "kind": "binding",
+          "qualified_name": "commerce.main.main.repository",
+          "parent_id": "main",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Hold the concrete repository passed into checkout."
+          ],
+          "initializer": "InMemoryOrderRepository()"
         }
       ],
-      "relationships": [],
+      "relationships": [
+        {
+          "id": "main-calls-controller",
+          "kind": "calls",
+          "source_id": "main",
+          "target_id": "controller-submit-ref",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-creates-checkout",
+          "kind": "creates",
+          "source_id": "main",
+          "target_id": "checkout-service-ref",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "main-creates-repository",
+          "kind": "creates",
+          "source_id": "main",
+          "target_id": "memory-repository-ref",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "repository-instance-of-adapter",
+          "kind": "instance_of",
+          "source_id": "repository-binding",
+          "target_id": "memory-repository-ref",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
       "scopes": [
         {
           "scope_id": "main-module",
