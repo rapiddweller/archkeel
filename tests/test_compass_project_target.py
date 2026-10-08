@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from archkeel.ir.codec import load_inside_contract_tree, parse_contract
@@ -173,6 +174,214 @@ def test_compass_target_has_nested_responsibilities_and_principal_uml() -> None:
         "UserRepository",
     ):
         assert any(entity.qualified_name.endswith("." + name) for entity in graph.entities)
+
+
+def test_compass_target_tracks_source_constructor_signatures_and_visibility() -> None:
+    _, graph = _target()
+    entities = {entity.qualified_name: entity for entity in graph.entities}
+
+    def signature(name):
+        return entities[name].signature
+
+    for name, parameters in (
+        (
+            "compass.ui.auth.login.view_models.login_viewmodel.LoginViewModel.LoginViewModel",
+            (("authRepository", "AuthRepository"),),
+        ),
+        (
+            "compass.ui.auth.logout.view_models.logout_viewmodel.LogoutViewModel.LogoutViewModel",
+            (
+                ("authRepository", "AuthRepository"),
+                ("itineraryConfigRepository", "ItineraryConfigRepository"),
+            ),
+        ),
+        (
+            "compass.ui.home.view_models.home_viewmodel.HomeViewModel.HomeViewModel",
+            (("bookingRepository", "BookingRepository"), ("userRepository", "UserRepository")),
+        ),
+        (
+            "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.SearchFormViewModel",
+            (
+                ("continentRepository", "ContinentRepository"),
+                ("itineraryConfigRepository", "ItineraryConfigRepository"),
+            ),
+        ),
+        (
+            "compass.ui.results.view_models.results_viewmodel.ResultsViewModel.ResultsViewModel",
+            (
+                ("destinationRepository", "DestinationRepository"),
+                ("itineraryConfigRepository", "ItineraryConfigRepository"),
+            ),
+        ),
+        (
+            "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel.ActivitiesViewModel",
+            (
+                ("activityRepository", "ActivityRepository"),
+                ("itineraryConfigRepository", "ItineraryConfigRepository"),
+            ),
+        ),
+        (
+            "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel.BookingViewModel",
+            (
+                ("createBookingUseCase", "BookingCreateUseCase"),
+                ("shareBookingUseCase", "BookingShareUseCase"),
+                ("itineraryConfigRepository", "ItineraryConfigRepository"),
+                ("bookingRepository", "BookingRepository"),
+            ),
+        ),
+    ):
+        assert [
+            (parameter.name, parameter.annotation, parameter.kind)
+            for parameter in signature(name).parameters
+        ] == [(name, annotation, "keyword_only") for name, annotation in parameters]
+
+    activities = "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel"
+    for method in ("addActivity", "removeActivity"):
+        (parameter,) = signature(f"{activities}.{method}").parameters
+        assert (parameter.name, parameter.annotation, parameter.kind) == (
+            "activityRef",
+            "String",
+            "positional",
+        )
+    assert (
+        signature("compass.data.repositories.auth.auth_repository.AuthRepository.login")
+        .parameters[0]
+        .kind
+        == "keyword_only"
+    )
+    assert (
+        signature("compass.data.services.api.api_client.ApiClient.getActivityByDestination")
+        .parameters[0]
+        .name
+        == "ref"
+    )
+    assert (
+        signature(
+            "compass.ui.auth.logout.view_models.logout_viewmodel.LogoutViewModel._logout"
+        ).returns
+        == "Future<Result>"
+    )
+
+    itinerary_factory = (
+        "compass.domain.models.itinerary_config.itinerary_config.ItineraryConfig.ItineraryConfig"
+    )
+    (activities,) = signature(itinerary_factory).parameters[-1:]
+    assert (activities.name, activities.annotation, activities.default) == (
+        "activities",
+        "List<String>",
+        "const []",
+    )
+    factory_source = (
+        FIXTURE / "lib/domain/models/itinerary_config/itinerary_config.dart"
+    ).read_text(encoding="utf-8")
+    generated_source = (
+        FIXTURE / "lib/domain/models/itinerary_config/itinerary_config.freezed.dart"
+    ).read_text(encoding="utf-8")
+    assert "@Default([]) List<String> activities," in factory_source
+    assert "final List<String> activities = const []," in generated_source
+
+    assert (
+        entities[
+            "compass.ui.auth.login.view_models.login_viewmodel.LoginViewModel.login"
+        ].annotation
+        == "Command1"
+    )
+    assert signature("compass.utils.command.Command.result::getter").returns == "Result?"
+    for constructor, return_name, parameter in (
+        ("compass.utils.command.Command.Command", "Command<T>", None),
+        ("compass.utils.command.Command0.Command0", "Command0<T>", "_action"),
+        ("compass.utils.command.Command1.Command1", "Command1<T, A>", "_action"),
+        ("compass.utils.result.Result.Result", "Result<T>", None),
+    ):
+        assert signature(constructor).returns == return_name
+        if parameter is not None:
+            assert [item.name for item in signature(constructor).parameters] == [parameter]
+    for setter in (
+        "compass.data.services.api.api_client.ApiClient.authHeaderProvider::setter",
+        "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.selectedContinent::setter",
+        "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.dateRange::setter",
+        "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.guests::setter",
+    ):
+        assert signature(setter).returns == "void"
+
+    for name in (
+        "compass.domain.models.activity.activity._$Activity",
+        "compass.domain.models.booking.booking._$Booking",
+        "compass.domain.models.booking.booking_summary._$BookingSummary",
+        "compass.domain.models.continent.continent._$Continent",
+        "compass.domain.models.destination.destination._$Destination",
+        "compass.domain.models.itinerary_config.itinerary_config._$ItineraryConfig",
+        "compass.domain.models.user.user._$User",
+        "compass.data.services.api.model.booking.booking_api_model._$BookingApiModel",
+        "compass.data.services.api.model.login_request.login_request._$LoginRequest",
+        "compass.data.services.api.model.login_response.login_response._$LoginResponse",
+        "compass.data.services.api.model.user.user_api_model._$UserApiModel",
+        "compass.domain.use_cases.booking.booking_create_use_case.BookingCreateUseCase._fetchDestination",
+        "compass.utils.command.Command._execute",
+    ):
+        assert entities[name].visibility.kind == "private"
+        assert entities[name].visibility.spelling == name.rsplit(".", 1)[-1]
+    for name in ("compass.utils.result.Ok.value", "compass.utils.result.Error.error"):
+        assert entities[name].visibility.kind == "public"
+
+
+def test_compass_closed_api_inventory_uses_canonical_constructor_identities() -> None:
+    _, graph = _target()
+    entities = {entity.qualified_name: entity for entity in graph.entities}
+
+    def members(owner):
+        owner_id = entities[owner].id
+        return {
+            entity.qualified_name
+            for entity in graph.entities
+            if entity.parent_id == owner_id and entity.kind in {"method", "attribute"}
+        }
+
+    share = "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase"
+    assert members(share) == {
+        f"{share}.BookingShareUseCase._",
+        f"{share}.BookingShareUseCase.custom",
+        f"{share}.BookingShareUseCase.withSharePlus",
+        f"{share}._share",
+        f"{share}._log",
+        f"{share}.shareBooking",
+    }
+    result = "compass.utils.result.Result"
+    assert members(result) == {f"{result}.Result", f"{result}.Result.ok", f"{result}.Result.error"}
+    ok = "compass.utils.result.Ok"
+    error = "compass.utils.result.Error"
+    assert members(ok) == {f"{ok}.Ok._", f"{ok}.value", f"{ok}.toString"}
+    assert members(error) == {f"{error}.Error._", f"{error}.error", f"{error}.toString"}
+
+
+def test_compass_freezed_mixin_inventory_matches_pinned_generated_api() -> None:
+    _, graph = _target()
+    entities = {entity.qualified_name: entity for entity in graph.entities}
+    generated = sorted((FIXTURE / "lib").rglob("*.freezed.dart"))
+    assert len(generated) == 11
+    for path in generated:
+        relative = path.relative_to(FIXTURE / "lib").as_posix()
+        source = path.read_text(encoding="utf-8")
+        api = re.search(r"^mixin ([\w$]+) \{(.*?)^\}", source, flags=re.MULTILINE | re.DOTALL)
+        assert api is not None, relative
+        module = "compass." + relative.removesuffix(".freezed.dart").replace("/", ".")
+        mixin = f"{module}.{api.group(1)}"
+        getter_names = {
+            line.split(" get ", 1)[1].split()[0]
+            for line in api.group(2).splitlines()
+            if " get " in line
+        }
+        expected = {f"{mixin}.{name}::getter" for name in getter_names if name != "copyWith"} | {
+            f"{mixin}.copyWith::getter",
+            f"{mixin}.toJson",
+        }
+        owner_id = entities[mixin].id
+        actual = {
+            entity.qualified_name
+            for entity in graph.entities
+            if entity.parent_id == owner_id and entity.kind in {"method", "attribute"}
+        }
+        assert actual == expected, (relative, actual ^ expected)
 
 
 def test_compass_application_target_separates_composition_and_navigation() -> None:

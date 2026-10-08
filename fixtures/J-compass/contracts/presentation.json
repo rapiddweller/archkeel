@@ -1055,7 +1055,7 @@
               {
                 "name": "authRepository",
                 "annotation": "AuthRepository",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               }
             ],
@@ -1079,7 +1079,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "Command1<void, (String email, String password)>"
+          "annotation": "Command1"
         },
         {
           "id": "method-compass-ui-auth-logout-view-models-logout-viewmodel-logoutviewmodel-logoutviewmodel",
@@ -1103,13 +1103,13 @@
               {
                 "name": "authRepository",
                 "annotation": "AuthRepository",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               },
               {
                 "name": "itineraryConfigRepository",
                 "annotation": "ItineraryConfigRepository",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               }
             ],
@@ -1157,13 +1157,13 @@
               {
                 "name": "bookingRepository",
                 "annotation": "BookingRepository",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               },
               {
                 "name": "userRepository",
                 "annotation": "UserRepository",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               }
             ],
@@ -1230,13 +1230,13 @@
               {
                 "name": "continentRepository",
                 "annotation": "ContinentRepository",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               },
               {
                 "name": "itineraryConfigRepository",
                 "annotation": "ItineraryConfigRepository",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               }
             ],
@@ -1303,13 +1303,13 @@
               {
                 "name": "destinationRepository",
                 "annotation": "DestinationRepository",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               },
               {
                 "name": "itineraryConfigRepository",
                 "annotation": "ItineraryConfigRepository",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               }
             ],
@@ -1376,13 +1376,13 @@
               {
                 "name": "activityRepository",
                 "annotation": "ActivityRepository",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               },
               {
                 "name": "itineraryConfigRepository",
                 "annotation": "ItineraryConfigRepository",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               }
             ],
@@ -1445,7 +1445,15 @@
             "basis": "declared"
           },
           "signature": {
-            "parameters": [],
+            "parameters": [
+              {
+                "name": "activityRef",
+                "annotation": "String",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
             "returns": "void"
           }
         },
@@ -1467,7 +1475,15 @@
             "basis": "declared"
           },
           "signature": {
-            "parameters": [],
+            "parameters": [
+              {
+                "name": "activityRef",
+                "annotation": "String",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
             "returns": "void"
           }
         },
@@ -1493,25 +1509,25 @@
               {
                 "name": "createBookingUseCase",
                 "annotation": "BookingCreateUseCase",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               },
               {
                 "name": "shareBookingUseCase",
                 "annotation": "BookingShareUseCase",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               },
               {
                 "name": "itineraryConfigRepository",
                 "annotation": "ItineraryConfigRepository",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               },
               {
                 "name": "bookingRepository",
                 "annotation": "BookingRepository",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               }
             ],
@@ -1699,7 +1715,7 @@
           },
           "signature": {
             "parameters": [],
-            "returns": "Future<Result<void>>"
+            "returns": "Future<Result>"
           }
         },
         {

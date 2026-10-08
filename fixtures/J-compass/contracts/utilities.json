@@ -343,7 +343,7 @@
           },
           "signature": {
             "parameters": [],
-            "returns": "Result<T>?"
+            "returns": "Result?"
           }
         },
         {
@@ -382,8 +382,9 @@
             "Expose generic asynchronous state or result behavior."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "declared",
+            "spelling": "_execute"
           },
           "signature": {
             "parameters": [
@@ -436,7 +437,7 @@
           "signature": {
             "parameters": [
               {
-                "name": "action",
+                "name": "_action",
                 "annotation": "CommandAction0<T>",
                 "kind": "positional",
                 "default_known": true
@@ -506,7 +507,7 @@
           "signature": {
             "parameters": [
               {
-                "name": "action",
+                "name": "_action",
                 "annotation": "CommandAction1<T, A>",
                 "kind": "positional",
                 "default_known": true
@@ -569,7 +570,7 @@
         {
           "id": "method-compass-utils-result-result-ok",
           "kind": "method",
-          "qualified_name": "compass.utils.result.Result.ok",
+          "qualified_name": "compass.utils.result.Result.Result.ok",
           "parent_id": "class-compass-utils-result-result",
           "language": "dart",
           "presence": "planned",
@@ -598,7 +599,7 @@
         {
           "id": "method-compass-utils-result-result-error",
           "kind": "method",
-          "qualified_name": "compass.utils.result.Result.error",
+          "qualified_name": "compass.utils.result.Result.Result.error",
           "parent_id": "class-compass-utils-result-result",
           "language": "dart",
           "presence": "planned",
@@ -638,15 +639,16 @@
             "Source-declared internal value state."
           ],
           "visibility": {
-            "kind": "private",
-            "basis": "declared"
+            "kind": "public",
+            "basis": "declared",
+            "spelling": "value"
           },
           "annotation": "T"
         },
         {
           "id": "method-compass-utils-result-ok-ok",
           "kind": "method",
-          "qualified_name": "compass.utils.result.Ok.Ok",
+          "qualified_name": "compass.utils.result.Ok.Ok._",
           "parent_id": "class-compass-utils-result-ok",
           "language": "dart",
           "presence": "planned",
@@ -708,15 +710,16 @@
             "Source-declared internal error state."
           ],
           "visibility": {
-            "kind": "private",
-            "basis": "declared"
+            "kind": "public",
+            "basis": "declared",
+            "spelling": "error"
           },
           "annotation": "Exception"
         },
         {
           "id": "method-compass-utils-result-error-error",
           "kind": "method",
-          "qualified_name": "compass.utils.result.Error.Error",
+          "qualified_name": "compass.utils.result.Error.Error._",
           "parent_id": "class-compass-utils-result-error",
           "language": "dart",
           "presence": "planned",

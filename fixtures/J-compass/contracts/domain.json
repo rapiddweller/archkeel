@@ -394,8 +394,9 @@
             "Define generated immutable fields, serialization and copy API."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "declared",
+            "spelling": "_$Activity"
           }
         },
         {
@@ -703,7 +704,8 @@
                 "name": "id",
                 "annotation": "int?",
                 "kind": "keyword_only",
-                "default_known": true
+                "default_known": true,
+                "default": "null"
               },
               {
                 "name": "startDate",
@@ -776,8 +778,9 @@
             "Define generated immutable fields, serialization and copy API."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "declared",
+            "spelling": "_$Booking"
           }
         },
         {
@@ -1042,8 +1045,9 @@
             "Define generated immutable fields, serialization and copy API."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "declared",
+            "spelling": "_$BookingSummary"
           }
         },
         {
@@ -1274,8 +1278,9 @@
             "Define generated immutable fields, serialization and copy API."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "declared",
+            "spelling": "_$Continent"
           }
         },
         {
@@ -1492,8 +1497,9 @@
             "Define generated immutable fields, serialization and copy API."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "declared",
+            "spelling": "_$Destination"
           }
         },
         {
@@ -1735,37 +1741,43 @@
                 "name": "continent",
                 "annotation": "String?",
                 "kind": "keyword_only",
-                "default_known": true
+                "default_known": true,
+                "default": "null"
               },
               {
                 "name": "startDate",
                 "annotation": "DateTime?",
                 "kind": "keyword_only",
-                "default_known": true
+                "default_known": true,
+                "default": "null"
               },
               {
                 "name": "endDate",
                 "annotation": "DateTime?",
                 "kind": "keyword_only",
-                "default_known": true
+                "default_known": true,
+                "default": "null"
               },
               {
                 "name": "guests",
                 "annotation": "int?",
                 "kind": "keyword_only",
-                "default_known": true
+                "default_known": true,
+                "default": "null"
               },
               {
                 "name": "destination",
                 "annotation": "String?",
                 "kind": "keyword_only",
-                "default_known": true
+                "default_known": true,
+                "default": "null"
               },
               {
                 "name": "activities",
                 "annotation": "List<String>",
                 "kind": "keyword_only",
-                "default_known": true
+                "default_known": true,
+                "default": "const []"
               }
             ],
             "returns": "ItineraryConfig"
@@ -1814,8 +1826,9 @@
             "Define generated immutable fields, serialization and copy API."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "declared",
+            "spelling": "_$ItineraryConfig"
           }
         },
         {
@@ -2090,8 +2103,9 @@
             "Define generated immutable fields, serialization and copy API."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "declared",
+            "spelling": "_$User"
           }
         },
         {
@@ -2389,8 +2403,9 @@
             "Construct or perform the booking use-case boundary."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "declared",
+            "spelling": "_fetchDestination"
           },
           "signature": {
             "parameters": [
@@ -2445,7 +2460,7 @@
         {
           "id": "method-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase",
           "kind": "method",
-          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase._",
+          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase.BookingShareUseCase._",
           "parent_id": "class-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase",
           "language": "dart",
           "presence": "planned",
@@ -2474,7 +2489,7 @@
         {
           "id": "method-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase-withshareplus",
           "kind": "method",
-          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase.withSharePlus",
+          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase.BookingShareUseCase.withSharePlus",
           "parent_id": "class-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase",
           "language": "dart",
           "presence": "planned",
@@ -2496,7 +2511,7 @@
         {
           "id": "method-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase-custom",
           "kind": "method",
-          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase.custom",
+          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase.BookingShareUseCase.custom",
           "parent_id": "class-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase",
           "language": "dart",
           "presence": "planned",

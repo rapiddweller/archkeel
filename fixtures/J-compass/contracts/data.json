@@ -1040,7 +1040,8 @@
                 "name": "id",
                 "annotation": "int?",
                 "kind": "keyword_only",
-                "default_known": true
+                "default_known": true,
+                "default": "null"
               },
               {
                 "name": "startDate",
@@ -1119,8 +1120,9 @@
             "Define generated immutable fields, serialization and copy API."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "declared",
+            "spelling": "_$BookingApiModel"
           }
         },
         {
@@ -1395,8 +1397,9 @@
             "Define generated immutable fields, serialization and copy API."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "declared",
+            "spelling": "_$LoginRequest"
           }
         },
         {
@@ -1583,8 +1586,9 @@
             "Define generated immutable fields, serialization and copy API."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "declared",
+            "spelling": "_$LoginResponse"
           }
         },
         {
@@ -1783,8 +1787,9 @@
             "Define generated immutable fields, serialization and copy API."
           ],
           "visibility": {
-            "kind": "public",
-            "basis": "declared"
+            "kind": "private",
+            "basis": "declared",
+            "spelling": "_$UserApiModel"
           }
         },
         {
@@ -1941,13 +1946,13 @@
               {
                 "name": "email",
                 "annotation": "String",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               },
               {
                 "name": "password",
                 "annotation": "String",
-                "kind": "positional",
+                "kind": "keyword_only",
                 "default_known": true
               }
             ],
@@ -2091,7 +2096,7 @@
           "signature": {
             "parameters": [
               {
-                "name": "destinationRef",
+                "name": "ref",
                 "annotation": "String",
                 "kind": "positional",
                 "default_known": true
@@ -2770,19 +2775,22 @@
                 "name": "host",
                 "annotation": "String?",
                 "kind": "keyword_only",
-                "default_known": true
+                "default_known": true,
+                "default": "null"
               },
               {
                 "name": "port",
                 "annotation": "int?",
                 "kind": "keyword_only",
-                "default_known": true
+                "default_known": true,
+                "default": "null"
               },
               {
                 "name": "clientFactory",
                 "annotation": "HttpClient Function()?",
                 "kind": "keyword_only",
-                "default_known": true
+                "default_known": true,
+                "default": "null"
               }
             ],
             "returns": "ApiClient"
@@ -2926,19 +2934,22 @@
                 "name": "host",
                 "annotation": "String?",
                 "kind": "keyword_only",
-                "default_known": true
+                "default_known": true,
+                "default": "null"
               },
               {
                 "name": "port",
                 "annotation": "int?",
                 "kind": "keyword_only",
-                "default_known": true
+                "default_known": true,
+                "default": "null"
               },
               {
                 "name": "clientFactory",
                 "annotation": "HttpClient Function()?",
                 "kind": "keyword_only",
-                "default_known": true
+                "default_known": true,
+                "default": "null"
               }
             ],
             "returns": "AuthApiClient"
