@@ -193,7 +193,7 @@ class DartCollector {
     try {
       for (final source in sources) {
         if (invalidSources.containsKey(source.rel)) continue;
-        final path = p.join(root, source.rel);
+        final path = p.normalize(p.join(root, source.rel));
         final result = await contexts
             .contextFor(path)
             .currentSession

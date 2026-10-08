@@ -120,12 +120,12 @@ jobs:
 
   check:
     needs: changes
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ github.event_name == 'pull_request' && 20 || 60 }}
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 25 || 90 }}
     steps:
       - name: Fail if change detection failed
-        if: always() && needs.changes.result != 'success'
+        if: ${{ !cancelled() && needs.changes.result != 'success' }}
         run: exit 1
 
       - name: Check out source
@@ -221,7 +221,7 @@ jobs:
 
   collector-safety-windows:
     needs: changes
-    if: github.event_name == 'push' && needs.changes.outputs.core == 'true'
+    if: needs.changes.outputs.core == 'true'
     runs-on: windows-latest
     timeout-minutes: 10
     strategy:
@@ -312,7 +312,7 @@ jobs:
 
   dart-native:
     needs: changes
-    if: github.event_name == 'push' && needs.changes.outputs.core == 'true'
+    if: needs.changes.outputs.core == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -404,7 +404,7 @@ jobs:
 
   mermaid:
     needs: changes
-    if: always() && needs.changes.result == 'success' && needs.changes.outputs.mermaid == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.mermaid == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

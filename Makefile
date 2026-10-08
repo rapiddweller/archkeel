@@ -33,7 +33,8 @@ pr-test:
 		tests/test_contract_model.py tests/test_decisions.py tests/test_collection_protocol.py tests/test_source_trust_boundary.py \
 		tests/test_analyzer.py tests/test_typescript_config.py tests/test_typescript_resolve.py \
 		tests/test_uml_comparison.py tests/test_saved_report.py tests/test_cli.py \
-		tests/test_result_schema.py tests/test_dart_unknowns.py tests/test_runtime.py \
+		tests/test_result_schema.py tests/test_dart_unknowns.py \
+		tests/test_flutter_demo.py tests/test_runtime.py \
 		tests/test_codec.py tests/test_source_provenance_acceptance.py \
 		tests/test_collection_process.py tests/test_collection_conformance.py tests/test_schema_drift.py \
 		tests/test_runtime_delta.py tests/test_nullable_profile_measurements.py \
@@ -107,7 +108,7 @@ dart-native:
 	cd src/archkeel/analyzer/dart/native && "$(DART_EXECUTABLE)" analyze
 	DART_EXECUTABLE="$(DART_EXECUTABLE)" $(UV) run --locked python -m pytest -q \
 		tests/test_dart_profile.py tests/test_dart_inner_collect.py tests/test_dart_unknowns.py \
-		tests/test_uml_source_facts.py tests/test_dart_uml_acceptance.py tests/test_flutter_demo.py
+		tests/test_uml_source_facts.py tests/test_dart_uml_acceptance.py
 
 # Compare against the immutable output captured from the former Node collector.
 typescript-differential:
