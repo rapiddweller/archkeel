@@ -454,6 +454,52 @@ class Box { Box(this.value); final String value; }
     assert constructor.parameters[0].annotation == "String"
 
 
+def test_native_duplicate_attributes_do_not_publish_unique_graph_members(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """enum State { pending, pending, complete }
+class Box {
+  final String id;
+  final String id;
+  final String label;
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    assert facts.coverage.full_scope is False
+    duplicate_gaps = [gap for gap in facts.coverage.gaps if gap.kind == "DuplicateDeclaration"]
+    assert len(duplicate_gaps) == 2
+    evidence = {item.id: item for item in facts.evidence}
+    assert all(
+        len(gap.evidence_ids) == 2
+        and all(evidence[item].file == "lib/main.dart" for item in gap.evidence_ids)
+        for gap in duplicate_gaps
+    )
+
+    graph = _source_graph(facts)
+    entities = {entity.qualified_name: entity for entity in graph.entities}
+    assert "commerce.main.State.pending" not in entities
+    assert entities["commerce.main.State.complete"].kind == "enum_literal"
+    assert "commerce.main.Box.id" not in entities
+    assert entities["commerce.main.Box.label"].kind == "attribute"
+
+    for name in ("State", "Box"):
+        owner = next(
+            record
+            for section in facts.sections
+            for record in section.records
+            if section.name == "symbols" and record.data.get("name") == name
+        )
+        inventory = next(
+            item for item in owner.data.get("member_inventories") if item.get("kind") == "attribute"
+        )
+        assert inventory.get("status") == "partial"
+        attributes = owner.data.get("attribute_declarations")
+        assert len(attributes) == 1
+        assert attributes[0].get("name") == ("complete" if name == "State" else "label")
+
+
 def test_native_malformed_unit_is_unknown_and_not_counted_parsed(tmp_path: Path) -> None:
     _write_package(tmp_path, "class Broken {\n")
     facts = _native_facts(tmp_path)

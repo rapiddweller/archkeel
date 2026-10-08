@@ -929,7 +929,13 @@ class DartCollector {
     return id;
   }
 
-  void _gap(String rel, int offset, String kind, String message) {
+  void _gap(
+    String rel,
+    int offset,
+    String kind,
+    String message, {
+    List<String>? evidenceIds,
+  }) {
     final source = _source(rel);
     final line = source == null
         ? 1
@@ -944,7 +950,9 @@ class DartCollector {
               1;
     final id = _id('COVERAGE', [rel, line, kind, message]);
     if (unknowns.any((item) => item['id'] == id)) return;
-    final cited = source == null ? <String>[] : [_cite(source, null, true)];
+    final cited =
+        evidenceIds ??
+        (source == null ? <String>[] : [_cite(source, null, true)]);
     unknowns.add(
       _record(
         id,
@@ -1005,19 +1013,59 @@ class DartCollector {
 
   void _emitDuplicateGaps() {
     final counts = <String, int>{};
-    for (final item in symbols) {
-      final data = item['data'] as Map<String, Object?>;
-      final name = data['qualified_name'] as String;
+    final evidenceByName = <String, Set<String>>{};
+    void add(String name, List<String> evidenceIds) {
       counts.update(name, (count) => count + 1, ifAbsent: () => 1);
+      (evidenceByName[name] ??= <String>{}).addAll(evidenceIds);
     }
+
     for (final item in symbols) {
       final data = item['data'] as Map<String, Object?>;
       final name = data['qualified_name'] as String;
-      if (counts[name] == 1) continue;
-      final evidenceId = (item['evidence_ids'] as List).first as String;
-      final file = evidence[evidenceId]!['file'] as String;
-      _gap(file, 0, 'DuplicateDeclaration', 'duplicate declaration ' + name);
-      data['source_binding_unique'] = false;
+      add(name, (item['evidence_ids'] as List).cast<String>());
+      final attributes = data['attribute_declarations'];
+      if (attributes is! List) continue;
+      for (final attribute in attributes.cast<Map<String, Object?>>()) {
+        add(
+          '$name.${attribute['name']}',
+          (attribute['evidence_ids'] as List).cast<String>(),
+        );
+      }
+    }
+
+    for (final entry in counts.entries.where((entry) => entry.value > 1)) {
+      final evidenceIds = evidenceByName[entry.key]!.toList()..sort();
+      final file = evidence[evidenceIds.first]!['file'] as String;
+      _gap(
+        file,
+        0,
+        'DuplicateDeclaration',
+        'duplicate declaration ' + entry.key,
+        evidenceIds: evidenceIds,
+      );
+    }
+
+    for (final item in symbols) {
+      final data = item['data'] as Map<String, Object?>;
+      final name = data['qualified_name'] as String;
+      if (counts[name] != 1) data['source_binding_unique'] = false;
+
+      final attributes = data['attribute_declarations'];
+      if (attributes is! List) continue;
+      final uniqueAttributes = attributes
+          .cast<Map<String, Object?>>()
+          .where(
+            (attribute) =>
+                counts[name] == 1 && counts['$name.${attribute['name']}'] == 1,
+          )
+          .toList();
+      if (uniqueAttributes.length == attributes.length) continue;
+      data['attribute_declarations'] = uniqueAttributes;
+      final inventories = (data['member_inventories'] as List)
+          .cast<Map<String, Object?>>();
+      inventories[0]['definition_ids'] = uniqueAttributes
+          .map((attribute) => attribute['definition_id'])
+          .toList();
     }
   }
 
