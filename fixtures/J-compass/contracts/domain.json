@@ -1,0 +1,2991 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "domain-models",
+      "label": "Travel and identity domain models",
+      "role": "component",
+      "packages": [
+        "compass.domain.models"
+      ],
+      "public": [
+        "compass.domain.models.activity.activity",
+        "compass.domain.models.booking.booking",
+        "compass.domain.models.booking.booking_summary",
+        "compass.domain.models.continent.continent",
+        "compass.domain.models.destination.destination",
+        "compass.domain.models.itinerary_config.itinerary_config",
+        "compass.domain.models.user.user"
+      ],
+      "responsibilities": [
+        "Define immutable travel, itinerary, booking, and user values with JSON serialization."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "compass.domain.models",
+      "exact_modules": [
+        "compass.domain.models.activity.activity",
+        "compass.domain.models.booking.booking",
+        "compass.domain.models.booking.booking_summary",
+        "compass.domain.models.continent.continent",
+        "compass.domain.models.destination.destination",
+        "compass.domain.models.itinerary_config.itinerary_config",
+        "compass.domain.models.user.user"
+      ]
+    },
+    {
+      "id": "domain-use-cases",
+      "label": "Booking domain operations",
+      "role": "component",
+      "packages": [
+        "compass.domain.use_cases.booking"
+      ],
+      "public": [
+        "compass.domain.use_cases.booking.booking_create_use_case",
+        "compass.domain.use_cases.booking.booking_share_use_case"
+      ],
+      "responsibilities": [
+        "Resolve selected itinerary references into a persisted booking or shareable summary."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "compass.domain.use_cases.booking",
+      "exact_modules": [
+        "compass.domain.use_cases.booking.booking_create_use_case",
+        "compass.domain.use_cases.booking.booking_share_use_case"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Dependencies outside the declared component boundaries are not part of the Target.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "mod-compass-domain-models-activity-activity",
+          "kind": "module",
+          "qualified_name": "compass.domain.models.activity.activity",
+          "parent_id": "domain-models",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Travel and identity domain models"
+          ],
+          "file_path": "lib/domain/models/activity/activity.dart"
+        },
+        {
+          "id": "mod-compass-domain-models-booking-booking",
+          "kind": "module",
+          "qualified_name": "compass.domain.models.booking.booking",
+          "parent_id": "domain-models",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Travel and identity domain models"
+          ],
+          "file_path": "lib/domain/models/booking/booking.dart"
+        },
+        {
+          "id": "mod-compass-domain-models-booking-booking-summary",
+          "kind": "module",
+          "qualified_name": "compass.domain.models.booking.booking_summary",
+          "parent_id": "domain-models",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Travel and identity domain models"
+          ],
+          "file_path": "lib/domain/models/booking/booking_summary.dart"
+        },
+        {
+          "id": "mod-compass-domain-models-continent-continent",
+          "kind": "module",
+          "qualified_name": "compass.domain.models.continent.continent",
+          "parent_id": "domain-models",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Travel and identity domain models"
+          ],
+          "file_path": "lib/domain/models/continent/continent.dart"
+        },
+        {
+          "id": "mod-compass-domain-models-destination-destination",
+          "kind": "module",
+          "qualified_name": "compass.domain.models.destination.destination",
+          "parent_id": "domain-models",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Travel and identity domain models"
+          ],
+          "file_path": "lib/domain/models/destination/destination.dart"
+        },
+        {
+          "id": "mod-compass-domain-models-itinerary-config-itinerary-config",
+          "kind": "module",
+          "qualified_name": "compass.domain.models.itinerary_config.itinerary_config",
+          "parent_id": "domain-models",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Travel and identity domain models"
+          ],
+          "file_path": "lib/domain/models/itinerary_config/itinerary_config.dart"
+        },
+        {
+          "id": "mod-compass-domain-models-user-user",
+          "kind": "module",
+          "qualified_name": "compass.domain.models.user.user",
+          "parent_id": "domain-models",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Travel and identity domain models"
+          ],
+          "file_path": "lib/domain/models/user/user.dart"
+        },
+        {
+          "id": "mod-compass-domain-use-cases-booking-booking-create-use-case",
+          "kind": "module",
+          "qualified_name": "compass.domain.use_cases.booking.booking_create_use_case",
+          "parent_id": "domain-use-cases",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Booking domain operations"
+          ],
+          "file_path": "lib/domain/use_cases/booking/booking_create_use_case.dart"
+        },
+        {
+          "id": "mod-compass-domain-use-cases-booking-booking-share-use-case",
+          "kind": "module",
+          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case",
+          "parent_id": "domain-use-cases",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Booking domain operations"
+          ],
+          "file_path": "lib/domain/use_cases/booking/booking_share_use_case.dart"
+        },
+        {
+          "id": "class-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase",
+          "kind": "class",
+          "qualified_name": "compass.domain.use_cases.booking.booking_create_use_case.BookingCreateUseCase",
+          "parent_id": "mod-compass-domain-use-cases-booking-booking-create-use-case",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Resolve itinerary refs and create a booking."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase",
+          "kind": "class",
+          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase",
+          "parent_id": "mod-compass-domain-use-cases-booking-booking-share-use-case",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Format and share a booking."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-domain-models-activity-activity-activity",
+          "kind": "class",
+          "qualified_name": "compass.domain.models.activity.activity.Activity",
+          "parent_id": "mod-compass-domain-models-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the model factory and JSON constructor."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-activity-activity-activity-activity",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.activity.activity.Activity.Activity",
+          "parent_id": "class-compass-domain-models-activity-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct the immutable value from its declared fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "name",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "description",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "locationName",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "duration",
+                "annotation": "int",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "timeOfDay",
+                "annotation": "TimeOfDay",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "familyFriendly",
+                "annotation": "bool",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "price",
+                "annotation": "int",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "destinationRef",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "ref",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "imageUrl",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "Activity"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-activity-activity-activity-fromjson",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.activity.activity.Activity.fromJson",
+          "parent_id": "class-compass-domain-models-activity-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Decode the model from a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "json",
+                "annotation": "Map<String, Object?>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Activity"
+          }
+        },
+        {
+          "id": "mixin-compass-domain-models-activity-activity-activity",
+          "kind": "mixin",
+          "qualified_name": "compass.domain.models.activity.activity._$Activity",
+          "parent_id": "mod-compass-domain-models-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define generated immutable fields, serialization and copy API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-activity-activity-activity-name-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.activity.activity._$Activity.name::getter",
+          "parent_id": "mixin-compass-domain-models-activity-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property name."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-activity-activity-activity-description-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.activity.activity._$Activity.description::getter",
+          "parent_id": "mixin-compass-domain-models-activity-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property description."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-activity-activity-activity-locationname-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.activity.activity._$Activity.locationName::getter",
+          "parent_id": "mixin-compass-domain-models-activity-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property locationName."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-activity-activity-activity-duration-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.activity.activity._$Activity.duration::getter",
+          "parent_id": "mixin-compass-domain-models-activity-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property duration."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "int"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-activity-activity-activity-timeofday-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.activity.activity._$Activity.timeOfDay::getter",
+          "parent_id": "mixin-compass-domain-models-activity-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property timeOfDay."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "TimeOfDay"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-activity-activity-activity-familyfriendly-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.activity.activity._$Activity.familyFriendly::getter",
+          "parent_id": "mixin-compass-domain-models-activity-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property familyFriendly."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-activity-activity-activity-price-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.activity.activity._$Activity.price::getter",
+          "parent_id": "mixin-compass-domain-models-activity-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property price."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "int"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-activity-activity-activity-destinationref-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.activity.activity._$Activity.destinationRef::getter",
+          "parent_id": "mixin-compass-domain-models-activity-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property destinationRef."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-activity-activity-activity-ref-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.activity.activity._$Activity.ref::getter",
+          "parent_id": "mixin-compass-domain-models-activity-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property ref."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-activity-activity-activity-imageurl-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.activity.activity._$Activity.imageUrl::getter",
+          "parent_id": "mixin-compass-domain-models-activity-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property imageUrl."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-activity-activity-activity-tojson",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.activity.activity._$Activity.toJson",
+          "parent_id": "mixin-compass-domain-models-activity-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialize model to a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Map<String, dynamic>"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-activity-activity-activity-copywith-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.activity.activity._$Activity.copyWith::getter",
+          "parent_id": "mixin-compass-domain-models-activity-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the generated typed copy operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "$ActivityCopyWith<Activity>"
+          }
+        },
+        {
+          "id": "class-compass-domain-models-booking-booking-booking",
+          "kind": "class",
+          "qualified_name": "compass.domain.models.booking.booking.Booking",
+          "parent_id": "mod-compass-domain-models-booking-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the model factory and JSON constructor."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-booking-booking",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking.Booking.Booking",
+          "parent_id": "class-compass-domain-models-booking-booking-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct the immutable value from its declared fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "int?",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "startDate",
+                "annotation": "DateTime",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "endDate",
+                "annotation": "DateTime",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "destination",
+                "annotation": "Destination",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "activity",
+                "annotation": "List<Activity>",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "Booking"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-booking-fromjson",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking.Booking.fromJson",
+          "parent_id": "class-compass-domain-models-booking-booking-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Decode the model from a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "json",
+                "annotation": "Map<String, Object?>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Booking"
+          }
+        },
+        {
+          "id": "mixin-compass-domain-models-booking-booking-booking",
+          "kind": "mixin",
+          "qualified_name": "compass.domain.models.booking.booking._$Booking",
+          "parent_id": "mod-compass-domain-models-booking-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define generated immutable fields, serialization and copy API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-booking-id-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking._$Booking.id::getter",
+          "parent_id": "mixin-compass-domain-models-booking-booking-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property id."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "int?"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-booking-startdate-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking._$Booking.startDate::getter",
+          "parent_id": "mixin-compass-domain-models-booking-booking-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property startDate."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "DateTime"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-booking-enddate-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking._$Booking.endDate::getter",
+          "parent_id": "mixin-compass-domain-models-booking-booking-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property endDate."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "DateTime"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-booking-destination-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking._$Booking.destination::getter",
+          "parent_id": "mixin-compass-domain-models-booking-booking-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property destination."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Destination"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-booking-activity-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking._$Booking.activity::getter",
+          "parent_id": "mixin-compass-domain-models-booking-booking-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property activity."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "List<Activity>"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-booking-tojson",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking._$Booking.toJson",
+          "parent_id": "mixin-compass-domain-models-booking-booking-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialize model to a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Map<String, dynamic>"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-booking-copywith-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking._$Booking.copyWith::getter",
+          "parent_id": "mixin-compass-domain-models-booking-booking-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the generated typed copy operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "$BookingCopyWith<Booking>"
+          }
+        },
+        {
+          "id": "class-compass-domain-models-booking-booking-summary-bookingsummary",
+          "kind": "class",
+          "qualified_name": "compass.domain.models.booking.booking_summary.BookingSummary",
+          "parent_id": "mod-compass-domain-models-booking-booking-summary",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the model factory and JSON constructor."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-summary-bookingsummary-bookingsummary",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking_summary.BookingSummary.BookingSummary",
+          "parent_id": "class-compass-domain-models-booking-booking-summary-bookingsummary",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct the immutable value from its declared fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "int",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "name",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "startDate",
+                "annotation": "DateTime",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "endDate",
+                "annotation": "DateTime",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "BookingSummary"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-summary-bookingsummary-fromjson",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking_summary.BookingSummary.fromJson",
+          "parent_id": "class-compass-domain-models-booking-booking-summary-bookingsummary",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Decode the model from a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "json",
+                "annotation": "Map<String, Object?>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "BookingSummary"
+          }
+        },
+        {
+          "id": "mixin-compass-domain-models-booking-booking-summary-bookingsummary",
+          "kind": "mixin",
+          "qualified_name": "compass.domain.models.booking.booking_summary._$BookingSummary",
+          "parent_id": "mod-compass-domain-models-booking-booking-summary",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define generated immutable fields, serialization and copy API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-summary-bookingsummary-id-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking_summary._$BookingSummary.id::getter",
+          "parent_id": "mixin-compass-domain-models-booking-booking-summary-bookingsummary",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property id."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "int"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-summary-bookingsummary-name-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking_summary._$BookingSummary.name::getter",
+          "parent_id": "mixin-compass-domain-models-booking-booking-summary-bookingsummary",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property name."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-summary-bookingsummary-startdate-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking_summary._$BookingSummary.startDate::getter",
+          "parent_id": "mixin-compass-domain-models-booking-booking-summary-bookingsummary",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property startDate."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "DateTime"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-summary-bookingsummary-enddate-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking_summary._$BookingSummary.endDate::getter",
+          "parent_id": "mixin-compass-domain-models-booking-booking-summary-bookingsummary",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property endDate."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "DateTime"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-summary-bookingsummary-tojson",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking_summary._$BookingSummary.toJson",
+          "parent_id": "mixin-compass-domain-models-booking-booking-summary-bookingsummary",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialize model to a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Map<String, dynamic>"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-booking-booking-summary-bookingsummary-copywith-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.booking.booking_summary._$BookingSummary.copyWith::getter",
+          "parent_id": "mixin-compass-domain-models-booking-booking-summary-bookingsummary",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the generated typed copy operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "$BookingSummaryCopyWith<BookingSummary>"
+          }
+        },
+        {
+          "id": "class-compass-domain-models-continent-continent-continent",
+          "kind": "class",
+          "qualified_name": "compass.domain.models.continent.continent.Continent",
+          "parent_id": "mod-compass-domain-models-continent-continent",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the model factory and JSON constructor."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-continent-continent-continent-continent",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.continent.continent.Continent.Continent",
+          "parent_id": "class-compass-domain-models-continent-continent-continent",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct the immutable value from its declared fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "name",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "imageUrl",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "Continent"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-continent-continent-continent-fromjson",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.continent.continent.Continent.fromJson",
+          "parent_id": "class-compass-domain-models-continent-continent-continent",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Decode the model from a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "json",
+                "annotation": "Map<String, Object?>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Continent"
+          }
+        },
+        {
+          "id": "mixin-compass-domain-models-continent-continent-continent",
+          "kind": "mixin",
+          "qualified_name": "compass.domain.models.continent.continent._$Continent",
+          "parent_id": "mod-compass-domain-models-continent-continent",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define generated immutable fields, serialization and copy API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-continent-continent-continent-name-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.continent.continent._$Continent.name::getter",
+          "parent_id": "mixin-compass-domain-models-continent-continent-continent",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property name."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-continent-continent-continent-imageurl-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.continent.continent._$Continent.imageUrl::getter",
+          "parent_id": "mixin-compass-domain-models-continent-continent-continent",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property imageUrl."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-continent-continent-continent-tojson",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.continent.continent._$Continent.toJson",
+          "parent_id": "mixin-compass-domain-models-continent-continent-continent",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialize model to a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Map<String, dynamic>"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-continent-continent-continent-copywith-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.continent.continent._$Continent.copyWith::getter",
+          "parent_id": "mixin-compass-domain-models-continent-continent-continent",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the generated typed copy operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "$ContinentCopyWith<Continent>"
+          }
+        },
+        {
+          "id": "class-compass-domain-models-destination-destination-destination",
+          "kind": "class",
+          "qualified_name": "compass.domain.models.destination.destination.Destination",
+          "parent_id": "mod-compass-domain-models-destination-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the model factory and JSON constructor."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-destination-destination-destination-destination",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.destination.destination.Destination.Destination",
+          "parent_id": "class-compass-domain-models-destination-destination-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct the immutable value from its declared fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "ref",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "name",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "country",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "continent",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "knownFor",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "tags",
+                "annotation": "List<String>",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "imageUrl",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "Destination"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-destination-destination-destination-fromjson",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.destination.destination.Destination.fromJson",
+          "parent_id": "class-compass-domain-models-destination-destination-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Decode the model from a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "json",
+                "annotation": "Map<String, Object?>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Destination"
+          }
+        },
+        {
+          "id": "mixin-compass-domain-models-destination-destination-destination",
+          "kind": "mixin",
+          "qualified_name": "compass.domain.models.destination.destination._$Destination",
+          "parent_id": "mod-compass-domain-models-destination-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define generated immutable fields, serialization and copy API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-destination-destination-destination-ref-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.destination.destination._$Destination.ref::getter",
+          "parent_id": "mixin-compass-domain-models-destination-destination-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property ref."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-destination-destination-destination-name-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.destination.destination._$Destination.name::getter",
+          "parent_id": "mixin-compass-domain-models-destination-destination-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property name."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-destination-destination-destination-country-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.destination.destination._$Destination.country::getter",
+          "parent_id": "mixin-compass-domain-models-destination-destination-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property country."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-destination-destination-destination-continent-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.destination.destination._$Destination.continent::getter",
+          "parent_id": "mixin-compass-domain-models-destination-destination-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property continent."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-destination-destination-destination-knownfor-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.destination.destination._$Destination.knownFor::getter",
+          "parent_id": "mixin-compass-domain-models-destination-destination-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property knownFor."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-destination-destination-destination-tags-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.destination.destination._$Destination.tags::getter",
+          "parent_id": "mixin-compass-domain-models-destination-destination-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property tags."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "List<String>"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-destination-destination-destination-imageurl-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.destination.destination._$Destination.imageUrl::getter",
+          "parent_id": "mixin-compass-domain-models-destination-destination-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property imageUrl."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-destination-destination-destination-tojson",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.destination.destination._$Destination.toJson",
+          "parent_id": "mixin-compass-domain-models-destination-destination-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialize model to a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Map<String, dynamic>"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-destination-destination-destination-copywith-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.destination.destination._$Destination.copyWith::getter",
+          "parent_id": "mixin-compass-domain-models-destination-destination-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the generated typed copy operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "$DestinationCopyWith<Destination>"
+          }
+        },
+        {
+          "id": "class-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "kind": "class",
+          "qualified_name": "compass.domain.models.itinerary_config.itinerary_config.ItineraryConfig",
+          "parent_id": "mod-compass-domain-models-itinerary-config-itinerary-config",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the model factory and JSON constructor."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig-itineraryconfig",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.itinerary_config.itinerary_config.ItineraryConfig.ItineraryConfig",
+          "parent_id": "class-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct the immutable value from its declared fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "continent",
+                "annotation": "String?",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "startDate",
+                "annotation": "DateTime?",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "endDate",
+                "annotation": "DateTime?",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "guests",
+                "annotation": "int?",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "destination",
+                "annotation": "String?",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "activities",
+                "annotation": "List<String>",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "ItineraryConfig"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig-fromjson",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.itinerary_config.itinerary_config.ItineraryConfig.fromJson",
+          "parent_id": "class-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Decode the model from a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "json",
+                "annotation": "Map<String, Object?>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "ItineraryConfig"
+          }
+        },
+        {
+          "id": "mixin-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "kind": "mixin",
+          "qualified_name": "compass.domain.models.itinerary_config.itinerary_config._$ItineraryConfig",
+          "parent_id": "mod-compass-domain-models-itinerary-config-itinerary-config",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define generated immutable fields, serialization and copy API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig-continent-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.itinerary_config.itinerary_config._$ItineraryConfig.continent::getter",
+          "parent_id": "mixin-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property continent."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String?"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig-startdate-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.itinerary_config.itinerary_config._$ItineraryConfig.startDate::getter",
+          "parent_id": "mixin-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property startDate."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "DateTime?"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig-enddate-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.itinerary_config.itinerary_config._$ItineraryConfig.endDate::getter",
+          "parent_id": "mixin-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property endDate."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "DateTime?"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig-guests-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.itinerary_config.itinerary_config._$ItineraryConfig.guests::getter",
+          "parent_id": "mixin-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property guests."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "int?"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig-destination-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.itinerary_config.itinerary_config._$ItineraryConfig.destination::getter",
+          "parent_id": "mixin-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property destination."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String?"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig-activities-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.itinerary_config.itinerary_config._$ItineraryConfig.activities::getter",
+          "parent_id": "mixin-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property activities."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "List<String>"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig-tojson",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.itinerary_config.itinerary_config._$ItineraryConfig.toJson",
+          "parent_id": "mixin-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialize model to a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Map<String, dynamic>"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig-copywith-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.itinerary_config.itinerary_config._$ItineraryConfig.copyWith::getter",
+          "parent_id": "mixin-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the generated typed copy operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "$ItineraryConfigCopyWith<ItineraryConfig>"
+          }
+        },
+        {
+          "id": "class-compass-domain-models-user-user-user",
+          "kind": "class",
+          "qualified_name": "compass.domain.models.user.user.User",
+          "parent_id": "mod-compass-domain-models-user-user",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the model factory and JSON constructor."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-user-user-user-user",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.user.user.User.User",
+          "parent_id": "class-compass-domain-models-user-user-user",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct the immutable value from its declared fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "name",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "picture",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "User"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-user-user-user-fromjson",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.user.user.User.fromJson",
+          "parent_id": "class-compass-domain-models-user-user-user",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Decode the model from a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "json",
+                "annotation": "Map<String, Object?>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "User"
+          }
+        },
+        {
+          "id": "mixin-compass-domain-models-user-user-user",
+          "kind": "mixin",
+          "qualified_name": "compass.domain.models.user.user._$User",
+          "parent_id": "mod-compass-domain-models-user-user",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define generated immutable fields, serialization and copy API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-user-user-user-name-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.user.user._$User.name::getter",
+          "parent_id": "mixin-compass-domain-models-user-user-user",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property name."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-user-user-user-picture-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.user.user._$User.picture::getter",
+          "parent_id": "mixin-compass-domain-models-user-user-user",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property picture."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-user-user-user-tojson",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.user.user._$User.toJson",
+          "parent_id": "mixin-compass-domain-models-user-user-user",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialize model to a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Map<String, dynamic>"
+          }
+        },
+        {
+          "id": "method-compass-domain-models-user-user-user-copywith-getter",
+          "kind": "method",
+          "qualified_name": "compass.domain.models.user.user._$User.copyWith::getter",
+          "parent_id": "mixin-compass-domain-models-user-user-user",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the generated typed copy operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "$UserCopyWith<User>"
+          }
+        },
+        {
+          "id": "method-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase-createfrom",
+          "kind": "method",
+          "qualified_name": "compass.domain.use_cases.booking.booking_create_use_case.BookingCreateUseCase.createFrom",
+          "parent_id": "class-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared createFrom boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "itineraryConfig",
+                "annotation": "ItineraryConfig",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<Booking>>"
+          }
+        },
+        {
+          "id": "method-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase-sharebooking",
+          "kind": "method",
+          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase.shareBooking",
+          "parent_id": "class-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared shareBooking boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "booking",
+                "annotation": "Booking",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "enum-compass-domain-models-activity-activity-timeofday",
+          "kind": "enum",
+          "qualified_name": "compass.domain.models.activity.activity.TimeOfDay",
+          "parent_id": "mod-compass-domain-models-activity-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Classify activity day parts."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase-destinationrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.domain.use_cases.booking.booking_create_use_case.BookingCreateUseCase._destinationRepository",
+          "parent_id": "class-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _destinationRepository state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "DestinationRepository"
+        },
+        {
+          "id": "attribute-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase-activityrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.domain.use_cases.booking.booking_create_use_case.BookingCreateUseCase._activityRepository",
+          "parent_id": "class-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _activityRepository state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "ActivityRepository"
+        },
+        {
+          "id": "attribute-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase-bookingrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.domain.use_cases.booking.booking_create_use_case.BookingCreateUseCase._bookingRepository",
+          "parent_id": "class-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _bookingRepository state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "BookingRepository"
+        },
+        {
+          "id": "attribute-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase-log",
+          "kind": "attribute",
+          "qualified_name": "compass.domain.use_cases.booking.booking_create_use_case.BookingCreateUseCase._log",
+          "parent_id": "class-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _log state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Logger"
+        },
+        {
+          "id": "method-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase-bookingcreateusecase",
+          "kind": "method",
+          "qualified_name": "compass.domain.use_cases.booking.booking_create_use_case.BookingCreateUseCase.BookingCreateUseCase",
+          "parent_id": "class-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct or perform the booking use-case boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "destinationRepository",
+                "annotation": "DestinationRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "activityRepository",
+                "annotation": "ActivityRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "bookingRepository",
+                "annotation": "BookingRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "BookingCreateUseCase"
+          }
+        },
+        {
+          "id": "method-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase-fetchdestination",
+          "kind": "method",
+          "qualified_name": "compass.domain.use_cases.booking.booking_create_use_case.BookingCreateUseCase._fetchDestination",
+          "parent_id": "class-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct or perform the booking use-case boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "destinationRef",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<Destination>>"
+          }
+        },
+        {
+          "id": "attribute-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase-share",
+          "kind": "attribute",
+          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase._share",
+          "parent_id": "class-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _share state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "ShareFunction"
+        },
+        {
+          "id": "attribute-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase-log",
+          "kind": "attribute",
+          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase._log",
+          "parent_id": "class-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _log state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Logger"
+        },
+        {
+          "id": "method-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase",
+          "kind": "method",
+          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase._",
+          "parent_id": "class-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct or perform the booking use-case boundary."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "share",
+                "annotation": "ShareFunction",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "BookingShareUseCase"
+          }
+        },
+        {
+          "id": "method-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase-withshareplus",
+          "kind": "method",
+          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase.withSharePlus",
+          "parent_id": "class-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct or perform the booking use-case boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "BookingShareUseCase"
+          }
+        },
+        {
+          "id": "method-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase-custom",
+          "kind": "method",
+          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase.custom",
+          "parent_id": "class-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct or perform the booking use-case boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "share",
+                "annotation": "ShareFunction",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "BookingShareUseCase"
+          }
+        },
+        {
+          "id": "enum_literal-compass-domain-models-activity-activity-timeofday-any",
+          "kind": "enum_literal",
+          "qualified_name": "compass.domain.models.activity.activity.TimeOfDay.any",
+          "parent_id": "enum-compass-domain-models-activity-activity-timeofday",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared enum value."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "enum_literal-compass-domain-models-activity-activity-timeofday-morning",
+          "kind": "enum_literal",
+          "qualified_name": "compass.domain.models.activity.activity.TimeOfDay.morning",
+          "parent_id": "enum-compass-domain-models-activity-activity-timeofday",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared enum value."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "enum_literal-compass-domain-models-activity-activity-timeofday-afternoon",
+          "kind": "enum_literal",
+          "qualified_name": "compass.domain.models.activity.activity.TimeOfDay.afternoon",
+          "parent_id": "enum-compass-domain-models-activity-activity-timeofday",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared enum value."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "enum_literal-compass-domain-models-activity-activity-timeofday-evening",
+          "kind": "enum_literal",
+          "qualified_name": "compass.domain.models.activity.activity.TimeOfDay.evening",
+          "parent_id": "enum-compass-domain-models-activity-activity-timeofday",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared enum value."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "enum_literal-compass-domain-models-activity-activity-timeofday-night",
+          "kind": "enum_literal",
+          "qualified_name": "compass.domain.models.activity.activity.TimeOfDay.night",
+          "parent_id": "enum-compass-domain-models-activity-activity-timeofday",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared enum value."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        }
+      ],
+      "relationships": [
+        {
+          "id": "mix-compass-domain-models-activity-activity-activity",
+          "kind": "mixes_in",
+          "source_id": "class-compass-domain-models-activity-activity-activity",
+          "target_id": "mixin-compass-domain-models-activity-activity-activity",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "mix-compass-domain-models-booking-booking-booking",
+          "kind": "mixes_in",
+          "source_id": "class-compass-domain-models-booking-booking-booking",
+          "target_id": "mixin-compass-domain-models-booking-booking-booking",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "mix-compass-domain-models-booking-booking-summary-bookingsummary",
+          "kind": "mixes_in",
+          "source_id": "class-compass-domain-models-booking-booking-summary-bookingsummary",
+          "target_id": "mixin-compass-domain-models-booking-booking-summary-bookingsummary",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "mix-compass-domain-models-continent-continent-continent",
+          "kind": "mixes_in",
+          "source_id": "class-compass-domain-models-continent-continent-continent",
+          "target_id": "mixin-compass-domain-models-continent-continent-continent",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "mix-compass-domain-models-destination-destination-destination",
+          "kind": "mixes_in",
+          "source_id": "class-compass-domain-models-destination-destination-destination",
+          "target_id": "mixin-compass-domain-models-destination-destination-destination",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "mix-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "kind": "mixes_in",
+          "source_id": "class-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "target_id": "mixin-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "mix-compass-domain-models-user-user-user",
+          "kind": "mixes_in",
+          "source_id": "class-compass-domain-models-user-user-user",
+          "target_id": "mixin-compass-domain-models-user-user-user",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "mixin-compass-domain-models-activity-activity-activity",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The generated mixin declares this finite public model and serialization API.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mixin-compass-domain-models-booking-booking-booking",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The generated mixin declares this finite public model and serialization API.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mixin-compass-domain-models-booking-booking-summary-bookingsummary",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The generated mixin declares this finite public model and serialization API.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mixin-compass-domain-models-continent-continent-continent",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The generated mixin declares this finite public model and serialization API.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mixin-compass-domain-models-destination-destination-destination",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The generated mixin declares this finite public model and serialization API.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mixin-compass-domain-models-itinerary-config-itinerary-config-itineraryconfig",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The generated mixin declares this finite public model and serialization API.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mixin-compass-domain-models-user-user-user",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The generated mixin declares this finite public model and serialization API.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The principal source-declared contract is complete at this boundary.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-domain-use-cases-booking-booking-share-use-case-bookingshareusecase",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The principal source-declared contract is complete at this boundary.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-domain-models-activity-activity",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-domain-models-booking-booking",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-domain-models-booking-booking-summary",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-domain-models-continent-continent",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-domain-models-destination-destination",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-domain-models-itinerary-config-itinerary-config",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-domain-models-user-user",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-domain-use-cases-booking-booking-create-use-case",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-domain-use-cases-booking-booking-share-use-case",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

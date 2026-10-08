@@ -1,0 +1,4181 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "data-api-models",
+      "label": "Serialized API value models",
+      "role": "component",
+      "packages": [
+        "compass.data.services.api.model"
+      ],
+      "public": [
+        "compass.data.services.api.model.booking.booking_api_model",
+        "compass.data.services.api.model.login_request.login_request",
+        "compass.data.services.api.model.login_response.login_response",
+        "compass.data.services.api.model.user.user_api_model"
+      ],
+      "responsibilities": [
+        "Define serialized request and response records for remote endpoints."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "compass.data.services.api.model",
+      "exact_modules": [
+        "compass.data.services.api.model.booking.booking_api_model",
+        "compass.data.services.api.model.login_request.login_request",
+        "compass.data.services.api.model.login_response.login_response",
+        "compass.data.services.api.model.user.user_api_model"
+      ]
+    },
+    {
+      "id": "data-api-services",
+      "label": "HTTP API clients",
+      "role": "component",
+      "packages": [
+        "compass.data.services.api"
+      ],
+      "public": [
+        "compass.data.services.api.api_client",
+        "compass.data.services.api.auth_api_client"
+      ],
+      "responsibilities": [
+        "Perform HTTP requests, authorization headers, JSON conversion, and result mapping."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "compass.data.services.api",
+      "exact_modules": [
+        "compass.data.services.api.api_client",
+        "compass.data.services.api.auth_api_client"
+      ]
+    },
+    {
+      "id": "data-auth-storage",
+      "label": "Persisted authentication state",
+      "role": "component",
+      "packages": [
+        "compass.data.services"
+      ],
+      "public": [
+        "compass.data.services.shared_preferences_service"
+      ],
+      "responsibilities": [
+        "Persist and retrieve the authentication token."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "compass.data.services",
+      "exact_modules": [
+        "compass.data.services.shared_preferences_service"
+      ]
+    },
+    {
+      "id": "data-local-services",
+      "label": "Bundled local data",
+      "role": "component",
+      "packages": [
+        "compass.data.services.local"
+      ],
+      "public": [
+        "compass.data.services.local.local_data_service"
+      ],
+      "responsibilities": [
+        "Load bundled destinations and activities and provide development identity data."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "compass.data.services.local",
+      "exact_modules": [
+        "compass.data.services.local.local_data_service"
+      ]
+    },
+    {
+      "id": "data-repository-activity",
+      "label": "Repository ports and adapters for activity",
+      "role": "component",
+      "packages": [
+        "compass.data.repositories.activity"
+      ],
+      "public": [
+        "compass.data.repositories.activity.activity_repository",
+        "compass.data.repositories.activity.activity_repository_local",
+        "compass.data.repositories.activity.activity_repository_remote"
+      ],
+      "responsibilities": [
+        "Declare and implement activity retrieval by destination."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "HTTP API clients",
+          "through": [
+            "compass.data.services.api.api_client"
+          ],
+          "rationale": "Remote adapters use the HTTP API client.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Bundled local data",
+          "through": [
+            "compass.data.services.local.local_data_service"
+          ],
+          "rationale": "Local adapters read bundled data.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.data.repositories.activity",
+      "exact_modules": [
+        "compass.data.repositories.activity.activity_repository",
+        "compass.data.repositories.activity.activity_repository_local",
+        "compass.data.repositories.activity.activity_repository_remote"
+      ]
+    },
+    {
+      "id": "data-repository-auth",
+      "label": "Repository ports and adapters for auth",
+      "role": "component",
+      "packages": [
+        "compass.data.repositories.auth"
+      ],
+      "public": [
+        "compass.data.repositories.auth.auth_repository",
+        "compass.data.repositories.auth.auth_repository_dev",
+        "compass.data.repositories.auth.auth_repository_remote"
+      ],
+      "responsibilities": [
+        "Declare auth state and provide development and remote login/logout implementations."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "HTTP API clients",
+          "through": [
+            "compass.data.services.api.auth_api_client"
+          ],
+          "rationale": "Remote authentication uses its API client.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Persisted authentication state",
+          "through": [
+            "compass.data.services.shared_preferences_service"
+          ],
+          "rationale": "Authentication persists its token through the preferences service.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.data.repositories.auth",
+      "exact_modules": [
+        "compass.data.repositories.auth.auth_repository",
+        "compass.data.repositories.auth.auth_repository_dev",
+        "compass.data.repositories.auth.auth_repository_remote"
+      ]
+    },
+    {
+      "id": "data-repository-booking",
+      "label": "Repository ports and adapters for booking",
+      "role": "component",
+      "packages": [
+        "compass.data.repositories.booking"
+      ],
+      "public": [
+        "compass.data.repositories.booking.booking_repository",
+        "compass.data.repositories.booking.booking_repository_local",
+        "compass.data.repositories.booking.booking_repository_remote"
+      ],
+      "responsibilities": [
+        "Declare and implement booking list, detail, create, and delete operations."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "HTTP API clients",
+          "through": [
+            "compass.data.services.api.api_client"
+          ],
+          "rationale": "Remote adapters use the HTTP API client.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Bundled local data",
+          "through": [
+            "compass.data.services.local.local_data_service"
+          ],
+          "rationale": "Local adapters read bundled data.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.data.repositories.booking",
+      "exact_modules": [
+        "compass.data.repositories.booking.booking_repository",
+        "compass.data.repositories.booking.booking_repository_local",
+        "compass.data.repositories.booking.booking_repository_remote"
+      ]
+    },
+    {
+      "id": "data-repository-continent",
+      "label": "Repository ports and adapters for continent",
+      "role": "component",
+      "packages": [
+        "compass.data.repositories.continent"
+      ],
+      "public": [
+        "compass.data.repositories.continent.continent_repository",
+        "compass.data.repositories.continent.continent_repository_local",
+        "compass.data.repositories.continent.continent_repository_remote"
+      ],
+      "responsibilities": [
+        "Declare and implement continent retrieval."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "HTTP API clients",
+          "through": [
+            "compass.data.services.api.api_client"
+          ],
+          "rationale": "Remote adapters use the HTTP API client.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Bundled local data",
+          "through": [
+            "compass.data.services.local.local_data_service"
+          ],
+          "rationale": "Local adapters read bundled data.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.data.repositories.continent",
+      "exact_modules": [
+        "compass.data.repositories.continent.continent_repository",
+        "compass.data.repositories.continent.continent_repository_local",
+        "compass.data.repositories.continent.continent_repository_remote"
+      ]
+    },
+    {
+      "id": "data-repository-destination",
+      "label": "Repository ports and adapters for destination",
+      "role": "component",
+      "packages": [
+        "compass.data.repositories.destination"
+      ],
+      "public": [
+        "compass.data.repositories.destination.destination_repository",
+        "compass.data.repositories.destination.destination_repository_local",
+        "compass.data.repositories.destination.destination_repository_remote"
+      ],
+      "responsibilities": [
+        "Declare and implement destination retrieval."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "HTTP API clients",
+          "through": [
+            "compass.data.services.api.api_client"
+          ],
+          "rationale": "Remote adapters use the HTTP API client.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Bundled local data",
+          "through": [
+            "compass.data.services.local.local_data_service"
+          ],
+          "rationale": "Local adapters read bundled data.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.data.repositories.destination",
+      "exact_modules": [
+        "compass.data.repositories.destination.destination_repository",
+        "compass.data.repositories.destination.destination_repository_local",
+        "compass.data.repositories.destination.destination_repository_remote"
+      ]
+    },
+    {
+      "id": "data-repository-itinerary_config",
+      "label": "Repository ports and adapters for itinerary_config",
+      "role": "component",
+      "packages": [
+        "compass.data.repositories.itinerary_config"
+      ],
+      "public": [
+        "compass.data.repositories.itinerary_config.itinerary_config_repository",
+        "compass.data.repositories.itinerary_config.itinerary_config_repository_memory"
+      ],
+      "responsibilities": [
+        "Declare and keep the current itinerary configuration in memory."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "compass.data.repositories.itinerary_config",
+      "exact_modules": [
+        "compass.data.repositories.itinerary_config.itinerary_config_repository",
+        "compass.data.repositories.itinerary_config.itinerary_config_repository_memory"
+      ]
+    },
+    {
+      "id": "data-repository-user",
+      "label": "Repository ports and adapters for user",
+      "role": "component",
+      "packages": [
+        "compass.data.repositories.user"
+      ],
+      "public": [
+        "compass.data.repositories.user.user_repository",
+        "compass.data.repositories.user.user_repository_local",
+        "compass.data.repositories.user.user_repository_remote"
+      ],
+      "responsibilities": [
+        "Declare and implement current-user retrieval."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "HTTP API clients",
+          "through": [
+            "compass.data.services.api.api_client"
+          ],
+          "rationale": "Remote adapters use the HTTP API client.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Bundled local data",
+          "through": [
+            "compass.data.services.local.local_data_service"
+          ],
+          "rationale": "Local adapters read bundled data.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.data.repositories.user",
+      "exact_modules": [
+        "compass.data.repositories.user.user_repository",
+        "compass.data.repositories.user.user_repository_local",
+        "compass.data.repositories.user.user_repository_remote"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Dependencies outside the declared component boundaries are not part of the Target.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "mod-compass-data-repositories-activity-activity-repository",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.activity.activity_repository",
+          "parent_id": "data-repository-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for activity"
+          ],
+          "file_path": "lib/data/repositories/activity/activity_repository.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-activity-activity-repository-local",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.activity.activity_repository_local",
+          "parent_id": "data-repository-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for activity"
+          ],
+          "file_path": "lib/data/repositories/activity/activity_repository_local.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-activity-activity-repository-remote",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.activity.activity_repository_remote",
+          "parent_id": "data-repository-activity",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for activity"
+          ],
+          "file_path": "lib/data/repositories/activity/activity_repository_remote.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-auth-auth-repository",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.auth.auth_repository",
+          "parent_id": "data-repository-auth",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for auth"
+          ],
+          "file_path": "lib/data/repositories/auth/auth_repository.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-auth-auth-repository-dev",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.auth.auth_repository_dev",
+          "parent_id": "data-repository-auth",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for auth"
+          ],
+          "file_path": "lib/data/repositories/auth/auth_repository_dev.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-auth-auth-repository-remote",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.auth.auth_repository_remote",
+          "parent_id": "data-repository-auth",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for auth"
+          ],
+          "file_path": "lib/data/repositories/auth/auth_repository_remote.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-booking-booking-repository",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.booking.booking_repository",
+          "parent_id": "data-repository-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for booking"
+          ],
+          "file_path": "lib/data/repositories/booking/booking_repository.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-booking-booking-repository-local",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.booking.booking_repository_local",
+          "parent_id": "data-repository-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for booking"
+          ],
+          "file_path": "lib/data/repositories/booking/booking_repository_local.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-booking-booking-repository-remote",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.booking.booking_repository_remote",
+          "parent_id": "data-repository-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for booking"
+          ],
+          "file_path": "lib/data/repositories/booking/booking_repository_remote.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-continent-continent-repository",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.continent.continent_repository",
+          "parent_id": "data-repository-continent",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for continent"
+          ],
+          "file_path": "lib/data/repositories/continent/continent_repository.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-continent-continent-repository-local",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.continent.continent_repository_local",
+          "parent_id": "data-repository-continent",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for continent"
+          ],
+          "file_path": "lib/data/repositories/continent/continent_repository_local.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-continent-continent-repository-remote",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.continent.continent_repository_remote",
+          "parent_id": "data-repository-continent",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for continent"
+          ],
+          "file_path": "lib/data/repositories/continent/continent_repository_remote.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-destination-destination-repository",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.destination.destination_repository",
+          "parent_id": "data-repository-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for destination"
+          ],
+          "file_path": "lib/data/repositories/destination/destination_repository.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-destination-destination-repository-local",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.destination.destination_repository_local",
+          "parent_id": "data-repository-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for destination"
+          ],
+          "file_path": "lib/data/repositories/destination/destination_repository_local.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-destination-destination-repository-remote",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.destination.destination_repository_remote",
+          "parent_id": "data-repository-destination",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for destination"
+          ],
+          "file_path": "lib/data/repositories/destination/destination_repository_remote.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-itinerary-config-itinerary-config-repository",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.itinerary_config.itinerary_config_repository",
+          "parent_id": "data-repository-itinerary_config",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for itinerary_config"
+          ],
+          "file_path": "lib/data/repositories/itinerary_config/itinerary_config_repository.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-itinerary-config-itinerary-config-repository-memory",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.itinerary_config.itinerary_config_repository_memory",
+          "parent_id": "data-repository-itinerary_config",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for itinerary_config"
+          ],
+          "file_path": "lib/data/repositories/itinerary_config/itinerary_config_repository_memory.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-user-user-repository",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.user.user_repository",
+          "parent_id": "data-repository-user",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for user"
+          ],
+          "file_path": "lib/data/repositories/user/user_repository.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-user-user-repository-local",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.user.user_repository_local",
+          "parent_id": "data-repository-user",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for user"
+          ],
+          "file_path": "lib/data/repositories/user/user_repository_local.dart"
+        },
+        {
+          "id": "mod-compass-data-repositories-user-user-repository-remote",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.user.user_repository_remote",
+          "parent_id": "data-repository-user",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Repository ports and adapters for user"
+          ],
+          "file_path": "lib/data/repositories/user/user_repository_remote.dart"
+        },
+        {
+          "id": "mod-compass-data-services-api-api-client",
+          "kind": "module",
+          "qualified_name": "compass.data.services.api.api_client",
+          "parent_id": "data-api-services",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "HTTP API clients"
+          ],
+          "file_path": "lib/data/services/api/api_client.dart"
+        },
+        {
+          "id": "mod-compass-data-services-api-auth-api-client",
+          "kind": "module",
+          "qualified_name": "compass.data.services.api.auth_api_client",
+          "parent_id": "data-api-services",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "HTTP API clients"
+          ],
+          "file_path": "lib/data/services/api/auth_api_client.dart"
+        },
+        {
+          "id": "mod-compass-data-services-api-model-booking-booking-api-model",
+          "kind": "module",
+          "qualified_name": "compass.data.services.api.model.booking.booking_api_model",
+          "parent_id": "data-api-models",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialized API value models"
+          ],
+          "file_path": "lib/data/services/api/model/booking/booking_api_model.dart"
+        },
+        {
+          "id": "mod-compass-data-services-api-model-login-request-login-request",
+          "kind": "module",
+          "qualified_name": "compass.data.services.api.model.login_request.login_request",
+          "parent_id": "data-api-models",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialized API value models"
+          ],
+          "file_path": "lib/data/services/api/model/login_request/login_request.dart"
+        },
+        {
+          "id": "mod-compass-data-services-api-model-login-response-login-response",
+          "kind": "module",
+          "qualified_name": "compass.data.services.api.model.login_response.login_response",
+          "parent_id": "data-api-models",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialized API value models"
+          ],
+          "file_path": "lib/data/services/api/model/login_response/login_response.dart"
+        },
+        {
+          "id": "mod-compass-data-services-api-model-user-user-api-model",
+          "kind": "module",
+          "qualified_name": "compass.data.services.api.model.user.user_api_model",
+          "parent_id": "data-api-models",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialized API value models"
+          ],
+          "file_path": "lib/data/services/api/model/user/user_api_model.dart"
+        },
+        {
+          "id": "mod-compass-data-services-local-local-data-service",
+          "kind": "module",
+          "qualified_name": "compass.data.services.local.local_data_service",
+          "parent_id": "data-local-services",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Bundled local data"
+          ],
+          "file_path": "lib/data/services/local/local_data_service.dart"
+        },
+        {
+          "id": "mod-compass-data-services-shared-preferences-service",
+          "kind": "module",
+          "qualified_name": "compass.data.services.shared_preferences_service",
+          "parent_id": "data-auth-storage",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Persisted authentication state"
+          ],
+          "file_path": "lib/data/services/shared_preferences_service.dart"
+        },
+        {
+          "id": "class-compass-data-repositories-auth-auth-repository-authrepository",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.auth.auth_repository.AuthRepository",
+          "parent_id": "mod-compass-data-repositories-auth-auth-repository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define authentication state and login/logout port."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-auth-auth-repository-remote-authrepositoryremote",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.auth.auth_repository_remote.AuthRepositoryRemote",
+          "parent_id": "mod-compass-data-repositories-auth-auth-repository-remote",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Implement auth through API and token persistence."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-auth-auth-repository-dev-authrepositorydev",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.auth.auth_repository_dev.AuthRepositoryDev",
+          "parent_id": "mod-compass-data-repositories-auth-auth-repository-dev",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide development authentication."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-itinerary-config-itinerary-config-repository-itineraryconfigrepository",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.itinerary_config.itinerary_config_repository.ItineraryConfigRepository",
+          "parent_id": "mod-compass-data-repositories-itinerary-config-itinerary-config-repository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define itinerary draft load/store port."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-itinerary-config-itinerary-config-repository-memory-itineraryconfigrepositorymemory",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.itinerary_config.itinerary_config_repository_memory.ItineraryConfigRepositoryMemory",
+          "parent_id": "mod-compass-data-repositories-itinerary-config-itinerary-config-repository-memory",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Keep the in-progress itinerary in memory."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-services-api-api-client-apiclient",
+          "kind": "class",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient",
+          "parent_id": "mod-compass-data-services-api-api-client",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Call authenticated domain endpoints."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-services-api-auth-api-client-authapiclient",
+          "kind": "class",
+          "qualified_name": "compass.data.services.api.auth_api_client.AuthApiClient",
+          "parent_id": "mod-compass-data-services-api-auth-api-client",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Submit login credentials and decode the response."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-services-local-local-data-service-localdataservice",
+          "kind": "class",
+          "qualified_name": "compass.data.services.local.local_data_service.LocalDataService",
+          "parent_id": "mod-compass-data-services-local-local-data-service",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Load bundled destination and activity data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-services-shared-preferences-service-sharedpreferencesservice",
+          "kind": "class",
+          "qualified_name": "compass.data.services.shared_preferences_service.SharedPreferencesService",
+          "parent_id": "mod-compass-data-services-shared-preferences-service",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Read and persist the auth token."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "kind": "class",
+          "qualified_name": "compass.data.services.api.model.booking.booking_api_model.BookingApiModel",
+          "parent_id": "mod-compass-data-services-api-model-booking-booking-api-model",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the model factory and JSON constructor."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-booking-booking-api-model-bookingapimodel-bookingapimodel",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.booking.booking_api_model.BookingApiModel.BookingApiModel",
+          "parent_id": "class-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct the immutable value from its declared fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "int?",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "startDate",
+                "annotation": "DateTime",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "endDate",
+                "annotation": "DateTime",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "name",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "destinationRef",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "activitiesRef",
+                "annotation": "List<String>",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "BookingApiModel"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-booking-booking-api-model-bookingapimodel-fromjson",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.booking.booking_api_model.BookingApiModel.fromJson",
+          "parent_id": "class-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Decode the model from a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "json",
+                "annotation": "Map<String, Object?>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "BookingApiModel"
+          }
+        },
+        {
+          "id": "mixin-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "kind": "mixin",
+          "qualified_name": "compass.data.services.api.model.booking.booking_api_model._$BookingApiModel",
+          "parent_id": "mod-compass-data-services-api-model-booking-booking-api-model",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define generated immutable fields, serialization and copy API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-booking-booking-api-model-bookingapimodel-id-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.booking.booking_api_model._$BookingApiModel.id::getter",
+          "parent_id": "mixin-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property id."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "int?"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-booking-booking-api-model-bookingapimodel-startdate-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.booking.booking_api_model._$BookingApiModel.startDate::getter",
+          "parent_id": "mixin-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property startDate."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "DateTime"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-booking-booking-api-model-bookingapimodel-enddate-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.booking.booking_api_model._$BookingApiModel.endDate::getter",
+          "parent_id": "mixin-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property endDate."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "DateTime"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-booking-booking-api-model-bookingapimodel-name-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.booking.booking_api_model._$BookingApiModel.name::getter",
+          "parent_id": "mixin-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property name."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-booking-booking-api-model-bookingapimodel-destinationref-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.booking.booking_api_model._$BookingApiModel.destinationRef::getter",
+          "parent_id": "mixin-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property destinationRef."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-booking-booking-api-model-bookingapimodel-activitiesref-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.booking.booking_api_model._$BookingApiModel.activitiesRef::getter",
+          "parent_id": "mixin-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property activitiesRef."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "List<String>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-booking-booking-api-model-bookingapimodel-tojson",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.booking.booking_api_model._$BookingApiModel.toJson",
+          "parent_id": "mixin-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialize model to a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Map<String, dynamic>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-booking-booking-api-model-bookingapimodel-copywith-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.booking.booking_api_model._$BookingApiModel.copyWith::getter",
+          "parent_id": "mixin-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the generated typed copy operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "$BookingApiModelCopyWith<BookingApiModel>"
+          }
+        },
+        {
+          "id": "class-compass-data-services-api-model-login-request-login-request-loginrequest",
+          "kind": "class",
+          "qualified_name": "compass.data.services.api.model.login_request.login_request.LoginRequest",
+          "parent_id": "mod-compass-data-services-api-model-login-request-login-request",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the model factory and JSON constructor."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-login-request-login-request-loginrequest-loginrequest",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.login_request.login_request.LoginRequest.LoginRequest",
+          "parent_id": "class-compass-data-services-api-model-login-request-login-request-loginrequest",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct the immutable value from its declared fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "email",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "password",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "LoginRequest"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-login-request-login-request-loginrequest-fromjson",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.login_request.login_request.LoginRequest.fromJson",
+          "parent_id": "class-compass-data-services-api-model-login-request-login-request-loginrequest",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Decode the model from a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "json",
+                "annotation": "Map<String, Object?>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "LoginRequest"
+          }
+        },
+        {
+          "id": "mixin-compass-data-services-api-model-login-request-login-request-loginrequest",
+          "kind": "mixin",
+          "qualified_name": "compass.data.services.api.model.login_request.login_request._$LoginRequest",
+          "parent_id": "mod-compass-data-services-api-model-login-request-login-request",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define generated immutable fields, serialization and copy API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-login-request-login-request-loginrequest-email-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.login_request.login_request._$LoginRequest.email::getter",
+          "parent_id": "mixin-compass-data-services-api-model-login-request-login-request-loginrequest",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property email."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-login-request-login-request-loginrequest-password-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.login_request.login_request._$LoginRequest.password::getter",
+          "parent_id": "mixin-compass-data-services-api-model-login-request-login-request-loginrequest",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property password."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-login-request-login-request-loginrequest-tojson",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.login_request.login_request._$LoginRequest.toJson",
+          "parent_id": "mixin-compass-data-services-api-model-login-request-login-request-loginrequest",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialize model to a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Map<String, dynamic>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-login-request-login-request-loginrequest-copywith-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.login_request.login_request._$LoginRequest.copyWith::getter",
+          "parent_id": "mixin-compass-data-services-api-model-login-request-login-request-loginrequest",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the generated typed copy operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "$LoginRequestCopyWith<LoginRequest>"
+          }
+        },
+        {
+          "id": "class-compass-data-services-api-model-login-response-login-response-loginresponse",
+          "kind": "class",
+          "qualified_name": "compass.data.services.api.model.login_response.login_response.LoginResponse",
+          "parent_id": "mod-compass-data-services-api-model-login-response-login-response",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the model factory and JSON constructor."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-login-response-login-response-loginresponse-loginresponse",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.login_response.login_response.LoginResponse.LoginResponse",
+          "parent_id": "class-compass-data-services-api-model-login-response-login-response-loginresponse",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct the immutable value from its declared fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "token",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "userId",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "LoginResponse"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-login-response-login-response-loginresponse-fromjson",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.login_response.login_response.LoginResponse.fromJson",
+          "parent_id": "class-compass-data-services-api-model-login-response-login-response-loginresponse",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Decode the model from a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "json",
+                "annotation": "Map<String, Object?>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "LoginResponse"
+          }
+        },
+        {
+          "id": "mixin-compass-data-services-api-model-login-response-login-response-loginresponse",
+          "kind": "mixin",
+          "qualified_name": "compass.data.services.api.model.login_response.login_response._$LoginResponse",
+          "parent_id": "mod-compass-data-services-api-model-login-response-login-response",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define generated immutable fields, serialization and copy API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-login-response-login-response-loginresponse-token-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.login_response.login_response._$LoginResponse.token::getter",
+          "parent_id": "mixin-compass-data-services-api-model-login-response-login-response-loginresponse",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property token."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-login-response-login-response-loginresponse-userid-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.login_response.login_response._$LoginResponse.userId::getter",
+          "parent_id": "mixin-compass-data-services-api-model-login-response-login-response-loginresponse",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property userId."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-login-response-login-response-loginresponse-tojson",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.login_response.login_response._$LoginResponse.toJson",
+          "parent_id": "mixin-compass-data-services-api-model-login-response-login-response-loginresponse",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialize model to a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Map<String, dynamic>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-login-response-login-response-loginresponse-copywith-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.login_response.login_response._$LoginResponse.copyWith::getter",
+          "parent_id": "mixin-compass-data-services-api-model-login-response-login-response-loginresponse",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the generated typed copy operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "$LoginResponseCopyWith<LoginResponse>"
+          }
+        },
+        {
+          "id": "class-compass-data-services-api-model-user-user-api-model-userapimodel",
+          "kind": "class",
+          "qualified_name": "compass.data.services.api.model.user.user_api_model.UserApiModel",
+          "parent_id": "mod-compass-data-services-api-model-user-user-api-model",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the model factory and JSON constructor."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-user-user-api-model-userapimodel-userapimodel",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.user.user_api_model.UserApiModel.UserApiModel",
+          "parent_id": "class-compass-data-services-api-model-user-user-api-model-userapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct the immutable value from its declared fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "name",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "email",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "picture",
+                "annotation": "String",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "UserApiModel"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-user-user-api-model-userapimodel-fromjson",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.user.user_api_model.UserApiModel.fromJson",
+          "parent_id": "class-compass-data-services-api-model-user-user-api-model-userapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Decode the model from a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "json",
+                "annotation": "Map<String, Object?>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "UserApiModel"
+          }
+        },
+        {
+          "id": "mixin-compass-data-services-api-model-user-user-api-model-userapimodel",
+          "kind": "mixin",
+          "qualified_name": "compass.data.services.api.model.user.user_api_model._$UserApiModel",
+          "parent_id": "mod-compass-data-services-api-model-user-user-api-model",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define generated immutable fields, serialization and copy API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-user-user-api-model-userapimodel-id-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.user.user_api_model._$UserApiModel.id::getter",
+          "parent_id": "mixin-compass-data-services-api-model-user-user-api-model-userapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property id."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-user-user-api-model-userapimodel-name-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.user.user_api_model._$UserApiModel.name::getter",
+          "parent_id": "mixin-compass-data-services-api-model-user-user-api-model-userapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property name."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-user-user-api-model-userapimodel-email-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.user.user_api_model._$UserApiModel.email::getter",
+          "parent_id": "mixin-compass-data-services-api-model-user-user-api-model-userapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property email."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-user-user-api-model-userapimodel-picture-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.user.user_api_model._$UserApiModel.picture::getter",
+          "parent_id": "mixin-compass-data-services-api-model-user-user-api-model-userapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose immutable model property picture."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-user-user-api-model-userapimodel-tojson",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.user.user_api_model._$UserApiModel.toJson",
+          "parent_id": "mixin-compass-data-services-api-model-user-user-api-model-userapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialize model to a JSON map."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Map<String, dynamic>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-model-user-user-api-model-userapimodel-copywith-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.model.user.user_api_model._$UserApiModel.copyWith::getter",
+          "parent_id": "mixin-compass-data-services-api-model-user-user-api-model-userapimodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the generated typed copy operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "$UserApiModelCopyWith<UserApiModel>"
+          }
+        },
+        {
+          "id": "method-compass-data-repositories-auth-auth-repository-authrepository-login",
+          "kind": "method",
+          "qualified_name": "compass.data.repositories.auth.auth_repository.AuthRepository.login",
+          "parent_id": "class-compass-data-repositories-auth-auth-repository-authrepository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared login boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "email",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "password",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "method-compass-data-repositories-auth-auth-repository-authrepository-logout",
+          "kind": "method",
+          "qualified_name": "compass.data.repositories.auth.auth_repository.AuthRepository.logout",
+          "parent_id": "class-compass-data-repositories-auth-auth-repository-authrepository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared logout boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "method-compass-data-repositories-itinerary-config-itinerary-config-repository-itineraryconfigrepository-getitineraryconfig",
+          "kind": "method",
+          "qualified_name": "compass.data.repositories.itinerary_config.itinerary_config_repository.ItineraryConfigRepository.getItineraryConfig",
+          "parent_id": "class-compass-data-repositories-itinerary-config-itinerary-config-repository-itineraryconfigrepository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared getItineraryConfig boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<ItineraryConfig>>"
+          }
+        },
+        {
+          "id": "method-compass-data-repositories-itinerary-config-itinerary-config-repository-itineraryconfigrepository-setitineraryconfig",
+          "kind": "method",
+          "qualified_name": "compass.data.repositories.itinerary_config.itinerary_config_repository.ItineraryConfigRepository.setItineraryConfig",
+          "parent_id": "class-compass-data-repositories-itinerary-config-itinerary-config-repository-itineraryconfigrepository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared setItineraryConfig boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "itineraryConfig",
+                "annotation": "ItineraryConfig",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-api-client-apiclient-getcontinents",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient.getContinents",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared getContinents boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<List<Continent>>>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-api-client-apiclient-getdestinations",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient.getDestinations",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared getDestinations boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<List<Destination>>>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-api-client-apiclient-getactivitybydestination",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient.getActivityByDestination",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared getActivityByDestination boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "destinationRef",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<List<Activity>>>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-api-client-apiclient-getbookings",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient.getBookings",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared getBookings boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<List<BookingApiModel>>>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-api-client-apiclient-getbooking",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient.getBooking",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared getBooking boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<BookingApiModel>>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-api-client-apiclient-postbooking",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient.postBooking",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared postBooking boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "booking",
+                "annotation": "BookingApiModel",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<BookingApiModel>>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-api-client-apiclient-getuser",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient.getUser",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared getUser boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<UserApiModel>>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-api-client-apiclient-deletebooking",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient.deleteBooking",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared deleteBooking boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-auth-api-client-authapiclient-login",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.auth_api_client.AuthApiClient.login",
+          "parent_id": "class-compass-data-services-api-auth-api-client-authapiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared login boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "loginRequest",
+                "annotation": "LoginRequest",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<LoginResponse>>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-local-local-data-service-localdataservice-getactivities",
+          "kind": "method",
+          "qualified_name": "compass.data.services.local.local_data_service.LocalDataService.getActivities",
+          "parent_id": "class-compass-data-services-local-local-data-service-localdataservice",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared getActivities boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<List<Activity>>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-local-local-data-service-localdataservice-getdestinations",
+          "kind": "method",
+          "qualified_name": "compass.data.services.local.local_data_service.LocalDataService.getDestinations",
+          "parent_id": "class-compass-data-services-local-local-data-service-localdataservice",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared getDestinations boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<List<Destination>>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-shared-preferences-service-sharedpreferencesservice-fetchtoken",
+          "kind": "method",
+          "qualified_name": "compass.data.services.shared_preferences_service.SharedPreferencesService.fetchToken",
+          "parent_id": "class-compass-data-services-shared-preferences-service-sharedpreferencesservice",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared fetchToken boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<String?>>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-shared-preferences-service-sharedpreferencesservice-savetoken",
+          "kind": "method",
+          "qualified_name": "compass.data.services.shared_preferences_service.SharedPreferencesService.saveToken",
+          "parent_id": "class-compass-data-services-shared-preferences-service-sharedpreferencesservice",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the source-declared saveToken boundary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "token",
+                "annotation": "String?",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-activity-activity-repository-activityrepository",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.activity.activity_repository.ActivityRepository",
+          "parent_id": "mod-compass-data-repositories-activity-activity-repository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define the asynchronous ActivityRepository port."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-data-repositories-activity-activity-repository-activityrepository-getbydestination",
+          "kind": "method",
+          "qualified_name": "compass.data.repositories.activity.activity_repository.ActivityRepository.getByDestination",
+          "parent_id": "class-compass-data-repositories-activity-activity-repository-activityrepository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the ActivityRepository operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "ref",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<List<Activity>>>"
+          }
+        },
+        {
+          "id": "method-compass-data-repositories-auth-auth-repository-authrepository-isauthenticated-getter",
+          "kind": "method",
+          "qualified_name": "compass.data.repositories.auth.auth_repository.AuthRepository.isAuthenticated::getter",
+          "parent_id": "class-compass-data-repositories-auth-auth-repository-authrepository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the AuthRepository operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<bool>"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-booking-booking-repository-bookingrepository",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.booking.booking_repository.BookingRepository",
+          "parent_id": "mod-compass-data-repositories-booking-booking-repository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define the asynchronous BookingRepository port."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-data-repositories-booking-booking-repository-bookingrepository-getbookingslist",
+          "kind": "method",
+          "qualified_name": "compass.data.repositories.booking.booking_repository.BookingRepository.getBookingsList",
+          "parent_id": "class-compass-data-repositories-booking-booking-repository-bookingrepository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the BookingRepository operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<List<BookingSummary>>>"
+          }
+        },
+        {
+          "id": "method-compass-data-repositories-booking-booking-repository-bookingrepository-getbooking",
+          "kind": "method",
+          "qualified_name": "compass.data.repositories.booking.booking_repository.BookingRepository.getBooking",
+          "parent_id": "class-compass-data-repositories-booking-booking-repository-bookingrepository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the BookingRepository operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<Booking>>"
+          }
+        },
+        {
+          "id": "method-compass-data-repositories-booking-booking-repository-bookingrepository-createbooking",
+          "kind": "method",
+          "qualified_name": "compass.data.repositories.booking.booking_repository.BookingRepository.createBooking",
+          "parent_id": "class-compass-data-repositories-booking-booking-repository-bookingrepository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the BookingRepository operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "booking",
+                "annotation": "Booking",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "method-compass-data-repositories-booking-booking-repository-bookingrepository-delete",
+          "kind": "method",
+          "qualified_name": "compass.data.repositories.booking.booking_repository.BookingRepository.delete",
+          "parent_id": "class-compass-data-repositories-booking-booking-repository-bookingrepository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the BookingRepository operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-continent-continent-repository-continentrepository",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.continent.continent_repository.ContinentRepository",
+          "parent_id": "mod-compass-data-repositories-continent-continent-repository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define the asynchronous ContinentRepository port."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-data-repositories-continent-continent-repository-continentrepository-getcontinents",
+          "kind": "method",
+          "qualified_name": "compass.data.repositories.continent.continent_repository.ContinentRepository.getContinents",
+          "parent_id": "class-compass-data-repositories-continent-continent-repository-continentrepository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the ContinentRepository operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<List<Continent>>>"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-destination-destination-repository-destinationrepository",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.destination.destination_repository.DestinationRepository",
+          "parent_id": "mod-compass-data-repositories-destination-destination-repository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define the asynchronous DestinationRepository port."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-data-repositories-destination-destination-repository-destinationrepository-getdestinations",
+          "kind": "method",
+          "qualified_name": "compass.data.repositories.destination.destination_repository.DestinationRepository.getDestinations",
+          "parent_id": "class-compass-data-repositories-destination-destination-repository-destinationrepository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the DestinationRepository operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<List<Destination>>>"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-user-user-repository-userrepository",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.user.user_repository.UserRepository",
+          "parent_id": "mod-compass-data-repositories-user-user-repository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define the asynchronous UserRepository port."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-data-repositories-user-user-repository-userrepository-getuser",
+          "kind": "method",
+          "qualified_name": "compass.data.repositories.user.user_repository.UserRepository.getUser",
+          "parent_id": "class-compass-data-repositories-user-user-repository-userrepository",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the UserRepository operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<User>>"
+          }
+        },
+        {
+          "id": "attribute-compass-data-services-api-api-client-apiclient-host",
+          "kind": "attribute",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient._host",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _host state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "attribute-compass-data-services-api-api-client-apiclient-port",
+          "kind": "attribute",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient._port",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _port state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "attribute-compass-data-services-api-api-client-apiclient-clientfactory",
+          "kind": "attribute",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient._clientFactory",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _clientFactory state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "HttpClient Function()"
+        },
+        {
+          "id": "attribute-compass-data-services-api-api-client-apiclient-authheaderprovider",
+          "kind": "attribute",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient._authHeaderProvider",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _authHeaderProvider state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "AuthHeaderProvider?"
+        },
+        {
+          "id": "method-compass-data-services-api-api-client-apiclient-apiclient",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient.ApiClient",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared service operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "host",
+                "annotation": "String?",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "port",
+                "annotation": "int?",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "clientFactory",
+                "annotation": "HttpClient Function()?",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "ApiClient"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-api-client-apiclient-authheaderprovider-setter",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient.authHeaderProvider::setter",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared service operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "authHeaderProvider",
+                "annotation": "AuthHeaderProvider",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "method-compass-data-services-api-api-client-apiclient-authheader",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.api_client.ApiClient._authHeader",
+          "parent_id": "class-compass-data-services-api-api-client-apiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared service operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "headers",
+                "annotation": "HttpHeaders",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<void>"
+          }
+        },
+        {
+          "id": "attribute-compass-data-services-api-auth-api-client-authapiclient-host",
+          "kind": "attribute",
+          "qualified_name": "compass.data.services.api.auth_api_client.AuthApiClient._host",
+          "parent_id": "class-compass-data-services-api-auth-api-client-authapiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _host state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "attribute-compass-data-services-api-auth-api-client-authapiclient-port",
+          "kind": "attribute",
+          "qualified_name": "compass.data.services.api.auth_api_client.AuthApiClient._port",
+          "parent_id": "class-compass-data-services-api-auth-api-client-authapiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _port state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "attribute-compass-data-services-api-auth-api-client-authapiclient-clientfactory",
+          "kind": "attribute",
+          "qualified_name": "compass.data.services.api.auth_api_client.AuthApiClient._clientFactory",
+          "parent_id": "class-compass-data-services-api-auth-api-client-authapiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _clientFactory state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "HttpClient Function()"
+        },
+        {
+          "id": "method-compass-data-services-api-auth-api-client-authapiclient-authapiclient",
+          "kind": "method",
+          "qualified_name": "compass.data.services.api.auth_api_client.AuthApiClient.AuthApiClient",
+          "parent_id": "class-compass-data-services-api-auth-api-client-authapiclient",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared service operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "host",
+                "annotation": "String?",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "port",
+                "annotation": "int?",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "clientFactory",
+                "annotation": "HttpClient Function()?",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "AuthApiClient"
+          }
+        },
+        {
+          "id": "method-compass-data-services-local-local-data-service-localdataservice-getcontinents",
+          "kind": "method",
+          "qualified_name": "compass.data.services.local.local_data_service.LocalDataService.getContinents",
+          "parent_id": "class-compass-data-services-local-local-data-service-localdataservice",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared service operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "List<Continent>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-local-local-data-service-localdataservice-loadstringasset",
+          "kind": "method",
+          "qualified_name": "compass.data.services.local.local_data_service.LocalDataService._loadStringAsset",
+          "parent_id": "class-compass-data-services-local-local-data-service-localdataservice",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared service operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "asset",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<List<Map<String, dynamic>>>"
+          }
+        },
+        {
+          "id": "method-compass-data-services-local-local-data-service-localdataservice-getuser",
+          "kind": "method",
+          "qualified_name": "compass.data.services.local.local_data_service.LocalDataService.getUser",
+          "parent_id": "class-compass-data-services-local-local-data-service-localdataservice",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared service operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "User"
+          }
+        },
+        {
+          "id": "attribute-compass-data-services-shared-preferences-service-sharedpreferencesservice-tokenkey",
+          "kind": "attribute",
+          "qualified_name": "compass.data.services.shared_preferences_service.SharedPreferencesService._tokenKey",
+          "parent_id": "class-compass-data-services-shared-preferences-service-sharedpreferencesservice",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _tokenKey state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "String"
+        },
+        {
+          "id": "attribute-compass-data-services-shared-preferences-service-sharedpreferencesservice-log",
+          "kind": "attribute",
+          "qualified_name": "compass.data.services.shared_preferences_service.SharedPreferencesService._log",
+          "parent_id": "class-compass-data-services-shared-preferences-service-sharedpreferencesservice",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _log state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Logger"
+        },
+        {
+          "id": "class-compass-data-repositories-activity-activity-repository-local-activityrepositorylocal",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.activity.activity_repository_local.ActivityRepositoryLocal",
+          "parent_id": "mod-compass-data-repositories-activity-activity-repository-local",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Adapt the activity port to bundled local data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-activity-activity-repository-remote-activityrepositoryremote",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.activity.activity_repository_remote.ActivityRepositoryRemote",
+          "parent_id": "mod-compass-data-repositories-activity-activity-repository-remote",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Adapt the activity port to the authenticated API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-booking-booking-repository-local-bookingrepositorylocal",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.booking.booking_repository_local.BookingRepositoryLocal",
+          "parent_id": "mod-compass-data-repositories-booking-booking-repository-local",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Implement booking reads and writes for local development."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-booking-booking-repository-remote-bookingrepositoryremote",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.booking.booking_repository_remote.BookingRepositoryRemote",
+          "parent_id": "mod-compass-data-repositories-booking-booking-repository-remote",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Adapt booking operations to the remote API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-continent-continent-repository-local-continentrepositorylocal",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.continent.continent_repository_local.ContinentRepositoryLocal",
+          "parent_id": "mod-compass-data-repositories-continent-continent-repository-local",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Adapt continent reads to bundled local data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-continent-continent-repository-remote-continentrepositoryremote",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.continent.continent_repository_remote.ContinentRepositoryRemote",
+          "parent_id": "mod-compass-data-repositories-continent-continent-repository-remote",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Adapt continent reads to the remote API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-destination-destination-repository-local-destinationrepositorylocal",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.destination.destination_repository_local.DestinationRepositoryLocal",
+          "parent_id": "mod-compass-data-repositories-destination-destination-repository-local",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Adapt destination reads to bundled local data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-destination-destination-repository-remote-destinationrepositoryremote",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.destination.destination_repository_remote.DestinationRepositoryRemote",
+          "parent_id": "mod-compass-data-repositories-destination-destination-repository-remote",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Adapt destination reads to the remote API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-user-user-repository-local-userrepositorylocal",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.user.user_repository_local.UserRepositoryLocal",
+          "parent_id": "mod-compass-data-repositories-user-user-repository-local",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the local development user."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-data-repositories-user-user-repository-remote-userrepositoryremote",
+          "kind": "class",
+          "qualified_name": "compass.data.repositories.user.user_repository_remote.UserRepositoryRemote",
+          "parent_id": "mod-compass-data-repositories-user-user-repository-remote",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Adapt user reads to the remote API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        }
+      ],
+      "relationships": [
+        {
+          "id": "mix-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "kind": "mixes_in",
+          "source_id": "class-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "target_id": "mixin-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "mix-compass-data-services-api-model-login-request-login-request-loginrequest",
+          "kind": "mixes_in",
+          "source_id": "class-compass-data-services-api-model-login-request-login-request-loginrequest",
+          "target_id": "mixin-compass-data-services-api-model-login-request-login-request-loginrequest",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "mix-compass-data-services-api-model-login-response-login-response-loginresponse",
+          "kind": "mixes_in",
+          "source_id": "class-compass-data-services-api-model-login-response-login-response-loginresponse",
+          "target_id": "mixin-compass-data-services-api-model-login-response-login-response-loginresponse",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "mix-compass-data-services-api-model-user-user-api-model-userapimodel",
+          "kind": "mixes_in",
+          "source_id": "class-compass-data-services-api-model-user-user-api-model-userapimodel",
+          "target_id": "mixin-compass-data-services-api-model-user-user-api-model-userapimodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "realizes-compass-data-repositories-activity-activity-repository-local-activityrepositorylocal-activityrepository",
+          "kind": "realizes",
+          "source_id": "class-compass-data-repositories-activity-activity-repository-local-activityrepositorylocal",
+          "target_id": "class-compass-data-repositories-activity-activity-repository-activityrepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "realizes-compass-data-repositories-activity-activity-repository-remote-activityrepositoryremote-activityrepository",
+          "kind": "realizes",
+          "source_id": "class-compass-data-repositories-activity-activity-repository-remote-activityrepositoryremote",
+          "target_id": "class-compass-data-repositories-activity-activity-repository-activityrepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "realizes-compass-data-repositories-booking-booking-repository-local-bookingrepositorylocal-bookingrepository",
+          "kind": "realizes",
+          "source_id": "class-compass-data-repositories-booking-booking-repository-local-bookingrepositorylocal",
+          "target_id": "class-compass-data-repositories-booking-booking-repository-bookingrepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "realizes-compass-data-repositories-booking-booking-repository-remote-bookingrepositoryremote-bookingrepository",
+          "kind": "realizes",
+          "source_id": "class-compass-data-repositories-booking-booking-repository-remote-bookingrepositoryremote",
+          "target_id": "class-compass-data-repositories-booking-booking-repository-bookingrepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "realizes-compass-data-repositories-continent-continent-repository-local-continentrepositorylocal-continentrepository",
+          "kind": "realizes",
+          "source_id": "class-compass-data-repositories-continent-continent-repository-local-continentrepositorylocal",
+          "target_id": "class-compass-data-repositories-continent-continent-repository-continentrepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "realizes-compass-data-repositories-continent-continent-repository-remote-continentrepositoryremote-continentrepository",
+          "kind": "realizes",
+          "source_id": "class-compass-data-repositories-continent-continent-repository-remote-continentrepositoryremote",
+          "target_id": "class-compass-data-repositories-continent-continent-repository-continentrepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "realizes-compass-data-repositories-destination-destination-repository-local-destinationrepositorylocal-destinationrepository",
+          "kind": "realizes",
+          "source_id": "class-compass-data-repositories-destination-destination-repository-local-destinationrepositorylocal",
+          "target_id": "class-compass-data-repositories-destination-destination-repository-destinationrepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "realizes-compass-data-repositories-destination-destination-repository-remote-destinationrepositoryremote-destinationrepository",
+          "kind": "realizes",
+          "source_id": "class-compass-data-repositories-destination-destination-repository-remote-destinationrepositoryremote",
+          "target_id": "class-compass-data-repositories-destination-destination-repository-destinationrepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "realizes-compass-data-repositories-user-user-repository-local-userrepositorylocal-userrepository",
+          "kind": "realizes",
+          "source_id": "class-compass-data-repositories-user-user-repository-local-userrepositorylocal",
+          "target_id": "class-compass-data-repositories-user-user-repository-userrepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "realizes-compass-data-repositories-user-user-repository-remote-userrepositoryremote-userrepository",
+          "kind": "realizes",
+          "source_id": "class-compass-data-repositories-user-user-repository-remote-userrepositoryremote",
+          "target_id": "class-compass-data-repositories-user-user-repository-userrepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-compass-data-repositories-auth-auth-repository-dev-authrepositorydev-authrepository",
+          "kind": "inherits",
+          "source_id": "class-compass-data-repositories-auth-auth-repository-dev-authrepositorydev",
+          "target_id": "class-compass-data-repositories-auth-auth-repository-authrepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-compass-data-repositories-auth-auth-repository-remote-authrepositoryremote-authrepository",
+          "kind": "inherits",
+          "source_id": "class-compass-data-repositories-auth-auth-repository-remote-authrepositoryremote",
+          "target_id": "class-compass-data-repositories-auth-auth-repository-authrepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "realizes-compass-data-repositories-itinerary-config-itinerary-config-repository-memory-itineraryconfigrepositorymemory-itineraryconfigrepository",
+          "kind": "realizes",
+          "source_id": "class-compass-data-repositories-itinerary-config-itinerary-config-repository-memory-itineraryconfigrepositorymemory",
+          "target_id": "class-compass-data-repositories-itinerary-config-itinerary-config-repository-itineraryconfigrepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "mixin-compass-data-services-api-model-booking-booking-api-model-bookingapimodel",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The generated mixin declares this finite public model and serialization API.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mixin-compass-data-services-api-model-login-request-login-request-loginrequest",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The generated mixin declares this finite public model and serialization API.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mixin-compass-data-services-api-model-login-response-login-response-loginresponse",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The generated mixin declares this finite public model and serialization API.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mixin-compass-data-services-api-model-user-user-api-model-userapimodel",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The generated mixin declares this finite public model and serialization API.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-data-repositories-auth-auth-repository-authrepository",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The principal source-declared contract is complete at this boundary.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-data-repositories-itinerary-config-itinerary-config-repository-itineraryconfigrepository",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The principal source-declared contract is complete at this boundary.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-data-services-api-api-client-apiclient",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The principal source-declared contract is complete at this boundary.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-data-services-api-auth-api-client-authapiclient",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The principal source-declared contract is complete at this boundary.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-data-services-local-local-data-service-localdataservice",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The principal source-declared contract is complete at this boundary.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-data-services-shared-preferences-service-sharedpreferencesservice",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The principal source-declared contract is complete at this boundary.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-activity-activity-repository",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-activity-activity-repository-local",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-activity-activity-repository-remote",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-auth-auth-repository",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-auth-auth-repository-dev",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-auth-auth-repository-remote",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-booking-booking-repository",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-booking-booking-repository-local",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-booking-booking-repository-remote",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-continent-continent-repository",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-continent-continent-repository-local",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-continent-continent-repository-remote",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-destination-destination-repository",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-destination-destination-repository-local",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-destination-destination-repository-remote",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-itinerary-config-itinerary-config-repository",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-itinerary-config-itinerary-config-repository-memory",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-user-user-repository",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-user-user-repository-local",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-repositories-user-user-repository-remote",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-services-api-api-client",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-services-api-auth-api-client",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-services-api-model-booking-booking-api-model",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-services-api-model-login-request-login-request",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-services-api-model-login-response-login-response",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-services-api-model-user-user-api-model",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-services-local-local-data-service",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-data-services-shared-preferences-service",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-data-repositories-activity-activity-repository-activityrepository",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The repository port declares its complete direct operation set.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-data-repositories-booking-booking-repository-bookingrepository",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The repository port declares its complete direct operation set.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-data-repositories-continent-continent-repository-continentrepository",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The repository port declares its complete direct operation set.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-data-repositories-destination-destination-repository-destinationrepository",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The repository port declares its complete direct operation set.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-data-repositories-user-user-repository-userrepository",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The repository port declares its complete direct operation set.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

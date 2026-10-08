@@ -1,0 +1,5 @@
+[scan]
+language = "dart"
+roots = ["lib"]
+namespace = "compass"
+contract = "architecture-contract.json"
