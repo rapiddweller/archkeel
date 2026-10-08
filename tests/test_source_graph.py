@@ -45,6 +45,48 @@ def _graph(observation) -> ArchitectureGraph:
     return graph
 
 
+def _graph_from_source_facts(facts, roots: tuple[str, ...]) -> ArchitectureGraph:
+    from archkeel.ir.model import (
+        AnalyzerInfo,
+        ContractInfo,
+        Coverage,
+        Observation,
+        Section,
+        SourceInfo,
+    )
+
+    return _graph(
+        Observation(
+            schema_version="2.1.0",
+            analyzer=AnalyzerInfo(
+                facts.adapter.name, facts.adapter.version, facts.adapter.code_digest
+            ),
+            source=SourceInfo(
+                facts.source.git_head,
+                facts.source.dirty,
+                facts.source.source_digest,
+                roots,
+            ),
+            contract=ContractInfo("2.1.0", "0" * 64, "contract.json"),
+            coverage=Coverage(
+                "PASS" if facts.coverage.full_scope else "UNKNOWN",
+                len(facts.files),
+                facts.coverage.files_read,
+                facts.coverage.files_parsed,
+                None,
+                None,
+                None,
+                None,
+                100.0 if facts.coverage.full_scope else 0.0,
+                None,
+                (),
+            ),
+            sections=tuple(Section(section.name, section.records) for section in facts.sections),
+            evidence=facts.evidence,
+        )
+    )
+
+
 @pytest.mark.parametrize("name,kind", [("Public", "public"), ("_Private", "private")])
 def test_type_alias_visibility_retains_its_python_convention(tmp_path, name, kind):
     from test_member_inventory import _observation
@@ -132,6 +174,59 @@ def test_static_instances_never_claim_an_empty_complete_inventory(
     assert coverage
     assert all(item.status in {"partial", "unavailable"} and item.reason for item in coverage)
     assert any(item.status == "partial" for item in coverage)
+
+
+@pytest.mark.parametrize("language", ["python", "typescript"])
+def test_call_result_bindings_keep_identity_initializer_and_creation(language, tmp_path):
+    if language == "python":
+        observation = _source_observation(
+            tmp_path,
+            "class Client: pass\ndef build():\n client = Client()\n return client\n",
+        )
+        graph = _graph(observation)
+    else:
+        from test_typescript_collect import _facts as collect_typescript
+
+        facts = collect_typescript(
+            tmp_path,
+            {
+                "src/main.ts": (
+                    "class Client {}\n"
+                    "export function build() {\n"
+                    "  const client = new Client();\n"
+                    "  return client;\n"
+                    "}\n"
+                )
+            },
+        )
+        observation = facts
+        graph = _graph_from_source_facts(facts, ("src",))
+
+    calls = (
+        observation.records("calls")
+        if language == "python"
+        else next(section.records for section in observation.sections if section.name == "calls")
+    )
+    call = next(
+        record
+        for record in calls
+        if record.data.get("construction") is not None and record.data.get("result_bindings")
+    )
+    result_binding = call.data.get("result_bindings")[0]
+    bindings = [item for item in graph.entities if item.id == result_binding.get("id")]
+    assert len(bindings) == 1
+    binding = bindings[0]
+    assert binding.kind == "binding"
+    assert binding.initializer == ("Client()" if language == "python" else "new Client()")
+    construction = next(
+        item
+        for item in graph.relationships
+        if item.kind == "creates" and call.id in item.record_ids
+    )
+    assert construction.resolution == "resolved"
+    assert construction.target_id is not None
+    entities = {item.id: item for item in graph.entities}
+    assert entities[construction.target_id].qualified_name.endswith("Client")
 
 
 def test_legacy_signatures_keep_unknown_parameter_details(observation) -> None:

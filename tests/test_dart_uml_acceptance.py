@@ -7,15 +7,59 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 
-from archkeel.ir.codec import load_inside_contract_tree, parse_contract
+from archkeel.check.uml_compare import compare_graphs
+from archkeel.ir.codec import (
+    decode_canonical_model,
+    load_inside_contract_tree,
+    parse_contract,
+    parse_observation,
+)
+from archkeel.ir.source_graph import observed_graph
 from archkeel.ir.target_graph import declared_graph, declared_tree_graph
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "H-uml-dart"
 PROVENANCE = "docs/target.md"
+
+
+def test_checkout_cli_report_fulfills_independent_target(tmp_path: Path) -> None:
+    dart = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
+    if dart is None:
+        pytest.skip("Dart SDK is not installed; CLI acceptance requires Dart")
+    cli = shutil.which("archkeel")
+    assert cli is not None
+    output = tmp_path / "architecture.json"
+    result = subprocess.run(
+        [
+            cli,
+            "report",
+            "--root",
+            str(FIXTURE),
+            "--output",
+            str(output),
+            "--json",
+        ],
+        capture_output=True,
+        check=False,
+        env={**os.environ, "DART_EXECUTABLE": dart},
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout)
+    assert report["observation_complete"] == "PASS"
+    assert report["declared_rules"] == "PASS"
+    observation = parse_observation(
+        decode_canonical_model(json.loads(output.read_text(encoding="utf-8")))
+    )
+    comparison = compare_graphs(observed_graph(observation), _target_graph()[1])
+    assert len([item for item in comparison.assessments if item.aspect == "relationship"]) == 20
+    assert all(item.status == "PASS" for item in comparison.assessments), comparison.assessments
 
 
 def _target_graph():

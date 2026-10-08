@@ -238,7 +238,10 @@ def test_native_declarations_match_the_independently_reviewed_checkout_target() 
                 enum_literals[qualified_name] = set(data.get("enum_members", ()))
 
     target_entities = []
-    for contract in sorted((fixture / "contracts").glob("*.json")):
+    for contract in (
+        fixture / "architecture-contract.json",
+        *sorted((fixture / "contracts").glob("*.json")),
+    ):
         payload = json.loads(contract.read_text(encoding="utf-8"))
         target_entities.extend(payload["declarations"]["uml"]["entities"])
     by_id = {item["id"]: item for item in target_entities}
@@ -408,6 +411,36 @@ String receipt(Order order) { final receiptId = order.id; return receiptId; }
     assert not facts.sections[[section.name for section in facts.sections].index("calls")].records
 
 
+def test_native_typedef_bases_resolve_to_the_aliased_classifier(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """class Base {}
+typedef Alias = Base;
+class Child extends Alias {}
+class Implements implements Alias {}
+""",
+    )
+    facts = _native_facts(tmp_path)
+    graph = _source_graph(facts)
+    by_id = {item.id: item for item in graph.entities}
+    bases = {
+        (item.kind, by_id[item.source_id].qualified_name): (
+            by_id[item.target_id].qualified_name if item.target_id else None,
+            item.resolution,
+        )
+        for item in graph.relationships
+        if item.kind in {"inherits", "realizes"}
+    }
+    assert bases[("inherits", "commerce.main.Child")] == (
+        "commerce.main.Base",
+        "resolved",
+    )
+    assert bases[("realizes", "commerce.main.Implements")] == (
+        "commerce.main.Base",
+        "resolved",
+    )
+
+
 def test_native_sites_keep_unprovable_and_shadowed_bindings_unknown(tmp_path: Path) -> None:
     _write_package(
         tmp_path,
@@ -535,6 +568,10 @@ def test_native_import_combinators_intersect_and_preserve_empty_dependencies(
     (tmp_path / "lib/empty.dart").write_text(
         "import 'b.dart' show A hide A;\nvoid empty() {}\n", encoding="utf-8"
     )
+    (tmp_path / "lib/conditional.dart").write_text(
+        "import 'b.dart' if (dart.library.io) 'b.dart';\nvoid conditional() {}\n",
+        encoding="utf-8",
+    )
     facts = _native_facts(tmp_path)
     imports = [
         dict(record.data.entries)
@@ -550,6 +587,20 @@ def test_native_import_combinators_intersect_and_preserve_empty_dependencies(
     assert empty_dependency["target_module"] == "commerce.b"
     assert empty_dependency["symbol"] is None
     assert empty_dependency["symbols_known"] is False
+    conditional_records = [
+        record
+        for section in facts.sections
+        if section.name == "imports"
+        for record in section.records
+        if record.data.get("source_module") == "commerce.conditional"
+    ]
+    alternatives = [dict(record.data.entries) for record in conditional_records]
+    assert len(alternatives) == 1
+    conditional_targets = [
+        target for target in facts.imports if target.import_id == conditional_records[0].id
+    ]
+    assert len(conditional_targets) == 1
+    assert conditional_targets[0].file == "lib/b.dart"
 
 
 def test_native_sites_keep_part_declarations_in_the_library_scope(tmp_path: Path) -> None:

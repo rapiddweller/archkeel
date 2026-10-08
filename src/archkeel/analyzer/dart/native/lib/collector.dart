@@ -300,6 +300,7 @@ class DartCollector {
           _ => null,
         };
         if (namespaceDirective == null) continue;
+        final seenUris = <String>{};
         for (final uriNode in [
           namespaceDirective.uri,
           ...namespaceDirective.configurations.map(
@@ -307,7 +308,7 @@ class DartCollector {
           ),
         ]) {
           final uri = uriNode.stringValue;
-          if (uri == null) continue;
+          if (uri == null || !seenUris.add(uri)) continue;
           final target = _importTarget(source, uri, package, sources);
           final module = moduleForSource[source.rel] ?? source.module;
           final combinators = switch (directive) {
@@ -735,8 +736,9 @@ class DartCollector {
     NamedType type,
     String kind,
   ) {
-    final target = definitions[type.element];
-    final isResolved = target != null && symbolByQualified.containsKey(target);
+    final target = definitions[type.type?.element];
+    final targetRecord = target == null ? null : symbolByQualified[target];
+    final isResolved = targetRecord?['kind'] == 'class';
     return {
       'id': _id('DARTBASE', [source.rel, type.offset, kind]),
       'relationship_kind': kind,

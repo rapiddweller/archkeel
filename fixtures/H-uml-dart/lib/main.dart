@@ -3,6 +3,8 @@ import 'ordering/application/checkout_service.dart';
 import 'ordering/domain/orders/order.dart';
 import 'presentation/controller.dart';
 
+const APP_VERSION = '1.0.0';
+
 void main() {
   final repository = InMemoryOrderRepository();
   final checkout = CheckoutService(repository);
