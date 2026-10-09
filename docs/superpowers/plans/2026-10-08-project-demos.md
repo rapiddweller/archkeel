@@ -173,13 +173,14 @@
 
 ### Task 9: Verify Nest/Mikro source-resolution feasibility
 
-**Files:** inspect the pinned `fixtures/L-nest-realworld/{package.json,yarn.lock,tsconfig.json,tsconfig.build.json,src/**}` inputs and the existing TypeScript resolver/profile tests; change only a measured shared resolver defect and its focused tests if the pinned project demonstrates one.
+**Files:** inspect the pinned `fixtures/L-nest-realworld/{package.json,yarn.lock,tsconfig.json,tsconfig.build.json,src/**}` inputs; modify bounded TypeScript `resolve.py`, `parse.py`, `collect.py` and focused resolver/parser/collector tests. Add pinned `resolver-inputs/**` and portable resolver provenance; preserve package-local licenses. No application source edits.
 
 **Interface:** consumes Task 1's immutable snapshot and 41 prepared build inputs. Produces a reproducible resolution report and a bounded decision on whether the existing Tree-sitter profile can preserve internal project facts without ambient packages or weakening source scope.
 
 - [ ] Inspect exact pinned package exports, TypeScript settings and source imports, including the README-derived config copies. Do not install packages or inspect ambient `node_modules`; explicitly captured resolver inputs are permitted inside isolated snapshots.
 - [ ] Reproduce the NodeNext export behavior with the existing resolver. Confirm whether the blanket export rejection affects this fixture and identify the smallest supported resolution shape, if any.
 - [ ] Record resolved/unresolved internal imports and remaining syntax limits. Preserve unsupported external/decorator facts as UNKNOWN. Do not change upstream inputs, add compatibility aliases, or lower required scope.
+- [ ] Preserve explicit async declaration syntax through typed `Definition.is_async` and the existing `data["async"]` shared UML field. A parser probe proves the anonymous async token differs from a method named `async`; add RED→GREEN parser/graph tests for async method/function and non-async Promise-returning/named-async negatives. Do not infer runtime concurrency or expand arrow/dispatch coverage.
 - [ ] If a shared resolver defect is proven, add a focused failing test first, apply the smallest fix and independently review it. Preserve the copied `import(id)` behavior and its coverage gap; do not force a dynamic import to a static target. Otherwise record the limitation without claiming comparison feasibility; Task 11 must demonstrate a non-null comparison on the complete input inventory.
 
 ### Task 10: Author the Nest/Mikro Target (no collection)
@@ -206,12 +207,13 @@
 
 ### Task 12: Put full projects first in the gallery
 
-**Files:** modify `fixtures/architecture_demo.py`, `tools/report_pages.py`, `tools/report_browser.py`, `tools/ci_changes.py`, `docs/architecture-demo.md`, `README.md`; tests `tests/test_report_pages.py`, `tests/test_report_browser.py`, `tests/test_ci_changes.py`, and three project report test files.
+**Files:** modify `fixtures/architecture_demo.py`, `tools/report_pages.py`, `tools/report_browser.py`, `tools/ci_changes.py`, `docs/architecture-demo.md`, `README.md`; tests `tests/test_report_pages.py`, `tests/test_report_browser.py`, `tests/test_ci_changes.py`, `Makefile`, `tests/test_make_gate.py`, and three project report test files.
 
 **Interfaces:** consumes accepted base/FAIL/UNKNOWN reports from Tasks 6, 8 and 11. Uses existing `demo-uml`, `report-pages`, and `report-browser` targets.
 
 - [ ] Add three named Project journey entries ahead of technical cases, each with source pin/scope, connected feature, Target depth and evidence limits linked to its canonical report.
 - [ ] Group each project's three source-only variants under it. Keep existing PASS/FAIL/UNKNOWN controls labeled as rule fixtures, and `I-flutter-shop` explicitly as a smaller runnable control.
+- [ ] Route all three fixture trees through existing report CI classification. Add Python and Nest report-test paths beside Compass in `pr-report-test`, and assert all three in the existing Make gate test. Preserve the full-report two-worker repair.
 - [ ] Extend browser acceptance to exercise desktop and mobile As-Is, Target and non-null Diff at nested component/library/class/member/source evidence. Verify overview/detail links, keyboard focus, selection and overflow; button presence or screenshots alone do not pass.
 - [ ] Run `make report-pages` and `make report-browser`; record navigation receipts and commit/review.
 
