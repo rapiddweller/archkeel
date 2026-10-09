@@ -97,7 +97,16 @@ def test_compass_reports_keep_target_comparison_and_partial_coverage_distinct(
     for variant_id, comparison_status in expected_comparison.items():
         output = tmp_path / f"{variant_id}.json"
         assert replay(variant_id, output) == expected_exit[variant_id]
-        capsys.readouterr()
+        summaries = [
+            json.loads(line)
+            for line in capsys.readouterr().out.splitlines()
+            if line.startswith("{") and line.endswith("}")
+        ]
+        report_summary = next(item for item in summaries if item.get("command") == "report")
+        assert report_summary["exit_code"] == 2
+        assert report_summary["observation_complete"] == "UNKNOWN"
+        assert report_summary["declared_rules"] == "UNKNOWN"
+        assert report_summary["coverage"]["status"] == "FAIL"
         raw = json.loads(output.read_text(encoding="utf-8"))
         if variant_id == "compass-project":
             assert raw["source"]["source_digest"] == SOURCE_DIGEST
@@ -156,15 +165,24 @@ def test_compass_reports_keep_target_comparison_and_partial_coverage_distinct(
     assert call_assessments["compass-project"].evidence_ids[0] == "EVD-629d35e6ef2c2631"
     assert "EVD-629d35e6ef2c2631" in call_assessments["compass-dynamic-unknown"].evidence_ids
 
+    signature_subject = (
+        "domain:method-compass-domain-use-cases-booking-booking-create-use-case-"
+        "bookingcreateusecase-createfrom"
+    )
+    baseline_signature = next(
+        item
+        for item in reports["compass-project"].comparison.assessments
+        if item.subject_id == signature_subject and item.aspect == "signature"
+    )
     signature = next(
         item
         for item in reports["compass-signature-fail"].comparison.assessments
-        if item.subject_id
-        == "domain:method-compass-domain-use-cases-booking-booking-create-use-case-"
-        "bookingcreateusecase-createfrom"
-        and item.aspect == "signature"
+        if item.subject_id == signature_subject and item.aspect == "signature"
     )
+    assert baseline_signature.status == "PASS"
     assert signature.status == "FAIL"
+    assert baseline_signature.subject_id == signature.subject_id
+    assert baseline_signature.evidence_ids == signature.evidence_ids
     assert signature.evidence_ids == ("EVD-cc18c41f101b2432",)
     dynamic_annotation = next(
         item
