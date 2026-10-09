@@ -568,6 +568,18 @@ def test_python_http_module_scope_preserves_nested_ownership_and_target_routes(
                 if in_scope(module["component_id"], identity_scope)
             }
             assert identity_modules
+            retry_scope = next(
+                component["id"]
+                for component in atlas["components"]
+                if component["parent_id"] == scope_id
+                and component["id"] not in {identity_scope, deep_id}
+            )
+            retry_modules = {
+                module["id"]
+                for module in atlas["declared_modules"]
+                if in_scope(module["component_id"], retry_scope)
+            }
+            assert retry_modules
             assert page.evaluate("typeof window.ELK") == "function"
             page.evaluate("""() => {
               const prototype = window.ELK.prototype;
@@ -594,7 +606,7 @@ def test_python_http_module_scope_preserves_nested_ownership_and_target_routes(
                 "id => new URLSearchParams(location.search).get('scope') === id",
                 arg=identity_scope,
             )
-            page.wait_for_function("() => typeof window.__rejectAtlasLayout === 'function'")
+            page.wait_for_function("() => typeof window.__resolveAtlasLayout === 'function'")
             page.locator('[data-atlas-depth="1"]').click()
             page.wait_for_function(
                 "id => new URLSearchParams(location.search).get('scope') === id",
@@ -604,17 +616,10 @@ def test_python_http_module_scope_preserves_nested_ownership_and_target_routes(
             page.wait_for_function(
                 "() => document.querySelectorAll('[data-uml-kind=module]').length === 21"
             )
-            page.evaluate("""async () => {
-              await window.__resolveAtlasLayout();
-              await new Promise(resolve => requestAnimationFrame(
-                () => requestAnimationFrame(resolve)));
-            }""")
-            assert parse_qs(urlsplit(page.url).query).get("scope") == [scope_id]
-            assert page.locator('.flow-nodes [data-uml-kind="module"]').count() == 21
-            page.locator(f'.flow-frames [data-uml-id="{identity_scope}"]').press("Enter")
+            page.locator(f'.flow-frames [data-uml-id="{retry_scope}"]').press("Enter")
             page.wait_for_function(
                 "id => new URLSearchParams(location.search).get('scope') === id",
-                arg=identity_scope,
+                arg=retry_scope,
             )
             page.wait_for_function("() => typeof window.__rejectAtlasLayout === 'function'")
             page.locator('[data-atlas-depth="1"]').click()
@@ -631,15 +636,23 @@ def test_python_http_module_scope_preserves_nested_ownership_and_target_routes(
               await new Promise(resolve => requestAnimationFrame(
                 () => requestAnimationFrame(resolve)));
             }""")
-            page.locator(f'.flow-frames [data-uml-id="{identity_scope}"]').press("Enter")
+            assert parse_qs(urlsplit(page.url).query).get("scope") == [scope_id]
+            assert page.locator('.flow-nodes [data-uml-kind="module"]').count() == 21
+            page.locator(f'.flow-frames [data-uml-id="{retry_scope}"]').press("Enter")
             page.wait_for_function(
                 "id => new URLSearchParams(location.search).get('scope') === id",
-                arg=identity_scope,
+                arg=retry_scope,
             )
+            page.wait_for_function("() => typeof window.__rejectAtlasLayout === 'function'")
             page.wait_for_function(
                 "count => document.querySelectorAll('[data-uml-kind=module]').length === count",
-                arg=len(identity_modules),
+                arg=len(retry_modules),
             )
+            page.evaluate("""async () => {
+              await window.__resolveAtlasLayout();
+              await new Promise(resolve => requestAnimationFrame(
+                () => requestAnimationFrame(resolve)));
+            }""")
             assert page.evaluate("window.__atlasLayoutCalls") == 3
             assert (
                 set(
@@ -647,7 +660,7 @@ def test_python_http_module_scope_preserves_nested_ownership_and_target_routes(
                         "nodes => nodes.map(node => node.dataset.umlId)"
                     )
                 )
-                == identity_modules
+                == retry_modules
             )
             page.evaluate("""() => {
               window.ELK.prototype.layout = window.__originalAtlasLayout;

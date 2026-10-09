@@ -665,6 +665,191 @@ def test_atlas_browser_keeps_positions_and_unknown_cells_across_lenses(tmp_path,
         playwright.stop()
 
 
+def test_atlas_component_layout_keeps_union_geometry_and_active_edges(tmp_path):
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        other_component=True,
+        extra_files={"sample/other.py": "import sample.core\n"},
+    )
+    html = _page(model)
+    match = re.search(
+        r'(<script id="flow-data" type="application/json">)(.*?)(</script>)', html, re.S
+    )
+    assert match is not None
+    data = json.loads(match.group(2))
+    atlas = data["atlas"]
+    components = atlas["components"]
+    by_id = {component["id"]: component for component in components}
+    peer_index = next(
+        index for index, component in enumerate(components) if component["id"] == "peer"
+    )
+
+    peer_edge_id = by_id["peer"]["requires"][0]["id"]
+    parallel = dict(by_id["peer"]["requires"][0], id="parallel-peer-core")
+    by_id["peer"]["requires"].append(parallel)
+    cycle = dict(by_id["peer"]["requires"][0], id="cycle-core-peer", target_id=peer_index)
+    by_id["core"]["requires"].append(cycle)
+    html = (
+        html[: match.start()]
+        + match.group(1)
+        + json.dumps(data, separators=(",", ":"))
+        + match.group(3)
+        + html[match.end() :]
+    )
+
+    api = pytest.importorskip("playwright.sync_api")
+    errors = []
+    path = tmp_path / "architecture.report.html"
+    path.write_text(html)
+    playwright, browser, page = _browser_page(api, html, width=390, errors=errors)
+    try:
+        page.goto(path.as_uri())
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=component]').length === 3"
+        )
+        assert page.evaluate("""() => {
+          const canvas = document.querySelector('.flow-canvas').getBoundingClientRect();
+          return [...document.querySelectorAll('.flow-nodes [data-uml-kind=component] .card')]
+            .some(card => {
+              const box = card.getBoundingClientRect();
+              return box.left >= canvas.left && box.right <= canvas.right
+                && box.top >= canvas.top && box.bottom <= canvas.bottom;
+            });
+        }"""), "the initial mobile component view must show a complete card"
+        page.locator('[data-flow-view="diagram"]').click()
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=component]').length === 3"
+        )
+
+        def scene() -> dict:
+            return page.evaluate("""() => ({
+            nodes: [...document.querySelectorAll('.flow-nodes [data-uml-kind="component"]')]
+                .map(node => {
+                  const box = node.getBoundingClientRect();
+                  const card = node.querySelector('.card');
+                  return {id: node.dataset.umlId, transform: node.getAttribute('transform'),
+                    x: box.x, y: box.y, right: box.right, bottom: box.bottom,
+                    width: card.getAttribute('width'), height: card.getAttribute('height')};
+                }),
+              edges: [...document.querySelectorAll('.flow-edges > g[data-uml-source]')]
+                .map(edge => ({id: edge.dataset.umlId, source: edge.dataset.umlSource,
+                  target: edge.dataset.umlTarget, classes: [...edge.classList],
+                  tooltip: edge.querySelector('.line title')?.textContent,
+                  labels: [...edge.querySelectorAll('.atlas-edge-label')]
+                    .map(label => label.textContent),
+                  path: edge.querySelector('.line').getAttribute('d')})),
+              labels: [...document.querySelectorAll('.atlas-edge-label')].map(label => {
+                const box = label.getBoundingClientRect();
+                return {text: label.textContent, x: box.x, y: box.y,
+                  right: box.right, bottom: box.bottom};
+              })
+            })""")
+
+        target_edge_ids = {"cycle-core-peer", "parallel-peer-core", peer_edge_id}
+        views = {}
+        for lens in ("As-Is", "Target", "Diff"):
+            page.get_by_role("button", name=lens, exact=True).click()
+            expected_count = 3 if lens == "Target" else 2
+            page.wait_for_function(
+                "count => document.querySelectorAll('.flow-edges > g[data-uml-source]').length "
+                "=== count",
+                arg=expected_count,
+            )
+            views[lens] = scene()
+
+        positions = {
+            lens: {node["id"]: node["transform"] for node in view["nodes"]}
+            for lens, view in views.items()
+        }
+        dimensions = {
+            lens: {node["id"]: (node["width"], node["height"]) for node in view["nodes"]}
+            for lens, view in views.items()
+        }
+        assert positions["As-Is"] == positions["Target"] == positions["Diff"]
+        assert dimensions["As-Is"] == dimensions["Target"] == dimensions["Diff"]
+        assert len({positions["Target"]["core"], positions["Target"]["peer"]}) == 2
+
+        root_level = next(level for level in atlas["levels"] if level["parent_id"] is None)
+        expected_observed = {
+            f"observed:{edge['source_id']}>{edge['target_id']}": edge
+            for edge in root_level["edges"]
+        }
+        deviations = {
+            (item["source_id"], item["target_id"]): item["kind"] for item in atlas["deviations"]
+        }
+        state_for_status = {"FAIL": "violation", "UNKNOWN": "undecided"}
+        expected_observed_labels = {
+            edge_id: f"{edge['import_sites']} import" + ("s" if edge["import_sites"] != 1 else "")
+            for edge_id, edge in expected_observed.items()
+        }
+        for lens in ("As-Is", "Diff"):
+            edges = {edge["id"]: edge for edge in views[lens]["edges"]}
+            assert set(edges) == set(expected_observed)
+            for edge_id, source_edge in expected_observed.items():
+                pair = (source_edge["source_id"], source_edge["target_id"])
+                state = (
+                    "violation"
+                    if lens == "Diff" and deviations.get(pair) == "undeclared"
+                    else state_for_status.get(source_edge["status"], "observed")
+                )
+                assert state in edges[edge_id]["classes"]
+                assert edges[edge_id]["labels"] == [expected_observed_labels[edge_id]]
+        observed = {(edge["source"], edge["target"]) for edge in views["As-Is"]["edges"]}
+        declared = {(edge["source"], edge["target"]) for edge in views["Target"]["edges"]}
+        assert ("other", "core") in observed
+        assert ("other", "core") not in declared
+        assert ("core", "peer") in declared
+        assert {edge["id"] for edge in views["Target"]["edges"]} == target_edge_ids
+        target_declarations = {
+            edge["id"]: edge for component in components for edge in component["requires"]
+        }
+        target_edges = {edge["id"]: edge for edge in views["Target"]["edges"]}
+        for edge_id in target_edge_ids:
+            declaration = target_declarations[edge_id]
+            rationale = atlas["reference_ids"][declaration["rationale_ref"]]
+            assert "declared" in target_edges[edge_id]["classes"]
+            assert target_edges[edge_id]["labels"] == ["requires"]
+            assert rationale in target_edges[edge_id]["tooltip"]
+        assert (
+            sum(
+                edge["source"] == "peer" and edge["target"] == "core"
+                for edge in views["Target"]["edges"]
+            )
+            == 2
+        )
+        assert len(views["Target"]["labels"]) == len(views["Target"]["edges"])
+        assert len({edge["path"] for edge in views["Target"]["edges"]}) == len(
+            views["Target"]["edges"]
+        )
+        assert "violation" in next(
+            edge["classes"]
+            for edge in views["Diff"]["edges"]
+            if edge["id"] == "observed:other>core"
+        )
+        for view in views.values():
+            for label in view["labels"]:
+                for node in view["nodes"]:
+                    assert (
+                        label["right"] <= node["x"] + 1
+                        or node["right"] <= label["x"] + 1
+                        or label["bottom"] <= node["y"] + 1
+                        or node["bottom"] <= label["y"] + 1
+                    ), (label, node)
+            for left_index, left in enumerate(view["labels"]):
+                for right in view["labels"][left_index + 1 :]:
+                    assert (
+                        left["right"] <= right["x"] + 1
+                        or right["right"] <= left["x"] + 1
+                        or left["bottom"] <= right["y"] + 1
+                        or right["bottom"] <= left["y"] + 1
+                    ), (left, right)
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 def test_diff_balance_links_select_the_deviation_source(tmp_path):
     api = pytest.importorskip("playwright.sync_api")
     html = _page(_sample(tmp_path))
@@ -841,7 +1026,7 @@ def test_findings_show_only_distinct_nested_annotation_without_deduplication(tmp
     assert "nested_annotation" not in by_id[violations[1].id]
 
 
-def test_target_view_is_independent_of_observed_evidence(tmp_path):
+def test_target_content_is_independent_of_observed_evidence(tmp_path):
     from archkeel.check.ports import ScanConfig
 
     api = pytest.importorskip("playwright.sync_api")
@@ -905,6 +1090,20 @@ def test_target_view_is_independent_of_observed_evidence(tmp_path):
                 item for item in atlas["declared_modules"] if item["component_id"] == "peer"
             )
             page.get_by_role("button", name="Target", exact=True).click()
+            target_component_ids = set(root_levels[0]["component_ids"])
+            target_edge_count = sum(
+                1
+                for component in atlas["components"]
+                if component["id"] in target_component_ids
+                for edge in component["requires"]
+                if atlas["components"][edge["target_id"]]["id"] in target_component_ids
+            )
+            page.wait_for_function(
+                "count => { const edges = [...document.querySelectorAll("
+                "'.flow-edges > g[data-uml-source]')]; return edges.length === count "
+                "&& edges.every(edge => edge.classList.contains('declared')); }",
+                arg=target_edge_count,
+            )
             page.evaluate(
                 """async () => {
                   await document.fonts.ready;
@@ -918,13 +1117,22 @@ def test_target_view_is_independent_of_observed_evidence(tmp_path):
             cards = page.locator(".flow-nodes > g").evaluate_all("""nodes => nodes.map(node => ({
               id: node.dataset.umlId,
               label: node.dataset.label,
-              transform: node.getAttribute('transform'),
+              width: node.querySelector('.card')?.getAttribute('width'),
               height: node.querySelector('.card')?.getAttribute('height'),
               text: [...node.querySelectorAll('text')].map(item => item.textContent).join(' | '),
               findingChips: node.querySelectorAll('.atlas-finding-chip').length,
               deviationChips: node.querySelectorAll('.atlas-deviation-chip').length
             }))""")
             assert all(item["findingChips"] == item["deviationChips"] == 0 for item in cards)
+            target_edges = page.locator(".flow-edges > g[data-uml-source]").evaluate_all(
+                """edges => edges.map(edge => ({
+                  id: edge.dataset.umlId, source: edge.dataset.umlSource,
+                  target: edge.dataset.umlTarget, state: edge.getAttribute('class'),
+                  labels: [...edge.querySelectorAll('.atlas-edge-label')]
+                    .map(label => label.textContent)
+                }))"""
+            )
+            assert all(edge["state"].split()[1] == "declared" for edge in target_edges)
             legend = page.locator(".flow-legend").inner_text()
             assert "observed import sites" not in legend
             assert "declared" in legend.lower()
@@ -937,7 +1145,9 @@ def test_target_view_is_independent_of_observed_evidence(tmp_path):
             page.locator("[data-browse-component]").click()
             page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').click()
             module_sheet = page.locator(".flow-inspector-content").inner_text()
-            target_views.append((root_sheet, cards, legend, component_sheet, module_sheet))
+            target_views.append(
+                (root_sheet, cards, target_edges, legend, component_sheet, module_sheet)
+            )
         finally:
             browser.close()
             playwright.stop()
@@ -1157,7 +1367,7 @@ def test_tour_nested_scope_chips_balances_and_deviation_links(tmp_path):
             store_card = page.locator(f'.flow-nodes [data-uml-id="{store["id"]}"]')
             if lens == "Target":
                 assert store_card.locator(".atlas-finding-chip, .atlas-deviation-chip").count() == 0
-                assert store_card.locator(".card").get_attribute("height") == "164"
+                assert store_card.locator(".card").get_attribute("height") == "178"
             else:
                 assert (
                     store_card.locator(".atlas-finding-chip").text_content() == "7 findings inside"
@@ -1204,6 +1414,11 @@ def test_tour_nested_scope_chips_balances_and_deviation_links(tmp_path):
             page.locator('.atlas-content-choice [data-content="components"]').click()
             assert (
                 "7 recorded failing findings" in page.locator(".atlas-scoped-findings").inner_text()
+            )
+            page.wait_for_function(
+                "count => [...document.querySelectorAll('.flow-nodes > g')]"
+                ".filter(node => node.dataset.umlKind === 'component').length === count",
+                arg=len(store_level["component_ids"]),
             )
             for component_id in store_level["component_ids"]:
                 child_level = next(
@@ -1958,6 +2173,10 @@ def test_offline_import_cell_return_preserves_native_cell_and_source_lens(tmp_pa
         page.get_by_role("button", name="As-Is", exact=True).click()
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
         assert "cell=0" in page.url and "view=diff" in page.url and "theme=dark" in page.url
+        page.wait_for_function(
+            "expected => document.querySelector('.flow-inspector-content').innerText === expected",
+            arg=before,
+        )
         assert page.locator(".flow-inspector-content").inner_text() == before
         page.goto(index.as_uri() + "?view=target&cell=0&theme=dark")
         assert "cell=" not in page.url
@@ -2095,20 +2314,35 @@ def test_components_and_modules_choice_uses_native_scope_and_survives_return(tmp
         choice.get_by_role("button", name=re.compile("^Modules")).click()
         assert "content=modules" in page.url
         assert page.locator(".flow-canvas").is_visible()
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length > 0"
+        )
         assert page.locator('.flow-nodes [data-uml-kind="module"]').count() > 0
         page.reload()
         assert "content=modules" in page.url
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length > 0"
+        )
         page.get_by_role("button", name="Diff", exact=True).click()
         assert "content=modules" in page.url and "view=diff" in page.url
         choice.get_by_role("button", name=re.compile("^Components")).click()
         assert "content=components" in page.url and page.locator(".flow-canvas").is_visible()
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=component]').length > 0"
+        )
         page.go_back()
         assert "content=modules" in page.url and page.locator(".flow-canvas").is_visible()
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length > 0"
+        )
         page.locator('.flow-nodes [data-uml-kind="module"]').first.press("Enter")
         assert "return_content=modules" in page.url
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
         assert "scope=ROOT" in page.url and "content=modules" in page.url
         assert "view=diff" in page.url and "theme=dark" in page.url
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length > 0"
+        )
         assert not errors
     finally:
         browser.close()

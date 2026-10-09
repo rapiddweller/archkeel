@@ -11,6 +11,10 @@ Target shows independent intent; Diff uses Core correspondences. Rendering must
 not infer ownership, endpoints, realization or PASS. Permissions are declarations,
 not passed checks. Missing comparison is not no change.
 
+Atlas component positions are shared across As-Is, Target and Diff within a
+report snapshot; changed source relationships may change that shared layout.
+Target edges, labels and statuses remain authored-only.
+
 Show verdict word, symbol and reason; color alone is insufficient. Baselined
 violations remain visibly FAIL with known-debt status. Filters and Focus retain
 complete counts and evidence. An empty graph says no matching edges at this level
