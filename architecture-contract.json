@@ -642,11 +642,13 @@
       "kind": "external_dependency_scope",
       "dependency": "tree_sitter",
       "exact_sources": [
-        "archkeel.analyzer.typescript.parse"
+        "archkeel.analyzer.typescript.parse",
+        "archkeel.analyzer.dart.parse"
       ],
-      "rationale": "Only the TypeScript parse module touches the parser library, so no other module depends on its node types.",
+      "rationale": "Only the language parse modules touch Tree-sitter; parser nodes stay behind the syntax boundary.",
       "provenance": [
-        "docs/architecture/decisions/ad-210-typescript-frontend-ships-in-the-package.md"
+        "docs/architecture/decisions/ad-210-typescript-frontend-ships-in-the-package.md",
+        "docs/architecture/dart-python-target.md"
       ],
       "decided_by": "agent"
     },
@@ -818,6 +820,19 @@
           "annotation": "dict[str, bytes]"
         }
       ]
+    },
+    {
+      "id": "EXTERNAL-TREE-SITTER-DART-GRAMMAR",
+      "kind": "external_dependency_scope",
+      "dependency": "tree_sitter_dart",
+      "exact_sources": [
+        "archkeel.analyzer.dart.parse"
+      ],
+      "rationale": "Only the Dart syntax parser loads the pinned Dart grammar.",
+      "provenance": [
+        "docs/architecture/dart-python-target.md"
+      ],
+      "decided_by": "agent"
     }
   ]
 }
