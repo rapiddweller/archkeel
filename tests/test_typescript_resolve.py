@@ -4,6 +4,7 @@
 """The resolver is at least as strict as the compiler: what it cannot prove is UNKNOWN."""
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -270,6 +271,211 @@ def test_package_exports_and_typesversions_are_unknown_where_the_compiler_reads_
     else:
         assert isinstance(result, Unknown)
         assert unknown in result.reason
+
+
+def test_package_exports_resolve_exact_javascript_target_to_declaration(tmp_path: Path) -> None:
+    resolver = _resolver(
+        tmp_path,
+        {
+            "node_modules/pkg/package.json": json.dumps({"exports": {".": "./index.js"}}),
+            "node_modules/pkg/index.d.ts": _EMPTY,
+            "node_modules/pkg/index.js": _EMPTY,
+        },
+        NODENEXT,
+    )
+
+    assert _path(resolver.resolve("pkg", "src/main.ts", "cjs")) == "node_modules/pkg/index.d.ts"
+
+
+@pytest.mark.parametrize(
+    ("exports", "mode", "expected"),
+    [
+        ('"./index.js"', "esm", "node_modules/pkg/index.d.ts"),
+        (
+            '{".": {"types": "./types.d.ts", "import": "./index.js", "default": "./fallback.js"}}',
+            "esm",
+            "node_modules/pkg/types.d.ts",
+        ),
+        (
+            '{".": {"require": "./require.cjs", "default": "./fallback.js"}}',
+            "cjs",
+            "node_modules/pkg/require.cts",
+        ),
+        ('{"./legacy": "./legacy/index.js"}', "cjs", "node_modules/pkg/legacy/index.d.ts"),
+    ],
+)
+def test_package_exports_select_supported_exact_targets(
+    tmp_path: Path, exports: str, mode: Format, expected: str
+) -> None:
+    files = {
+        "src/main.ts": _EMPTY,
+        "node_modules/pkg/package.json": f'{{"exports":{exports}}}',
+        "node_modules/pkg/index.d.ts": _EMPTY,
+        "node_modules/pkg/index.js": _EMPTY,
+        "node_modules/pkg/types.d.ts": _EMPTY,
+        "node_modules/pkg/require.cts": _EMPTY,
+        "node_modules/pkg/fallback.js": _EMPTY,
+        "node_modules/pkg/legacy/index.d.ts": _EMPTY,
+    }
+    resolver = _resolver(tmp_path, files, NODENEXT)
+    specifier = "pkg/legacy" if '"./legacy"' in exports else "pkg"
+    assert _path(resolver.resolve(specifier, "src/main.ts", mode)) == expected
+
+
+def test_exports_do_not_use_commonjs_append_or_directory_fallback(tmp_path: Path) -> None:
+    resolver = _resolver(
+        tmp_path,
+        {
+            "src/main.ts": _EMPTY,
+            "node_modules/pkg/package.json": '{"exports":"./missing"}',
+            "node_modules/pkg/missing.ts": _EMPTY,
+            "node_modules/pkg/missing/index.ts": _EMPTY,
+        },
+        NODENEXT,
+    )
+    result = resolver.resolve("pkg", "src/main.ts", "cjs")
+    assert isinstance(result, Unknown)
+    assert result.reason == "Package exports target is unavailable: pkg"
+
+
+def test_unrecognized_active_export_condition_remains_unknown(tmp_path: Path) -> None:
+    resolver = _resolver(
+        tmp_path,
+        {
+            "src/main.ts": _EMPTY,
+            "node_modules/pkg/package.json": (
+                '{"exports":{".":{"custom":"./custom.js","default":"./index.js"}}}'
+            ),
+            "node_modules/pkg/custom.js": _EMPTY,
+            "node_modules/pkg/index.js": _EMPTY,
+        },
+        NODENEXT,
+    )
+    result = resolver.resolve("pkg", "src/main.ts", "cjs")
+    assert isinstance(result, Unknown)
+    assert result.reason == "Package exports condition is not observed: custom"
+
+
+def test_mixed_export_condition_and_subpath_map_is_unknown(tmp_path: Path) -> None:
+    resolver = _resolver(
+        tmp_path,
+        {
+            "src/main.ts": _EMPTY,
+            "node_modules/pkg/package.json": (
+                '{"exports":{"types":"./index.d.ts",".":"./other.js"}}'
+            ),
+            "node_modules/pkg/index.d.ts": _EMPTY,
+            "node_modules/pkg/other.js": _EMPTY,
+        },
+        NODENEXT,
+    )
+    result = resolver.resolve("pkg", "src/main.ts", "cjs")
+    assert isinstance(result, Unknown)
+    assert result.reason == "Package exports map shape is not observed: pkg"
+
+
+def test_unobserved_export_pattern_is_not_guessed(tmp_path: Path) -> None:
+    resolver = _resolver(
+        tmp_path,
+        {
+            "src/main.ts": _EMPTY,
+            "node_modules/pkg/package.json": '{"exports":{"./*":"./*.js"}}',
+            "node_modules/pkg/feature.js": _EMPTY,
+            "node_modules/pkg/feature.d.ts": _EMPTY,
+        },
+        NODENEXT,
+    )
+    result = resolver.resolve("pkg/feature", "src/main.ts", "cjs")
+    assert isinstance(result, Unknown)
+    assert result.reason == "Package exports patterns are not observed: pkg/feature"
+
+
+@pytest.mark.parametrize(
+    "target", ["../outside.js", "./node_modules/pkg/index.js", "./%2e%2e/out.js", "sentinel"]
+)
+def test_unsupported_export_paths_are_unknown_without_reading_sentinel(
+    tmp_path: Path, target: str
+) -> None:
+    outside = tmp_path.parent / f"{tmp_path.name}-outside.js"
+    outside.write_text(_EMPTY)
+    target = f"./../../../{outside.name}" if target == "sentinel" else target
+    resolver = _resolver(
+        tmp_path,
+        {
+            "src/main.ts": _EMPTY,
+            "node_modules/pkg/package.json": json.dumps({"exports": target}),
+        },
+        NODENEXT,
+    )
+    result = resolver.resolve("pkg", "src/main.ts", "cjs")
+    assert isinstance(result, Unknown)
+    assert not resolver.snapshot.problems
+    assert f"../{outside.name}" not in resolver.snapshot.inputs
+
+
+def test_node_builtin_precedes_conflicting_package_only_after_aliases(tmp_path: Path) -> None:
+    options = {
+        **NODENEXT,
+        "baseUrl": ".",
+        "paths": {"crypto": ["src/crypto.ts"]},
+    }
+    resolver = _resolver(
+        tmp_path,
+        {
+            "src/main.ts": _EMPTY,
+            "src/crypto.ts": _EMPTY,
+            "node_modules/crypto/package.json": '{"main":"index.js"}',
+            "node_modules/crypto/index.js": _EMPTY,
+        },
+        options,
+    )
+    assert _path(resolver.resolve("crypto", "src/main.ts", "cjs", prefer_builtin=True)) == (
+        "src/crypto.ts"
+    )
+    no_alias = _resolver(
+        tmp_path / "plain",
+        {
+            "src/main.ts": _EMPTY,
+            "node_modules/crypto/package.json": '{"main":"index.js"}',
+            "node_modules/crypto/index.js": _EMPTY,
+        },
+        NODENEXT,
+    )
+    assert no_alias.resolve("crypto", "src/main.ts", "cjs", prefer_builtin=True) is None
+    assert _path(no_alias.resolve("crypto", "src/main.ts", "cjs")) == (
+        "node_modules/crypto/index.js"
+    )
+    assert _path(no_alias.resolve("crypto", "src/main.ts", None, prefer_builtin=True)) == (
+        "node_modules/crypto/index.js"
+    )
+
+
+def test_pinned_nest_imports_resolve_from_exact_captured_package_files(tmp_path: Path) -> None:
+    fixture = Path(__file__).parents[1] / "fixtures/L-nest-realworld/resolver-inputs"
+    provenance = json.loads((fixture / "provenance.json").read_text())
+    captured_paths = set()
+    specifiers = []
+    for package in provenance["packages"]:
+        for file in package["files"]:
+            source = fixture / file["path"]
+            destination = tmp_path / "node_modules" / file["path"]
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, destination)
+            captured_paths.add(destination.relative_to(tmp_path).as_posix())
+        specifiers.extend(item["specifier"] for item in package["imports"])
+    config = {
+        "compilerOptions": NODENEXT,
+        "include": ["src"],
+    }
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src/main.ts").write_text(_EMPTY)
+    (tmp_path / "tsconfig.json").write_text(json.dumps(config))
+    snapshot = Snapshot(str(tmp_path))
+    resolver = Resolver(snapshot, load_config(snapshot, "tsconfig.json", ("src",)))
+    results = [resolver.resolve(specifier, "src/main.ts", "cjs") for specifier in specifiers]
+    assert len(results) == 17
+    assert all(isinstance(result, Found) and result.external for result in results)
+    assert {result.path for result in results if isinstance(result, Found)} <= captured_paths
 
 
 @pytest.mark.parametrize("options", [NODENEXT, BUNDLER])

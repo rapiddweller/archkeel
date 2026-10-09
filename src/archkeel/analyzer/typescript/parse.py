@@ -149,6 +149,7 @@ class Definition:
     signature_complete: bool = True
     parent_line: int | None = None
     parent_column: int | None = None
+    is_async: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -462,6 +463,7 @@ def _definition(
         _signature_complete(node),
         parent_location.line if parent_location else None,
         parent_location.column if parent_location else None,
+        is_async=any(child.type == "async" for child in node.children),
     )
 
 

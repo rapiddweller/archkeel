@@ -1,0 +1,631 @@
+{
+  "packages": [
+    {
+      "files": [
+        {
+          "path": "@mikro-orm/core/index.d.ts",
+          "sha256": "b5aa0b1ec635e6c1738fc79f50849bbd958af97caf6f7433e5acfad863314749",
+          "size": 2775
+        },
+        {
+          "path": "@mikro-orm/core/index.js",
+          "sha256": "fd27865a8083eff3d536a439115f1336ff9d5809f181e076b9da0403f5464fc2",
+          "size": 888
+        },
+        {
+          "path": "@mikro-orm/core/package.json",
+          "sha256": "5f4f3415b53aefa22a5d6c73cf78102c0ba24ae0e2b2603165ac589427998774",
+          "size": 1814
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": "./index.js",
+          "package_subpath": ".",
+          "specifier": "@mikro-orm/core"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "@mikro-orm/core/LICENSE",
+        "sha256": "c14ff5e5851d30b20fa7af2ba478af713587917ad1c1c92edde1fa84a82fd532",
+        "size": 1071
+      },
+      "lock_checksum": "10/0152301f2a85b2ed84cacf5564084baa0dd1d3c6de43ab93879073b9589e421d2eb3a90c0ae1c2df9f4c70dbfee6953747c3c51ae42862d2b2254e7b59abfbfa",
+      "lock_locator": "@mikro-orm/core@npm:7.1.11",
+      "name": "@mikro-orm/core",
+      "tarball_integrity": "sha512-LjxeVx7PYIVqFW4WDwjOYSHa7RygEGK1RJhjUC5ldY1xbvhOgntwrKJSxfJjBxGx6G3CL55jX6xT2HjU1WdyaQ==",
+      "tarball_url": "https://registry.npmjs.org/@mikro-orm/core/-/core-7.1.11.tgz",
+      "version": "7.1.11"
+    },
+    {
+      "files": [
+        {
+          "path": "@mikro-orm/decorators/legacy/index.d.ts",
+          "sha256": "503d882e6a9cb371d3d9e5defedf81ac1660e0c0e3909699198e694bc016454e",
+          "size": 612
+        },
+        {
+          "path": "@mikro-orm/decorators/legacy/index.js",
+          "sha256": "503d882e6a9cb371d3d9e5defedf81ac1660e0c0e3909699198e694bc016454e",
+          "size": 612
+        },
+        {
+          "path": "@mikro-orm/decorators/package.json",
+          "sha256": "01ec3e32c7a092de08fc8ddeec98c465957c45c9f79e7aab0097933fd1544396",
+          "size": 1603
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": "./legacy/index.js",
+          "package_subpath": "./legacy",
+          "specifier": "@mikro-orm/decorators/legacy"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "@mikro-orm/decorators/LICENSE",
+        "sha256": "c14ff5e5851d30b20fa7af2ba478af713587917ad1c1c92edde1fa84a82fd532",
+        "size": 1071
+      },
+      "lock_checksum": "10/02b254edf6e1fb7bcb61af0dcb4d0f0763adce9256d9565740ff171b4fa060a7b5577e81013959df4170a333226f33c3f9eade0ebd98d492fda46f39a4b315ec",
+      "lock_locator": "@mikro-orm/decorators@npm:7.1.11",
+      "name": "@mikro-orm/decorators",
+      "tarball_integrity": "sha512-Gye551HFreA2OlYJDn7YXM+sf6fSh0oVM/+M5fsqS1SSsv9G6eOaSC3xN9/0hK6puyPVx1A4BdR8Mzniv3vzJw==",
+      "tarball_url": "https://registry.npmjs.org/@mikro-orm/decorators/-/decorators-7.1.11.tgz",
+      "version": "7.1.11"
+    },
+    {
+      "files": [
+        {
+          "path": "@mikro-orm/migrations/index.d.ts",
+          "sha256": "5990a1223fe7a2a2ca15dff7202e36aad098160158b6feafe88f74fe0011c3ef",
+          "size": 357
+        },
+        {
+          "path": "@mikro-orm/migrations/index.js",
+          "sha256": "a4ab9db112fa1facfbc1b57eed1ce2d6fef590d8b6ad81137e789790f60f86ea",
+          "size": 322
+        },
+        {
+          "path": "@mikro-orm/migrations/package.json",
+          "sha256": "64369790882adecd9bb2d5cb7640a10cb3552a116708342d3b78fc040812b9e0",
+          "size": 1434
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": "./index.js",
+          "package_subpath": ".",
+          "specifier": "@mikro-orm/migrations"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "@mikro-orm/migrations/LICENSE",
+        "sha256": "c14ff5e5851d30b20fa7af2ba478af713587917ad1c1c92edde1fa84a82fd532",
+        "size": 1071
+      },
+      "lock_checksum": "10/aec9a0296577d12254f0af06a28373a251e7392ccfdcbce1f0221f6592c69cac559612a12fbfcd6c33b26b4ad262ea327a4fd2fe1897381258c48993193f2a42",
+      "lock_locator": "@mikro-orm/migrations@npm:7.1.11",
+      "name": "@mikro-orm/migrations",
+      "tarball_integrity": "sha512-9yMYt1ljTenZaRUIW6BUOJtpV43fBOf7uCMe9sj6aoLXAqqWUQGurDuGpN8vFKwOgECwEGJtOmMBjzx2Lx42rg==",
+      "tarball_url": "https://registry.npmjs.org/@mikro-orm/migrations/-/migrations-7.1.11.tgz",
+      "version": "7.1.11"
+    },
+    {
+      "files": [
+        {
+          "path": "@mikro-orm/mysql/index.d.ts",
+          "sha256": "f6ae358ada7e5bea38434bff43f2b34cf36fa3450056a9dac5a8181334ad152e",
+          "size": 561
+        },
+        {
+          "path": "@mikro-orm/mysql/index.js",
+          "sha256": "27726e57d0cdb682e15f9bcd7a8058d23edb9b4852e941e0b608c7338edc6a47",
+          "size": 338
+        },
+        {
+          "path": "@mikro-orm/mysql/package.json",
+          "sha256": "2941119651e1604722b4efc2f204f9d751de2e7086d2aa729cec6c69f4f88658",
+          "size": 1503
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": "./index.js",
+          "package_subpath": ".",
+          "specifier": "@mikro-orm/mysql"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "@mikro-orm/mysql/LICENSE",
+        "sha256": "c14ff5e5851d30b20fa7af2ba478af713587917ad1c1c92edde1fa84a82fd532",
+        "size": 1071
+      },
+      "lock_checksum": "10/3c4e3a86324dceb2c240664f3446d4b2b5d540608039ed62df36918371b62713f5169d8d88709017b7fca5fd6d1cb8473dc1f38d9494c9c18deed24a07c1935c",
+      "lock_locator": "@mikro-orm/mysql@npm:7.1.11",
+      "name": "@mikro-orm/mysql",
+      "tarball_integrity": "sha512-vU3fph7nSyLuxFac+j4sun4M9gwRWVRnWgIX9Ltd6KEs42unwGblBREJsMfiyjfs/DVkBZ4qu+lHxPsirzty3w==",
+      "tarball_url": "https://registry.npmjs.org/@mikro-orm/mysql/-/mysql-7.1.11.tgz",
+      "version": "7.1.11"
+    },
+    {
+      "files": [
+        {
+          "path": "@mikro-orm/nestjs/index.d.ts",
+          "sha256": "0d267e3cf05f40b1256f6285505647ef33ba634f5ddbf30174b99df2c59ce321",
+          "size": 203
+        },
+        {
+          "path": "@mikro-orm/nestjs/index.js",
+          "sha256": "0d267e3cf05f40b1256f6285505647ef33ba634f5ddbf30174b99df2c59ce321",
+          "size": 203
+        },
+        {
+          "path": "@mikro-orm/nestjs/package.json",
+          "sha256": "1e0969da21faf89a2fa421a2b7c568bfc2234a643c0af18573ab35ea60216f62",
+          "size": 3046
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": "./index.js",
+          "package_subpath": ".",
+          "specifier": "@mikro-orm/nestjs"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "@mikro-orm/nestjs/LICENSE",
+        "sha256": "13317336bd3feca52da657691dc8266d8056d475599dae4de7921d29fac4c841",
+        "size": 1086
+      },
+      "lock_checksum": "10/fc856d21c862e31278ae1eea8c30529993a079e3351c0cb32b7f23fc9b86e7120c0aae10f14a7816e775615cad445ef7b6d13c551112c9c30dcb5cdeadc3f3c8",
+      "lock_locator": "@mikro-orm/nestjs@npm:7.0.2",
+      "name": "@mikro-orm/nestjs",
+      "tarball_integrity": "sha512-0iEr+YzhXQ8cZaAKzfJNijHHAL1Fg/PrauaMiwlZpaxOy0aMAPCQEwaSuxsz43X6XShrCv/TlE6kRn/QPIMzZA==",
+      "tarball_url": "https://registry.npmjs.org/@mikro-orm/nestjs/-/nestjs-7.0.2.tgz",
+      "version": "7.0.2"
+    },
+    {
+      "files": [
+        {
+          "path": "@mikro-orm/seeder/index.d.ts",
+          "sha256": "55fdd009476032dc5933801d619afac8b6f045dbf5a88cc52393e0ee13430bbb",
+          "size": 144
+        },
+        {
+          "path": "@mikro-orm/seeder/index.js",
+          "sha256": "55fdd009476032dc5933801d619afac8b6f045dbf5a88cc52393e0ee13430bbb",
+          "size": 144
+        },
+        {
+          "path": "@mikro-orm/seeder/package.json",
+          "sha256": "a2d41e995ed106b31dcb8cd6ec08cdee13f29759676b7d0d2dfe627d2ecf680b",
+          "size": 1230
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": "./index.js",
+          "package_subpath": ".",
+          "specifier": "@mikro-orm/seeder"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "@mikro-orm/seeder/LICENSE",
+        "sha256": "c14ff5e5851d30b20fa7af2ba478af713587917ad1c1c92edde1fa84a82fd532",
+        "size": 1071
+      },
+      "lock_checksum": "10/de1442cd7b77c4e223e25c859a7a8e6038d62715fde04e8800685516706de66c4cb883be671f2b9db4b83442c546900619fb4b530c61b94611e8a1ed7f0c2bbc",
+      "lock_locator": "@mikro-orm/seeder@npm:7.1.11",
+      "name": "@mikro-orm/seeder",
+      "tarball_integrity": "sha512-s414khvmZ3Iiii+vNRxYhIlc9ZJmloTcNJ1i3ROPtOX4kkpqm72qlhV+j0TmqnTobXvLYtY+/h2/s1HZaayIGA==",
+      "tarball_url": "https://registry.npmjs.org/@mikro-orm/seeder/-/seeder-7.1.11.tgz",
+      "version": "7.1.11"
+    },
+    {
+      "files": [
+        {
+          "path": "@mikro-orm/reflection/index.d.ts",
+          "sha256": "81a0f4e24df7012505a4d3484710b140957ab48c542a36ac6238058aa3a9b08b",
+          "size": 101
+        },
+        {
+          "path": "@mikro-orm/reflection/index.js",
+          "sha256": "81a0f4e24df7012505a4d3484710b140957ab48c542a36ac6238058aa3a9b08b",
+          "size": 101
+        },
+        {
+          "path": "@mikro-orm/reflection/package.json",
+          "sha256": "315deee7940e5d59c8340822a9c4e6e1680f6e7751ae7146aed33011953c6391",
+          "size": 1428
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": "./index.js",
+          "package_subpath": ".",
+          "specifier": "@mikro-orm/reflection"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "@mikro-orm/reflection/LICENSE",
+        "sha256": "c14ff5e5851d30b20fa7af2ba478af713587917ad1c1c92edde1fa84a82fd532",
+        "size": 1071
+      },
+      "lock_checksum": "10/cee86fa8961646fd452696db95d803d8fd43ff09fed7f35b2f32cccf0a9ea297b5bad458516ca5a54c316cb9fee2545c913d2e9f5c46aa318dd330dfdee1fc8a",
+      "lock_locator": "@mikro-orm/reflection@npm:7.1.11",
+      "name": "@mikro-orm/reflection",
+      "tarball_integrity": "sha512-uYC/Ygwx7NNAgxXG1atK0KdjWMrEI6PVi0yL/Kf+BWMxXDeZkuU8+558WYLmv29wjyD8vh7qtgnDRtU1xW70WQ==",
+      "tarball_url": "https://registry.npmjs.org/@mikro-orm/reflection/-/reflection-7.1.11.tgz",
+      "version": "7.1.11"
+    },
+    {
+      "files": [
+        {
+          "path": "@mikro-orm/sql-highlighter/index.d.ts",
+          "sha256": "e5f8c5c592e84037e152b13929384d48d8389857f913e996c483f7d470478c33",
+          "size": 63
+        },
+        {
+          "path": "@mikro-orm/sql-highlighter/package.json",
+          "sha256": "2cb30e15cf68ba0681de10669a8e2c22384b85d85a23d0fddb7db41f49ec31ee",
+          "size": 1521
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": null,
+          "package_subpath": ".",
+          "specifier": "@mikro-orm/sql-highlighter"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "@mikro-orm/sql-highlighter/LICENSE",
+        "sha256": "c28646b6cc03362d32322ad1e451fbbd1d5b16d46f05f0417c9e62f5d43cec96",
+        "size": 1071
+      },
+      "lock_checksum": "10/8bc8008c6d1b3fde20f3a21d6182761ff15bc20d4fe2cce2ed02a18dea623392d78b34fe5061ba389b3c84e60f8d6bfb00ec91299d2eee6f5e324fba9f06c302",
+      "lock_locator": "@mikro-orm/sql-highlighter@npm:1.0.1",
+      "name": "@mikro-orm/sql-highlighter",
+      "tarball_integrity": "sha512-iO+FwRNuqNDVlIo5zfgOu2mMGVicX/FqzP+F/A0xpJLHyqvWyXzVwntgAMimBjQaxiX9Rpmc0u3Jq6/A6V6JQA==",
+      "tarball_url": "https://registry.npmjs.org/@mikro-orm/sql-highlighter/-/sql-highlighter-1.0.1.tgz",
+      "version": "1.0.1"
+    },
+    {
+      "files": [
+        {
+          "path": "@nestjs/common/index.d.ts",
+          "sha256": "9c9b8cee65bf2bc97fb14f32d125b8a6b6dd2b617abb527e97a97b8d898de231",
+          "size": 1392
+        },
+        {
+          "path": "@nestjs/common/index.js",
+          "sha256": "17e89afa0bffb2a58331274e75a9289b470d5bd09f7ca1f04b659db33832381d",
+          "size": 534
+        },
+        {
+          "path": "@nestjs/common/package.json",
+          "sha256": "7ac7e54dc5d8fc3f1f9691fa97ac8a1c82fa36e5f7359cdc662580d3e885026e",
+          "size": 1206
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": "./index.js",
+          "package_subpath": ".",
+          "specifier": "@nestjs/common"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "@nestjs/common/LICENSE",
+        "sha256": "56967de93525b12a30717e4446ccef3bbe32fafdbe2350f143c1cc6971b19ed3",
+        "size": 1115
+      },
+      "lock_checksum": "10/cf312a90baab883fd78916ece42ec150494965119a1c0d28133950aeace0d4a1ee275d9fd2b94cfe0172fb80a955688f2143807c7e10e51b47736f2ff14276aa",
+      "lock_locator": "@nestjs/common@npm:12.0.1",
+      "name": "@nestjs/common",
+      "tarball_integrity": "sha512-v0zTaRCTV2K2xSnb3GnJoQKtaR6VxouJtm+P2gpr5w61dlXeWpXl1WVknCSzUqx2QwTV10tBkHETxvQvkf2Exg==",
+      "tarball_url": "https://registry.npmjs.org/@nestjs/common/-/common-12.0.1.tgz",
+      "version": "12.0.1"
+    },
+    {
+      "files": [
+        {
+          "path": "@nestjs/core/index.d.ts",
+          "sha256": "84b764615113da77b87c2496d6a78e0b78b8945ea5ba4eef4cb8b776e291b06e",
+          "size": 713
+        },
+        {
+          "path": "@nestjs/core/index.js",
+          "sha256": "c6949f81f604fe343ebe0db6da315ce6ba3f39722b3afb970c832a7a97b739e2",
+          "size": 798
+        },
+        {
+          "path": "@nestjs/core/package.json",
+          "sha256": "04e7898c21c9881299385f2ed5b671638baec0a2198646caeb5513f492b89545",
+          "size": 1429
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": "./index.js",
+          "package_subpath": ".",
+          "specifier": "@nestjs/core"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "@nestjs/core/LICENSE",
+        "sha256": "56967de93525b12a30717e4446ccef3bbe32fafdbe2350f143c1cc6971b19ed3",
+        "size": 1115
+      },
+      "lock_checksum": "10/07d4870b371d42cd511e31b5121b3e435342a5fded6d02d059edeb4165dd4ea1b0c16b182dd2e2d2af99eb16fe839042f51d5937198279a0350cba2320bc3be5",
+      "lock_locator": "@nestjs/core@npm:12.0.1",
+      "name": "@nestjs/core",
+      "tarball_integrity": "sha512-rU6tAi8vDdyzHgN0iW0J4UJvziroOqzHqzlqL7phOSPizaXVEePfv+OUOsdJEOh0Qd14mslc3udOheLrAEcZow==",
+      "tarball_url": "https://registry.npmjs.org/@nestjs/core/-/core-12.0.1.tgz",
+      "version": "12.0.1"
+    },
+    {
+      "files": [
+        {
+          "path": "@nestjs/swagger/dist/index.d.ts",
+          "sha256": "5057488c21f6b91bcaaaad40dd0f108e3f03d42223e25eb2e7dc438237520218",
+          "size": 288
+        },
+        {
+          "path": "@nestjs/swagger/package.json",
+          "sha256": "0209914607f44ea13b103b75292a533bbdc8fb8d6b822c113debf9c839cb3a79",
+          "size": 3739
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": {
+            "default": "./dist/index.js",
+            "import": "./dist/index.js",
+            "require": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+          },
+          "package_subpath": ".",
+          "specifier": "@nestjs/swagger"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "@nestjs/swagger/LICENSE",
+        "sha256": "a0440afa69dae8c431e8f7b1f9c2332faa1aeadd70306601366998f60d0be449",
+        "size": 1077
+      },
+      "lock_checksum": "10/5df0dbb92910715dbdb583550f946578d2ce2acdb01de49b98ef0598f2e0ff954a33437c4d254b2240603e007d52c8ec13e73e6ff9e50fa73849203bf05e7eeb",
+      "lock_locator": "@nestjs/swagger@npm:12.0.1",
+      "name": "@nestjs/swagger",
+      "tarball_integrity": "sha512-fQ0WyutSSHedO9HzSkOFKFaRygYNGBno5EggcZljs+KL8tHzPPTO5oyJpaf3BoOKFGGsN/0B13EbIpH2pkPx8g==",
+      "tarball_url": "https://registry.npmjs.org/@nestjs/swagger/-/swagger-12.0.1.tgz",
+      "version": "12.0.1"
+    },
+    {
+      "files": [
+        {
+          "path": "class-transformer/package.json",
+          "sha256": "73490bf64a406c25ac02771de7990e65edafb55501166e3ccffad5b8030dc13d",
+          "size": 891
+        },
+        {
+          "path": "class-transformer/types/index.d.ts",
+          "sha256": "4fc523037d14d9bb6ddb586621a93dd05b6c6d8d59919a40c436ca3ac29d9716",
+          "size": 4777
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": null,
+          "package_subpath": ".",
+          "specifier": "class-transformer"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "class-transformer/LICENSE",
+        "sha256": "40fb2182a242493ce32f6211c3400f2dcf6787c9c68cd261bfb61461d69780ef",
+        "size": 1074
+      },
+      "lock_checksum": "10/750327e3e9a5cf233c5234252f4caf6b06c437bf68a24acbdcfb06c8e0bfff7aa97c30428184813e38e08111b42871f20c5cf669ea4490f8ae837c09f08b31e7",
+      "lock_locator": "class-transformer@npm:0.5.1",
+      "name": "class-transformer",
+      "tarball_integrity": "sha512-SQa1Ws6hUbfC98vKGxZH3KFY0Y1lm5Zm0SY8XX9zbK7FJCyVEac3ATW0RIpwzW+oOfmHE5PMPufDG9hCfoEOMw==",
+      "tarball_url": "https://registry.npmjs.org/class-transformer/-/class-transformer-0.5.1.tgz",
+      "version": "0.5.1"
+    },
+    {
+      "files": [
+        {
+          "path": "class-validator/package.json",
+          "sha256": "7cf635cde2fa6d4166fc105c71f1570307435dd444f8b4235326fc3a6a1a5dd2",
+          "size": 651
+        },
+        {
+          "path": "class-validator/types/index.d.ts",
+          "sha256": "441104b363d80fe57eb79a50d495e0b7e3ebeb45a5f0d1a4067d71ef75e8fbfa",
+          "size": 2252
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": null,
+          "package_subpath": ".",
+          "specifier": "class-validator"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "class-validator/LICENSE",
+        "sha256": "ef7c4bc854ad6f0ee0ea4bdae8dee790ed65edd22713d2806d423b8e0727328a",
+        "size": 1075
+      },
+      "lock_checksum": "10/ff2f1678313ee9b64fdf4e522922cc05da9fe1156fab57e161dcfddd9e851042ccdb340408dc897524c9c7464b2b58176f57cce77503e86850032451d7472156",
+      "lock_locator": "class-validator@npm:0.15.1",
+      "name": "class-validator",
+      "tarball_integrity": "sha512-LqoS80HBBSCVhz/3KloUly0ovokxpdOLR++Al3J3+dHXWt9sTKlKd4eYtoxhxyUjoe5+UcIM+5k9MIxyBWnRTw==",
+      "tarball_url": "https://registry.npmjs.org/class-validator/-/class-validator-0.15.1.tgz",
+      "version": "0.15.1"
+    },
+    {
+      "files": [
+        {
+          "path": "express/index.js",
+          "sha256": "4d2f5afc192178c5b0dc418d2da5826d52a8b6998771b011aede7fdba9118140",
+          "size": 224
+        },
+        {
+          "path": "express/package.json",
+          "sha256": "2980b885bad92f757a2d44674e905cf875867d5685111d8ab8f285635b11367d",
+          "size": 2731
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": null,
+          "package_subpath": ".",
+          "specifier": "express"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "express/LICENSE",
+        "sha256": "95a5762890e5c1c9808921cef095661fc482c5e1f0bba31446ac85595df6237c",
+        "size": 1249
+      },
+      "lock_checksum": "10/4aa545d89702ac83f645c77abda1b57bcabe288f0b380fb5580fac4e323ea0eb533005c8e666b4e19152fb16d4abf11ba87b22aa9a10857a0485cd86b94639bd",
+      "lock_locator": "express@npm:5.2.1",
+      "name": "express",
+      "tarball_integrity": "sha512-hIS4idWWai69NezIdRt2xFVofaF4j+6INOpJlVOLDO8zXGpUVEVzIYk12UUi2JzjEzWL3IOAxcTubgz9Po0yXw==",
+      "tarball_url": "https://registry.npmjs.org/express/-/express-5.2.1.tgz",
+      "version": "5.2.1"
+    },
+    {
+      "files": [
+        {
+          "path": "jsonwebtoken/index.js",
+          "sha256": "aae460b3f08f3f8b1cb229ee226fb084540fec04b6ddc8fc01463068ebf4b7de",
+          "size": 276
+        },
+        {
+          "path": "jsonwebtoken/package.json",
+          "sha256": "3a49dada910349920f89122254957f18d3b887159b0cb14a672cb5ba85fed17e",
+          "size": 1428
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": null,
+          "package_subpath": ".",
+          "specifier": "jsonwebtoken"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "jsonwebtoken/LICENSE",
+        "sha256": "2144eb6894cb440fde6b2b3aaae3b617c8f1dc9bb19813079dcf62ec6c517042",
+        "size": 1121
+      },
+      "lock_checksum": "10/a67a276db41fbfb458ebdc4938d5d7b01d4743e16bda0f25ac01996fe5b5819d66656153f6cfce19b4680b79ae9f9ca185965defc22e77e0abddf443573238d6",
+      "lock_locator": "jsonwebtoken@npm:9.0.3",
+      "name": "jsonwebtoken",
+      "tarball_integrity": "sha512-MT/xP0CrubFRNLNKvxJ2BYfy53Zkm++5bX9dtuPbqAeQpTVe0MQTFhao8+Cp//EmJp244xt6Drw/GVEGCUj40g==",
+      "tarball_url": "https://registry.npmjs.org/jsonwebtoken/-/jsonwebtoken-9.0.3.tgz",
+      "version": "9.0.3"
+    },
+    {
+      "files": [
+        {
+          "path": "reflect-metadata/index.d.ts",
+          "sha256": "8d6d51a5118d000ed3bfe6e1dd1335bebfff3fef23cd2af2f84a24d30f90cc90",
+          "size": 22667
+        },
+        {
+          "path": "reflect-metadata/package.json",
+          "sha256": "e0f6d5cf809e02e338f501d3030e917fa57e3a10044387de890cbf142b4f4083",
+          "size": 1635
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": {
+            "default": "./Reflect.js",
+            "types": "./index.d.ts"
+          },
+          "package_subpath": ".",
+          "specifier": "reflect-metadata"
+        }
+      ],
+      "license": "Apache-2.0",
+      "license_file": {
+        "path": "reflect-metadata/LICENSE",
+        "sha256": "c5217b0544ea9c91d010863582d6f6b35ec50e4146c34dee085ddcec5dd92def",
+        "size": 9141
+      },
+      "lock_checksum": "10/1c93f9ac790fea1c852fde80c91b2760420069f4862f28e6fae0c00c6937a56508716b0ed2419ab02869dd488d123c4ab92d062ae84e8739ea7417fae10c4745",
+      "lock_locator": "reflect-metadata@npm:0.2.2",
+      "name": "reflect-metadata",
+      "tarball_integrity": "sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q==",
+      "tarball_url": "https://registry.npmjs.org/reflect-metadata/-/reflect-metadata-0.2.2.tgz",
+      "version": "0.2.2"
+    },
+    {
+      "files": [
+        {
+          "path": "slug/package.json",
+          "sha256": "549de056b1d6c9194b11e804c3ccd52df5297abe2363d843f4ceba94b52717eb",
+          "size": 1942
+        },
+        {
+          "path": "slug/slug.js",
+          "sha256": "3ea7ba42e611f4d754958ec1c734f17d9bcadd53d4dd19c0bd957ccc4838036e",
+          "size": 14040
+        }
+      ],
+      "imports": [
+        {
+          "exports_entry": null,
+          "package_subpath": ".",
+          "specifier": "slug"
+        }
+      ],
+      "license": "MIT",
+      "license_file": {
+        "path": "slug/LICENSE",
+        "sha256": "f6775c279aa303fc778f47462f20bc55b662d4a8270a220e047b0e28d3da01f3",
+        "size": 1064
+      },
+      "lock_checksum": "10/83d67f28d9c918a9e06cf9d1d253e8eda6a1691eeff3f18e425b399834ec8ebb87d8d84de85f1b6f005ea973140930ce969a310ea2ecae57796c66edca16627e",
+      "lock_locator": "slug@npm:12.0.1",
+      "name": "slug",
+      "tarball_integrity": "sha512-p8lJZLw/5GDmxXO3FKjiOYjiBMFGDc+/8DgutoXKqjn8KX7buzbkX1unEavO7T+GHGLTOyeb7VjWTRWpb8wmuQ==",
+      "tarball_url": "https://registry.npmjs.org/slug/-/slug-12.0.1.tgz",
+      "version": "12.0.1"
+    }
+  ],
+  "project": {
+    "commit": "a6818d84b6a019cf2df4ef391dc87cea7d02c6a9",
+    "lockfile": "yarn.lock",
+    "lockfile_sha256": "bb169f1329925c230278b7d60b124012607833ae3cb84dc2f9612a6d56ede4cb",
+    "module": "NodeNext",
+    "package_json_sha256": "127eb2ee056f9ae2f7c35ad1f44e4d24d41ecbd75b8c8ccd8452ba3512bca9a3",
+    "repository": "https://github.com/mikro-orm/nestjs-realworld-example-app",
+    "tsconfig_build_sha256": "90325c3ef7c07740457ca5ddd74242ccd6d7c5d54ddc95a96303892253aab8f5",
+    "tsconfig_sha256": "e68a3eebd11d42f18a8df72f42b2ddf61644186ad550ac526c84e95eaa5a514d",
+    "typescript_version": "6.0.3"
+  },
+  "purpose": "Pinned TypeScript resolver inputs for L-nest-realworld; files are excluded from the selected application source scope.",
+  "schema_version": "1.0.0"
+}

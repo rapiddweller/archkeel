@@ -187,3 +187,31 @@ def test_nest_snapshot_preserves_original_and_derived_build_inputs() -> None:
         assert item["source_url"].startswith(
             "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/"
         )
+
+
+def test_nest_resolver_inputs_are_pinned_and_outside_application_scope() -> None:
+    fixture = "fixtures/L-nest-realworld"
+    provenance = _snapshot(f"{fixture}/resolver-inputs/provenance.json")
+    packages = provenance["packages"]
+    assert len(packages) == 17
+    resolver_files = [file for package in packages for file in package["files"]]
+    licenses = [package["license_file"] for package in packages]
+    assert len(resolver_files) == 43
+    assert len(licenses) == 17
+    assert sum(file["size"] for file in resolver_files) == 84_616
+    assert len({package["lock_locator"] for package in packages}) == 17
+    for package, records in zip(packages, licenses, strict=True):
+        assert package["name"] in package["lock_locator"]
+        assert package["version"] in package["lock_locator"]
+        assert package["tarball_integrity"].startswith("sha512-")
+        assert records["path"].endswith("/LICENSE")
+    for record in [*resolver_files, *licenses]:
+        path = ROOT / fixture / "resolver-inputs" / record["path"]
+        assert path.is_file()
+        assert path.stat().st_size == record["size"]
+        assert _sha256(path) == record["sha256"]
+    assert not any(
+        path.is_relative_to(ROOT / fixture / "src")
+        for path in (ROOT / fixture / "resolver-inputs").rglob("*")
+        if path.is_file()
+    )

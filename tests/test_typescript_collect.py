@@ -395,6 +395,39 @@ def test_bare_builtin_names_respect_a_local_type_alias(tmp_path: Path) -> None:
     assert any(isinstance(item, BuiltinTarget) and item.name == "node:fs" for item in facts.imports)
 
 
+def test_known_node_mode_prefers_bare_runtime_builtins_over_packages_not_aliases(
+    tmp_path: Path,
+) -> None:
+    shadowed_package = _facts(
+        tmp_path / "shadowed",
+        {
+            "src/main.ts": "import runtime from 'crypto'; import type { Value } from 'crypto';",
+            "node_modules/crypto/package.json": '{"types":"index.d.ts","main":"index.js"}',
+            "node_modules/crypto/index.d.ts": "export interface Value {}",
+            "node_modules/crypto/index.js": "module.exports = {};",
+        },
+    )
+    assert sum(isinstance(item, BuiltinTarget) for item in shadowed_package.imports) == 1
+    assert sum(isinstance(item, ExternalPackageTarget) for item in shadowed_package.imports) == 1
+
+    alias = _facts(
+        tmp_path / "alias",
+        {
+            "src/main.ts": "import runtime from 'crypto';",
+            "src/local.ts": "export default {};",
+        },
+        {
+            "compilerOptions": {
+                **NODENEXT,
+                "baseUrl": ".",
+                "paths": {"crypto": ["src/local.ts"]},
+            }
+        },
+    )
+    assert len(alias.imports) == 1
+    assert isinstance(alias.imports[0], LocalTarget)
+
+
 def test_project_references_and_a_missing_tsconfig_never_look_complete(tmp_path: Path) -> None:
     referenced = _facts(
         tmp_path, {"src/main.ts": "export {};"}, {"references": [{"path": "../generated"}]}

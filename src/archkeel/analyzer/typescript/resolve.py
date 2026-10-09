@@ -240,7 +240,14 @@ class Resolver:
             return manifest
         return "esm" if manifest is not None and manifest.get("type") == "module" else "cjs"
 
-    def resolve(self, specifier: str, importer: str, mode: Format | None) -> Found | Unknown | None:
+    def resolve(
+        self,
+        specifier: str,
+        importer: str,
+        mode: Format | None,
+        *,
+        prefer_builtin: bool = False,
+    ) -> Found | Unknown | None:
         """The snapshot file `specifier` names, None when it names none, else why not known."""
         self._reads = set()
         esm = mode == "esm"
@@ -262,6 +269,13 @@ class Resolver:
             mapped = self._mapped(specifier, esm, kinds)
             if mapped is not None:
                 return self._found(mapped, False, None)
+            if (
+                prefer_builtin
+                and mode is not None
+                and self.options.resolution in ("node16", "nodenext")
+                and is_builtin(specifier)
+            ):
+                return None
             # The project's own names come first, then `imports`, then the package itself.
             if self._exports_aware and specifier.startswith("#"):
                 return Unknown(f"Package imports are not observed: {specifier}")
@@ -333,7 +347,7 @@ class Resolver:
         if root is not None and "typesVersions" in root:
             return Unknown(f"Package typesVersions are not observed: {name}")
         if root is not None and self._exports_aware and _declares_exports(root):
-            return Unknown(f"Package exports are not observed: {specifier}")
+            return self._export_target(modules, name, rest, root, esm, kinds)
         candidate = join(modules, specifier)
         # An ECMAScript import of the package root never infers an extension.
         file = self._file(candidate, esm, kinds) if rest or not esm else None
@@ -347,6 +361,70 @@ class Resolver:
         if found is None and defaulted:
             return self._file(join(candidate, "index.js"), esm, kinds)
         return found
+
+    def _export_target(
+        self, modules: str, name: str, rest: str, manifest: Json, esm: bool, kinds: Kinds
+    ) -> str | Unknown | None:
+        """Resolve the small exact exports subset used by pinned project imports."""
+        exports = manifest.get("exports")
+        key = "." if not rest else f"./{rest}"
+        if isinstance(exports, str):
+            selected: Json | str | None = exports if key == "." else None
+        elif isinstance(exports, dict):
+            subpaths = [isinstance(item, str) and item[:1] == "." for item in exports]
+            if any(subpaths) and not all(subpaths):
+                return Unknown(f"Package exports map shape is not observed: {name}")
+            if exports and all(subpaths):
+                selected = exports.get(key)
+                if selected is None and rest and any("*" in item for item in exports):
+                    return Unknown(f"Package exports patterns are not observed: {name}/{rest}")
+            else:
+                selected = exports if key == "." else None
+        else:
+            return Unknown(f"Package exports shape is not observed: {name}")
+        if selected is None:
+            return None
+
+        if not isinstance(selected, (dict, str)):
+            return Unknown(f"Package exports shape is not observed: {name}")
+        target = self._export_condition(selected, esm)
+        if isinstance(target, Unknown):
+            return target
+        if target is None:
+            return Unknown(f"Package exports conditions are not observed: {name}{key[1:]}")
+        if target[:2] != "./":
+            return Unknown(f"Package exports target is not package-relative: {name}{key[1:]}")
+        if re.fullmatch(r"\./[^/]+(?:/[^/]+)*\Z", target) is None or any(
+            segment in {".", "..", "node_modules"}
+            or any(char in segment for char in ("%", "?", "#", "\\"))
+            for segment in re.split("/", target[2:])
+        ):
+            return Unknown(f"Package exports target path is not observed: {name}{key[1:]}")
+        package_dir = join(modules, name)
+        candidate = join(package_dir, target[2:])
+        # Exports are exact URLs; permit declaration substitution but no CJS fallback.
+        paths = _file_paths(candidate, True, kinds)
+        found = next((path for path in paths if self.snapshot.is_file(path)), None)
+        if found is None:
+            return Unknown(f"Package exports target is unavailable: {name}{key[1:]}")
+        return found
+
+    @staticmethod
+    def _export_condition(value: Json | str, esm: bool) -> str | Unknown | None:
+        if isinstance(value, str):
+            return value
+        for condition, target in value.items():
+            if condition in {"types", "default", "import" if esm else "require"}:
+                if not isinstance(target, (dict, str)):
+                    return Unknown("Package exports conditions are not observed")
+                selected = Resolver._export_condition(target, esm)
+                if selected is not None:
+                    return selected
+            elif condition in {"import", "require"}:
+                continue
+            else:
+                return Unknown(f"Package exports condition is not observed: {condition}")
+        return None
 
     def _by_name(
         self, candidate: str, directory_only: bool, esm: bool, kinds: Kinds, package: bool

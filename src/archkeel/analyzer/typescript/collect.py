@@ -235,6 +235,8 @@ class _Collection:
             else:
                 data["annotation"] = definition.annotation
                 data["returns"] = definition.returns
+                if definition.is_async:
+                    data["async"] = True
                 data["parameters"] = [
                     {
                         "name": parameter.name,
@@ -927,7 +929,7 @@ class _Collection:
             mode = "esm" if form is not None else None
         elif reference.form in ("require", "import_equals"):
             mode = "cjs" if form is not None else None
-        found = self.resolver.resolve(specifier, rel, mode)
+        found = self.resolver.resolve(specifier, rel, mode, prefer_builtin=not reference.type_only)
         if isinstance(found, Unknown):
             return self._unresolved(module, identity, specifier, found.reason)
         if found is None:

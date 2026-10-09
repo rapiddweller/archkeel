@@ -85,6 +85,25 @@ export function build(): Client { const client = new Client(); return client; }
     assert syntax.definitions[-1].returns == "Client"
 
 
+def test_parser_preserves_only_lexical_async_modifiers() -> None:
+    syntax = parse(
+        "main.ts",
+        b"class Service { async run(): Promise<void> {} namedAsync(): Promise<void> {} "
+        b"async(): void {} }\n"
+        b"export async function load(): Promise<void> {}\n"
+        b"export function promiseOnly(): Promise<void> {}\n",
+    )
+    by_name = {item.name: item.is_async for item in syntax.definitions}
+    assert by_name == {
+        "Service": False,
+        "run": True,
+        "namedAsync": False,
+        "async": False,
+        "load": True,
+        "promiseOnly": False,
+    }
+
+
 def test_overloads_and_computed_construction_remain_separate_syntax_sites() -> None:
     syntax = parse(
         "main.ts",
