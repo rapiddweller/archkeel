@@ -9,6 +9,7 @@ import pytest
 from browser_report_support import _browser_page, _open_details
 from test_architecture_demo import _prepare_repo
 from test_exact_module_ownership import _component, _contract, _rule
+from test_uml_rendering import _wait_for_layout
 
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
@@ -111,6 +112,7 @@ def test_diff_shows_real_imports_with_original_findings_sites_and_filters(
         raw = page.locator("#flow-data").text_content()
         verdict = page.locator(".verdict-grid").inner_text()
         page.get_by_role("button", name="Diff", exact=True).click()
+        _wait_for_layout(page)
         edges = page.locator('.flow-edges [data-relationship-kind="imports"]')
         assert edges.count() == bool(imports)
         assert "Core: unavailable" not in page.locator(".flow-legend").inner_text()
@@ -128,9 +130,12 @@ def test_diff_shows_real_imports_with_original_findings_sites_and_filters(
             page.locator(".flow-filters > summary").click()
             page.locator(".flow-violations-only").check()
             page.locator(".flow-filters > summary").click()
+            _wait_for_layout(page)
             assert edges.count() == (not permitted)
             page.locator("#flow").get_by_role("button", name="Reset filters", exact=True).click()
+            _wait_for_layout(page)
             page.locator('.flow-legend [data-relationship-kind="imports"]').click()
+            _wait_for_layout(page)
             assert edges.count() == 1
         assert page.locator("#flow-data").text_content() == raw
         assert page.locator(".verdict-grid").inner_text() == verdict
@@ -148,15 +153,19 @@ def test_diff_scope_uses_owned_module_children_and_keeps_outside_connection(tmp_
     playwright, browser, page = _browser_page(api, html)
     try:
         page.get_by_role("button", name="Diff", exact=True).click()
+        _wait_for_layout(page)
         page.locator('.flow-nodes [data-label="a"]').press("Enter")
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-uml-kind="module"][data-label="a"]').count() == 1
         edge = page.locator('.flow-edges [data-relationship-kind="imports"]')
         assert edge.count() == 1
         edge.locator(".hit").press("Enter")
         assert "sample/a.py:1:" in page.locator(".flow-inspector-content").inner_text()
         page.locator('.flow-nodes [data-uml-kind="module"][data-label="a"]').dblclick()
+        _wait_for_layout(page)
         assert page.locator(".flow-breadcrumb").inner_text().endswith("Observed: a [module]")
         page.locator(".flow-back").click()
+        _wait_for_layout(page)
         assert edge.count() == 1
     finally:
         browser.close()
@@ -169,8 +178,10 @@ def test_diff_same_owner_import_is_visible_inside_component(tmp_path):
     playwright, browser, page = _browser_page(api, html)
     try:
         page.get_by_role("button", name="Diff", exact=True).click()
+        _wait_for_layout(page)
         assert page.locator('.flow-edges [data-relationship-kind="imports"]').count() == 0
         page.locator('.flow-nodes [data-label="a"]').press("Enter")
+        _wait_for_layout(page)
         assert page.locator('.flow-edges [data-relationship-kind="imports"]').count() == 1
     finally:
         browser.close()
@@ -183,6 +194,7 @@ def test_diff_unowned_namespace_keeps_internal_import_navigation(tmp_path):
     playwright, browser, page = _browser_page(api, html)
     try:
         page.get_by_role("button", name="Diff", exact=True).click()
+        _wait_for_layout(page)
         assert page.locator('.flow-edges [data-relationship-kind="imports"]').count() == 1
         assert page.locator('.flow-nodes [data-uml-kind="package"]').count() == 2
     finally:
@@ -236,6 +248,7 @@ def test_ambiguous_same_depth_membership_does_not_assign_arbitrary_component(tmp
     playwright, browser, page = _browser_page(api, _payload_html(html, payload))
     try:
         page.get_by_role("button", name="Diff", exact=True).click()
+        _wait_for_layout(page)
         edge = page.locator('.flow-edges [data-relationship-kind="imports"]')
         assert edge.count() == 1
         source = edge.get_attribute("data-uml-source")
@@ -269,11 +282,15 @@ def test_diff_deep_hierarchy_uses_memberships_and_keeps_outside_neighbor(tmp_pat
     playwright, browser, page = _browser_page(api, _payload_html(html, payload))
     try:
         page.get_by_role("button", name="Diff", exact=True).click()
+        _wait_for_layout(page)
         assert page.locator('.flow-edges [data-relationship-kind="imports"]').count() == 0
         page.locator('.flow-nodes [data-label="outer"]').press("Enter")
+        _wait_for_layout(page)
         page.locator('.flow-nodes [data-label="middle"]').dblclick()
+        _wait_for_layout(page)
         assert page.locator('.flow-edges [data-relationship-kind="imports"]').count() == 1
         page.locator('.flow-nodes [data-label="a"]').press("Enter")
+        _wait_for_layout(page)
         edge = page.locator('.flow-edges [data-relationship-kind="imports"]')
         assert edge.count() == 1
         target = edge.get_attribute("data-uml-target")
@@ -299,6 +316,7 @@ def test_diff_repeated_partial_candidate_retains_one_site_and_its_evidence(tmp_p
     playwright, browser, page = _browser_page(api, _payload_html(html, payload))
     try:
         page.get_by_role("button", name="Diff", exact=True).click()
+        _wait_for_layout(page)
         edge = page.locator('.flow-edges [data-relationship-kind="imports"]')
         assert edge.count() == 1
         assert "candidate; not confirmed" in edge.locator(".hit").get_attribute("aria-label")
@@ -323,6 +341,7 @@ def test_diff_matched_explicit_uml_import_does_not_duplicate_observed_sites(tmp_
     playwright, browser, page = _browser_page(api, _payload_html(html, payload))
     try:
         page.get_by_role("button", name="Diff", exact=True).click()
+        _wait_for_layout(page)
         edge = page.locator('.flow-edges [data-relationship-kind="imports"]')
         assert edge.count() == 1
         edge.locator(".hit").press("Enter")

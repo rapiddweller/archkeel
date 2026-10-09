@@ -16,6 +16,7 @@ from test_architecture_demo import _prepare_repo
 from test_module_explore import _sample
 from test_report_filter import CONFIG as TOUR_CONFIG
 from test_report_filter import _tour_root
+from test_uml_rendering import _wait_for_layout
 
 from archkeel.check.report import run_report
 from archkeel.cli import main
@@ -1782,14 +1783,17 @@ def test_module_and_classifier_defaults_show_only_direct_native_children(tmp_pat
             == "class · 1"
         )
         page.get_by_label("Element kind", exact=True).select_option("class")
+        _wait_for_layout(page)
         assert scene_ids() == {
             item.id
             for item in graph.entities
             if item.parent_id == module.id and item.kind == "class"
         }
         page.get_by_label("Element kind", exact=True).select_option("")
+        _wait_for_layout(page)
         page.locator(".flow-filters > summary").click()
         page.locator('.flow-legend [data-relationship-kind="inherits"]').click()
+        _wait_for_layout(page)
         assert (
             "in context"
             in page.locator('.flow-legend [data-relationship-kind="inherits"]').inner_text()
@@ -1797,6 +1801,7 @@ def test_module_and_classifier_defaults_show_only_direct_native_children(tmp_pat
         assert page.locator('.flow-nodes [data-label="Base"]').count() == 1
         assert page.locator(".flow-edges .hit").count() > 0
         page.locator('.flow-legend [data-relationship-kind=""]').click()
+        _wait_for_layout(page)
         assert scene_ids() == direct_ids(module.id)
         for name in ("Client", "State"):
             classifier = next(
@@ -1806,8 +1811,10 @@ def test_module_and_classifier_defaults_show_only_direct_native_children(tmp_pat
             )
             page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').click()
             page.locator(".flow-open-selected").click()
+            _wait_for_layout(page)
             assert scene_ids() == direct_ids(classifier.id)
             page.locator(".flow-back").click()
+            _wait_for_layout(page)
             assert scene_ids() == direct_ids(module.id)
         assert not errors
     finally:
@@ -2012,6 +2019,7 @@ def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_pat
             item for item in graph.entities if item.qualified_name == "sample.core.Client.run"
         )
         page.get_by_role("button", name=lens, exact=True).click()
+        _wait_for_layout(page)
         assert page.locator(".flow-canvas").is_visible()
         page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').press("Space")
         assert (
@@ -2021,12 +2029,15 @@ def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_pat
             == "true"
         )
         page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').press("Enter")
+        _wait_for_layout(page)
         assert "module=" + module.id in page.url and "scope=" + classifier.id in page.url
         page.goto(page.url)
         page.reload()
+        _wait_for_layout(page)
         assert page.locator(f'.flow-nodes [data-uml-id="{method.id}"]').count() == 1
         assert "Client [class]" in page.locator(".flow-breadcrumb").inner_text()
         page.locator(".flow-back").click()
+        _wait_for_layout(page)
         assert "scope=" + classifier.id not in page.url
         assert "selected=" + classifier.id in page.url
         assert (
@@ -2036,6 +2047,7 @@ def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_pat
             == "true"
         )
         page.go_back()
+        _wait_for_layout(page)
         assert "scope=" + classifier.id in page.url
         assert page.locator(f'.flow-nodes [data-uml-id="{method.id}"]').count() == 1
         page.goto(page.url.replace(classifier.id, "unknown-native-id"))
@@ -2043,6 +2055,7 @@ def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_pat
         assert "not recorded inside this module" in page.locator(".flow-alternative").inner_text()
         assert page.locator(".flow-canvas").is_hidden()
         page.get_by_role("button", name="Open recorded module", exact=True).click()
+        _wait_for_layout(page)
         assert "scope=unknown-native-id" not in page.url
         assert page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').count() == 1
         assert not errors
@@ -2114,11 +2127,14 @@ def test_target_counterpart_and_planned_classifier_open_declared_members(tmp_pat
         page.locator('.flow-nodes [data-label="core"]').press("Enter")
         page.locator('.flow-nodes [data-label="core.py"]').press("Enter")
         page.get_by_role("button", name="Target", exact=True).click()
+        _wait_for_layout(page)
         for identity, member in (("service", "run"), ("future", "execute")):
             page.locator(f'.flow-nodes [data-uml-id="{identity}"]').press("Enter")
+            _wait_for_layout(page)
             assert "origin=declared" in page.url and "scope=" + identity in page.url
             page.goto(page.url)
             page.reload()
+            _wait_for_layout(page)
             assert (
                 page.get_by_role("button", name="Target", exact=True).get_attribute("aria-pressed")
                 == "true"
@@ -2126,6 +2142,7 @@ def test_target_counterpart_and_planned_classifier_open_declared_members(tmp_pat
             assert page.locator(f'.flow-nodes [data-uml-id="{member}"]').count() == 1
             assert page.locator('.flow-nodes [data-uml-kind="component"]').count() == 0
             page.locator(".flow-back").click()
+            _wait_for_layout(page)
             assert "origin=declared" in page.url and "selected=" + identity in page.url
             assert (
                 page.locator(f'.flow-nodes [data-uml-id="{identity}"]').get_attribute(
@@ -2137,17 +2154,21 @@ def test_target_counterpart_and_planned_classifier_open_declared_members(tmp_pat
         page.locator('.flow-nodes [data-label="core.py"]').dblclick()
         page.wait_for_url("**/architecture.detail.html?*")
         page.get_by_role("button", name="Diff", exact=True).click()
+        _wait_for_layout(page)
         assert "origin=declared" in page.url and "module=declared-module" in page.url
         page.locator('.flow-nodes [data-uml-id="future"]').dblclick()
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-uml-id="execute"]').count() == 1
         page.goto(index.as_uri() + "?scope=core&view=diff&theme=dark")
         page.locator('.flow-nodes [data-label="core.py"]').dblclick()
         page.wait_for_url("**/architecture.detail.html?*")
         assert "origin=declared" in page.url and "module=declared-module" in page.url
         page.locator('.flow-nodes [data-uml-id="future"]').dblclick()
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-uml-id="execute"]').count() == 1
         page.goto(index.as_uri() + "?scope=core&view=target&theme=dark")
         page.locator('.flow-nodes [data-uml-id="declared-module"]').press("Enter")
+        _wait_for_layout(page)
         assert "module=declared-module" in page.url and "origin=declared" in page.url
         assert page.locator('.flow-nodes [data-uml-id="future"]').is_visible()
         assert not errors

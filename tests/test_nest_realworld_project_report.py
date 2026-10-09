@@ -14,6 +14,7 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
+from test_uml_rendering import _wait_for_layout
 
 from archkeel.ir.graph_codec import parse_report
 from fixtures.architecture_demo import (
@@ -296,14 +297,18 @@ def test_nest_realworld_report_browses_deep_target_at_desktop_and_mobile(
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
             main = output.with_suffix(".report.html")
             page.goto(main.as_uri())
+            _wait_for_layout(page)
             assert _payload(main)["atlas"]["detail_page"] == output.with_suffix(".detail.html").name
 
             page.locator('.flow-nodes [data-uml-id="publishing"]').click()
             page.get_by_text("Browse 9 modules", exact=True).click()
+            _wait_for_layout(page)
             page.locator('[data-content="components"]').last.click()
+            _wait_for_layout(page)
             page.locator(
                 '.flow-nodes [data-uml-id="Article and comment publishing:article-service"]'
             ).press("Enter")
+            _wait_for_layout(page)
 
             atlas = _payload(main)["atlas"]
             module = next(
@@ -313,6 +318,7 @@ def test_nest_realworld_report_browses_deep_target_at_desktop_and_mobile(
             )
             page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').dblclick()
             page.wait_for_url("**/*.detail.html?*")
+            _wait_for_layout(page)
             module_url = page.url
             assert page.locator(".atlas-heading").is_visible()
             assert page.locator(".flow-views [data-flow-view]").count() == 3
@@ -321,8 +327,11 @@ def test_nest_realworld_report_browses_deep_target_at_desktop_and_mobile(
                 page.set_viewport_size({"width": width, "height": 900})
                 for view in ("diagram", "target", "diff"):
                     page.goto(module_url)
+                    _wait_for_layout(page)
                     page.locator(f'[data-flow-view="{view}"]').click()
+                    _wait_for_layout(page)
                     page.locator('.flow-nodes [data-label="ArticleService"]').dblclick()
+                    _wait_for_layout(page)
                     member = page.locator('.flow-nodes [data-label="findFeed"]')
                     assert member.count() == 1
                     member.press("Space")

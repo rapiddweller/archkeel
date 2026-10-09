@@ -5,7 +5,7 @@
 
 import pytest
 from browser_report_support import _browser_page, _tour_report_page
-from test_uml_rendering import _open_module, _uml_report
+from test_uml_rendering import _open_module, _uml_report, _wait_for_layout
 
 from archkeel.ir.architecture_graph import Entity, Parameter, Relationship, Signature
 
@@ -87,13 +87,16 @@ def test_large_module_opens_grouped_list_and_limits_diagram_to_thirty(tmp_path):
         )
         page.locator(".flow-filters > summary").click()
         page.locator("#flow-focus").select_option(hidden)
+        _wait_for_layout(page)
         assert page.locator("#flow-focus").input_value() == hidden
         assert page.locator(f'.flow-nodes [data-uml-id="{hidden}"]').count() == 1
         assert "30 most connected" not in page.locator(".flow-element-index").inner_text()
         page.locator("#flow-focus").select_option("")
+        _wait_for_layout(page)
         page.locator(".flow-filters > summary").click()
         assert page.locator(".flow-nodes [data-uml-id]").count() == 30
         page.get_by_role("button", name="Show all 35", exact=True).click()
+        _wait_for_layout(page)
         assert page.locator(".flow-nodes [data-uml-id]").count() == 35
         assert "30 most connected" not in page.locator(".flow-element-index").inner_text()
         toolbar = page.locator(".flow-toolbar")
@@ -107,6 +110,7 @@ def test_large_module_opens_grouped_list_and_limits_diagram_to_thirty(tmp_path):
         assert toolbar.get_by_role("button", name="Reset filters", exact=True).count() == 1
         assert toolbar.locator(".flow-reset-filters").count() == 0
         page.locator(".flow-use-summary").click()
+        _wait_for_layout(page)
         assert "35 inner elements" in page.locator(".flow-element-index").inner_text()
         assert page.locator(".flow-element-index [data-index-element]").count() == 35
         assert not errors
@@ -193,6 +197,7 @@ def test_uml_focus_keeps_direct_neighbors_and_restores_the_complete_scope(
         page.locator(".flow-filters > summary").click()
         assert focus.is_visible()
         focus.select_option(base_id)
+        _wait_for_layout(page)
         assert (
             nodes.evaluate_all("nodes => nodes.map(node => node.dataset.label).sort()") == neighbors
         )
@@ -221,18 +226,23 @@ def test_uml_focus_keeps_direct_neighbors_and_restores_the_complete_scope(
         client.hover()
         assert client.get_attribute("transform") == before
         client.dblclick()
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-label="run"]').count() == 1
         assert focus.input_value() == ""
         page.locator(".flow-back").click()
+        _wait_for_layout(page)
         assert focus.input_value() == base_id
         assert nodes.count() == len(neighbors) and edges.count() == connections
         page.get_by_role(
             "button", name="As-Is" if view == "Target" else "Target", exact=True
         ).click()
+        _wait_for_layout(page)
         page.get_by_role("button", name=view, exact=True).click()
+        _wait_for_layout(page)
         assert focus.input_value() == base_id
         assert nodes.count() == len(neighbors) and edges.count() == connections
         page.locator("#flow").get_by_role("button", name="Reset filters", exact=True).click()
+        _wait_for_layout(page)
         assert (
             nodes.evaluate_all("nodes => nodes.map(node => node.dataset.umlId).sort()") == all_nodes
         )
@@ -242,6 +252,7 @@ def test_uml_focus_keeps_direct_neighbors_and_restores_the_complete_scope(
         other_id = page.locator('.flow-nodes [data-label="Other"]').get_attribute("data-uml-id")
         page.locator(".flow-filters > summary").click()
         focus.select_option(other_id)
+        _wait_for_layout(page)
         assert nodes.count() == 1 and nodes.get_attribute("data-uml-id") == other_id
         assert page.locator(".flow-edges .hit").count() == 0
         assert page.locator("#flow-data").text_content() == payload
@@ -274,7 +285,9 @@ def test_relationship_filter_keeps_evidence_and_restores_scope_state(tmp_path, v
         focus = page.locator("#flow-focus")
         page.locator(".flow-filters > summary").click()
         focus.select_option(client_id)
+        _wait_for_layout(page)
         page.locator('.flow-legend button[data-relationship-kind="inherits"]').click()
+        _wait_for_layout(page)
         assert edges.count() == 1 and edges.get_attribute("data-relationship-kind") == "inherits"
         assert nodes.evaluate_all("nodes => nodes.map(node => node.dataset.label).sort()") == [
             "Base",
@@ -300,13 +313,16 @@ def test_relationship_filter_keeps_evidence_and_restores_scope_state(tmp_path, v
         edges.locator(".hit").press("Enter")
         page.locator('.flow-legend button[data-relationship-kind="realizes"]').focus()
         page.locator('.flow-legend button[data-relationship-kind="realizes"]').press("Enter")
+        _wait_for_layout(page)
         assert edges.count() == 1 and edges.get_attribute("data-relationship-kind") == "realizes"
         assert page.locator('.flow-edges [data-relationship-kind="inherits"] .hit').count() == 0
         assert not _route_problems(edges)
         assert page.locator(".flow-inspector-content h2").inner_text() == "core"
         assert page.locator(".flow-qualified-name").text_content() == "sample.core"
         page.locator('.flow-legend button[data-relationship-kind="inherits"]').click()
+        _wait_for_layout(page)
         page.locator('.flow-nodes [data-label="Client"]').dblclick()
+        _wait_for_layout(page)
         assert focus.input_value() == ""
         assert page.locator('.flow-nodes [data-label="run"]').count() == 1
         assert (
@@ -315,14 +331,18 @@ def test_relationship_filter_keeps_evidence_and_restores_scope_state(tmp_path, v
             .startswith("Local relationships")
         )
         page.locator(".flow-back").click()
+        _wait_for_layout(page)
         assert focus.input_value() == client_id
         assert edges.count() == 1 and edges.get_attribute("data-relationship-kind") == "inherits"
         page.get_by_role(
             "button", name="As-Is" if view == "Target" else "Target", exact=True
         ).click()
+        _wait_for_layout(page)
         page.get_by_role("button", name=view, exact=True).click()
+        _wait_for_layout(page)
         assert edges.count() == 1 and edges.get_attribute("data-relationship-kind") == "inherits"
         page.locator("#flow").get_by_role("button", name="Reset filters", exact=True).click()
+        _wait_for_layout(page)
         assert (
             nodes.evaluate_all("nodes => nodes.map(node => node.dataset.umlId).sort()") == all_nodes
         )
@@ -330,6 +350,7 @@ def test_relationship_filter_keeps_evidence_and_restores_scope_state(tmp_path, v
             edges.evaluate_all("edges => edges.map(edge => edge.dataset.umlId).sort()") == all_edges
         )
         page.locator('.flow-legend button[data-relationship-kind="inherits"]').click()
+        _wait_for_layout(page)
         assert edges.count() == (2 if view == "As-Is" else 1)
         assert nodes.evaluate_all("""nodes => nodes.every(node =>
           !node.querySelector('.stereotype').textContent.includes('outside')
@@ -338,6 +359,7 @@ def test_relationship_filter_keeps_evidence_and_restores_scope_state(tmp_path, v
           || edge.dataset.umlTarget === node.dataset.umlId))""")
         assert page.locator('.flow-nodes [data-label="Other"]').count() == 1
         page.locator('.flow-legend button[data-relationship-kind=""]').click()
+        _wait_for_layout(page)
         assert edges.count() == len(all_edges)
         assert page.locator("#flow-data").text_content() == payload
         assert not errors
@@ -354,9 +376,12 @@ def test_cyclic_component_connections_do_not_share_stretches(tmp_path):
         app = page.locator('.flow-nodes [data-uml-kind="component"][data-label="app"]')
         page.locator(".flow-filters > summary").click()
         page.locator("#flow-focus").select_option(app.get_attribute("data-uml-id"))
+        _wait_for_layout(page)
         page.locator("#flow-violations-only").check()
+        _wait_for_layout(page)
         page.locator(".flow-filters > summary").click()
         page.get_by_role("button", name="Fit overview", exact=True).click()
+        _wait_for_layout(page)
         edges = page.locator(".flow-edges .edge")
         assert edges.count() > 0
         assert edges.evaluate_all(
@@ -390,6 +415,7 @@ def test_element_kind_filter_retains_evidence_and_navigation(tmp_path, view):
         kinds = page.get_by_label("Element kind", exact=True)
         page.locator(".flow-filters > summary").click()
         kinds.select_option("class")
+        _wait_for_layout(page)
         assert (
             nodes.evaluate_all("nodes => nodes.map(node => node.dataset.umlId).sort()")
             == wanted_ids
@@ -410,21 +436,27 @@ def test_element_kind_filter_retains_evidence_and_navigation(tmp_path, view):
         if view == "Diff":
             assert "Core: FAIL" in page.locator(".flow-legend").inner_text()
         client.dblclick()
+        _wait_for_layout(page)
         assert kinds.input_value() == ""
         assert page.locator('.flow-nodes [data-label="run"]').count() == 1
         page.locator(".flow-back").click()
+        _wait_for_layout(page)
         assert kinds.input_value() == "class"
         page.get_by_role(
             "button", name="Target" if view == "As-Is" else "As-Is", exact=True
         ).click()
+        _wait_for_layout(page)
         page.get_by_role("button", name=view, exact=True).click()
+        _wait_for_layout(page)
         assert kinds.input_value() == "class"
         page.locator(".flow-filters > summary").click()
         kinds.select_option("interface")
+        _wait_for_layout(page)
         page.locator(".flow-filters > summary").click()
         assert nodes.count() == 1 and nodes.get_attribute("data-uml-kind") == "interface"
         assert page.locator(".flow-edges .hit").count() == 0
         page.locator("#flow").get_by_role("button", name="Reset filters", exact=True).click()
+        _wait_for_layout(page)
         assert kinds.input_value() == ""
         assert (
             nodes.evaluate_all("nodes => nodes.map(node => node.dataset.umlId).sort()") == all_nodes
@@ -483,6 +515,7 @@ def test_card_height_and_arrow_endpoints_follow_each_cards_content(tmp_path, vie
     try:
         _open_module(page, view)
         page.get_by_role("button", name="Member previews", exact=True).click()
+        _wait_for_layout(page)
         model = page.locator('.flow-nodes [data-label="Model"]')
         helper = page.locator('.flow-nodes [data-label="helper"]')
         assert float(model.locator(".card").get_attribute("height")) > 200
@@ -498,20 +531,40 @@ def test_card_height_and_arrow_endpoints_follow_each_cards_content(tmp_path, vie
             || box.bottom <= other.top || other.bottom <= box.top));
         }""")
         assert edges.evaluate_all("""edges => edges.every(edge => {
+          const onBoundary = (point, box) => (
+            Math.min(Math.abs(point.x-box.left), Math.abs(point.x-box.right)) < 1
+              && point.y >= box.top-1 && point.y <= box.bottom+1
+          ) || (
+            Math.min(Math.abs(point.y-box.top), Math.abs(point.y-box.bottom)) < 1
+              && point.x >= box.left-1 && point.x <= box.right+1
+          );
           const target = document.querySelector(`[data-uml-id="${edge.dataset.umlTarget}"] .card`);
           const box = target.getBoundingClientRect(), line = edge.querySelector('.line');
           const end = line.getPointAtLength(line.getTotalLength());
           const p = new DOMPoint(end.x, end.y).matrixTransform(line.getScreenCTM());
-          return Math.min(Math.abs(p.y-box.top), Math.abs(p.y-box.bottom)) < 1
-            && p.x >= box.left && p.x <= box.right;
+          const scale = Math.hypot(line.getScreenCTM().a, line.getScreenCTM().b);
+          const before = line.getPointAtLength(line.getTotalLength() - 2 / scale);
+          const outside = new DOMPoint(before.x, before.y).matrixTransform(line.getScreenCTM());
+          return onBoundary(p, box) && (outside.x <= box.left || outside.x >= box.right
+            || outside.y <= box.top || outside.y >= box.bottom);
         })""")
         assert edges.evaluate_all("""edges => edges.every(edge => {
+          const onBoundary = (point, box) => (
+            Math.min(Math.abs(point.x-box.left), Math.abs(point.x-box.right)) < 1
+              && point.y >= box.top-1 && point.y <= box.bottom+1
+          ) || (
+            Math.min(Math.abs(point.y-box.top), Math.abs(point.y-box.bottom)) < 1
+              && point.x >= box.left-1 && point.x <= box.right+1
+          );
           const source = document.querySelector(`[data-uml-id="${edge.dataset.umlSource}"] .card`);
           const box = source.getBoundingClientRect(), line = edge.querySelector('.line');
           const start = line.getPointAtLength(0);
           const p = new DOMPoint(start.x, start.y).matrixTransform(line.getScreenCTM());
-          return Math.min(Math.abs(p.y-box.top), Math.abs(p.y-box.bottom)) < 1
-            && p.x >= box.left && p.x <= box.right;
+          const scale = Math.hypot(line.getScreenCTM().a, line.getScreenCTM().b);
+          const after = line.getPointAtLength(2 / scale);
+          const outside = new DOMPoint(after.x, after.y).matrixTransform(line.getScreenCTM());
+          return onBoundary(p, box) && (outside.x <= box.left || outside.x >= box.right
+            || outside.y <= box.top || outside.y >= box.bottom);
         })""")
     finally:
         browser.close()
@@ -552,15 +605,49 @@ def test_reciprocal_and_recursive_calls_use_distinct_ports_and_lanes(tmp_path, v
     try:
         _open_module(page, view)
         page.locator('.flow-nodes [data-label="Cycle"]').dblclick()
+        _wait_for_layout(page)
         page.get_by_role("button", name="Fit overview", exact=True).click()
         edges = page.locator('.flow-edges [data-relationship-kind="calls"]')
         assert edges.count() == 3
         assert not _route_problems(edges)
-        assert edges.locator(".line").evaluate_all("""lines => lines.every(line => {
-          const length = line.getTotalLength(), end = line.getPointAtLength(length);
-          const near = line.getPointAtLength(length - 2);
-          return length > 40 && near.y > end.y;
-        })""")
+        assert edges.evaluate_all(r"""edges => {
+          const onBoundary = (point, box) => (
+            Math.min(Math.abs(point.x-box.left), Math.abs(point.x-box.right)) < 1
+              && point.y >= box.top-1 && point.y <= box.bottom+1
+          ) || (
+            Math.min(Math.abs(point.y-box.top), Math.abs(point.y-box.bottom)) < 1
+              && point.x >= box.left-1 && point.x <= box.right+1
+          );
+          const endpoints = edges.map(edge => {
+            const line = edge.querySelector('.line'), matrix = line.getScreenCTM();
+            const length = line.getTotalLength();
+            const source = document.querySelector(`[data-uml-id="${edge.dataset.umlSource}"] .card`)
+              .getBoundingClientRect();
+            const target = document.querySelector(`[data-uml-id="${edge.dataset.umlTarget}"] .card`)
+              .getBoundingClientRect();
+            const start = line.getPointAtLength(0), end = line.getPointAtLength(length);
+            const p = point => new DOMPoint(point.x, point.y).matrixTransform(matrix);
+            return {length, start: p(start), end: p(end), source, target};
+          });
+          const onExpectedCards = endpoints.every(edge => edge.length > 40
+            && onBoundary(edge.start, edge.source) && onBoundary(edge.end, edge.target));
+          const ports = endpoints.flatMap(edge => [edge.start, edge.end]);
+          const distinctPorts = ports.every((point, index) => ports.slice(index + 1).every(other =>
+            Math.hypot(point.x-other.x, point.y-other.y) > 1));
+          const orthogonal = edges.every(edge => {
+            let previous = null;
+            for (const match of edge.querySelector('.line').getAttribute('d').matchAll(
+              /([ML])\s*(-?\d+(?:\.\d+)?(?:e[-+]?\d+)?),\s*(-?\d+(?:\.\d+)?(?:e[-+]?\d+)?)/gi
+            )) {
+              const point = [Number(match[2]), Number(match[3])];
+              if (match[1].toUpperCase() === 'L' && previous
+                  && point[0] !== previous[0] && point[1] !== previous[1]) return false;
+              previous = point;
+            }
+            return previous !== null;
+          });
+          return onExpectedCards && distinctPorts && orthogonal;
+        }""")
     finally:
         browser.close()
         playwright.stop()
@@ -631,9 +718,12 @@ def test_type_cues_and_five_direct_calls_remain_readable(tmp_path, view):
         }
         assert len(colors) == 3
         classifier.dblclick()
+        _wait_for_layout(page)
         page.locator('.flow-nodes [data-label="validate"]').dblclick()
+        _wait_for_layout(page)
         page.locator('.flow-nodes [data-label="validate"]').click()
         page.get_by_role("button", name="Fit overview", exact=True).click()
+        _wait_for_layout(page)
         for name in ("validate", *HELPERS):
             card = page.locator(f'.flow-nodes [data-label="{name}"]')
             assert 1 <= card.locator(".label tspan").count() <= 2
@@ -648,16 +738,14 @@ def test_type_cues_and_five_direct_calls_remain_readable(tmp_path, view):
             name: page.locator(f'.flow-nodes [data-label="{name}"]').bounding_box()
             for name in ("validate", *HELPERS)
         }
-        first_row = min(boxes[name]["y"] for name in HELPERS)
-        row = [boxes[name] for name in HELPERS if abs(boxes[name]["y"] - first_row) < 1]
-        row_center = (
-            min(box["x"] for box in row) + max(box["x"] + box["width"] for box in row)
-        ) / 2
-        assert abs(boxes["validate"]["x"] + boxes["validate"]["width"] / 2 - row_center) < 1
+        assert all(
+            boxes["validate"]["x"] + boxes["validate"]["width"] / 2 < box["x"] + box["width"] / 2
+            for box in (boxes[name] for name in HELPERS)
+        )
         edges = page.locator('.flow-edges [data-relationship-kind="calls"]')
         assert edges.count() == 5
         assert page.locator('.flow-legend [data-relationship-kind="calls"]').count() == 1
-        geometry = edges.evaluate_all("""edges => {
+        geometry = edges.evaluate_all(r"""edges => {
           const cards = [...document.querySelectorAll('.flow-nodes .uml-card')].map(node => ({
             id: node.dataset.umlId, box: node.querySelector('.card').getBoundingClientRect()
           }));
@@ -680,13 +768,21 @@ def test_type_cues_and_five_direct_calls_remain_readable(tmp_path, view):
             }
             const source = cards.find(card => card.id === edge.dataset.umlSource).box;
             const target = cards.find(card => card.id === edge.dataset.umlTarget).box;
-            const end = point(length), near = point(length - step);
-            if (Math.abs(end.y - target.top) > 1 || near.y >= end.y) {
-              problems.push('arrow does not approach callee from above: ' + edge.dataset.umlId);
-            }
+            const end = point(length);
             const start = point(0);
-            if (Math.abs(start.y - source.bottom) > 1) {
-              problems.push('line does not leave caller: ' + edge.dataset.umlId);
+            const onBoundary = (p, box) => (
+              Math.min(Math.abs(p.x-box.left), Math.abs(p.x-box.right)) < 1
+                && p.y >= box.top-1 && p.y <= box.bottom+1
+            ) || (
+              Math.min(Math.abs(p.y-box.top), Math.abs(p.y-box.bottom)) < 1
+                && p.x >= box.left-1 && p.x <= box.right+1
+            );
+            const beforeTarget = point(length - step), afterSource = point(step);
+            const outside = (p, box) => p.x <= box.left || p.x >= box.right
+              || p.y <= box.top || p.y >= box.bottom;
+            if (!onBoundary(end, target) || !onBoundary(start, source)
+                || !outside(beforeTarget, target) || !outside(afterSource, source)) {
+              problems.push('route does not connect its declared endpoints: ' + edge.dataset.umlId);
             }
             const points = [];
             for (let at = 0; at <= length; at += step) {
@@ -697,6 +793,18 @@ def test_type_cues_and_five_direct_calls_remain_readable(tmp_path, view):
                 problems.push('line crosses a card: ' + edge.dataset.umlId);
                 break;
               }
+            }
+            let previous = null;
+            for (const match of line.getAttribute('d').matchAll(
+              /([ML])\s*(-?\d+(?:\.\d+)?(?:e[-+]?\d+)?),\s*(-?\d+(?:\.\d+)?(?:e[-+]?\d+)?)/gi
+            )) {
+              const current = [Number(match[2]), Number(match[3])];
+              if (match[1].toUpperCase() === 'L' && previous
+                  && current[0] !== previous[0] && current[1] !== previous[1]) {
+                problems.push('route is not orthogonal: ' + edge.dataset.umlId);
+                break;
+              }
+              previous = current;
             }
             return points;
           });
@@ -772,7 +880,9 @@ def test_explicit_fit_reveals_every_card_in_a_large_level(tmp_path, view):
             .map(card => card.getBoundingClientRect());
           const width = Math.max(...cards.map(box => box.right))
             - Math.min(...cards.map(box => box.left));
-          return width > canvas.clientWidth * 0.65;
+          const height = Math.max(...cards.map(box => box.bottom))
+            - Math.min(...cards.map(box => box.top));
+          return Math.max(width / canvas.clientWidth, height / canvas.clientHeight) > 0.65;
         }""")
     finally:
         browser.close()

@@ -18,7 +18,7 @@ def test_native_module_cards_match_local_cells_and_return_scope_theme(tmp_path, 
     from test_atlas_report import _route_pages
 
     api = pytest.importorskip("playwright.sync_api")
-    from tools.report_browser import _check_module_graph
+    from tools.report_browser import _check_module_graph, _wait_for_layout
 
     index, graph = _route_pages(tmp_path, local_imports=True, package_empty=True)
     module = next(item for item in graph.entities if item.qualified_name == "sample.core")
@@ -35,15 +35,18 @@ def test_native_module_cards_match_local_cells_and_return_scope_theme(tmp_path, 
             assert page.get_by_role("group", name="Content", exact=True).is_hidden()
             assert page.locator(".atlas-summary").inner_text() == (
                 "Current level: 2 observed modules · 1 local dependency · 2 import sites"
+                " · 1 cross-scope relationship not drawn at this level"
             )
             page.locator(".atlas-summary").evaluate("n => n.textContent = '0 imports'")
             with pytest.raises(AssertionError):
                 _check_module_graph(page)
             page.reload()
+            _wait_for_layout(page)
             page.locator(f'.flow-nodes [data-uml-id="{module.id}"]').dblclick()
             page.wait_for_url("**/architecture.detail.html?*")
             assert page.locator('.flow-nodes [data-label="Client"]').is_visible()
             page.get_by_role("link", name="Back to architecture map", exact=True).click()
+            _wait_for_layout(page)
             assert parse_qs(urlsplit(page.url).query) == {
                 "scope": ["core"],
                 "view": ["diff"],
@@ -55,7 +58,9 @@ def test_native_module_cards_match_local_cells_and_return_scope_theme(tmp_path, 
             assert "No direct declarations" in page.locator(".flow-alternative").inner_text()
             assert "sample/__init__.py" in page.locator(".flow-alternative").inner_text()
             page.get_by_role("link", name="Back to architecture map", exact=True).click()
+            _wait_for_layout(page)
             page.get_by_role("button", name="Target", exact=True).click()
+            _wait_for_layout(page)
             assert not page.locator('.flow-nodes [data-uml-kind="module"]').count()
             assert "No declared modules recorded" in page.locator(".flow-alternative").inner_text()
             page.goto(main + "?view=diff&theme=dark")
@@ -124,7 +129,7 @@ def test_native_atlas_acceptance_rejects_a_corrupted_core_status(tmp_path, varia
 @pytest.mark.parametrize("initial_view", ["diagram", "diff"])
 def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path, initial_view):
     api = pytest.importorskip("playwright.sync_api")
-    from tools.report_browser import _check_inner_uml
+    from tools.report_browser import _check_inner_uml, _wait_for_layout
 
     architecture = tmp_path / "architecture.json"
     with contextlib.redirect_stdout(io.StringIO()):
@@ -204,6 +209,7 @@ def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path, i
             page.locator(f'.flow-nodes [data-uml-id="{client_id}"]').press("Enter")
             assert parse_qs(urlsplit(page.url).query)["scope"] == [client_id]
             page.reload()
+            _wait_for_layout(page)
             assert page.locator('.flow-nodes [data-label="reset"]').count() == 1
             assert (
                 page.get_by_role("button", name="Diff", exact=True).get_attribute("aria-pressed")
@@ -212,6 +218,7 @@ def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path, i
             page.locator(".flow-back").click()
             assert "scope" not in parse_qs(urlsplit(page.url).query)
             page.go_back()
+            _wait_for_layout(page)
             assert page.locator('.flow-nodes [data-label="reset"]').count() == 1
             page.locator(".flow-back").click()
             page.locator(".flow-back").click()
