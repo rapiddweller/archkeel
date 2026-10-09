@@ -11,8 +11,6 @@ import tomllib
 from pathlib import Path
 from typing import Literal
 
-from packaging.specifiers import InvalidSpecifier, SpecifierSet
-
 from archkeel.ir.facts import AnalyzerInfo, RuntimeInfo, RuntimeRequirementState
 
 Language = Literal["python", "dart", "typescript"]
@@ -97,19 +95,19 @@ def python_requirement(root: Path) -> tuple[str | None, RuntimeRequirementState]
         if not isinstance(required, str) or not required.strip():
             return None, "requirement_invalid"
         required = _normalize_poetry_caret(required)
-        try:
-            SpecifierSet(required)
-        except InvalidSpecifier:
-            return None, "requirement_invalid"
     if not isinstance(required, str) or not required.strip():
         return None, "requirement_invalid"
     return required, "declared"
 
 
 def _normalize_poetry_caret(required: str) -> str:
-    match = re.fullmatch(r"\^([1-9]\d*(?:\.\d+){0,2})", required.strip())
+    match = re.fullmatch(r"\^([1-9][0-9]*(?:\.[0-9]+){0,2})", required.strip())
     if match is None:
         return required
     version = match.group(1)
-    major = int(version.split(".", 1)[0])
-    return f">={version},<{major + 1}.0"
+    try:
+        numbers = [int(part) for part in version.split(".")]
+        upper_bound = f"{numbers[0] + 1}.0"
+    except ValueError:
+        return required
+    return f">={version},<{upper_bound}"

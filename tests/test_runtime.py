@@ -179,6 +179,7 @@ def test_invalid_python_runtime_version_does_not_blame_requirement() -> None:
         ("^3.9", ">=3.9,<4.0"),
         ("^3.9.1", ">=3.9.1,<4.0"),
         ("^3", ">=3,<4.0"),
+        ("^9", ">=9,<10.0"),
         (">=3.9", ">=3.9"),
         ("~=3.9", "~=3.9"),
     ],
@@ -261,8 +262,8 @@ def test_unsupported_poetry_constraints_remain_blocking(tmp_path: Path, unsuppor
         f'[tool.poetry.dependencies]\npython = "{unsupported}"\n', encoding="utf-8"
     )
     required, state = python_requirement(tmp_path)
-    assert required is None
-    assert state == "requirement_invalid"
+    assert required == unsupported
+    assert state == "declared"
     diagnostic = runtime_diagnostic(RuntimeInfo("python", "3.11.0", required, state))
     assert diagnostic is not None
     assert "invalid or unsupported" in diagnostic.subject
@@ -302,3 +303,32 @@ def test_poetry_runtime_gate_accepts_supported_caret_and_blocks_unsupported(tmp_
     assert report["diagnostics"][0]["kind"] == "runtime_mismatch"
     assert "invalid or unsupported" in report["diagnostics"][0]["subject"]
     assert "supported positive-major Poetry caret" in report["diagnostics"][0]["remedy"]
+    artifact = json.loads((unsupported / "architecture.json").read_bytes())
+    assert artifact["runtime"]["requirement_state"] == "requirement_invalid"
+
+
+@pytest.mark.parametrize("part", ["major", "minor", "patch"])
+def test_extreme_poetry_caret_is_classified_by_core_without_crashing(
+    tmp_path: Path, part: str
+) -> None:
+    from archkeel.analyzer.runtime import python_requirement
+
+    digits = "9" * 5_000
+    required = {
+        "major": f"^{digits}.9",
+        "minor": f"^3.{digits}",
+        "patch": f"^3.9.{digits}",
+    }[part]
+    root = _fixture(tmp_path)
+    (root / "pyproject.toml").write_text(
+        f'[tool.poetry.dependencies]\npython = "{required}"\n', encoding="utf-8"
+    )
+    (root / "sample/probe.py").write_text("value = 1\n", encoding="utf-8")
+
+    assert python_requirement(root) == (required, "declared")
+    code, report = _report(11, root)
+    assert code == 2
+    assert report["diagnostics"][0]["kind"] == "runtime_mismatch"
+    assert "invalid or unsupported" in report["diagnostics"][0]["subject"]
+    artifact = json.loads((root / "architecture.json").read_bytes())
+    assert artifact["runtime"]["requirement_state"] == "requirement_invalid"
