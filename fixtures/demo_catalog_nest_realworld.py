@@ -1,4 +1,4 @@
-# ArchKeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 """Source-only variants for the frozen Nest/Mikro RealWorld project Target."""
@@ -33,6 +33,7 @@ VARIANTS: tuple[Variant, ...] = (
         files={},
         expected_violations=(),
         expected_codes=(),
+        expected_kinds=("parse_error",),
         fixture=NEST_REALWORLD_FIXTURE_DIR,
         expected_declared_rules="UNKNOWN",
     ),
@@ -51,6 +52,7 @@ VARIANTS: tuple[Variant, ...] = (
         },
         expected_violations=("REQUIRES-COMPLETE",),
         expected_codes=(),
+        expected_kinds=("parse_error",),
         fixture=NEST_REALWORLD_FIXTURE_DIR,
         expected_declared_rules="UNKNOWN",
     ),
@@ -68,6 +70,7 @@ VARIANTS: tuple[Variant, ...] = (
         },
         expected_violations=(_UML_RULE,),
         expected_codes=(),
+        expected_kinds=("parse_error",),
         fixture=NEST_REALWORLD_FIXTURE_DIR,
         expected_declared_rules="UNKNOWN",
     ),
@@ -85,6 +88,7 @@ VARIANTS: tuple[Variant, ...] = (
         },
         expected_violations=(),
         expected_codes=(),
+        expected_kinds=("parse_error",),
         fixture=NEST_REALWORLD_FIXTURE_DIR,
         expected_declared_rules="UNKNOWN",
     ),

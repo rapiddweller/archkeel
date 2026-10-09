@@ -27,6 +27,11 @@ Python adds the complete pinned FastAPI RealWorld app (72 Python modules) with a
 deep field-signature, and login-call variants. Its source coverage is complete; external UML
 facts remain UNKNOWN.
 
+Nest/Mikro adds the pinned RealWorld application with 41 prepared build inputs and source-only
+dependency, `ArticleService.findFeed` signature, and `UserService.create` constructor variants.
+Computed ORM imports, module/export aliases, framework decorators/DI, partial member and
+parameter-property inventory, and `EntityManager` type/value identity ambiguity remain UNKNOWN.
+
 | Variant | Expected evidence |
 |---|---|
 | `flutter-shop` | Local comparison passes; unresolved source facts keep UML UNKNOWN. |
@@ -38,6 +43,9 @@ facts remain UNKNOWN.
 | `python-realworld-forbidden-edge` | Route imports SQL directly; rule FAIL. |
 | `python-realworld-signature-fail` | `Article.tags` changes to `List[int]`; UML FAIL. |
 | `python-realworld-dynamic-unknown` | `getattr` login call; UNKNOWN. |
+| `nest-realworld-forbidden-edge` | Shared validation imports `Article`; `REQUIRES-COMPLETE` FAIL. |
+| `nest-realworld-signature-fail` | `ArticleService.findFeed` return type changes; UML FAIL. |
+| `nest-realworld-dynamic-unknown` | Type assertion makes the `User` creates relation UNKNOWN. |
 
 The [catalog](../fixtures/architecture_demo.py) owns all variants, overlays and expected
 outcomes. Check-protocol and test-only variants cannot replay as reports.
