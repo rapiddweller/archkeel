@@ -607,6 +607,43 @@ def test_native_card_drag_reroutes_all_hits_and_keeps_architecture_unchanged(tmp
         playwright.stop()
 
 
+def test_incomplete_manual_positions_fall_back_to_automatic_card_coverage(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    html, _ = _uml_report(tmp_path)
+    errors = []
+    playwright, browser, page = _browser_page(api, html, errors=errors)
+    try:
+        _open_module(page, "As-Is")
+        page.locator(".flow-toolbar").get_by_role(
+            "button", name="Reset filters", exact=True
+        ).click()
+        _wait_for_layout(page)
+        card = page.locator('.flow-nodes [data-label="Client"]')
+        box = card.bounding_box()
+        before = card.get_attribute("transform")
+        assert box and before
+        page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        page.mouse.down()
+        page.mouse.move(
+            box["x"] + box["width"] / 2 + 35, box["y"] + box["height"] / 2 + 24, steps=4
+        )
+        page.mouse.up()
+        assert card.get_attribute("transform") != before
+
+        page.locator(".flow-filters summary").click()
+        page.get_by_label("Element kind").select_option("class")
+        page.wait_for_function("""() =>
+          document.querySelector('#flow')?.dataset.layoutState === 'ready'
+          && document.querySelector('.flow-nodes [data-uml-kind="class"]')""")
+        assert page.locator('.flow-nodes [data-uml-kind="class"]').evaluate_all(
+            "nodes => nodes.map(node => node.dataset.label).sort()"
+        ) == ["Base", "Client", "Other"]
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
 @pytest.mark.parametrize("zoom_steps", [0, 2, 4])
 def test_left_up_drag_keeps_other_cards_fixed_and_small_scope_starts_unscrolled(

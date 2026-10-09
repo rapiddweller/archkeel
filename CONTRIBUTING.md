@@ -26,24 +26,20 @@ make ci-pr-report-check                  # browser sample for report changes
 
 Policy validation runs first. `BASE` also checks widenings and amendments; CI pins the PR base SHA.
 Without `BASE`, the local gate validates only the checked-out policy.
-PRs select Core and report samples by changed area; Mermaid checks follow Markdown changes.
-These samples do not replace testing the behavior you change. Rare or platform-specific
-regressions may first surface on Main. The PR check has a 15-minute cap.
+PRs and Main pushes run the change-selected core and report regression checks; Mermaid checks
+follow Markdown changes. The report sample includes the real nested-Python route regression,
+renderer, drag/async and independent-Target checks. Samples do not replace testing the behavior
+you change.
 
-Every Main push runs the full `make ci`: all tests, build/smoke, TypeScript demos, report timing,
-browser acceptance and Mermaid. The full CI test run requests an early stop after its first
-failure; in-flight worker tests may finish. Local `make test` still collects all failures.
-Native collector matrices also run on Main, including
-Linux/Windows and Dart 3.9/3.12. Use `make ci BASE=origin/main` locally for that full scope.
-Obsolete PR runs cancel automatically; Main runs remain independent with a 60-minute check cap.
+The scheduled **Full verification** workflow runs the complete `make ci` gate, report timing and
+browser proof, gallery generation, plus Windows/Python, TypeScript and Dart SDK/OS matrices. It
+also supports manual dispatch. Release tags call that same full workflow before package build and
+publication. Use `make ci BASE=origin/main` locally for the complete gate.
 
-Every push to `main` also builds and publishes the [current architecture report](https://rapiddweller.github.io/archkeel/).
-PRs run the same report build, Pages configuration check and artifact upload as Main.
-Only the separate Main deployment job receives publishing permissions and consumes that artifact.
-Both jobs run independently of the test jobs and path filters; PRs never deploy.
-Reports retain FAIL and UNKNOWN findings. A failed report build leaves the published report intact.
-Pages jobs run serially, and superseded revisions do not replace the current Main report.
-GitHub Pages must use **GitHub Actions** as its publishing source.
+The [published architecture report](https://rapiddweller.github.io/archkeel/) updates after a
+successful scheduled or manual full verification on Main. Reports retain FAIL and UNKNOWN
+findings; a failed build leaves the published report intact. GitHub Pages must use **GitHub
+Actions** as its publishing source.
 
 Run `make report-pages` to generate the same site in `test-artifacts/pages/`: an entry page,
 the current report and the Python, Dart and TypeScript demos with shared detail pages and canonical

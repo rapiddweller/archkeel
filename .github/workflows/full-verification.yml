@@ -1,0 +1,279 @@
+name: Full verification
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 2 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  full-suite-and-reports:
+    name: Full suite, report proof, and gallery
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install supported runtimes
+        run: uv python install 3.11.12 3.12.10
+
+      - name: Install Dart SDK
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: "3.12.2"
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Prepare native Dart analyzer
+        run: make dart-setup
+
+      - name: Run full suite, browser proof, timing, and report gallery
+        run: |
+          make ci-check
+          make mermaid
+          make report-pages
+
+      - name: Upload latest report evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: report-browser-evidence
+          path: |
+            test-artifacts/pytest/*.xml
+            test-artifacts/report-timing/architecture.timing.json
+            test-artifacts/report-browser/
+          if-no-files-found: warn
+          retention-days: 1
+
+      - name: Upload report site for deployment
+        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: test-artifacts/pages/
+          retention-days: 1
+
+  collector-safety-windows:
+    name: Collector safety / Windows / Python ${{ matrix.python }}
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11.12", "3.12.10"]
+    env:
+      UV_PYTHON: ${{ matrix.python }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Make
+        run: choco install make --version=4.4.1 --yes --no-progress
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python }}
+          version: "0.12.13"
+
+      - name: Install supported runtimes and locked package
+        run: |
+          uv python install 3.11.12 3.12.10
+          uv sync --locked --python ${{ matrix.python }}
+
+      - name: Install Dart SDK
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: "3.12.2"
+
+      - name: Prepare native Dart analyzer
+        shell: bash
+        run: make dart-setup SHELL=bash
+
+      - name: Verify native collector safety
+        shell: bash
+        run: make collector-safety SHELL=bash
+
+  typescript-native:
+    name: TypeScript / ${{ matrix.os }} / Python ${{ matrix.python }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11.12", "3.12.10"]
+    runs-on: ${{ matrix.os }}
+    env:
+      UV_PYTHON: ${{ matrix.python }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Make on Windows
+        if: runner.os == 'Windows'
+        run: choco install make --version=4.4.1 --yes --no-progress
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          version: "0.12.13"
+
+      - name: Install Dart SDK
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: "3.12.2"
+
+      - name: Install locked package
+        run: uv sync --locked --python ${{ matrix.python }}
+
+      - name: Prepare native Dart analyzer
+        shell: bash
+        run: make dart-setup SHELL=bash
+
+      - name: Verify native TypeScript collector
+        shell: bash
+        run: |
+          make typescript-native SHELL=bash
+          make build smoke SHELL=bash
+
+  dart-native:
+    name: Dart / ${{ matrix.os }} / SDK ${{ matrix.dart }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        dart: ["3.9.0", "3.12.2"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Make on Windows
+        if: runner.os == 'Windows'
+        run: choco install make --version=4.4.1 --yes --no-progress
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install Dart SDK
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: ${{ matrix.dart }}
+
+      - name: Install locked package
+        run: uv sync --locked
+
+      - name: Prepare native Dart analyzer
+        shell: bash
+        run: make dart-setup SHELL=bash
+
+      - name: Verify native Dart collector
+        shell: bash
+        run: make dart-native SHELL=bash
+
+  verified:
+    name: Full verification aggregate
+    if: always()
+    needs:
+      - full-suite-and-reports
+      - collector-safety-windows
+      - typescript-native
+      - dart-native
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any full verification job failed, was cancelled, or was skipped
+        env:
+          FULL_RESULT: ${{ needs.full-suite-and-reports.result }}
+          SAFETY_RESULT: ${{ needs.collector-safety-windows.result }}
+          TYPESCRIPT_RESULT: ${{ needs.typescript-native.result }}
+          DART_RESULT: ${{ needs.dart-native.result }}
+        run: |
+          set -euo pipefail
+          for result in "$FULL_RESULT" "$SAFETY_RESULT" "$TYPESCRIPT_RESULT" "$DART_RESULT"; do
+          [[ "$result" == success ]] || { echo "A required full-verification job did not succeed: $result" >&2; exit 1; }
+          done
+
+  prune-report-artifacts:
+    name: Prune retained report artifacts
+    needs: [verified, deploy-report-pages]
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Check out trusted main workflow
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Prune old report artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make prune-report-artifacts DELETE=true REPORT_ARTIFACT_PRUNE_DIR="$RUNNER_TEMP/report-artifact-prune"
+
+  deploy-report-pages:
+    name: Publish the verified report gallery
+    needs: [full-suite-and-reports, verified]
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      # An older rerun must not replace a newer Main report.
+      - name: Read current Main revision
+        id: main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          head=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          echo "sha=$head" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy report
+        if: steps.main.outputs.sha == github.sha
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

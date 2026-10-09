@@ -47,8 +47,8 @@ def test_target_navigation_receives_only_the_authenticated_graph(tmp_path, versi
     assert '"explorers"' not in html and '"target_diagrams"' not in html
 
 
-@pytest.mark.parametrize("backward_import", [False, True])
-def test_own_render_contract_enforces_output_direction(tmp_path, backward_import):
+@pytest.mark.parametrize("backward_importer", [None, "summary", "atlas"])
+def test_own_render_contract_enforces_output_direction(tmp_path, backward_importer):
     root_path = Path(__file__).parents[1]
     contract_path = "docs/architecture/contracts/render.json"
     inside = json.loads((root_path / contract_path).read_bytes())
@@ -57,12 +57,25 @@ def test_own_render_contract_enforces_output_direction(tmp_path, backward_import
         "pyproject.toml": '[project]\nrequires-python = ">=3.11"\n',
         "src/archkeel/__init__.py": "",
         "src/archkeel/render/__init__.py": "",
-        "src/archkeel/render/atlas.py": "",
-        "src/archkeel/render/summary.py": "from . import html\n" if backward_import else "",
+        "src/archkeel/render/atlas.py": (
+            "def atlas_payload(): return {}\n"
+            + ("from . import html\n" if backward_importer == "atlas" else "")
+        ),
+        "src/archkeel/render/summary.py": (
+            "def report_summary(): return None\n"
+            + ("from . import html\n" if backward_importer == "summary" else "")
+        ),
         "src/archkeel/render/terminal.py": "from . import summary\n",
-        "src/archkeel/render/html.py": "from . import summary\n"
-        "def _flow_section(observation):\n    return ''\n",
+        "src/archkeel/render/html.py": (
+            "from .atlas import atlas_payload\n"
+            "from .summary import report_summary\n"
+            "def _flow_section(observation):\n    return ''\n"
+        ),
         provenance: "One report input; summary has no output dependency.\n",
+        "docs/architecture/render-target.md": "Payload and summary do not depend on HTML.\n",
+        "docs/architecture/decisions/ad-213-renderer-responsibility-boundaries.md": (
+            "Separate payload construction from HTML composition.\n"
+        ),
         contract_path: json.dumps(inside),
         "architecture-contract.json": json.dumps(
             {
@@ -91,5 +104,7 @@ def test_own_render_contract_enforces_output_direction(tmp_path, backward_import
     assessments = {item.id: item for item in result.rule_assessments}
     for rule in ("RENDER-COMPLETE-REQUIRES", "RENDER-NO-CYCLES"):
         assessment = assessments[f"render:{rule}"]
-        assert assessment.status == ("FAIL" if backward_import else "PASS")
-        assert assessment.count == (1 if backward_import else 0)
+        assert assessment.status == ("FAIL" if backward_importer else "PASS")
+        assert assessment.count == (1 if backward_importer else 0)
+    interface = assessments["render:RENDER-INTERFACE"]
+    assert (interface.status, interface.count) == ("PASS", 0)
