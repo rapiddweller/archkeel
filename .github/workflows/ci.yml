@@ -119,7 +119,7 @@ jobs:
           git diff --no-renames --name-only -z "$BASE" "$HEAD" | python3 tools/ci_changes.py >> "$GITHUB_OUTPUT"
 
   check:
-    needs: changes
+    needs: [changes, pr-core-check, pr-report-check]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: ${{ github.event_name == 'pull_request' && 25 || 90 }}
@@ -128,21 +128,49 @@ jobs:
         if: ${{ !cancelled() && needs.changes.result != 'success' }}
         run: exit 1
 
+      - name: Verify PR check results
+        if: github.event_name == 'pull_request'
+        env:
+          EVENT: ${{ github.event_name }}
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          CORE: ${{ needs.changes.outputs.core }}
+          REPORT: ${{ needs.changes.outputs.report }}
+          CORE_RESULT: ${{ needs.pr-core-check.result }}
+          REPORT_RESULT: ${{ needs.pr-report-check.result }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT" != pull_request || "$CHANGES_RESULT" != success ]]; then
+            echo "PR change classification did not succeed" >&2
+            exit 1
+          fi
+
+          case "$CORE" in
+            true) [[ "$CORE_RESULT" == success ]] || { echo "Required PR core checks did not succeed: $CORE_RESULT" >&2; exit 1; } ;;
+            false) [[ "$CORE_RESULT" == skipped ]] || { echo "Unselected PR core checks were not skipped: $CORE_RESULT" >&2; exit 1; } ;;
+            *) echo "Invalid PR core selection: $CORE" >&2; exit 1 ;;
+          esac
+
+          case "$REPORT" in
+            true) [[ "$REPORT_RESULT" == success ]] || { echo "Required PR report checks did not succeed: $REPORT_RESULT" >&2; exit 1; } ;;
+            false) [[ "$REPORT_RESULT" == skipped ]] || { echo "Unselected PR report checks were not skipped: $REPORT_RESULT" >&2; exit 1; } ;;
+            *) echo "Invalid PR report selection: $REPORT" >&2; exit 1 ;;
+          esac
+
       - name: Check out source
-        if: needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true'
+        if: github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Install Node
-        if: needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true'
+        if: github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: "22"
 
       - name: Install uv and Python
-        if: needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true'
+        if: github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
@@ -150,36 +178,26 @@ jobs:
           version: "0.12.13"
 
       - name: Install Dart SDK
-        if: needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true'
+        if: github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
         uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
         with:
           sdk: "3.12.2"
 
       - name: Install supported runtimes
-        if: needs.changes.outputs.core == 'true'
+        if: github.event_name == 'push' && needs.changes.outputs.core == 'true'
         run: uv python install 3.11.12 3.12.10
 
       - name: Install locked dependencies
-        if: needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true'
+        if: github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
         run: uv sync --locked
 
       - name: Prepare native Dart analyzer
-        if: needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true'
+        if: github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
         run: make dart-setup
 
       - name: Clean previous CI artifacts
-        if: needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true'
+        if: github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
         run: make ci-artifacts-clean
-
-      - name: Run PR core checks
-        if: github.event_name == 'pull_request' && needs.changes.outputs.core == 'true'
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-        run: make ci-pr-check
-
-      - name: Run PR report checks
-        if: github.event_name == 'pull_request' && needs.changes.outputs.report == 'true'
-        run: make ci-pr-report-check
 
       - name: Run full core checks
         if: github.event_name == 'push' && needs.changes.outputs.core == 'true'
@@ -192,7 +210,7 @@ jobs:
         run: make ci-report-check
 
       - name: Upload test timings
-        if: always() && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
+        if: always() && github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: pytest-results
@@ -211,7 +229,119 @@ jobs:
 
       # Only synthetic fixtures/F-architecture reports, never a consumer repository.
       - name: Upload synthetic report browser evidence
-        if: always() && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
+        if: always() && github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: report-browser-evidence
+          path: test-artifacts/report-browser/
+          if-no-files-found: warn
+          retention-days: 1
+
+  pr-core-check:
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install Dart SDK
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: "3.12.2"
+
+      - name: Install supported runtimes
+        run: uv python install 3.11.12 3.12.10
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Prepare native Dart analyzer
+        run: make dart-setup
+
+      - name: Run PR core checks
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: make ci-pr-check
+
+      - name: Upload PR core JUnit results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pytest-results-pr-core
+          path: test-artifacts/pytest/pr-core.xml
+          if-no-files-found: warn
+          retention-days: 7
+
+  pr-report-check:
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.report == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install Dart SDK
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: "3.12.2"
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Prepare native Dart analyzer
+        run: make dart-setup
+
+      - name: Run PR report checks
+        run: make ci-pr-report-check
+
+      - name: Upload PR report JUnit results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pytest-results-pr-report
+          path: test-artifacts/pytest/pr-report.xml
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload PR report browser evidence
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: report-browser-evidence

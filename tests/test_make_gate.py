@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from textwrap import dedent
 
 import pytest
 
@@ -278,31 +279,97 @@ def test_main_core_uses_pinned_playwright_once_and_report_stage_only_runs_proof(
 
 def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-    check = workflow.split("  check:\n", 1)[1].split("\n  prune-report-artifacts:", 1)[0]
+    check = workflow.split("  check:\n", 1)[1].split("\n  pr-core-check:", 1)[0]
     assert "if: ${{ !cancelled() }}" in check
+    assert "needs: [changes, pr-core-check, pr-report-check]" in check
     classifier_failure = check.split("- name: Fail if change detection failed\n", 1)[1].split(
         "\n      - name:", 1
     )[0]
     assert "if: ${{ !cancelled() && needs.changes.result != 'success' }}" in classifier_failure
     assert "run: exit 1" in classifier_failure
-    assert "BASE: ${{ github.event.pull_request.base.sha }}" in check
+    aggregate = check.split("- name: Verify PR check results\n", 1)[1].split("\n      - name:", 1)[
+        0
+    ]
+    assert "if: github.event_name == 'pull_request'" in aggregate
+    assert "CHANGES_RESULT: ${{ needs.changes.result }}" in aggregate
+    assert "CORE: ${{ needs.changes.outputs.core }}" in aggregate
+    assert "REPORT: ${{ needs.changes.outputs.report }}" in aggregate
+    assert "CORE_RESULT: ${{ needs.pr-core-check.result }}" in aggregate
+    assert "REPORT_RESULT: ${{ needs.pr-report-check.result }}" in aggregate
+    assert "run: |" in aggregate
     assert "run: make ci-core-check\n" in check
     assert "run: make ci-report-check\n" in check
+    assert "make ci-pr-" not in check
     assert "continue-on-error" not in check
     assert "timeout-minutes: ${{ github.event_name == 'pull_request' && 25 || 90 }}" in check
-    assert "run: make ci-pr-check\n" in check
-    assert "run: make ci-pr-report-check\n" in check
     for heading in ("Run full core checks", "Run full report checks"):
         step = check.split(f"- name: {heading}\n", 1)[1].split("\n      - name:", 1)[0]
         assert "github.event_name == 'push'" in step
-    for heading in ("Run PR core checks", "Run PR report checks"):
+    for heading in (
+        "Check out source",
+        "Install Node",
+        "Install uv and Python",
+        "Install Dart SDK",
+        "Install supported runtimes",
+        "Install locked dependencies",
+        "Prepare native Dart analyzer",
+        "Clean previous CI artifacts",
+        "Upload test timings",
+        "Upload report runtime",
+        "Upload synthetic report browser evidence",
+    ):
         step = check.split(f"- name: {heading}\n", 1)[1].split("\n      - name:", 1)[0]
-        assert "github.event_name == 'pull_request'" in step
+        assert "github.event_name == 'push'" in step
     assert "Observe Archkeel" not in check
     assert "archkeel-self-observation" not in check
     assert "path: test-artifacts/report-timing/architecture.timing.json" in check
     assert "path: test-artifacts/pytest/*.xml" in check
     assert "path: test-artifacts/report-browser/" in check
+    assert "retention-days: 1" in check
+
+    for job_id, next_job, area, make_target, junit_name, junit_path in (
+        (
+            "pr-core-check",
+            "pr-report-check",
+            "core",
+            "ci-pr-check",
+            "pytest-results-pr-core",
+            "pr-core.xml",
+        ),
+        (
+            "pr-report-check",
+            "prune-report-artifacts",
+            "report",
+            "ci-pr-report-check",
+            "pytest-results-pr-report",
+            "pr-report.xml",
+        ),
+    ):
+        job = workflow.split(f"  {job_id}:\n", 1)[1].split(f"\n  {next_job}:\n", 1)[0]
+        assert "needs: changes" in job
+        assert (
+            f"github.event_name == 'pull_request' && needs.changes.outputs.{area} == 'true'" in job
+        )
+        assert "runs-on: ubuntu-latest" in job
+        assert "timeout-minutes: 25" in job
+        assert "permissions:\n      contents: read" in job
+        assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in job
+        assert "actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444" in job
+        assert "astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9" in job
+        assert "dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d" in job
+        assert f"run: make {make_target}" in job
+        assert f"name: {junit_name}" in job
+        assert junit_path in job
+        assert "retention-days: 7" in job
+    core_job = workflow.split("  pr-core-check:\n", 1)[1].split("\n  pr-report-check:", 1)[0]
+    assert "BASE: ${{ github.event.pull_request.base.sha }}" in core_job
+    assert workflow.count("name: report-browser-evidence") == 2
+    assert check.count("name: report-browser-evidence") == 1
+    pr_report = workflow.split("  pr-report-check:\n", 1)[1].split(
+        "\n  prune-report-artifacts:", 1
+    )[0]
+    assert pr_report.count("name: report-browser-evidence") == 1
+    assert "retention-days: 1" in pr_report
     cleanup = workflow.split("  prune-report-artifacts:\n", 1)[1].split(
         "\n  collector-safety-windows:", 1
     )[0]
@@ -319,7 +386,6 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     assert "ref: ${{ github.sha }}" in cleanup
     assert "GH_TOKEN: ${{ github.token }}" in cleanup
     assert "make prune-report-artifacts DELETE=true" in cleanup
-    assert "retention-days: 1" in check
     makefile = (ROOT / "Makefile").read_text()
     assert "gh api --paginate --slurp" in makefile
     assert "gh api --method DELETE" in makefile
@@ -360,6 +426,74 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     assert "tests/test_compass_project_report.py" in pr_report_tests
     assert "tests/test_python_realworld_project_report.py" in pr_report_tests
     assert "tests/test_nest_realworld_project_report.py" in pr_report_tests
+
+
+def test_pr_aggregate_executes_exact_workflow_script_fail_closed() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    check = workflow.split("  check:\n", 1)[1].split("\n  pr-core-check:", 1)[0]
+    step = check.split("- name: Verify PR check results\n", 1)[1].split("\n      - name:", 1)[0]
+    script = dedent(step.split("        run: |\n", 1)[1])
+    baseline = {
+        "EVENT": "pull_request",
+        "CHANGES_RESULT": "success",
+        "CORE": "true",
+        "REPORT": "true",
+        "CORE_RESULT": "success",
+        "REPORT_RESULT": "success",
+    }
+    cases = (
+        ("both selected", {}, 0),
+        ("core only", {"REPORT": "false", "REPORT_RESULT": "skipped"}, 0),
+        ("report only", {"CORE": "false", "CORE_RESULT": "skipped"}, 0),
+        (
+            "neither selected",
+            {
+                "CORE": "false",
+                "REPORT": "false",
+                "CORE_RESULT": "skipped",
+                "REPORT_RESULT": "skipped",
+            },
+            0,
+        ),
+        ("classifier failed", {"CHANGES_RESULT": "failure"}, 1),
+        ("malformed core flag", {"CORE": "yes"}, 1),
+        ("malformed report flag", {"REPORT": "TRUE"}, 1),
+        ("missing core flag", {"CORE": None}, 1),
+        ("missing report flag", {"REPORT": None}, 1),
+        ("required child failed", {"CORE_RESULT": "failure"}, 1),
+        ("required child cancelled", {"REPORT_RESULT": "cancelled"}, 1),
+        ("required child skipped", {"CORE_RESULT": "skipped"}, 1),
+        (
+            "unselected child unexpectedly ran",
+            {
+                "CORE": "false",
+                "REPORT": "false",
+                "CORE_RESULT": "success",
+                "REPORT_RESULT": "skipped",
+            },
+            1,
+        ),
+        ("missing child result", {"CORE_RESULT": None}, 1),
+    )
+    for label, overrides, expected in cases:
+        values = {
+            **baseline,
+            **{key: value for key, value in overrides.items() if value is not None},
+        }
+        missing_values = [key for key, value in overrides.items() if value is None]
+        for missing in missing_values:
+            values.pop(missing)
+        env = {**os.environ, **values}
+        for missing in missing_values:
+            env.pop(missing, None)
+        result = subprocess.run(
+            ["bash", "-eu", "-c", script], cwd=ROOT, env=env, capture_output=True, text=True
+        )
+        assert (result.returncode == 0) == (expected == 0), (
+            label,
+            result.stdout,
+            result.stderr,
+        )
 
 
 @pytest.mark.parametrize("renderer_exit", [0, 1])
