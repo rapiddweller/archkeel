@@ -42,6 +42,7 @@ pr-test:
 		tests/test_dart_unknowns.py::test_no_show_import_hiding_a_real_crossing_is_unknown_not_pass \
 		tests/test_flutter_demo.py::test_flutter_target_has_agent_owned_responsibilities_and_closed_permissions \
 		tests/test_flutter_demo.py::test_flutter_mutations_keep_target_identical_and_change_only_dart_sources \
+		tests/test_flutter_demo.py::test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct \
 		tests/test_flutter_demo.py::test_flutter_target_owns_three_meaningful_component_levels_and_all_modules \
 		tests/test_flutter_demo.py::test_flutter_target_pins_journey_signatures_member_scopes_and_flutter_inheritance \
 		tests/test_runtime.py \
@@ -146,7 +147,8 @@ typescript-native:
 
 dart-test:
 	$(UV) run --locked python -m pytest -q tests/test_dart_*.py \
-		tests/test_uml_source_facts.py tests/test_language_collectors.py
+		tests/test_uml_source_facts.py tests/test_language_collectors.py \
+		tests/test_flutter_demo.py::test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct
 
 # Compare against the immutable output captured from the former Node collector.
 typescript-differential:

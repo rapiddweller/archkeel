@@ -190,7 +190,7 @@ def test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct(
     base = reports["flutter-shop"][0]
     assert base["observation_complete"] == "PASS"
     assert base["coverage"]["files_discovered"] == 21
-    assert base["measurements"]["scalars"]["unknown_positions"] == 27
+    assert base["measurements"]["scalars"]["unknown_positions"] == 35
     assert base["declared_rules"] == "UNKNOWN"
     base_detail = reports["flutter-shop"][1]
     local_reads = {
@@ -209,7 +209,7 @@ def test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct(
     assert {
         item["subject_id"]
         for item in base_detail["comparison"]["assessments"]
-        if item["subject_id"] in local_reads and item["status"] == "PASS"
+        if item["subject_id"] in local_reads and item["status"] == "UNKNOWN"
     } == local_reads
     getter_names = {
         item["qualified_name"]
@@ -242,6 +242,21 @@ def test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct(
     assert {item["subject_id"] for item in getter_assessments} == getter_ids
     assert all(item["status"] == "PASS" for item in getter_assessments)
     observed_entities = {item["id"]: item for item in base_detail["observed"]["entities"]}
+    # Initializer reads belong to their bindings; they do not prove direct main() reads.
+    observed_reads = {
+        (
+            observed_entities[item["source_id"]]["qualified_name"],
+            observed_entities[item["target_id"]]["qualified_name"],
+        )
+        for item in base_detail["observed"]["relationships"]
+        if item["kind"] == "references" and item["resolution"] == "resolved"
+    }
+    for dependency in ("backend", "store"):
+        assert (
+            "shop.main.main.catalogRepository",
+            f"shop.main.main.{dependency}",
+        ) in observed_reads
+        assert ("shop.main.main", f"shop.main.main.{dependency}") not in observed_reads
     observed_getter_edges = {
         (
             item["kind"],
@@ -280,9 +295,9 @@ def test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct(
         sum(item["aspect"] == "relationship" for item in base_detail["comparison"]["assessments"])
         == 88
     )
-    assert sum(item["status"] == "PASS" for item in base_detail["comparison"]["assessments"]) == 799
+    assert sum(item["status"] == "PASS" for item in base_detail["comparison"]["assessments"]) == 791
     assert (
-        sum(item["status"] == "UNKNOWN" for item in base_detail["comparison"]["assessments"]) == 27
+        sum(item["status"] == "UNKNOWN" for item in base_detail["comparison"]["assessments"]) == 35
     )
     assert all(
         item["status"] == "PASS"
@@ -335,7 +350,7 @@ def test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct(
         if item["subject_id"] == "presentation:orders-vm-calls-watch"
     ] == [("presentation:orders-vm-calls-watch", "relationship", "UNKNOWN")]
     assert (
-        reports["flutter-dynamic-unknown"][0]["measurements"]["scalars"]["unknown_positions"] == 28
+        reports["flutter-dynamic-unknown"][0]["measurements"]["scalars"]["unknown_positions"] == 36
     )
 
 
