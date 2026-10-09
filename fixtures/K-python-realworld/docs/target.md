@@ -12,6 +12,10 @@ The selected app contains 79 files: 72 Python modules plus five SQL files, one `
 
 Upstream: `nsidnev/fastapi-realworld-example-app` at `029eb7781c60d5f563ee8990a0cbfb79b244538c` (MIT).
 
+## Required module paths
+
+The Target links host startup and route registration to the account, article/feed, comment, profile/follow, and tag endpoints. These routes connect to request dependencies, repositories, policy services, domain/wire models, and SQL query modules where the selected source directly imports them. The Alembic environment imports shared application configuration; the revision file has only external imports and remains an isolated module. The graph is intentionally partial: module import scopes remain open, and imports outside these principal paths are not asserted.
+
 ## Observed source imports
 
 The graph records cross-component imports found in pinned source and attributed to Target ownership.
@@ -37,4 +41,4 @@ graph TD
     n_4 --> n_3
 ```
 
-Target bundle SHA-256: `c15508d0515c640e36f365943a54f8becff32d1523ed0d34aecee2aa3a3e9839`
+Target bundle SHA-256: `5dcc89c72c96c49f80524b86137a4aba103bbe604f83bc2518aa542c6fa0519d`

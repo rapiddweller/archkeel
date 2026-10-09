@@ -3110,6 +3110,406 @@
           "provenance": [
             "docs/target.md"
           ]
+        },
+        {
+          "id": "module-import-c6e4c6838bb0ce50",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-activities-view-models-activities-viewmodel",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b788be6b232ab292",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-activities-widgets-activities-header",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1628f61a637eead3",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-activities-widgets-activities-list",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:14.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-0a4f0b9bcef7601e",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-activities-widgets-activities-title",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:15.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-00cc0916655e769c",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-activities-widgets-activity-time-of-day",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:16.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-eb7f67aba9a64c5c",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-core-localization-applocalization",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-89c2f1ab5d208eb4",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-core-themes-dimens",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-0b82ffb6adbc895d",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-core-ui-error-indicator",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-78ae9f3339226f73",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-auth-login-widgets-login-screen",
+          "target_id": "mod-compass-ui-auth-login-view-models-login-viewmodel",
+          "reason": "Selected source import at lib/ui/auth/login/widgets/login_screen.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-efc9251d614814eb",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-auth-login-widgets-login-screen",
+          "target_id": "mod-compass-ui-auth-login-widgets-tilted-cards",
+          "reason": "Selected source import at lib/ui/auth/login/widgets/login_screen.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-aa2fcbdab0c4d2c2",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-auth-login-widgets-login-screen",
+          "target_id": "mod-compass-ui-core-localization-applocalization",
+          "reason": "Selected source import at lib/ui/auth/login/widgets/login_screen.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4bea6f5d13e98a7c",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-auth-login-widgets-login-screen",
+          "target_id": "mod-compass-ui-core-themes-dimens",
+          "reason": "Selected source import at lib/ui/auth/login/widgets/login_screen.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-796591827fd0ddae",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-auth-logout-widgets-logout-button",
+          "target_id": "mod-compass-ui-auth-logout-view-models-logout-viewmodel",
+          "reason": "Selected source import at lib/ui/auth/logout/widgets/logout_button.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-673787e0c6fcdcac",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-auth-logout-widgets-logout-button",
+          "target_id": "mod-compass-ui-core-localization-applocalization",
+          "reason": "Selected source import at lib/ui/auth/logout/widgets/logout_button.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1a00aa164946c2a5",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-auth-logout-widgets-logout-button",
+          "target_id": "mod-compass-ui-core-themes-colors",
+          "reason": "Selected source import at lib/ui/auth/logout/widgets/logout_button.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7e05e4d6ebacf23b",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-booking-widgets-booking-screen",
+          "target_id": "mod-compass-ui-booking-view-models-booking-viewmodel",
+          "reason": "Selected source import at lib/ui/booking/widgets/booking_screen.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1b369c4ef74c332c",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-booking-widgets-booking-screen",
+          "target_id": "mod-compass-ui-booking-widgets-booking-body",
+          "reason": "Selected source import at lib/ui/booking/widgets/booking_screen.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-026f1b52fcee1e7f",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-booking-widgets-booking-screen",
+          "target_id": "mod-compass-ui-core-localization-applocalization",
+          "reason": "Selected source import at lib/ui/booking/widgets/booking_screen.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d1152f7751264eab",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-booking-widgets-booking-screen",
+          "target_id": "mod-compass-ui-core-ui-error-indicator",
+          "reason": "Selected source import at lib/ui/booking/widgets/booking_screen.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6d4ca8e2350bf951",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-home-widgets-home-screen-container",
+          "target_id": "mod-compass-ui-auth-logout-view-models-logout-viewmodel",
+          "reason": "Selected source import at lib/ui/home/widgets/home_screen_container.dart:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b938781e0fab0c9e",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-home-widgets-home-screen-container",
+          "target_id": "mod-compass-ui-home-view-models-home-viewmodel",
+          "reason": "Selected source import at lib/ui/home/widgets/home_screen_container.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b90b95b7a01bf5be",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-home-widgets-home-screen-container",
+          "target_id": "mod-compass-ui-home-widgets-home-screen",
+          "reason": "Selected source import at lib/ui/home/widgets/home_screen_container.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5b333b2a5fb5d7be",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-results-widgets-results-screen",
+          "target_id": "mod-compass-ui-core-localization-applocalization",
+          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6bed5aa81ef1aca1",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-results-widgets-results-screen",
+          "target_id": "mod-compass-ui-core-themes-dimens",
+          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-10f623293c12f06e",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-results-widgets-results-screen",
+          "target_id": "mod-compass-ui-core-ui-error-indicator",
+          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-44b51c0a3954fe15",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-results-widgets-results-screen",
+          "target_id": "mod-compass-ui-core-ui-search-bar",
+          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1da5b6cc031e7a6f",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-results-widgets-results-screen",
+          "target_id": "mod-compass-ui-results-view-models-results-viewmodel",
+          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-dc827a13d2148894",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-results-widgets-results-screen",
+          "target_id": "mod-compass-ui-results-widgets-result-card",
+          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:14.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b242427e576d2669",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-core-themes-dimens",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-686865a002dd8630",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-core-ui-search-bar",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c542b123aa0d6b3f",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-results-widgets-results-screen",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7d2fdd51ed832d08",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-search-form-view-models-search-form-viewmodel",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-910da9dea4083ed7",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-search-form-widgets-search-form-continent",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d921d27dd6a22ce2",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-search-form-widgets-search-form-date",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:14.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5fb7ee24e65690bf",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-search-form-widgets-search-form-guests",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:15.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-610f2372f9afeb26",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-search-form-widgets-search-form-submit",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:16.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-2dd15c4d5d52a610",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-submit",
+          "target_id": "mod-compass-ui-core-localization-applocalization",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_submit.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f0bb20fa66dd4cce",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-submit",
+          "target_id": "mod-compass-ui-core-themes-dimens",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_submit.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-928a411ce02b0064",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-submit",
+          "target_id": "mod-compass-ui-results-widgets-results-screen",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_submit.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e8e71f91555337fe",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-submit",
+          "target_id": "mod-compass-ui-search-form-view-models-search-form-viewmodel",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_submit.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
         }
       ],
       "scopes": [

@@ -78,6 +78,122 @@ def test_compass_target_covers_every_library_and_part_once() -> None:
             assert f"part '{Path(part).name}';" in (FIXTURE / parent).read_text(encoding="utf-8")
 
 
+def test_compass_target_links_principal_module_flows_without_closing_imports() -> None:
+    _, graph = _target()
+    modules = {entity.id: entity.file_path for entity in graph.entities if entity.kind == "module"}
+    module_ids = set(modules)
+    imports = {
+        (modules[relationship.source_id], modules[relationship.target_id])
+        for relationship in graph.relationships
+        if relationship.kind == "imports"
+        and relationship.source_id in module_ids
+        and relationship.target_id in module_ids
+    }
+    import_relationships = [
+        relationship for relationship in graph.relationships if relationship.kind == "imports"
+    ]
+    assert all(
+        relationship.reason.startswith("Selected source import at ")
+        and relationship.provenance == PROVENANCE
+        for relationship in import_relationships
+    )
+    assert {
+        ("lib/main.dart", "lib/main_development.dart"),
+        ("lib/main_development.dart", "lib/config/dependencies.dart"),
+        ("lib/routing/router.dart", "lib/ui/booking/view_models/booking_viewmodel.dart"),
+        (
+            "lib/ui/auth/login/widgets/login_screen.dart",
+            "lib/ui/auth/login/view_models/login_viewmodel.dart",
+        ),
+        (
+            "lib/ui/auth/logout/widgets/logout_button.dart",
+            "lib/ui/auth/logout/view_models/logout_viewmodel.dart",
+        ),
+        (
+            "lib/ui/search_form/widgets/search_form_screen.dart",
+            "lib/ui/search_form/view_models/search_form_viewmodel.dart",
+        ),
+        (
+            "lib/ui/results/widgets/results_screen.dart",
+            "lib/ui/results/view_models/results_viewmodel.dart",
+        ),
+        (
+            "lib/ui/activities/widgets/activities_screen.dart",
+            "lib/ui/activities/view_models/activities_viewmodel.dart",
+        ),
+        (
+            "lib/ui/booking/widgets/booking_screen.dart",
+            "lib/ui/booking/view_models/booking_viewmodel.dart",
+        ),
+        (
+            "lib/ui/home/widgets/home_screen_container.dart",
+            "lib/ui/home/view_models/home_viewmodel.dart",
+        ),
+        (
+            "lib/ui/booking/view_models/booking_viewmodel.dart",
+            "lib/domain/use_cases/booking/booking_create_use_case.dart",
+        ),
+        (
+            "lib/domain/use_cases/booking/booking_create_use_case.dart",
+            "lib/data/repositories/booking/booking_repository.dart",
+        ),
+        (
+            "lib/data/repositories/booking/booking_repository_remote.dart",
+            "lib/data/services/api/api_client.dart",
+        ),
+        (
+            "lib/data/repositories/booking/booking_repository_local.dart",
+            "lib/data/services/local/local_data_service.dart",
+        ),
+        (
+            "lib/data/repositories/activity/activity_repository_local.dart",
+            "lib/data/services/local/local_data_service.dart",
+        ),
+        (
+            "lib/data/repositories/activity/activity_repository_remote.dart",
+            "lib/data/services/api/api_client.dart",
+        ),
+        (
+            "lib/data/repositories/destination/destination_repository_local.dart",
+            "lib/data/services/local/local_data_service.dart",
+        ),
+        (
+            "lib/data/repositories/destination/destination_repository_remote.dart",
+            "lib/data/services/api/api_client.dart",
+        ),
+        (
+            "lib/data/repositories/continent/continent_repository_local.dart",
+            "lib/data/services/local/local_data_service.dart",
+        ),
+        (
+            "lib/data/repositories/continent/continent_repository_remote.dart",
+            "lib/data/services/api/api_client.dart",
+        ),
+        (
+            "lib/data/repositories/auth/auth_repository_remote.dart",
+            "lib/data/services/api/api_client.dart",
+        ),
+        (
+            "lib/data/repositories/user/user_repository_local.dart",
+            "lib/data/services/local/local_data_service.dart",
+        ),
+        (
+            "lib/data/repositories/user/user_repository_remote.dart",
+            "lib/data/services/api/api_client.dart",
+        ),
+    } <= imports
+    assert all(
+        relationship.source_id in module_ids and relationship.target_id in module_ids
+        for relationship in graph.relationships
+        if relationship.kind == "imports"
+    )
+    assert all(
+        scope.mode == "open"
+        for scope in graph.target_scopes
+        if scope.scope_id in module_ids and "imports" in scope.relationship_kinds
+    )
+
+
 def test_compass_nested_package_ownership_stays_inside_each_parent_component() -> None:
     root = json.loads((FIXTURE / CONTRACTS[0]).read_text(encoding="utf-8"))
     for parent in root["components"]:

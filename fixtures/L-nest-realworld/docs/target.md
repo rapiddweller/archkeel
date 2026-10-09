@@ -8,7 +8,9 @@ Requires describe direct source imports, not Nest route or DI runtime behavior. 
 
 Decorators express ORM association intent, but current UML has no association or multiplicity kind and decorator details are not emitted. User, Article, and Comment relationships are described as design intent, not proven UML edges. Article.tagList is a string list; there is no normalized Article-to-Tag entity association. Optional/default signatures, implicit return types, parameter properties, computed keys, readonly and decorator semantics may remain incomplete or UNKNOWN.
 
-Target bundle SHA-256: `9d8bb7214030ee934c028a1a7960c7c9dac3c15af7595315013498f333fe3b0c`
+The module Target links bootstrap and app-module registration to account/authentication, article/comment publishing, profile/follow, tag, shared validation, and ORM configuration. Controllers lead to their services and DTO/interface modules; services and persistence registration lead to entities and the generated entity registry. These are selected static source imports, not proof of Nest dependency-injection or runtime behavior. Import scopes remain open and external imports are not modeled.
+
+Target bundle SHA-256: `e46eb0431f554853cd9a7db4d5438629406e2dfae72d6a0f94ce55b08db0300f`
 
 <!-- archkeel-component-graph -->
 ```mermaid

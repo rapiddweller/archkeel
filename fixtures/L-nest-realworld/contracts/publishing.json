@@ -2349,6 +2349,148 @@
             "docs/target.md"
           ]
         }
+      ],
+      "relationships": [
+        {
+          "id": "module-import-88e2e8ed8ad63a28",
+          "kind": "imports",
+          "source_id": "module-ec1b84cfbb59",
+          "target_id": "module-9d3558107534",
+          "reason": "Selected source import at src/article/article.controller.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-10c2a20cf2488577",
+          "kind": "imports",
+          "source_id": "module-ec1b84cfbb59",
+          "target_id": "module-4286fce44572",
+          "reason": "Selected source import at src/article/article.controller.ts:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-89fc2474f648c8b6",
+          "kind": "imports",
+          "source_id": "module-ec1b84cfbb59",
+          "target_id": "module-583463ab878b",
+          "reason": "Selected source import at src/article/article.controller.ts:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-782f52de6394c28a",
+          "kind": "imports",
+          "source_id": "module-0ba521efae1b",
+          "target_id": "module-72c13f8f3420",
+          "reason": "Selected source import at src/article/article.entity.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b28ede4ed0d3ce6e",
+          "kind": "imports",
+          "source_id": "module-9d3558107534",
+          "target_id": "module-0ba521efae1b",
+          "reason": "Selected source import at src/article/article.interface.ts:1.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f2b7b06a112eca18",
+          "kind": "imports",
+          "source_id": "module-f9356c18e82f",
+          "target_id": "module-ec1b84cfbb59",
+          "reason": "Selected source import at src/article/article.module.ts:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-15d3995cc1c3418e",
+          "kind": "imports",
+          "source_id": "module-f9356c18e82f",
+          "target_id": "module-0ba521efae1b",
+          "reason": "Selected source import at src/article/article.module.ts:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c0f98f10d0a804ec",
+          "kind": "imports",
+          "source_id": "module-f9356c18e82f",
+          "target_id": "module-4286fce44572",
+          "reason": "Selected source import at src/article/article.module.ts:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7f2c5f8c61bcf5a3",
+          "kind": "imports",
+          "source_id": "module-f9356c18e82f",
+          "target_id": "module-72c13f8f3420",
+          "reason": "Selected source import at src/article/article.module.ts:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-3144f4f872caed94",
+          "kind": "imports",
+          "source_id": "module-4286fce44572",
+          "target_id": "module-0ba521efae1b",
+          "reason": "Selected source import at src/article/article.service.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9f9323a89ca82b5d",
+          "kind": "imports",
+          "source_id": "module-4286fce44572",
+          "target_id": "module-9d3558107534",
+          "reason": "Selected source import at src/article/article.service.ts:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7ea98977994dd072",
+          "kind": "imports",
+          "source_id": "module-4286fce44572",
+          "target_id": "module-72c13f8f3420",
+          "reason": "Selected source import at src/article/article.service.ts:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-29c7976a3b1cf5ab",
+          "kind": "imports",
+          "source_id": "module-4286fce44572",
+          "target_id": "module-583463ab878b",
+          "reason": "Selected source import at src/article/article.service.ts:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ee741455316b9ebd",
+          "kind": "imports",
+          "source_id": "module-72c13f8f3420",
+          "target_id": "module-0ba521efae1b",
+          "reason": "Selected source import at src/article/comment.entity.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
       ]
     }
   }

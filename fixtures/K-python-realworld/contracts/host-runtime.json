@@ -1230,7 +1230,138 @@
           }
         }
       ],
-      "relationships": [],
+      "relationships": [
+        {
+          "id": "module-import-bb09656a8370103e",
+          "kind": "imports",
+          "source_id": "module-app-core-config",
+          "target_id": "module-app-core-settings-app",
+          "reason": "Selected source import at app/core/config.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e3d64849e1d36600",
+          "kind": "imports",
+          "source_id": "module-app-core-config",
+          "target_id": "module-app-core-settings-base",
+          "reason": "Selected source import at app/core/config.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a55a856664f6e275",
+          "kind": "imports",
+          "source_id": "module-app-core-config",
+          "target_id": "module-app-core-settings-development",
+          "reason": "Selected source import at app/core/config.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-eb444b752fdb203b",
+          "kind": "imports",
+          "source_id": "module-app-core-config",
+          "target_id": "module-app-core-settings-production",
+          "reason": "Selected source import at app/core/config.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-2d21e1b6bdb5f3e5",
+          "kind": "imports",
+          "source_id": "module-app-core-config",
+          "target_id": "module-app-core-settings-test",
+          "reason": "Selected source import at app/core/config.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7cd75097ace96870",
+          "kind": "imports",
+          "source_id": "module-app-core-events",
+          "target_id": "module-app-core-settings-app",
+          "reason": "Selected source import at app/core/events.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6190af886c2646e1",
+          "kind": "imports",
+          "source_id": "module-app-core-settings-app",
+          "target_id": "module-app-core-logging",
+          "reason": "Selected source import at app/core/settings/app.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-dcf0732f41d45f52",
+          "kind": "imports",
+          "source_id": "module-app-core-settings-app",
+          "target_id": "module-app-core-settings-base",
+          "reason": "Selected source import at app/core/settings/app.py:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-642ea7887ab974b7",
+          "kind": "imports",
+          "source_id": "module-app-core-settings-development",
+          "target_id": "module-app-core-settings-app",
+          "reason": "Selected source import at app/core/settings/development.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c06f746a2bf8c60f",
+          "kind": "imports",
+          "source_id": "module-app-core-settings-production",
+          "target_id": "module-app-core-settings-app",
+          "reason": "Selected source import at app/core/settings/production.py:1.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9c066c5008795824",
+          "kind": "imports",
+          "source_id": "module-app-core-settings-test",
+          "target_id": "module-app-core-settings-app",
+          "reason": "Selected source import at app/core/settings/test.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b56c168600e60a68",
+          "kind": "imports",
+          "source_id": "module-app-main",
+          "target_id": "module-app-core-config",
+          "reason": "Selected source import at app/main.py:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-010aface824eba3c",
+          "kind": "imports",
+          "source_id": "module-app-main",
+          "target_id": "module-app-core-events",
+          "reason": "Selected source import at app/main.py:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
       "scopes": [
         {
           "scope_id": "class-app-core-settings-base-appenvtypes",

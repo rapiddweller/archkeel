@@ -111,6 +111,48 @@ def test_nest_target_assigns_all_41_selected_modules_once_at_each_level() -> Non
         assert [rule["kind"] for rule in payload["rules"]] == ["complete_requires"]
 
 
+def test_nest_target_links_principal_module_flows_without_closing_imports() -> None:
+    _, graph = _target()
+    modules = {entity.id: entity.file_path for entity in graph.entities if entity.kind == "module"}
+    module_ids = set(modules)
+    imports = {
+        (modules[relationship.source_id], modules[relationship.target_id])
+        for relationship in graph.relationships
+        if relationship.kind == "imports"
+        and relationship.source_id in module_ids
+        and relationship.target_id in module_ids
+    }
+    import_relationships = [
+        relationship for relationship in graph.relationships if relationship.kind == "imports"
+    ]
+    assert all(
+        relationship.reason.startswith("Selected source import at ")
+        and relationship.provenance == PROVENANCE
+        for relationship in import_relationships
+    )
+    assert {
+        ("src/main.ts", "src/app.module.ts"),
+        ("src/app.module.ts", "src/article/article.module.ts"),
+        ("src/user/user.controller.ts", "src/user/user.service.ts"),
+        ("src/article/article.controller.ts", "src/article/article.service.ts"),
+        ("src/article/article.service.ts", "src/article/comment.entity.ts"),
+        ("src/profile/profile.controller.ts", "src/profile/profile.service.ts"),
+        ("src/tag/tag.controller.ts", "src/tag/tag.service.ts"),
+        ("src/entities.generated.ts", "src/article/comment.entity.ts"),
+        ("src/mikro-orm.config.ts", "src/entities.generated.ts"),
+    } <= imports
+    assert all(
+        relationship.source_id in module_ids and relationship.target_id in module_ids
+        for relationship in graph.relationships
+        if relationship.kind == "imports"
+    )
+    assert all(
+        scope.mode == "open"
+        for scope in graph.target_scopes
+        if scope.scope_id in module_ids and "imports" in scope.relationship_kinds
+    )
+
+
 def test_nest_target_records_source_owned_internal_dependencies() -> None:
     tree, _ = _target()
     root = {component.label: component for component in tree.root.components}

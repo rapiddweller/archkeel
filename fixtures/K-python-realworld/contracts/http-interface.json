@@ -2175,7 +2175,318 @@
           ]
         }
       ],
-      "relationships": [],
+      "relationships": [
+        {
+          "id": "module-import-5f7ecf1ee49ea694",
+          "kind": "imports",
+          "source_id": "module-app-api-dependencies-articles",
+          "target_id": "module-app-api-dependencies-authentication",
+          "reason": "Selected source import at app/api/dependencies/articles.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-fef582248818b083",
+          "kind": "imports",
+          "source_id": "module-app-api-dependencies-articles",
+          "target_id": "module-app-api-dependencies-database",
+          "reason": "Selected source import at app/api/dependencies/articles.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b75b7f25ea96a4f4",
+          "kind": "imports",
+          "source_id": "module-app-api-dependencies-authentication",
+          "target_id": "module-app-api-dependencies-database",
+          "reason": "Selected source import at app/api/dependencies/authentication.py:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-09f8b6af7cdca3e4",
+          "kind": "imports",
+          "source_id": "module-app-api-dependencies-comments",
+          "target_id": "module-app-api-dependencies-articles",
+          "reason": "Selected source import at app/api/dependencies/comments.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-56c015deb9cb554c",
+          "kind": "imports",
+          "source_id": "module-app-api-dependencies-comments",
+          "target_id": "module-app-api-dependencies-authentication",
+          "reason": "Selected source import at app/api/dependencies/comments.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e8d525af0be5ea18",
+          "kind": "imports",
+          "source_id": "module-app-api-dependencies-comments",
+          "target_id": "module-app-api-dependencies-database",
+          "reason": "Selected source import at app/api/dependencies/comments.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-fde44d1d03cb3a2d",
+          "kind": "imports",
+          "source_id": "module-app-api-dependencies-profiles",
+          "target_id": "module-app-api-dependencies-authentication",
+          "reason": "Selected source import at app/api/dependencies/profiles.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ea1b6045c265adc4",
+          "kind": "imports",
+          "source_id": "module-app-api-dependencies-profiles",
+          "target_id": "module-app-api-dependencies-database",
+          "reason": "Selected source import at app/api/dependencies/profiles.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4ebffdf023ed0afe",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-api",
+          "target_id": "module-app-api-routes-articles-api",
+          "reason": "Selected source import at app/api/routes/api.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-94ef3e8f867b96fb",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-api",
+          "target_id": "module-app-api-routes-authentication",
+          "reason": "Selected source import at app/api/routes/api.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-288631a2b8e17c27",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-api",
+          "target_id": "module-app-api-routes-comments",
+          "reason": "Selected source import at app/api/routes/api.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a5a5900bf03fe277",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-api",
+          "target_id": "module-app-api-routes-profiles",
+          "reason": "Selected source import at app/api/routes/api.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-3e3ff65ca8939d97",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-api",
+          "target_id": "module-app-api-routes-tags",
+          "reason": "Selected source import at app/api/routes/api.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-78048674fc5c8cc0",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-api",
+          "target_id": "module-app-api-routes-users",
+          "reason": "Selected source import at app/api/routes/api.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-55f9a550a52222a4",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-articles-articles-common",
+          "target_id": "module-app-api-dependencies-articles",
+          "reason": "Selected source import at app/api/routes/articles/articles_common.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ea34eb696238e229",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-articles-articles-common",
+          "target_id": "module-app-api-dependencies-authentication",
+          "reason": "Selected source import at app/api/routes/articles/articles_common.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-55bfcdeefe9133db",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-articles-articles-common",
+          "target_id": "module-app-api-dependencies-database",
+          "reason": "Selected source import at app/api/routes/articles/articles_common.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9ecdc2b99d36d0f0",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-articles-articles-resource",
+          "target_id": "module-app-api-dependencies-articles",
+          "reason": "Selected source import at app/api/routes/articles/articles_resource.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-399578c5c3108c11",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-articles-articles-resource",
+          "target_id": "module-app-api-dependencies-authentication",
+          "reason": "Selected source import at app/api/routes/articles/articles_resource.py:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b1f71f0c1cb78e76",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-articles-articles-resource",
+          "target_id": "module-app-api-dependencies-database",
+          "reason": "Selected source import at app/api/routes/articles/articles_resource.py:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d9a1c97a490e0901",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-authentication",
+          "target_id": "module-app-api-dependencies-database",
+          "reason": "Selected source import at app/api/routes/authentication.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6576a52fbbae894a",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-comments",
+          "target_id": "module-app-api-dependencies-articles",
+          "reason": "Selected source import at app/api/routes/comments.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f3e76cf17a3b6e11",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-comments",
+          "target_id": "module-app-api-dependencies-authentication",
+          "reason": "Selected source import at app/api/routes/comments.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6d2105db829d0204",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-comments",
+          "target_id": "module-app-api-dependencies-comments",
+          "reason": "Selected source import at app/api/routes/comments.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-bf1c23d32cb2b352",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-comments",
+          "target_id": "module-app-api-dependencies-database",
+          "reason": "Selected source import at app/api/routes/comments.py:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-00cf65304792cee1",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-profiles",
+          "target_id": "module-app-api-dependencies-authentication",
+          "reason": "Selected source import at app/api/routes/profiles.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-fef4d93da7e9956f",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-profiles",
+          "target_id": "module-app-api-dependencies-database",
+          "reason": "Selected source import at app/api/routes/profiles.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f172d1a4e1881e91",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-profiles",
+          "target_id": "module-app-api-dependencies-profiles",
+          "reason": "Selected source import at app/api/routes/profiles.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8d3adccd9ed5e0a4",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-tags",
+          "target_id": "module-app-api-dependencies-database",
+          "reason": "Selected source import at app/api/routes/tags.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-90327b71c1595968",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-users",
+          "target_id": "module-app-api-dependencies-authentication",
+          "reason": "Selected source import at app/api/routes/users.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1d3c6554ef43645c",
+          "kind": "imports",
+          "source_id": "module-app-api-routes-users",
+          "target_id": "module-app-api-dependencies-database",
+          "reason": "Selected source import at app/api/routes/users.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
       "scopes": [
         {
           "scope_id": "class-app-api-dependencies-authentication-rwapikeyheader",

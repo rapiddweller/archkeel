@@ -1782,6 +1782,146 @@
             "kind": "public",
             "basis": "declared"
           }
+        },
+        {
+          "id": "ref-module-7137b954a0c9089a",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.app_x2e_module_x2e_ts",
+          "language": "typescript",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-f5d8c0b1054fec7a",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_module_x2e_ts",
+          "language": "typescript",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-1b63529d24a61f0d",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.mikro_x2d_orm_x2e_config_x2e_ts",
+          "language": "typescript",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-1deead4a9ac752db",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_module_x2e_ts",
+          "language": "typescript",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-52561270695801af",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts",
+          "language": "typescript",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-04972d801f3bfe89",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts",
+          "language": "typescript",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-892dc5265b7d2a4a",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts",
+          "language": "typescript",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-d7860f93e5a7b6d5",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts",
+          "language": "typescript",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-968e7ce185160ce1",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts",
+          "language": "typescript",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-ebc4bff8a29693b1",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.entities_x2e_generated_x2e_ts",
+          "language": "typescript",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-6998d067c8b01e3e",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_repository_x2e_ts",
+          "language": "typescript",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-690b0072f582b9ab",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.seeders.test_x2e_seeder_x2e_ts",
+          "language": "typescript",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-214e17e7b7e1fc6d",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_controller_x2e_ts",
+          "language": "typescript",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-356688fbc152928e",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts",
+          "language": "typescript",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
         }
       ],
       "scopes": [
@@ -1921,6 +2061,478 @@
           ],
           "mode": "closed",
           "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "module-import-f42196cd6bded3fd",
+          "kind": "imports",
+          "source_id": "ref-module-7137b954a0c9089a",
+          "target_id": "ref-module-f5d8c0b1054fec7a",
+          "reason": "Selected source import at src/app.module.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d19dd1e006408d06",
+          "kind": "imports",
+          "source_id": "ref-module-7137b954a0c9089a",
+          "target_id": "ref-module-1b63529d24a61f0d",
+          "reason": "Selected source import at src/app.module.ts:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-018a30a63380d419",
+          "kind": "imports",
+          "source_id": "ref-module-7137b954a0c9089a",
+          "target_id": "module-917fb5ad11ed",
+          "reason": "Selected source import at src/app.module.ts:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1a93ab47c62ff99f",
+          "kind": "imports",
+          "source_id": "ref-module-7137b954a0c9089a",
+          "target_id": "module-888d958a75ee",
+          "reason": "Selected source import at src/app.module.ts:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4417b06670b0902a",
+          "kind": "imports",
+          "source_id": "ref-module-7137b954a0c9089a",
+          "target_id": "ref-module-1deead4a9ac752db",
+          "reason": "Selected source import at src/app.module.ts:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-275e08f1a89b4e45",
+          "kind": "imports",
+          "source_id": "ref-module-52561270695801af",
+          "target_id": "module-efe1a115c73f",
+          "reason": "Selected source import at src/article/article.controller.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-44291f5b94e97639",
+          "kind": "imports",
+          "source_id": "ref-module-52561270695801af",
+          "target_id": "ref-module-04972d801f3bfe89",
+          "reason": "Selected source import at src/article/article.controller.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6e4261dd279093e4",
+          "kind": "imports",
+          "source_id": "ref-module-892dc5265b7d2a4a",
+          "target_id": "ref-module-04972d801f3bfe89",
+          "reason": "Selected source import at src/article/article.entity.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-141d7710d7942419",
+          "kind": "imports",
+          "source_id": "ref-module-f5d8c0b1054fec7a",
+          "target_id": "module-343a52c89c45",
+          "reason": "Selected source import at src/article/article.module.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-cf0c161db079d503",
+          "kind": "imports",
+          "source_id": "ref-module-f5d8c0b1054fec7a",
+          "target_id": "ref-module-04972d801f3bfe89",
+          "reason": "Selected source import at src/article/article.module.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e64dd12468632bb2",
+          "kind": "imports",
+          "source_id": "ref-module-f5d8c0b1054fec7a",
+          "target_id": "ref-module-1deead4a9ac752db",
+          "reason": "Selected source import at src/article/article.module.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-398b75d1bba68d2d",
+          "kind": "imports",
+          "source_id": "ref-module-d7860f93e5a7b6d5",
+          "target_id": "ref-module-04972d801f3bfe89",
+          "reason": "Selected source import at src/article/article.service.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ed53c6a18fc7009c",
+          "kind": "imports",
+          "source_id": "ref-module-968e7ce185160ce1",
+          "target_id": "ref-module-04972d801f3bfe89",
+          "reason": "Selected source import at src/article/comment.entity.ts:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-eac41fad4cb7ce6e",
+          "kind": "imports",
+          "source_id": "ref-module-ebc4bff8a29693b1",
+          "target_id": "ref-module-892dc5265b7d2a4a",
+          "reason": "Selected source import at src/entities.generated.ts:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8092e9f7bda17142",
+          "kind": "imports",
+          "source_id": "ref-module-ebc4bff8a29693b1",
+          "target_id": "ref-module-968e7ce185160ce1",
+          "reason": "Selected source import at src/entities.generated.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e148c5b356ac1f09",
+          "kind": "imports",
+          "source_id": "ref-module-ebc4bff8a29693b1",
+          "target_id": "module-606982d1e7d2",
+          "reason": "Selected source import at src/entities.generated.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-61d3410dc6b92c06",
+          "kind": "imports",
+          "source_id": "ref-module-ebc4bff8a29693b1",
+          "target_id": "ref-module-04972d801f3bfe89",
+          "reason": "Selected source import at src/entities.generated.ts:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-bb1d6bc078353cab",
+          "kind": "imports",
+          "source_id": "module-5f00830749c8",
+          "target_id": "module-e96c30838e46",
+          "reason": "Selected source import at src/profile/profile.controller.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4c75bfedfdf051a7",
+          "kind": "imports",
+          "source_id": "module-5f00830749c8",
+          "target_id": "module-4d3d789486da",
+          "reason": "Selected source import at src/profile/profile.controller.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c8fc44e9dd503a46",
+          "kind": "imports",
+          "source_id": "module-5f00830749c8",
+          "target_id": "module-efe1a115c73f",
+          "reason": "Selected source import at src/profile/profile.controller.ts:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-160a4a2bdd11a97a",
+          "kind": "imports",
+          "source_id": "module-917fb5ad11ed",
+          "target_id": "module-5f00830749c8",
+          "reason": "Selected source import at src/profile/profile.module.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a57379c12d7e10e5",
+          "kind": "imports",
+          "source_id": "module-917fb5ad11ed",
+          "target_id": "module-4d3d789486da",
+          "reason": "Selected source import at src/profile/profile.module.ts:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4b0d40ae45b7a067",
+          "kind": "imports",
+          "source_id": "module-917fb5ad11ed",
+          "target_id": "module-343a52c89c45",
+          "reason": "Selected source import at src/profile/profile.module.ts:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8ce65a5c383e427a",
+          "kind": "imports",
+          "source_id": "module-917fb5ad11ed",
+          "target_id": "ref-module-04972d801f3bfe89",
+          "reason": "Selected source import at src/profile/profile.module.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4defd6d486e97f7d",
+          "kind": "imports",
+          "source_id": "module-917fb5ad11ed",
+          "target_id": "ref-module-1deead4a9ac752db",
+          "reason": "Selected source import at src/profile/profile.module.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e65ad83ee08bd5b9",
+          "kind": "imports",
+          "source_id": "module-4d3d789486da",
+          "target_id": "module-e96c30838e46",
+          "reason": "Selected source import at src/profile/profile.service.ts:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e0455099460a4a56",
+          "kind": "imports",
+          "source_id": "module-4d3d789486da",
+          "target_id": "ref-module-04972d801f3bfe89",
+          "reason": "Selected source import at src/profile/profile.service.ts:2.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b114af54abbb62cd",
+          "kind": "imports",
+          "source_id": "module-4d3d789486da",
+          "target_id": "ref-module-6998d067c8b01e3e",
+          "reason": "Selected source import at src/profile/profile.service.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5611510815b62169",
+          "kind": "imports",
+          "source_id": "ref-module-690b0072f582b9ab",
+          "target_id": "ref-module-04972d801f3bfe89",
+          "reason": "Selected source import at src/seeders/test.seeder.ts:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1d0c15bd2b3d3b3b",
+          "kind": "imports",
+          "source_id": "module-56b8371bc71a",
+          "target_id": "module-8cece98eda4b",
+          "reason": "Selected source import at src/tag/tag.controller.ts:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-683216131ae6758a",
+          "kind": "imports",
+          "source_id": "module-56b8371bc71a",
+          "target_id": "module-b30746f58857",
+          "reason": "Selected source import at src/tag/tag.controller.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9ecb1b1fb74dd816",
+          "kind": "imports",
+          "source_id": "module-8cece98eda4b",
+          "target_id": "module-606982d1e7d2",
+          "reason": "Selected source import at src/tag/tag.interface.ts:1.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b954a1ef3705f646",
+          "kind": "imports",
+          "source_id": "module-888d958a75ee",
+          "target_id": "module-56b8371bc71a",
+          "reason": "Selected source import at src/tag/tag.module.ts:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e3324cf39e7f6e13",
+          "kind": "imports",
+          "source_id": "module-888d958a75ee",
+          "target_id": "module-606982d1e7d2",
+          "reason": "Selected source import at src/tag/tag.module.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b3fa596d996b254f",
+          "kind": "imports",
+          "source_id": "module-888d958a75ee",
+          "target_id": "module-b30746f58857",
+          "reason": "Selected source import at src/tag/tag.module.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-817d7833fbb7f0fe",
+          "kind": "imports",
+          "source_id": "module-888d958a75ee",
+          "target_id": "ref-module-1deead4a9ac752db",
+          "reason": "Selected source import at src/tag/tag.module.ts:2.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-eb51f581fab51c6f",
+          "kind": "imports",
+          "source_id": "module-b30746f58857",
+          "target_id": "module-606982d1e7d2",
+          "reason": "Selected source import at src/tag/tag.service.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1495e95d9c488750",
+          "kind": "imports",
+          "source_id": "module-b30746f58857",
+          "target_id": "module-8cece98eda4b",
+          "reason": "Selected source import at src/tag/tag.service.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-84a8e9a5332147d2",
+          "kind": "imports",
+          "source_id": "module-343a52c89c45",
+          "target_id": "module-0808bc7167af",
+          "reason": "Selected source import at src/user/auth.middleware.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8d94d546ad066bc3",
+          "kind": "imports",
+          "source_id": "module-343a52c89c45",
+          "target_id": "ref-module-04972d801f3bfe89",
+          "reason": "Selected source import at src/user/auth.middleware.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8e624d9ad4e0b435",
+          "kind": "imports",
+          "source_id": "ref-module-214e17e7b7e1fc6d",
+          "target_id": "module-6d97b80feecf",
+          "reason": "Selected source import at src/user/user.controller.ts:2.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-65aa34d95755b72a",
+          "kind": "imports",
+          "source_id": "ref-module-214e17e7b7e1fc6d",
+          "target_id": "module-efe1a115c73f",
+          "reason": "Selected source import at src/user/user.controller.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7ac04fbb3abdfc8a",
+          "kind": "imports",
+          "source_id": "module-efe1a115c73f",
+          "target_id": "module-0808bc7167af",
+          "reason": "Selected source import at src/user/user.decorator.ts:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-3c97a9a3dbcdd6ed",
+          "kind": "imports",
+          "source_id": "ref-module-04972d801f3bfe89",
+          "target_id": "ref-module-892dc5265b7d2a4a",
+          "reason": "Selected source import at src/user/user.entity.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1265307b2fb27143",
+          "kind": "imports",
+          "source_id": "ref-module-1deead4a9ac752db",
+          "target_id": "module-343a52c89c45",
+          "reason": "Selected source import at src/user/user.module.ts:2.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-62ff2f8a4c1b6565",
+          "kind": "imports",
+          "source_id": "ref-module-356688fbc152928e",
+          "target_id": "module-0808bc7167af",
+          "reason": "Selected source import at src/user/user.service.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-10078b5d66c7942a",
+          "kind": "imports",
+          "source_id": "ref-module-356688fbc152928e",
+          "target_id": "ref-module-ebc4bff8a29693b1",
+          "reason": "Selected source import at src/user/user.service.ts:10.",
           "provenance": [
             "docs/target.md"
           ]

@@ -86,6 +86,57 @@ def test_python_realworld_target_owns_all_72_pinned_app_modules_once() -> None:
         )
 
 
+def test_python_realworld_target_links_principal_module_flows_without_closing_imports() -> None:
+    _, graph = _target()
+    modules = {entity.id: entity.file_path for entity in graph.entities if entity.kind == "module"}
+    module_ids = set(modules)
+    imports = {
+        (modules[relationship.source_id], modules[relationship.target_id])
+        for relationship in graph.relationships
+        if relationship.kind == "imports"
+        and relationship.source_id in module_ids
+        and relationship.target_id in module_ids
+    }
+    import_relationships = [
+        relationship for relationship in graph.relationships if relationship.kind == "imports"
+    ]
+    assert all(
+        relationship.reason.startswith("Selected source import at ")
+        and relationship.provenance == PROVENANCE
+        for relationship in import_relationships
+    )
+    assert {
+        ("app/main.py", "app/api/routes/api.py"),
+        ("app/main.py", "app/core/config.py"),
+        ("app/core/config.py", "app/core/settings/development.py"),
+        ("app/core/events.py", "app/db/events.py"),
+        ("app/db/migrations/env.py", "app/core/config.py"),
+        ("app/api/routes/api.py", "app/api/routes/authentication.py"),
+        ("app/api/routes/authentication.py", "app/db/repositories/users.py"),
+        ("app/services/authentication.py", "app/db/repositories/users.py"),
+        ("app/db/repositories/users.py", "app/db/queries/queries.py"),
+        ("app/models/domain/users.py", "app/services/security.py"),
+        ("app/models/schemas/articles.py", "app/models/schemas/rwschema.py"),
+        (
+            "app/api/routes/articles/articles_resource.py",
+            "app/db/repositories/articles.py",
+        ),
+        ("app/api/routes/comments.py", "app/db/repositories/comments.py"),
+        ("app/api/routes/profiles.py", "app/db/repositories/profiles.py"),
+        ("app/api/routes/tags.py", "app/db/repositories/tags.py"),
+    } <= imports
+    assert all(
+        relationship.source_id in module_ids and relationship.target_id in module_ids
+        for relationship in graph.relationships
+        if relationship.kind == "imports"
+    )
+    assert all(
+        scope.mode == "open"
+        for scope in graph.target_scopes
+        if scope.scope_id in module_ids and "imports" in scope.relationship_kinds
+    )
+
+
 def test_python_realworld_target_preserves_layered_import_boundaries() -> None:
     tree, _ = _target()
     roots = {component.id: component for component in tree.root.components}

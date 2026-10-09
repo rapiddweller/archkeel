@@ -524,6 +524,18 @@
             "docs/target.md"
           ]
         }
+      ],
+      "relationships": [
+        {
+          "id": "module-import-ba6ace6b2e6cc354",
+          "kind": "imports",
+          "source_id": "module-a5f2d31cf421",
+          "target_id": "module-c8828050f315",
+          "reason": "Selected source import at src/mikro-orm.config.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
       ]
     }
   }

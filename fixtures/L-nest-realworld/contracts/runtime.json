@@ -325,6 +325,28 @@
             "docs/target.md"
           ]
         }
+      ],
+      "relationships": [
+        {
+          "id": "module-import-fee463b28e4e862c",
+          "kind": "imports",
+          "source_id": "module-98571d6c78f5",
+          "target_id": "module-00a268f52c1e",
+          "reason": "Selected source import at src/app.module.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-0bad7620b0db91fa",
+          "kind": "imports",
+          "source_id": "module-1af9a5bdf96d",
+          "target_id": "module-98571d6c78f5",
+          "reason": "Selected source import at src/main.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
       ]
     }
   }

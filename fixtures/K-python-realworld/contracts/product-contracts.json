@@ -2121,7 +2121,178 @@
           "annotation": "UserWithToken"
         }
       ],
-      "relationships": [],
+      "relationships": [
+        {
+          "id": "module-import-e1b7ee288d63437f",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-articles",
+          "target_id": "module-app-models-common",
+          "reason": "Selected source import at app/models/domain/articles.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8d6377e2f8df28cb",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-articles",
+          "target_id": "module-app-models-domain-profiles",
+          "reason": "Selected source import at app/models/domain/articles.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4bf2cc441045a620",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-articles",
+          "target_id": "module-app-models-domain-rwmodel",
+          "reason": "Selected source import at app/models/domain/articles.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ba00911ece371f40",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-comments",
+          "target_id": "module-app-models-common",
+          "reason": "Selected source import at app/models/domain/comments.py:1.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-af610ddebddcb726",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-comments",
+          "target_id": "module-app-models-domain-profiles",
+          "reason": "Selected source import at app/models/domain/comments.py:2.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9fc3eb8a2d56678f",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-comments",
+          "target_id": "module-app-models-domain-rwmodel",
+          "reason": "Selected source import at app/models/domain/comments.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b9c8a04c30260693",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-profiles",
+          "target_id": "module-app-models-domain-rwmodel",
+          "reason": "Selected source import at app/models/domain/profiles.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-db648925d3015292",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-users",
+          "target_id": "module-app-models-common",
+          "reason": "Selected source import at app/models/domain/users.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-dd44cb5c486b1677",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-users",
+          "target_id": "module-app-models-domain-rwmodel",
+          "reason": "Selected source import at app/models/domain/users.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-47327724265698de",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-articles",
+          "target_id": "module-app-models-domain-articles",
+          "reason": "Selected source import at app/models/schemas/articles.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9f55c8993ceda93c",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-articles",
+          "target_id": "module-app-models-schemas-rwschema",
+          "reason": "Selected source import at app/models/schemas/articles.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-50cba50bbc3e2050",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-comments",
+          "target_id": "module-app-models-domain-comments",
+          "reason": "Selected source import at app/models/schemas/comments.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-85afdbf85d281aa5",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-comments",
+          "target_id": "module-app-models-schemas-rwschema",
+          "reason": "Selected source import at app/models/schemas/comments.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1a211040da6216e7",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-profiles",
+          "target_id": "module-app-models-domain-profiles",
+          "reason": "Selected source import at app/models/schemas/profiles.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a9b8dcb2a54ba52f",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-rwschema",
+          "target_id": "module-app-models-domain-rwmodel",
+          "reason": "Selected source import at app/models/schemas/rwschema.py:1.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5103b3fdae24d431",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-users",
+          "target_id": "module-app-models-domain-users",
+          "reason": "Selected source import at app/models/schemas/users.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-50320f93eb1537fd",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-users",
+          "target_id": "module-app-models-schemas-rwschema",
+          "reason": "Selected source import at app/models/schemas/users.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
       "scopes": [
         {
           "scope_id": "class-app-models-common-datetimemodelmixin",

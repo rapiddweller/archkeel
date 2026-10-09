@@ -2184,7 +2184,188 @@
           ]
         }
       ],
-      "relationships": [],
+      "relationships": [
+        {
+          "id": "module-import-b5235c3c35ed432e",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-articles",
+          "target_id": "module-app-db-errors",
+          "reason": "Selected source import at app/db/repositories/articles.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-30bf9742c9f29de0",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-articles",
+          "target_id": "module-app-db-queries-queries",
+          "reason": "Selected source import at app/db/repositories/articles.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-bf68d77f42932911",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-articles",
+          "target_id": "module-app-db-queries-tables",
+          "reason": "Selected source import at app/db/repositories/articles.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-3c54ba6cdf94e1c9",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-articles",
+          "target_id": "module-app-db-repositories-base",
+          "reason": "Selected source import at app/db/repositories/articles.py:16.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c66b58ca656e9199",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-articles",
+          "target_id": "module-app-db-repositories-profiles",
+          "reason": "Selected source import at app/db/repositories/articles.py:17.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1a02021e54f3246b",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-articles",
+          "target_id": "module-app-db-repositories-tags",
+          "reason": "Selected source import at app/db/repositories/articles.py:18.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-cd02a4d24287ffbd",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-comments",
+          "target_id": "module-app-db-errors",
+          "reason": "Selected source import at app/db/repositories/comments.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4bb9645e83d2bfc5",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-comments",
+          "target_id": "module-app-db-queries-queries",
+          "reason": "Selected source import at app/db/repositories/comments.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-89e61048b11e92a8",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-comments",
+          "target_id": "module-app-db-repositories-base",
+          "reason": "Selected source import at app/db/repositories/comments.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-36f165cbe38b9f8e",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-comments",
+          "target_id": "module-app-db-repositories-profiles",
+          "reason": "Selected source import at app/db/repositories/comments.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-3e4cf83209ca6e71",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-profiles",
+          "target_id": "module-app-db-queries-queries",
+          "reason": "Selected source import at app/db/repositories/profiles.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-350a7cad4091b6a1",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-profiles",
+          "target_id": "module-app-db-repositories-base",
+          "reason": "Selected source import at app/db/repositories/profiles.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-817dc951b4b3bc69",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-profiles",
+          "target_id": "module-app-db-repositories-users",
+          "reason": "Selected source import at app/db/repositories/profiles.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-09e3eec7772341c4",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-tags",
+          "target_id": "module-app-db-queries-queries",
+          "reason": "Selected source import at app/db/repositories/tags.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-13c526df7f91373a",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-tags",
+          "target_id": "module-app-db-repositories-base",
+          "reason": "Selected source import at app/db/repositories/tags.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-780ece71e083b4a1",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-users",
+          "target_id": "module-app-db-errors",
+          "reason": "Selected source import at app/db/repositories/users.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6c5a7decb458b571",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-users",
+          "target_id": "module-app-db-queries-queries",
+          "reason": "Selected source import at app/db/repositories/users.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ad874f2b42564a69",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-users",
+          "target_id": "module-app-db-repositories-base",
+          "reason": "Selected source import at app/db/repositories/users.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
       "scopes": [
         {
           "scope_id": "class-app-db-repositories-articles-articlesrepository",

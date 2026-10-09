@@ -3432,6 +3432,306 @@
           "provenance": [
             "docs/target.md"
           ]
+        },
+        {
+          "id": "module-import-e0a156c5933aceb1",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-activity-activity-repository-local",
+          "target_id": "mod-compass-data-repositories-activity-activity-repository",
+          "reason": "Selected source import at lib/data/repositories/activity/activity_repository_local.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c221659732d9a9b4",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-activity-activity-repository-local",
+          "target_id": "mod-compass-data-services-local-local-data-service",
+          "reason": "Selected source import at lib/data/repositories/activity/activity_repository_local.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-de44fb3b84830243",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-activity-activity-repository-remote",
+          "target_id": "mod-compass-data-repositories-activity-activity-repository",
+          "reason": "Selected source import at lib/data/repositories/activity/activity_repository_remote.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d694d31609af2083",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-activity-activity-repository-remote",
+          "target_id": "mod-compass-data-services-api-api-client",
+          "reason": "Selected source import at lib/data/repositories/activity/activity_repository_remote.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a2a725c41796f04c",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-auth-auth-repository-dev",
+          "target_id": "mod-compass-data-repositories-auth-auth-repository",
+          "reason": "Selected source import at lib/data/repositories/auth/auth_repository_dev.dart:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a39c0b05d0c4dca5",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-auth-auth-repository-remote",
+          "target_id": "mod-compass-data-repositories-auth-auth-repository",
+          "reason": "Selected source import at lib/data/repositories/auth/auth_repository_remote.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d862e01aab079671",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-auth-auth-repository-remote",
+          "target_id": "mod-compass-data-services-api-api-client",
+          "reason": "Selected source import at lib/data/repositories/auth/auth_repository_remote.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f619829fb7ed6744",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-auth-auth-repository-remote",
+          "target_id": "mod-compass-data-services-api-auth-api-client",
+          "reason": "Selected source import at lib/data/repositories/auth/auth_repository_remote.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-18d46a01ed8e71fc",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-auth-auth-repository-remote",
+          "target_id": "mod-compass-data-services-api-model-login-request-login-request",
+          "reason": "Selected source import at lib/data/repositories/auth/auth_repository_remote.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8ca0fd555207ce31",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-auth-auth-repository-remote",
+          "target_id": "mod-compass-data-services-api-model-login-response-login-response",
+          "reason": "Selected source import at lib/data/repositories/auth/auth_repository_remote.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4940e20bad79bc8b",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-auth-auth-repository-remote",
+          "target_id": "mod-compass-data-services-shared-preferences-service",
+          "reason": "Selected source import at lib/data/repositories/auth/auth_repository_remote.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4dea327bad84362f",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-booking-booking-repository-local",
+          "target_id": "mod-compass-data-repositories-booking-booking-repository",
+          "reason": "Selected source import at lib/data/repositories/booking/booking_repository_local.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-25096a2a783f0b88",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-booking-booking-repository-local",
+          "target_id": "mod-compass-data-services-local-local-data-service",
+          "reason": "Selected source import at lib/data/repositories/booking/booking_repository_local.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-eed4c35aa166a38d",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-booking-booking-repository-remote",
+          "target_id": "mod-compass-data-repositories-booking-booking-repository",
+          "reason": "Selected source import at lib/data/repositories/booking/booking_repository_remote.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1d8df926455128a6",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-booking-booking-repository-remote",
+          "target_id": "mod-compass-data-services-api-api-client",
+          "reason": "Selected source import at lib/data/repositories/booking/booking_repository_remote.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-64dadec8c5c514fd",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-booking-booking-repository-remote",
+          "target_id": "mod-compass-data-services-api-model-booking-booking-api-model",
+          "reason": "Selected source import at lib/data/repositories/booking/booking_repository_remote.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-df852e60d5138649",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-continent-continent-repository-local",
+          "target_id": "mod-compass-data-repositories-continent-continent-repository",
+          "reason": "Selected source import at lib/data/repositories/continent/continent_repository_local.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d77a459038f92175",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-continent-continent-repository-local",
+          "target_id": "mod-compass-data-services-local-local-data-service",
+          "reason": "Selected source import at lib/data/repositories/continent/continent_repository_local.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4ba5b57a25b02839",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-continent-continent-repository-remote",
+          "target_id": "mod-compass-data-repositories-continent-continent-repository",
+          "reason": "Selected source import at lib/data/repositories/continent/continent_repository_remote.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8cbadf62d4a5db30",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-continent-continent-repository-remote",
+          "target_id": "mod-compass-data-services-api-api-client",
+          "reason": "Selected source import at lib/data/repositories/continent/continent_repository_remote.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-2fd78a817cb64726",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-destination-destination-repository-local",
+          "target_id": "mod-compass-data-repositories-destination-destination-repository",
+          "reason": "Selected source import at lib/data/repositories/destination/destination_repository_local.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-23a610e0c7fe8918",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-destination-destination-repository-local",
+          "target_id": "mod-compass-data-services-local-local-data-service",
+          "reason": "Selected source import at lib/data/repositories/destination/destination_repository_local.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-0f0b0fae26f7b963",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-destination-destination-repository-remote",
+          "target_id": "mod-compass-data-repositories-destination-destination-repository",
+          "reason": "Selected source import at lib/data/repositories/destination/destination_repository_remote.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b846c452ffac7f36",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-destination-destination-repository-remote",
+          "target_id": "mod-compass-data-services-api-api-client",
+          "reason": "Selected source import at lib/data/repositories/destination/destination_repository_remote.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4c6aa8dddd173cef",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-itinerary-config-itinerary-config-repository-memory",
+          "target_id": "mod-compass-data-repositories-itinerary-config-itinerary-config-repository",
+          "reason": "Selected source import at lib/data/repositories/itinerary_config/itinerary_config_repository_memory.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8795810e462938a4",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-user-user-repository-local",
+          "target_id": "mod-compass-data-repositories-user-user-repository",
+          "reason": "Selected source import at lib/data/repositories/user/user_repository_local.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d9192c3a15414779",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-user-user-repository-local",
+          "target_id": "mod-compass-data-services-local-local-data-service",
+          "reason": "Selected source import at lib/data/repositories/user/user_repository_local.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-2147322d3776e2c7",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-user-user-repository-remote",
+          "target_id": "mod-compass-data-repositories-user-user-repository",
+          "reason": "Selected source import at lib/data/repositories/user/user_repository_remote.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1b228bcce1c0a35a",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-user-user-repository-remote",
+          "target_id": "mod-compass-data-services-api-api-client",
+          "reason": "Selected source import at lib/data/repositories/user/user_repository_remote.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-2a8f59458a8ff237",
+          "kind": "imports",
+          "source_id": "mod-compass-data-repositories-user-user-repository-remote",
+          "target_id": "mod-compass-data-services-api-model-user-user-api-model",
+          "reason": "Selected source import at lib/data/repositories/user/user_repository_remote.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
         }
       ],
       "scopes": [

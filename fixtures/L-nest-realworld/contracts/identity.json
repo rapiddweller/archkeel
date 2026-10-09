@@ -1710,6 +1710,126 @@
           "provenance": [
             "docs/target.md"
           ]
+        },
+        {
+          "id": "module-import-42c6c921b8197bef",
+          "kind": "imports",
+          "source_id": "module-1fe85b2e418b",
+          "target_id": "module-45090b785f5e",
+          "reason": "Selected source import at src/user/user.controller.ts:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b4799bb08d977d22",
+          "kind": "imports",
+          "source_id": "module-1fe85b2e418b",
+          "target_id": "module-ef2529cd1917",
+          "reason": "Selected source import at src/user/user.controller.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-08ee1d3c5d85bf40",
+          "kind": "imports",
+          "source_id": "module-1fe85b2e418b",
+          "target_id": "module-a93a6b12ed9e",
+          "reason": "Selected source import at src/user/user.controller.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-aab28796f58130be",
+          "kind": "imports",
+          "source_id": "module-48d536b2256c",
+          "target_id": "module-0bd32a40cd62",
+          "reason": "Selected source import at src/user/user.entity.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b3008ea3659992a2",
+          "kind": "imports",
+          "source_id": "module-b0208f49231e",
+          "target_id": "module-1fe85b2e418b",
+          "reason": "Selected source import at src/user/user.module.ts:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7483ed7a829e543f",
+          "kind": "imports",
+          "source_id": "module-b0208f49231e",
+          "target_id": "module-48d536b2256c",
+          "reason": "Selected source import at src/user/user.module.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-17be2ef569219177",
+          "kind": "imports",
+          "source_id": "module-b0208f49231e",
+          "target_id": "module-a93a6b12ed9e",
+          "reason": "Selected source import at src/user/user.module.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-29c5ec8a48d9952a",
+          "kind": "imports",
+          "source_id": "module-0bd32a40cd62",
+          "target_id": "module-48d536b2256c",
+          "reason": "Selected source import at src/user/user.repository.ts:2.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1c4208873e4fd491",
+          "kind": "imports",
+          "source_id": "module-a93a6b12ed9e",
+          "target_id": "module-45090b785f5e",
+          "reason": "Selected source import at src/user/user.service.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-29620dddfe0c97f4",
+          "kind": "imports",
+          "source_id": "module-a93a6b12ed9e",
+          "target_id": "module-48d536b2256c",
+          "reason": "Selected source import at src/user/user.service.ts:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e51782c164308610",
+          "kind": "imports",
+          "source_id": "module-a93a6b12ed9e",
+          "target_id": "module-ef2529cd1917",
+          "reason": "Selected source import at src/user/user.service.ts:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ba349608af702a23",
+          "kind": "imports",
+          "source_id": "module-a93a6b12ed9e",
+          "target_id": "module-0bd32a40cd62",
+          "reason": "Selected source import at src/user/user.service.ts:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
         }
       ],
       "scopes": [

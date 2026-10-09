@@ -12,6 +12,10 @@ Required dependencies follow imports in the pinned source. Root edges include lo
 
 Source input digest: `c6c1b8fe62fbc950af3b3dc4a033cac300bdeec2564e563909504a69df753e72` (111 Dart files; `pubspec.yaml` is configuration, not a module).
 
+## Required module paths
+
+The Target links the app entry points and provider wiring to navigation, each principal screen to its ViewModel, and auth/search/results/activities/booking state through repository ports to local or remote adapters. Booking creation also links its use case to the repository ports and the remote/local booking implementations to their respective data services. These are selected source-backed paths; module import scopes remain open, so this is not a complete import inventory.
+
 ## Observed source imports
 
 The graph records cross-component imports found in pinned source and attributed to Target ownership.
@@ -39,4 +43,4 @@ graph TD
     n_3 --> n_4
 ```
 
-Target bundle SHA-256: `c9dc389b1175a2d7097508ed69bb40c344a99aafdbb0591fda10500c2ea9533d`
+Target bundle SHA-256: `47e9644d744777c0acab7c76df551924eaa395a9bc391aa32a97367364bdc566`

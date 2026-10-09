@@ -2703,6 +2703,56 @@
           "provenance": [
             "docs/target.md"
           ]
+        },
+        {
+          "id": "module-import-d22368e40dbc9e78",
+          "kind": "imports",
+          "source_id": "mod-compass-domain-use-cases-booking-booking-create-use-case",
+          "target_id": "mod-compass-domain-models-activity-activity",
+          "reason": "Selected source import at lib/domain/use_cases/booking/booking_create_use_case.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5aaf2cb101da4a14",
+          "kind": "imports",
+          "source_id": "mod-compass-domain-use-cases-booking-booking-create-use-case",
+          "target_id": "mod-compass-domain-models-booking-booking",
+          "reason": "Selected source import at lib/domain/use_cases/booking/booking_create_use_case.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e4eaa51aeb80b21f",
+          "kind": "imports",
+          "source_id": "mod-compass-domain-use-cases-booking-booking-create-use-case",
+          "target_id": "mod-compass-domain-models-destination-destination",
+          "reason": "Selected source import at lib/domain/use_cases/booking/booking_create_use_case.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c142f1d1594ad9ef",
+          "kind": "imports",
+          "source_id": "mod-compass-domain-use-cases-booking-booking-create-use-case",
+          "target_id": "mod-compass-domain-models-itinerary-config-itinerary-config",
+          "reason": "Selected source import at lib/domain/use_cases/booking/booking_create_use_case.dart:14.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a07f628361d4084c",
+          "kind": "imports",
+          "source_id": "mod-compass-domain-use-cases-booking-booking-share-use-case",
+          "target_id": "mod-compass-domain-models-booking-booking",
+          "reason": "Selected source import at lib/domain/use_cases/booking/booking_share_use_case.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
         }
       ],
       "scopes": [

@@ -684,6 +684,76 @@
           "provenance": [
             "docs/target.md"
           ]
+        },
+        {
+          "id": "module-import-78776255959a0c6f",
+          "kind": "imports",
+          "source_id": "mod-compass-main",
+          "target_id": "mod-compass-main-development",
+          "reason": "Selected source import at lib/main.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-20163ac1a02c750d",
+          "kind": "imports",
+          "source_id": "mod-compass-main",
+          "target_id": "mod-compass-routing-router",
+          "reason": "Selected source import at lib/main.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5db8365a9432cbd5",
+          "kind": "imports",
+          "source_id": "mod-compass-main-development",
+          "target_id": "mod-compass-config-dependencies",
+          "reason": "Selected source import at lib/main_development.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d3accaadf0a81169",
+          "kind": "imports",
+          "source_id": "mod-compass-main-development",
+          "target_id": "mod-compass-main",
+          "reason": "Selected source import at lib/main_development.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-14c773928c382000",
+          "kind": "imports",
+          "source_id": "mod-compass-main-staging",
+          "target_id": "mod-compass-config-dependencies",
+          "reason": "Selected source import at lib/main_staging.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6c3c615dcfa1c073",
+          "kind": "imports",
+          "source_id": "mod-compass-main-staging",
+          "target_id": "mod-compass-main",
+          "reason": "Selected source import at lib/main_staging.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-07a9cd8459a2b15e",
+          "kind": "imports",
+          "source_id": "mod-compass-routing-router",
+          "target_id": "mod-compass-routing-routes",
+          "reason": "Selected source import at lib/routing/router.dart:22.",
+          "provenance": [
+            "docs/target.md"
+          ]
         }
       ],
       "scopes": [
