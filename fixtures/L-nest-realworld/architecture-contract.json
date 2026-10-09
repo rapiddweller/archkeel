@@ -409,6 +409,14 @@
           "decided_by": "agent"
         },
         {
+          "component": "Article and comment publishing",
+          "through": [
+            "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts"
+          ],
+          "rationale": "The generated registry directly imports the Comment model.",
+          "decided_by": "agent"
+        },
+        {
           "component": "Tag catalogue",
           "through": [
             "nestjs.realworld.src.tag.tag_x2e_entity_x2e_ts"

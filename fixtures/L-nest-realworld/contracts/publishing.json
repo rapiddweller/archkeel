@@ -29,6 +29,14 @@
           ],
           "rationale": "Controller delegates publishing operations to the service.",
           "decided_by": "agent"
+        },
+        {
+          "component": "Article and comment models",
+          "through": [
+            "nestjs.realworld.src.article.article_x2e_entity_x2e_ts"
+          ],
+          "rationale": "The response contract imports ArticleDTO from the model module.",
+          "decided_by": "agent"
         }
       ],
       "exact_modules": [
@@ -62,6 +70,14 @@
             "nestjs.realworld.src.article.article_x2e_interface_x2e_ts"
           ],
           "rationale": "Service returns article response contracts.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Article and comment HTTP contracts",
+          "through": [
+            "nestjs.realworld.src.article.dto.index_x2e_ts"
+          ],
+          "rationale": "Service imports request DTOs from the barrel module.",
           "decided_by": "agent"
         },
         {
@@ -1260,7 +1276,7 @@
             "Declare the source-level field."
           ],
           "visibility": {
-            "kind": "private",
+            "kind": "public",
             "basis": "declared"
           },
           "annotation": "string"

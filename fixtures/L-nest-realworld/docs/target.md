@@ -8,7 +8,7 @@ Requires describe direct source imports, not Nest route or DI runtime behavior. 
 
 Decorators express ORM association intent, but current UML has no association or multiplicity kind and decorator details are not emitted. User, Article, and Comment relationships are described as design intent, not proven UML edges. Article.tagList is a string list; there is no normalized Article-to-Tag entity association. Optional/default signatures, implicit return types, parameter properties, computed keys, readonly and decorator semantics may remain incomplete or UNKNOWN.
 
-Target bundle SHA-256: `95b3e4d16b8feeb073cb31d0e1057dfff7631ec0ed41f8c60a5284242302edc9`
+Target bundle SHA-256: `9d8bb7214030ee934c028a1a7960c7c9dac3c15af7595315013498f333fe3b0c`
 
 <!-- archkeel-component-graph -->
 ```mermaid

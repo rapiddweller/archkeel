@@ -142,6 +142,7 @@ def test_nest_target_records_source_owned_internal_dependencies() -> None:
     assert requires_covers(tags, identity.label, _module("src/user/user.module.ts"))
     assert requires_covers(persistence, identity.label, _module("src/user/user.entity.ts"))
     assert requires_covers(persistence, articles.label, _module("src/article/article.entity.ts"))
+    assert requires_covers(persistence, articles.label, _module("src/article/comment.entity.ts"))
     assert requires_covers(persistence, tags.label, _module("src/tag/tag.entity.ts"))
 
     runtime = mounted[composition.id]
@@ -162,11 +163,26 @@ def test_nest_target_records_source_owned_internal_dependencies() -> None:
         "Account application service",
         _module("src/user/user.service.ts"),
     )
+    assert requires_covers(
+        identity_children["Account application service"],
+        "Account HTTP contracts",
+        _module("src/user/user.interface.ts"),
+    )
     publishing_children = {c.label: c for c in mounted[articles.id].components}
     assert requires_covers(
         publishing_children["Article module wiring"],
         "Article application service",
         _module("src/article/article.service.ts"),
+    )
+    assert requires_covers(
+        publishing_children["Article application service"],
+        "Article and comment HTTP contracts",
+        _module("src/article/dto/index.ts"),
+    )
+    assert requires_covers(
+        publishing_children["Article and comment HTTP contracts"],
+        "Article and comment models",
+        _module("src/article/article.entity.ts"),
     )
     persistence_children = {c.label: c for c in mounted[persistence.id].components}
     assert (
@@ -390,6 +406,11 @@ def test_nest_target_closes_only_source_authored_direct_member_scopes() -> None:
     assert all(scope.mode == "closed" for scope in scopes.values())
     assert {name: scope.entity_kinds for name, scope in scopes.items()} == expected
     assert all(entities[scope.scope_id].kind in {"class", "interface"} for scope in scopes.values())
+
+    comment_body = next(
+        entity for entity in graph.entities if entity.qualified_name.endswith(".IComment.body")
+    )
+    assert comment_body.visibility.kind == "public"
 
     def direct_members(name: str) -> set[tuple[str, str]]:
         owner = next(

@@ -67,6 +67,14 @@
           "decided_by": "agent"
         },
         {
+          "component": "Account HTTP contracts",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_interface_x2e_ts"
+          ],
+          "rationale": "Service returns the IUserRO response contract.",
+          "decided_by": "agent"
+        },
+        {
           "component": "User model and repository",
           "through": [
             "nestjs.realworld.src.user.user_x2e_repository_x2e_ts"
