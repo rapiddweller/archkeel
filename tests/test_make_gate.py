@@ -16,11 +16,11 @@ ROOT = Path(__file__).parents[1]
 GATE_STEPS = ["self-validate", "check", "build", "smoke"]
 CI_CHECK_STEPS = [
     "ci-artifacts-clean",
+    "browser-install",
     *GATE_STEPS,
     "demo-typescript",
     "report-timing",
-    "browser-install",
-    "report-browser",
+    "report-browser-proof",
 ]
 CI_STEPS = [*CI_CHECK_STEPS, "mermaid"]
 
@@ -35,13 +35,13 @@ def _run_gate(
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     steps = tmp_path / "steps"
     overrides = tmp_path / "Makefile"
-    names = [*CI_STEPS, "against", "pr-test", "pr-report-test"]
+    names = [*CI_STEPS, "against", "pr-test", "pr-report-test", "report-browser-tests"]
     recipes = []
     for name in names:
         output_guard = ""
         if name == "demo-typescript":
             output_guard = '\t@test "$(OUTPUT)" = test-artifacts/typescript-demo\n'
-        elif name == "report-browser":
+        elif name == "report-browser-proof":
             output_guard = '\t@test -z "$(OUTPUT)"\n'
         recipes.append(
             f'{name}:\n\t@echo {name} >> "{steps}"\n\t@sleep 0.05\n\t@exit {int(name == failed)}\n'
@@ -126,7 +126,10 @@ def test_ci_check_leaves_mermaid_to_its_parallel_workflow_job(tmp_path: Path, jo
 def test_against_receives_the_exact_ci_base_and_stops_before_tests(tmp_path: Path) -> None:
     steps = tmp_path / "steps"
     runner = tmp_path / "uv"
-    runner.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{steps}"\nexit 1\n')
+    runner.write_text(
+        f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{steps}"\n'
+        'case "$*" in *tools.against*) exit 1;; esac\n'
+    )
     runner.chmod(0o755)
     result = subprocess.run(
         ["make", "-j2", "ci", f"BASE={'a' * 40}"],
@@ -138,7 +141,8 @@ def test_against_receives_the_exact_ci_base_and_stops_before_tests(tmp_path: Pat
     )
     assert result.returncode != 0
     assert steps.read_text().splitlines() == [
-        f"run --locked python -m tools.against --base {'a' * 40}"
+        "run --locked --with playwright==1.62.0 python -m playwright install --with-deps chromium",
+        f"run --locked python -m tools.against --base {'a' * 40}",
     ]
 
 
@@ -161,7 +165,7 @@ def test_pr_report_gate_runs_its_browser_sample_and_propagates_failure(tmp_path,
 
 
 @pytest.mark.parametrize("fail_pytest", [False, True])
-def test_report_browser_runs_parallel_full_suite_before_evidence(
+def test_report_browser_runs_report_tests_before_evidence(
     tmp_path: Path, fail_pytest: bool
 ) -> None:
     calls = tmp_path / "uv-calls.jsonl"
@@ -222,6 +226,28 @@ def test_report_browser_runs_parallel_full_suite_before_evidence(
             "tools.report_browser",
         ]
         assert result.returncode == 0, result.stderr
+
+
+def test_main_core_uses_pinned_playwright_once_and_report_stage_only_runs_proof() -> None:
+    result = subprocess.run(
+        ["make", "-n", "-j8", "ci-check"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": "", "OUTPUT": ""},
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    commands = result.stdout
+    browser_install = commands.index("python -m playwright install --with-deps chromium")
+    pytest_run = commands.index("run --locked --with playwright==1.62.0 python -m pytest -n 2")
+    report_proof = commands.index("python -m tools.report_browser")
+    report_timing = commands.index("python -m tools.report_timing")
+    assert browser_install < pytest_run < report_proof
+    assert report_timing < report_proof
+    assert commands.count("python -m playwright install --with-deps chromium") == 1
+    assert "tests/test_*report*.py" not in commands
+    assert "make report-browser-tests" not in commands
 
 
 def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:

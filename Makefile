@@ -3,7 +3,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts mermaid check test collector-safety typescript-native dart-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart dart-setup demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
+.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts mermaid check test collector-safety typescript-native dart-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart dart-setup demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-browser-proof report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
 
 check: lint typecheck test
 
@@ -18,9 +18,10 @@ ci: ci-check mermaid
 
 ci-check: ci-artifacts-clean ci-core-check ci-report-check
 
-ci-core-check: gate ci-typescript
+ci-core-check: PYTEST_EXTRA = --with playwright==$(PLAYWRIGHT_VERSION)
+ci-core-check: browser-install gate ci-typescript
 
-ci-report-check: report-timing browser-install report-browser
+ci-report-check: report-timing report-browser-proof
 
 ci-pr-check: $(if $(strip $(BASE)),against,self-validate) lint typecheck pr-test
 
@@ -106,7 +107,7 @@ self-validate:
 	$(UV) run --locked archkeel validate --root . --baseline architecture-baseline.json --json
 
 test:
-	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 \
+	$(UV) run --locked $(PYTEST_EXTRA) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 \
 		-q --durations=20 --junitxml=test-artifacts/pytest/results.xml
 
 collector-safety:
@@ -261,8 +262,13 @@ plugin-directory:
 		$(MAKE) plugin OUTPUT="$$stage/archkeel" && \
 		cp -R "$$stage/archkeel/." plugins/archkeel/
 
-report-browser:
+report-browser: report-browser-tests
+	$(MAKE) report-browser-proof OUTPUT="$(OUTPUT)"
+
+report-browser-tests:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q tests/test_*report*.py tests/test_*uml*.py tests/test_*flow*.py tests/test_secondary_table_acceptance.py tests/test_legacy_graph_rendering.py tests/test_diff_import_rendering.py
+
+report-browser-proof:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m tools.report_browser $(if $(OUTPUT),--output "$(OUTPUT)")
 
 # Twine validates PyPI metadata; it is a build-only tool.
