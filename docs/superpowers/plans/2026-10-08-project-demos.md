@@ -183,15 +183,9 @@
 - [ ] Correct the Compass catalog assertions to the already verified reports: preserve thirty typed source gaps and their validation diagnostics, the scoped data rule ID, and the dynamic variant's separate known field mismatch alongside the required-call UNKNOWN. No blanket diagnostic exemptions or changed Target.
 - [ ] Run covering validation/rewrite and Dart control tests, Ruff/mypy/diff checks, then independent review. Resume Task8 with fresh four-case proof and measured exits/diagnostics after the gate.
 
-### Task 8a: Restore the repository self-observation gate
+### Task 8a: Superseded by the graph simplification
 
-**Files:** `src/archkeel/analyzer/runtime.py`, `src/archkeel/ir/source_graph.py`; reuse existing runtime and result-binding tests.
-
-**Measured defect:** exact comparison of f4876998 against origin/main82f83d9b reports718 unresolved calls against714 accepted. Five new dynamic string receivers minus one removed TOML lookup explain the net increase; paired synthetic-scope line shifts do not.
-
-- [ ] Remove duplicate Poetry string validation by reusing the final common check; normalize only actual strings. Validate stripped caret syntax without a capture and use an explicitly typed string slice for the version.
-- [ ] Bind the frozen Entity qualified_name to a typed string local before prefix/terminal-name checks. Preserve every result-binding identity/conflict invariant; no casts, new receiver inference, or budget widening.
-- [ ] Run existing runtime, source-graph/static-instance and native closure regression checks, Ruff/mypy, then fresh `make self-validate` and `make against BASE=origin/main`. Record exact call deltas and actual count, not the predicted713. Independently review before Task9.
+Task8b's simpler shared graph reader/writer reduces the measured repository count from718 to712, below the accepted714. The planned runtime/binding edits no longer solve a blocking problem and are omitted. Preserve their reviewed behavior. After all remaining product changes, record the fresh count and ratchet the baseline downward through the existing workflow where required; do not widen it.
 
 ### Task 9: Verify Nest/Mikro source-resolution feasibility
 
