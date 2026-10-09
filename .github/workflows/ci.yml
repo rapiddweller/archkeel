@@ -217,7 +217,28 @@ jobs:
           name: report-browser-evidence
           path: test-artifacts/report-browser/
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 1
+
+  prune-report-artifacts:
+    name: Prune retained report artifacts
+    needs: check
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Check out trusted main workflow
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Prune old report artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make prune-report-artifacts DELETE=true REPORT_ARTIFACT_PRUNE_DIR="$RUNNER_TEMP/report-artifact-prune"
 
   collector-safety-windows:
     needs: changes

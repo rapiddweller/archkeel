@@ -226,7 +226,7 @@ def test_report_browser_runs_parallel_full_suite_before_evidence(
 
 def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-    check = workflow.split("  check:\n", 1)[1].split("\n  collector-safety-windows:", 1)[0]
+    check = workflow.split("  check:\n", 1)[1].split("\n  prune-report-artifacts:", 1)[0]
     assert "if: ${{ !cancelled() }}" in check
     classifier_failure = check.split("- name: Fail if change detection failed\n", 1)[1].split(
         "\n      - name:", 1
@@ -251,6 +251,29 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     assert "path: test-artifacts/report-timing/architecture.timing.json" in check
     assert "path: test-artifacts/pytest/*.xml" in check
     assert "path: test-artifacts/report-browser/" in check
+    cleanup = workflow.split("  prune-report-artifacts:\n", 1)[1].split(
+        "\n  collector-safety-windows:", 1
+    )[0]
+    assert (
+        "if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}"
+        in cleanup
+    )
+    assert "needs: check" in cleanup
+    assert "github.event_name == 'push'" in cleanup
+    assert "github.ref == 'refs/heads/main'" in cleanup
+    assert "actions: write" in cleanup
+    assert workflow.count("actions: write") == 1
+    assert "contents: read" in cleanup
+    assert "ref: ${{ github.sha }}" in cleanup
+    assert "GH_TOKEN: ${{ github.token }}" in cleanup
+    assert "make prune-report-artifacts DELETE=true" in cleanup
+    assert "retention-days: 1" in check
+    makefile = (ROOT / "Makefile").read_text()
+    assert "gh api --paginate --slurp" in makefile
+    assert "gh api --method DELETE" in makefile
+    assert "DELETE ?= false" in makefile
+    assert "artifact_ids=$$(python3 -c" in makefile
+    assert "for artifact_id in $$artifact_ids" in makefile
     assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in workflow
     assert (
         "group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}"
