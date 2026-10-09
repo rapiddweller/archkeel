@@ -19,6 +19,11 @@ Schema readability does not guarantee comparable observations: analyzer correcti
 and profile changes can require re-observing both revisions. Correctness fixes may
 change findings without changing an interface.
 
+The native Dart migration in 1.1.0 is an explicit exception: legacy
+`archkeel-dart-directives` evidence is no longer accepted, and the existing schemas
+add Dart `mixin` and `mixes_in` enum values. Upgrade strict consumers and re-observe
+Dart snapshots; see the [1.1.0 upgrade notes](../RELEASE_NOTES.md#upgrade-from-100).
+
 Stable does not mean complete language analysis. Unsupported or ambiguous evidence
 stays UNKNOWN; language limits remain part of the documented result.
 

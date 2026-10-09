@@ -1,3 +1,58 @@
+# Archkeel 1.1.0 — Dart UML and project-scale architecture reports
+
+Inspect Dart declarations and UML with the official Analyzer, and explore larger
+architecture reports through components, modules and members.
+
+## Highlights
+
+- **Native Dart UML.** Observe classes, mixins, enums, members, signatures and resolved
+  static relationships. The native Analyzer replaces the old directive-only collector;
+  missing resolution and dynamic behavior remain UNKNOWN.
+- **Complete-project demos.** Explore pinned Flutter Compass (111 Dart files), Python
+  RealWorld (72 modules) and Nest RealWorld (41 prepared TypeScript inputs). Their Targets
+  define responsibilities, nested components, module relationships and principal UML
+  member scopes. Source-only variants demonstrate violations and analysis limits.
+- **Readable architecture maps.** Relationship-driven ELK layouts arrange components and
+  modules hierarchically. Nested ownership groups and colors help navigation; closing
+  Details releases the diagram space. Target navigation and asynchronous detail layout
+  retain the selected scope across views.
+- **More precise evidence.** TypeScript resolves supported package-export cases and retains
+  uncertainty for incomplete or ambiguous source facts. Native DTO value allowances can
+  select an exact `field_path` and `container_depth` without permitting other positions.
+- **Safer amendment output.** Failed or colliding amendment destinations retain widening
+  findings. Baseline and graph outputs cannot silently overwrite amendment evidence.
+- **Less repository churn.** Generated self-observation snapshots no longer require
+  committed updates. Normal CI uses focused checks; exhaustive language, platform and
+  report verification runs nightly and before release publication. Report artifacts expire
+  after one day, with older retained report artifacts pruned by the cleanup workflow.
+
+## Upgrade from 1.0.0
+
+```sh
+uv tool upgrade archkeel
+archkeel-dart-setup
+```
+
+The second command is required only for Dart analysis. Install Dart SDK `>=3.9,<4`
+first, with a native `dart` executable on PATH or set `DART_EXECUTABLE`. Run setup once
+for the upgraded installation; it prepares the pinned Analyzer dependencies. Scans do
+not install packages or modify the scanned project.
+
+The Dart migration intentionally drops the legacy `archkeel-dart-directives` producer.
+Re-observe both revisions with 1.1.0 before comparing Dart snapshots. This is an explicit
+exception to the [1.x compatibility policy](docs/reference.md#compatibility-in-1x).
+Schemas now accept Dart `mixin` entities and `mixes_in` relationships, while retaining
+their existing version identifiers. Update strict enum consumers and pin the CLI,
+collectors and bundled schemas together; do not mix the old and new Dart evidence.
+
+## Limits
+
+Static analysis does not prove runtime dispatch, live object identity or complete call
+coverage. Compass still has source-resolution gaps; Python RealWorld retains incomplete
+class and inheritance evidence; Nest retains unresolved dynamic imports and framework
+semantics. The demos show these limits, not compiler parity or verified Flutter execution.
+See [demo evidence](docs/architecture-demo.md) and [known limits](docs/known-limits.md).
+
 # Archkeel 1.0.0 — Review architecture with evidence
 
 Review observed code, your declared architecture and their differences in one report.
