@@ -155,6 +155,11 @@ def test_joint_write_replays_and_refused_rewrite_emits_no_approval(tmp_path: Pat
     base = _git(root, "rev-parse", "HEAD")
     (root / "shop/model/alpha.py").write_text("from shop.model import beta\nVALUE = beta.VALUE\n")
     (root / "shop/model/beta.py").write_text("from shop.model import alpha\nVALUE = 1\n")
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_text())
+    rule = next(item for item in contract["rules"] if item["id"] == "DEP-APP-NO-STORE-SQLITE")
+    rule["allowed_sources"].append("shop.app.orders")
+    contract_path.write_text(json.dumps(contract))
     amendment = root / "amendment.json"
     arguments = dict(
         against=base,
@@ -167,6 +172,12 @@ def test_joint_write_replays_and_refused_rewrite_emits_no_approval(tmp_path: Pat
     )
     refused, files = run_validate(root, SHOP_CONFIG, observe, **arguments)
     assert refused.exit_code == 1
+    assert (
+        "rule DEP-APP-NO-STORE-SQLITE.allowed_sources gained 'shop.app.orders'" in refused.failures
+    )
+    assert refused.widenings
+    assert refused.amendment_status is None
+    assert refused.artifact is None
     assert not files
     accepted, files = run_validate(root, SHOP_CONFIG, observe, accept_new=True, **arguments)
     assert accepted.exit_code == 0

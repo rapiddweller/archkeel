@@ -449,7 +449,14 @@ def test_validate_against_emits_typed_widening_and_preserves_amendment_status(
         "Orders needs the sqlite exemption during the migration.",
     ]
     assert main([*args, *amendment]) == 0
-    assert json.loads(capsys.readouterr().out)["widenings"] == []
+    written = json.loads(capsys.readouterr().out)
+    assert written["widenings"] == written["failures"] == []
+    assert written["amendment_status"] is None
+    assert Path(written["artifact"]).is_file()
+    assert main([*args, "--amendment", "widening.json"]) == 0
+    valid = json.loads(capsys.readouterr().out)
+    assert valid["widenings"] == valid["failures"] == []
+    assert valid["amendment_status"] == "valid"
 
     apply_overlay(
         root,
@@ -474,6 +481,77 @@ def test_validate_against_emits_typed_widening_and_preserves_amendment_status(
             "field": "allowed_sources",
         },
     ]
+
+
+@pytest.mark.parametrize(
+    ("write_graph", "amendment", "unused_public", "exit_code"),
+    [
+        (False, "widening.json", True, 2),
+        (True, "widening.json", True, 2),
+        (True, "docs/architecture/shop.md", True, 2),
+        (True, "docs/architecture/shop.md", False, 1),
+    ],
+    ids=["diagnostic", "diagnostic-with-graph", "diagnostic-graph-collision", "graph-collision"],
+)
+def test_unwritten_amendment_preserves_unamended_widenings(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+    write_graph: bool,
+    amendment: str,
+    unused_public: bool,
+    exit_code: int,
+) -> None:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    app = next(item for item in contract["components"] if item["label"] == "app")
+    if unused_public:
+        app["public"].append("shop.app.orders:describe_connection")
+    root = _prepare_repo(tmp_path, {"architecture-contract.json": json.dumps(contract)})
+    app["requires"] = [{"component": "store", "rationale": "Orders may depend on storage."}]
+    (root / "architecture-contract.json").write_text(json.dumps(contract))
+    args = ["validate", "--root", str(root), "--against", "HEAD", "--json"]
+    graph = root / "docs/architecture/shop.md"
+    drifted_graph = graph.read_text().replace("    app --> store\n", "")
+    if write_graph:
+        args.append("--write-graph")
+        graph.write_text(drifted_graph)
+
+    assert main(args) == exit_code
+    unamended = json.loads(capsys.readouterr().out)
+    assert (
+        "interface.unused" in [item["code"] for item in unamended["diagnostics"]]
+    ) == unused_public
+    assert unamended["widenings"] == [
+        {"code": "ir.widening", "subject": "component 'app'", "field": "requires"}
+    ]
+    assert unamended["failures"] == ["component 'app'.requires gained an edge to 'store'"]
+    assert (unamended["artifact"] is not None) == write_graph
+    amendment_path = root / amendment
+    previous = amendment_path.read_bytes() if amendment_path.exists() else None
+    if write_graph:
+        graph.write_text(drifted_graph)
+
+    assert (
+        main(
+            [
+                *args,
+                "--amendment",
+                amendment,
+                "--write-amendment",
+                "--decided-by",
+                "Jordan (architect)",
+                "--rationale",
+                "Approve the storage edge.",
+            ]
+        )
+        == exit_code
+    )
+    refused = json.loads(capsys.readouterr().out)
+    assert refused["diagnostics"] == unamended["diagnostics"]
+    assert refused["widenings"] == unamended["widenings"]
+    assert refused["failures"] == unamended["failures"]
+    assert refused["amendment_status"] is None
+    assert refused["artifact"] == unamended["artifact"]
+    assert (amendment_path.read_bytes() if amendment_path.exists() else None) == previous
 
 
 def test_validate_against_codes_added_requires_permission_and_baseline_growth(
