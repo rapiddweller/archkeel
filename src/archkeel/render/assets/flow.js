@@ -1715,14 +1715,20 @@
           : requestedComponent ? NAV.component_module_ids?.[requestedComponent] || []
           : moduleIds;
       const requestedModule = query.get("module");
+      const componentScope = !requestedModule && componentRoute(requestedComponent).length
+        && (origin === "declared" || viewMode === "target");
       const module = requestedModule || componentModules[0];
       const requestedScope = query.get("scope");
       if (requestedComponent && !componentRoute(requestedComponent).length && requestedComponent !== "unassigned") {
         routeNotice = { field: "component", requested: requestedComponent, message: "Requested component is not recorded in this snapshot." };
-      } else if (requestedComponent && module && !componentModules.includes(module)) {
+      } else if (componentScope && requestedScope && requestedScope !== requestedComponent) {
+        routeNotice = { field: "scope", requested: requestedScope, message: "Requested scope is not recorded inside this component." };
+      } else if (!componentScope && requestedComponent && module && !componentModules.includes(module)) {
         routeNotice = { field: "module", requested: module, message: "Requested module is not recorded inside this component." };
       }
-      umlPath = routeNotice ? [] : lexicalRoute(requestedScope || module, module, origin);
+      umlPath = routeNotice ? [] : componentScope
+        ? [{ id: requestedComponent, origin: "declared" }]
+        : lexicalRoute(requestedScope || module, module, origin);
       if (!umlPath.length) {
         if (!routeNotice) {
           const recordedModule = lexicalRoute(module, null, origin);
@@ -1770,7 +1776,7 @@
     if (!NAV || !routeReady || !["file:", "http:", "https:"].includes(location.protocol)) return;
     const query = new URLSearchParams();
     if (SIDECAR) {
-      if (umlPath[0]) query.set("module", umlPath[0].id);
+      if (umlPath[0]) query.set(componentRoute(umlPath[0].id).length ? "component" : "module", umlPath[0].id);
       if (umlPath[0]?.origin === "declared") query.set("origin", "declared");
       if (umlPath.length > 1) query.set("scope", umlPath.at(-1).id);
       query.set("return_scope", returnScope || "");
@@ -1804,7 +1810,8 @@
   }
 
   function sidecarNavigation() {
-    const components = componentRoute(NAV.component_id || returnScope);
+    const components = componentRoute(NAV.component_id || returnScope)
+      .filter((item) => item.id !== umlPath[0]?.id);
     const links = [`<a href="${esc(mainHref())}" aria-label="Back to architecture map">${esc(NAV.repository)}</a>`,
       ...components.map((item) => `<a href="${esc(mainHref(item.id, null))}">${esc(item.label)} [component]</a>`)];
     const lexical = umlPath.map((entry, index) => {
@@ -1995,7 +2002,6 @@
     const assignedLayouts = new Set(graph.component_intents.flatMap((item) => item.layout_rule_ids));
     const layouts = physicalScope ? graph.layout_rules.filter((rule) => scope === null
       ? !assignedLayouts.has(rule.id) : boundary?.layout_rule_ids.includes(rule.id)) : [];
-    const plannedFiles = inventories.flatMap((item) => item.modules);
     const globalApi = !edge && graph.origin === "declared" && scope === null ? graph.public_api : [];
     const unassigned = !entity && !edge && context.scope === null && viewMode !== "target"
       ? unassignedArchitectureModules() : [];
@@ -2059,14 +2065,7 @@
         <p>Namespace grouping does not prove a directory or a declared component owner.</p>
         <ul class="plain">${unassignedNamespaces.map((item) => `<li><code>${esc(item.qualified_name)}</code> <button type="button" data-uml-unassigned="${esc(item.id)}">Open</button></li>`).join("")}</ul></details>` : ""}
       ${globalApi.length ? `<h3>Global published API</h3><p>API selectors. Symbol details come from explicit UML intent.</p><ul class="plain">${globalApi.map((entry) => `<li><code>${esc(entry.selector)}</code><p>${entry.provenance.map(esc).join(" · ")}</p></li>`).join("")}</ul>` : ""}
-      ${physicalScope ? `${plannedFiles.length ? `<details><summary>Module inventory · ${plannedFiles.length} planned ${plannedFiles.length === 1 ? "file" : "files"}</summary>
-        <p>File intent does not define classes, methods, imports or calls.</p>${viewMode !== "target" ? "<p>Observed file presence is separate from a Core verdict.</p>" : ""}<ul class="plain">${plannedFiles.map((item) => {
-          const actual = viewMode === "target" ? null : DATA.observed?.entities.find((entity) => entity.kind === "module" && entity.presence === "defined" && entity.file_path === item.path);
-          const findings = (viewMode === "target" ? [] : DATA.findings || []).filter((finding) => finding.subjects.includes(item.path));
-          return `<li data-file-intent="${esc(item.path)}"><code>${esc(item.path)}</code><p>${esc(item.responsibility)}</p>${viewMode !== "target" ? `<p>${DATA.observed ? actual ? `Observed module: ${esc(actual.qualified_name)}` : "Not in the observed file inventory." : "Source facts are unavailable."}</p>` : ""}${findings.length ? findingMarkup(findings) : ""}</li>`;
-        }).join("")}</ul>
-        <p>${[...new Set(inventories.flatMap((item) => item.provenance))].map(esc).join(" · ")}</p></details>`
-        : `<h3>Module inventory</h3><p>${inventories.length ? "Explicitly empty" : "Not declared"}</p>`}
+      ${physicalScope ? `${moduleInventoryMarkup(inventories)}
         ${layouts.length ? `<details><summary>Permitted package layout · ${layouts.length} ${layouts.length === 1 ? "rule" : "rules"}</summary>
           <p>Permission does not require existence.</p><ul class="plain">${layouts.map((rule) => `<li><strong>${esc(rule.root)}</strong><p>${esc(rule.rationale)}</p><p>Allowed immediate children: ${rule.allowed_children.length ? rule.allowed_children.map(esc).join(", ") : "Explicitly empty"}</p><p>${esc(rule.decided_by)} · ${rule.provenance.map(esc).join(" · ")}</p></li>`).join("")}</ul></details>`
           : context.scope === null ? "<h3>Permitted package layout</h3><p>Not declared</p>" : ""}` : ""}
@@ -2547,7 +2546,7 @@
       const graph = ["target", "diff"].includes(nextView) ? DATA.target
         : nextView === "diagram" ? DATA.observed : null;
       const counterpart = graph && umlPath.length ? scopeCounterpart(umlPath.at(-1), graph).entity : null;
-      if (counterpart) umlPath = lexicalRoute(counterpart.id, null, graph.origin);
+      if (counterpart && counterpart.kind !== "component") umlPath = lexicalRoute(counterpart.id, null, graph.origin);
       viewMode = nextView; umlSelection = null; scopeNotice = null;
       focusLabel = null; relationshipKind = null; elementKind = null; positions = {}; render(); fit(); return;
     }
@@ -2985,8 +2984,21 @@
     return { nodes, edges, frames: [], componentOverview: true, atlas: true, declared };
   }
 
+  function moduleInventoryMarkup(inventories) {
+    const plannedFiles = inventories.flatMap((item) => item.modules);
+    return `<section class="flow-module-inventory">${plannedFiles.length ? `<details><summary>Module inventory · ${countLabel(plannedFiles.length, "planned file")}</summary>
+      <p>File intent does not define classes, methods, imports or calls.</p>${viewMode !== "target" ? "<p>Observed file presence is separate from a Core verdict.</p>" : ""}<ul class="plain">${plannedFiles.map((item) => {
+        const actual = viewMode === "target" ? null : DATA.observed?.entities.find((entity) => entity.kind === "module" && entity.presence === "defined" && entity.file_path === item.path);
+        const findings = (viewMode === "target" ? [] : DATA.findings || []).filter((finding) => finding.subjects.includes(item.path));
+        return `<li data-file-intent="${esc(item.path)}"><code>${esc(item.path)}</code><p>${esc(item.responsibility)}</p>${viewMode !== "target" ? `<p>${DATA.observed ? actual ? `Observed module: ${esc(actual.qualified_name)}` : "Not in the observed file inventory." : "Source facts are unavailable."}</p>` : ""}${findings.length ? findingMarkup(findings) : ""}</li>`;
+      }).join("")}</ul></details>` : `<h3>Module inventory</h3><p>${inventories.length ? "Explicitly empty" : "Not declared"}</p>`}
+      <p>${[...new Set(inventories.flatMap((item) => item.provenance))].map(esc).join(" · ")}</p></section>`;
+  }
+
   function atlasSheet(level) {
     const component = atlasComponent(umlSelection?.id || level.parent_id);
+    const inventory = viewMode === "target" ? moduleInventoryMarkup(ATLAS.module_inventories
+      .filter((item) => item.component_id === (component?.id || null))) : "";
     const entries = (items) => items === null || items === undefined ? "Not declared"
       : items.length ? items.map((item) => `<li>${esc(item)}</li>`).join("") : "Explicitly empty";
     const list = (title, items) => `<h3>${title}</h3><ul class="plain">${entries(items)}</ul>`;
@@ -3043,6 +3055,7 @@
     if (!component) {
       inspectorContent.innerHTML = `<div class="kicker">Fact sheet${viewMode === "target" ? " · Declared intent" : ""}</div><h2>${esc(ATLAS.repository)}</h2>
         <p>${viewMode === "target" ? "Select a component or declared module." : "Select a component, module, import cell or question."}</p>
+        ${inventory}
         ${viewMode === "target" ? "" : `${atlasRuleAssessmentMarkup(level)}${atlasEvidenceMarkup()}`}
         <p>${link(ATLAS.architecture_href, "Complete audit JSON")}</p>`;
       return;
@@ -3060,7 +3073,8 @@
         ${component.symbols_complete === atlasGlobalSymbolsComplete() ? "" : component.symbols_complete ? "· complete lexical inventory" : "· partial lexical inventory"}</p><h3>Component evidence status</h3><p>${esc(component.status)} · ${esc(component.reason)}</p>
         <h3>Used by</h3><ul class="plain">${component.used_by.map((item) => `<li>${esc(atlasComponent(item.component_id)?.label || item.component_id)} · ${countLabel(item.import_sites, "import")}</li>`).join("") || "No recorded component uses."}</ul>` : ""}
       <h3>${viewMode === "target" ? "Decision" : "Decision and source"}</h3><p>${esc(component.decided_by || "Not declared")}${viewMode === "target" ? "" : ` · <code>${esc(component.path || "Path not declared")}</code>`}</p>
-      ${list("Provenance", component.provenance)}`;
+      ${list("Provenance", component.provenance)}${inventory}
+      ${viewMode === "target" ? `<p>${link(`${ATLAS.detail_page}?component=${encodeURIComponent(component.id)}&origin=declared&${atlasEntryQuery(level)}`, "Open declared component details")}</p>` : ""}`;
     inspectorContent.querySelector("[data-browse-component]").onclick = () => openAtlasComponent(component.id, "modules");
   }
 

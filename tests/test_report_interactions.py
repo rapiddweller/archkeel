@@ -24,7 +24,184 @@ from archkeel.cli.observe import observe
 from archkeel.ir.architecture_graph import Relationship
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
 from archkeel.ir.model import stable_id
-from archkeel.render.html import _atlas_document, render_architecture_html
+from archkeel.render.html import (
+    _atlas_document,
+    render_architecture_details,
+    render_architecture_html,
+)
+
+
+def _physical_target_pages(tmp_path, leaf_modules):
+    root, config = _nested_repository(tmp_path)
+    inventories = (
+        (
+            config.contract,
+            [{"path": "sample/__init__.py", "responsibility": "Explain the boundary."}],
+        ),
+        (
+            "inside.json",
+            [
+                {"path": "sample/core.py", "responsibility": "Own the service."},
+                {"path": "sample/future.py", "responsibility": "Hold future intent."},
+            ],
+        ),
+        ("leaf.json", leaf_modules),
+    )
+    for path, modules in inventories:
+        raw = json.loads((root / path).read_bytes())
+        raw["declarations"] = {} if modules is None else {"modules": modules}
+        if path == "inside.json":
+            # Equal labels must not collapse distinct component breadcrumbs.
+            raw["components"][0]["label"] = "core"
+        (root / path).write_text(json.dumps(raw))
+    (root / "sample/observed_only.py").write_text("VALUE = 1\n")
+    result, architecture = run_report(root, config=config, analyzer=observe)
+    assert architecture is not None and not result.diagnostics, result.diagnostics
+    index = tmp_path / "architecture.report.html"
+    index.write_bytes(
+        render_architecture_html(
+            result,
+            architecture,
+            repository="Physical target",
+            architecture_href="architecture.json",
+        )
+    )
+    for name, content in render_architecture_details(
+        result, architecture, repository="Physical target", architecture_href="architecture.json"
+    ).items():
+        (tmp_path / name).write_bytes(content)
+    return index
+
+
+@pytest.mark.parametrize("origin", ["", "&origin=declared"])
+def test_target_component_detail_without_uml_keeps_component_route(tmp_path, origin):
+    api = pytest.importorskip("playwright.sync_api")
+    index = _physical_target_pages(tmp_path, [])
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        detail = tmp_path / "architecture.detail.html"
+        page.goto(detail.as_uri() + f"?component=ROOT&view=target{origin}&theme=dark")
+        query = parse_qs(urlsplit(page.url).query)
+        assert query.get("component") == ["ROOT"], page.url
+        assert "module" not in query, page.url
+        assert "Requested scope unavailable" not in page.locator("body").inner_text()
+        _open_details(page)
+        details = page.locator(".flow-inspector-content")
+        details.get_by_text("Module inventory · 2 planned files", exact=True).click()
+        assert "Hold future intent." in details.inner_text()
+        assert "inside.json" in details.inner_text()
+        for view, button in (("diagram", "As-Is"), ("diff", "Diff"), ("target", "Target")):
+            page.get_by_role("button", name=button, exact=True).click()
+            query = parse_qs(urlsplit(page.url).query)
+            assert query.get("component") == ["ROOT"] and query["view"] == [view]
+            assert "module" not in query
+            page.reload()
+            assert "Requested scope unavailable" not in page.locator("body").inner_text()
+        for invalid in (
+            "component=missing",
+            "component=ROOT&module=missing",
+            "component=ROOT&scope=missing",
+        ):
+            page.goto(detail.as_uri() + f"?{invalid}&view=target&origin=declared")
+            assert "Requested scope unavailable" in page.locator("body").inner_text()
+            assert page.locator("[data-file-intent]").count() == 0
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.parametrize(
+    "leaf_modules,label",
+    [
+        (None, "Not declared"),
+        ([], "Explicitly empty"),
+        ([{"path": "sample/deep.py", "responsibility": "Own the deep operation."}], None),
+    ],
+)
+def test_target_navigation_exposes_physical_inventories_at_every_level(
+    tmp_path, leaf_modules, label
+):
+    api = pytest.importorskip("playwright.sync_api")
+    index = _physical_target_pages(tmp_path, leaf_modules)
+    atlas = _atlas(index.read_text())
+    assert any(item["path"] == "sample/observed_only.py" for item in atlas["modules"])
+    assert not atlas["declared_modules"]
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        page.goto(index.as_uri() + "?view=target&theme=dark")
+        _open_details(page)
+        details = page.locator(".flow-inspector-content")
+        details.get_by_text("Module inventory · 1 planned file", exact=True).click()
+        assert "sample/__init__.py" in details.inner_text()
+        assert "Explain the boundary." in details.inner_text()
+        assert "contract.json" in details.inner_text()
+        assert page.locator('[data-uml-kind="module"]').count() == 0
+        page.locator('.flow-nodes [data-uml-id="ROOT"]').press("Enter")
+        assert parse_qs(urlsplit(page.url).query)["scope"] == ["ROOT"]
+        details.get_by_text("Module inventory · 2 planned files", exact=True).click()
+        for text in (
+            "sample/core.py",
+            "Own the service.",
+            "sample/future.py",
+            "Hold future intent.",
+            "inside.json",
+        ):
+            assert text in details.inner_text()
+        details.get_by_role("link", name="Open declared component details", exact=True).click()
+        assert parse_qs(urlsplit(page.url).query)["component"] == ["ROOT"]
+        assert page.locator(".flow-breadcrumb a:not([aria-label])").count() == 0
+        assert (
+            page.locator('.flow-breadcrumb [data-lexical-depth="1"]').inner_text()
+            == "core [component]"
+        )
+        page.get_by_role("link", name="Back to architecture map", exact=True).click()
+        query = parse_qs(urlsplit(page.url).query)
+        assert query["scope"] == ["ROOT"] and query["view"] == ["target"]
+        assert query["theme"] == ["dark"]
+        page.locator('.flow-nodes [data-uml-id="core:core"]').press("Enter")
+        assert parse_qs(urlsplit(page.url).query)["scope"] == ["core:core"]
+        if leaf_modules:
+            details.get_by_text("Module inventory · 1 planned file", exact=True).click()
+            for text in ("sample/deep.py", "Own the deep operation.", "leaf.json"):
+                assert text in details.inner_text()
+        else:
+            inventory = details.locator(".flow-module-inventory")
+            assert label in inventory.inner_text()
+            assert ("leaf.json" in inventory.inner_text()) == (leaf_modules == [])
+            assert details.locator("[data-file-intent]").count() == 0
+        assert "sample/observed_only.py" not in details.inner_text()
+        assert page.locator('[data-uml-kind="module"]').count() == 0
+        details.get_by_role("link", name="Open declared component details", exact=True).click()
+        assert parse_qs(urlsplit(page.url).query)["component"] == ["core:core"]
+        breadcrumb = page.locator(".flow-breadcrumb")
+        parents = breadcrumb.locator("a:not([aria-label])")
+        assert parents.count() == 1
+        assert parse_qs(urlsplit(parents.get_attribute("href")).query)["scope"] == ["ROOT"]
+        assert parents.inner_text() == "core [component]"
+        assert breadcrumb.locator('[data-lexical-depth="1"]').inner_text() == "core [component]"
+        detail_url = page.url
+        parents.click()
+        query = parse_qs(urlsplit(page.url).query)
+        assert query["scope"] == ["ROOT"] and query["view"] == ["target"]
+        assert query["theme"] == ["dark"]
+        page.go_back()
+        assert page.url == detail_url
+        _open_details(page)
+        inventory = details.locator(".flow-module-inventory")
+        if leaf_modules:
+            inventory.locator("summary").click()
+            assert "Own the deep operation." in inventory.inner_text()
+        else:
+            assert label in inventory.inner_text()
+        page.get_by_role("link", name="Back to architecture map", exact=True).click()
+        assert parse_qs(urlsplit(page.url).query)["scope"] == ["core:core"]
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
 
 
 def test_atlas_labels_count_scopes_and_oversized_evidence_without_losing_route_state(tmp_path):
