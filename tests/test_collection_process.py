@@ -70,9 +70,10 @@ def test_failure_terminates_collector_descendants(tmp_path, monkeypatch, failure
 
     pid_file = tmp_path / "child.pid"
     code = (
-        "import subprocess,sys,time; "
+        "import os,subprocess,sys,time; from pathlib import Path; "
         "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)']); "
-        f"open({str(pid_file)!r},'w').write(str(child.pid)); "
+        f"Path({str(pid_file.with_suffix('.pending'))!r}).write_text(str(child.pid)); "
+        f"os.replace({str(pid_file.with_suffix('.pending'))!r},{str(pid_file)!r}); "
     )
     if failure == "output_limit":
         code += "sys.stdout.write('x'*100000); sys.stdout.flush(); time.sleep(30)"
