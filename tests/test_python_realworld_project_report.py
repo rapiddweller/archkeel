@@ -565,6 +565,24 @@ def test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_r
                         assert page.locator(".flow-canvas").evaluate(
                             "canvas => canvas.scrollHeight <= canvas.clientHeight + 4"
                         )
+                    if width == 390 and view == "target":
+                        page.get_by_role("button", name="Fit overview").click()
+                        fit_zoom = int(page.locator(".flow-zoom-value").inner_text().rstrip("%"))
+                        assert fit_zoom < 10
+                        assert page.locator(".flow-canvas").evaluate(
+                            "canvas => canvas.scrollHeight <= canvas.clientHeight + 4"
+                        )
+                        page.get_by_role("button", name="Zoom out").click()
+                        zoom_out = int(page.locator(".flow-zoom-value").inner_text().rstrip("%"))
+                        assert zoom_out < fit_zoom
+                        page.get_by_role("button", name="Zoom in").click()
+                        zoom_in = int(page.locator(".flow-zoom-value").inner_text().rstrip("%"))
+                        assert zoom_in > zoom_out
+                        page.get_by_role("button", name="Zoom out").click()
+                        zoom_out_again = int(
+                            page.locator(".flow-zoom-value").inner_text().rstrip("%")
+                        )
+                        assert zoom_out_again < zoom_in
             assert not errors
         finally:
             browser.close()

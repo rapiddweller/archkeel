@@ -2465,7 +2465,8 @@
   }
 
   function zoomBy(factor) {
-    transform.k = Math.min(2.4, Math.max(0.1, transform.k * factor));
+    const minimumScale = ATLAS && renderedScene?.moduleOverview ? 0 : 0.1;
+    transform.k = Math.min(2.4, Math.max(minimumScale, transform.k * factor));
     sizeDiagram();
   }
 
