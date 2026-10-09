@@ -261,6 +261,13 @@ def test_compass_target_tracks_source_constructor_signatures_and_visibility() ->
         ).returns
         == "Future<Result>"
     )
+    share_constructor = signature(
+        "compass.domain.use_cases.booking.booking_share_use_case.BookingShareUseCase.BookingShareUseCase._"
+    )
+    assert [
+        (parameter.name, parameter.annotation, parameter.kind)
+        for parameter in share_constructor.parameters
+    ] == [("_share", "ShareFunction", "positional")]
 
     itinerary_factory = (
         "compass.domain.models.itinerary_config.itinerary_config.ItineraryConfig.ItineraryConfig"

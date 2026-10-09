@@ -2477,7 +2477,7 @@
           "signature": {
             "parameters": [
               {
-                "name": "share",
+                "name": "_share",
                 "annotation": "ShareFunction",
                 "kind": "positional",
                 "default_known": true
