@@ -185,6 +185,11 @@ def test_make_prune_target_writes_plan_before_optional_deletion(
     [
         [],
         [{}],
+        [{"artifacts": []}],
+        [{"total_count": -1, "artifacts": []}],
+        [{"total_count": True, "artifacts": []}],
+        [{"total_count": "1", "artifacts": []}],
+        [{"total_count": 1.0, "artifacts": []}],
         [_page(_artifact(52, "report-browser-evidence", "not-a-timestamp"))],
         [
             _page(

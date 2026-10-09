@@ -39,6 +39,9 @@ def retention_plan(inventory: object, *, now: datetime) -> dict[str, Any]:
     for page in inventory:
         if not isinstance(page, dict) or not isinstance(page.get("artifacts"), list):
             raise ValueError("artifact page artifacts must be a list")
+        total_count = page.get("total_count")
+        if isinstance(total_count, bool) or not isinstance(total_count, int) or total_count < 0:
+            raise ValueError("artifact page total_count must be a nonnegative integer")
         for artifact in page["artifacts"]:
             if not isinstance(artifact, dict):
                 raise ValueError("artifact must be an object")
