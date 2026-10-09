@@ -128,7 +128,7 @@
 
 ### Task 6: Prove Compass full-source Target and variants
 
-**Files:** create `fixtures/demo_catalog_compass.py`, `tests/test_compass_project_demo.py`; use `fixtures/J-compass/**`, existing collector/Core/report/browser paths.
+**Files:** create `fixtures/demo_catalog_compass.py`, `tests/test_compass_project_report.py`; use `fixtures/J-compass/**`, existing collector/Core/report/browser paths.
 
 **Interface:** consumes Task 2/3 collector and comparison behavior from Task 4 plus the frozen Task 5 Target. Produces full 111-input base inventory plus three source-only mutations.
 
@@ -147,7 +147,7 @@
 
 ### Task 7: Author the Python RealWorld Target (no collection)
 
-**Files:** create `fixtures/K-python-realworld/{archkeel.toml,architecture-contract.json,docs/target.md,README.md}` and `fixtures/K-python-realworld/contracts/{runtime,identity,publishing,persistence}.json`; create `tests/test_python_realworld_project_target.py`.
+**Files:** create `fixtures/K-python-realworld/{archkeel.toml,architecture-contract.json,docs/target.md,README.md}` and `fixtures/K-python-realworld/contracts/{runtime,identity,publishing,persistence}.json`; create `tests/test_python_realworld_project_target.py`. Inside filenames may follow the five source-backed responsibility areas rather than the illustrative four names.
 
 **Interfaces:** consumes Task 1's 72 Python app files, 79-file app provenance and pinned RealWorld documentation. Produces an independent responsibility/library/UML map and Target hash.
 
@@ -162,7 +162,7 @@
 
 ### Task 8: Prove Python full app Target and variants
 
-**Files:** create `fixtures/demo_catalog_python_realworld.py`, `tests/test_python_realworld_project_demo.py`; use `fixtures/K-python-realworld/**` and existing Python collection/report paths.
+**Files:** create `fixtures/demo_catalog_python_realworld.py`, `tests/test_python_realworld_project_report.py`; use `fixtures/K-python-realworld/**` and existing Python collection/report paths.
 
 **Interface:** consumes the frozen Task 7 Target; produces full 72-file Python base plus source-only architecture FAIL, deep UML FAIL and UNKNOWN.
 
@@ -195,7 +195,7 @@
 
 ### Task 11: Prove Nest/Mikro full build Target and variants
 
-**Files:** create `fixtures/demo_catalog_nest_realworld.py`, `tests/test_nest_realworld_project_demo.py`; use `fixtures/L-nest-realworld/**` and existing TypeScript profile/report paths.
+**Files:** create `fixtures/demo_catalog_nest_realworld.py`, `tests/test_nest_realworld_project_report.py`; use `fixtures/L-nest-realworld/**` and existing TypeScript profile/report paths.
 
 **Interface:** consumes Task 1's untouched 45-file upstream manifest, 41 prepared build inputs and frozen Task 10 Target. Produces non-null base and three source-only mutations.
 
@@ -206,7 +206,7 @@
 
 ### Task 12: Put full projects first in the gallery
 
-**Files:** modify `fixtures/architecture_demo.py`, `tools/report_pages.py`, `tools/report_browser.py`, `docs/architecture-demo.md`, `README.md`; tests `tests/test_report_pages.py`, `tests/test_report_browser.py`, and three project-demo test files.
+**Files:** modify `fixtures/architecture_demo.py`, `tools/report_pages.py`, `tools/report_browser.py`, `tools/ci_changes.py`, `docs/architecture-demo.md`, `README.md`; tests `tests/test_report_pages.py`, `tests/test_report_browser.py`, `tests/test_ci_changes.py`, and three project report test files.
 
 **Interfaces:** consumes accepted base/FAIL/UNKNOWN reports from Tasks 6, 8 and 11. Uses existing `demo-uml`, `report-pages`, and `report-browser` targets.
 
