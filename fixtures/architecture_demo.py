@@ -89,10 +89,10 @@ REPORT_CASES = {
     "uml-compass-forbidden-edge": ("compass-forbidden-edge", 2),
     "uml-compass-signature-fail": ("compass-signature-fail", 2),
     "uml-compass-dynamic-unknown": ("compass-dynamic-unknown", 2),
-    "uml-python-realworld-project": ("python-realworld-project", 2),
+    "uml-python-realworld-project": ("python-realworld-project", 0),
     "uml-python-realworld-forbidden-edge": ("python-realworld-forbidden-edge", 2),
     "uml-python-realworld-signature-fail": ("python-realworld-signature-fail", 2),
-    "uml-python-realworld-dynamic-unknown": ("python-realworld-dynamic-unknown", 2),
+    "uml-python-realworld-dynamic-unknown": ("python-realworld-dynamic-unknown", 0),
     "uml-nest-realworld-project": ("nest-realworld-project", 2),
     "uml-nest-realworld-forbidden-edge": ("nest-realworld-forbidden-edge", 2),
     "uml-nest-realworld-signature-fail": ("nest-realworld-signature-fail", 2),
@@ -116,6 +116,102 @@ REPORT_CASES = {
     "target-store": ("target-hierarchy-positive", 0),
     "empty-responsibility": ("target-empty-responsibilities", 2),
 }
+PROJECT_REPORT_GROUPS = (
+    {
+        "id": "compass",
+        "title": "Compass booking",
+        "repository": "flutter/samples",
+        "commit": "5541c59ab8e9d7e74c1a35ef22bd43a487fc596c",
+        "scope": "111 Dart files, 89 libraries, 22 parts",
+        "feature": (
+            "Authentication through search, results, activities and booking, backed by "
+            "repositories and local/remote services."
+        ),
+        "target_depth": (
+            "Feature ownership, nested booking components, and closed class/member APIs."
+        ),
+        "evidence_limits": (
+            "Thirty typed source-resolution gaps leave coverage incomplete; they are not "
+            "confirmed syntax errors."
+        ),
+        "baseline": "uml-compass-project",
+        "variants": (
+            "uml-compass-forbidden-edge",
+            "uml-compass-signature-fail",
+            "uml-compass-dynamic-unknown",
+        ),
+        "browser": {
+            "root_component": "presentation",
+            "nested_component": "presentation:presentation-booking",
+            "module_path": "lib/ui/booking/view_models/booking_viewmodel.dart",
+            "class_name": "BookingViewModel",
+            "member_name": "_createBooking",
+        },
+    },
+    {
+        "id": "python-realworld",
+        "title": "Python RealWorld",
+        "repository": "nsidnev/fastapi-realworld-example-app",
+        "commit": "029eb7781c60d5f563ee8990a0cbfb79b244538c",
+        "scope": "72 Python modules from the complete selected application",
+        "feature": (
+            "Authentication, users, profiles, articles, comments, favorites and feeds through "
+            "routes, asyncpg SQL repositories and persistence."
+        ),
+        "target_depth": "Five responsibility areas with closed principal class and method scopes.",
+        "evidence_limits": (
+            "All files have AST coverage; 34 class inventories and 13 inheritance "
+            "relationships remain UNKNOWN."
+        ),
+        "baseline": "uml-python-realworld-project",
+        "variants": (
+            "uml-python-realworld-forbidden-edge",
+            "uml-python-realworld-signature-fail",
+            "uml-python-realworld-dynamic-unknown",
+        ),
+        "browser": {
+            "root_component": "product-contracts",
+            "nested_component": "Product and wire contracts:contracts-publishing",
+            "module_path": "app/models/domain/articles.py",
+            "class_name": "Article",
+            "member_name": "tags",
+        },
+    },
+    {
+        "id": "nest-realworld",
+        "title": "Nest RealWorld",
+        "repository": "mikro-orm/nestjs-realworld-example-app",
+        "commit": "a6818d84b6a019cf2df4ef391dc87cea7d02c6a9",
+        "scope": (
+            "41 prepared TypeScript build inputs, including two README-prescribed config copies"
+        ),
+        "feature": (
+            "Account/authentication, article and comment publishing, profile/follow, tags, "
+            "composition and persistence."
+        ),
+        "target_depth": (
+            "Seven root responsibilities, nested feature components, and 266 Target entities "
+            "with closed principal member scopes."
+        ),
+        "evidence_limits": (
+            "A computed dynamic import leaves source coverage incomplete; a known "
+            "complete-requires FAIL remains visible in its forbidden-edge variant."
+        ),
+        "baseline": "uml-nest-realworld-project",
+        "variants": (
+            "uml-nest-realworld-forbidden-edge",
+            "uml-nest-realworld-signature-fail",
+            "uml-nest-realworld-dynamic-unknown",
+        ),
+        "browser": {
+            "root_component": "publishing",
+            "nested_component": "Article and comment publishing:article-service",
+            "module_path": "src/article/article.service.ts",
+            "class_name": "ArticleService",
+            "member_name": "findFeed",
+        },
+    },
+)
 UML_DEMO_COMPARISONS = {
     "uml-match": "PASS",
     "uml-complete": "UNKNOWN",
@@ -153,7 +249,29 @@ UML_DEMO_COMPARISONS = {
 
 def markdown() -> str:
     """Generate the short demo guide; CATALOG owns the complete case inventory."""
-    return """# Architecture demos
+    project_overview = "\n".join(
+        "- **{}** — [{}@{}]({}/tree/{}), {}. {} Target: {} Evidence limit: {}".format(
+            group["title"],
+            group["repository"],
+            group["commit"],
+            "https://github.com/" + str(group["repository"]),
+            group["commit"],
+            group["scope"],
+            group["feature"],
+            group["target_depth"],
+            group["evidence_limits"],
+        )
+        for group in PROJECT_REPORT_GROUPS
+    )
+    return f"""# Architecture demos
+
+## Full-project journeys
+
+The [published gallery](https://rapiddweller.github.io/archkeel/demos/) groups each pinned
+application with its baseline and three source-only variants. Observation, coverage, declared
+rules and UML comparison are shown separately.
+
+{project_overview}
 
 Create a report with several deliberate violations:
 

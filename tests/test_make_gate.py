@@ -283,6 +283,8 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     assert "tests/test_flutter_demo.py" not in dart_tests
     pr_report_tests = makefile.split("pr-report-test:\n", 1)[1].split("\nci-typescript:", 1)[0]
     assert "tests/test_compass_project_report.py" in pr_report_tests
+    assert "tests/test_python_realworld_project_report.py" in pr_report_tests
+    assert "tests/test_nest_realworld_project_report.py" in pr_report_tests
 
 
 @pytest.mark.parametrize("renderer_exit", [0, 1])

@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from archkeel.ir.graph_codec import parse_report
-from fixtures.architecture_demo import replay
+from fixtures.architecture_demo import REPORT_CASES, replay
 from fixtures.demo_catalog_compass import COMPASS_FIXTURE_DIR, VARIANTS
 
 SOURCE_DIGEST = "c6c1b8fe62fbc950af3b3dc4a033cac300bdeec2564e563909504a69df753e72"
@@ -99,7 +99,9 @@ def test_compass_reports_keep_target_comparison_and_partial_coverage_distinct(
     contract_digests = set()
     for variant_id, comparison_status in expected_comparison.items():
         output = tmp_path / f"{variant_id}.json"
-        assert replay(variant_id, output) == expected_exit[variant_id]
+        registered_case = REPORT_CASES[f"uml-{variant_id}"]
+        assert registered_case == (variant_id, expected_exit[variant_id])
+        assert replay(variant_id, output) == registered_case[1]
         summaries = [
             json.loads(line)
             for line in capsys.readouterr().out.splitlines()

@@ -175,8 +175,9 @@ def test_python_realworld_reports_keep_coverage_architecture_and_uml_distinct(
     target_module_sets = set()
     observed_module_sets = set()
     for variant_id, (rules_status, comparison_status, replay_exit) in expected.items():
+        assert REPORT_CASES[f"uml-{variant_id}"] == (variant_id, replay_exit)
         output = tmp_path / f"{variant_id}.json"
-        assert replay(variant_id, output) == replay_exit
+        assert replay(variant_id, output) == REPORT_CASES[f"uml-{variant_id}"][1]
         summaries = [
             json.loads(line)
             for line in capsys.readouterr().out.splitlines()

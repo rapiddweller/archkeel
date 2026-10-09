@@ -883,6 +883,11 @@ code {
   order: 20;
 }
 @media (max-width: 900px) {
+  .flow[data-uml-graph="true"] .flow-open-selected {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
   .flow[data-details-open="true"] .flow-layout {
     grid-template-columns: minmax(0, 1fr);
   }
