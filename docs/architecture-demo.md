@@ -23,6 +23,10 @@ Flutter adds a nested shop journey with source-only signature, enum-member, depe
 and unsupported-declaration cases. The base keeps external framework and inferred-type facts
 UNKNOWN rather than treating them as resolved relationships.
 
+Python adds the complete pinned FastAPI RealWorld app (72 Python modules) with architecture,
+deep field-signature, and login-call variants. Its source coverage is complete; external UML
+facts remain UNKNOWN.
+
 | Variant | Expected evidence |
 |---|---|
 | `flutter-shop` | Local comparison passes; unresolved source facts keep UML UNKNOWN. |
@@ -31,6 +35,9 @@ UNKNOWN rather than treating them as resolved relationships.
 | `flutter-forbidden-dependency-fail` | `complete_requires` FAIL for presentation → data. |
 | `flutter-dynamic-unknown` | Dynamic `watchAll` call remains UNKNOWN. |
 | `flutter-unsupported-declaration` | Extension yields a coverage gap and UNKNOWN observation. |
+| `python-realworld-forbidden-edge` | Route imports SQL directly; rule FAIL. |
+| `python-realworld-signature-fail` | `Article.tags` changes to `List[int]`; UML FAIL. |
+| `python-realworld-dynamic-unknown` | `getattr` login call; UNKNOWN. |
 
 The [catalog](../fixtures/architecture_demo.py) owns all variants, overlays and expected
 outcomes. Check-protocol and test-only variants cannot replay as reports.

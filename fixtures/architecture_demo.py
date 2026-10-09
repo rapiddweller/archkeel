@@ -37,6 +37,7 @@ from fixtures.demo_catalog_flutter import FLUTTER_FIXTURE_DIR
 from fixtures.demo_catalog_flutter import VARIANTS as _FLUTTER_VARIANTS
 from fixtures.demo_catalog_interfaces import VARIANTS as _INTERFACE_VARIANTS
 from fixtures.demo_catalog_layout import VARIANTS as _LAYOUT_VARIANTS
+from fixtures.demo_catalog_python_realworld import VARIANTS as _PYTHON_REALWORLD_VARIANTS
 from fixtures.demo_catalog_showcase import VARIANTS as _SHOWCASE_VARIANTS
 from fixtures.demo_catalog_support import Variant, apply_overlay
 from fixtures.demo_catalog_test_scope import VARIANTS as _TEST_SCOPE_VARIANTS
@@ -64,6 +65,7 @@ CATALOG: tuple[Variant, ...] = (
     *_DART_VARIANTS,
     *_FLUTTER_VARIANTS,
     *_COMPASS_VARIANTS,
+    *_PYTHON_REALWORLD_VARIANTS,
 )
 
 
@@ -85,6 +87,10 @@ REPORT_CASES = {
     "uml-compass-forbidden-edge": ("compass-forbidden-edge", 2),
     "uml-compass-signature-fail": ("compass-signature-fail", 2),
     "uml-compass-dynamic-unknown": ("compass-dynamic-unknown", 2),
+    "uml-python-realworld-project": ("python-realworld-project", 2),
+    "uml-python-realworld-forbidden-edge": ("python-realworld-forbidden-edge", 2),
+    "uml-python-realworld-signature-fail": ("python-realworld-signature-fail", 2),
+    "uml-python-realworld-dynamic-unknown": ("python-realworld-dynamic-unknown", 2),
     "uml-typescript": ("uml-typescript", 0),
     "uml-typescript-match": ("uml-typescript-match", 0),
     "uml-typescript-mismatch": ("uml-typescript-mismatch", 2),
@@ -124,6 +130,10 @@ UML_DEMO_COMPARISONS = {
     "uml-compass-forbidden-edge": "UNKNOWN",
     "uml-compass-signature-fail": "FAIL",
     "uml-compass-dynamic-unknown": "FAIL",
+    "uml-python-realworld-project": "UNKNOWN",
+    "uml-python-realworld-forbidden-edge": "UNKNOWN",
+    "uml-python-realworld-signature-fail": "FAIL",
+    "uml-python-realworld-dynamic-unknown": "UNKNOWN",
     "uml-typescript": "UNKNOWN",
     "uml-typescript-match": "PASS",
     "uml-typescript-mismatch": "FAIL",
@@ -158,6 +168,10 @@ Flutter adds a nested shop journey with source-only signature, enum-member, depe
 and unsupported-declaration cases. The base keeps external framework and inferred-type facts
 UNKNOWN rather than treating them as resolved relationships.
 
+Python adds the complete pinned FastAPI RealWorld app (72 Python modules) with architecture,
+deep field-signature, and login-call variants. Its source coverage is complete; external UML
+facts remain UNKNOWN.
+
 | Variant | Expected evidence |
 |---|---|
 | `flutter-shop` | Local comparison passes; unresolved source facts keep UML UNKNOWN. |
@@ -166,6 +180,9 @@ UNKNOWN rather than treating them as resolved relationships.
 | `flutter-forbidden-dependency-fail` | `complete_requires` FAIL for presentation → data. |
 | `flutter-dynamic-unknown` | Dynamic `watchAll` call remains UNKNOWN. |
 | `flutter-unsupported-declaration` | Extension yields a coverage gap and UNKNOWN observation. |
+| `python-realworld-forbidden-edge` | Route imports SQL directly; rule FAIL. |
+| `python-realworld-signature-fail` | `Article.tags` changes to `List[int]`; UML FAIL. |
+| `python-realworld-dynamic-unknown` | `getattr` login call; UNKNOWN. |
 
 The [catalog](../fixtures/architecture_demo.py) owns all variants, overlays and expected
 outcomes. Check-protocol and test-only variants cannot replay as reports.
@@ -198,7 +215,7 @@ def main(argv: list[str]) -> int:
         try:
             return uml_suite(args.output)
         except (OSError, ValueError, subprocess.CalledProcessError) as error:
-            print(f"Dart UML demo suite failed: {error}", file=sys.stderr)
+            print(f"UML demo suite failed: {error}", file=sys.stderr)
             return 2
     if args.output is None:
         parser.error("--replay requires --output")

@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """The full Compass proof replays source-only variants through the native report path."""
 
 from __future__ import annotations

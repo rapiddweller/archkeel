@@ -1,4 +1,4 @@
-# ArchKeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 """A proven missing external superclass can keep honest UML comparison partial."""
