@@ -135,7 +135,10 @@
         "archkeel.ir.module_explore:ModuleImportCell",
         "archkeel.ir.module_explore:HintCandidate",
         "archkeel.ir.module_explore:ModuleExploreLevel",
-        "archkeel.ir.module_explore:module_exploration"
+        "archkeel.ir.module_explore:module_exploration",
+        "archkeel.ir.source_records:classified",
+        "archkeel.ir.source_records:file_evidence",
+        "archkeel.ir.source_records:record_evidence"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."

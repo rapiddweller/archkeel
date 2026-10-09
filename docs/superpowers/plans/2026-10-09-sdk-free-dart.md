@@ -10,7 +10,7 @@ Constraints: no legacy backend; unchanged shared protocol/Core policy; no demo-s
 logic; preserve current semantic assertions, input containment and UNKNOWN evidence.
 The user authorized implementation, review, push, merge and 1.1.0 after verification.
 
-- [ ] **1. Target first.** Validate `contracts/dart.json`, inspect its UML graph and
+- [x] **1. Target first.** Validate `contracts/dart.json`, inspect its UML graph and
   independently review responsibilities, dependency direction and acceptance. Commit
   the Target before product code. Probe the candidate grammar against H/I/J and modern
   Dart syntax in isolation; reject a parser that silently hides unsupported syntax.

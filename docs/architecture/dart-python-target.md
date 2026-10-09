@@ -11,7 +11,7 @@ entry -> collect -> snapshot
                  -> resolve -> snapshot + parse
 ```
 
-- **entry:** shared stdin/stdout protocol; no language logic.
+- **entry:** shared stdin/stdout protocol; no language logic or in-process public API.
 - **collect:** SourceFacts, records, evidence, coverage and provenance.
 - **snapshot:** bounded bytes and digests; pubspec identity is separate from namespace.
 - **parse:** Tree-sitter only; immutable syntax values; no filesystem or Target access.
@@ -23,7 +23,10 @@ package is MIT; its version participates in collector provenance. Installation a
 analysis require Python, with no Node, Dart, Flutter, pub-get or compiler command.
 
 The process port, SourceFacts schema and Dart profile remain shared and unchanged.
-Runtime provenance now names Python. The collector never reads contracts or verdicts.
+Collection reuses the shared IR record/evidence builders through their declared
+public functions. Runtime provenance now names Python. Shared protocol types and
+input digest fields are defined once in the IR Target; this Target references them.
+The collector never reads contracts or verdicts.
 Sources, pubspec and every resolver input must be inside the selected snapshot,
 regular files and digested. No package-cache discovery or source execution.
 
@@ -38,8 +41,12 @@ turn a parse error into an empty, complete file.
 
 Tree-sitter parses syntax; it does not validate the complete Dart language or prove
 runtime behavior. Language-version constraints and unsupported constructs must be
-reported honestly. Existing semantic assertions and the independent H/I/J demo
-Targets remain acceptance criteria; do not weaken them to make the migration green.
+reported honestly. The bounded metadata policy accepts source-language floors from
+2.12 through 3.12; newer or malformed versions and explicit ranges without a known
+lower bound remain UNKNOWN. Absent version metadata makes no SDK
+compatibility claim. It does not compare a Dart SDK range to the executing Python
+version. Existing semantic assertions and the independent H/I/J demo Targets remain
+acceptance criteria; do not weaken them to make the migration green.
 
 The UML Target fixes the principal boundaries and fields. Helper functions are open;
 component ownership and allowed imports are closed. Any necessary boundary change

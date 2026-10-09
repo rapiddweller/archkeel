@@ -17,9 +17,7 @@
       "forbidden_responsibilities": [
         "Filesystem discovery, syntax parsing and policy."
       ],
-      "public": [
-        "archkeel.analyzer.dart.entry"
-      ],
+      "public": [],
       "requires": [
         {
           "component": "collection",
@@ -1043,8 +1041,8 @@
           },
           "parent_id": "archkeel.analyzer.dart.resolve.Resolver",
           "visibility": {
-            "kind": "private",
-            "basis": "declared"
+            "kind": "public",
+            "basis": "convention"
           }
         },
         {
@@ -1134,9 +1132,6 @@
           "qualified_name": "archkeel.ir.facts.ResolutionInput",
           "language": "python",
           "presence": "referenced",
-          "responsibilities": [
-            "Use the existing shared source-only protocol type."
-          ],
           "provenance": [
             "docs/architecture/dart-python-target.md"
           ]
@@ -1148,10 +1143,6 @@
           "parent_id": "archkeel.ir.facts.ResolutionInput",
           "language": "python",
           "presence": "referenced",
-          "annotation": "str",
-          "responsibilities": [
-            "Name a contained snapshot-relative input."
-          ],
           "provenance": [
             "docs/architecture/dart-python-target.md"
           ]
@@ -1163,10 +1154,6 @@
           "parent_id": "archkeel.ir.facts.ResolutionInput",
           "language": "python",
           "presence": "referenced",
-          "annotation": "str",
-          "responsibilities": [
-            "Authenticate the exact consumed bytes with SHA-256."
-          ],
           "provenance": [
             "docs/architecture/dart-python-target.md"
           ]
@@ -1178,10 +1165,6 @@
           "parent_id": "archkeel.ir.facts.ResolutionInput",
           "language": "python",
           "presence": "referenced",
-          "annotation": "Literal['selected', 'resolution']",
-          "responsibilities": [
-            "Distinguish selected Dart source from package metadata."
-          ],
           "provenance": [
             "docs/architecture/dart-python-target.md"
           ]
@@ -1192,9 +1175,6 @@
           "qualified_name": "archkeel.ir.facts.SourceFacts",
           "language": "python",
           "presence": "referenced",
-          "responsibilities": [
-            "Use the existing shared source-only protocol type."
-          ],
           "provenance": [
             "docs/architecture/dart-python-target.md"
           ]
@@ -1205,9 +1185,6 @@
           "qualified_name": "archkeel.ir.protocol.CollectionRequest",
           "language": "python",
           "presence": "referenced",
-          "responsibilities": [
-            "Use the existing shared source-only protocol type."
-          ],
           "provenance": [
             "docs/architecture/dart-python-target.md"
           ]
