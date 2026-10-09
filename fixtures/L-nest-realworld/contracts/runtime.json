@@ -332,7 +332,7 @@
           "kind": "imports",
           "source_id": "module-98571d6c78f5",
           "target_id": "module-00a268f52c1e",
-          "reason": "Selected source import at src/app.module.ts:4.",
+          "reason": "Selected source import at src/app.module.ts:5.",
           "provenance": [
             "docs/target.md"
           ]

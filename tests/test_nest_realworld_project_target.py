@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import posixpath
+import re
 import tomllib
 from pathlib import Path
 
@@ -130,6 +132,29 @@ def test_nest_target_links_principal_module_flows_without_closing_imports() -> N
         and relationship.provenance == PROVENANCE
         for relationship in import_relationships
     )
+    module_paths = set(modules.values())
+    for relationship in import_relationships:
+        citation = re.fullmatch(r"Selected source import at (.+):(\d+)\.", relationship.reason)
+        assert citation is not None
+        source_path = modules[relationship.source_id]
+        target_path = modules[relationship.target_id]
+        assert citation.group(1) == source_path
+        source_line = (
+            (FIXTURE / source_path)
+            .read_text(encoding="utf-8")
+            .splitlines()[int(citation.group(2)) - 1]
+        )
+        specifier = re.search(r"\bfrom\s+['\"]([^'\"]+)['\"]", source_line)
+        assert specifier is not None, (source_path, citation.group(2), source_line)
+        resolved = posixpath.normpath(
+            posixpath.join(posixpath.dirname(source_path), specifier.group(1))
+        )
+        if resolved not in module_paths:
+            if resolved + ".ts" in module_paths:
+                resolved += ".ts"
+            elif resolved + "/index.ts" in module_paths:
+                resolved += "/index.ts"
+        assert resolved == target_path, (source_path, target_path, source_line)
     assert {
         ("src/main.ts", "src/app.module.ts"),
         ("src/app.module.ts", "src/article/article.module.ts"),

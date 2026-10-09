@@ -10,7 +10,7 @@ Decorators express ORM association intent, but current UML has no association or
 
 The module Target links bootstrap and app-module registration to account/authentication, article/comment publishing, profile/follow, tag, shared validation, and ORM configuration. Controllers lead to their services and DTO/interface modules; services and persistence registration lead to entities and the generated entity registry. These are selected static source imports, not proof of Nest dependency-injection or runtime behavior. Import scopes remain open and external imports are not modeled.
 
-Target bundle SHA-256: `e46eb0431f554853cd9a7db4d5438629406e2dfae72d6a0f94ce55b08db0300f`
+Target bundle SHA-256: `0cb24944e3a6f7be9ecfc58deb1f868fd91958f0bcda6872c3b599530e1e4c68`
 
 <!-- archkeel-component-graph -->
 ```mermaid
