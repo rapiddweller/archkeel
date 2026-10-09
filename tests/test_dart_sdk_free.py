@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -40,3 +42,13 @@ def test_entry_collects_with_empty_path_and_invalid_dart_executable(tmp_path: Pa
     assert facts.profile == "archkeel-dart-analyzer"
     assert facts.runtime.name == "python"
     assert {item.rel_path for item in facts.files} == {"lib/main.dart"}
+    inputs = [
+        {"path": item.path, "digest": item.digest, "role": item.role} for item in facts.inputs
+    ]
+    assert {item["role"] for item in inputs} == {"selected", "resolution"}
+    assert any(item["path"] == "pubspec.yaml" for item in inputs)
+    concatenated = b"".join(
+        json.dumps(item, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        for item in inputs
+    )
+    assert facts.source.source_digest == hashlib.sha256(concatenated).hexdigest()

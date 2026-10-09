@@ -375,6 +375,57 @@ String receipt(Order order) { final receiptId = order.id; return receiptId; }
     assert not facts.sections[[section.name for section in facts.sections].index("calls")].records
 
 
+def test_awaited_initializer_owns_reads_but_not_call_results(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """class Api { Future<int> load(int value) async => value; }
+Future<int> read(Api api, int input) async {
+  final result = await api.load(input);
+  api.load(input);
+  return result;
+}
+""",
+    )
+    facts = _native_facts(tmp_path)
+    sections = {section.name: section.records for section in facts.sections}
+    evidence = {item.id: item for item in facts.evidence}
+    binding = next(
+        item
+        for item in sections["symbols"]
+        if item.kind == "binding" and item.data.get("name") == "result"
+    )
+    for expression in ("api", "input"):
+        reads = [
+            item
+            for item in sections["references"]
+            if item.data.get("expression") == expression
+            and evidence[item.evidence_ids[0]].line in {3, 4}
+        ]
+        assert len(reads) == 2
+        by_line = {evidence[item.evidence_ids[0]].line: item for item in reads}
+        assert by_line[3].data.get("source_definition_id") == binding.id
+        assert by_line[4].data.get("source_scope") == "commerce.main.read"
+    calls = [item for item in sections["calls"] if item.data.get("expression") == "api.load(input)"]
+    assert len(calls) == 2
+    assert all(item.data.get("source_scope") == "commerce.main.read" for item in calls)
+    assert all(not item.data.get("result_bindings") for item in calls)
+    assert binding.data.get("initializer") == "await api.load(input)"
+
+
+def test_initializer_annotation_keeps_its_callable_scope(tmp_path: Path) -> None:
+    _write_package(tmp_path, "class Box {}\nvoid load() { final Box value = Box(); }\n")
+    facts = _native_facts(tmp_path)
+    annotations = [
+        item
+        for section in facts.sections
+        if section.name == "references"
+        for item in section.records
+        if item.data.get("expression") == "Box" and item.data.get("use") == "type"
+    ]
+    assert annotations
+    assert all(item.data.get("source_scope") == "commerce.main.load" for item in annotations)
+
+
 def test_native_typedef_bases_resolve_to_the_aliased_classifier(tmp_path: Path) -> None:
     _write_package(
         tmp_path,

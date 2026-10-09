@@ -228,12 +228,17 @@ class Resolver:
     def resolve_name(self, rel_path: str, name: str) -> tuple[str, ...]:
         """Return uniquely source-addressable qualified declarations visible to one source file."""
         module = self.module_for(rel_path)
-        if module is None:
+        nominal = _nominal_type_reference(name)
+        if module is None or nominal is None:
             return ()
-        declarations = self._local_declarations(module, name)
-        if declarations:
-            return tuple(sorted(f"{item.module}.{item.definition.name}" for item in declarations))
-        bindings = self._imported_bindings(module, name, prefix=None)
+        prefix, type_name = nominal
+        if prefix is None:
+            declarations = self._local_declarations(module, type_name)
+            if declarations:
+                return tuple(
+                    sorted(f"{item.module}.{item.definition.name}" for item in declarations)
+                )
+        bindings = self._imported_bindings(module, type_name, prefix=prefix)
         return tuple(sorted(f"{item.module}.{item.name}" for item in bindings))
 
     def resolved_sites(self, rel_path: str) -> tuple[ResolvedSite, ...]:
@@ -1615,6 +1620,32 @@ def _is_uri(value: str) -> bool:
 def _type_name(value: str) -> str | None:
     match = re.match(r"\s*([A-Za-z_$][A-Za-z0-9_$]*)", value)
     return match.group(1) if match is not None else None
+
+
+def _nominal_type_reference(value: str) -> tuple[str | None, str] | None:
+    """Extract only a simple type name and optional import prefix from a type expression."""
+    value = value.strip()
+    generic_start = value.find("<")
+    if generic_start >= 0:
+        if not value.endswith(">"):
+            return None
+        depth = 0
+        for character in value[generic_start:]:
+            if character == "<":
+                depth += 1
+            elif character == ">":
+                depth -= 1
+                if depth < 0:
+                    return None
+        if depth != 0:
+            return None
+        value = value[:generic_start].rstrip()
+    parts = value.split(".")
+    if not 1 <= len(parts) <= 2 or any(
+        re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$]*", item) is None for item in parts
+    ):
+        return None
+    return (parts[0], parts[1]) if len(parts) == 2 else (None, parts[0])
 
 
 def _substitute_type(value: str | None, substitutions: dict[str, str]) -> str | None:

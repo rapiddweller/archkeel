@@ -767,7 +767,12 @@ def _classifier_members(
     members: list[Member] = []
     children = body.named_children
     for index, child in enumerate(children):
-        following = children[index + 1] if index + 1 < len(children) else None
+        following = (
+            children[index + 1]
+            if index + 1 < len(children)
+            and children[index + 1].type in {"function_body", "function_expression_body"}
+            else None
+        )
         if child.type == "declaration":
             members.extend(_member_declaration(child, source))
         elif child.type == "method_signature":
@@ -840,7 +845,7 @@ def _member_declaration(node: Node, source: _Source) -> list[Member]:
             Member(
                 name,
                 "constructor",
-                source.span(node),
+                _member_span(node, None, source),
                 visibility=_visibility(name),
                 parameters=params,
                 constructor_initializers=tuple(
@@ -906,7 +911,7 @@ def _member_method(node: Node, body: Node | None, source: _Source) -> Member:
     return Member(
         name,
         kind,
-        source.span(node),
+        _member_span(node, body, source),
         return_type=return_type,
         visibility=_visibility(name),
         static="static" in modifiers,
@@ -915,6 +920,23 @@ def _member_method(node: Node, body: Node | None, source: _Source) -> Member:
         factory=factory,
         redirect=_redirect(node, source),
     )
+
+
+def _member_span(node: Node, body: Node | None, source: _Source) -> Span:
+    start = node.start_byte
+    parent = node.parent
+    if parent is not None:
+        siblings = parent.named_children
+        position = next((index for index, item in enumerate(siblings) if item == node), -1)
+        while position > 0 and siblings[position - 1].type in {
+            "annotation",
+            "documentation_comment",
+            "metadata",
+        }:
+            position -= 1
+            start = siblings[position].start_byte
+    end = body.end_byte if body is not None else node.end_byte
+    return _span_bytes(source, start, end)
 
 
 def _parameter_list(node: Node) -> Node | None:

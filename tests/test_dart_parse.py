@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Dart syntax facts retain source evidence without returning parser nodes."""
 
+from pathlib import Path
+
 from archkeel.analyzer.dart.parse import Syntax, parse
 
 
@@ -395,6 +397,78 @@ def test_canonical_call_drops_comments_but_preserves_string_literal_content() ->
     assert call.expression_source == 'ShopApp(backend, "x, y")'
     assert binding.initializer_source == call.expression_source
     assert "// note" in binding.span.excerpt
+
+
+def test_method_span_covers_documentation_signature_and_async_body() -> None:
+    source = (
+        b"class Repository {\n"
+        b"  /// Loads all values.\n"
+        b"  Future<\n"
+        b"    Result<List<Item>>\n"
+        b"  > load() async {\n"
+        b"    await fetch();\n"
+        b"    return finish();\n"
+        b"  }\n"
+        b"}\n"
+    )
+    syntax = parse(source)
+    repository = next(item for item in syntax.definitions if item.name == "Repository")
+    method = next(item for item in repository.members if item.name == "load")
+    assert (method.span.line, method.span.end_line, method.span.column) == (2, 8, 2)
+    assert method.span.start_byte == source.index(b"/// Loads")
+    assert method.span.end_byte == source.index(b"  }\n", source.index(b"async")) + len(b"  }")
+    assert source[method.span.start_byte : method.span.end_byte].startswith(b"/// Loads")
+    assert source[method.span.start_byte : method.span.end_byte].endswith(b"  }")
+
+
+def test_compass_create_from_span_matches_native_declaration_range() -> None:
+    source = Path(
+        "fixtures/J-compass/lib/domain/use_cases/booking/booking_create_use_case.dart"
+    ).read_bytes()
+    syntax = parse(source)
+    use_case = next(item for item in syntax.definitions if item.name == "BookingCreateUseCase")
+    method = next(item for item in use_case.members if item.name == "createFrom")
+    assert (method.span.line, method.span.end_line, method.span.column) == (34, 95, 2)
+    assert method.span.start_byte == source.index(b"/// Create [Booking]")
+    lines = source.splitlines(keepends=True)
+    expected_end = sum(len(line) for line in lines[: method.span.end_line - 1]) + len(
+        lines[method.span.end_line - 1].rstrip(b"\r\n")
+    )
+    assert method.span.end_byte == expected_end
+
+
+def test_member_spans_include_attached_documentation_and_annotations() -> None:
+    source = (
+        b"class Repository {\n"
+        b"  /// Loads values.\n"
+        b"  /// Keeps source docs.\n"
+        b"  @override\n"
+        b"  @Deprecated('legacy')\n"
+        b"  Future<void> load() async {}\n"
+        b"  /// Returns the value.\n"
+        b"  @override\n"
+        b"  int get value;\n"
+        b"  /// Abstract contract.\n"
+        b"  @override\n"
+        b"  void save();\n"
+        b"  /// Constructs a repository.\n"
+        b"  @Deprecated('legacy')\n"
+        b"  Repository.from(String id);\n"
+        b"}\n"
+    )
+    syntax = parse(source)
+    repository = next(item for item in syntax.definitions if item.name == "Repository")
+    members = {item.name: item for item in repository.members}
+
+    for name, first_line in (
+        ("load", 2),
+        ("value", 7),
+        ("save", 10),
+        ("Repository.from", 13),
+    ):
+        member = members[name]
+        assert member.span.line == first_line
+        assert member.span.excerpt.startswith(source.splitlines()[first_line - 1].decode().strip())
 
 
 def test_dart_uri_string_forms_are_decoded_as_one_literal() -> None:

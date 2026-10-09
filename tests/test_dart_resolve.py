@@ -271,6 +271,50 @@ def test_typed_receiver_resolves_declared_member_and_unknown_receiver_stays_unkn
     assert dynamic.status == "unknown"
 
 
+def test_resolve_name_strips_generic_arguments_from_local_base_types(tmp_path: Path) -> None:
+    snapshot, syntax = _snapshot(
+        tmp_path,
+        {
+            "lib/main.dart": "class Parent<T> {}\nclass Child extends Parent<String> {}\n",
+        },
+    )
+    resolver = Resolver(snapshot, syntax)
+
+    assert resolver.resolve_name("lib/main.dart", "Parent<String>") == (
+        "configured_namespace.main.Parent",
+    )
+
+
+def test_resolve_name_preserves_prefix_for_generic_imported_base_types(tmp_path: Path) -> None:
+    snapshot, syntax = _snapshot(
+        tmp_path,
+        {
+            "lib/model.dart": "class Parent<T> {}\n",
+            "lib/main.dart": "import 'model.dart' as models;\n"
+            "class Child extends models.Parent<String> {}\n",
+        },
+    )
+    resolver = Resolver(snapshot, syntax)
+
+    assert resolver.resolve_name("lib/main.dart", "models.Parent<String>") == (
+        "configured_namespace.model.Parent",
+    )
+
+
+def test_resolve_name_does_not_drop_prefix_for_local_generic_base_types(tmp_path: Path) -> None:
+    snapshot, syntax = _snapshot(
+        tmp_path,
+        {
+            "lib/main.dart": "import 'model.dart' as models;\n"
+            "class Parent<T> {}\nclass Child extends models.Parent<String> {}\n",
+            "lib/model.dart": "class Other<T> {}\n",
+        },
+    )
+    resolver = Resolver(snapshot, syntax)
+
+    assert resolver.resolve_name("lib/main.dart", "models.Parent<String>") == ()
+
+
 def test_nearest_untyped_local_shadows_outer_typed_receiver(tmp_path: Path) -> None:
     snapshot, syntax = _snapshot(
         tmp_path,
