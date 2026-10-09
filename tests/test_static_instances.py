@@ -335,6 +335,177 @@ def test_namespace_binding_and_assignment_site_share_one_identity(tmp_path, name
     )
 
 
+def _result_binding_with_prior_symbol(
+    tmp_path,
+    *,
+    target_kind="name",
+    name="value",
+    prior_fields=(),
+    site_fields=(),
+):
+    observation = _observation(tmp_path, "class Service: pass\nvalue = Service()\n")
+    call = next(
+        record for record in observation.records("calls") if record.data.get("result_bindings")
+    )
+    [site] = call.data.get("result_bindings")
+    site_entries = dict(site.entries)
+    site_entries.update(dict(site_fields))
+    site_entries.update({"target_kind": target_kind, "name": name})
+    evidence_ids = site_entries["evidence_ids"]
+
+    def valid_contexts(contexts):
+        return tuple(
+            replace(
+                context,
+                entries=tuple(
+                    (key, evidence_ids if key == "evidence_ids" else value)
+                    for key, value in context.entries
+                ),
+            )
+            for context in contexts
+        )
+
+    site_entries["definition_contexts"] = valid_contexts(site_entries["definition_contexts"])
+    changed_site = replace(site, entries=tuple(sorted(site_entries.items())))
+    changed_call = replace(
+        call,
+        data=RecordData(
+            tuple(
+                (key, (changed_site,) if key == "result_bindings" else value)
+                for key, value in call.data.entries
+            )
+        ),
+    )
+    module = next(
+        record
+        for record in observation.records("modules")
+        if record.id == call.data.get("source_definition_id")
+    )
+    service = next(
+        record
+        for record in observation.records("symbols")
+        if record.data.get("qualified_name") == "sample.app.Service"
+    )
+    prior_data = {
+        "qualified_name": f"{module.data.get('qualified_name')}.{name}",
+        "module": module.data.get("qualified_name"),
+        "source_file": "app.py",
+        "name": name,
+        "lexical_parent_id": call.data.get("source_definition_id"),
+        "symbol_category": "dynamic_binding",
+    }
+    prior_data.update(dict(prior_fields))
+    if "definition_contexts" in prior_data:
+        prior_data["definition_contexts"] = valid_contexts(prior_data["definition_contexts"])
+    prior = replace(
+        service,
+        id=site_entries["id"],
+        kind="binding",
+        data=RecordData(tuple(sorted(prior_data.items()))),
+    )
+    sections = tuple(
+        replace(
+            section,
+            records=(
+                tuple(
+                    changed_call if record.id == call.id else record for record in section.records
+                )
+                if section.name == "calls"
+                else section.records + (prior,)
+            ),
+        )
+        if section.name in {"calls", "symbols"}
+        else section
+        for section in observation.sections
+    )
+    return replace(observation, sections=sections), site_entries
+
+
+@pytest.mark.parametrize(
+    "prior_fields,site_fields",
+    [
+        ({}, {"annotation": "Service"}),
+        ({"annotation": "Prior"}, {"annotation": None}),
+    ],
+)
+def test_result_binding_enriches_missing_metadata_and_preserves_known_metadata(
+    tmp_path, prior_fields, site_fields
+):
+    prior_fields = dict(prior_fields)
+    site_fields = dict(site_fields)
+    prior_context = RecordData((("kind", "try"), ("branch", "body"), ("evidence_ids", ("source",))))
+    site_context = RecordData((("kind", "if"), ("branch", "body"), ("evidence_ids", ("site",))))
+    if prior_fields:
+        prior_fields["definition_contexts"] = (prior_context,)
+        site_fields["definition_contexts"] = ()
+        expected_context = (prior_context,)
+    else:
+        site_fields["definition_contexts"] = (site_context,)
+        expected_context = (site_context,)
+    observation, site = _result_binding_with_prior_symbol(
+        tmp_path,
+        prior_fields=prior_fields.items(),
+        site_fields=site_fields.items(),
+    )
+
+    [binding] = [item for item in observed_graph(observation).entities if item.id == site["id"]]
+    assert binding.annotation == prior_fields.get("annotation", site_fields.get("annotation"))
+    assert tuple((item.kind, item.branch) for item in binding.definition_contexts) == tuple(
+        (item.get("kind"), item.get("branch")) for item in expected_context
+    )
+
+
+@pytest.mark.parametrize(
+    "prior_fields,site_fields",
+    [
+        ({"lexical_parent_id": "wrong-parent"}, {}),
+        ({"qualified_name": "sample.app.other"}, {}),
+        ({"qualified_name": "other.value"}, {}),
+        ({"symbol_category": "class"}, {}),
+        ({"initializer": "Service()"}, {}),
+        ({"annotation": "Other"}, {"annotation": "Service"}),
+        (
+            {
+                "definition_contexts": (
+                    RecordData((("kind", "if"), ("branch", "body"), ("evidence_ids", ("source",)))),
+                )
+            },
+            {
+                "definition_contexts": (
+                    RecordData(
+                        (("kind", "while"), ("branch", "body"), ("evidence_ids", ("site",)))
+                    ),
+                )
+            },
+        ),
+    ],
+)
+def test_result_binding_rejects_conflicting_prior_identity_and_metadata(
+    tmp_path, prior_fields, site_fields
+):
+    observation, _ = _result_binding_with_prior_symbol(
+        tmp_path,
+        prior_fields=prior_fields.items(),
+        site_fields=site_fields.items(),
+    )
+    with pytest.raises(ValueError, match="static result binding identity conflicts"):
+        observed_graph(observation)
+
+
+@pytest.mark.parametrize(
+    "target_kind,name",
+    [("attribute", "self.value"), ("subscript", "items[0]")],
+)
+def test_result_binding_keeps_expression_qualified_name_for_non_name_targets(
+    tmp_path, target_kind, name
+):
+    observation, site = _result_binding_with_prior_symbol(
+        tmp_path, target_kind=target_kind, name=name
+    )
+    [binding] = [item for item in observed_graph(observation).entities if item.id == site["id"]]
+    assert binding.qualified_name == f"sample.app.{name}"
+
+
 def test_initializer_codec_rejects_non_text_and_empty_values():
     target = ArchitectureGraph(
         "declared",

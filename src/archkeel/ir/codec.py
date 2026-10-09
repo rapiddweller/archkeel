@@ -1686,8 +1686,6 @@ def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
             raw_depth = entry["container_depth"]
             if isinstance(raw_depth, bool) or not isinstance(raw_depth, int) or raw_depth < 1:
                 raise ValueError(f"{entry_label}.container_depth must be a positive integer")
-            if field_path:
-                raise ValueError(f"{entry_label}.container_depth cannot select a DTO field")
             depth = raw_depth
         if annotation == "dict":
             raise ValueError(f"{entry_label}.annotation cannot allow bare dict")

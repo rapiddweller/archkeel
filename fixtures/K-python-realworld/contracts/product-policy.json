@@ -1,0 +1,575 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "policy-identity",
+      "label": "Account, credentials, and token policy",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.services",
+        "app.services.authentication",
+        "app.services.jwt",
+        "app.services.security"
+      ],
+      "responsibilities": [
+        "Check account uniqueness and provide password and JWT operations."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "app.services",
+        "app.services.authentication",
+        "app.services.jwt",
+        "app.services.security"
+      ]
+    },
+    {
+      "id": "policy-publishing",
+      "label": "Article and comment policy",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.services.articles",
+        "app.services.comments"
+      ],
+      "responsibilities": [
+        "Generate article slugs and enforce article and comment ownership checks."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "app.services.articles",
+        "app.services.comments"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Source imports outside the declared direct child dependencies are outside the Target.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-app-services",
+          "kind": "module",
+          "qualified_name": "app.services",
+          "parent_id": "policy-identity",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Check account uniqueness and provide password and JWT operations."
+          ],
+          "file_path": "app/services/__init__.py"
+        },
+        {
+          "id": "module-app-services-articles",
+          "kind": "module",
+          "qualified_name": "app.services.articles",
+          "parent_id": "policy-publishing",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Generate article slugs and enforce article and comment ownership checks."
+          ],
+          "file_path": "app/services/articles.py"
+        },
+        {
+          "id": "module-app-services-authentication",
+          "kind": "module",
+          "qualified_name": "app.services.authentication",
+          "parent_id": "policy-identity",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Check account uniqueness and provide password and JWT operations."
+          ],
+          "file_path": "app/services/authentication.py"
+        },
+        {
+          "id": "module-app-services-comments",
+          "kind": "module",
+          "qualified_name": "app.services.comments",
+          "parent_id": "policy-publishing",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Generate article slugs and enforce article and comment ownership checks."
+          ],
+          "file_path": "app/services/comments.py"
+        },
+        {
+          "id": "module-app-services-jwt",
+          "kind": "module",
+          "qualified_name": "app.services.jwt",
+          "parent_id": "policy-identity",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Check account uniqueness and provide password and JWT operations."
+          ],
+          "file_path": "app/services/jwt.py"
+        },
+        {
+          "id": "module-app-services-security",
+          "kind": "module",
+          "qualified_name": "app.services.security",
+          "parent_id": "policy-identity",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Check account uniqueness and provide password and JWT operations."
+          ],
+          "file_path": "app/services/security.py"
+        },
+        {
+          "id": "function-app-services-articles-check-article-exists",
+          "kind": "function",
+          "qualified_name": "app.services.articles.check_article_exists",
+          "parent_id": "module-app-services-articles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Check article exists operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "articles_repo",
+                "annotation": "ArticlesRepository",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "slug",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-services-articles-get-slug-for-article",
+          "kind": "function",
+          "qualified_name": "app.services.articles.get_slug_for_article",
+          "parent_id": "module-app-services-articles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get slug for article operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "title",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "str"
+          }
+        },
+        {
+          "id": "function-app-services-articles-check-user-can-modify-article",
+          "kind": "function",
+          "qualified_name": "app.services.articles.check_user_can_modify_article",
+          "parent_id": "module-app-services-articles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Check user can modify article operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "function-app-services-authentication-check-username-is-taken",
+          "kind": "function",
+          "qualified_name": "app.services.authentication.check_username_is_taken",
+          "parent_id": "module-app-services-authentication",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Check username is taken operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "repo",
+                "annotation": "UsersRepository",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "username",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-services-authentication-check-email-is-taken",
+          "kind": "function",
+          "qualified_name": "app.services.authentication.check_email_is_taken",
+          "parent_id": "module-app-services-authentication",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Check email is taken operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "repo",
+                "annotation": "UsersRepository",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "email",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-services-comments-check-user-can-modify-comment",
+          "kind": "function",
+          "qualified_name": "app.services.comments.check_user_can_modify_comment",
+          "parent_id": "module-app-services-comments",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Check user can modify comment operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "comment",
+                "annotation": "Comment",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "function-app-services-jwt-create-jwt-token",
+          "kind": "function",
+          "qualified_name": "app.services.jwt.create_jwt_token",
+          "parent_id": "module-app-services-jwt",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Create jwt token operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "jwt_content",
+                "annotation": "Dict[str, str]",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "secret_key",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "expires_delta",
+                "annotation": "timedelta",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "str"
+          }
+        },
+        {
+          "id": "function-app-services-jwt-create-access-token-for-user",
+          "kind": "function",
+          "qualified_name": "app.services.jwt.create_access_token_for_user",
+          "parent_id": "module-app-services-jwt",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Create access token for user operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "secret_key",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "str"
+          }
+        },
+        {
+          "id": "function-app-services-jwt-get-username-from-token",
+          "kind": "function",
+          "qualified_name": "app.services.jwt.get_username_from_token",
+          "parent_id": "module-app-services-jwt",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get username from token operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "token",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "secret_key",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "str"
+          }
+        },
+        {
+          "id": "function-app-services-security-generate-salt",
+          "kind": "function",
+          "qualified_name": "app.services.security.generate_salt",
+          "parent_id": "module-app-services-security",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Generate salt operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "str"
+          }
+        },
+        {
+          "id": "function-app-services-security-verify-password",
+          "kind": "function",
+          "qualified_name": "app.services.security.verify_password",
+          "parent_id": "module-app-services-security",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Verify password operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "plain_password",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "hashed_password",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "function-app-services-security-get-password-hash",
+          "kind": "function",
+          "qualified_name": "app.services.security.get_password_hash",
+          "parent_id": "module-app-services-security",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get password hash operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "password",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "str"
+          }
+        }
+      ],
+      "relationships": [],
+      "scopes": []
+    }
+  }
+}

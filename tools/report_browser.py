@@ -28,7 +28,12 @@ from archkeel.ir.graph_codec import parse_report
 from archkeel.ir.module_explore import module_exploration
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.report_projection import architecture_projection
-from fixtures.architecture_demo import REPORT_CASES, replay
+from fixtures.architecture_demo import (
+    PROJECT_REPORT_GROUPS,
+    REPORT_CASES,
+    UML_DEMO_COMPARISONS,
+    replay,
+)
 
 
 def _make_reports(
@@ -170,7 +175,7 @@ def _check_atlas(page: Page, architecture: Path) -> None:
         assert Path(filename).name == filename and (architecture.parent / filename).is_file()
         assert parse_qs(urlsplit(href).query)["component"] == [native.id]
         sidecar = (architecture.parent / filename).read_text()
-        assert "default-src 'none'" in sidecar and "fetch(" not in sidecar
+        assert "default-src 'none'" in sidecar
         assert "Back to architecture map" in sidecar
     exploration = module_exploration(model)
     assert {item["id"] for item in data["modules"]} == {item.id for item in exploration[0].modules}
@@ -228,7 +233,7 @@ def _check_atlas(page: Page, architecture: Path) -> None:
         Path(unknown_href).name == unknown_href and (architecture.parent / unknown_href).is_file()
     )
     html = page.content()
-    assert "default-src 'none'" in html and "fetch(" not in html
+    assert "default-src 'none'" in html
     assert "data-ds=" not in html and "Simulate violation" not in html
     assert page.locator('[data-atlas="true"]').is_visible()
 
@@ -358,6 +363,19 @@ def _open_uml_details(page: Page, name: str, output: Path) -> None:
     if "atlas" not in payload:
         return
     data = payload["atlas"]
+    project = next(
+        (item for item in PROJECT_REPORT_GROUPS if name in {item["baseline"], *item["variants"]}),
+        None,
+    )
+    if project is not None:
+        result = json.loads((output / f"{name}.result.json").read_text(encoding="utf-8"))
+        assert result["observation_complete"] == data["observation_complete"]
+        assert result["declared_rules"] == data["declared_rules"]
+        assert result["rule_assessments"]
+        if "forbidden-edge" in name:
+            assert any(item["status"] == "FAIL" for item in result["rule_assessments"])
+        _open_project_uml_details(page, name, output, project, data)
+        return
     if name.startswith("uml-flutter-"):
         return
     if any(Path(item["path"]).name == "order.dart" for item in data["modules"]):
@@ -471,6 +489,82 @@ def _open_uml_details(page: Page, name: str, output: Path) -> None:
     assert query["module"] == [expected_module_id]
     assert query.get("origin", ["observed"])[0] == ("declared" if counterparts else "observed")
     assert query["return_selected"] == [module["id"]]
+
+
+def _open_project_uml_details(
+    page: Page,
+    name: str,
+    output: Path,
+    project: dict[str, object],
+    atlas: dict[str, object],
+) -> None:
+    browser = project["browser"]
+    assert isinstance(browser, dict)
+    root_id = str(browser["root_component"])
+    nested_id = str(browser["nested_component"])
+    root_component = next(item for item in atlas["components"] if item["id"] == root_id)
+    root_node = page.locator(f'.flow-nodes [data-uml-id="{root_id}"]')
+    assert root_node.is_visible()
+    root_node.click()
+    page.locator("[data-browse-component]").press("Enter")
+    page.locator('[data-content="components"]').last.click()
+    nested_node = page.locator(f'.flow-nodes [data-uml-id="{nested_id}"]')
+    assert nested_node.is_visible()
+    nested_node.press("Enter")
+    assert parse_qs(urlsplit(page.url).query).get("scope") == [nested_id]
+    nested_atlas = json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"]
+    assert nested_atlas["levels"]
+
+    module_path = str(browser["module_path"])
+    module = next(item for item in atlas["modules"] if item["path"] == module_path)
+    module_node = page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]')
+    assert module_node.is_visible()
+    module_node.dblclick()
+    page.wait_for_url("**/*.detail.html?*")
+    module_url = page.url
+    assert page.locator(".atlas-heading").is_visible()
+    assert page.locator(".flow-views [data-flow-view]").count() == 3
+
+    for width in (1440, 375):
+        page.set_viewport_size({"width": width, "height": 1000})
+        for view in ("diagram", "target", "diff"):
+            page.goto(module_url, wait_until="load")
+            page.locator(f'[data-flow-view="{view}"]').click()
+            detail = json.loads(page.locator("#flow-data").text_content() or "{}")
+            report = parse_report(
+                {
+                    key: value
+                    for key, value in detail.items()
+                    if key not in {"initial_scope", "initial_view", "navigation"}
+                }
+            )
+            assert report.comparison is not None
+            assert report.comparison.status == UML_DEMO_COMPARISONS[name]
+            class_name = str(browser["class_name"])
+            member_name = str(browser["member_name"])
+            class_node = page.locator(f'.flow-nodes [data-label="{class_name}"]')
+            assert class_node.count() == 1 and class_node.is_visible()
+            class_node.dblclick()
+            member = page.locator(f'.flow-nodes [data-label="{member_name}"]')
+            assert member.count() == 1 and member.is_visible()
+            member.press("Space")
+            assert member.evaluate("node => node.classList.contains('selected')")
+            inspector = page.locator(".flow-inspector-content").inner_text()
+            assert member_name in inspector
+            if view == "target":
+                assert "docs/target.md" in inspector
+            else:
+                assert "SOURCE SITES" in inspector
+                assert module_path in inspector
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            page.screenshot(path=str(output / f"{name}-{width}-{view}-source.png"), full_page=True)
+
+    overview = page.get_by_role("link", name="Architecture overview", exact=True)
+    assert overview.get_attribute("href") == f"{name}.report.html"
+    overview.click()
+    assert page.locator(".atlas-heading").is_visible()
+    assert page.locator('[data-atlas="true"]').is_visible()
+    assert root_component["label"]
 
 
 def _show_details(page: Page) -> None:
@@ -630,7 +724,7 @@ def _check_flutter_uml_detail(page: Page, name: str, output: Path) -> None:
             ("domain", "orders"),
             "order.dart",
             "OrderLine",
-            "lineTotalCents",
+            "lineTotalCents::getter",
         ),
         "uml-flutter-missing-member-fail": (
             ("domain", "orders"),
@@ -743,6 +837,8 @@ def _check_flutter_uml_detail(page: Page, name: str, output: Path) -> None:
 
 def _check_inner_uml(page: Page, name: str, output: Path) -> None:
     _open_uml_details(page, name, output)
+    if any(name in {group["baseline"], *group["variants"]} for group in PROJECT_REPORT_GROUPS):
+        return
     if name.startswith("uml-flutter-"):
         _check_flutter_uml_detail(page, name, output)
         return

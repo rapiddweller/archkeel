@@ -202,11 +202,22 @@ def test_computed_shadowed_and_unresolved_imports_leave_explicit_gaps(tmp_path: 
     assert "Unproven or shadowed require call" in gaps
     assert "Unresolved module: ./not-here.js" in gaps
     assert any(isinstance(item, UnresolvedTarget) for item in facts.imports)
+    assert {
+        item.kind
+        for item in facts.coverage.gaps
+        if item.title
+        in {
+            "Computed dynamic_import cannot be resolved",
+            "Unproven or shadowed require call",
+            "Unresolved module: ./not-here.js",
+        }
+    } == {"source_resolution_gap"}
 
 
 def test_syntax_and_config_errors_cannot_claim_complete_coverage(tmp_path: Path) -> None:
     facts = _facts(tmp_path, {"src/main.ts": "const = ;\n"})
     assert any(item.startswith("Syntax error in src/main.ts") for item in _gaps(facts))
+    assert all(item.kind == "collection_gap" for item in facts.coverage.gaps)
     broken = tmp_path / "broken"
     config = _facts(broken, {"src/main.ts": "export {};"}, {"extends": "../absent.json"})
     assert not config.coverage.full_scope
@@ -382,6 +393,39 @@ def test_bare_builtin_names_respect_a_local_type_alias(tmp_path: Path) -> None:
         isinstance(item, LocalTarget) and item.file == "src/local.ts" for item in facts.imports
     )
     assert any(isinstance(item, BuiltinTarget) and item.name == "node:fs" for item in facts.imports)
+
+
+def test_known_node_mode_prefers_bare_runtime_builtins_over_packages_not_aliases(
+    tmp_path: Path,
+) -> None:
+    shadowed_package = _facts(
+        tmp_path / "shadowed",
+        {
+            "src/main.ts": "import runtime from 'crypto'; import type { Value } from 'crypto';",
+            "node_modules/crypto/package.json": '{"types":"index.d.ts","main":"index.js"}',
+            "node_modules/crypto/index.d.ts": "export interface Value {}",
+            "node_modules/crypto/index.js": "module.exports = {};",
+        },
+    )
+    assert sum(isinstance(item, BuiltinTarget) for item in shadowed_package.imports) == 1
+    assert sum(isinstance(item, ExternalPackageTarget) for item in shadowed_package.imports) == 1
+
+    alias = _facts(
+        tmp_path / "alias",
+        {
+            "src/main.ts": "import runtime from 'crypto';",
+            "src/local.ts": "export default {};",
+        },
+        {
+            "compilerOptions": {
+                **NODENEXT,
+                "baseUrl": ".",
+                "paths": {"crypto": ["src/local.ts"]},
+            }
+        },
+    )
+    assert len(alias.imports) == 1
+    assert isinstance(alias.imports[0], LocalTarget)
 
 
 def test_project_references_and_a_missing_tsconfig_never_look_complete(tmp_path: Path) -> None:

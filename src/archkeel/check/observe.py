@@ -17,6 +17,7 @@ from archkeel.ir.codec import (
 from archkeel.ir.codec import (
     load_inside_contract_tree as _load_inside_contract_tree,
 )
+from archkeel.ir.facts import SOURCE_RESOLUTION_GAP_KIND, SourceFacts, UnresolvedTarget
 from archkeel.ir.model import (
     ArchitectureContract as _ArchitectureContract,
 )
@@ -25,6 +26,8 @@ from archkeel.ir.model import (
     DiagnosticKind,
     Observation,
     ObservationResult,
+    UmlEligibility,
+    stable_id,
 )
 from archkeel.ir.model import (
     contract_relative_path as _contract_relative_path,
@@ -198,6 +201,44 @@ def observation_diagnostics(
     return tuple(diagnostics)
 
 
+def _partial_uml_source_is_eligible(
+    facts: SourceFacts, model: Observation, runtime: Diagnostic | None
+) -> bool:
+    gaps = facts.coverage.gaps
+    selected = set(facts.coverage.selected_files)
+    selected_inputs = {item.path for item in facts.inputs if item.role == "selected"}
+    if (
+        not gaps
+        or facts.coverage.full_scope
+        or any(item.kind != SOURCE_RESOLUTION_GAP_KIND for item in gaps)
+        or not selected
+        or selected_inputs != selected
+        or facts.coverage.files_read != len(selected)
+        or facts.coverage.files_parsed != len(selected)
+        or model.coverage.files_discovered != len(selected)
+        or model.coverage.files_read != len(selected)
+        or model.coverage.files_parsed != len(selected)
+        or model.coverage.status != "FAIL"
+        or model.coverage.rules != "PASS"
+        or model.runtime is None
+        or runtime is not None
+    ):
+        return False
+
+    failures = {item.id: item for item in model.coverage.failures}
+    source_gap_ids = {item.id for item in gaps}
+    if any(failures.get(item.id) != item for item in gaps):
+        return False
+    derived_ids = {
+        stable_id("UNKNOWN-IMPORT", item.import_id)
+        for item in facts.imports
+        if isinstance(item, UnresolvedTarget)
+    }
+    if set(failures) != source_gap_ids | derived_ids:
+        return False
+    return all(failures[identity].kind == SOURCE_RESOLUTION_GAP_KIND for identity in derived_ids)
+
+
 def _observe(
     collector: SourceCollector,
     tsconfig: str,
@@ -273,8 +314,18 @@ def _observe(
             language=language,
         )
         runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
+        diagnostics = observation_diagnostics(model, runtime, language)
+        eligibility = (
+            UmlEligibility.VALIDATED_PARTIAL_SOURCE
+            if _partial_uml_source_is_eligible(facts, model, runtime)
+            else UmlEligibility.BLOCKED
+        )
         return ObservationResult(
-            model, model.coverage, observation_diagnostics(model, runtime, language)
+            model,
+            model.coverage,
+            diagnostics,
+            eligibility,
+            diagnostics if eligibility == UmlEligibility.VALIDATED_PARTIAL_SOURCE else (),
         )
     except OSError as error:
         return _failure(

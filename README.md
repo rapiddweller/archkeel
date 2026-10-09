@@ -22,6 +22,8 @@ See [ArchKeel's current Main report](https://rapiddweller.github.io/archkeel/), 
 Browse the [Python, Dart and TypeScript demo reports](https://rapiddweller.github.io/archkeel/demos/),
 including UML PASS, FAIL and UNKNOWN examples.
 
+The gallery leads with three complete source projects: [Compass booking](https://github.com/flutter/samples/tree/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c) (111 Dart files), [Python RealWorld](https://github.com/nsidnev/fastapi-realworld-example-app/tree/029eb7781c60d5f563ee8990a0cbfb79b244538c) (72 Python modules), and [Nest RealWorld](https://github.com/mikro-orm/nestjs-realworld-example-app/tree/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9) (41 prepared TypeScript inputs). Each links its authored Target, baseline and three source-only variants. Coverage, rule findings and UML results remain separate; the smaller runnable Flutter shop stays a control.
+
 ## Start here
 
 Requires Python 3.11+ and a Git repository with at least one commit.
@@ -176,7 +178,7 @@ make browser-install
 make report-browser OUTPUT=test-artifacts/report-browser
 ```
 
-Archkeel checks its own [architecture contract](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) and compares fresh
-observations with [fixtures/D-self](https://github.com/rapiddweller/archkeel/tree/main/fixtures/D-self). See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).
+Archkeel checks its own [architecture contract](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) using fresh
+observations on every test run. See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).
 
 MIT © 2026 Rapiddweller Asia Co., Ltd. Maintained by [Alexander Kell](https://github.com/ake2l).

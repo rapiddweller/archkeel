@@ -1,0 +1,4492 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "presentation-activities",
+      "label": "Activity selection",
+      "role": "component",
+      "packages": [
+        "compass.ui.activities"
+      ],
+      "public": [
+        "compass.ui.activities.view_models.activities_viewmodel",
+        "compass.ui.activities.widgets.activities_header",
+        "compass.ui.activities.widgets.activities_list",
+        "compass.ui.activities.widgets.activities_screen",
+        "compass.ui.activities.widgets.activities_title",
+        "compass.ui.activities.widgets.activity_entry",
+        "compass.ui.activities.widgets.activity_time_of_day"
+      ],
+      "responsibilities": [
+        "Load and split activities by time of day, maintain selected references, and persist them to the itinerary."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Shared interface, theme, localization",
+          "through": [
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.dimens",
+            "compass.ui.core.ui.back_button",
+            "compass.ui.core.ui.custom_checkbox",
+            "compass.ui.core.ui.error_indicator",
+            "compass.ui.core.ui.home_button"
+          ],
+          "rationale": "Feature screens reuse shared localization, theme and UI controls.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.ui.activities",
+      "exact_modules": [
+        "compass.ui.activities.view_models.activities_viewmodel",
+        "compass.ui.activities.widgets.activities_header",
+        "compass.ui.activities.widgets.activities_list",
+        "compass.ui.activities.widgets.activities_screen",
+        "compass.ui.activities.widgets.activities_title",
+        "compass.ui.activities.widgets.activity_entry",
+        "compass.ui.activities.widgets.activity_time_of_day"
+      ]
+    },
+    {
+      "id": "presentation-booking",
+      "label": "Booking detail/create/share",
+      "role": "component",
+      "packages": [
+        "compass.ui.booking"
+      ],
+      "public": [
+        "compass.ui.booking.view_models.booking_viewmodel",
+        "compass.ui.booking.widgets.booking_body",
+        "compass.ui.booking.widgets.booking_header",
+        "compass.ui.booking.widgets.booking_screen"
+      ],
+      "responsibilities": [
+        "Create bookings from an itinerary, load saved booking detail, and expose the share action."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Shared interface, theme, localization",
+          "through": [
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.colors",
+            "compass.ui.core.themes.dimens",
+            "compass.ui.core.ui.date_format_start_end",
+            "compass.ui.core.ui.error_indicator",
+            "compass.ui.core.ui.home_button",
+            "compass.ui.core.ui.tag_chip"
+          ],
+          "rationale": "Feature screens reuse shared localization, theme and UI controls.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.ui.booking",
+      "exact_modules": [
+        "compass.ui.booking.view_models.booking_viewmodel",
+        "compass.ui.booking.widgets.booking_body",
+        "compass.ui.booking.widgets.booking_header",
+        "compass.ui.booking.widgets.booking_screen"
+      ]
+    },
+    {
+      "id": "presentation-home",
+      "label": "Home and saved bookings",
+      "role": "component",
+      "packages": [
+        "compass.ui.home"
+      ],
+      "public": [
+        "compass.ui.home.view_models.home_viewmodel",
+        "compass.ui.home.widgets.home_screen",
+        "compass.ui.home.widgets.home_screen_container",
+        "compass.ui.home.widgets.home_title"
+      ],
+      "responsibilities": [
+        "Load the current user and booking summaries, and delete saved bookings."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Shared interface, theme, localization",
+          "through": [
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.colors",
+            "compass.ui.core.themes.dimens",
+            "compass.ui.core.ui.date_format_start_end",
+            "compass.ui.core.ui.error_indicator"
+          ],
+          "rationale": "Feature screens reuse shared localization, theme and UI controls.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Authentication / logout",
+          "through": [
+            "compass.ui.auth.logout.view_models.logout_viewmodel",
+            "compass.ui.auth.logout.widgets.logout_button"
+          ],
+          "rationale": "The home screen composes the logout state and action.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.ui.home",
+      "exact_modules": [
+        "compass.ui.home.view_models.home_viewmodel",
+        "compass.ui.home.widgets.home_screen",
+        "compass.ui.home.widgets.home_screen_container",
+        "compass.ui.home.widgets.home_title"
+      ]
+    },
+    {
+      "id": "presentation-login",
+      "label": "Authentication / login",
+      "role": "component",
+      "packages": [
+        "compass.ui.auth.login"
+      ],
+      "public": [
+        "compass.ui.auth.login.view_models.login_viewmodel",
+        "compass.ui.auth.login.widgets.login_screen",
+        "compass.ui.auth.login.widgets.tilted_cards"
+      ],
+      "responsibilities": [
+        "Submit credentials through the auth command and show login state."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Shared interface, theme, localization",
+          "through": [
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.dimens"
+          ],
+          "rationale": "Feature screens reuse shared localization, theme and UI controls.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.ui.auth.login",
+      "exact_modules": [
+        "compass.ui.auth.login.view_models.login_viewmodel",
+        "compass.ui.auth.login.widgets.login_screen",
+        "compass.ui.auth.login.widgets.tilted_cards"
+      ]
+    },
+    {
+      "id": "presentation-logout",
+      "label": "Authentication / logout",
+      "role": "component",
+      "packages": [
+        "compass.ui.auth.logout"
+      ],
+      "public": [
+        "compass.ui.auth.logout.view_models.logout_viewmodel",
+        "compass.ui.auth.logout.widgets.logout_button"
+      ],
+      "responsibilities": [
+        "Log out and clear the saved itinerary draft."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Shared interface, theme, localization",
+          "through": [
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.colors"
+          ],
+          "rationale": "Feature screens reuse shared localization, theme and UI controls.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.ui.auth.logout",
+      "exact_modules": [
+        "compass.ui.auth.logout.view_models.logout_viewmodel",
+        "compass.ui.auth.logout.widgets.logout_button"
+      ]
+    },
+    {
+      "id": "presentation-results",
+      "label": "Destination results",
+      "role": "component",
+      "packages": [
+        "compass.ui.results"
+      ],
+      "public": [
+        "compass.ui.results.view_models.results_viewmodel",
+        "compass.ui.results.widgets.result_card",
+        "compass.ui.results.widgets.results_screen"
+      ],
+      "responsibilities": [
+        "Load destinations matching the current itinerary and store the selected destination."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Shared interface, theme, localization",
+          "through": [
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.dimens",
+            "compass.ui.core.ui.error_indicator",
+            "compass.ui.core.ui.search_bar",
+            "compass.ui.core.ui.tag_chip"
+          ],
+          "rationale": "Feature screens reuse shared localization, theme and UI controls.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.ui.results",
+      "exact_modules": [
+        "compass.ui.results.view_models.results_viewmodel",
+        "compass.ui.results.widgets.result_card",
+        "compass.ui.results.widgets.results_screen"
+      ]
+    },
+    {
+      "id": "presentation-search",
+      "label": "Search form",
+      "role": "component",
+      "packages": [
+        "compass.ui.search_form"
+      ],
+      "public": [
+        "compass.ui.search_form.view_models.search_form_viewmodel",
+        "compass.ui.search_form.widgets.search_form_continent",
+        "compass.ui.search_form.widgets.search_form_date",
+        "compass.ui.search_form.widgets.search_form_guests",
+        "compass.ui.search_form.widgets.search_form_screen",
+        "compass.ui.search_form.widgets.search_form_submit"
+      ],
+      "responsibilities": [
+        "Validate and persist continent, date range, and guest selections."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Shared interface, theme, localization",
+          "through": [
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.colors",
+            "compass.ui.core.themes.dimens",
+            "compass.ui.core.ui.date_format_start_end",
+            "compass.ui.core.ui.error_indicator",
+            "compass.ui.core.ui.search_bar"
+          ],
+          "rationale": "Feature screens reuse shared localization, theme and UI controls.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Destination results",
+          "through": [
+            "compass.ui.results.widgets.results_screen"
+          ],
+          "rationale": "Submitting a search opens the results screen.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.ui.search_form",
+      "exact_modules": [
+        "compass.ui.search_form.view_models.search_form_viewmodel",
+        "compass.ui.search_form.widgets.search_form_continent",
+        "compass.ui.search_form.widgets.search_form_date",
+        "compass.ui.search_form.widgets.search_form_guests",
+        "compass.ui.search_form.widgets.search_form_screen",
+        "compass.ui.search_form.widgets.search_form_submit"
+      ]
+    },
+    {
+      "id": "presentation-shared-ui",
+      "label": "Shared interface, theme, localization",
+      "role": "component",
+      "packages": [
+        "compass.ui.core"
+      ],
+      "public": [
+        "compass.ui.core.localization.applocalization",
+        "compass.ui.core.themes.colors",
+        "compass.ui.core.themes.dimens",
+        "compass.ui.core.themes.theme",
+        "compass.ui.core.ui.back_button",
+        "compass.ui.core.ui.blur_filter",
+        "compass.ui.core.ui.custom_checkbox",
+        "compass.ui.core.ui.date_format_start_end",
+        "compass.ui.core.ui.error_indicator",
+        "compass.ui.core.ui.home_button",
+        "compass.ui.core.ui.scroll_behavior",
+        "compass.ui.core.ui.search_bar",
+        "compass.ui.core.ui.tag_chip"
+      ],
+      "responsibilities": [
+        "Provide shared localization, theme tokens, navigation controls, and reusable widgets."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "compass.ui.core",
+      "exact_modules": [
+        "compass.ui.core.localization.applocalization",
+        "compass.ui.core.themes.colors",
+        "compass.ui.core.themes.dimens",
+        "compass.ui.core.themes.theme",
+        "compass.ui.core.ui.back_button",
+        "compass.ui.core.ui.blur_filter",
+        "compass.ui.core.ui.custom_checkbox",
+        "compass.ui.core.ui.date_format_start_end",
+        "compass.ui.core.ui.error_indicator",
+        "compass.ui.core.ui.home_button",
+        "compass.ui.core.ui.scroll_behavior",
+        "compass.ui.core.ui.search_bar",
+        "compass.ui.core.ui.tag_chip"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Dependencies outside the declared component boundaries are not part of the Target.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "mod-compass-ui-activities-view-models-activities-viewmodel",
+          "kind": "module",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel",
+          "parent_id": "presentation-activities",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Activity selection"
+          ],
+          "file_path": "lib/ui/activities/view_models/activities_viewmodel.dart"
+        },
+        {
+          "id": "mod-compass-ui-activities-widgets-activities-header",
+          "kind": "module",
+          "qualified_name": "compass.ui.activities.widgets.activities_header",
+          "parent_id": "presentation-activities",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Activity selection"
+          ],
+          "file_path": "lib/ui/activities/widgets/activities_header.dart"
+        },
+        {
+          "id": "mod-compass-ui-activities-widgets-activities-list",
+          "kind": "module",
+          "qualified_name": "compass.ui.activities.widgets.activities_list",
+          "parent_id": "presentation-activities",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Activity selection"
+          ],
+          "file_path": "lib/ui/activities/widgets/activities_list.dart"
+        },
+        {
+          "id": "mod-compass-ui-activities-widgets-activities-screen",
+          "kind": "module",
+          "qualified_name": "compass.ui.activities.widgets.activities_screen",
+          "parent_id": "presentation-activities",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Activity selection"
+          ],
+          "file_path": "lib/ui/activities/widgets/activities_screen.dart"
+        },
+        {
+          "id": "mod-compass-ui-activities-widgets-activities-title",
+          "kind": "module",
+          "qualified_name": "compass.ui.activities.widgets.activities_title",
+          "parent_id": "presentation-activities",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Activity selection"
+          ],
+          "file_path": "lib/ui/activities/widgets/activities_title.dart"
+        },
+        {
+          "id": "mod-compass-ui-activities-widgets-activity-entry",
+          "kind": "module",
+          "qualified_name": "compass.ui.activities.widgets.activity_entry",
+          "parent_id": "presentation-activities",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Activity selection"
+          ],
+          "file_path": "lib/ui/activities/widgets/activity_entry.dart"
+        },
+        {
+          "id": "mod-compass-ui-activities-widgets-activity-time-of-day",
+          "kind": "module",
+          "qualified_name": "compass.ui.activities.widgets.activity_time_of_day",
+          "parent_id": "presentation-activities",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Activity selection"
+          ],
+          "file_path": "lib/ui/activities/widgets/activity_time_of_day.dart"
+        },
+        {
+          "id": "mod-compass-ui-auth-login-view-models-login-viewmodel",
+          "kind": "module",
+          "qualified_name": "compass.ui.auth.login.view_models.login_viewmodel",
+          "parent_id": "presentation-login",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Authentication / login"
+          ],
+          "file_path": "lib/ui/auth/login/view_models/login_viewmodel.dart"
+        },
+        {
+          "id": "mod-compass-ui-auth-login-widgets-login-screen",
+          "kind": "module",
+          "qualified_name": "compass.ui.auth.login.widgets.login_screen",
+          "parent_id": "presentation-login",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Authentication / login"
+          ],
+          "file_path": "lib/ui/auth/login/widgets/login_screen.dart"
+        },
+        {
+          "id": "mod-compass-ui-auth-login-widgets-tilted-cards",
+          "kind": "module",
+          "qualified_name": "compass.ui.auth.login.widgets.tilted_cards",
+          "parent_id": "presentation-login",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Authentication / login"
+          ],
+          "file_path": "lib/ui/auth/login/widgets/tilted_cards.dart"
+        },
+        {
+          "id": "mod-compass-ui-auth-logout-view-models-logout-viewmodel",
+          "kind": "module",
+          "qualified_name": "compass.ui.auth.logout.view_models.logout_viewmodel",
+          "parent_id": "presentation-logout",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Authentication / logout"
+          ],
+          "file_path": "lib/ui/auth/logout/view_models/logout_viewmodel.dart"
+        },
+        {
+          "id": "mod-compass-ui-auth-logout-widgets-logout-button",
+          "kind": "module",
+          "qualified_name": "compass.ui.auth.logout.widgets.logout_button",
+          "parent_id": "presentation-logout",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Authentication / logout"
+          ],
+          "file_path": "lib/ui/auth/logout/widgets/logout_button.dart"
+        },
+        {
+          "id": "mod-compass-ui-booking-view-models-booking-viewmodel",
+          "kind": "module",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel",
+          "parent_id": "presentation-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Booking detail/create/share"
+          ],
+          "file_path": "lib/ui/booking/view_models/booking_viewmodel.dart"
+        },
+        {
+          "id": "mod-compass-ui-booking-widgets-booking-body",
+          "kind": "module",
+          "qualified_name": "compass.ui.booking.widgets.booking_body",
+          "parent_id": "presentation-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Booking detail/create/share"
+          ],
+          "file_path": "lib/ui/booking/widgets/booking_body.dart"
+        },
+        {
+          "id": "mod-compass-ui-booking-widgets-booking-header",
+          "kind": "module",
+          "qualified_name": "compass.ui.booking.widgets.booking_header",
+          "parent_id": "presentation-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Booking detail/create/share"
+          ],
+          "file_path": "lib/ui/booking/widgets/booking_header.dart"
+        },
+        {
+          "id": "mod-compass-ui-booking-widgets-booking-screen",
+          "kind": "module",
+          "qualified_name": "compass.ui.booking.widgets.booking_screen",
+          "parent_id": "presentation-booking",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Booking detail/create/share"
+          ],
+          "file_path": "lib/ui/booking/widgets/booking_screen.dart"
+        },
+        {
+          "id": "mod-compass-ui-core-localization-applocalization",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.localization.applocalization",
+          "parent_id": "presentation-shared-ui",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Shared interface, theme, localization"
+          ],
+          "file_path": "lib/ui/core/localization/applocalization.dart"
+        },
+        {
+          "id": "mod-compass-ui-core-themes-colors",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.themes.colors",
+          "parent_id": "presentation-shared-ui",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Shared interface, theme, localization"
+          ],
+          "file_path": "lib/ui/core/themes/colors.dart"
+        },
+        {
+          "id": "mod-compass-ui-core-themes-dimens",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.themes.dimens",
+          "parent_id": "presentation-shared-ui",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Shared interface, theme, localization"
+          ],
+          "file_path": "lib/ui/core/themes/dimens.dart"
+        },
+        {
+          "id": "mod-compass-ui-core-themes-theme",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.themes.theme",
+          "parent_id": "presentation-shared-ui",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Shared interface, theme, localization"
+          ],
+          "file_path": "lib/ui/core/themes/theme.dart"
+        },
+        {
+          "id": "mod-compass-ui-core-ui-back-button",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.ui.back_button",
+          "parent_id": "presentation-shared-ui",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Shared interface, theme, localization"
+          ],
+          "file_path": "lib/ui/core/ui/back_button.dart"
+        },
+        {
+          "id": "mod-compass-ui-core-ui-blur-filter",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.ui.blur_filter",
+          "parent_id": "presentation-shared-ui",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Shared interface, theme, localization"
+          ],
+          "file_path": "lib/ui/core/ui/blur_filter.dart"
+        },
+        {
+          "id": "mod-compass-ui-core-ui-custom-checkbox",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.ui.custom_checkbox",
+          "parent_id": "presentation-shared-ui",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Shared interface, theme, localization"
+          ],
+          "file_path": "lib/ui/core/ui/custom_checkbox.dart"
+        },
+        {
+          "id": "mod-compass-ui-core-ui-date-format-start-end",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.ui.date_format_start_end",
+          "parent_id": "presentation-shared-ui",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Shared interface, theme, localization"
+          ],
+          "file_path": "lib/ui/core/ui/date_format_start_end.dart"
+        },
+        {
+          "id": "mod-compass-ui-core-ui-error-indicator",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.ui.error_indicator",
+          "parent_id": "presentation-shared-ui",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Shared interface, theme, localization"
+          ],
+          "file_path": "lib/ui/core/ui/error_indicator.dart"
+        },
+        {
+          "id": "mod-compass-ui-core-ui-home-button",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.ui.home_button",
+          "parent_id": "presentation-shared-ui",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Shared interface, theme, localization"
+          ],
+          "file_path": "lib/ui/core/ui/home_button.dart"
+        },
+        {
+          "id": "mod-compass-ui-core-ui-scroll-behavior",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.ui.scroll_behavior",
+          "parent_id": "presentation-shared-ui",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Shared interface, theme, localization"
+          ],
+          "file_path": "lib/ui/core/ui/scroll_behavior.dart"
+        },
+        {
+          "id": "mod-compass-ui-core-ui-search-bar",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.ui.search_bar",
+          "parent_id": "presentation-shared-ui",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Shared interface, theme, localization"
+          ],
+          "file_path": "lib/ui/core/ui/search_bar.dart"
+        },
+        {
+          "id": "mod-compass-ui-core-ui-tag-chip",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.ui.tag_chip",
+          "parent_id": "presentation-shared-ui",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Shared interface, theme, localization"
+          ],
+          "file_path": "lib/ui/core/ui/tag_chip.dart"
+        },
+        {
+          "id": "mod-compass-ui-home-view-models-home-viewmodel",
+          "kind": "module",
+          "qualified_name": "compass.ui.home.view_models.home_viewmodel",
+          "parent_id": "presentation-home",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Home and saved bookings"
+          ],
+          "file_path": "lib/ui/home/view_models/home_viewmodel.dart"
+        },
+        {
+          "id": "mod-compass-ui-home-widgets-home-screen",
+          "kind": "module",
+          "qualified_name": "compass.ui.home.widgets.home_screen",
+          "parent_id": "presentation-home",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Home and saved bookings"
+          ],
+          "file_path": "lib/ui/home/widgets/home_screen.dart"
+        },
+        {
+          "id": "mod-compass-ui-home-widgets-home-screen-container",
+          "kind": "module",
+          "qualified_name": "compass.ui.home.widgets.home_screen_container",
+          "parent_id": "presentation-home",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Home and saved bookings"
+          ],
+          "file_path": "lib/ui/home/widgets/home_screen_container.dart"
+        },
+        {
+          "id": "mod-compass-ui-home-widgets-home-title",
+          "kind": "module",
+          "qualified_name": "compass.ui.home.widgets.home_title",
+          "parent_id": "presentation-home",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Home and saved bookings"
+          ],
+          "file_path": "lib/ui/home/widgets/home_title.dart"
+        },
+        {
+          "id": "mod-compass-ui-results-view-models-results-viewmodel",
+          "kind": "module",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel",
+          "parent_id": "presentation-results",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Destination results"
+          ],
+          "file_path": "lib/ui/results/view_models/results_viewmodel.dart"
+        },
+        {
+          "id": "mod-compass-ui-results-widgets-result-card",
+          "kind": "module",
+          "qualified_name": "compass.ui.results.widgets.result_card",
+          "parent_id": "presentation-results",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Destination results"
+          ],
+          "file_path": "lib/ui/results/widgets/result_card.dart"
+        },
+        {
+          "id": "mod-compass-ui-results-widgets-results-screen",
+          "kind": "module",
+          "qualified_name": "compass.ui.results.widgets.results_screen",
+          "parent_id": "presentation-results",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Destination results"
+          ],
+          "file_path": "lib/ui/results/widgets/results_screen.dart"
+        },
+        {
+          "id": "mod-compass-ui-search-form-view-models-search-form-viewmodel",
+          "kind": "module",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel",
+          "parent_id": "presentation-search",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Search form"
+          ],
+          "file_path": "lib/ui/search_form/view_models/search_form_viewmodel.dart"
+        },
+        {
+          "id": "mod-compass-ui-search-form-widgets-search-form-continent",
+          "kind": "module",
+          "qualified_name": "compass.ui.search_form.widgets.search_form_continent",
+          "parent_id": "presentation-search",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Search form"
+          ],
+          "file_path": "lib/ui/search_form/widgets/search_form_continent.dart"
+        },
+        {
+          "id": "mod-compass-ui-search-form-widgets-search-form-date",
+          "kind": "module",
+          "qualified_name": "compass.ui.search_form.widgets.search_form_date",
+          "parent_id": "presentation-search",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Search form"
+          ],
+          "file_path": "lib/ui/search_form/widgets/search_form_date.dart"
+        },
+        {
+          "id": "mod-compass-ui-search-form-widgets-search-form-guests",
+          "kind": "module",
+          "qualified_name": "compass.ui.search_form.widgets.search_form_guests",
+          "parent_id": "presentation-search",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Search form"
+          ],
+          "file_path": "lib/ui/search_form/widgets/search_form_guests.dart"
+        },
+        {
+          "id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "kind": "module",
+          "qualified_name": "compass.ui.search_form.widgets.search_form_screen",
+          "parent_id": "presentation-search",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Search form"
+          ],
+          "file_path": "lib/ui/search_form/widgets/search_form_screen.dart"
+        },
+        {
+          "id": "mod-compass-ui-search-form-widgets-search-form-submit",
+          "kind": "module",
+          "qualified_name": "compass.ui.search_form.widgets.search_form_submit",
+          "parent_id": "presentation-search",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Search form"
+          ],
+          "file_path": "lib/ui/search_form/widgets/search_form_submit.dart"
+        },
+        {
+          "id": "class-compass-ui-auth-login-view-models-login-viewmodel-loginviewmodel",
+          "kind": "class",
+          "qualified_name": "compass.ui.auth.login.view_models.login_viewmodel.LoginViewModel",
+          "parent_id": "mod-compass-ui-auth-login-view-models-login-viewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose login as an asynchronous command."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-ui-auth-logout-view-models-logout-viewmodel-logoutviewmodel",
+          "kind": "class",
+          "qualified_name": "compass.ui.auth.logout.view_models.logout_viewmodel.LogoutViewModel",
+          "parent_id": "mod-compass-ui-auth-logout-view-models-logout-viewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Log out and clear the itinerary draft."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",
+          "kind": "class",
+          "qualified_name": "compass.ui.home.view_models.home_viewmodel.HomeViewModel",
+          "parent_id": "mod-compass-ui-home-view-models-home-viewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Load user and booking summaries and delete bookings."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "kind": "class",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel",
+          "parent_id": "mod-compass-ui-search-form-view-models-search-form-viewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Validate and persist search form state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-ui-results-view-models-results-viewmodel-resultsviewmodel",
+          "kind": "class",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel.ResultsViewModel",
+          "parent_id": "mod-compass-ui-results-view-models-results-viewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Load destination results and update selected destination."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "kind": "class",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel",
+          "parent_id": "mod-compass-ui-activities-view-models-activities-viewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Load activities, manage selection and persist refs."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "kind": "class",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel",
+          "parent_id": "mod-compass-ui-booking-view-models-booking-viewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create, load and share a booking."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-compass-ui-auth-login-view-models-login-viewmodel-loginviewmodel-loginviewmodel",
+          "kind": "method",
+          "qualified_name": "compass.ui.auth.login.view_models.login_viewmodel.LoginViewModel.LoginViewModel",
+          "parent_id": "class-compass-ui-auth-login-view-models-login-viewmodel-loginviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the LoginViewModel contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "authRepository",
+                "annotation": "AuthRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "LoginViewModel"
+          }
+        },
+        {
+          "id": "attribute-compass-ui-auth-login-view-models-login-viewmodel-loginviewmodel-login",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.auth.login.view_models.login_viewmodel.LoginViewModel.login",
+          "parent_id": "class-compass-ui-auth-login-view-models-login-viewmodel-loginviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the login contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Command1"
+        },
+        {
+          "id": "method-compass-ui-auth-logout-view-models-logout-viewmodel-logoutviewmodel-logoutviewmodel",
+          "kind": "method",
+          "qualified_name": "compass.ui.auth.logout.view_models.logout_viewmodel.LogoutViewModel.LogoutViewModel",
+          "parent_id": "class-compass-ui-auth-logout-view-models-logout-viewmodel-logoutviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the LogoutViewModel contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "authRepository",
+                "annotation": "AuthRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "itineraryConfigRepository",
+                "annotation": "ItineraryConfigRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "LogoutViewModel"
+          }
+        },
+        {
+          "id": "attribute-compass-ui-auth-logout-view-models-logout-viewmodel-logoutviewmodel-logout",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.auth.logout.view_models.logout_viewmodel.LogoutViewModel.logout",
+          "parent_id": "class-compass-ui-auth-logout-view-models-logout-viewmodel-logoutviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the logout contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Command0"
+        },
+        {
+          "id": "method-compass-ui-home-view-models-home-viewmodel-homeviewmodel-homeviewmodel",
+          "kind": "method",
+          "qualified_name": "compass.ui.home.view_models.home_viewmodel.HomeViewModel.HomeViewModel",
+          "parent_id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Inject repositories and use cases for this presentation state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "bookingRepository",
+                "annotation": "BookingRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "userRepository",
+                "annotation": "UserRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "HomeViewModel"
+          }
+        },
+        {
+          "id": "attribute-compass-ui-home-view-models-home-viewmodel-homeviewmodel-load",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.home.view_models.home_viewmodel.HomeViewModel.load",
+          "parent_id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the load contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Command0"
+        },
+        {
+          "id": "attribute-compass-ui-home-view-models-home-viewmodel-homeviewmodel-deletebooking",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.home.view_models.home_viewmodel.HomeViewModel.deleteBooking",
+          "parent_id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the deleteBooking contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Command1<void, int>"
+        },
+        {
+          "id": "method-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-searchformviewmodel",
+          "kind": "method",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.SearchFormViewModel",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Inject repositories and use cases for this presentation state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "continentRepository",
+                "annotation": "ContinentRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "itineraryConfigRepository",
+                "annotation": "ItineraryConfigRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "SearchFormViewModel"
+          }
+        },
+        {
+          "id": "attribute-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-load",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.load",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the load contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Command0"
+        },
+        {
+          "id": "attribute-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-updateitineraryconfig",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.updateItineraryConfig",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the updateItineraryConfig contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Command0"
+        },
+        {
+          "id": "method-compass-ui-results-view-models-results-viewmodel-resultsviewmodel-resultsviewmodel",
+          "kind": "method",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel.ResultsViewModel.ResultsViewModel",
+          "parent_id": "class-compass-ui-results-view-models-results-viewmodel-resultsviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Inject repositories and use cases for this presentation state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "destinationRepository",
+                "annotation": "DestinationRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "itineraryConfigRepository",
+                "annotation": "ItineraryConfigRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "ResultsViewModel"
+          }
+        },
+        {
+          "id": "attribute-compass-ui-results-view-models-results-viewmodel-resultsviewmodel-search",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel.ResultsViewModel.search",
+          "parent_id": "class-compass-ui-results-view-models-results-viewmodel-resultsviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the search contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Command0"
+        },
+        {
+          "id": "attribute-compass-ui-results-view-models-results-viewmodel-resultsviewmodel-updateitineraryconfig",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel.ResultsViewModel.updateItineraryConfig",
+          "parent_id": "class-compass-ui-results-view-models-results-viewmodel-resultsviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the updateItineraryConfig contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Command1<void, String>"
+        },
+        {
+          "id": "method-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-activitiesviewmodel",
+          "kind": "method",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel.ActivitiesViewModel",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Inject repositories and use cases for this presentation state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "activityRepository",
+                "annotation": "ActivityRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "itineraryConfigRepository",
+                "annotation": "ItineraryConfigRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "ActivitiesViewModel"
+          }
+        },
+        {
+          "id": "attribute-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-loadactivities",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel.loadActivities",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the loadActivities contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Command0"
+        },
+        {
+          "id": "attribute-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-saveactivities",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel.saveActivities",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the saveActivities contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Command0"
+        },
+        {
+          "id": "method-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-addactivity",
+          "kind": "method",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel.addActivity",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Update activity selection state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "activityRef",
+                "annotation": "String",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "method-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-removeactivity",
+          "kind": "method",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel.removeActivity",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Update activity selection state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "activityRef",
+                "annotation": "String",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "method-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-bookingviewmodel",
+          "kind": "method",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel.BookingViewModel",
+          "parent_id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Inject repositories and use cases for this presentation state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "createBookingUseCase",
+                "annotation": "BookingCreateUseCase",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "shareBookingUseCase",
+                "annotation": "BookingShareUseCase",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "itineraryConfigRepository",
+                "annotation": "ItineraryConfigRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "bookingRepository",
+                "annotation": "BookingRepository",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "BookingViewModel"
+          }
+        },
+        {
+          "id": "attribute-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-createbooking",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel.createBooking",
+          "parent_id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the createBooking contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Command0"
+        },
+        {
+          "id": "attribute-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-loadbooking",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel.loadBooking",
+          "parent_id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the loadBooking contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Command1<void, int>"
+        },
+        {
+          "id": "attribute-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-sharebooking",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel.shareBooking",
+          "parent_id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the shareBooking contract."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Command0"
+        },
+        {
+          "id": "attribute-compass-ui-auth-login-view-models-login-viewmodel-loginviewmodel-authrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.auth.login.view_models.login_viewmodel.LoginViewModel._authRepository",
+          "parent_id": "class-compass-ui-auth-login-view-models-login-viewmodel-loginviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _authRepository field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "AuthRepository"
+        },
+        {
+          "id": "attribute-compass-ui-auth-login-view-models-login-viewmodel-loginviewmodel-log",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.auth.login.view_models.login_viewmodel.LoginViewModel._log",
+          "parent_id": "class-compass-ui-auth-login-view-models-login-viewmodel-loginviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _log field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Logger"
+        },
+        {
+          "id": "method-compass-ui-auth-login-view-models-login-viewmodel-loginviewmodel-login",
+          "kind": "method",
+          "qualified_name": "compass.ui.auth.login.view_models.login_viewmodel.LoginViewModel._login",
+          "parent_id": "class-compass-ui-auth-login-view-models-login-viewmodel-loginviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _login operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "credentials",
+                "annotation": "(String, String)",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "attribute-compass-ui-auth-logout-view-models-logout-viewmodel-logoutviewmodel-authlogoutrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.auth.logout.view_models.logout_viewmodel.LogoutViewModel._authLogoutRepository",
+          "parent_id": "class-compass-ui-auth-logout-view-models-logout-viewmodel-logoutviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _authLogoutRepository field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "AuthRepository"
+        },
+        {
+          "id": "attribute-compass-ui-auth-logout-view-models-logout-viewmodel-logoutviewmodel-itineraryconfigrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.auth.logout.view_models.logout_viewmodel.LogoutViewModel._itineraryConfigRepository",
+          "parent_id": "class-compass-ui-auth-logout-view-models-logout-viewmodel-logoutviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _itineraryConfigRepository field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "ItineraryConfigRepository"
+        },
+        {
+          "id": "method-compass-ui-auth-logout-view-models-logout-viewmodel-logoutviewmodel-logout",
+          "kind": "method",
+          "qualified_name": "compass.ui.auth.logout.view_models.logout_viewmodel.LogoutViewModel._logout",
+          "parent_id": "class-compass-ui-auth-logout-view-models-logout-viewmodel-logoutviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _logout operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result>"
+          }
+        },
+        {
+          "id": "attribute-compass-ui-home-view-models-home-viewmodel-homeviewmodel-bookingrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.home.view_models.home_viewmodel.HomeViewModel._bookingRepository",
+          "parent_id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _bookingRepository field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "BookingRepository"
+        },
+        {
+          "id": "attribute-compass-ui-home-view-models-home-viewmodel-homeviewmodel-userrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.home.view_models.home_viewmodel.HomeViewModel._userRepository",
+          "parent_id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _userRepository field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "UserRepository"
+        },
+        {
+          "id": "attribute-compass-ui-home-view-models-home-viewmodel-homeviewmodel-log",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.home.view_models.home_viewmodel.HomeViewModel._log",
+          "parent_id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _log field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Logger"
+        },
+        {
+          "id": "attribute-compass-ui-home-view-models-home-viewmodel-homeviewmodel-bookings",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.home.view_models.home_viewmodel.HomeViewModel._bookings",
+          "parent_id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _bookings field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "List<BookingSummary>"
+        },
+        {
+          "id": "attribute-compass-ui-home-view-models-home-viewmodel-homeviewmodel-user",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.home.view_models.home_viewmodel.HomeViewModel._user",
+          "parent_id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _user field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "User?"
+        },
+        {
+          "id": "method-compass-ui-home-view-models-home-viewmodel-homeviewmodel-bookings-getter",
+          "kind": "method",
+          "qualified_name": "compass.ui.home.view_models.home_viewmodel.HomeViewModel.bookings::getter",
+          "parent_id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared bookings::getter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "List<BookingSummary>"
+          }
+        },
+        {
+          "id": "method-compass-ui-home-view-models-home-viewmodel-homeviewmodel-user-getter",
+          "kind": "method",
+          "qualified_name": "compass.ui.home.view_models.home_viewmodel.HomeViewModel.user::getter",
+          "parent_id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared user::getter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "User?"
+          }
+        },
+        {
+          "id": "method-compass-ui-home-view-models-home-viewmodel-homeviewmodel-load",
+          "kind": "method",
+          "qualified_name": "compass.ui.home.view_models.home_viewmodel.HomeViewModel._load",
+          "parent_id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _load operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result>"
+          }
+        },
+        {
+          "id": "method-compass-ui-home-view-models-home-viewmodel-homeviewmodel-deletebooking",
+          "kind": "method",
+          "qualified_name": "compass.ui.home.view_models.home_viewmodel.HomeViewModel._deleteBooking",
+          "parent_id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _deleteBooking operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "attribute-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-log",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel._log",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _log field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Logger"
+        },
+        {
+          "id": "attribute-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-continentrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel._continentRepository",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _continentRepository field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "ContinentRepository"
+        },
+        {
+          "id": "attribute-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-itineraryconfigrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel._itineraryConfigRepository",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _itineraryConfigRepository field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "ItineraryConfigRepository"
+        },
+        {
+          "id": "attribute-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-continents",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel._continents",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _continents field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "List<Continent>"
+        },
+        {
+          "id": "attribute-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-selectedcontinent",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel._selectedContinent",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _selectedContinent field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "String?"
+        },
+        {
+          "id": "attribute-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-daterange",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel._dateRange",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _dateRange field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "DateTimeRange?"
+        },
+        {
+          "id": "attribute-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-guests",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel._guests",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _guests field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "method-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-valid-getter",
+          "kind": "method",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.valid::getter",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared valid::getter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "method-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-continents-getter",
+          "kind": "method",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.continents::getter",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared continents::getter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "List<Continent>"
+          }
+        },
+        {
+          "id": "method-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-selectedcontinent-getter",
+          "kind": "method",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.selectedContinent::getter",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared selectedContinent::getter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String?"
+          }
+        },
+        {
+          "id": "method-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-selectedcontinent-setter",
+          "kind": "method",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.selectedContinent::setter",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared selectedContinent::setter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "continent",
+                "annotation": "String?",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "method-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-daterange-getter",
+          "kind": "method",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.dateRange::getter",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared dateRange::getter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "DateTimeRange?"
+          }
+        },
+        {
+          "id": "method-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-daterange-setter",
+          "kind": "method",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.dateRange::setter",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared dateRange::setter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "dateRange",
+                "annotation": "DateTimeRange?",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "method-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-guests-getter",
+          "kind": "method",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.guests::getter",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared guests::getter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "int"
+          }
+        },
+        {
+          "id": "method-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-guests-setter",
+          "kind": "method",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel.guests::setter",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared guests::setter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "quantity",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "method-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-load",
+          "kind": "method",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel._load",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _load operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "method-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-loadcontinents",
+          "kind": "method",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel._loadContinents",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _loadContinents operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "method-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-loaditineraryconfig",
+          "kind": "method",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel._loadItineraryConfig",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _loadItineraryConfig operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "method-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel-updateitineraryconfig",
+          "kind": "method",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel.SearchFormViewModel._updateItineraryConfig",
+          "parent_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _updateItineraryConfig operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "attribute-compass-ui-results-view-models-results-viewmodel-resultsviewmodel-log",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel.ResultsViewModel._log",
+          "parent_id": "class-compass-ui-results-view-models-results-viewmodel-resultsviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _log field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Logger"
+        },
+        {
+          "id": "attribute-compass-ui-results-view-models-results-viewmodel-resultsviewmodel-destinationrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel.ResultsViewModel._destinationRepository",
+          "parent_id": "class-compass-ui-results-view-models-results-viewmodel-resultsviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _destinationRepository field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "DestinationRepository"
+        },
+        {
+          "id": "attribute-compass-ui-results-view-models-results-viewmodel-resultsviewmodel-itineraryconfigrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel.ResultsViewModel._itineraryConfigRepository",
+          "parent_id": "class-compass-ui-results-view-models-results-viewmodel-resultsviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _itineraryConfigRepository field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "ItineraryConfigRepository"
+        },
+        {
+          "id": "attribute-compass-ui-results-view-models-results-viewmodel-resultsviewmodel-destinations",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel.ResultsViewModel._destinations",
+          "parent_id": "class-compass-ui-results-view-models-results-viewmodel-resultsviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _destinations field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "List<Destination>"
+        },
+        {
+          "id": "attribute-compass-ui-results-view-models-results-viewmodel-resultsviewmodel-itineraryconfig",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel.ResultsViewModel._itineraryConfig",
+          "parent_id": "class-compass-ui-results-view-models-results-viewmodel-resultsviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _itineraryConfig field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "ItineraryConfig?"
+        },
+        {
+          "id": "method-compass-ui-results-view-models-results-viewmodel-resultsviewmodel-destinations-getter",
+          "kind": "method",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel.ResultsViewModel.destinations::getter",
+          "parent_id": "class-compass-ui-results-view-models-results-viewmodel-resultsviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared destinations::getter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "List<Destination>"
+          }
+        },
+        {
+          "id": "method-compass-ui-results-view-models-results-viewmodel-resultsviewmodel-config-getter",
+          "kind": "method",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel.ResultsViewModel.config::getter",
+          "parent_id": "class-compass-ui-results-view-models-results-viewmodel-resultsviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared config::getter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "ItineraryConfig"
+          }
+        },
+        {
+          "id": "method-compass-ui-results-view-models-results-viewmodel-resultsviewmodel-search",
+          "kind": "method",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel.ResultsViewModel._search",
+          "parent_id": "class-compass-ui-results-view-models-results-viewmodel-resultsviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _search operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "method-compass-ui-results-view-models-results-viewmodel-resultsviewmodel-updateitineraryconfig",
+          "kind": "method",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel.ResultsViewModel._updateItineraryConfig",
+          "parent_id": "class-compass-ui-results-view-models-results-viewmodel-resultsviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _updateItineraryConfig operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "destinationRef",
+                "annotation": "String",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "attribute-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-log",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel._log",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _log field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Logger"
+        },
+        {
+          "id": "attribute-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-activityrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel._activityRepository",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _activityRepository field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "ActivityRepository"
+        },
+        {
+          "id": "attribute-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-itineraryconfigrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel._itineraryConfigRepository",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _itineraryConfigRepository field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "ItineraryConfigRepository"
+        },
+        {
+          "id": "attribute-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-daytimeactivities",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel._daytimeActivities",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _daytimeActivities field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "List<Activity>"
+        },
+        {
+          "id": "attribute-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-eveningactivities",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel._eveningActivities",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _eveningActivities field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "List<Activity>"
+        },
+        {
+          "id": "attribute-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-selectedactivities",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel._selectedActivities",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _selectedActivities field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Set<String>"
+        },
+        {
+          "id": "method-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-daytimeactivities-getter",
+          "kind": "method",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel.daytimeActivities::getter",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared daytimeActivities::getter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "List<Activity>"
+          }
+        },
+        {
+          "id": "method-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-eveningactivities-getter",
+          "kind": "method",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel.eveningActivities::getter",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared eveningActivities::getter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "List<Activity>"
+          }
+        },
+        {
+          "id": "method-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-selectedactivities-getter",
+          "kind": "method",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel.selectedActivities::getter",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared selectedActivities::getter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Set<String>"
+          }
+        },
+        {
+          "id": "method-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-loadactivities",
+          "kind": "method",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel._loadActivities",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _loadActivities operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "method-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel-saveactivities",
+          "kind": "method",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel.ActivitiesViewModel._saveActivities",
+          "parent_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _saveActivities operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "attribute-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-createusecase",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel._createUseCase",
+          "parent_id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _createUseCase field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "BookingCreateUseCase"
+        },
+        {
+          "id": "attribute-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-shareusecase",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel._shareUseCase",
+          "parent_id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _shareUseCase field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "BookingShareUseCase"
+        },
+        {
+          "id": "attribute-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-itineraryconfigrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel._itineraryConfigRepository",
+          "parent_id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _itineraryConfigRepository field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "ItineraryConfigRepository"
+        },
+        {
+          "id": "attribute-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-bookingrepository",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel._bookingRepository",
+          "parent_id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _bookingRepository field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "BookingRepository"
+        },
+        {
+          "id": "attribute-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-log",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel._log",
+          "parent_id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _log field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Logger"
+        },
+        {
+          "id": "attribute-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-booking",
+          "kind": "attribute",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel._booking",
+          "parent_id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _booking field."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Booking?"
+        },
+        {
+          "id": "method-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-booking-getter",
+          "kind": "method",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel.booking::getter",
+          "parent_id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared booking::getter operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Booking?"
+          }
+        },
+        {
+          "id": "method-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-createbooking",
+          "kind": "method",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel._createBooking",
+          "parent_id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _createBooking operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "method-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-load",
+          "kind": "method",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel.BookingViewModel._load",
+          "parent_id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared _load operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<Result<void>>"
+          }
+        },
+        {
+          "id": "enum-compass-ui-activities-widgets-activity-time-of-day-activitytimeofday",
+          "kind": "enum",
+          "qualified_name": "compass.ui.activities.widgets.activity_time_of_day.ActivityTimeOfDay",
+          "parent_id": "mod-compass-ui-activities-widgets-activity-time-of-day",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Classify activity time of day."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "enum_literal-compass-ui-activities-widgets-activity-time-of-day-activitytimeofday-daytime",
+          "kind": "enum_literal",
+          "qualified_name": "compass.ui.activities.widgets.activity_time_of_day.ActivityTimeOfDay.daytime",
+          "parent_id": "enum-compass-ui-activities-widgets-activity-time-of-day-activitytimeofday",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared enum value."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "enum_literal-compass-ui-activities-widgets-activity-time-of-day-activitytimeofday-evening",
+          "kind": "enum_literal",
+          "qualified_name": "compass.ui.activities.widgets.activity_time_of_day.ActivityTimeOfDay.evening",
+          "parent_id": "enum-compass-ui-activities-widgets-activity-time-of-day-activitytimeofday",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared enum value."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "ref-booking-create-from-use-case",
+          "kind": "symbol",
+          "qualified_name": "compass.domain.use_cases.booking.booking_create_use_case.BookingCreateUseCase.createFrom",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reference the booking creation use case declared in the domain contract."
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "calls-booking-viewmodel-creates-booking",
+          "kind": "calls",
+          "source_id": "method-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel-createbooking",
+          "target_id": "ref-booking-create-from-use-case",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c6e4c6838bb0ce50",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-activities-view-models-activities-viewmodel",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b788be6b232ab292",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-activities-widgets-activities-header",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1628f61a637eead3",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-activities-widgets-activities-list",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:14.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-0a4f0b9bcef7601e",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-activities-widgets-activities-title",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:15.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-00cc0916655e769c",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-activities-widgets-activity-time-of-day",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:16.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-eb7f67aba9a64c5c",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-core-localization-applocalization",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-89c2f1ab5d208eb4",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-core-themes-dimens",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-0b82ffb6adbc895d",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "target_id": "mod-compass-ui-core-ui-error-indicator",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-78ae9f3339226f73",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-auth-login-widgets-login-screen",
+          "target_id": "mod-compass-ui-auth-login-view-models-login-viewmodel",
+          "reason": "Selected source import at lib/ui/auth/login/widgets/login_screen.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-efc9251d614814eb",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-auth-login-widgets-login-screen",
+          "target_id": "mod-compass-ui-auth-login-widgets-tilted-cards",
+          "reason": "Selected source import at lib/ui/auth/login/widgets/login_screen.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-aa2fcbdab0c4d2c2",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-auth-login-widgets-login-screen",
+          "target_id": "mod-compass-ui-core-localization-applocalization",
+          "reason": "Selected source import at lib/ui/auth/login/widgets/login_screen.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4bea6f5d13e98a7c",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-auth-login-widgets-login-screen",
+          "target_id": "mod-compass-ui-core-themes-dimens",
+          "reason": "Selected source import at lib/ui/auth/login/widgets/login_screen.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-796591827fd0ddae",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-auth-logout-widgets-logout-button",
+          "target_id": "mod-compass-ui-auth-logout-view-models-logout-viewmodel",
+          "reason": "Selected source import at lib/ui/auth/logout/widgets/logout_button.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-673787e0c6fcdcac",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-auth-logout-widgets-logout-button",
+          "target_id": "mod-compass-ui-core-localization-applocalization",
+          "reason": "Selected source import at lib/ui/auth/logout/widgets/logout_button.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1a00aa164946c2a5",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-auth-logout-widgets-logout-button",
+          "target_id": "mod-compass-ui-core-themes-colors",
+          "reason": "Selected source import at lib/ui/auth/logout/widgets/logout_button.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7e05e4d6ebacf23b",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-booking-widgets-booking-screen",
+          "target_id": "mod-compass-ui-booking-view-models-booking-viewmodel",
+          "reason": "Selected source import at lib/ui/booking/widgets/booking_screen.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1b369c4ef74c332c",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-booking-widgets-booking-screen",
+          "target_id": "mod-compass-ui-booking-widgets-booking-body",
+          "reason": "Selected source import at lib/ui/booking/widgets/booking_screen.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-026f1b52fcee1e7f",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-booking-widgets-booking-screen",
+          "target_id": "mod-compass-ui-core-localization-applocalization",
+          "reason": "Selected source import at lib/ui/booking/widgets/booking_screen.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d1152f7751264eab",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-booking-widgets-booking-screen",
+          "target_id": "mod-compass-ui-core-ui-error-indicator",
+          "reason": "Selected source import at lib/ui/booking/widgets/booking_screen.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6d4ca8e2350bf951",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-home-widgets-home-screen-container",
+          "target_id": "mod-compass-ui-auth-logout-view-models-logout-viewmodel",
+          "reason": "Selected source import at lib/ui/home/widgets/home_screen_container.dart:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b938781e0fab0c9e",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-home-widgets-home-screen-container",
+          "target_id": "mod-compass-ui-home-view-models-home-viewmodel",
+          "reason": "Selected source import at lib/ui/home/widgets/home_screen_container.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b90b95b7a01bf5be",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-home-widgets-home-screen-container",
+          "target_id": "mod-compass-ui-home-widgets-home-screen",
+          "reason": "Selected source import at lib/ui/home/widgets/home_screen_container.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5b333b2a5fb5d7be",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-results-widgets-results-screen",
+          "target_id": "mod-compass-ui-core-localization-applocalization",
+          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6bed5aa81ef1aca1",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-results-widgets-results-screen",
+          "target_id": "mod-compass-ui-core-themes-dimens",
+          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-10f623293c12f06e",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-results-widgets-results-screen",
+          "target_id": "mod-compass-ui-core-ui-error-indicator",
+          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-44b51c0a3954fe15",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-results-widgets-results-screen",
+          "target_id": "mod-compass-ui-core-ui-search-bar",
+          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1da5b6cc031e7a6f",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-results-widgets-results-screen",
+          "target_id": "mod-compass-ui-results-view-models-results-viewmodel",
+          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-dc827a13d2148894",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-results-widgets-results-screen",
+          "target_id": "mod-compass-ui-results-widgets-result-card",
+          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:14.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b242427e576d2669",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-core-themes-dimens",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-686865a002dd8630",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-core-ui-search-bar",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c542b123aa0d6b3f",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-results-widgets-results-screen",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7d2fdd51ed832d08",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-search-form-view-models-search-form-viewmodel",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-910da9dea4083ed7",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-search-form-widgets-search-form-continent",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d921d27dd6a22ce2",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-search-form-widgets-search-form-date",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:14.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5fb7ee24e65690bf",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-search-form-widgets-search-form-guests",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:15.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-610f2372f9afeb26",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "target_id": "mod-compass-ui-search-form-widgets-search-form-submit",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:16.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-2dd15c4d5d52a610",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-submit",
+          "target_id": "mod-compass-ui-core-localization-applocalization",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_submit.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f0bb20fa66dd4cce",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-submit",
+          "target_id": "mod-compass-ui-core-themes-dimens",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_submit.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-928a411ce02b0064",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-submit",
+          "target_id": "mod-compass-ui-results-widgets-results-screen",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_submit.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e8e71f91555337fe",
+          "kind": "imports",
+          "source_id": "mod-compass-ui-search-form-widgets-search-form-submit",
+          "target_id": "mod-compass-ui-search-form-view-models-search-form-viewmodel",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_submit.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "class-compass-ui-home-view-models-home-viewmodel-homeviewmodel",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The principal ViewModel API is explicitly declared in the source Target.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-ui-search-form-view-models-search-form-viewmodel-searchformviewmodel",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The principal ViewModel API is explicitly declared in the source Target.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-ui-results-view-models-results-viewmodel-resultsviewmodel",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The principal ViewModel API is explicitly declared in the source Target.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-ui-activities-view-models-activities-viewmodel-activitiesviewmodel",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The principal ViewModel API is explicitly declared in the source Target.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-ui-booking-view-models-booking-viewmodel-bookingviewmodel",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The principal ViewModel API is explicitly declared in the source Target.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-activities-view-models-activities-viewmodel",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-activities-widgets-activities-header",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-activities-widgets-activities-list",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-activities-widgets-activities-screen",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-activities-widgets-activities-title",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-activities-widgets-activity-entry",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-activities-widgets-activity-time-of-day",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-auth-login-view-models-login-viewmodel",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-auth-login-widgets-login-screen",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-auth-login-widgets-tilted-cards",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-auth-logout-view-models-logout-viewmodel",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-auth-logout-widgets-logout-button",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-booking-view-models-booking-viewmodel",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-booking-widgets-booking-body",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-booking-widgets-booking-header",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-booking-widgets-booking-screen",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-core-localization-applocalization",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-core-themes-colors",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-core-themes-dimens",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-core-themes-theme",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-core-ui-back-button",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-core-ui-blur-filter",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-core-ui-custom-checkbox",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-core-ui-date-format-start-end",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-core-ui-error-indicator",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-core-ui-home-button",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-core-ui-scroll-behavior",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-core-ui-search-bar",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-core-ui-tag-chip",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-home-view-models-home-viewmodel",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-home-widgets-home-screen",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-home-widgets-home-screen-container",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-home-widgets-home-title",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-results-view-models-results-viewmodel",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-results-widgets-result-card",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-results-widgets-results-screen",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-search-form-view-models-search-form-viewmodel",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-search-form-widgets-search-form-continent",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-search-form-widgets-search-form-date",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-search-form-widgets-search-form-guests",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-search-form-widgets-search-form-screen",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-ui-search-form-widgets-search-form-submit",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-ui-auth-login-view-models-login-viewmodel-loginviewmodel",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The directly declared ViewModel fields, commands, getters, setters and operations are enumerated from source.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-ui-auth-logout-view-models-logout-viewmodel-logoutviewmodel",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "The directly declared ViewModel fields, commands, getters, setters and operations are enumerated from source.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

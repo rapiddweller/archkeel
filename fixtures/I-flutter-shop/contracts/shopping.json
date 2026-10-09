@@ -379,7 +379,7 @@
         {
           "id": "catalog-vm-class-state",
           "kind": "method",
-          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.state",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.state::getter",
           "parent_id": "catalog-vm-class",
           "language": "dart",
           "presence": "planned",
@@ -401,7 +401,7 @@
         {
           "id": "catalog-vm-class-online",
           "kind": "method",
-          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.isOnline",
+          "qualified_name": "shop.presentation.shopping.catalog.catalog_view_model.CatalogViewModel.isOnline::getter",
           "parent_id": "catalog-vm-class",
           "language": "dart",
           "presence": "planned",
@@ -736,7 +736,7 @@
         {
           "id": "cart-vm-class-lines",
           "kind": "method",
-          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.lines",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.lines::getter",
           "parent_id": "cart-vm-class",
           "language": "dart",
           "presence": "planned",
@@ -758,7 +758,7 @@
         {
           "id": "cart-vm-class-total",
           "kind": "method",
-          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.totalCents",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.totalCents::getter",
           "parent_id": "cart-vm-class",
           "language": "dart",
           "presence": "planned",
@@ -780,7 +780,7 @@
         {
           "id": "cart-vm-class-placing",
           "kind": "method",
-          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.isPlacingOrder",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.isPlacingOrder::getter",
           "parent_id": "cart-vm-class",
           "language": "dart",
           "presence": "planned",
@@ -802,7 +802,7 @@
         {
           "id": "cart-vm-class-state",
           "kind": "method",
-          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.state",
+          "qualified_name": "shop.presentation.shopping.cart.cart_view_model.CartViewModel.state::getter",
           "parent_id": "cart-vm-class",
           "language": "dart",
           "presence": "planned",

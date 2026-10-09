@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from textwrap import dedent
 
 import pytest
 
@@ -16,11 +17,11 @@ ROOT = Path(__file__).parents[1]
 GATE_STEPS = ["self-validate", "check", "build", "smoke"]
 CI_CHECK_STEPS = [
     "ci-artifacts-clean",
+    "browser-install",
     *GATE_STEPS,
     "demo-typescript",
     "report-timing",
-    "browser-install",
-    "report-browser",
+    "report-browser-proof",
 ]
 CI_STEPS = [*CI_CHECK_STEPS, "mermaid"]
 
@@ -35,13 +36,13 @@ def _run_gate(
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     steps = tmp_path / "steps"
     overrides = tmp_path / "Makefile"
-    names = [*CI_STEPS, "against", "pr-test", "pr-report-test"]
+    names = [*CI_STEPS, "against", "pr-test", "pr-report-test", "report-browser-tests"]
     recipes = []
     for name in names:
         output_guard = ""
         if name == "demo-typescript":
             output_guard = '\t@test "$(OUTPUT)" = test-artifacts/typescript-demo\n'
-        elif name == "report-browser":
+        elif name == "report-browser-proof":
             output_guard = '\t@test -z "$(OUTPUT)"\n'
         recipes.append(
             f'{name}:\n\t@echo {name} >> "{steps}"\n\t@sleep 0.05\n\t@exit {int(name == failed)}\n'
@@ -126,7 +127,10 @@ def test_ci_check_leaves_mermaid_to_its_parallel_workflow_job(tmp_path: Path, jo
 def test_against_receives_the_exact_ci_base_and_stops_before_tests(tmp_path: Path) -> None:
     steps = tmp_path / "steps"
     runner = tmp_path / "uv"
-    runner.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{steps}"\nexit 1\n')
+    runner.write_text(
+        f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{steps}"\n'
+        'case "$*" in *tools.against*) exit 1;; esac\n'
+    )
     runner.chmod(0o755)
     result = subprocess.run(
         ["make", "-j2", "ci", f"BASE={'a' * 40}"],
@@ -138,7 +142,8 @@ def test_against_receives_the_exact_ci_base_and_stops_before_tests(tmp_path: Pat
     )
     assert result.returncode != 0
     assert steps.read_text().splitlines() == [
-        f"run --locked python -m tools.against --base {'a' * 40}"
+        "run --locked --with playwright==1.62.0 python -m playwright install --with-deps chromium",
+        f"run --locked python -m tools.against --base {'a' * 40}",
     ]
 
 
@@ -160,8 +165,34 @@ def test_pr_report_gate_runs_its_browser_sample_and_propagates_failure(tmp_path,
     assert result.returncode == (0 if failed is None else 2)
 
 
+def test_pr_report_sample_uses_two_loadfile_workers_and_keeps_selected_tests() -> None:
+    result = subprocess.run(
+        ["make", "-n", "pr-report-test"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": ""},
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    command = result.stdout
+    assert "--with playwright==1.62.0" in command
+    assert "python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q" in command
+    assert "--junitxml=test-artifacts/pytest/pr-report.xml" in command
+    for test_file in (
+        "tests/test_report_pages.py",
+        "tests/test_report_interactions.py",
+        "tests/test_report_browser.py",
+        "tests/test_uml_rendering.py",
+        "tests/test_compass_project_report.py",
+        "tests/test_python_realworld_project_report.py",
+        "tests/test_nest_realworld_project_report.py",
+    ):
+        assert test_file in command
+
+
 @pytest.mark.parametrize("fail_pytest", [False, True])
-def test_report_browser_runs_parallel_full_suite_before_evidence(
+def test_report_browser_runs_report_tests_before_evidence(
     tmp_path: Path, fail_pytest: bool
 ) -> None:
     calls = tmp_path / "uv-calls.jsonl"
@@ -224,33 +255,147 @@ def test_report_browser_runs_parallel_full_suite_before_evidence(
         assert result.returncode == 0, result.stderr
 
 
+def test_main_core_uses_pinned_playwright_once_and_report_stage_only_runs_proof() -> None:
+    result = subprocess.run(
+        ["make", "-n", "-j8", "ci-check"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": "", "OUTPUT": ""},
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    commands = result.stdout
+    browser_install = commands.index("python -m playwright install --with-deps chromium")
+    pytest_run = commands.index("run --locked --with playwright==1.62.0 python -m pytest -n 2")
+    report_proof = commands.index("python -m tools.report_browser")
+    report_timing = commands.index("python -m tools.report_timing")
+    assert browser_install < pytest_run < report_proof
+    assert report_timing < report_proof
+    assert commands.count("python -m playwright install --with-deps chromium") == 1
+    assert "tests/test_*report*.py" not in commands
+    assert "make report-browser-tests" not in commands
+
+
 def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-    check = workflow.split("  check:\n", 1)[1].split("\n  collector-safety-windows:", 1)[0]
-    assert "if: ${{ !cancelled() }}" in check
+    check = workflow.split("  check:\n", 1)[1].split("\n  pr-core-check:", 1)[0]
+    assert (
+        "if: ${{ (github.event_name == 'pull_request' && always()) || "
+        "(github.event_name == 'push' && !cancelled()) }}"
+    ) in check
+    assert "needs: [changes, pr-core-check, pr-report-check]" in check
     classifier_failure = check.split("- name: Fail if change detection failed\n", 1)[1].split(
         "\n      - name:", 1
     )[0]
     assert "if: ${{ !cancelled() && needs.changes.result != 'success' }}" in classifier_failure
     assert "run: exit 1" in classifier_failure
-    assert "BASE: ${{ github.event.pull_request.base.sha }}" in check
+    aggregate = check.split("- name: Verify PR check results\n", 1)[1].split("\n      - name:", 1)[
+        0
+    ]
+    assert "if: github.event_name == 'pull_request' && always()" in aggregate
+    assert "CANCELLED:" not in aggregate
+    assert "CHANGES_RESULT: ${{ needs.changes.result }}" in aggregate
+    assert "CORE: ${{ needs.changes.outputs.core }}" in aggregate
+    assert "REPORT: ${{ needs.changes.outputs.report }}" in aggregate
+    assert "CORE_RESULT: ${{ needs.pr-core-check.result }}" in aggregate
+    assert "REPORT_RESULT: ${{ needs.pr-report-check.result }}" in aggregate
+    assert "run: |" in aggregate
     assert "run: make ci-core-check\n" in check
     assert "run: make ci-report-check\n" in check
+    assert "make ci-pr-" not in check
     assert "continue-on-error" not in check
     assert "timeout-minutes: ${{ github.event_name == 'pull_request' && 25 || 90 }}" in check
-    assert "run: make ci-pr-check\n" in check
-    assert "run: make ci-pr-report-check\n" in check
     for heading in ("Run full core checks", "Run full report checks"):
         step = check.split(f"- name: {heading}\n", 1)[1].split("\n      - name:", 1)[0]
         assert "github.event_name == 'push'" in step
-    for heading in ("Run PR core checks", "Run PR report checks"):
+    for heading in (
+        "Check out source",
+        "Install Node",
+        "Install uv and Python",
+        "Install Dart SDK",
+        "Install supported runtimes",
+        "Install locked dependencies",
+        "Prepare native Dart analyzer",
+        "Clean previous CI artifacts",
+        "Upload test timings",
+        "Upload report runtime",
+        "Upload synthetic report browser evidence",
+    ):
         step = check.split(f"- name: {heading}\n", 1)[1].split("\n      - name:", 1)[0]
-        assert "github.event_name == 'pull_request'" in step
+        assert "github.event_name == 'push'" in step
     assert "Observe Archkeel" not in check
     assert "archkeel-self-observation" not in check
     assert "path: test-artifacts/report-timing/architecture.timing.json" in check
     assert "path: test-artifacts/pytest/*.xml" in check
     assert "path: test-artifacts/report-browser/" in check
+    assert "retention-days: 1" in check
+
+    for job_id, next_job, area, make_target, junit_name, junit_path in (
+        (
+            "pr-core-check",
+            "pr-report-check",
+            "core",
+            "ci-pr-check",
+            "pytest-results-pr-core",
+            "pr-core.xml",
+        ),
+        (
+            "pr-report-check",
+            "prune-report-artifacts",
+            "report",
+            "ci-pr-report-check",
+            "pytest-results-pr-report",
+            "pr-report.xml",
+        ),
+    ):
+        job = workflow.split(f"  {job_id}:\n", 1)[1].split(f"\n  {next_job}:\n", 1)[0]
+        assert "needs: changes" in job
+        assert (
+            f"github.event_name == 'pull_request' && needs.changes.outputs.{area} == 'true'" in job
+        )
+        assert "runs-on: ubuntu-latest" in job
+        assert "timeout-minutes: 25" in job
+        assert "permissions:\n      contents: read" in job
+        assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in job
+        assert "actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444" in job
+        assert "astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9" in job
+        assert "dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d" in job
+        assert f"run: make {make_target}" in job
+        assert f"name: {junit_name}" in job
+        assert junit_path in job
+        assert "retention-days: 7" in job
+    core_job = workflow.split("  pr-core-check:\n", 1)[1].split("\n  pr-report-check:", 1)[0]
+    assert "BASE: ${{ github.event.pull_request.base.sha }}" in core_job
+    assert workflow.count("name: report-browser-evidence") == 2
+    assert check.count("name: report-browser-evidence") == 1
+    pr_report = workflow.split("  pr-report-check:\n", 1)[1].split(
+        "\n  prune-report-artifacts:", 1
+    )[0]
+    assert pr_report.count("name: report-browser-evidence") == 1
+    assert "retention-days: 1" in pr_report
+    cleanup = workflow.split("  prune-report-artifacts:\n", 1)[1].split(
+        "\n  collector-safety-windows:", 1
+    )[0]
+    assert (
+        "if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}"
+        in cleanup
+    )
+    assert "needs: check" in cleanup
+    assert "github.event_name == 'push'" in cleanup
+    assert "github.ref == 'refs/heads/main'" in cleanup
+    assert "actions: write" in cleanup
+    assert workflow.count("actions: write") == 1
+    assert "contents: read" in cleanup
+    assert "ref: ${{ github.sha }}" in cleanup
+    assert "GH_TOKEN: ${{ github.token }}" in cleanup
+    assert "make prune-report-artifacts DELETE=true" in cleanup
+    makefile = (ROOT / "Makefile").read_text()
+    assert "gh api --paginate --slurp" in makefile
+    assert "gh api --method DELETE" in makefile
+    assert "DELETE ?= false" in makefile
+    assert "artifact_ids=$$(python3 -c" in makefile
+    assert "for artifact_id in $$artifact_ids" in makefile
     assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in workflow
     assert (
         "group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}"
@@ -281,6 +426,90 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     dart_tests = makefile.split("dart-native:\n", 1)[1].split("\n# Compare against", 1)[0]
     assert "tests/test_flutter_demo.py" in pr_tests
     assert "tests/test_flutter_demo.py" not in dart_tests
+    pr_report_tests = makefile.split("pr-report-test:\n", 1)[1].split("\nci-typescript:", 1)[0]
+    assert "tests/test_compass_project_report.py" in pr_report_tests
+    assert "tests/test_python_realworld_project_report.py" in pr_report_tests
+    assert "tests/test_nest_realworld_project_report.py" in pr_report_tests
+
+
+def test_pr_aggregate_executes_exact_workflow_script_fail_closed() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    check = workflow.split("  check:\n", 1)[1].split("\n  pr-core-check:", 1)[0]
+    step = check.split("- name: Verify PR check results\n", 1)[1].split("\n      - name:", 1)[0]
+    script = dedent(step.split("        run: |\n", 1)[1])
+    baseline = {
+        "EVENT": "pull_request",
+        "CHANGES_RESULT": "success",
+        "CORE": "true",
+        "REPORT": "true",
+        "CORE_RESULT": "success",
+        "REPORT_RESULT": "success",
+    }
+    cases = (
+        ("both selected", {}, 0),
+        ("core only", {"REPORT": "false", "REPORT_RESULT": "skipped"}, 0),
+        ("report only", {"CORE": "false", "CORE_RESULT": "skipped"}, 0),
+        (
+            "neither selected",
+            {
+                "CORE": "false",
+                "REPORT": "false",
+                "CORE_RESULT": "skipped",
+                "REPORT_RESULT": "skipped",
+            },
+            0,
+        ),
+        ("classifier failed", {"CHANGES_RESULT": "failure"}, 1),
+        ("malformed core flag", {"CORE": "yes"}, 1),
+        ("malformed report flag", {"REPORT": "TRUE"}, 1),
+        ("missing core flag", {"CORE": None}, 1),
+        ("missing report flag", {"REPORT": None}, 1),
+        ("required child failed", {"CORE_RESULT": "failure"}, 1),
+        ("required child cancelled", {"REPORT_RESULT": "cancelled"}, 1),
+        ("required child skipped", {"CORE_RESULT": "skipped"}, 1),
+        (
+            "unselected child unexpectedly ran",
+            {
+                "CORE": "false",
+                "REPORT": "false",
+                "CORE_RESULT": "success",
+                "REPORT_RESULT": "skipped",
+            },
+            1,
+        ),
+        ("missing child result", {"CORE_RESULT": None}, 1),
+    )
+    for label, overrides, expected in cases:
+        values = {
+            **baseline,
+            **{key: value for key, value in overrides.items() if value is not None},
+        }
+        missing_values = [key for key, value in overrides.items() if value is None]
+        for missing in missing_values:
+            values.pop(missing)
+        env = {**os.environ, **values}
+        for missing in missing_values:
+            env.pop(missing, None)
+        result = subprocess.run(
+            ["bash", "-eu", "-c", script], cwd=ROOT, env=env, capture_output=True, text=True
+        )
+        assert (result.returncode == 0) == (expected == 0), (
+            label,
+            result.stdout,
+            result.stderr,
+        )
+
+
+def test_pr_workflow_cancellation_has_a_fail_step() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    check = workflow.split("  check:\n", 1)[1].split("\n  pr-core-check:", 1)[0]
+    step = check.split("- name: Fail PR aggregate on workflow cancellation\n", 1)[1].split(
+        "\n      - name:", 1
+    )[0]
+    assert "if: github.event_name == 'pull_request' && cancelled()" in step
+    script = step.split("        run: ", 1)[1].strip()
+    result = subprocess.run(["bash", "-eu", "-c", script], cwd=ROOT, capture_output=True, text=True)
+    assert result.returncode != 0
 
 
 @pytest.mark.parametrize("renderer_exit", [0, 1])
@@ -332,3 +561,29 @@ def test_ci_cleanup_preserves_test_evidence(tmp_path: Path) -> None:
     assert not output.exists()
     assert not browser.exists()
     assert evidence.read_text() == "keep"
+
+
+@pytest.mark.parametrize("exit_code", [0, 2])
+def test_self_observation_generates_ignored_output_and_preserves_failure(tmp_path, exit_code):
+    arguments = tmp_path / "arguments"
+    runner = tmp_path / "uv"
+    runner.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" > "{arguments}"\nexit {exit_code}\n')
+    runner.chmod(0o755)
+    result = subprocess.run(
+        ["make", "self-observation", f"UV={runner}"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": ""},
+        capture_output=True,
+        text=True,
+    )
+    assert arguments.read_text().split() == [
+        "run",
+        "--locked",
+        "archkeel",
+        "report",
+        "--root",
+        ".",
+        "--output",
+        "test-artifacts/self-observation/architecture.json",
+    ]
+    assert result.returncode == exit_code

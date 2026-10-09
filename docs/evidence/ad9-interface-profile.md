@@ -8,8 +8,9 @@ not establish current repository measurements or general accuracy.
 either. Run it against a saved report:
 
 ```sh
+make self-observation
 uv run --locked python tools/interface_profile.py \
-  --architecture fixtures/D-self/architecture.json --contract architecture-contract.json
+  --architecture test-artifacts/self-observation/architecture.json --contract architecture-contract.json
 ```
 
 The tool reports crossing surfaces, proposed public entries and signature limits.

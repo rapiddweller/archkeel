@@ -26,6 +26,7 @@ from archkeel.cli import main as archkeel_main
 from archkeel.ir.graph_codec import parse_report
 from fixtures.demo_catalog_check import VARIANTS as _CHECK_PROTOCOL_VARIANTS
 from fixtures.demo_catalog_check_regressions import VARIANTS as _CHECK_REGRESSION_VARIANTS
+from fixtures.demo_catalog_compass import VARIANTS as _COMPASS_VARIANTS
 from fixtures.demo_catalog_compatibility import VARIANTS as _COMPATIBILITY_VARIANTS
 from fixtures.demo_catalog_constructs import VARIANTS as _CONSTRUCT_VARIANTS
 from fixtures.demo_catalog_dart import VARIANTS as _DART_VARIANTS
@@ -36,6 +37,8 @@ from fixtures.demo_catalog_flutter import FLUTTER_FIXTURE_DIR
 from fixtures.demo_catalog_flutter import VARIANTS as _FLUTTER_VARIANTS
 from fixtures.demo_catalog_interfaces import VARIANTS as _INTERFACE_VARIANTS
 from fixtures.demo_catalog_layout import VARIANTS as _LAYOUT_VARIANTS
+from fixtures.demo_catalog_nest_realworld import VARIANTS as _NEST_REALWORLD_VARIANTS
+from fixtures.demo_catalog_python_realworld import VARIANTS as _PYTHON_REALWORLD_VARIANTS
 from fixtures.demo_catalog_showcase import VARIANTS as _SHOWCASE_VARIANTS
 from fixtures.demo_catalog_support import Variant, apply_overlay
 from fixtures.demo_catalog_test_scope import VARIANTS as _TEST_SCOPE_VARIANTS
@@ -62,6 +65,9 @@ CATALOG: tuple[Variant, ...] = (
     *_EXACT_OWNERSHIP_VARIANTS,
     *_DART_VARIANTS,
     *_FLUTTER_VARIANTS,
+    *_COMPASS_VARIANTS,
+    *_PYTHON_REALWORLD_VARIANTS,
+    *_NEST_REALWORLD_VARIANTS,
 )
 
 
@@ -79,6 +85,18 @@ REPORT_CASES = {
     "uml-flutter-forbidden-dependency-fail": ("flutter-forbidden-dependency-fail", 2),
     "uml-flutter-dynamic-unknown": ("flutter-dynamic-unknown", 0),
     "uml-flutter-unsupported-declaration": ("flutter-unsupported-declaration", 2),
+    "uml-compass-project": ("compass-project", 2),
+    "uml-compass-forbidden-edge": ("compass-forbidden-edge", 2),
+    "uml-compass-signature-fail": ("compass-signature-fail", 2),
+    "uml-compass-dynamic-unknown": ("compass-dynamic-unknown", 2),
+    "uml-python-realworld-project": ("python-realworld-project", 0),
+    "uml-python-realworld-forbidden-edge": ("python-realworld-forbidden-edge", 2),
+    "uml-python-realworld-signature-fail": ("python-realworld-signature-fail", 2),
+    "uml-python-realworld-dynamic-unknown": ("python-realworld-dynamic-unknown", 0),
+    "uml-nest-realworld-project": ("nest-realworld-project", 2),
+    "uml-nest-realworld-forbidden-edge": ("nest-realworld-forbidden-edge", 2),
+    "uml-nest-realworld-signature-fail": ("nest-realworld-signature-fail", 2),
+    "uml-nest-realworld-dynamic-unknown": ("nest-realworld-dynamic-unknown", 2),
     "uml-typescript": ("uml-typescript", 0),
     "uml-typescript-match": ("uml-typescript-match", 0),
     "uml-typescript-mismatch": ("uml-typescript-mismatch", 2),
@@ -98,6 +116,102 @@ REPORT_CASES = {
     "target-store": ("target-hierarchy-positive", 0),
     "empty-responsibility": ("target-empty-responsibilities", 2),
 }
+PROJECT_REPORT_GROUPS = (
+    {
+        "id": "compass",
+        "title": "Compass booking",
+        "repository": "flutter/samples",
+        "commit": "5541c59ab8e9d7e74c1a35ef22bd43a487fc596c",
+        "scope": "111 Dart files, 89 libraries, 22 parts",
+        "feature": (
+            "Authentication through search, results, activities and booking, backed by "
+            "repositories and local/remote services."
+        ),
+        "target_depth": (
+            "Feature ownership, nested booking components, and closed class/member APIs."
+        ),
+        "evidence_limits": (
+            "Thirty typed source-resolution gaps leave coverage incomplete; they are not "
+            "confirmed syntax errors."
+        ),
+        "baseline": "uml-compass-project",
+        "variants": (
+            "uml-compass-forbidden-edge",
+            "uml-compass-signature-fail",
+            "uml-compass-dynamic-unknown",
+        ),
+        "browser": {
+            "root_component": "presentation",
+            "nested_component": "presentation:presentation-booking",
+            "module_path": "lib/ui/booking/view_models/booking_viewmodel.dart",
+            "class_name": "BookingViewModel",
+            "member_name": "_createBooking",
+        },
+    },
+    {
+        "id": "python-realworld",
+        "title": "Python RealWorld",
+        "repository": "nsidnev/fastapi-realworld-example-app",
+        "commit": "029eb7781c60d5f563ee8990a0cbfb79b244538c",
+        "scope": "72 Python modules from the complete selected application",
+        "feature": (
+            "Authentication, users, profiles, articles, comments, favorites and feeds through "
+            "routes, asyncpg SQL repositories and persistence."
+        ),
+        "target_depth": "Five responsibility areas with closed principal class and method scopes.",
+        "evidence_limits": (
+            "All files have AST coverage; 34 class inventories and 13 inheritance "
+            "relationships remain UNKNOWN."
+        ),
+        "baseline": "uml-python-realworld-project",
+        "variants": (
+            "uml-python-realworld-forbidden-edge",
+            "uml-python-realworld-signature-fail",
+            "uml-python-realworld-dynamic-unknown",
+        ),
+        "browser": {
+            "root_component": "product-contracts",
+            "nested_component": "Product and wire contracts:contracts-publishing",
+            "module_path": "app/models/domain/articles.py",
+            "class_name": "Article",
+            "member_name": "tags",
+        },
+    },
+    {
+        "id": "nest-realworld",
+        "title": "Nest RealWorld",
+        "repository": "mikro-orm/nestjs-realworld-example-app",
+        "commit": "a6818d84b6a019cf2df4ef391dc87cea7d02c6a9",
+        "scope": (
+            "41 prepared TypeScript build inputs, including two README-prescribed config copies"
+        ),
+        "feature": (
+            "Account/authentication, article and comment publishing, profile/follow, tags, "
+            "composition and persistence."
+        ),
+        "target_depth": (
+            "Seven root responsibilities, nested feature components, and 266 Target entities "
+            "with closed principal member scopes."
+        ),
+        "evidence_limits": (
+            "A computed dynamic import leaves source coverage incomplete; a known "
+            "complete-requires FAIL remains visible in its forbidden-edge variant."
+        ),
+        "baseline": "uml-nest-realworld-project",
+        "variants": (
+            "uml-nest-realworld-forbidden-edge",
+            "uml-nest-realworld-signature-fail",
+            "uml-nest-realworld-dynamic-unknown",
+        ),
+        "browser": {
+            "root_component": "publishing",
+            "nested_component": "Article and comment publishing:article-service",
+            "module_path": "src/article/article.service.ts",
+            "class_name": "ArticleService",
+            "member_name": "findFeed",
+        },
+    },
+)
 UML_DEMO_COMPARISONS = {
     "uml-match": "PASS",
     "uml-complete": "UNKNOWN",
@@ -114,6 +228,18 @@ UML_DEMO_COMPARISONS = {
     "uml-flutter-forbidden-dependency-fail": "UNKNOWN",
     "uml-flutter-dynamic-unknown": "UNKNOWN",
     "uml-flutter-unsupported-declaration": "UNKNOWN",
+    "uml-compass-project": "UNKNOWN",
+    "uml-compass-forbidden-edge": "UNKNOWN",
+    "uml-compass-signature-fail": "FAIL",
+    "uml-compass-dynamic-unknown": "FAIL",
+    "uml-python-realworld-project": "UNKNOWN",
+    "uml-python-realworld-forbidden-edge": "UNKNOWN",
+    "uml-python-realworld-signature-fail": "FAIL",
+    "uml-python-realworld-dynamic-unknown": "UNKNOWN",
+    "uml-nest-realworld-project": "UNKNOWN",
+    "uml-nest-realworld-forbidden-edge": "UNKNOWN",
+    "uml-nest-realworld-signature-fail": "FAIL",
+    "uml-nest-realworld-dynamic-unknown": "UNKNOWN",
     "uml-typescript": "UNKNOWN",
     "uml-typescript-match": "PASS",
     "uml-typescript-mismatch": "FAIL",
@@ -123,7 +249,29 @@ UML_DEMO_COMPARISONS = {
 
 def markdown() -> str:
     """Generate the short demo guide; CATALOG owns the complete case inventory."""
-    return """# Architecture demos
+    project_overview = "\n".join(
+        "- **{}** — [{}@{}]({}/tree/{}), {}. {} Target: {} Evidence limit: {}".format(
+            group["title"],
+            group["repository"],
+            group["commit"],
+            "https://github.com/" + str(group["repository"]),
+            group["commit"],
+            group["scope"],
+            group["feature"],
+            group["target_depth"],
+            group["evidence_limits"],
+        )
+        for group in PROJECT_REPORT_GROUPS
+    )
+    return f"""# Architecture demos
+
+## Full-project journeys
+
+The [published gallery](https://rapiddweller.github.io/archkeel/demos/) groups each pinned
+application with its baseline and three source-only variants. Observation, coverage, declared
+rules and UML comparison are shown separately.
+
+{project_overview}
 
 Create a report with several deliberate violations:
 
@@ -148,6 +296,15 @@ Flutter adds a nested shop journey with source-only signature, enum-member, depe
 and unsupported-declaration cases. The base keeps external framework and inferred-type facts
 UNKNOWN rather than treating them as resolved relationships.
 
+Python adds the complete pinned FastAPI RealWorld app (72 Python modules) with architecture,
+deep field-signature, and login-call variants. Its source coverage is complete; external UML
+facts remain UNKNOWN.
+
+Nest/Mikro adds the pinned RealWorld application with 41 prepared build inputs and source-only
+dependency, `ArticleService.findFeed` signature, and `UserService.create` constructor variants.
+Computed ORM imports, module/export aliases, framework decorators/DI, partial member and
+parameter-property inventory, and `EntityManager` type/value identity ambiguity remain UNKNOWN.
+
 | Variant | Expected evidence |
 |---|---|
 | `flutter-shop` | Local comparison passes; unresolved source facts keep UML UNKNOWN. |
@@ -156,6 +313,12 @@ UNKNOWN rather than treating them as resolved relationships.
 | `flutter-forbidden-dependency-fail` | `complete_requires` FAIL for presentation → data. |
 | `flutter-dynamic-unknown` | Dynamic `watchAll` call remains UNKNOWN. |
 | `flutter-unsupported-declaration` | Extension yields a coverage gap and UNKNOWN observation. |
+| `python-realworld-forbidden-edge` | Route imports SQL directly; rule FAIL. |
+| `python-realworld-signature-fail` | `Article.tags` changes to `List[int]`; UML FAIL. |
+| `python-realworld-dynamic-unknown` | `getattr` login call; UNKNOWN. |
+| `nest-realworld-forbidden-edge` | Shared validation imports `Article`; `REQUIRES-COMPLETE` FAIL. |
+| `nest-realworld-signature-fail` | `ArticleService.findFeed` return type changes; UML FAIL. |
+| `nest-realworld-dynamic-unknown` | Type assertion makes the `User` creates relation UNKNOWN. |
 
 The [catalog](../fixtures/architecture_demo.py) owns all variants, overlays and expected
 outcomes. Check-protocol and test-only variants cannot replay as reports.
@@ -188,7 +351,7 @@ def main(argv: list[str]) -> int:
         try:
             return uml_suite(args.output)
         except (OSError, ValueError, subprocess.CalledProcessError) as error:
-            print(f"Dart UML demo suite failed: {error}", file=sys.stderr)
+            print(f"UML demo suite failed: {error}", file=sys.stderr)
             return 2
     if args.output is None:
         parser.error("--replay requires --output")
@@ -329,15 +492,26 @@ def materialized_fixture(variant: Variant) -> Iterator[Path]:
             else None
         )
         shutil.copytree(variant.fixture, root, ignore=ignored)
+        resolver_inputs = root / "resolver-inputs"
+        has_resolver_inputs = resolver_inputs.is_dir()
+        if has_resolver_inputs:
+            shutil.copytree(resolver_inputs, root / "node_modules")
         if variant.against is not None:
             apply_overlay(root, variant.against.base_files)
-        for command in (
+        commands = [
             ("init", "-q", "-b", "main"),
             ("config", "user.email", "demo@example.invalid"),
             ("config", "user.name", "Demo"),
-            ("add", "-A"),
+        ]
+        if has_resolver_inputs:
+            commands.append(("config", "core.autocrlf", "false"))
+        commands.append(("add", "-A"))
+        if has_resolver_inputs:
+            commands.append(("add", "--force", "node_modules"))
+        commands.append(
             ("-c", "commit.gpgsign=false", "commit", "-q", "-m", variant.id),
-        ):
+        )
+        for command in commands:
             subprocess.run(["git", *command], cwd=root, check=True, capture_output=True)
         apply_overlay(root, variant.files)
         yield root
