@@ -147,8 +147,10 @@ def test_missing_or_invalid_runtime_metadata_preserves_observation(
         observation = parse_observation(decode_canonical_model(artifact))
         assert observation.runtime.requirement_state == "requirement_invalid"
         diagnostic = result["diagnostics"][0]
-        assert diagnostic["subject"] == "pyproject.toml [project].requires-python is invalid"
-        assert "non-empty PEP 440 range" in diagnostic["remedy"]
+        assert (
+            diagnostic["subject"] == "pyproject.toml Python requirement is invalid or unsupported"
+        )
+        assert "valid PEP 440 range" in diagnostic["remedy"]
 
 
 def test_legacy_invalid_python_requirement_names_metadata_subject() -> None:
@@ -157,7 +159,7 @@ def test_legacy_invalid_python_requirement_names_metadata_subject() -> None:
 
     diagnostic = runtime_diagnostic(RuntimeInfo("python", "3.11.12", "invalid"))
     assert diagnostic is not None
-    assert diagnostic.subject.startswith("pyproject.toml [project].requires-python is invalid")
+    assert diagnostic.subject == "pyproject.toml Python requirement is invalid or unsupported"
     assert "valid PEP 440 range" in diagnostic.remedy
 
 
@@ -169,3 +171,134 @@ def test_invalid_python_runtime_version_does_not_blame_requirement() -> None:
     assert diagnostic is not None
     assert "pyproject.toml [project].requires-python" not in diagnostic.subject
     assert "valid runtime version" in diagnostic.remedy
+
+
+@pytest.mark.parametrize(
+    ("poetry", "normalized"),
+    [
+        ("^3.9", ">=3.9,<4.0"),
+        ("^3.9.1", ">=3.9.1,<4.0"),
+        ("^3", ">=3,<4.0"),
+        (">=3.9", ">=3.9"),
+        ("~=3.9", "~=3.9"),
+    ],
+)
+def test_poetry_caret_normalization_and_pep440_passthrough(
+    tmp_path: Path, poetry: str, normalized: str
+) -> None:
+    from archkeel.analyzer.runtime import python_requirement
+
+    (tmp_path / "pyproject.toml").write_text(
+        f'[tool.poetry.dependencies]\npython = "{poetry}"\n', encoding="utf-8"
+    )
+    assert python_requirement(tmp_path) == (normalized, "declared")
+
+
+def test_pinned_realworld_poetry_runtime_is_read_without_rewriting_source() -> None:
+    from archkeel.analyzer.runtime import python_requirement
+
+    original = (ROOT / "fixtures/K-python-realworld/pyproject.toml").read_bytes()
+    assert python_requirement(ROOT / "fixtures/K-python-realworld") == (">=3.9,<4.0", "declared")
+    assert (ROOT / "fixtures/K-python-realworld/pyproject.toml").read_bytes() == original
+
+
+def test_poetry_caret_runtime_range_includes_lower_and_excludes_next_major() -> None:
+    from archkeel.check.runtime import runtime_diagnostic
+    from archkeel.ir.facts import RuntimeInfo
+
+    required = ">=3.9,<4.0"
+    assert runtime_diagnostic(RuntimeInfo("python", "3.9.0", required)) is None
+    assert runtime_diagnostic(RuntimeInfo("python", "3.8.9", required)) is not None
+    assert runtime_diagnostic(RuntimeInfo("python", "4.0.0", required)) is not None
+
+
+@pytest.mark.parametrize(
+    ("project", "expected"),
+    [
+        ('requires-python = ">=3.10"', (">=3.10", "declared")),
+        ("requires-python = 7", (None, "requirement_invalid")),
+        ('requires-python = "not a range"', ("not a range", "declared")),
+    ],
+)
+def test_project_requirement_has_precedence_over_poetry_fallback(
+    tmp_path: Path, project: str, expected: tuple[str | None, str]
+) -> None:
+    from archkeel.analyzer.runtime import python_requirement
+
+    (tmp_path / "pyproject.toml").write_text(
+        f'[project]\n{project}\n\n[tool.poetry.dependencies]\npython = "^3.9"\n',
+        encoding="utf-8",
+    )
+    assert python_requirement(tmp_path) == expected
+
+
+def test_absent_project_requirement_falls_back_to_valid_poetry_pep440(tmp_path: Path) -> None:
+    from archkeel.analyzer.runtime import python_requirement
+
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "example"\n\n[tool.poetry.dependencies]\npython = ">=3.9"\n',
+        encoding="utf-8",
+    )
+    assert python_requirement(tmp_path) == (">=3.9", "declared")
+
+
+def test_empty_poetry_python_requirement_is_invalid(tmp_path: Path) -> None:
+    from archkeel.analyzer.runtime import python_requirement
+
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.poetry.dependencies]\npython = ""\n', encoding="utf-8"
+    )
+    assert python_requirement(tmp_path) == (None, "requirement_invalid")
+
+
+@pytest.mark.parametrize("unsupported", ["~3.9", "^0.4", "^0.0.4"])
+def test_unsupported_poetry_constraints_remain_blocking(tmp_path: Path, unsupported: str) -> None:
+    from archkeel.analyzer.runtime import python_requirement
+    from archkeel.check.runtime import runtime_diagnostic
+    from archkeel.ir.facts import RuntimeInfo
+
+    (tmp_path / "pyproject.toml").write_text(
+        f'[tool.poetry.dependencies]\npython = "{unsupported}"\n', encoding="utf-8"
+    )
+    required, state = python_requirement(tmp_path)
+    assert required is None
+    assert state == "requirement_invalid"
+    diagnostic = runtime_diagnostic(RuntimeInfo("python", "3.11.0", required, state))
+    assert diagnostic is not None
+    assert "invalid or unsupported" in diagnostic.subject
+    assert "supported positive-major Poetry caret" in diagnostic.remedy
+
+
+def test_poetry_runtime_gate_accepts_supported_caret_and_blocks_unsupported(tmp_path: Path) -> None:
+    supported = _fixture(tmp_path / "supported")
+    (supported / "pyproject.toml").write_text(
+        '[tool.poetry.dependencies]\npython = "^3.9"\n', encoding="utf-8"
+    )
+    (supported / "sample/probe.py").write_text("value = 1\n", encoding="utf-8")
+    code, report = _report(11, supported)
+    assert code == 0
+    assert report["diagnostics"] == []
+    assert report["coverage"]["files_parsed"] == 1
+
+    invalid_project = _fixture(tmp_path / "invalid-project")
+    (invalid_project / "pyproject.toml").write_text(
+        '[project]\nrequires-python = "not a range"\n\n'
+        '[tool.poetry.dependencies]\npython = "^3.9"\n',
+        encoding="utf-8",
+    )
+    (invalid_project / "sample/probe.py").write_text("value = 1\n", encoding="utf-8")
+    code, report = _report(11, invalid_project)
+    assert code == 2
+    assert report["diagnostics"][0]["kind"] == "runtime_mismatch"
+    assert "invalid or unsupported" in report["diagnostics"][0]["subject"]
+
+    unsupported = _fixture(tmp_path / "unsupported")
+    (unsupported / "pyproject.toml").write_text(
+        '[tool.poetry.dependencies]\npython = "~3.9"\n', encoding="utf-8"
+    )
+    (unsupported / "sample/probe.py").write_text("value = 1\n", encoding="utf-8")
+    code, report = _report(11, unsupported)
+    assert code == 2
+    assert report["diagnostics"][0]["kind"] == "runtime_mismatch"
+    assert "invalid or unsupported" in report["diagnostics"][0]["subject"]
+    assert "supported positive-major Poetry caret" in report["diagnostics"][0]["remedy"]

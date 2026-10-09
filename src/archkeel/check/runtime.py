@@ -8,6 +8,11 @@ from packaging.version import InvalidVersion, Version
 
 from archkeel.ir.model import Diagnostic, RuntimeInfo
 
+_PYTHON_REQUIREMENT_REMEDY = (
+    "Use a valid PEP 440 range in [project].requires-python or a supported positive-major "
+    "Poetry caret constraint."
+)
+
 
 def runtime_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
     metadata = _python_metadata_diagnostic(runtime)
@@ -48,9 +53,9 @@ def _python_metadata_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
     if runtime.requirement_state == "requirement_invalid":
         return Diagnostic(
             "runtime_mismatch",
-            "pyproject.toml [project].requires-python is invalid",
-            "The supported Python range is malformed.",
-            "Set [project].requires-python in pyproject.toml to a non-empty PEP 440 range.",
+            "pyproject.toml Python requirement is invalid or unsupported",
+            "The supported Python range cannot be validated.",
+            _PYTHON_REQUIREMENT_REMEDY,
         )
     return None
 
@@ -63,11 +68,11 @@ def _declared_runtime_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
         ranges = _parse_ranges(runtime.required, allow_alternatives=runtime.name != "python")
     except ValueError as error:
         if runtime.name == "python":
-            subject = f"pyproject.toml [project].requires-python is invalid ({error})"
+            subject = "pyproject.toml Python requirement is invalid or unsupported"
         else:
             subject += f" ({error})"
         remedy = (
-            "Set [project].requires-python in pyproject.toml to a valid PEP 440 range."
+            _PYTHON_REQUIREMENT_REMEDY
             if runtime.name == "python"
             else "Correct the declared runtime requirement."
         )

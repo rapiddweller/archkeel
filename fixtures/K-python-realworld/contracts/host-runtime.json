@@ -1,0 +1,1262 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "host-composition",
+      "label": "Application composition",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app",
+        "app.main"
+      ],
+      "responsibilities": [
+        "Create the FastAPI application and include the composed API router."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Environment settings and framework configuration",
+          "through": [
+            "app.core.config"
+          ],
+          "rationale": "Application composition directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Application and database lifecycle",
+          "through": [
+            "app.core.events"
+          ],
+          "rationale": "Application composition directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app",
+        "app.main"
+      ]
+    },
+    {
+      "id": "host-environment",
+      "label": "Environment settings and framework configuration",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.core",
+        "app.core.config",
+        "app.core.settings",
+        "app.core.settings.app",
+        "app.core.settings.base",
+        "app.core.settings.development",
+        "app.core.settings.production",
+        "app.core.settings.test"
+      ],
+      "responsibilities": [
+        "Select environment-specific settings and configure application logging."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Application and database lifecycle",
+          "through": [
+            "app.core.logging"
+          ],
+          "rationale": "Environment settings and framework configuration directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.core",
+        "app.core.config",
+        "app.core.settings",
+        "app.core.settings.app",
+        "app.core.settings.base",
+        "app.core.settings.development",
+        "app.core.settings.production",
+        "app.core.settings.test"
+      ]
+    },
+    {
+      "id": "host-lifecycle",
+      "label": "Application and database lifecycle",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.core.events",
+        "app.core.logging"
+      ],
+      "responsibilities": [
+        "Open and close the database connection pool with application lifecycle hooks."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Environment settings and framework configuration",
+          "through": [
+            "app.core.settings.app"
+          ],
+          "rationale": "Application and database lifecycle directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.core.events",
+        "app.core.logging"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Source imports outside the declared direct child dependencies are outside the Target.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-app",
+          "kind": "module",
+          "qualified_name": "app",
+          "parent_id": "host-composition",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create the FastAPI application and include the composed API router."
+          ],
+          "file_path": "app/__init__.py"
+        },
+        {
+          "id": "module-app-core",
+          "kind": "module",
+          "qualified_name": "app.core",
+          "parent_id": "host-environment",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Select environment-specific settings and configure application logging."
+          ],
+          "file_path": "app/core/__init__.py"
+        },
+        {
+          "id": "module-app-core-config",
+          "kind": "module",
+          "qualified_name": "app.core.config",
+          "parent_id": "host-environment",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Select environment-specific settings and configure application logging."
+          ],
+          "file_path": "app/core/config.py"
+        },
+        {
+          "id": "module-app-core-events",
+          "kind": "module",
+          "qualified_name": "app.core.events",
+          "parent_id": "host-lifecycle",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Open and close the database connection pool with application lifecycle hooks."
+          ],
+          "file_path": "app/core/events.py"
+        },
+        {
+          "id": "module-app-core-logging",
+          "kind": "module",
+          "qualified_name": "app.core.logging",
+          "parent_id": "host-lifecycle",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Open and close the database connection pool with application lifecycle hooks."
+          ],
+          "file_path": "app/core/logging.py"
+        },
+        {
+          "id": "module-app-core-settings",
+          "kind": "module",
+          "qualified_name": "app.core.settings",
+          "parent_id": "host-environment",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Select environment-specific settings and configure application logging."
+          ],
+          "file_path": "app/core/settings/__init__.py"
+        },
+        {
+          "id": "module-app-core-settings-app",
+          "kind": "module",
+          "qualified_name": "app.core.settings.app",
+          "parent_id": "host-environment",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Select environment-specific settings and configure application logging."
+          ],
+          "file_path": "app/core/settings/app.py"
+        },
+        {
+          "id": "module-app-core-settings-base",
+          "kind": "module",
+          "qualified_name": "app.core.settings.base",
+          "parent_id": "host-environment",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Select environment-specific settings and configure application logging."
+          ],
+          "file_path": "app/core/settings/base.py"
+        },
+        {
+          "id": "module-app-core-settings-development",
+          "kind": "module",
+          "qualified_name": "app.core.settings.development",
+          "parent_id": "host-environment",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Select environment-specific settings and configure application logging."
+          ],
+          "file_path": "app/core/settings/development.py"
+        },
+        {
+          "id": "module-app-core-settings-production",
+          "kind": "module",
+          "qualified_name": "app.core.settings.production",
+          "parent_id": "host-environment",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Select environment-specific settings and configure application logging."
+          ],
+          "file_path": "app/core/settings/production.py"
+        },
+        {
+          "id": "module-app-core-settings-test",
+          "kind": "module",
+          "qualified_name": "app.core.settings.test",
+          "parent_id": "host-environment",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Select environment-specific settings and configure application logging."
+          ],
+          "file_path": "app/core/settings/test.py"
+        },
+        {
+          "id": "module-app-main",
+          "kind": "module",
+          "qualified_name": "app.main",
+          "parent_id": "host-composition",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create the FastAPI application and include the composed API router."
+          ],
+          "file_path": "app/main.py"
+        },
+        {
+          "id": "class-app-core-settings-app-appsettings",
+          "kind": "class",
+          "qualified_name": "app.core.settings.app.AppSettings",
+          "parent_id": "module-app-core-settings-app",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Appsettings source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-core-settings-app-appsettings-config",
+          "kind": "class",
+          "qualified_name": "app.core.settings.app.AppSettings.Config",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Config source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-core-settings-base-appenvtypes",
+          "kind": "enum",
+          "qualified_name": "app.core.settings.base.AppEnvTypes",
+          "parent_id": "module-app-core-settings-base",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Appenvtypes source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-core-settings-base-baseappsettings",
+          "kind": "class",
+          "qualified_name": "app.core.settings.base.BaseAppSettings",
+          "parent_id": "module-app-core-settings-base",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Baseappsettings source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-core-settings-base-baseappsettings-config",
+          "kind": "class",
+          "qualified_name": "app.core.settings.base.BaseAppSettings.Config",
+          "parent_id": "class-app-core-settings-base-baseappsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Config source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-core-settings-development-devappsettings",
+          "kind": "class",
+          "qualified_name": "app.core.settings.development.DevAppSettings",
+          "parent_id": "module-app-core-settings-development",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Devappsettings source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-core-settings-development-devappsettings-config",
+          "kind": "class",
+          "qualified_name": "app.core.settings.development.DevAppSettings.Config",
+          "parent_id": "class-app-core-settings-development-devappsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Config source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-core-settings-production-prodappsettings",
+          "kind": "class",
+          "qualified_name": "app.core.settings.production.ProdAppSettings",
+          "parent_id": "module-app-core-settings-production",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Prodappsettings source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-core-settings-production-prodappsettings-config",
+          "kind": "class",
+          "qualified_name": "app.core.settings.production.ProdAppSettings.Config",
+          "parent_id": "class-app-core-settings-production-prodappsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Config source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-core-settings-test-testappsettings",
+          "kind": "class",
+          "qualified_name": "app.core.settings.test.TestAppSettings",
+          "parent_id": "module-app-core-settings-test",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Testappsettings source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "function-app-core-config-get-app-settings",
+          "kind": "function",
+          "qualified_name": "app.core.config.get_app_settings",
+          "parent_id": "module-app-core-config",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get app settings operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "AppSettings"
+          }
+        },
+        {
+          "id": "function-app-core-events-create-start-app-handler",
+          "kind": "function",
+          "qualified_name": "app.core.events.create_start_app_handler",
+          "parent_id": "module-app-core-events",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Create start app handler operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "app",
+                "annotation": "FastAPI",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "settings",
+                "annotation": "AppSettings",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Callable"
+          }
+        },
+        {
+          "id": "function-app-core-events-create-stop-app-handler",
+          "kind": "function",
+          "qualified_name": "app.core.events.create_stop_app_handler",
+          "parent_id": "module-app-core-events",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Create stop app handler operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "app",
+                "annotation": "FastAPI",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Callable"
+          }
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-debug",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.debug",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Debug member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "bool"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-docs-url",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.docs_url",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Docs url member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-openapi-prefix",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.openapi_prefix",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Openapi prefix member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-openapi-url",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.openapi_url",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Openapi url member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-redoc-url",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.redoc_url",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Redoc url member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-title",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.title",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Title member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-version",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.version",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Version member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-database-url",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.database_url",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Database url member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "PostgresDsn"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-max-connection-count",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.max_connection_count",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Max connection count member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-min-connection-count",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.min_connection_count",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Min connection count member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-secret-key",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.secret_key",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Secret key member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "SecretStr"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-api-prefix",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.api_prefix",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Api prefix member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-jwt-token-prefix",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.jwt_token_prefix",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Jwt token prefix member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-allowed-hosts",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.allowed_hosts",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Allowed hosts member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "List[str]"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-logging-level",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.logging_level",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Logging level member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "attribute-app-core-settings-app-appsettings-loggers",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.app.AppSettings.loggers",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Loggers member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Tuple[str, str]"
+        },
+        {
+          "id": "method-app-core-settings-app-appsettings-fastapi-kwargs",
+          "kind": "method",
+          "qualified_name": "app.core.settings.app.AppSettings.fastapi_kwargs",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Fastapi kwargs operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Dict[str, Any]"
+          }
+        },
+        {
+          "id": "method-app-core-settings-app-appsettings-configure-logging",
+          "kind": "method",
+          "qualified_name": "app.core.settings.app.AppSettings.configure_logging",
+          "parent_id": "class-app-core-settings-app-appsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Configure logging operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "enum_literal-app-core-settings-base-appenvtypes-prod",
+          "kind": "enum_literal",
+          "qualified_name": "app.core.settings.base.AppEnvTypes.prod",
+          "parent_id": "class-app-core-settings-base-appenvtypes",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Prod member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "enum_literal-app-core-settings-base-appenvtypes-dev",
+          "kind": "enum_literal",
+          "qualified_name": "app.core.settings.base.AppEnvTypes.dev",
+          "parent_id": "class-app-core-settings-base-appenvtypes",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Dev member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "enum_literal-app-core-settings-base-appenvtypes-test",
+          "kind": "enum_literal",
+          "qualified_name": "app.core.settings.base.AppEnvTypes.test",
+          "parent_id": "class-app-core-settings-base-appenvtypes",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Test member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-core-settings-base-baseappsettings-app-env",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.base.BaseAppSettings.app_env",
+          "parent_id": "class-app-core-settings-base-baseappsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the App env member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "AppEnvTypes"
+        },
+        {
+          "id": "attribute-app-core-settings-development-devappsettings-debug",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.development.DevAppSettings.debug",
+          "parent_id": "class-app-core-settings-development-devappsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Debug member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "bool"
+        },
+        {
+          "id": "attribute-app-core-settings-development-devappsettings-title",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.development.DevAppSettings.title",
+          "parent_id": "class-app-core-settings-development-devappsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Title member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-core-settings-development-devappsettings-logging-level",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.development.DevAppSettings.logging_level",
+          "parent_id": "class-app-core-settings-development-devappsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Logging level member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "attribute-app-core-settings-test-testappsettings-debug",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.test.TestAppSettings.debug",
+          "parent_id": "class-app-core-settings-test-testappsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Debug member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "bool"
+        },
+        {
+          "id": "attribute-app-core-settings-test-testappsettings-title",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.test.TestAppSettings.title",
+          "parent_id": "class-app-core-settings-test-testappsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Title member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-core-settings-test-testappsettings-secret-key",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.test.TestAppSettings.secret_key",
+          "parent_id": "class-app-core-settings-test-testappsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Secret key member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "SecretStr"
+        },
+        {
+          "id": "attribute-app-core-settings-test-testappsettings-database-url",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.test.TestAppSettings.database_url",
+          "parent_id": "class-app-core-settings-test-testappsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Database url member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "PostgresDsn"
+        },
+        {
+          "id": "attribute-app-core-settings-test-testappsettings-max-connection-count",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.test.TestAppSettings.max_connection_count",
+          "parent_id": "class-app-core-settings-test-testappsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Max connection count member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "attribute-app-core-settings-test-testappsettings-min-connection-count",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.test.TestAppSettings.min_connection_count",
+          "parent_id": "class-app-core-settings-test-testappsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Min connection count member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "attribute-app-core-settings-test-testappsettings-logging-level",
+          "kind": "attribute",
+          "qualified_name": "app.core.settings.test.TestAppSettings.logging_level",
+          "parent_id": "class-app-core-settings-test-testappsettings",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Logging level member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "function-app-main-get-application",
+          "kind": "function",
+          "qualified_name": "app.main.get_application",
+          "parent_id": "module-app-main",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get application operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "FastAPI"
+          }
+        }
+      ],
+      "relationships": [],
+      "scopes": [
+        {
+          "scope_id": "class-app-core-settings-base-appenvtypes",
+          "mode": "closed",
+          "entity_kinds": [
+            "enum_literal"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.core.settings.base.AppEnvTypes.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-core-settings-test-testappsettings",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.core.settings.test.TestAppSettings.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

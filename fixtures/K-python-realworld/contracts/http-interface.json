@@ -1,0 +1,2195 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "http-composition",
+      "label": "HTTP route composition",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.api",
+        "app.api.routes",
+        "app.api.routes.api",
+        "app.api.routes.articles",
+        "app.api.routes.articles.api"
+      ],
+      "responsibilities": [
+        "Assemble the endpoint routers under the configured API prefix."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Comment and tag endpoints",
+          "through": [
+            "app.api.routes.comments",
+            "app.api.routes.tags"
+          ],
+          "rationale": "HTTP route composition directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Account and current-user endpoints",
+          "through": [
+            "app.api.routes.authentication",
+            "app.api.routes.users"
+          ],
+          "rationale": "HTTP route composition directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Profile and follow endpoints",
+          "through": [
+            "app.api.routes.profiles"
+          ],
+          "rationale": "HTTP route composition directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Article, feed, and favorite endpoints",
+          "through": [
+            "app.api.routes.articles.articles_common",
+            "app.api.routes.articles.articles_resource"
+          ],
+          "rationale": "HTTP route composition directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.api",
+        "app.api.routes",
+        "app.api.routes.api",
+        "app.api.routes.articles",
+        "app.api.routes.articles.api"
+      ]
+    },
+    {
+      "id": "http-identity",
+      "label": "Account and current-user endpoints",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.api.dependencies.authentication",
+        "app.api.routes.authentication",
+        "app.api.routes.users"
+      ],
+      "responsibilities": [
+        "Accept login and registration requests and return the current-user response contract."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Request dependencies and error mapping",
+          "through": [
+            "app.api.dependencies.database"
+          ],
+          "rationale": "Account and current-user endpoints directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.api.dependencies.authentication",
+        "app.api.routes.authentication",
+        "app.api.routes.users"
+      ]
+    },
+    {
+      "id": "http-profiles",
+      "label": "Profile and follow endpoints",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.api.dependencies.profiles",
+        "app.api.routes.profiles"
+      ],
+      "responsibilities": [
+        "Read public profiles and handle follow and unfollow requests."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Account and current-user endpoints",
+          "through": [
+            "app.api.dependencies.authentication"
+          ],
+          "rationale": "Profile and follow endpoints directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Request dependencies and error mapping",
+          "through": [
+            "app.api.dependencies.database"
+          ],
+          "rationale": "Profile and follow endpoints directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.api.dependencies.profiles",
+        "app.api.routes.profiles"
+      ]
+    },
+    {
+      "id": "http-publishing",
+      "label": "Article, feed, and favorite endpoints",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.api.dependencies.articles",
+        "app.api.routes.articles.articles_common",
+        "app.api.routes.articles.articles_resource"
+      ],
+      "responsibilities": [
+        "Handle article CRUD, feed, and favorite endpoints with source-declared request filters."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Account and current-user endpoints",
+          "through": [
+            "app.api.dependencies.authentication"
+          ],
+          "rationale": "Article, feed, and favorite endpoints directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Request dependencies and error mapping",
+          "through": [
+            "app.api.dependencies.database"
+          ],
+          "rationale": "Article, feed, and favorite endpoints directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.api.dependencies.articles",
+        "app.api.routes.articles.articles_common",
+        "app.api.routes.articles.articles_resource"
+      ]
+    },
+    {
+      "id": "http-comments-tags",
+      "label": "Comment and tag endpoints",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.api.dependencies.comments",
+        "app.api.routes.comments",
+        "app.api.routes.tags"
+      ],
+      "responsibilities": [
+        "Handle article comments and expose available tags."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Account and current-user endpoints",
+          "through": [
+            "app.api.dependencies.authentication"
+          ],
+          "rationale": "Comment and tag endpoints directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Article, feed, and favorite endpoints",
+          "through": [
+            "app.api.dependencies.articles"
+          ],
+          "rationale": "Comment and tag endpoints directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Request dependencies and error mapping",
+          "through": [
+            "app.api.dependencies.database"
+          ],
+          "rationale": "Comment and tag endpoints directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.api.dependencies.comments",
+        "app.api.routes.comments",
+        "app.api.routes.tags"
+      ]
+    },
+    {
+      "id": "http-shared-boundary",
+      "label": "Request dependencies and error mapping",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.api.dependencies",
+        "app.api.dependencies.database",
+        "app.api.errors",
+        "app.api.errors.http_error",
+        "app.api.errors.validation_error"
+      ],
+      "responsibilities": [
+        "Resolve database repositories and shared auth inputs, then map HTTP and validation errors."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "app.api.dependencies",
+        "app.api.dependencies.database",
+        "app.api.errors",
+        "app.api.errors.http_error",
+        "app.api.errors.validation_error"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Source imports outside the declared direct child dependencies are outside the Target.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-app-api",
+          "kind": "module",
+          "qualified_name": "app.api",
+          "parent_id": "http-composition",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Assemble the endpoint routers under the configured API prefix."
+          ],
+          "file_path": "app/api/__init__.py"
+        },
+        {
+          "id": "module-app-api-dependencies",
+          "kind": "module",
+          "qualified_name": "app.api.dependencies",
+          "parent_id": "http-shared-boundary",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Resolve database repositories and shared auth inputs, then map HTTP and validation errors."
+          ],
+          "file_path": "app/api/dependencies/__init__.py"
+        },
+        {
+          "id": "module-app-api-dependencies-articles",
+          "kind": "module",
+          "qualified_name": "app.api.dependencies.articles",
+          "parent_id": "http-publishing",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle article CRUD, feed, and favorite endpoints with source-declared request filters."
+          ],
+          "file_path": "app/api/dependencies/articles.py"
+        },
+        {
+          "id": "module-app-api-dependencies-authentication",
+          "kind": "module",
+          "qualified_name": "app.api.dependencies.authentication",
+          "parent_id": "http-identity",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Accept login and registration requests and return the current-user response contract."
+          ],
+          "file_path": "app/api/dependencies/authentication.py"
+        },
+        {
+          "id": "module-app-api-dependencies-comments",
+          "kind": "module",
+          "qualified_name": "app.api.dependencies.comments",
+          "parent_id": "http-comments-tags",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle article comments and expose available tags."
+          ],
+          "file_path": "app/api/dependencies/comments.py"
+        },
+        {
+          "id": "module-app-api-dependencies-database",
+          "kind": "module",
+          "qualified_name": "app.api.dependencies.database",
+          "parent_id": "http-shared-boundary",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Resolve database repositories and shared auth inputs, then map HTTP and validation errors."
+          ],
+          "file_path": "app/api/dependencies/database.py"
+        },
+        {
+          "id": "module-app-api-dependencies-profiles",
+          "kind": "module",
+          "qualified_name": "app.api.dependencies.profiles",
+          "parent_id": "http-profiles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Read public profiles and handle follow and unfollow requests."
+          ],
+          "file_path": "app/api/dependencies/profiles.py"
+        },
+        {
+          "id": "module-app-api-errors",
+          "kind": "module",
+          "qualified_name": "app.api.errors",
+          "parent_id": "http-shared-boundary",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Resolve database repositories and shared auth inputs, then map HTTP and validation errors."
+          ],
+          "file_path": "app/api/errors/__init__.py"
+        },
+        {
+          "id": "module-app-api-errors-http-error",
+          "kind": "module",
+          "qualified_name": "app.api.errors.http_error",
+          "parent_id": "http-shared-boundary",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Resolve database repositories and shared auth inputs, then map HTTP and validation errors."
+          ],
+          "file_path": "app/api/errors/http_error.py"
+        },
+        {
+          "id": "module-app-api-errors-validation-error",
+          "kind": "module",
+          "qualified_name": "app.api.errors.validation_error",
+          "parent_id": "http-shared-boundary",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Resolve database repositories and shared auth inputs, then map HTTP and validation errors."
+          ],
+          "file_path": "app/api/errors/validation_error.py"
+        },
+        {
+          "id": "module-app-api-routes",
+          "kind": "module",
+          "qualified_name": "app.api.routes",
+          "parent_id": "http-composition",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Assemble the endpoint routers under the configured API prefix."
+          ],
+          "file_path": "app/api/routes/__init__.py"
+        },
+        {
+          "id": "module-app-api-routes-api",
+          "kind": "module",
+          "qualified_name": "app.api.routes.api",
+          "parent_id": "http-composition",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Assemble the endpoint routers under the configured API prefix."
+          ],
+          "file_path": "app/api/routes/api.py"
+        },
+        {
+          "id": "module-app-api-routes-articles",
+          "kind": "module",
+          "qualified_name": "app.api.routes.articles",
+          "parent_id": "http-composition",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Assemble the endpoint routers under the configured API prefix."
+          ],
+          "file_path": "app/api/routes/articles/__init__.py"
+        },
+        {
+          "id": "module-app-api-routes-articles-api",
+          "kind": "module",
+          "qualified_name": "app.api.routes.articles.api",
+          "parent_id": "http-composition",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Assemble the endpoint routers under the configured API prefix."
+          ],
+          "file_path": "app/api/routes/articles/api.py"
+        },
+        {
+          "id": "module-app-api-routes-articles-articles-common",
+          "kind": "module",
+          "qualified_name": "app.api.routes.articles.articles_common",
+          "parent_id": "http-publishing",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle article CRUD, feed, and favorite endpoints with source-declared request filters."
+          ],
+          "file_path": "app/api/routes/articles/articles_common.py"
+        },
+        {
+          "id": "module-app-api-routes-articles-articles-resource",
+          "kind": "module",
+          "qualified_name": "app.api.routes.articles.articles_resource",
+          "parent_id": "http-publishing",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle article CRUD, feed, and favorite endpoints with source-declared request filters."
+          ],
+          "file_path": "app/api/routes/articles/articles_resource.py"
+        },
+        {
+          "id": "module-app-api-routes-authentication",
+          "kind": "module",
+          "qualified_name": "app.api.routes.authentication",
+          "parent_id": "http-identity",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Accept login and registration requests and return the current-user response contract."
+          ],
+          "file_path": "app/api/routes/authentication.py"
+        },
+        {
+          "id": "module-app-api-routes-comments",
+          "kind": "module",
+          "qualified_name": "app.api.routes.comments",
+          "parent_id": "http-comments-tags",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle article comments and expose available tags."
+          ],
+          "file_path": "app/api/routes/comments.py"
+        },
+        {
+          "id": "module-app-api-routes-profiles",
+          "kind": "module",
+          "qualified_name": "app.api.routes.profiles",
+          "parent_id": "http-profiles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Read public profiles and handle follow and unfollow requests."
+          ],
+          "file_path": "app/api/routes/profiles.py"
+        },
+        {
+          "id": "module-app-api-routes-tags",
+          "kind": "module",
+          "qualified_name": "app.api.routes.tags",
+          "parent_id": "http-comments-tags",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle article comments and expose available tags."
+          ],
+          "file_path": "app/api/routes/tags.py"
+        },
+        {
+          "id": "module-app-api-routes-users",
+          "kind": "module",
+          "qualified_name": "app.api.routes.users",
+          "parent_id": "http-identity",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Accept login and registration requests and return the current-user response contract."
+          ],
+          "file_path": "app/api/routes/users.py"
+        },
+        {
+          "id": "class-app-api-dependencies-authentication-rwapikeyheader",
+          "kind": "class",
+          "qualified_name": "app.api.dependencies.authentication.RWAPIKeyHeader",
+          "parent_id": "module-app-api-dependencies-authentication",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Rwapikeyheader source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "function-app-api-dependencies-articles-get-articles-filters",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.articles.get_articles_filters",
+          "parent_id": "module-app-api-dependencies-articles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get articles filters operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "tag",
+                "annotation": "Optional[str]",
+                "kind": "positional",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "author",
+                "annotation": "Optional[str]",
+                "kind": "positional",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "favorited",
+                "annotation": "Optional[str]",
+                "kind": "positional",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "limit",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Query(DEFAULT_ARTICLES_LIMIT, ge=1)"
+              },
+              {
+                "name": "offset",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Query(DEFAULT_ARTICLES_OFFSET, ge=0)"
+              }
+            ],
+            "returns": "ArticlesFilters"
+          }
+        },
+        {
+          "id": "function-app-api-dependencies-articles-get-article-by-slug-from-path",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.articles.get_article_by_slug_from_path",
+          "parent_id": "module-app-api-dependencies-articles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get article by slug from path operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "slug",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Path(..., min_length=1)"
+              },
+              {
+                "name": "user",
+                "annotation": "Optional[User]",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_current_user_authorizer(required=False))"
+              },
+              {
+                "name": "articles_repo",
+                "annotation": "ArticlesRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(ArticlesRepository))"
+              }
+            ],
+            "returns": "Article"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-dependencies-articles-check-article-modification-permissions",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.articles.check_article_modification_permissions",
+          "parent_id": "module-app-api-dependencies-articles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Check article modification permissions operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "current_article",
+                "annotation": "Article",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_article_by_slug_from_path)"
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_current_user_authorizer())"
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "method-app-api-dependencies-authentication-rwapikeyheader-call",
+          "kind": "method",
+          "qualified_name": "app.api.dependencies.authentication.RWAPIKeyHeader.__call__",
+          "parent_id": "class-app-api-dependencies-authentication-rwapikeyheader",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Call operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "request",
+                "annotation": "requests.Request",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Optional[str]"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-dependencies-authentication-get-current-user-authorizer",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.authentication.get_current_user_authorizer",
+          "parent_id": "module-app-api-dependencies-authentication",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get current user authorizer operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "required",
+                "annotation": "bool",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "True"
+              }
+            ],
+            "returns": "Callable"
+          }
+        },
+        {
+          "id": "function-app-api-dependencies-authentication-get-authorization-header-retriever",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.authentication._get_authorization_header_retriever",
+          "parent_id": "module-app-api-dependencies-authentication",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get authorization header retriever operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "required",
+                "annotation": "bool",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "True"
+              }
+            ],
+            "returns": "Callable"
+          }
+        },
+        {
+          "id": "function-app-api-dependencies-authentication-get-authorization-header",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.authentication._get_authorization_header",
+          "parent_id": "module-app-api-dependencies-authentication",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get authorization header operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "api_key",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Security(RWAPIKeyHeader(name=HEADER_KEY))"
+              },
+              {
+                "name": "settings",
+                "annotation": "AppSettings",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_app_settings)"
+              }
+            ],
+            "returns": "str"
+          }
+        },
+        {
+          "id": "function-app-api-dependencies-authentication-get-authorization-header-optional",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.authentication._get_authorization_header_optional",
+          "parent_id": "module-app-api-dependencies-authentication",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get authorization header optional operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "authorization",
+                "annotation": "Optional[str]",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Security(RWAPIKeyHeader(name=HEADER_KEY, auto_error=False))"
+              },
+              {
+                "name": "settings",
+                "annotation": "AppSettings",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_app_settings)"
+              }
+            ],
+            "returns": "str"
+          }
+        },
+        {
+          "id": "function-app-api-dependencies-authentication-get-current-user",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.authentication._get_current_user",
+          "parent_id": "module-app-api-dependencies-authentication",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get current user operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "users_repo",
+                "annotation": "UsersRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(UsersRepository))"
+              },
+              {
+                "name": "token",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(_get_authorization_header_retriever())"
+              },
+              {
+                "name": "settings",
+                "annotation": "AppSettings",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_app_settings)"
+              }
+            ],
+            "returns": "User"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-dependencies-authentication-get-current-user-optional",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.authentication._get_current_user_optional",
+          "parent_id": "module-app-api-dependencies-authentication",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get current user optional operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "repo",
+                "annotation": "UsersRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(UsersRepository))"
+              },
+              {
+                "name": "token",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(_get_authorization_header_retriever(required=False))"
+              },
+              {
+                "name": "settings",
+                "annotation": "AppSettings",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_app_settings)"
+              }
+            ],
+            "returns": "Optional[User]"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-dependencies-comments-get-comment-by-id-from-path",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.comments.get_comment_by_id_from_path",
+          "parent_id": "module-app-api-dependencies-comments",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get comment by id from path operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "comment_id",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Path(..., ge=1)"
+              },
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(articles.get_article_by_slug_from_path)"
+              },
+              {
+                "name": "user",
+                "annotation": "Optional[User]",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(authentication.get_current_user_authorizer(required=False))"
+              },
+              {
+                "name": "comments_repo",
+                "annotation": "CommentsRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(database.get_repository(CommentsRepository))"
+              }
+            ],
+            "returns": "Comment"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-dependencies-comments-check-comment-modification-permissions",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.comments.check_comment_modification_permissions",
+          "parent_id": "module-app-api-dependencies-comments",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Check comment modification permissions operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "comment",
+                "annotation": "Comment",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_comment_by_id_from_path)"
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(authentication.get_current_user_authorizer())"
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "function-app-api-dependencies-database-get-db-pool",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.database._get_db_pool",
+          "parent_id": "module-app-api-dependencies-database",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get db pool operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "request",
+                "annotation": "Request",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Pool"
+          }
+        },
+        {
+          "id": "function-app-api-dependencies-database-get-connection-from-pool",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.database._get_connection_from_pool",
+          "parent_id": "module-app-api-dependencies-database",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get connection from pool operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "pool",
+                "annotation": "Pool",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(_get_db_pool)"
+              }
+            ],
+            "returns": "AsyncGenerator[Connection, None]"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-dependencies-database-get-repository",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.database.get_repository",
+          "parent_id": "module-app-api-dependencies-database",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get repository operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "repo_type",
+                "annotation": "Type[BaseRepository]",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Callable[[Connection], BaseRepository]"
+          }
+        },
+        {
+          "id": "function-app-api-dependencies-profiles-get-profile-by-username-from-path",
+          "kind": "function",
+          "qualified_name": "app.api.dependencies.profiles.get_profile_by_username_from_path",
+          "parent_id": "module-app-api-dependencies-profiles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get profile by username from path operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "username",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Path(..., min_length=1)"
+              },
+              {
+                "name": "user",
+                "annotation": "Optional[User]",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_current_user_authorizer(required=False))"
+              },
+              {
+                "name": "profiles_repo",
+                "annotation": "ProfilesRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(ProfilesRepository))"
+              }
+            ],
+            "returns": "Profile"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-errors-http-error-http-error-handler",
+          "kind": "function",
+          "qualified_name": "app.api.errors.http_error.http_error_handler",
+          "parent_id": "module-app-api-errors-http-error",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Http error handler operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "_",
+                "annotation": "Request",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "exc",
+                "annotation": "HTTPException",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "JSONResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-errors-validation-error-http422-error-handler",
+          "kind": "function",
+          "qualified_name": "app.api.errors.validation_error.http422_error_handler",
+          "parent_id": "module-app-api-errors-validation-error",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Http422 error handler operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "_",
+                "annotation": "Request",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "exc",
+                "annotation": "Union[RequestValidationError, ValidationError]",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "JSONResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-articles-articles-common-get-articles-for-user-feed",
+          "kind": "function",
+          "qualified_name": "app.api.routes.articles.articles_common.get_articles_for_user_feed",
+          "parent_id": "module-app-api-routes-articles-articles-common",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get articles for user feed operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "limit",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Query(DEFAULT_ARTICLES_LIMIT, ge=1)"
+              },
+              {
+                "name": "offset",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Query(DEFAULT_ARTICLES_OFFSET, ge=0)"
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_current_user_authorizer())"
+              },
+              {
+                "name": "articles_repo",
+                "annotation": "ArticlesRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(ArticlesRepository))"
+              }
+            ],
+            "returns": "ListOfArticlesInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-articles-articles-common-mark-article-as-favorite",
+          "kind": "function",
+          "qualified_name": "app.api.routes.articles.articles_common.mark_article_as_favorite",
+          "parent_id": "module-app-api-routes-articles-articles-common",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Mark article as favorite operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_article_by_slug_from_path)"
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_current_user_authorizer())"
+              },
+              {
+                "name": "articles_repo",
+                "annotation": "ArticlesRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(ArticlesRepository))"
+              }
+            ],
+            "returns": "ArticleInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-articles-articles-common-remove-article-from-favorites",
+          "kind": "function",
+          "qualified_name": "app.api.routes.articles.articles_common.remove_article_from_favorites",
+          "parent_id": "module-app-api-routes-articles-articles-common",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Remove article from favorites operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_article_by_slug_from_path)"
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_current_user_authorizer())"
+              },
+              {
+                "name": "articles_repo",
+                "annotation": "ArticlesRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(ArticlesRepository))"
+              }
+            ],
+            "returns": "ArticleInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-articles-articles-resource-list-articles",
+          "kind": "function",
+          "qualified_name": "app.api.routes.articles.articles_resource.list_articles",
+          "parent_id": "module-app-api-routes-articles-articles-resource",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the List articles operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "articles_filters",
+                "annotation": "ArticlesFilters",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_articles_filters)"
+              },
+              {
+                "name": "user",
+                "annotation": "Optional[User]",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_current_user_authorizer(required=False))"
+              },
+              {
+                "name": "articles_repo",
+                "annotation": "ArticlesRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(ArticlesRepository))"
+              }
+            ],
+            "returns": "ListOfArticlesInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-articles-articles-resource-create-new-article",
+          "kind": "function",
+          "qualified_name": "app.api.routes.articles.articles_resource.create_new_article",
+          "parent_id": "module-app-api-routes-articles-articles-resource",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Create new article operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "article_create",
+                "annotation": "ArticleInCreate",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Body(..., embed=True, alias='article')"
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_current_user_authorizer())"
+              },
+              {
+                "name": "articles_repo",
+                "annotation": "ArticlesRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(ArticlesRepository))"
+              }
+            ],
+            "returns": "ArticleInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-articles-articles-resource-retrieve-article-by-slug",
+          "kind": "function",
+          "qualified_name": "app.api.routes.articles.articles_resource.retrieve_article_by_slug",
+          "parent_id": "module-app-api-routes-articles-articles-resource",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Retrieve article by slug operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_article_by_slug_from_path)"
+              }
+            ],
+            "returns": "ArticleInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-articles-articles-resource-update-article-by-slug",
+          "kind": "function",
+          "qualified_name": "app.api.routes.articles.articles_resource.update_article_by_slug",
+          "parent_id": "module-app-api-routes-articles-articles-resource",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Update article by slug operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "article_update",
+                "annotation": "ArticleInUpdate",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Body(..., embed=True, alias='article')"
+              },
+              {
+                "name": "current_article",
+                "annotation": "Article",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_article_by_slug_from_path)"
+              },
+              {
+                "name": "articles_repo",
+                "annotation": "ArticlesRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(ArticlesRepository))"
+              }
+            ],
+            "returns": "ArticleInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-articles-articles-resource-delete-article-by-slug",
+          "kind": "function",
+          "qualified_name": "app.api.routes.articles.articles_resource.delete_article_by_slug",
+          "parent_id": "module-app-api-routes-articles-articles-resource",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Delete article by slug operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_article_by_slug_from_path)"
+              },
+              {
+                "name": "articles_repo",
+                "annotation": "ArticlesRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(ArticlesRepository))"
+              }
+            ],
+            "returns": "None"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-authentication-login",
+          "kind": "function",
+          "qualified_name": "app.api.routes.authentication.login",
+          "parent_id": "module-app-api-routes-authentication",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Login operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user_login",
+                "annotation": "UserInLogin",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Body(..., embed=True, alias='user')"
+              },
+              {
+                "name": "users_repo",
+                "annotation": "UsersRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(UsersRepository))"
+              },
+              {
+                "name": "settings",
+                "annotation": "AppSettings",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_app_settings)"
+              }
+            ],
+            "returns": "UserInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-authentication-register",
+          "kind": "function",
+          "qualified_name": "app.api.routes.authentication.register",
+          "parent_id": "module-app-api-routes-authentication",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Register operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user_create",
+                "annotation": "UserInCreate",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Body(..., embed=True, alias='user')"
+              },
+              {
+                "name": "users_repo",
+                "annotation": "UsersRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(UsersRepository))"
+              },
+              {
+                "name": "settings",
+                "annotation": "AppSettings",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_app_settings)"
+              }
+            ],
+            "returns": "UserInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-comments-list-comments-for-article",
+          "kind": "function",
+          "qualified_name": "app.api.routes.comments.list_comments_for_article",
+          "parent_id": "module-app-api-routes-comments",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the List comments for article operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_article_by_slug_from_path)"
+              },
+              {
+                "name": "user",
+                "annotation": "Optional[User]",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_current_user_authorizer(required=False))"
+              },
+              {
+                "name": "comments_repo",
+                "annotation": "CommentsRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(CommentsRepository))"
+              }
+            ],
+            "returns": "ListOfCommentsInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-comments-create-comment-for-article",
+          "kind": "function",
+          "qualified_name": "app.api.routes.comments.create_comment_for_article",
+          "parent_id": "module-app-api-routes-comments",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Create comment for article operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "comment_create",
+                "annotation": "CommentInCreate",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Body(..., embed=True, alias='comment')"
+              },
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_article_by_slug_from_path)"
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_current_user_authorizer())"
+              },
+              {
+                "name": "comments_repo",
+                "annotation": "CommentsRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(CommentsRepository))"
+              }
+            ],
+            "returns": "CommentInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-comments-delete-comment-from-article",
+          "kind": "function",
+          "qualified_name": "app.api.routes.comments.delete_comment_from_article",
+          "parent_id": "module-app-api-routes-comments",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Delete comment from article operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "comment",
+                "annotation": "Comment",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_comment_by_id_from_path)"
+              },
+              {
+                "name": "comments_repo",
+                "annotation": "CommentsRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(CommentsRepository))"
+              }
+            ],
+            "returns": "None"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-profiles-retrieve-profile-by-username",
+          "kind": "function",
+          "qualified_name": "app.api.routes.profiles.retrieve_profile_by_username",
+          "parent_id": "module-app-api-routes-profiles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Retrieve profile by username operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "profile",
+                "annotation": "Profile",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_profile_by_username_from_path)"
+              }
+            ],
+            "returns": "ProfileInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-profiles-follow-for-user",
+          "kind": "function",
+          "qualified_name": "app.api.routes.profiles.follow_for_user",
+          "parent_id": "module-app-api-routes-profiles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Follow for user operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "profile",
+                "annotation": "Profile",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_profile_by_username_from_path)"
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_current_user_authorizer())"
+              },
+              {
+                "name": "profiles_repo",
+                "annotation": "ProfilesRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(ProfilesRepository))"
+              }
+            ],
+            "returns": "ProfileInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-profiles-unsubscribe-from-user",
+          "kind": "function",
+          "qualified_name": "app.api.routes.profiles.unsubscribe_from_user",
+          "parent_id": "module-app-api-routes-profiles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Unsubscribe from user operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "profile",
+                "annotation": "Profile",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_profile_by_username_from_path)"
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_current_user_authorizer())"
+              },
+              {
+                "name": "profiles_repo",
+                "annotation": "ProfilesRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(ProfilesRepository))"
+              }
+            ],
+            "returns": "ProfileInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-tags-get-all-tags",
+          "kind": "function",
+          "qualified_name": "app.api.routes.tags.get_all_tags",
+          "parent_id": "module-app-api-routes-tags",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Get all tags operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "tags_repo",
+                "annotation": "TagsRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(TagsRepository))"
+              }
+            ],
+            "returns": "TagsInList"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-users-retrieve-current-user",
+          "kind": "function",
+          "qualified_name": "app.api.routes.users.retrieve_current_user",
+          "parent_id": "module-app-api-routes-users",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Retrieve current user operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_current_user_authorizer())"
+              },
+              {
+                "name": "settings",
+                "annotation": "AppSettings",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_app_settings)"
+              }
+            ],
+            "returns": "UserInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-api-routes-users-update-current-user",
+          "kind": "function",
+          "qualified_name": "app.api.routes.users.update_current_user",
+          "parent_id": "module-app-api-routes-users",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Update current user operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user_update",
+                "annotation": "UserInUpdate",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Body(..., embed=True, alias='user')"
+              },
+              {
+                "name": "current_user",
+                "annotation": "User",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_current_user_authorizer())"
+              },
+              {
+                "name": "users_repo",
+                "annotation": "UsersRepository",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_repository(UsersRepository))"
+              },
+              {
+                "name": "settings",
+                "annotation": "AppSettings",
+                "kind": "positional",
+                "default_known": true,
+                "default": "Depends(get_app_settings)"
+              }
+            ],
+            "returns": "UserInResponse"
+          },
+          "modifiers": [
+            "async"
+          ]
+        }
+      ],
+      "relationships": [],
+      "scopes": [
+        {
+          "scope_id": "class-app-api-dependencies-authentication-rwapikeyheader",
+          "mode": "closed",
+          "entity_kinds": [
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.api.dependencies.authentication.RWAPIKeyHeader.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

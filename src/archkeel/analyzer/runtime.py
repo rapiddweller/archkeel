@@ -6,9 +6,12 @@
 import hashlib
 import importlib.metadata
 import platform
+import re
 import tomllib
 from pathlib import Path
 from typing import Literal
+
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
 
 from archkeel.ir.facts import AnalyzerInfo, RuntimeInfo, RuntimeRequirementState
 
@@ -76,14 +79,37 @@ def python_requirement(root: Path) -> tuple[str | None, RuntimeRequirementState]
     try:
         if not path.resolve().is_relative_to(root.resolve()):
             return None, "metadata_invalid"
-        project = tomllib.loads(path.read_text(encoding="utf-8")).get("project")
+        metadata = tomllib.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return None, "metadata_missing"
     except (OSError, ValueError):
         return None, "metadata_invalid"
-    if not isinstance(project, dict) or "requires-python" not in project:
-        return None, "requirement_missing"
-    required = project["requires-python"]
+    project = metadata.get("project")
+    if isinstance(project, dict) and "requires-python" in project:
+        required = project["requires-python"]
+    else:
+        tool = metadata.get("tool")
+        poetry = tool.get("poetry") if isinstance(tool, dict) else None
+        dependencies = poetry.get("dependencies") if isinstance(poetry, dict) else None
+        if not isinstance(dependencies, dict) or "python" not in dependencies:
+            return None, "requirement_missing"
+        required = dependencies["python"]
+        if not isinstance(required, str) or not required.strip():
+            return None, "requirement_invalid"
+        required = _normalize_poetry_caret(required)
+        try:
+            SpecifierSet(required)
+        except InvalidSpecifier:
+            return None, "requirement_invalid"
     if not isinstance(required, str) or not required.strip():
         return None, "requirement_invalid"
     return required, "declared"
+
+
+def _normalize_poetry_caret(required: str) -> str:
+    match = re.fullmatch(r"\^([1-9]\d*(?:\.\d+){0,2})", required.strip())
+    if match is None:
+        return required
+    version = match.group(1)
+    major = int(version.split(".", 1)[0])
+    return f">={version},<{major + 1}.0"
