@@ -1,0 +1,2049 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "application",
+      "label": "Compose environment, localization, routes and app shell",
+      "role": "component",
+      "packages": [
+        "compass.config",
+        "compass.routing"
+      ],
+      "public": [
+        "compass.config.assets",
+        "compass.config.dependencies",
+        "compass.main",
+        "compass.main_development",
+        "compass.main_staging",
+        "compass.routing.router",
+        "compass.routing.routes"
+      ],
+      "responsibilities": [
+        "Select the development or remote provider graph and build the localized routed app."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "presentation",
+          "through": [
+            "compass.ui.auth.login.view_models.login_viewmodel",
+            "compass.ui.auth.login.widgets.login_screen",
+            "compass.ui.auth.logout.view_models.logout_viewmodel",
+            "compass.ui.home.widgets.home_screen_container",
+            "compass.ui.search_form.view_models.search_form_viewmodel",
+            "compass.ui.search_form.widgets.search_form_screen",
+            "compass.ui.results.view_models.results_viewmodel",
+            "compass.ui.results.widgets.results_screen",
+            "compass.ui.activities.view_models.activities_viewmodel",
+            "compass.ui.activities.widgets.activities_screen",
+            "compass.ui.booking.view_models.booking_viewmodel",
+            "compass.ui.booking.widgets.booking_screen",
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.theme",
+            "compass.ui.core.ui.scroll_behavior"
+          ],
+          "rationale": "Construct route screens and feature state, and provide the app shell’s localization, theme and scroll behavior.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "data",
+          "through": [
+            "compass.data.repositories.activity.activity_repository",
+            "compass.data.repositories.activity.activity_repository_local",
+            "compass.data.repositories.activity.activity_repository_remote",
+            "compass.data.repositories.auth.auth_repository",
+            "compass.data.repositories.auth.auth_repository_dev",
+            "compass.data.repositories.auth.auth_repository_remote",
+            "compass.data.repositories.booking.booking_repository",
+            "compass.data.repositories.booking.booking_repository_local",
+            "compass.data.repositories.booking.booking_repository_remote",
+            "compass.data.repositories.continent.continent_repository",
+            "compass.data.repositories.continent.continent_repository_local",
+            "compass.data.repositories.continent.continent_repository_remote",
+            "compass.data.repositories.destination.destination_repository",
+            "compass.data.repositories.destination.destination_repository_local",
+            "compass.data.repositories.destination.destination_repository_remote",
+            "compass.data.repositories.itinerary_config.itinerary_config_repository",
+            "compass.data.repositories.itinerary_config.itinerary_config_repository_memory",
+            "compass.data.repositories.user.user_repository",
+            "compass.data.repositories.user.user_repository_local",
+            "compass.data.repositories.user.user_repository_remote",
+            "compass.data.services.api.api_client",
+            "compass.data.services.api.auth_api_client",
+            "compass.data.services.local.local_data_service",
+            "compass.data.services.shared_preferences_service"
+          ],
+          "rationale": "Select the local and remote repositories and service implementations for each environment.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "domain",
+          "through": [
+            "compass.domain.use_cases.booking.booking_create_use_case",
+            "compass.domain.use_cases.booking.booking_share_use_case"
+          ],
+          "rationale": "Construct booking operations for the app provider graph.",
+          "decided_by": "agent"
+        }
+      ],
+      "inside": "contracts/application.json",
+      "exact_modules": [
+        "compass.main",
+        "compass.main_development",
+        "compass.main_staging"
+      ]
+    },
+    {
+      "id": "presentation",
+      "label": "presentation",
+      "role": "component",
+      "packages": [
+        "compass.ui"
+      ],
+      "public": [],
+      "responsibilities": [
+        "Own screen state, rendering and user interaction."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "domain",
+          "through": [
+            "compass.domain.models.activity.activity",
+            "compass.domain.models.booking.booking",
+            "compass.domain.models.booking.booking_summary",
+            "compass.domain.models.continent.continent",
+            "compass.domain.models.destination.destination",
+            "compass.domain.models.itinerary_config.itinerary_config",
+            "compass.domain.models.user.user",
+            "compass.domain.use_cases.booking.booking_create_use_case",
+            "compass.domain.use_cases.booking.booking_share_use_case"
+          ],
+          "rationale": "Use travel values and booking operations in routed presentation features.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "data",
+          "through": [
+            "compass.data.repositories.activity.activity_repository",
+            "compass.data.repositories.auth.auth_repository",
+            "compass.data.repositories.booking.booking_repository",
+            "compass.data.repositories.continent.continent_repository",
+            "compass.data.repositories.destination.destination_repository",
+            "compass.data.repositories.itinerary_config.itinerary_config_repository",
+            "compass.data.repositories.user.user_repository"
+          ],
+          "rationale": "View models consume the sample’s repository ports, which are declared with the data adapters.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "utilities",
+          "through": [
+            "compass.utils.command",
+            "compass.utils.image_error_listener",
+            "compass.utils.result"
+          ],
+          "rationale": "Use the shared asynchronous command and result contracts.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Compose environment, localization, routes and app shell",
+          "through": [
+            "compass.routing.routes"
+          ],
+          "rationale": "Presentation screens use the app route definitions for navigation.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.ui",
+      "inside": "contracts/presentation.json"
+    },
+    {
+      "id": "domain",
+      "label": "domain",
+      "role": "component",
+      "packages": [
+        "compass.domain"
+      ],
+      "public": [],
+      "responsibilities": [
+        "Own travel data types and booking operations."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "data",
+          "through": [
+            "compass.data.repositories.activity.activity_repository",
+            "compass.data.repositories.booking.booking_repository",
+            "compass.data.repositories.destination.destination_repository"
+          ],
+          "rationale": "Use repository ports to resolve destinations and activities and persist completed bookings.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "presentation",
+          "through": [
+            "compass.ui.core.ui.date_format_start_end"
+          ],
+          "rationale": "Booking sharing uses the sample’s shared date formatter.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "utilities",
+          "through": [
+            "compass.utils.result"
+          ],
+          "rationale": "Booking operations return the shared Result type.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.domain",
+      "inside": "contracts/domain.json"
+    },
+    {
+      "id": "data",
+      "label": "data",
+      "role": "component",
+      "packages": [
+        "compass.data"
+      ],
+      "public": [],
+      "responsibilities": [
+        "Own repository contracts, persistence, local data and API adapters."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "domain",
+          "through": [
+            "compass.domain.models.activity.activity",
+            "compass.domain.models.booking.booking",
+            "compass.domain.models.booking.booking_summary",
+            "compass.domain.models.continent.continent",
+            "compass.domain.models.destination.destination",
+            "compass.domain.models.itinerary_config.itinerary_config",
+            "compass.domain.models.user.user"
+          ],
+          "rationale": "Exchange typed domain values through the repository and service adapters.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Compose environment, localization, routes and app shell",
+          "through": [
+            "compass.config.assets"
+          ],
+          "rationale": "Local data loading reads the app-owned bundled asset paths.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "utilities",
+          "through": [
+            "compass.utils.result"
+          ],
+          "rationale": "Repository and service contracts use the shared Result type.",
+          "decided_by": "agent"
+        }
+      ],
+      "namespace": "compass.data",
+      "inside": "contracts/data.json"
+    },
+    {
+      "id": "utilities",
+      "label": "utilities",
+      "role": "component",
+      "packages": [
+        "compass.utils"
+      ],
+      "public": [],
+      "responsibilities": [
+        "Own generic async commands, result values and image error support."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "compass.utils",
+      "inside": "contracts/utilities.json"
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Dependencies outside the declared component boundaries are not part of the Target.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "ref-module-38dfe947ff720df4",
+          "kind": "module",
+          "qualified_name": "compass.config.dependencies",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-25d3a88ac91c0d68",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.activity.activity_repository",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-ae810086db10c8cb",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.activity.activity_repository_local",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-d54b641e28e647fc",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.activity.activity_repository_remote",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-4e5c90f902d4e097",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.auth.auth_repository",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-20173c0b18a08d03",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.auth.auth_repository_dev",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-fffe35d123e5621a",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.auth.auth_repository_remote",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-a22ff3f7935d7217",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.booking.booking_repository",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-21f5561b6d458e6d",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.booking.booking_repository_local",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-77a23c2284e13419",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.booking.booking_repository_remote",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-6bf13aec13c7cea3",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.continent.continent_repository",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-61dcefc55a14d29b",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.continent.continent_repository_local",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-c453c3dce3c11a03",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.continent.continent_repository_remote",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-38ae9b7e02afd25c",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.destination.destination_repository",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-27849fb4c8c89672",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.destination.destination_repository_local",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-26c839721f0fc952",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.destination.destination_repository_remote",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-7a55bc98745068b5",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.itinerary_config.itinerary_config_repository",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-4e87be5e7144808f",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.itinerary_config.itinerary_config_repository_memory",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-b8cb0fc9cf4a5b89",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.user.user_repository",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-25b890d9b0e8eb94",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.user.user_repository_local",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-adb7556d83347dcf",
+          "kind": "module",
+          "qualified_name": "compass.data.repositories.user.user_repository_remote",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-2bf996186e67b60c",
+          "kind": "module",
+          "qualified_name": "compass.data.services.api.api_client",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-230c305c76329ee7",
+          "kind": "module",
+          "qualified_name": "compass.data.services.api.auth_api_client",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-5871797848956636",
+          "kind": "module",
+          "qualified_name": "compass.data.services.local.local_data_service",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-1a468f5f5968f0af",
+          "kind": "module",
+          "qualified_name": "compass.data.services.shared_preferences_service",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-7fd78b0ba45af4a8",
+          "kind": "module",
+          "qualified_name": "compass.domain.use_cases.booking.booking_create_use_case",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-d45cf0ce8eb008b3",
+          "kind": "module",
+          "qualified_name": "compass.domain.use_cases.booking.booking_share_use_case",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-549dfae06399e367",
+          "kind": "module",
+          "qualified_name": "compass.domain.models.activity.activity",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-15a3409aafe694b4",
+          "kind": "module",
+          "qualified_name": "compass.utils.result",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-5596c2e2e52d2d7b",
+          "kind": "module",
+          "qualified_name": "compass.domain.models.booking.booking",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-34bf6a6ff98671bc",
+          "kind": "module",
+          "qualified_name": "compass.domain.models.booking.booking_summary",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-9e18a6b2b8a3a44b",
+          "kind": "module",
+          "qualified_name": "compass.domain.models.destination.destination",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-9965b4fb7a703d4f",
+          "kind": "module",
+          "qualified_name": "compass.domain.models.continent.continent",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-0ee1bd4ad7d27ba9",
+          "kind": "module",
+          "qualified_name": "compass.domain.models.itinerary_config.itinerary_config",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-106c2f3b29f3fb19",
+          "kind": "module",
+          "qualified_name": "compass.domain.models.user.user",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-6d05a5d0850b6095",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.ui.date_format_start_end",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-ee448d7330a6bedb",
+          "kind": "module",
+          "qualified_name": "compass.main",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-7cfc1c7fc70979e5",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.localization.applocalization",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-2f734046ff8a7862",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.themes.theme",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-ccbd94eed7dd42e2",
+          "kind": "module",
+          "qualified_name": "compass.ui.core.ui.scroll_behavior",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-7a9a51b2c785a160",
+          "kind": "module",
+          "qualified_name": "compass.routing.router",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-967c9b735d6b0f71",
+          "kind": "module",
+          "qualified_name": "compass.ui.activities.view_models.activities_viewmodel",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-c2c552da9a539e97",
+          "kind": "module",
+          "qualified_name": "compass.ui.activities.widgets.activities_screen",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-216d606ec0d4f60e",
+          "kind": "module",
+          "qualified_name": "compass.ui.auth.login.view_models.login_viewmodel",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-c3a8025e059e406d",
+          "kind": "module",
+          "qualified_name": "compass.ui.auth.login.widgets.login_screen",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-f276ed82cde17685",
+          "kind": "module",
+          "qualified_name": "compass.ui.auth.logout.view_models.logout_viewmodel",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-4c62e6965d8f1985",
+          "kind": "module",
+          "qualified_name": "compass.ui.booking.view_models.booking_viewmodel",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-383f23bba36832e7",
+          "kind": "module",
+          "qualified_name": "compass.ui.booking.widgets.booking_screen",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-f8de1bab618f907a",
+          "kind": "module",
+          "qualified_name": "compass.ui.home.widgets.home_screen_container",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-c7beb284401526ea",
+          "kind": "module",
+          "qualified_name": "compass.ui.results.view_models.results_viewmodel",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-4f757da775f8b791",
+          "kind": "module",
+          "qualified_name": "compass.ui.results.widgets.results_screen",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-b69be8875fa90a9f",
+          "kind": "module",
+          "qualified_name": "compass.ui.search_form.view_models.search_form_viewmodel",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-8863fddb3ec0efc8",
+          "kind": "module",
+          "qualified_name": "compass.ui.search_form.widgets.search_form_screen",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-8016d56dc2a16e56",
+          "kind": "module",
+          "qualified_name": "compass.utils.command",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-313e90b62b757c8a",
+          "kind": "module",
+          "qualified_name": "compass.routing.routes",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-900cd834c259ca53",
+          "kind": "module",
+          "qualified_name": "compass.ui.search_form.widgets.search_form_submit",
+          "language": "dart",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "module-import-993fa1aaf594d337",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-25d3a88ac91c0d68",
+          "reason": "Selected source import at lib/config/dependencies.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9efb11cef544ccde",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-ae810086db10c8cb",
+          "reason": "Selected source import at lib/config/dependencies.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b1b9238f3ff42b62",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-d54b641e28e647fc",
+          "reason": "Selected source import at lib/config/dependencies.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-362f279c5aa06016",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-4e5c90f902d4e097",
+          "reason": "Selected source import at lib/config/dependencies.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9f640b97b5e5c254",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-20173c0b18a08d03",
+          "reason": "Selected source import at lib/config/dependencies.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-fa7f84dc3ec4496a",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-fffe35d123e5621a",
+          "reason": "Selected source import at lib/config/dependencies.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-37f8fbd78744e20f",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-a22ff3f7935d7217",
+          "reason": "Selected source import at lib/config/dependencies.dart:14.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d0d52d0addfede6d",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-21f5561b6d458e6d",
+          "reason": "Selected source import at lib/config/dependencies.dart:15.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6c6f3481a8cf846a",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-77a23c2284e13419",
+          "reason": "Selected source import at lib/config/dependencies.dart:16.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-87fac6145cbdbdde",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-6bf13aec13c7cea3",
+          "reason": "Selected source import at lib/config/dependencies.dart:17.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-20882f9e62277c43",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-61dcefc55a14d29b",
+          "reason": "Selected source import at lib/config/dependencies.dart:18.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-55c46f06d56a7a86",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-c453c3dce3c11a03",
+          "reason": "Selected source import at lib/config/dependencies.dart:19.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-902bd7b5f7047355",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-38ae9b7e02afd25c",
+          "reason": "Selected source import at lib/config/dependencies.dart:20.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ee051529645be9ac",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-27849fb4c8c89672",
+          "reason": "Selected source import at lib/config/dependencies.dart:21.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a1771e74a9801bde",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-26c839721f0fc952",
+          "reason": "Selected source import at lib/config/dependencies.dart:22.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-0810e7a36608bd24",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-7a55bc98745068b5",
+          "reason": "Selected source import at lib/config/dependencies.dart:23.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9d25fecc2afbe364",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-4e87be5e7144808f",
+          "reason": "Selected source import at lib/config/dependencies.dart:24.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-000c04ed1b6574d4",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-b8cb0fc9cf4a5b89",
+          "reason": "Selected source import at lib/config/dependencies.dart:25.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e946e08d89d31c86",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-25b890d9b0e8eb94",
+          "reason": "Selected source import at lib/config/dependencies.dart:26.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f3551f611c660cbb",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-adb7556d83347dcf",
+          "reason": "Selected source import at lib/config/dependencies.dart:27.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ab40eefc46f9d4f7",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-2bf996186e67b60c",
+          "reason": "Selected source import at lib/config/dependencies.dart:28.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f8d2141b372533df",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-230c305c76329ee7",
+          "reason": "Selected source import at lib/config/dependencies.dart:29.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-cfec0844e7cec411",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-5871797848956636",
+          "reason": "Selected source import at lib/config/dependencies.dart:30.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-db6fe8c232edc781",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-1a468f5f5968f0af",
+          "reason": "Selected source import at lib/config/dependencies.dart:31.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6695821853ef188f",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-7fd78b0ba45af4a8",
+          "reason": "Selected source import at lib/config/dependencies.dart:32.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f66276bc1a350084",
+          "kind": "imports",
+          "source_id": "ref-module-38dfe947ff720df4",
+          "target_id": "ref-module-d45cf0ce8eb008b3",
+          "reason": "Selected source import at lib/config/dependencies.dart:33.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a6cb5c5e22ca1694",
+          "kind": "imports",
+          "source_id": "ref-module-ae810086db10c8cb",
+          "target_id": "ref-module-549dfae06399e367",
+          "reason": "Selected source import at lib/data/repositories/activity/activity_repository_local.dart:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9f2764a6455ab642",
+          "kind": "imports",
+          "source_id": "ref-module-ae810086db10c8cb",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/data/repositories/activity/activity_repository_local.dart:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6b243d8fdf9ea95c",
+          "kind": "imports",
+          "source_id": "ref-module-d54b641e28e647fc",
+          "target_id": "ref-module-549dfae06399e367",
+          "reason": "Selected source import at lib/data/repositories/activity/activity_repository_remote.dart:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4a69d7e388318c60",
+          "kind": "imports",
+          "source_id": "ref-module-d54b641e28e647fc",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/data/repositories/activity/activity_repository_remote.dart:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-59d97804ccf4a0b8",
+          "kind": "imports",
+          "source_id": "ref-module-20173c0b18a08d03",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/data/repositories/auth/auth_repository_dev.dart:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-032dc2edaf13d6c6",
+          "kind": "imports",
+          "source_id": "ref-module-fffe35d123e5621a",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/data/repositories/auth/auth_repository_remote.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6fc14780e31dbfdd",
+          "kind": "imports",
+          "source_id": "ref-module-21f5561b6d458e6d",
+          "target_id": "ref-module-5596c2e2e52d2d7b",
+          "reason": "Selected source import at lib/data/repositories/booking/booking_repository_local.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1c1ed1b0f95ef804",
+          "kind": "imports",
+          "source_id": "ref-module-21f5561b6d458e6d",
+          "target_id": "ref-module-34bf6a6ff98671bc",
+          "reason": "Selected source import at lib/data/repositories/booking/booking_repository_local.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-064d723af8e7567b",
+          "kind": "imports",
+          "source_id": "ref-module-21f5561b6d458e6d",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/data/repositories/booking/booking_repository_local.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b64233dd678587a3",
+          "kind": "imports",
+          "source_id": "ref-module-77a23c2284e13419",
+          "target_id": "ref-module-549dfae06399e367",
+          "reason": "Selected source import at lib/data/repositories/booking/booking_repository_remote.dart:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-854744f407874640",
+          "kind": "imports",
+          "source_id": "ref-module-77a23c2284e13419",
+          "target_id": "ref-module-5596c2e2e52d2d7b",
+          "reason": "Selected source import at lib/data/repositories/booking/booking_repository_remote.dart:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a33c98a06f94579c",
+          "kind": "imports",
+          "source_id": "ref-module-77a23c2284e13419",
+          "target_id": "ref-module-34bf6a6ff98671bc",
+          "reason": "Selected source import at lib/data/repositories/booking/booking_repository_remote.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b1a5821b0ecaafdd",
+          "kind": "imports",
+          "source_id": "ref-module-77a23c2284e13419",
+          "target_id": "ref-module-9e18a6b2b8a3a44b",
+          "reason": "Selected source import at lib/data/repositories/booking/booking_repository_remote.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-86265ee393ec1ddf",
+          "kind": "imports",
+          "source_id": "ref-module-77a23c2284e13419",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/data/repositories/booking/booking_repository_remote.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-088a240955ce3c94",
+          "kind": "imports",
+          "source_id": "ref-module-61dcefc55a14d29b",
+          "target_id": "ref-module-9965b4fb7a703d4f",
+          "reason": "Selected source import at lib/data/repositories/continent/continent_repository_local.dart:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9dd08100c0a59b80",
+          "kind": "imports",
+          "source_id": "ref-module-61dcefc55a14d29b",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/data/repositories/continent/continent_repository_local.dart:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6ba77392af48a97a",
+          "kind": "imports",
+          "source_id": "ref-module-c453c3dce3c11a03",
+          "target_id": "ref-module-9965b4fb7a703d4f",
+          "reason": "Selected source import at lib/data/repositories/continent/continent_repository_remote.dart:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b8cce8d8596a58a0",
+          "kind": "imports",
+          "source_id": "ref-module-c453c3dce3c11a03",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/data/repositories/continent/continent_repository_remote.dart:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b44dab7879e739bd",
+          "kind": "imports",
+          "source_id": "ref-module-27849fb4c8c89672",
+          "target_id": "ref-module-9e18a6b2b8a3a44b",
+          "reason": "Selected source import at lib/data/repositories/destination/destination_repository_local.dart:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7cbe22e7e7a2cd08",
+          "kind": "imports",
+          "source_id": "ref-module-27849fb4c8c89672",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/data/repositories/destination/destination_repository_local.dart:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-eaa04b4e8da37852",
+          "kind": "imports",
+          "source_id": "ref-module-26c839721f0fc952",
+          "target_id": "ref-module-9e18a6b2b8a3a44b",
+          "reason": "Selected source import at lib/data/repositories/destination/destination_repository_remote.dart:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-cfce08573fde948e",
+          "kind": "imports",
+          "source_id": "ref-module-26c839721f0fc952",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/data/repositories/destination/destination_repository_remote.dart:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-10b1a396316af929",
+          "kind": "imports",
+          "source_id": "ref-module-4e87be5e7144808f",
+          "target_id": "ref-module-0ee1bd4ad7d27ba9",
+          "reason": "Selected source import at lib/data/repositories/itinerary_config/itinerary_config_repository_memory.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-07c1049045a6e4de",
+          "kind": "imports",
+          "source_id": "ref-module-4e87be5e7144808f",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/data/repositories/itinerary_config/itinerary_config_repository_memory.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b9727ceb707bd7d0",
+          "kind": "imports",
+          "source_id": "ref-module-25b890d9b0e8eb94",
+          "target_id": "ref-module-106c2f3b29f3fb19",
+          "reason": "Selected source import at lib/data/repositories/user/user_repository_local.dart:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-36632f3f2559f002",
+          "kind": "imports",
+          "source_id": "ref-module-25b890d9b0e8eb94",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/data/repositories/user/user_repository_local.dart:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7367f601870a360b",
+          "kind": "imports",
+          "source_id": "ref-module-adb7556d83347dcf",
+          "target_id": "ref-module-106c2f3b29f3fb19",
+          "reason": "Selected source import at lib/data/repositories/user/user_repository_remote.dart:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-edad2d79de5ba183",
+          "kind": "imports",
+          "source_id": "ref-module-adb7556d83347dcf",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/data/repositories/user/user_repository_remote.dart:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-76d31d59764a85b8",
+          "kind": "imports",
+          "source_id": "ref-module-7fd78b0ba45af4a8",
+          "target_id": "ref-module-25d3a88ac91c0d68",
+          "reason": "Selected source import at lib/domain/use_cases/booking/booking_create_use_case.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-46b209c2176cca1a",
+          "kind": "imports",
+          "source_id": "ref-module-7fd78b0ba45af4a8",
+          "target_id": "ref-module-a22ff3f7935d7217",
+          "reason": "Selected source import at lib/domain/use_cases/booking/booking_create_use_case.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f4a4702ba6df97a9",
+          "kind": "imports",
+          "source_id": "ref-module-7fd78b0ba45af4a8",
+          "target_id": "ref-module-38ae9b7e02afd25c",
+          "reason": "Selected source import at lib/domain/use_cases/booking/booking_create_use_case.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-fb38ce0494fc1ca6",
+          "kind": "imports",
+          "source_id": "ref-module-7fd78b0ba45af4a8",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/domain/use_cases/booking/booking_create_use_case.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8bafd20543bd76b3",
+          "kind": "imports",
+          "source_id": "ref-module-d45cf0ce8eb008b3",
+          "target_id": "ref-module-6d05a5d0850b6095",
+          "reason": "Selected source import at lib/domain/use_cases/booking/booking_share_use_case.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-429855c0ef376528",
+          "kind": "imports",
+          "source_id": "ref-module-d45cf0ce8eb008b3",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/domain/use_cases/booking/booking_share_use_case.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6dfc9c08d58b47ab",
+          "kind": "imports",
+          "source_id": "ref-module-ee448d7330a6bedb",
+          "target_id": "ref-module-7cfc1c7fc70979e5",
+          "reason": "Selected source import at lib/main.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-81e44b70972d8afc",
+          "kind": "imports",
+          "source_id": "ref-module-ee448d7330a6bedb",
+          "target_id": "ref-module-2f734046ff8a7862",
+          "reason": "Selected source import at lib/main.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-bc01cc79bcba1096",
+          "kind": "imports",
+          "source_id": "ref-module-ee448d7330a6bedb",
+          "target_id": "ref-module-ccbd94eed7dd42e2",
+          "reason": "Selected source import at lib/main.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b5a2da8fb09569d2",
+          "kind": "imports",
+          "source_id": "ref-module-7a9a51b2c785a160",
+          "target_id": "ref-module-4e5c90f902d4e097",
+          "reason": "Selected source import at lib/routing/router.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5e30a9acec9739ee",
+          "kind": "imports",
+          "source_id": "ref-module-7a9a51b2c785a160",
+          "target_id": "ref-module-967c9b735d6b0f71",
+          "reason": "Selected source import at lib/routing/router.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-246aebebfa8d2629",
+          "kind": "imports",
+          "source_id": "ref-module-7a9a51b2c785a160",
+          "target_id": "ref-module-c2c552da9a539e97",
+          "reason": "Selected source import at lib/routing/router.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1db89a01ec7d7727",
+          "kind": "imports",
+          "source_id": "ref-module-7a9a51b2c785a160",
+          "target_id": "ref-module-216d606ec0d4f60e",
+          "reason": "Selected source import at lib/routing/router.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9ff79c90094e8e50",
+          "kind": "imports",
+          "source_id": "ref-module-7a9a51b2c785a160",
+          "target_id": "ref-module-c3a8025e059e406d",
+          "reason": "Selected source import at lib/routing/router.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f2325604f57a9b45",
+          "kind": "imports",
+          "source_id": "ref-module-7a9a51b2c785a160",
+          "target_id": "ref-module-f276ed82cde17685",
+          "reason": "Selected source import at lib/routing/router.dart:14.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-619ffe9fbba3f78d",
+          "kind": "imports",
+          "source_id": "ref-module-7a9a51b2c785a160",
+          "target_id": "ref-module-4c62e6965d8f1985",
+          "reason": "Selected source import at lib/routing/router.dart:15.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-293429eb266d66b6",
+          "kind": "imports",
+          "source_id": "ref-module-7a9a51b2c785a160",
+          "target_id": "ref-module-383f23bba36832e7",
+          "reason": "Selected source import at lib/routing/router.dart:16.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5a4f2f9705f0a9a3",
+          "kind": "imports",
+          "source_id": "ref-module-7a9a51b2c785a160",
+          "target_id": "ref-module-f8de1bab618f907a",
+          "reason": "Selected source import at lib/routing/router.dart:17.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1ad3aa62012c814f",
+          "kind": "imports",
+          "source_id": "ref-module-7a9a51b2c785a160",
+          "target_id": "ref-module-c7beb284401526ea",
+          "reason": "Selected source import at lib/routing/router.dart:18.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-2ede42388c07bf65",
+          "kind": "imports",
+          "source_id": "ref-module-7a9a51b2c785a160",
+          "target_id": "ref-module-4f757da775f8b791",
+          "reason": "Selected source import at lib/routing/router.dart:19.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-651e7dd9abfda150",
+          "kind": "imports",
+          "source_id": "ref-module-7a9a51b2c785a160",
+          "target_id": "ref-module-b69be8875fa90a9f",
+          "reason": "Selected source import at lib/routing/router.dart:20.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b6b9aea97bbb8450",
+          "kind": "imports",
+          "source_id": "ref-module-7a9a51b2c785a160",
+          "target_id": "ref-module-8863fddb3ec0efc8",
+          "reason": "Selected source import at lib/routing/router.dart:21.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-441cdca66430b24d",
+          "kind": "imports",
+          "source_id": "ref-module-967c9b735d6b0f71",
+          "target_id": "ref-module-25d3a88ac91c0d68",
+          "reason": "Selected source import at lib/ui/activities/view_models/activities_viewmodel.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-292b3419ba9430a4",
+          "kind": "imports",
+          "source_id": "ref-module-967c9b735d6b0f71",
+          "target_id": "ref-module-7a55bc98745068b5",
+          "reason": "Selected source import at lib/ui/activities/view_models/activities_viewmodel.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-02a11791ca11263a",
+          "kind": "imports",
+          "source_id": "ref-module-967c9b735d6b0f71",
+          "target_id": "ref-module-549dfae06399e367",
+          "reason": "Selected source import at lib/ui/activities/view_models/activities_viewmodel.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5f44b65942ea50dd",
+          "kind": "imports",
+          "source_id": "ref-module-967c9b735d6b0f71",
+          "target_id": "ref-module-0ee1bd4ad7d27ba9",
+          "reason": "Selected source import at lib/ui/activities/view_models/activities_viewmodel.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c109ae3dc350b8ea",
+          "kind": "imports",
+          "source_id": "ref-module-967c9b735d6b0f71",
+          "target_id": "ref-module-8016d56dc2a16e56",
+          "reason": "Selected source import at lib/ui/activities/view_models/activities_viewmodel.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ad079c649284599d",
+          "kind": "imports",
+          "source_id": "ref-module-967c9b735d6b0f71",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/ui/activities/view_models/activities_viewmodel.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6aac2b876c5eefce",
+          "kind": "imports",
+          "source_id": "ref-module-c2c552da9a539e97",
+          "target_id": "ref-module-313e90b62b757c8a",
+          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f8a1a7f4b4ce0c7e",
+          "kind": "imports",
+          "source_id": "ref-module-216d606ec0d4f60e",
+          "target_id": "ref-module-4e5c90f902d4e097",
+          "reason": "Selected source import at lib/ui/auth/login/view_models/login_viewmodel.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-cd8d073c3520e3b2",
+          "kind": "imports",
+          "source_id": "ref-module-216d606ec0d4f60e",
+          "target_id": "ref-module-8016d56dc2a16e56",
+          "reason": "Selected source import at lib/ui/auth/login/view_models/login_viewmodel.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8597dc324b4518ef",
+          "kind": "imports",
+          "source_id": "ref-module-216d606ec0d4f60e",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/ui/auth/login/view_models/login_viewmodel.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6ba10478cd291df7",
+          "kind": "imports",
+          "source_id": "ref-module-c3a8025e059e406d",
+          "target_id": "ref-module-313e90b62b757c8a",
+          "reason": "Selected source import at lib/ui/auth/login/widgets/login_screen.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4a38b3cf305213eb",
+          "kind": "imports",
+          "source_id": "ref-module-f276ed82cde17685",
+          "target_id": "ref-module-4e5c90f902d4e097",
+          "reason": "Selected source import at lib/ui/auth/logout/view_models/logout_viewmodel.dart:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9a03537043b9af8d",
+          "kind": "imports",
+          "source_id": "ref-module-f276ed82cde17685",
+          "target_id": "ref-module-7a55bc98745068b5",
+          "reason": "Selected source import at lib/ui/auth/logout/view_models/logout_viewmodel.dart:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e1ab501ce0aba95c",
+          "kind": "imports",
+          "source_id": "ref-module-f276ed82cde17685",
+          "target_id": "ref-module-0ee1bd4ad7d27ba9",
+          "reason": "Selected source import at lib/ui/auth/logout/view_models/logout_viewmodel.dart:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-81d7dfa998a695c6",
+          "kind": "imports",
+          "source_id": "ref-module-f276ed82cde17685",
+          "target_id": "ref-module-8016d56dc2a16e56",
+          "reason": "Selected source import at lib/ui/auth/logout/view_models/logout_viewmodel.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-69989d7e1e5688ec",
+          "kind": "imports",
+          "source_id": "ref-module-f276ed82cde17685",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/ui/auth/logout/view_models/logout_viewmodel.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6a5d240f6e0ebe02",
+          "kind": "imports",
+          "source_id": "ref-module-4c62e6965d8f1985",
+          "target_id": "ref-module-a22ff3f7935d7217",
+          "reason": "Selected source import at lib/ui/booking/view_models/booking_viewmodel.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a4be9e9cefbdfc74",
+          "kind": "imports",
+          "source_id": "ref-module-4c62e6965d8f1985",
+          "target_id": "ref-module-7a55bc98745068b5",
+          "reason": "Selected source import at lib/ui/booking/view_models/booking_viewmodel.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-95723aa1cd5ad66a",
+          "kind": "imports",
+          "source_id": "ref-module-4c62e6965d8f1985",
+          "target_id": "ref-module-5596c2e2e52d2d7b",
+          "reason": "Selected source import at lib/ui/booking/view_models/booking_viewmodel.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-411367ee4eb2785a",
+          "kind": "imports",
+          "source_id": "ref-module-4c62e6965d8f1985",
+          "target_id": "ref-module-0ee1bd4ad7d27ba9",
+          "reason": "Selected source import at lib/ui/booking/view_models/booking_viewmodel.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8e967fac13add34e",
+          "kind": "imports",
+          "source_id": "ref-module-4c62e6965d8f1985",
+          "target_id": "ref-module-7fd78b0ba45af4a8",
+          "reason": "Selected source import at lib/ui/booking/view_models/booking_viewmodel.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-80c55224aa01697b",
+          "kind": "imports",
+          "source_id": "ref-module-4c62e6965d8f1985",
+          "target_id": "ref-module-d45cf0ce8eb008b3",
+          "reason": "Selected source import at lib/ui/booking/view_models/booking_viewmodel.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-fe4f7c5f57f47f18",
+          "kind": "imports",
+          "source_id": "ref-module-4c62e6965d8f1985",
+          "target_id": "ref-module-8016d56dc2a16e56",
+          "reason": "Selected source import at lib/ui/booking/view_models/booking_viewmodel.dart:14.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c1d29463fb9ba73b",
+          "kind": "imports",
+          "source_id": "ref-module-4c62e6965d8f1985",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/ui/booking/view_models/booking_viewmodel.dart:15.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-be827056e104e190",
+          "kind": "imports",
+          "source_id": "ref-module-383f23bba36832e7",
+          "target_id": "ref-module-313e90b62b757c8a",
+          "reason": "Selected source import at lib/ui/booking/widgets/booking_screen.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a9c0acc3f7894d27",
+          "kind": "imports",
+          "source_id": "ref-module-f8de1bab618f907a",
+          "target_id": "ref-module-a22ff3f7935d7217",
+          "reason": "Selected source import at lib/ui/home/widgets/home_screen_container.dart:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-31ea967e5134905d",
+          "kind": "imports",
+          "source_id": "ref-module-f8de1bab618f907a",
+          "target_id": "ref-module-b8cb0fc9cf4a5b89",
+          "reason": "Selected source import at lib/ui/home/widgets/home_screen_container.dart:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-bef2a3f61f521f16",
+          "kind": "imports",
+          "source_id": "ref-module-c7beb284401526ea",
+          "target_id": "ref-module-38ae9b7e02afd25c",
+          "reason": "Selected source import at lib/ui/results/view_models/results_viewmodel.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d329747686b1637d",
+          "kind": "imports",
+          "source_id": "ref-module-c7beb284401526ea",
+          "target_id": "ref-module-7a55bc98745068b5",
+          "reason": "Selected source import at lib/ui/results/view_models/results_viewmodel.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9ff5ccc9b6f05e08",
+          "kind": "imports",
+          "source_id": "ref-module-c7beb284401526ea",
+          "target_id": "ref-module-9e18a6b2b8a3a44b",
+          "reason": "Selected source import at lib/ui/results/view_models/results_viewmodel.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c3d815bf2c1b3f86",
+          "kind": "imports",
+          "source_id": "ref-module-c7beb284401526ea",
+          "target_id": "ref-module-0ee1bd4ad7d27ba9",
+          "reason": "Selected source import at lib/ui/results/view_models/results_viewmodel.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-39c56cc1f48eae3d",
+          "kind": "imports",
+          "source_id": "ref-module-c7beb284401526ea",
+          "target_id": "ref-module-8016d56dc2a16e56",
+          "reason": "Selected source import at lib/ui/results/view_models/results_viewmodel.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-dcb82a82c73aa8e8",
+          "kind": "imports",
+          "source_id": "ref-module-c7beb284401526ea",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/ui/results/view_models/results_viewmodel.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ea6712109f0dea83",
+          "kind": "imports",
+          "source_id": "ref-module-4f757da775f8b791",
+          "target_id": "ref-module-313e90b62b757c8a",
+          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1eb697a1d231862d",
+          "kind": "imports",
+          "source_id": "ref-module-b69be8875fa90a9f",
+          "target_id": "ref-module-6bf13aec13c7cea3",
+          "reason": "Selected source import at lib/ui/search_form/view_models/search_form_viewmodel.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e121f6d11af1200d",
+          "kind": "imports",
+          "source_id": "ref-module-b69be8875fa90a9f",
+          "target_id": "ref-module-7a55bc98745068b5",
+          "reason": "Selected source import at lib/ui/search_form/view_models/search_form_viewmodel.dart:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f36b9b3d895d0385",
+          "kind": "imports",
+          "source_id": "ref-module-b69be8875fa90a9f",
+          "target_id": "ref-module-9965b4fb7a703d4f",
+          "reason": "Selected source import at lib/ui/search_form/view_models/search_form_viewmodel.dart:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5422fc575c7acc89",
+          "kind": "imports",
+          "source_id": "ref-module-b69be8875fa90a9f",
+          "target_id": "ref-module-0ee1bd4ad7d27ba9",
+          "reason": "Selected source import at lib/ui/search_form/view_models/search_form_viewmodel.dart:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-df0cb7b4e5fe3dbe",
+          "kind": "imports",
+          "source_id": "ref-module-b69be8875fa90a9f",
+          "target_id": "ref-module-8016d56dc2a16e56",
+          "reason": "Selected source import at lib/ui/search_form/view_models/search_form_viewmodel.dart:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-626512f820460f0d",
+          "kind": "imports",
+          "source_id": "ref-module-b69be8875fa90a9f",
+          "target_id": "ref-module-15a3409aafe694b4",
+          "reason": "Selected source import at lib/ui/search_form/view_models/search_form_viewmodel.dart:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7b84c31dc54fbfc9",
+          "kind": "imports",
+          "source_id": "ref-module-8863fddb3ec0efc8",
+          "target_id": "ref-module-313e90b62b757c8a",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8bf47fe7c3d0a78e",
+          "kind": "imports",
+          "source_id": "ref-module-900cd834c259ca53",
+          "target_id": "ref-module-313e90b62b757c8a",
+          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_submit.dart:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": []
+    }
+  }
+}

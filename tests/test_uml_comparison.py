@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """UML conformance uses recorded facts and coverage, never the absence of findings."""
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 
 import pytest
 
@@ -19,6 +19,7 @@ from archkeel.ir.architecture_graph import (
     Visibility,
 )
 from archkeel.ir.facts import Evidence
+from archkeel.ir.graph_codec import parse_graph
 
 PROOF = Evidence("proof", "sample.py", 1, 1, 0, "def run(value): ...")
 
@@ -350,6 +351,172 @@ def test_absent_relationships_without_adapter_coverage_are_unknown(kind):
     observed = replace(observed, relationships=())
     target = replace(target, relationships=(replace(target.relationships[0], kind=kind),))
     assert _assessments(observed, target, "relationship")[0].status == "UNKNOWN"
+
+
+def test_mixin_composition_is_an_exact_classifier_relationship():
+    evidence = (PROOF,)
+    observed = ArchitectureGraph(
+        "observed",
+        (
+            _entity("module", "module", "sample"),
+            _entity("client", "class", "sample.Client", "module"),
+            _entity("mixin", "mixin", "sample.Auditable", "module"),
+            _entity(
+                "shared",
+                "class",
+                "sample.Shared",
+                "module",
+                modifiers=("mixin",),
+            ),
+        ),
+        (
+            Relationship(
+                "apply",
+                "mixes_in",
+                "client",
+                "mixin",
+                "resolved",
+                evidence_ids=("proof",),
+            ),
+            Relationship(
+                "apply-shared",
+                "mixes_in",
+                "client",
+                "shared",
+                "resolved",
+                evidence_ids=("proof",),
+            ),
+        ),
+        coverage=(Coverage("module", relationship_kinds=("mixes_in",), status="complete"),),
+        evidence=evidence,
+    )
+    target = ArchitectureGraph(
+        "declared",
+        (
+            _intent(_entity("module", "module", "sample")),
+            _intent(_entity("client", "class", "sample.Client", "module")),
+            _intent(_entity("mixin", "mixin", "sample.Auditable", "module")),
+            _intent(
+                _entity(
+                    "shared",
+                    "class",
+                    "sample.Shared",
+                    "module",
+                    modifiers=("mixin",),
+                )
+            ),
+        ),
+        (
+            Relationship("apply", "mixes_in", "client", "mixin", provenance=("docs/target.md",)),
+            Relationship(
+                "apply-shared", "mixes_in", "client", "shared", provenance=("docs/target.md",)
+            ),
+        ),
+    )
+    assert parse_graph(asdict(target)) == target
+
+    comparison = compare_graphs(observed, target)
+    relationships = [item for item in comparison.assessments if item.aspect == "relationship"]
+    assert len(relationships) == 2 and all(item.status == "PASS" for item in relationships)
+    assert comparison.status == "PASS"
+
+
+@pytest.mark.parametrize("coverage,expected", [("partial", "UNKNOWN"), ("complete", "FAIL")])
+def test_missing_mixin_composition_respects_classifier_coverage(coverage, expected):
+    evidence = (PROOF,)
+    observed = ArchitectureGraph(
+        "observed",
+        (
+            _entity("module", "module", "sample"),
+            _entity("client", "class", "sample.Client", "module"),
+            _entity("mixin", "mixin", "sample.Auditable", "module"),
+        ),
+        coverage=(
+            Coverage(
+                "client",
+                relationship_kinds=("mixes_in",),
+                status=coverage,
+                reason="The fixture has a bounded relationship inventory."
+                if coverage != "complete"
+                else None,
+            ),
+        ),
+        evidence=evidence,
+    )
+    target = ArchitectureGraph(
+        "declared",
+        (
+            _intent(_entity("module", "module", "sample")),
+            _intent(_entity("client", "class", "sample.Client", "module")),
+            _intent(_entity("mixin", "mixin", "sample.Auditable", "module")),
+        ),
+        (Relationship("apply", "mixes_in", "client", "mixin", provenance=("docs/target.md",)),),
+    )
+    assert _assessments(observed, target, "relationship")[0].status == expected
+
+
+def test_mixin_composition_target_rejects_ordinary_class_target():
+    with pytest.raises(ValueError, match="mixin-capable"):
+        ArchitectureGraph(
+            "declared",
+            (
+                _intent(_entity("client", "class", "sample.Client")),
+                _intent(_entity("ordinary", "class", "sample.Ordinary")),
+            ),
+            (
+                Relationship(
+                    "apply", "mixes_in", "client", "ordinary", provenance=("docs/target.md",)
+                ),
+            ),
+        ).validate()
+
+
+def test_closed_mixin_relationship_scope_finds_unlisted_composition():
+    evidence = (PROOF,)
+    observed = ArchitectureGraph(
+        "observed",
+        (
+            _entity("module", "module", "sample"),
+            _entity("client", "class", "sample.Client", "module"),
+            _entity("mixin", "mixin", "sample.Auditable", "module"),
+        ),
+        (
+            Relationship(
+                "apply",
+                "mixes_in",
+                "client",
+                "mixin",
+                "resolved",
+                evidence_ids=("proof",),
+            ),
+        ),
+        coverage=(Coverage("module", relationship_kinds=("mixes_in",), status="complete"),),
+        evidence=evidence,
+    )
+    target = ArchitectureGraph(
+        "declared",
+        (
+            _intent(_entity("module", "module", "sample")),
+            _intent(_entity("client", "class", "sample.Client", "module")),
+            _intent(_entity("mixin", "mixin", "sample.Auditable", "module")),
+        ),
+        target_scopes=(
+            TargetScope(
+                "module",
+                "closed",
+                "Keep behavior compositions explicit.",
+                ("docs/target.md",),
+                relationship_kinds=("mixes_in",),
+            ),
+        ),
+    )
+
+    result = compare_graphs(observed, target)
+    assert result.status == "FAIL", result.assessments
+    assert any(
+        item.aspect == "completeness" and item.change == "unexpected" and item.status == "FAIL"
+        for item in result.assessments
+    )
 
 
 def test_unknown_visibility_basis_cannot_prove_language_access_rules():

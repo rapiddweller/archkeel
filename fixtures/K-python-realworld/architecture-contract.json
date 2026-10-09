@@ -1,0 +1,2637 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "host-runtime",
+      "label": "Host and runtime composition",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app",
+        "app.core",
+        "app.core.config",
+        "app.core.events",
+        "app.core.logging",
+        "app.core.settings",
+        "app.core.settings.app",
+        "app.core.settings.base",
+        "app.core.settings.development",
+        "app.core.settings.production",
+        "app.core.settings.test",
+        "app.main"
+      ],
+      "responsibilities": [
+        "Configure the service, resolve environment settings, and manage application lifecycle."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "RealWorld HTTP interface",
+          "through": [
+            "app.api.errors.http_error",
+            "app.api.errors.validation_error",
+            "app.api.routes.api"
+          ],
+          "rationale": "Host and runtime composition directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "PostgreSQL persistence adapter",
+          "through": [
+            "app.db.events"
+          ],
+          "rationale": "Host and runtime composition directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app",
+        "app.core",
+        "app.core.config",
+        "app.core.events",
+        "app.core.logging",
+        "app.core.settings",
+        "app.core.settings.app",
+        "app.core.settings.base",
+        "app.core.settings.development",
+        "app.core.settings.production",
+        "app.core.settings.test",
+        "app.main"
+      ],
+      "inside": "contracts/host-runtime.json"
+    },
+    {
+      "id": "http-interface",
+      "label": "RealWorld HTTP interface",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.api",
+        "app.api.dependencies",
+        "app.api.dependencies.articles",
+        "app.api.dependencies.authentication",
+        "app.api.dependencies.comments",
+        "app.api.dependencies.database",
+        "app.api.dependencies.profiles",
+        "app.api.errors",
+        "app.api.errors.http_error",
+        "app.api.errors.validation_error",
+        "app.api.routes",
+        "app.api.routes.api",
+        "app.api.routes.articles",
+        "app.api.routes.articles.api",
+        "app.api.routes.articles.articles_common",
+        "app.api.routes.articles.articles_resource",
+        "app.api.routes.authentication",
+        "app.api.routes.comments",
+        "app.api.routes.profiles",
+        "app.api.routes.tags",
+        "app.api.routes.users"
+      ],
+      "responsibilities": [
+        "Expose account, profile, article, feed, favorite, comment, and tag endpoints with request dependencies and errors."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Host and runtime composition",
+          "through": [
+            "app.core.config",
+            "app.core.settings.app"
+          ],
+          "rationale": "RealWorld HTTP interface directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "PostgreSQL persistence adapter",
+          "through": [
+            "app.db.errors",
+            "app.db.repositories.articles",
+            "app.db.repositories.base",
+            "app.db.repositories.comments",
+            "app.db.repositories.profiles",
+            "app.db.repositories.tags",
+            "app.db.repositories.users"
+          ],
+          "rationale": "RealWorld HTTP interface directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Product and wire contracts",
+          "through": [
+            "app.models.domain.articles",
+            "app.models.domain.comments",
+            "app.models.domain.profiles",
+            "app.models.domain.users",
+            "app.models.schemas.articles",
+            "app.models.schemas.comments",
+            "app.models.schemas.profiles",
+            "app.models.schemas.tags",
+            "app.models.schemas.users",
+            "app.resources.strings"
+          ],
+          "rationale": "RealWorld HTTP interface directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Product policy and identity services",
+          "through": [
+            "app.services.articles",
+            "app.services.authentication",
+            "app.services.comments",
+            "app.services.jwt"
+          ],
+          "rationale": "RealWorld HTTP interface directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.api",
+        "app.api.dependencies",
+        "app.api.dependencies.articles",
+        "app.api.dependencies.authentication",
+        "app.api.dependencies.comments",
+        "app.api.dependencies.database",
+        "app.api.dependencies.profiles",
+        "app.api.errors",
+        "app.api.errors.http_error",
+        "app.api.errors.validation_error",
+        "app.api.routes",
+        "app.api.routes.api",
+        "app.api.routes.articles",
+        "app.api.routes.articles.api",
+        "app.api.routes.articles.articles_common",
+        "app.api.routes.articles.articles_resource",
+        "app.api.routes.authentication",
+        "app.api.routes.comments",
+        "app.api.routes.profiles",
+        "app.api.routes.tags",
+        "app.api.routes.users"
+      ],
+      "inside": "contracts/http-interface.json"
+    },
+    {
+      "id": "product-policy",
+      "label": "Product policy and identity services",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.services",
+        "app.services.articles",
+        "app.services.authentication",
+        "app.services.comments",
+        "app.services.jwt",
+        "app.services.security"
+      ],
+      "responsibilities": [
+        "Apply account, authentication, article, and comment policy, including password and JWT helpers."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "PostgreSQL persistence adapter",
+          "through": [
+            "app.db.errors",
+            "app.db.repositories.articles",
+            "app.db.repositories.users"
+          ],
+          "rationale": "Product policy and identity services directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Product and wire contracts",
+          "through": [
+            "app.models.domain.articles",
+            "app.models.domain.comments",
+            "app.models.domain.users",
+            "app.models.schemas.jwt"
+          ],
+          "rationale": "Product policy and identity services directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.services",
+        "app.services.articles",
+        "app.services.authentication",
+        "app.services.comments",
+        "app.services.jwt",
+        "app.services.security"
+      ],
+      "inside": "contracts/product-policy.json"
+    },
+    {
+      "id": "product-contracts",
+      "label": "Product and wire contracts",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.models",
+        "app.models.common",
+        "app.models.domain",
+        "app.models.domain.articles",
+        "app.models.domain.comments",
+        "app.models.domain.profiles",
+        "app.models.domain.rwmodel",
+        "app.models.domain.users",
+        "app.models.schemas",
+        "app.models.schemas.articles",
+        "app.models.schemas.comments",
+        "app.models.schemas.jwt",
+        "app.models.schemas.profiles",
+        "app.models.schemas.rwschema",
+        "app.models.schemas.tags",
+        "app.models.schemas.users",
+        "app.resources",
+        "app.resources.strings"
+      ],
+      "responsibilities": [
+        "Define shared identity, profile, publication, timestamp, serialization, and response contracts."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Product policy and identity services",
+          "through": [
+            "app.services.security"
+          ],
+          "rationale": "Product and wire contracts directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.models",
+        "app.models.common",
+        "app.models.domain",
+        "app.models.domain.articles",
+        "app.models.domain.comments",
+        "app.models.domain.profiles",
+        "app.models.domain.rwmodel",
+        "app.models.domain.users",
+        "app.models.schemas",
+        "app.models.schemas.articles",
+        "app.models.schemas.comments",
+        "app.models.schemas.jwt",
+        "app.models.schemas.profiles",
+        "app.models.schemas.rwschema",
+        "app.models.schemas.tags",
+        "app.models.schemas.users",
+        "app.resources",
+        "app.resources.strings"
+      ],
+      "inside": "contracts/product-contracts.json"
+    },
+    {
+      "id": "postgres-adapter",
+      "label": "PostgreSQL persistence adapter",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.db",
+        "app.db.errors",
+        "app.db.events",
+        "app.db.migrations.env",
+        "app.db.migrations.versions.fdf8821871d7_main_tables",
+        "app.db.queries",
+        "app.db.queries.queries",
+        "app.db.queries.tables",
+        "app.db.repositories",
+        "app.db.repositories.articles",
+        "app.db.repositories.base",
+        "app.db.repositories.comments",
+        "app.db.repositories.profiles",
+        "app.db.repositories.tags",
+        "app.db.repositories.users"
+      ],
+      "responsibilities": [
+        "Bind the async connection pool and SQL query files to repositories and schema migrations."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Host and runtime composition",
+          "through": [
+            "app.core.config",
+            "app.core.settings.app"
+          ],
+          "rationale": "PostgreSQL persistence adapter directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Product and wire contracts",
+          "through": [
+            "app.models.domain.articles",
+            "app.models.domain.comments",
+            "app.models.domain.profiles",
+            "app.models.domain.users"
+          ],
+          "rationale": "PostgreSQL persistence adapter directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.db",
+        "app.db.errors",
+        "app.db.events",
+        "app.db.migrations.env",
+        "app.db.migrations.versions.fdf8821871d7_main_tables",
+        "app.db.queries",
+        "app.db.queries.queries",
+        "app.db.queries.tables",
+        "app.db.repositories",
+        "app.db.repositories.articles",
+        "app.db.repositories.base",
+        "app.db.repositories.comments",
+        "app.db.repositories.profiles",
+        "app.db.repositories.tags",
+        "app.db.repositories.users"
+      ],
+      "inside": "contracts/postgres-adapter.json"
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Source imports outside the declared direct component dependencies are outside the Target.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "symbol-fastapi-security-apikeyheader",
+          "kind": "symbol",
+          "qualified_name": "fastapi.security.APIKeyHeader",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "External base type; runtime implementation is outside this source Target."
+          ]
+        },
+        {
+          "id": "symbol-pydantic-basemodel",
+          "kind": "symbol",
+          "qualified_name": "pydantic.BaseModel",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "External base type; runtime implementation is outside this source Target."
+          ]
+        },
+        {
+          "id": "symbol-pydantic-basesettings",
+          "kind": "symbol",
+          "qualified_name": "pydantic.BaseSettings",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "External base type; runtime implementation is outside this source Target."
+          ]
+        },
+        {
+          "id": "symbol-enum-enum",
+          "kind": "symbol",
+          "qualified_name": "enum.Enum",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "External base type; runtime implementation is outside this source Target."
+          ]
+        },
+        {
+          "id": "reference-class-app-api-dependencies-authentication-rwapikeyheader",
+          "kind": "class",
+          "qualified_name": "app.api.dependencies.authentication.RWAPIKeyHeader",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-core-settings-app-appsettings",
+          "kind": "class",
+          "qualified_name": "app.core.settings.app.AppSettings",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-core-settings-base-baseappsettings",
+          "kind": "class",
+          "qualified_name": "app.core.settings.base.BaseAppSettings",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-core-settings-base-appenvtypes",
+          "kind": "class",
+          "qualified_name": "app.core.settings.base.AppEnvTypes",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-core-settings-development-devappsettings",
+          "kind": "class",
+          "qualified_name": "app.core.settings.development.DevAppSettings",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-core-settings-production-prodappsettings",
+          "kind": "class",
+          "qualified_name": "app.core.settings.production.ProdAppSettings",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-core-settings-test-testappsettings",
+          "kind": "class",
+          "qualified_name": "app.core.settings.test.TestAppSettings",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-db-repositories-articles-articlesrepository",
+          "kind": "class",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-db-repositories-base-baserepository",
+          "kind": "class",
+          "qualified_name": "app.db.repositories.base.BaseRepository",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-db-repositories-comments-commentsrepository",
+          "kind": "class",
+          "qualified_name": "app.db.repositories.comments.CommentsRepository",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-db-repositories-profiles-profilesrepository",
+          "kind": "class",
+          "qualified_name": "app.db.repositories.profiles.ProfilesRepository",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-db-repositories-tags-tagsrepository",
+          "kind": "class",
+          "qualified_name": "app.db.repositories.tags.TagsRepository",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-db-repositories-users-usersrepository",
+          "kind": "class",
+          "qualified_name": "app.db.repositories.users.UsersRepository",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-common-datetimemodelmixin",
+          "kind": "class",
+          "qualified_name": "app.models.common.DateTimeModelMixin",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-common-idmodelmixin",
+          "kind": "class",
+          "qualified_name": "app.models.common.IDModelMixin",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-domain-articles-article",
+          "kind": "class",
+          "qualified_name": "app.models.domain.articles.Article",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-domain-rwmodel-rwmodel",
+          "kind": "class",
+          "qualified_name": "app.models.domain.rwmodel.RWModel",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-domain-comments-comment",
+          "kind": "class",
+          "qualified_name": "app.models.domain.comments.Comment",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-domain-profiles-profile",
+          "kind": "class",
+          "qualified_name": "app.models.domain.profiles.Profile",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-domain-users-user",
+          "kind": "class",
+          "qualified_name": "app.models.domain.users.User",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-domain-users-userindb",
+          "kind": "class",
+          "qualified_name": "app.models.domain.users.UserInDB",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-articles-articleforresponse",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.articles.ArticleForResponse",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-rwschema-rwschema",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.rwschema.RWSchema",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-articles-articleinresponse",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.articles.ArticleInResponse",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-articles-articleincreate",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.articles.ArticleInCreate",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-articles-articleinupdate",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.articles.ArticleInUpdate",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-articles-listofarticlesinresponse",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.articles.ListOfArticlesInResponse",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-articles-articlesfilters",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.articles.ArticlesFilters",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-comments-listofcommentsinresponse",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.comments.ListOfCommentsInResponse",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-comments-commentinresponse",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.comments.CommentInResponse",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-comments-commentincreate",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.comments.CommentInCreate",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-jwt-jwtmeta",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.jwt.JWTMeta",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-jwt-jwtuser",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.jwt.JWTUser",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-profiles-profileinresponse",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.profiles.ProfileInResponse",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-tags-tagsinlist",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.tags.TagsInList",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-users-userinlogin",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.users.UserInLogin",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-users-userincreate",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.users.UserInCreate",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-users-userinupdate",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.users.UserInUpdate",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-users-userwithtoken",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.users.UserWithToken",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-class-app-models-schemas-users-userinresponse",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.users.UserInResponse",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-function-app-api-routes-authentication-login",
+          "kind": "function",
+          "qualified_name": "app.api.routes.authentication.login",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "reference-function-app-services-jwt-create-access-token-for-user",
+          "kind": "function",
+          "qualified_name": "app.services.jwt.create_access_token_for_user",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-92a6cda66107f487",
+          "kind": "module",
+          "qualified_name": "app.api.dependencies.articles",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-136a4a6ade371c32",
+          "kind": "module",
+          "qualified_name": "app.db.errors",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-b664e7b24dd48c70",
+          "kind": "module",
+          "qualified_name": "app.db.repositories.articles",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-7242ed928941c349",
+          "kind": "module",
+          "qualified_name": "app.models.domain.articles",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-25e43e54c1ab1d23",
+          "kind": "module",
+          "qualified_name": "app.models.domain.users",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-406784a1fba11c80",
+          "kind": "module",
+          "qualified_name": "app.models.schemas.articles",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-80f44fc439b99cab",
+          "kind": "module",
+          "qualified_name": "app.resources.strings",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-649cb8c413f8d20f",
+          "kind": "module",
+          "qualified_name": "app.services.articles",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-8d221f24b12b9817",
+          "kind": "module",
+          "qualified_name": "app.api.dependencies.authentication",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-a92b7adc1f8a2252",
+          "kind": "module",
+          "qualified_name": "app.core.config",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-9daeaca68643d8df",
+          "kind": "module",
+          "qualified_name": "app.core.settings.app",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-9c4ad53f1aed3ebb",
+          "kind": "module",
+          "qualified_name": "app.db.repositories.users",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-80f28bfae76a1e78",
+          "kind": "module",
+          "qualified_name": "app.services.jwt",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-093a65be476e2a15",
+          "kind": "module",
+          "qualified_name": "app.api.dependencies.comments",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-91c14f48e6eabf3d",
+          "kind": "module",
+          "qualified_name": "app.db.repositories.comments",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-cc8196dd3523a051",
+          "kind": "module",
+          "qualified_name": "app.models.domain.comments",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-521f373d55b8450d",
+          "kind": "module",
+          "qualified_name": "app.services.comments",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-41151a7433608987",
+          "kind": "module",
+          "qualified_name": "app.api.dependencies.database",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-a47a732b2fd98d9b",
+          "kind": "module",
+          "qualified_name": "app.db.repositories.base",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-b99f204aa496332b",
+          "kind": "module",
+          "qualified_name": "app.api.dependencies.profiles",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-396d80fe4e5b1824",
+          "kind": "module",
+          "qualified_name": "app.db.repositories.profiles",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-4e5a3971d309670d",
+          "kind": "module",
+          "qualified_name": "app.models.domain.profiles",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-720c524ab485ce13",
+          "kind": "module",
+          "qualified_name": "app.api.routes.articles.articles_common",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-75453d7a944d5f02",
+          "kind": "module",
+          "qualified_name": "app.api.routes.articles.articles_resource",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-d63d40ecfa01e507",
+          "kind": "module",
+          "qualified_name": "app.api.routes.authentication",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-b19c9d4bd77a7190",
+          "kind": "module",
+          "qualified_name": "app.models.schemas.users",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-083ba1df22f595e5",
+          "kind": "module",
+          "qualified_name": "app.services.authentication",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-972c826192b0b5a8",
+          "kind": "module",
+          "qualified_name": "app.api.routes.comments",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-15cf1c9b46169af7",
+          "kind": "module",
+          "qualified_name": "app.models.schemas.comments",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-93dd863a0a14cf8d",
+          "kind": "module",
+          "qualified_name": "app.api.routes.profiles",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-5c5e0b25dc3fbc5b",
+          "kind": "module",
+          "qualified_name": "app.models.schemas.profiles",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-9710bf36a9efaf10",
+          "kind": "module",
+          "qualified_name": "app.api.routes.tags",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-3c8777ad96d6abac",
+          "kind": "module",
+          "qualified_name": "app.db.repositories.tags",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-bc1e45f7a0f877d9",
+          "kind": "module",
+          "qualified_name": "app.models.schemas.tags",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-5da5c8857e075297",
+          "kind": "module",
+          "qualified_name": "app.api.routes.users",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-e212902b59faf3a7",
+          "kind": "module",
+          "qualified_name": "app.core.events",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-d37358c94ca557e0",
+          "kind": "module",
+          "qualified_name": "app.db.events",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-7ad35210bf73670b",
+          "kind": "module",
+          "qualified_name": "app.db.migrations.env",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-ec36f8669ac98816",
+          "kind": "module",
+          "qualified_name": "app.main",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-d28474a6394e2701",
+          "kind": "module",
+          "qualified_name": "app.api.errors.http_error",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-872933a9236ecf8d",
+          "kind": "module",
+          "qualified_name": "app.api.errors.validation_error",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-373888ef22dc57e8",
+          "kind": "module",
+          "qualified_name": "app.api.routes.api",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-4a20b63876bf2b40",
+          "kind": "module",
+          "qualified_name": "app.services.security",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "ref-module-434272c3c99502a2",
+          "kind": "module",
+          "qualified_name": "app.models.schemas.jwt",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "inherits-app-api-dependencies-authentication-rwapikeyheader-symbol-fastapi-security-apikeyheader",
+          "kind": "inherits",
+          "source_id": "reference-class-app-api-dependencies-authentication-rwapikeyheader",
+          "target_id": "symbol-fastapi-security-apikeyheader",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-core-settings-app-appsettings-app-core-settings-base-baseappsettings",
+          "kind": "inherits",
+          "source_id": "reference-class-app-core-settings-app-appsettings",
+          "target_id": "reference-class-app-core-settings-base-baseappsettings",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-core-settings-base-appenvtypes-symbol-enum-enum",
+          "kind": "inherits",
+          "source_id": "reference-class-app-core-settings-base-appenvtypes",
+          "target_id": "symbol-enum-enum",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-core-settings-base-baseappsettings-symbol-pydantic-basesettings",
+          "kind": "inherits",
+          "source_id": "reference-class-app-core-settings-base-baseappsettings",
+          "target_id": "symbol-pydantic-basesettings",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-core-settings-development-devappsettings-app-core-settings-app-appsettings",
+          "kind": "inherits",
+          "source_id": "reference-class-app-core-settings-development-devappsettings",
+          "target_id": "reference-class-app-core-settings-app-appsettings",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-core-settings-production-prodappsettings-app-core-settings-app-appsettings",
+          "kind": "inherits",
+          "source_id": "reference-class-app-core-settings-production-prodappsettings",
+          "target_id": "reference-class-app-core-settings-app-appsettings",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-core-settings-test-testappsettings-app-core-settings-app-appsettings",
+          "kind": "inherits",
+          "source_id": "reference-class-app-core-settings-test-testappsettings",
+          "target_id": "reference-class-app-core-settings-app-appsettings",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-db-repositories-articles-articlesrepository-app-db-repositories-base-baserepository",
+          "kind": "inherits",
+          "source_id": "reference-class-app-db-repositories-articles-articlesrepository",
+          "target_id": "reference-class-app-db-repositories-base-baserepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-db-repositories-comments-commentsrepository-app-db-repositories-base-baserepository",
+          "kind": "inherits",
+          "source_id": "reference-class-app-db-repositories-comments-commentsrepository",
+          "target_id": "reference-class-app-db-repositories-base-baserepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-db-repositories-profiles-profilesrepository-app-db-repositories-base-baserepository",
+          "kind": "inherits",
+          "source_id": "reference-class-app-db-repositories-profiles-profilesrepository",
+          "target_id": "reference-class-app-db-repositories-base-baserepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-db-repositories-tags-tagsrepository-app-db-repositories-base-baserepository",
+          "kind": "inherits",
+          "source_id": "reference-class-app-db-repositories-tags-tagsrepository",
+          "target_id": "reference-class-app-db-repositories-base-baserepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-db-repositories-users-usersrepository-app-db-repositories-base-baserepository",
+          "kind": "inherits",
+          "source_id": "reference-class-app-db-repositories-users-usersrepository",
+          "target_id": "reference-class-app-db-repositories-base-baserepository",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-common-datetimemodelmixin-symbol-pydantic-basemodel",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-common-datetimemodelmixin",
+          "target_id": "symbol-pydantic-basemodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-common-idmodelmixin-symbol-pydantic-basemodel",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-common-idmodelmixin",
+          "target_id": "symbol-pydantic-basemodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-domain-articles-article-app-models-common-idmodelmixin",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-domain-articles-article",
+          "target_id": "reference-class-app-models-common-idmodelmixin",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-domain-articles-article-app-models-common-datetimemodelmixin",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-domain-articles-article",
+          "target_id": "reference-class-app-models-common-datetimemodelmixin",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-domain-articles-article-app-models-domain-rwmodel-rwmodel",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-domain-articles-article",
+          "target_id": "reference-class-app-models-domain-rwmodel-rwmodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-domain-comments-comment-app-models-common-idmodelmixin",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-domain-comments-comment",
+          "target_id": "reference-class-app-models-common-idmodelmixin",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-domain-comments-comment-app-models-common-datetimemodelmixin",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-domain-comments-comment",
+          "target_id": "reference-class-app-models-common-datetimemodelmixin",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-domain-comments-comment-app-models-domain-rwmodel-rwmodel",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-domain-comments-comment",
+          "target_id": "reference-class-app-models-domain-rwmodel-rwmodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-domain-profiles-profile-app-models-domain-rwmodel-rwmodel",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-domain-profiles-profile",
+          "target_id": "reference-class-app-models-domain-rwmodel-rwmodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-domain-rwmodel-rwmodel-symbol-pydantic-basemodel",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-domain-rwmodel-rwmodel",
+          "target_id": "symbol-pydantic-basemodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-domain-users-user-app-models-domain-rwmodel-rwmodel",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-domain-users-user",
+          "target_id": "reference-class-app-models-domain-rwmodel-rwmodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-domain-users-userindb-app-models-common-idmodelmixin",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-domain-users-userindb",
+          "target_id": "reference-class-app-models-common-idmodelmixin",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-domain-users-userindb-app-models-common-datetimemodelmixin",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-domain-users-userindb",
+          "target_id": "reference-class-app-models-common-datetimemodelmixin",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-domain-users-userindb-app-models-domain-users-user",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-domain-users-userindb",
+          "target_id": "reference-class-app-models-domain-users-user",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-articles-articleforresponse-app-models-schemas-rwschema-rwschema",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-articles-articleforresponse",
+          "target_id": "reference-class-app-models-schemas-rwschema-rwschema",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-articles-articleforresponse-app-models-domain-articles-article",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-articles-articleforresponse",
+          "target_id": "reference-class-app-models-domain-articles-article",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-articles-articleinresponse-app-models-schemas-rwschema-rwschema",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-articles-articleinresponse",
+          "target_id": "reference-class-app-models-schemas-rwschema-rwschema",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-articles-articleincreate-app-models-schemas-rwschema-rwschema",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-articles-articleincreate",
+          "target_id": "reference-class-app-models-schemas-rwschema-rwschema",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-articles-articleinupdate-app-models-schemas-rwschema-rwschema",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-articles-articleinupdate",
+          "target_id": "reference-class-app-models-schemas-rwschema-rwschema",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-articles-listofarticlesinresponse-app-models-schemas-rwschema-rwschema",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-articles-listofarticlesinresponse",
+          "target_id": "reference-class-app-models-schemas-rwschema-rwschema",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-articles-articlesfilters-symbol-pydantic-basemodel",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-articles-articlesfilters",
+          "target_id": "symbol-pydantic-basemodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-comments-listofcommentsinresponse-app-models-schemas-rwschema-rwschema",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-comments-listofcommentsinresponse",
+          "target_id": "reference-class-app-models-schemas-rwschema-rwschema",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-comments-commentinresponse-app-models-schemas-rwschema-rwschema",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-comments-commentinresponse",
+          "target_id": "reference-class-app-models-schemas-rwschema-rwschema",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-comments-commentincreate-app-models-schemas-rwschema-rwschema",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-comments-commentincreate",
+          "target_id": "reference-class-app-models-schemas-rwschema-rwschema",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-jwt-jwtmeta-symbol-pydantic-basemodel",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-jwt-jwtmeta",
+          "target_id": "symbol-pydantic-basemodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-jwt-jwtuser-symbol-pydantic-basemodel",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-jwt-jwtuser",
+          "target_id": "symbol-pydantic-basemodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-profiles-profileinresponse-symbol-pydantic-basemodel",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-profiles-profileinresponse",
+          "target_id": "symbol-pydantic-basemodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-rwschema-rwschema-app-models-domain-rwmodel-rwmodel",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-rwschema-rwschema",
+          "target_id": "reference-class-app-models-domain-rwmodel-rwmodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-tags-tagsinlist-symbol-pydantic-basemodel",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-tags-tagsinlist",
+          "target_id": "symbol-pydantic-basemodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-users-userinlogin-app-models-schemas-rwschema-rwschema",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-users-userinlogin",
+          "target_id": "reference-class-app-models-schemas-rwschema-rwschema",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-users-userincreate-app-models-schemas-users-userinlogin",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-users-userincreate",
+          "target_id": "reference-class-app-models-schemas-users-userinlogin",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-users-userinupdate-symbol-pydantic-basemodel",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-users-userinupdate",
+          "target_id": "symbol-pydantic-basemodel",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-users-userwithtoken-app-models-domain-users-user",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-users-userwithtoken",
+          "target_id": "reference-class-app-models-domain-users-user",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-app-models-schemas-users-userinresponse-app-models-schemas-rwschema-rwschema",
+          "kind": "inherits",
+          "source_id": "reference-class-app-models-schemas-users-userinresponse",
+          "target_id": "reference-class-app-models-schemas-rwschema-rwschema",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "login-creates-access-token",
+          "kind": "calls",
+          "source_id": "reference-function-app-api-routes-authentication-login",
+          "target_id": "reference-function-app-services-jwt-create-access-token-for-user",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8a205a151a3747f8",
+          "kind": "imports",
+          "source_id": "ref-module-92a6cda66107f487",
+          "target_id": "ref-module-136a4a6ade371c32",
+          "reason": "Selected source import at app/api/dependencies/articles.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-dcb53c8d1cbe8f9e",
+          "kind": "imports",
+          "source_id": "ref-module-92a6cda66107f487",
+          "target_id": "ref-module-b664e7b24dd48c70",
+          "reason": "Selected source import at app/api/dependencies/articles.py:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6a48ffc571bedb72",
+          "kind": "imports",
+          "source_id": "ref-module-92a6cda66107f487",
+          "target_id": "ref-module-7242ed928941c349",
+          "reason": "Selected source import at app/api/dependencies/articles.py:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c08fa53680d8a1f2",
+          "kind": "imports",
+          "source_id": "ref-module-92a6cda66107f487",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/api/dependencies/articles.py:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-0f7a1d63a9369e23",
+          "kind": "imports",
+          "source_id": "ref-module-92a6cda66107f487",
+          "target_id": "ref-module-406784a1fba11c80",
+          "reason": "Selected source import at app/api/dependencies/articles.py:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9e252a528c37cf1b",
+          "kind": "imports",
+          "source_id": "ref-module-92a6cda66107f487",
+          "target_id": "ref-module-80f44fc439b99cab",
+          "reason": "Selected source import at app/api/dependencies/articles.py:17.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-08ec6d09ae5c3a1a",
+          "kind": "imports",
+          "source_id": "ref-module-92a6cda66107f487",
+          "target_id": "ref-module-649cb8c413f8d20f",
+          "reason": "Selected source import at app/api/dependencies/articles.py:18.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-fbdbf1287793b288",
+          "kind": "imports",
+          "source_id": "ref-module-8d221f24b12b9817",
+          "target_id": "ref-module-a92b7adc1f8a2252",
+          "reason": "Selected source import at app/api/dependencies/authentication.py:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-094de316200e1caa",
+          "kind": "imports",
+          "source_id": "ref-module-8d221f24b12b9817",
+          "target_id": "ref-module-9daeaca68643d8df",
+          "reason": "Selected source import at app/api/dependencies/authentication.py:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f7ff50b52f7336cf",
+          "kind": "imports",
+          "source_id": "ref-module-8d221f24b12b9817",
+          "target_id": "ref-module-136a4a6ade371c32",
+          "reason": "Selected source import at app/api/dependencies/authentication.py:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b82336762880bc03",
+          "kind": "imports",
+          "source_id": "ref-module-8d221f24b12b9817",
+          "target_id": "ref-module-9c4ad53f1aed3ebb",
+          "reason": "Selected source import at app/api/dependencies/authentication.py:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-fb690205c27d09b6",
+          "kind": "imports",
+          "source_id": "ref-module-8d221f24b12b9817",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/api/dependencies/authentication.py:14.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5faac7296e44b10c",
+          "kind": "imports",
+          "source_id": "ref-module-8d221f24b12b9817",
+          "target_id": "ref-module-80f44fc439b99cab",
+          "reason": "Selected source import at app/api/dependencies/authentication.py:15.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ca12232da8c9ce5b",
+          "kind": "imports",
+          "source_id": "ref-module-8d221f24b12b9817",
+          "target_id": "ref-module-80f28bfae76a1e78",
+          "reason": "Selected source import at app/api/dependencies/authentication.py:16.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-29dd1ba5953d6e98",
+          "kind": "imports",
+          "source_id": "ref-module-093a65be476e2a15",
+          "target_id": "ref-module-136a4a6ade371c32",
+          "reason": "Selected source import at app/api/dependencies/comments.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c5a7c98b08e6d0df",
+          "kind": "imports",
+          "source_id": "ref-module-093a65be476e2a15",
+          "target_id": "ref-module-91c14f48e6eabf3d",
+          "reason": "Selected source import at app/api/dependencies/comments.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c2ae5ff2411bb8a0",
+          "kind": "imports",
+          "source_id": "ref-module-093a65be476e2a15",
+          "target_id": "ref-module-7242ed928941c349",
+          "reason": "Selected source import at app/api/dependencies/comments.py:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1a6ec65ffbbc97cd",
+          "kind": "imports",
+          "source_id": "ref-module-093a65be476e2a15",
+          "target_id": "ref-module-cc8196dd3523a051",
+          "reason": "Selected source import at app/api/dependencies/comments.py:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f83c26bdfde889af",
+          "kind": "imports",
+          "source_id": "ref-module-093a65be476e2a15",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/api/dependencies/comments.py:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c700fc7a2c6e231f",
+          "kind": "imports",
+          "source_id": "ref-module-093a65be476e2a15",
+          "target_id": "ref-module-80f44fc439b99cab",
+          "reason": "Selected source import at app/api/dependencies/comments.py:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7bccbe5802c9fbfd",
+          "kind": "imports",
+          "source_id": "ref-module-093a65be476e2a15",
+          "target_id": "ref-module-521f373d55b8450d",
+          "reason": "Selected source import at app/api/dependencies/comments.py:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-21b6f4620c8d757c",
+          "kind": "imports",
+          "source_id": "ref-module-41151a7433608987",
+          "target_id": "ref-module-a47a732b2fd98d9b",
+          "reason": "Selected source import at app/api/dependencies/database.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-826692f1c65fecb7",
+          "kind": "imports",
+          "source_id": "ref-module-b99f204aa496332b",
+          "target_id": "ref-module-136a4a6ade371c32",
+          "reason": "Selected source import at app/api/dependencies/profiles.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1d50846c08a85e99",
+          "kind": "imports",
+          "source_id": "ref-module-b99f204aa496332b",
+          "target_id": "ref-module-396d80fe4e5b1824",
+          "reason": "Selected source import at app/api/dependencies/profiles.py:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-934047f16f5f5a68",
+          "kind": "imports",
+          "source_id": "ref-module-b99f204aa496332b",
+          "target_id": "ref-module-4e5a3971d309670d",
+          "reason": "Selected source import at app/api/dependencies/profiles.py:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-3e87c515554ed324",
+          "kind": "imports",
+          "source_id": "ref-module-b99f204aa496332b",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/api/dependencies/profiles.py:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ed2d3e860d7166d1",
+          "kind": "imports",
+          "source_id": "ref-module-b99f204aa496332b",
+          "target_id": "ref-module-80f44fc439b99cab",
+          "reason": "Selected source import at app/api/dependencies/profiles.py:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7f57dcaf5897fd1d",
+          "kind": "imports",
+          "source_id": "ref-module-720c524ab485ce13",
+          "target_id": "ref-module-b664e7b24dd48c70",
+          "reason": "Selected source import at app/api/routes/articles/articles_common.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-adad63892c35d3f5",
+          "kind": "imports",
+          "source_id": "ref-module-720c524ab485ce13",
+          "target_id": "ref-module-7242ed928941c349",
+          "reason": "Selected source import at app/api/routes/articles/articles_common.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c2d71d9a9fe0d3e4",
+          "kind": "imports",
+          "source_id": "ref-module-720c524ab485ce13",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/api/routes/articles/articles_common.py:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8c7bc9463d37cd9e",
+          "kind": "imports",
+          "source_id": "ref-module-720c524ab485ce13",
+          "target_id": "ref-module-406784a1fba11c80",
+          "reason": "Selected source import at app/api/routes/articles/articles_common.py:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-65386ae1fe78fa2e",
+          "kind": "imports",
+          "source_id": "ref-module-720c524ab485ce13",
+          "target_id": "ref-module-80f44fc439b99cab",
+          "reason": "Selected source import at app/api/routes/articles/articles_common.py:17.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7b63d246beae78d1",
+          "kind": "imports",
+          "source_id": "ref-module-75453d7a944d5f02",
+          "target_id": "ref-module-b664e7b24dd48c70",
+          "reason": "Selected source import at app/api/routes/articles/articles_resource.py:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b470207a0a488630",
+          "kind": "imports",
+          "source_id": "ref-module-75453d7a944d5f02",
+          "target_id": "ref-module-7242ed928941c349",
+          "reason": "Selected source import at app/api/routes/articles/articles_resource.py:14.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f0ec860d3b06445c",
+          "kind": "imports",
+          "source_id": "ref-module-75453d7a944d5f02",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/api/routes/articles/articles_resource.py:15.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f921c5f67b60d76c",
+          "kind": "imports",
+          "source_id": "ref-module-75453d7a944d5f02",
+          "target_id": "ref-module-406784a1fba11c80",
+          "reason": "Selected source import at app/api/routes/articles/articles_resource.py:16.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-273c293b48db7183",
+          "kind": "imports",
+          "source_id": "ref-module-75453d7a944d5f02",
+          "target_id": "ref-module-80f44fc439b99cab",
+          "reason": "Selected source import at app/api/routes/articles/articles_resource.py:24.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6cf9e36fe6b75d8a",
+          "kind": "imports",
+          "source_id": "ref-module-75453d7a944d5f02",
+          "target_id": "ref-module-649cb8c413f8d20f",
+          "reason": "Selected source import at app/api/routes/articles/articles_resource.py:25.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-07a91f8d0f399f80",
+          "kind": "imports",
+          "source_id": "ref-module-d63d40ecfa01e507",
+          "target_id": "ref-module-a92b7adc1f8a2252",
+          "reason": "Selected source import at app/api/routes/authentication.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-718c046c00274f76",
+          "kind": "imports",
+          "source_id": "ref-module-d63d40ecfa01e507",
+          "target_id": "ref-module-9daeaca68643d8df",
+          "reason": "Selected source import at app/api/routes/authentication.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-715823d9b7b527ad",
+          "kind": "imports",
+          "source_id": "ref-module-d63d40ecfa01e507",
+          "target_id": "ref-module-136a4a6ade371c32",
+          "reason": "Selected source import at app/api/routes/authentication.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9bc407c924476bc5",
+          "kind": "imports",
+          "source_id": "ref-module-d63d40ecfa01e507",
+          "target_id": "ref-module-9c4ad53f1aed3ebb",
+          "reason": "Selected source import at app/api/routes/authentication.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1cada4360720f24b",
+          "kind": "imports",
+          "source_id": "ref-module-d63d40ecfa01e507",
+          "target_id": "ref-module-b19c9d4bd77a7190",
+          "reason": "Selected source import at app/api/routes/authentication.py:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-fbf8b6f4f10cfb45",
+          "kind": "imports",
+          "source_id": "ref-module-d63d40ecfa01e507",
+          "target_id": "ref-module-80f44fc439b99cab",
+          "reason": "Selected source import at app/api/routes/authentication.py:15.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d7491a509b6f21f5",
+          "kind": "imports",
+          "source_id": "ref-module-d63d40ecfa01e507",
+          "target_id": "ref-module-083ba1df22f595e5",
+          "reason": "Selected source import at app/api/routes/authentication.py:17.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7254ecc3eff859ec",
+          "kind": "imports",
+          "source_id": "ref-module-d63d40ecfa01e507",
+          "target_id": "ref-module-80f28bfae76a1e78",
+          "reason": "Selected source import at app/api/routes/authentication.py:16.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d86447b5dd9d8dbd",
+          "kind": "imports",
+          "source_id": "ref-module-972c826192b0b5a8",
+          "target_id": "ref-module-91c14f48e6eabf3d",
+          "reason": "Selected source import at app/api/routes/comments.py:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5bd12a1b8d67c46b",
+          "kind": "imports",
+          "source_id": "ref-module-972c826192b0b5a8",
+          "target_id": "ref-module-7242ed928941c349",
+          "reason": "Selected source import at app/api/routes/comments.py:14.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a480a5aa61ea3d66",
+          "kind": "imports",
+          "source_id": "ref-module-972c826192b0b5a8",
+          "target_id": "ref-module-cc8196dd3523a051",
+          "reason": "Selected source import at app/api/routes/comments.py:15.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-47df7eed0c373909",
+          "kind": "imports",
+          "source_id": "ref-module-972c826192b0b5a8",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/api/routes/comments.py:16.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d4d109ab02d6e199",
+          "kind": "imports",
+          "source_id": "ref-module-972c826192b0b5a8",
+          "target_id": "ref-module-15cf1c9b46169af7",
+          "reason": "Selected source import at app/api/routes/comments.py:17.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f8d210dc6b61a129",
+          "kind": "imports",
+          "source_id": "ref-module-93dd863a0a14cf8d",
+          "target_id": "ref-module-396d80fe4e5b1824",
+          "reason": "Selected source import at app/api/routes/profiles.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-75aa8a793fca04d7",
+          "kind": "imports",
+          "source_id": "ref-module-93dd863a0a14cf8d",
+          "target_id": "ref-module-4e5a3971d309670d",
+          "reason": "Selected source import at app/api/routes/profiles.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-55172e8941a70cf6",
+          "kind": "imports",
+          "source_id": "ref-module-93dd863a0a14cf8d",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/api/routes/profiles.py:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-01ab794720c024c1",
+          "kind": "imports",
+          "source_id": "ref-module-93dd863a0a14cf8d",
+          "target_id": "ref-module-5c5e0b25dc3fbc5b",
+          "reason": "Selected source import at app/api/routes/profiles.py:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4006a54d281191d1",
+          "kind": "imports",
+          "source_id": "ref-module-93dd863a0a14cf8d",
+          "target_id": "ref-module-80f44fc439b99cab",
+          "reason": "Selected source import at app/api/routes/profiles.py:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d97fba754cabe6dd",
+          "kind": "imports",
+          "source_id": "ref-module-9710bf36a9efaf10",
+          "target_id": "ref-module-3c8777ad96d6abac",
+          "reason": "Selected source import at app/api/routes/tags.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-0e66ca56b06ffb6e",
+          "kind": "imports",
+          "source_id": "ref-module-9710bf36a9efaf10",
+          "target_id": "ref-module-bc1e45f7a0f877d9",
+          "reason": "Selected source import at app/api/routes/tags.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ecee61c259db45be",
+          "kind": "imports",
+          "source_id": "ref-module-5da5c8857e075297",
+          "target_id": "ref-module-a92b7adc1f8a2252",
+          "reason": "Selected source import at app/api/routes/users.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-934450e2ec46a886",
+          "kind": "imports",
+          "source_id": "ref-module-5da5c8857e075297",
+          "target_id": "ref-module-9daeaca68643d8df",
+          "reason": "Selected source import at app/api/routes/users.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-191686d437b0031a",
+          "kind": "imports",
+          "source_id": "ref-module-5da5c8857e075297",
+          "target_id": "ref-module-9c4ad53f1aed3ebb",
+          "reason": "Selected source import at app/api/routes/users.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-52ae8ea41cf03959",
+          "kind": "imports",
+          "source_id": "ref-module-5da5c8857e075297",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/api/routes/users.py:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-141c9b53b646c0c5",
+          "kind": "imports",
+          "source_id": "ref-module-5da5c8857e075297",
+          "target_id": "ref-module-b19c9d4bd77a7190",
+          "reason": "Selected source import at app/api/routes/users.py:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c6e8bdd1d3a468ef",
+          "kind": "imports",
+          "source_id": "ref-module-5da5c8857e075297",
+          "target_id": "ref-module-80f44fc439b99cab",
+          "reason": "Selected source import at app/api/routes/users.py:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7806101ca7bc863d",
+          "kind": "imports",
+          "source_id": "ref-module-5da5c8857e075297",
+          "target_id": "ref-module-083ba1df22f595e5",
+          "reason": "Selected source import at app/api/routes/users.py:13.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a31df109a23a064c",
+          "kind": "imports",
+          "source_id": "ref-module-5da5c8857e075297",
+          "target_id": "ref-module-80f28bfae76a1e78",
+          "reason": "Selected source import at app/api/routes/users.py:12.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8e30a4f037477d2b",
+          "kind": "imports",
+          "source_id": "ref-module-e212902b59faf3a7",
+          "target_id": "ref-module-d37358c94ca557e0",
+          "reason": "Selected source import at app/core/events.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-48f05164ffbf90ac",
+          "kind": "imports",
+          "source_id": "ref-module-d37358c94ca557e0",
+          "target_id": "ref-module-9daeaca68643d8df",
+          "reason": "Selected source import at app/db/events.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8ed2916bca3ec9c7",
+          "kind": "imports",
+          "source_id": "ref-module-7ad35210bf73670b",
+          "target_id": "ref-module-a92b7adc1f8a2252",
+          "reason": "Selected source import at app/db/migrations/env.py:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-2c8437f9fc1e4cd4",
+          "kind": "imports",
+          "source_id": "ref-module-b664e7b24dd48c70",
+          "target_id": "ref-module-7242ed928941c349",
+          "reason": "Selected source import at app/db/repositories/articles.py:19.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b12d2891cd0788e2",
+          "kind": "imports",
+          "source_id": "ref-module-b664e7b24dd48c70",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/db/repositories/articles.py:20.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-3201638202f0f7f6",
+          "kind": "imports",
+          "source_id": "ref-module-91c14f48e6eabf3d",
+          "target_id": "ref-module-7242ed928941c349",
+          "reason": "Selected source import at app/db/repositories/comments.py:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ff8ed7d2718c8098",
+          "kind": "imports",
+          "source_id": "ref-module-91c14f48e6eabf3d",
+          "target_id": "ref-module-cc8196dd3523a051",
+          "reason": "Selected source import at app/db/repositories/comments.py:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ecf7e1095bb28d35",
+          "kind": "imports",
+          "source_id": "ref-module-91c14f48e6eabf3d",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/db/repositories/comments.py:11.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-2ed4ba48d188bd6b",
+          "kind": "imports",
+          "source_id": "ref-module-396d80fe4e5b1824",
+          "target_id": "ref-module-4e5a3971d309670d",
+          "reason": "Selected source import at app/db/repositories/profiles.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c4ccca9141b17537",
+          "kind": "imports",
+          "source_id": "ref-module-396d80fe4e5b1824",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/db/repositories/profiles.py:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-26f08d83703f23f5",
+          "kind": "imports",
+          "source_id": "ref-module-9c4ad53f1aed3ebb",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/db/repositories/users.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8a95a3a1dff4f176",
+          "kind": "imports",
+          "source_id": "ref-module-ec36f8669ac98816",
+          "target_id": "ref-module-d28474a6394e2701",
+          "reason": "Selected source import at app/main.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7036150a7fac67da",
+          "kind": "imports",
+          "source_id": "ref-module-ec36f8669ac98816",
+          "target_id": "ref-module-872933a9236ecf8d",
+          "reason": "Selected source import at app/main.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-74e7e36b6951a2a2",
+          "kind": "imports",
+          "source_id": "ref-module-ec36f8669ac98816",
+          "target_id": "ref-module-373888ef22dc57e8",
+          "reason": "Selected source import at app/main.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-eccca0dc8846098e",
+          "kind": "imports",
+          "source_id": "ref-module-25e43e54c1ab1d23",
+          "target_id": "ref-module-4a20b63876bf2b40",
+          "reason": "Selected source import at app/models/domain/users.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-de5401c1b44806a5",
+          "kind": "imports",
+          "source_id": "ref-module-649cb8c413f8d20f",
+          "target_id": "ref-module-136a4a6ade371c32",
+          "reason": "Selected source import at app/services/articles.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b594d8ebfff7ae27",
+          "kind": "imports",
+          "source_id": "ref-module-649cb8c413f8d20f",
+          "target_id": "ref-module-b664e7b24dd48c70",
+          "reason": "Selected source import at app/services/articles.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-d12a99205f07b641",
+          "kind": "imports",
+          "source_id": "ref-module-649cb8c413f8d20f",
+          "target_id": "ref-module-7242ed928941c349",
+          "reason": "Selected source import at app/services/articles.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-09875d27e42bd6b8",
+          "kind": "imports",
+          "source_id": "ref-module-649cb8c413f8d20f",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/services/articles.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ce53e2fa15117754",
+          "kind": "imports",
+          "source_id": "ref-module-083ba1df22f595e5",
+          "target_id": "ref-module-136a4a6ade371c32",
+          "reason": "Selected source import at app/services/authentication.py:1.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-860d316df31226b5",
+          "kind": "imports",
+          "source_id": "ref-module-083ba1df22f595e5",
+          "target_id": "ref-module-9c4ad53f1aed3ebb",
+          "reason": "Selected source import at app/services/authentication.py:2.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-69498db0dd1794a7",
+          "kind": "imports",
+          "source_id": "ref-module-521f373d55b8450d",
+          "target_id": "ref-module-cc8196dd3523a051",
+          "reason": "Selected source import at app/services/comments.py:1.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-cc712d2b589a74d4",
+          "kind": "imports",
+          "source_id": "ref-module-521f373d55b8450d",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/services/comments.py:2.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-bfa551aec1eaa216",
+          "kind": "imports",
+          "source_id": "ref-module-80f28bfae76a1e78",
+          "target_id": "ref-module-25e43e54c1ab1d23",
+          "reason": "Selected source import at app/services/jwt.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a566b553c7cc7d3d",
+          "kind": "imports",
+          "source_id": "ref-module-80f28bfae76a1e78",
+          "target_id": "ref-module-434272c3c99502a2",
+          "reason": "Selected source import at app/services/jwt.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

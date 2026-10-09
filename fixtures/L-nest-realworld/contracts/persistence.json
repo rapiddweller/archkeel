@@ -1,0 +1,542 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "orm-registry",
+      "label": "ORM registry and configuration",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.entities_x2e_generated_x2e_ts",
+        "nestjs.realworld.src.mikro_x2d_orm_x2e_config_x2e_ts"
+      ],
+      "responsibilities": [
+        "Register feature-owned entities and configure MikroORM."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "nestjs.realworld.src.entities_x2e_generated_x2e_ts",
+        "nestjs.realworld.src.mikro_x2d_orm_x2e_config_x2e_ts"
+      ]
+    },
+    {
+      "id": "migration-history",
+      "label": "Migration history",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.migrations.Migration20211219155639_x2e_ts",
+        "nestjs.realworld.src.migrations.Migration20240114223020_x2e_ts",
+        "nestjs.realworld.src.migrations.Migration20240114224028_x2e_ts"
+      ],
+      "responsibilities": [
+        "Declare the three source migration steps."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "nestjs.realworld.src.migrations.Migration20211219155639_x2e_ts",
+        "nestjs.realworld.src.migrations.Migration20240114223020_x2e_ts",
+        "nestjs.realworld.src.migrations.Migration20240114224028_x2e_ts"
+      ]
+    },
+    {
+      "id": "development-seed",
+      "label": "Development seed",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.seeders.test_x2e_seeder_x2e_ts"
+      ],
+      "responsibilities": [
+        "Seed the development account through EntityManager."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "nestjs.realworld.src.seeders.test_x2e_seeder_x2e_ts"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Direct internal source imports must cross declared responsibility boundaries.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-c8828050f315",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.entities_x2e_generated_x2e_ts",
+          "parent_id": "orm-registry",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Register feature-owned entities and configure MikroORM."
+          ],
+          "file_path": "src/entities.generated.ts"
+        },
+        {
+          "id": "module-a5f2d31cf421",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.mikro_x2d_orm_x2e_config_x2e_ts",
+          "parent_id": "orm-registry",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Register feature-owned entities and configure MikroORM."
+          ],
+          "file_path": "src/mikro-orm.config.ts"
+        },
+        {
+          "id": "module-9d01539907b5",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.migrations.Migration20211219155639_x2e_ts",
+          "parent_id": "migration-history",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the three source migration steps."
+          ],
+          "file_path": "src/migrations/Migration20211219155639.ts"
+        },
+        {
+          "id": "module-d3d361c87a54",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.migrations.Migration20240114223020_x2e_ts",
+          "parent_id": "migration-history",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the three source migration steps."
+          ],
+          "file_path": "src/migrations/Migration20240114223020.ts"
+        },
+        {
+          "id": "module-24098eb8159b",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.migrations.Migration20240114224028_x2e_ts",
+          "parent_id": "migration-history",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the three source migration steps."
+          ],
+          "file_path": "src/migrations/Migration20240114224028.ts"
+        },
+        {
+          "id": "module-681c0f821c87",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.seeders.test_x2e_seeder_x2e_ts",
+          "parent_id": "development-seed",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Seed the development account through EntityManager."
+          ],
+          "file_path": "src/seeders/test.seeder.ts"
+        },
+        {
+          "id": "class-testseeder",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.seeders.test_x2e_seeder_x2e_ts.TestSeeder",
+          "parent_id": "module-681c0f821c87",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Insert development seed data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-migration20211219155639",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.migrations.Migration20211219155639_x2e_ts.Migration20211219155639",
+          "parent_id": "module-9d01539907b5",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare a schema migration step."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-migration20211219155639.up",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.migrations.Migration20211219155639_x2e_ts.Migration20211219155639.up",
+          "parent_id": "class-migration20211219155639",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Apply this migration."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Promise<void>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "class-migration20240114223020",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.migrations.Migration20240114223020_x2e_ts.Migration20240114223020",
+          "parent_id": "module-d3d361c87a54",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare a schema migration step."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-migration20240114223020.up",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.migrations.Migration20240114223020_x2e_ts.Migration20240114223020.up",
+          "parent_id": "class-migration20240114223020",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Apply this migration."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Promise<void>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-migration20240114223020.down",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.migrations.Migration20240114223020_x2e_ts.Migration20240114223020.down",
+          "parent_id": "class-migration20240114223020",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reverse this migration."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Promise<void>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "class-migration20240114224028",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.migrations.Migration20240114224028_x2e_ts.Migration20240114224028",
+          "parent_id": "module-24098eb8159b",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare a schema migration step."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-migration20240114224028.up",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.migrations.Migration20240114224028_x2e_ts.Migration20240114224028.up",
+          "parent_id": "class-migration20240114224028",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Apply this migration."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Promise<void>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-migration20240114224028.down",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.migrations.Migration20240114224028_x2e_ts.Migration20240114224028.down",
+          "parent_id": "class-migration20240114224028",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reverse this migration."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Promise<void>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-testseeder.run",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.seeders.test_x2e_seeder_x2e_ts.TestSeeder.run",
+          "parent_id": "class-testseeder",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Insert development seed data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "em",
+                "kind": "positional",
+                "annotation": "EntityManager"
+              }
+            ],
+            "returns": "Promise<void>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "constant-entities",
+          "kind": "constant",
+          "qualified_name": "nestjs.realworld.src.entities_x2e_generated_x2e_ts.entities",
+          "parent_id": "module-c8828050f315",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Export the generated entity registry."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "type_alias-database",
+          "kind": "type_alias",
+          "qualified_name": "nestjs.realworld.src.entities_x2e_generated_x2e_ts.Database",
+          "parent_id": "module-c8828050f315",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Name the generated entity tuple type."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "typeof entities"
+        },
+        {
+          "id": "type_alias-entitymanager",
+          "kind": "type_alias",
+          "qualified_name": "nestjs.realworld.src.entities_x2e_generated_x2e_ts.EntityManager",
+          "parent_id": "module-c8828050f315",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Specialize the driver EntityManager with the generated entity tuple."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "DriverEntityManager & { '~entities': Database }"
+        },
+        {
+          "id": "constant-entitymanager",
+          "kind": "constant",
+          "qualified_name": "nestjs.realworld.src.entities_x2e_generated_x2e_ts.EntityManager",
+          "parent_id": "module-c8828050f315",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Export the MikroORM driver EntityManager value."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "class-testseeder",
+          "entity_kinds": [
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-migration20211219155639",
+          "entity_kinds": [
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-migration20240114223020",
+          "entity_kinds": [
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-migration20240114224028",
+          "entity_kinds": [
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "module-import-ba6ace6b2e6cc354",
+          "kind": "imports",
+          "source_id": "module-a5f2d31cf421",
+          "target_id": "module-c8828050f315",
+          "reason": "Selected source import at src/mikro-orm.config.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

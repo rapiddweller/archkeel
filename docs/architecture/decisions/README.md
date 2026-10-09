@@ -161,7 +161,7 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-152 | [Validated construct identity](ad-152-validated-construct-identity-controls-rules.md) |
 | AD-153 | [Unproven signature candidates](ad-153-unproven-chains-retain-declared-signatures.md) |
 | AD-154 | [Incomplete module ownership](ad-154-incomplete-ownership-names-its-module.md) |
-| AD-156 | [Compact self provenance](ad-156-self-evidence-keeps-compact-provenance.md) |
+| AD-156 | [Fresh self evidence](ad-156-self-evidence-keeps-compact-provenance.md) |
 | AD-155 | [Shared open-decision remedy](ad-155-open-dependency-decisions-share-one-remedy.md) |
 | AD-157 | [Filtered source locations](ad-157-filtered-json-carries-source-locations.md) |
 | AD-158 | [Neutral onboarding drafts](ad-158-onboarding-guidance-keeps-drafts-neutral.md) |

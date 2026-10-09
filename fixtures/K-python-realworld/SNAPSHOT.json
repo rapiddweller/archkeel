@@ -1,0 +1,1478 @@
+{
+  "commit": "029eb7781c60d5f563ee8990a0cbfb79b244538c",
+  "files": [
+    {
+      "git_blob_sha1": "c33674bb4c345484ac71c98193ecf7a1d9440289",
+      "path": "LICENSE",
+      "role": "provenance",
+      "sha256": "5e5a30b0e0deee0949325619e6706dcb0e919003f3092fcfbf3493a952bca2e4",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/LICENSE"
+    },
+    {
+      "git_blob_sha1": "b84e137cb98e69c0dfaede2a4b357f75b4e1b109",
+      "path": "README.rst",
+      "role": "provenance",
+      "sha256": "d7beb2bea9fd07fb1aec18408a14b188b760d138ad95bce9111cdd39250c0c13",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/README.rst"
+    },
+    {
+      "git_blob_sha1": "2c43e60bcc227110aa5aadd2905942d93c39cd70",
+      "path": "alembic.ini",
+      "role": "provenance",
+      "sha256": "679bcdddeedfe55a00cc8b43a37bac70bfde211ae99efbc413d958afcfdddcd7",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/alembic.ini"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/__init__.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/api/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/__init__.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/api/dependencies/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/dependencies/__init__.py"
+    },
+    {
+      "git_blob_sha1": "460806c4e78a6bf436d99af847e336bab1a7eb04",
+      "path": "app/api/dependencies/articles.py",
+      "role": "source",
+      "sha256": "ebf8577282e1173be6808cbeec9cc39ca79ca91275aa1623134b2e328bfc6101",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/dependencies/articles.py"
+    },
+    {
+      "git_blob_sha1": "dbc8d48c802c6a42ae009a362f6d71720aefa68c",
+      "path": "app/api/dependencies/authentication.py",
+      "role": "source",
+      "sha256": "f3e625aaf2b069ed3ca1386ed4d11937bdc7112a5295c48c814c80fe981fc6cf",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/dependencies/authentication.py"
+    },
+    {
+      "git_blob_sha1": "c00a0778951833c113e539ad7bcd9e6aabbcbed6",
+      "path": "app/api/dependencies/comments.py",
+      "role": "source",
+      "sha256": "ba856a769f1adc5e5f4106d03c857202d23e3d7861a44e60192f0b5c188b6756",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/dependencies/comments.py"
+    },
+    {
+      "git_blob_sha1": "cc91306bf110dd3581112a7f784439ce3139a45e",
+      "path": "app/api/dependencies/database.py",
+      "role": "source",
+      "sha256": "c7a1b8f98416cae32b0fa7c4b6bd48f2817ed0b4d43e2a4fe17566c9947b8e01",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/dependencies/database.py"
+    },
+    {
+      "git_blob_sha1": "db8f9b078a97a2e326fe5679e738d695b8872553",
+      "path": "app/api/dependencies/profiles.py",
+      "role": "source",
+      "sha256": "23c5fe3de6e9022eb4ddf8a50463b2f05d2756f47ab55864a7ae94a779de636d",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/dependencies/profiles.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/api/errors/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/errors/__init__.py"
+    },
+    {
+      "git_blob_sha1": "c5032293589b89ee8b80ecde1c9ea8e4f155cd58",
+      "path": "app/api/errors/http_error.py",
+      "role": "source",
+      "sha256": "8aa7d746ab6de3ab71dfeca84bca8c70473bf6ab3f2326e573f3ba037e1db7f9",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/errors/http_error.py"
+    },
+    {
+      "git_blob_sha1": "a85730c8fe2e63864f5bb3d91fc7707c4ae840ae",
+      "path": "app/api/errors/validation_error.py",
+      "role": "source",
+      "sha256": "48d30af538f46f82507fba2b7d72e374c3b82827daccd680caaefb8787b59b29",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/errors/validation_error.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/api/routes/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/__init__.py"
+    },
+    {
+      "git_blob_sha1": "0839307bafa28a9da9fe351ff91ab4a7f823fa14",
+      "path": "app/api/routes/api.py",
+      "role": "source",
+      "sha256": "1e071551476f4c7fbf82ac700dae01b3ec070790366fbcd5d56f606434a61cc8",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/api.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/api/routes/articles/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/articles/__init__.py"
+    },
+    {
+      "git_blob_sha1": "4a32eee1799ab6258aa43f73631577dc31309823",
+      "path": "app/api/routes/articles/api.py",
+      "role": "source",
+      "sha256": "60ec742c74185541cd722d20c6120c327fb16f890b960e0253b41a8d0ffa9bfa",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/articles/api.py"
+    },
+    {
+      "git_blob_sha1": "3edd297190c9d2c0cba7fee301945784dcbf9116",
+      "path": "app/api/routes/articles/articles_common.py",
+      "role": "source",
+      "sha256": "51ea1475c5d9cf30135a76081d6eb056f647a82ff5303dd97ca88e6813549f83",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/articles/articles_common.py"
+    },
+    {
+      "git_blob_sha1": "7670fd84dff69a3d3887c2b75cb44a6be81bb240",
+      "path": "app/api/routes/articles/articles_resource.py",
+      "role": "source",
+      "sha256": "81001cd8fb5c6f09e49a149ae7ecbf06f4ac6a1e9985b86e6f7763c9c8600f9f",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/articles/articles_resource.py"
+    },
+    {
+      "git_blob_sha1": "c202742014c48367fa97fc1b000306adb6c13875",
+      "path": "app/api/routes/authentication.py",
+      "role": "source",
+      "sha256": "f8712fe91435653c8cc35c66e0249277e8eb9db8cba33149a9af546d05938aad",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/authentication.py"
+    },
+    {
+      "git_blob_sha1": "dfe6fc656593dde240ac834ae3e23022fb365bfe",
+      "path": "app/api/routes/comments.py",
+      "role": "source",
+      "sha256": "cb68c031cfa295a9e868f34341e4c22e6918960df7646f870aec11d591c997fb",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/comments.py"
+    },
+    {
+      "git_blob_sha1": "6ec1bf06274760e8cca24a3ab5f9f97016f82bb7",
+      "path": "app/api/routes/profiles.py",
+      "role": "source",
+      "sha256": "455d398bc084cc70a42a3105f519b4af22002792bd22076017fca28a9cf4e0f9",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/profiles.py"
+    },
+    {
+      "git_blob_sha1": "4706187b40a43fdc432b7786db4c56d5cd67c952",
+      "path": "app/api/routes/tags.py",
+      "role": "source",
+      "sha256": "92a8c0abd744834c84fffe81f09dddd6cf08886b2ff46437cba00602c879325e",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/tags.py"
+    },
+    {
+      "git_blob_sha1": "81bcf97606c4b5ded85fdc12001b69badac84ccc",
+      "path": "app/api/routes/users.py",
+      "role": "source",
+      "sha256": "b63f0dfe545d5dc9b199f48a4d3411c4421ab65b904e609bfe1b3a55481ecbf1",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/users.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/core/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/__init__.py"
+    },
+    {
+      "git_blob_sha1": "87f58a8520487610da507731c2310a9556022fbe",
+      "path": "app/core/config.py",
+      "role": "source",
+      "sha256": "b891dedf432387eb2b6177b339258a5a857d0246693a5559230e33211d3a18cb",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/config.py"
+    },
+    {
+      "git_blob_sha1": "3e82ee3e7be4a5cea047b301a4c4b677fe752cb8",
+      "path": "app/core/events.py",
+      "role": "source",
+      "sha256": "7efcc18b206a67c63965e3e3d1606035a7087682c55fd189b452dce35d2b6e7c",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/events.py"
+    },
+    {
+      "git_blob_sha1": "10ceda76c676bca633b1ea1f3406b3a88e587083",
+      "path": "app/core/logging.py",
+      "role": "source",
+      "sha256": "ac8bca2bb583f126f9b01fe1b12eaf3ce3e1da555f220c75e56fecfc364c2086",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/logging.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/core/settings/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/settings/__init__.py"
+    },
+    {
+      "git_blob_sha1": "9be01b6b52ff56336cf18e68593a9a1ae9483845",
+      "path": "app/core/settings/app.py",
+      "role": "source",
+      "sha256": "7a609734b97c7e64fb3c9efbba7bcf72ec9ed5e6f035e50a2dadb23e6bd6f2f9",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/settings/app.py"
+    },
+    {
+      "git_blob_sha1": "0397cbb983130a8a2f0c980d8002c64462e0c121",
+      "path": "app/core/settings/base.py",
+      "role": "source",
+      "sha256": "573f58c9434aa5db4715a468a29882a5bb7d1dcef48017311ff954d745cb1c81",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/settings/base.py"
+    },
+    {
+      "git_blob_sha1": "041a77d27eb25b19b7bc29bfe3d56a80f1c31f5d",
+      "path": "app/core/settings/development.py",
+      "role": "source",
+      "sha256": "0439a23e49812453ddace18dc3ed43edc4a9c74b06729a29e90a465f42369367",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/settings/development.py"
+    },
+    {
+      "git_blob_sha1": "f2d3eab64b7a476bb25365441f67904c3362ae15",
+      "path": "app/core/settings/production.py",
+      "role": "source",
+      "sha256": "110bd979241b5d00e46546d0cc2b22db25f850027a2593887437bbd0bda0d89b",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/settings/production.py"
+    },
+    {
+      "git_blob_sha1": "bea3c53b8de186992dd5fdd8c266fa32627b6107",
+      "path": "app/core/settings/test.py",
+      "role": "source",
+      "sha256": "d764876454f7fba38fa68e62980625c462b6d8940bbcd932826937b1db5b2b29",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/settings/test.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/db/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/__init__.py"
+    },
+    {
+      "git_blob_sha1": "bb3ef669024fab4a8a2576e64bc10d3a2295c9ef",
+      "path": "app/db/errors.py",
+      "role": "source",
+      "sha256": "49d524ce9a7c847e4f040b08076fd5f54aa0e4fc9957143e1350a6458d5be76d",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/errors.py"
+    },
+    {
+      "git_blob_sha1": "5fa7f73b0c9c755a8b4c8c82b3042263163bf98d",
+      "path": "app/db/events.py",
+      "role": "source",
+      "sha256": "2800bd0a83ccd8ac4bd21a6b9ac9b7fe2ffb158344d197f9d6ddcfb46c948929",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/events.py"
+    },
+    {
+      "git_blob_sha1": "f3129f35f5b351826ad632498bf0fbfc23dae229",
+      "path": "app/db/migrations/env.py",
+      "role": "source",
+      "sha256": "4b97f44ecd95e22fd70562eaeb2bac7bb98c8e4587c978d1d6530ca56d0277e8",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/migrations/env.py"
+    },
+    {
+      "git_blob_sha1": "3217cf0fb33a6bb96a9de74b86841642c3fb2ff1",
+      "path": "app/db/migrations/script.py.mako",
+      "role": "provenance",
+      "sha256": "b6938938463b075669b553f454fa82c860f3afc540c53a6d4c17a227b012ca0a",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/migrations/script.py.mako"
+    },
+    {
+      "git_blob_sha1": "526d3605ae9ddea99ee85cd62e1183ef2366fa9c",
+      "path": "app/db/migrations/versions/fdf8821871d7_main_tables.py",
+      "role": "source",
+      "sha256": "a76b1a95286be75abbf1f1984d08b5e81998302c95c8bf054630ba04e9f224bf",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/migrations/versions/fdf8821871d7_main_tables.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/db/queries/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/__init__.py"
+    },
+    {
+      "git_blob_sha1": "a190595c9144e5b8cede9bbb0a25ea24753d7fe3",
+      "path": "app/db/queries/queries.py",
+      "role": "source",
+      "sha256": "942fb8385871e3d16aa6139f79f9e4183264ef811bcb50ed7b1f0881f2a9555f",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/queries.py"
+    },
+    {
+      "git_blob_sha1": "001af2f5ed6e0ef5807ef2ced3c3a0525a47867a",
+      "path": "app/db/queries/queries.pyi",
+      "role": "provenance",
+      "sha256": "a402cb0d3cfc0320d44c5ec1fa3f60eebc1383d0a871f2791e5aded54c8bf432",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/queries.pyi"
+    },
+    {
+      "git_blob_sha1": "3814f71050db1f46d2b91cf98c4be36e971ffbd3",
+      "path": "app/db/queries/sql/articles.sql",
+      "role": "provenance",
+      "sha256": "6f64a55f1ec2146898f5443129f02c2379866f8b1143fd6e064d35d9adb96958",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/sql/articles.sql"
+    },
+    {
+      "git_blob_sha1": "87dd3b8e0296142deffde1f805ac3bda18682cb9",
+      "path": "app/db/queries/sql/comments.sql",
+      "role": "provenance",
+      "sha256": "a4a52a192e1f5cd41d92a9fd0627280af8d339dec4bd586cfd483caf3d1ec159",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/sql/comments.sql"
+    },
+    {
+      "git_blob_sha1": "cca00563a49f03e0860141cf683cd019165ac5e3",
+      "path": "app/db/queries/sql/profiles.sql",
+      "role": "provenance",
+      "sha256": "e6fbd7b0b5334ea13aa7f271ab940dc885ff0137f9ed7936a7ebdf0b53c4064a",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/sql/profiles.sql"
+    },
+    {
+      "git_blob_sha1": "c862a759b6b9663860c314e62b0c65f8c3d3ace2",
+      "path": "app/db/queries/sql/tags.sql",
+      "role": "provenance",
+      "sha256": "8712ae9bf21512cafd7c8e7f1dcd63b26b6a72a89b19df73c56e3e8b131e8f8c",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/sql/tags.sql"
+    },
+    {
+      "git_blob_sha1": "03d6fd68735f880cc23bfbbe103c73468be54090",
+      "path": "app/db/queries/sql/users.sql",
+      "role": "provenance",
+      "sha256": "a58f4dd300eb3b68e72d2b9329fd055d8b40be86a170a78cb18d39bbd72fb17e",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/sql/users.sql"
+    },
+    {
+      "git_blob_sha1": "5dcbf840713e035d02e37853ea267586f38d71f4",
+      "path": "app/db/queries/tables.py",
+      "role": "source",
+      "sha256": "00fbd82ab9bbd50896db0fc4da0c90318797ceed709aa073f1d6b082ef11075f",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/tables.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/db/repositories/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/repositories/__init__.py"
+    },
+    {
+      "git_blob_sha1": "fef422e268a5a23fea57748a83d9f3657ec7e106",
+      "path": "app/db/repositories/articles.py",
+      "role": "source",
+      "sha256": "e4acfaea2b0155865c8a8ca688ae206a3f6959e5a650584ec54c1e04350d8afe",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/repositories/articles.py"
+    },
+    {
+      "git_blob_sha1": "8f8a5c38b4adebd8551829cee86c5f2fae222bd0",
+      "path": "app/db/repositories/base.py",
+      "role": "source",
+      "sha256": "6d2d8399365a6e02219a9029e0a1013a434364ea02ece99d9979c6d7c2a7c990",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/repositories/base.py"
+    },
+    {
+      "git_blob_sha1": "7c21911af70dca21cb046e3ac12f8bfa7baa84cc",
+      "path": "app/db/repositories/comments.py",
+      "role": "source",
+      "sha256": "95f7d8807f65207cd83a3245e990aba7b04a3b2023ec8c0774c5073d4897aa6b",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/repositories/comments.py"
+    },
+    {
+      "git_blob_sha1": "20d43a003c9f7655db0c1a4b09c37c85b89fe79c",
+      "path": "app/db/repositories/profiles.py",
+      "role": "source",
+      "sha256": "af5f5b9babd13b6d984f8d85f282e8c0884e28e4606ec6a0588e0bc28cc0f2be",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/repositories/profiles.py"
+    },
+    {
+      "git_blob_sha1": "573499227b7e4af947948de5bdd44269ecb71de5",
+      "path": "app/db/repositories/tags.py",
+      "role": "source",
+      "sha256": "9c57cdf46c665a56c5766325951ff38cccc1d774eff5be94c07c5a3aad171420",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/repositories/tags.py"
+    },
+    {
+      "git_blob_sha1": "0bb18ec32a1e3cb96c62c2bed6743a397822abc6",
+      "path": "app/db/repositories/users.py",
+      "role": "source",
+      "sha256": "81aa44c80794c78f08245fed90be373f62c0fd93bdd8951c3737846738f5bfef",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/repositories/users.py"
+    },
+    {
+      "git_blob_sha1": "e403bc5ba6704550fb77e71533d17a7fea3bc619",
+      "path": "app/main.py",
+      "role": "source",
+      "sha256": "4a7e85fe2c543accc2d1277dbba78f04e6f6bc8d54b25053f691a60077bf4048",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/main.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/models/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/__init__.py"
+    },
+    {
+      "git_blob_sha1": "fdc515bef13e6e1604cceea9017547d7e9085c9d",
+      "path": "app/models/common.py",
+      "role": "source",
+      "sha256": "36f3559b9bb57ef6a2aa06f4c6a27582d994f2b3a16d43f38048455e80089c40",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/common.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/models/domain/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/domain/__init__.py"
+    },
+    {
+      "git_blob_sha1": "0c032bdb1b147e4aa1adad5967d0417d16a3da49",
+      "path": "app/models/domain/articles.py",
+      "role": "source",
+      "sha256": "0b36705b09254204ba8f9ab3b3dad04b00509145cad9000a9813a39585fdca65",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/domain/articles.py"
+    },
+    {
+      "git_blob_sha1": "ce5fc6af427ea2b3987de16363a4928e13e38a33",
+      "path": "app/models/domain/comments.py",
+      "role": "source",
+      "sha256": "eb4948a6a892af4092644ec93ab14222a3244512ee5cac77e358f2d26e4b007c",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/domain/comments.py"
+    },
+    {
+      "git_blob_sha1": "b1e6ac00603606c5a04584b7a9849997a94886ea",
+      "path": "app/models/domain/profiles.py",
+      "role": "source",
+      "sha256": "fce99819bdfc5f9436a606abbeba21f18a3494af16de1b73787545cbe207b1b7",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/domain/profiles.py"
+    },
+    {
+      "git_blob_sha1": "1c34f3b0be47bed7d917fc9a5adf536d78f30809",
+      "path": "app/models/domain/rwmodel.py",
+      "role": "source",
+      "sha256": "2bfd4880a3a583f487c0f3fd0426dcfc04f062bd7d745dfd023ae01664077e82",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/domain/rwmodel.py"
+    },
+    {
+      "git_blob_sha1": "3da2f9d05a43ae3de4ca100df207cc6b909b4859",
+      "path": "app/models/domain/users.py",
+      "role": "source",
+      "sha256": "6d6f7711a539c30e9c7473b3f1bef1f4c329756fd32aa6ff099639f4a6d25113",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/domain/users.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/models/schemas/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/__init__.py"
+    },
+    {
+      "git_blob_sha1": "d7bededee296dc07c200cd1db77d01c568aec80e",
+      "path": "app/models/schemas/articles.py",
+      "role": "source",
+      "sha256": "bf1528da718f694efa793dd7dad2a1209060b36c1ca1d2c2acfd4ed6c17e97f4",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/articles.py"
+    },
+    {
+      "git_blob_sha1": "e230697021e42f08a12b19196420124a09378d21",
+      "path": "app/models/schemas/comments.py",
+      "role": "source",
+      "sha256": "973aa0a01a30128ee324906891fbd64a289ffe372cbcc084dc7ef20ab5ecfeb1",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/comments.py"
+    },
+    {
+      "git_blob_sha1": "56d1fa30d640d43780c26ca58306fe0549d33256",
+      "path": "app/models/schemas/jwt.py",
+      "role": "source",
+      "sha256": "2e50f287b75d4a7ebcb85325b3eda0237e0afa41c5bcfc12b37a4d3f7d3046d3",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/jwt.py"
+    },
+    {
+      "git_blob_sha1": "5662dfcf69b46140d4c1872cee4a27fb6b4cb023",
+      "path": "app/models/schemas/profiles.py",
+      "role": "source",
+      "sha256": "c244b1bf8d1c77fc9bc1a662cee3cb73f9d0157db290c26c084122a2e8447180",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/profiles.py"
+    },
+    {
+      "git_blob_sha1": "018ad4be2788a89176d4248ec3a3a4b62b7a149d",
+      "path": "app/models/schemas/rwschema.py",
+      "role": "source",
+      "sha256": "b4bb14bad6d12fcdc20d14480fb7136e2e97fd2f4784e486a09a4c577b8b493f",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/rwschema.py"
+    },
+    {
+      "git_blob_sha1": "e9655fb58a5573def8f462ec1cfc6648eaf2b304",
+      "path": "app/models/schemas/tags.py",
+      "role": "source",
+      "sha256": "07cef9451b843e5ae7b6c7ead5b04f5530913a49fbd1f7f1a2546547709ada6a",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/tags.py"
+    },
+    {
+      "git_blob_sha1": "d0f2bba64cf32e3841d30314b75ee11daabc2dea",
+      "path": "app/models/schemas/users.py",
+      "role": "source",
+      "sha256": "b2b8201958fce9528eac3989e7ad8c966c7524a768bb1072e5d1674ae7fe5b73",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/users.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/resources/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/resources/__init__.py"
+    },
+    {
+      "git_blob_sha1": "a137dc2a1351689cc78aad3ee591e60fce4ba3a4",
+      "path": "app/resources/strings.py",
+      "role": "source",
+      "sha256": "15dbaa59b5caa0d9d31ab5610746143366d10ad39a5122e16b95eebd13f7ee54",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/resources/strings.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/services/__init__.py",
+      "role": "source",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/services/__init__.py"
+    },
+    {
+      "git_blob_sha1": "02dff69165c131d9f3101aa1c12186dc1957dfcb",
+      "path": "app/services/articles.py",
+      "role": "source",
+      "sha256": "60e458e628bb6a1f211332d7ae39591f90442b4b2e0597ee40bc67f5ca4a7357",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/services/articles.py"
+    },
+    {
+      "git_blob_sha1": "84539a6dcf8381fc130c72027697548dc2d326e9",
+      "path": "app/services/authentication.py",
+      "role": "source",
+      "sha256": "5a1ff58511ef26ce4c1ef38c99e28d5dea78267f4f20656253e07a574f830bf3",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/services/authentication.py"
+    },
+    {
+      "git_blob_sha1": "33f220e68a6d283061bfcb0ed96df84dd1c9ff80",
+      "path": "app/services/comments.py",
+      "role": "source",
+      "sha256": "1e5796ff77223beaa3c998ad4da72908b0bacb8bafe861526f9a1b70a8a7073c",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/services/comments.py"
+    },
+    {
+      "git_blob_sha1": "355ecea357a9d4667759a05c8d340a6edc5124b6",
+      "path": "app/services/jwt.py",
+      "role": "source",
+      "sha256": "b4f2cd4d1741089fd48b60527f53c478bac2411d189763c733f5d007b48d6bc8",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/services/jwt.py"
+    },
+    {
+      "git_blob_sha1": "08c523b3deeca29d74fe201c21956d259baacea3",
+      "path": "app/services/security.py",
+      "role": "source",
+      "sha256": "57fd5d390f2c795b0a67aeb52bc076cca7359b47d819abf1707f374068a34dfa",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/services/security.py"
+    },
+    {
+      "git_blob_sha1": "97240428884c4b0d18f2343716ca3093aedcc0c1",
+      "path": "poetry.lock",
+      "role": "provenance",
+      "sha256": "68595f6142f14337b7132d5b5e736ce7212efd873104e7de7e3a0113e466e8d4",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/poetry.lock"
+    },
+    {
+      "git_blob_sha1": "74e5183cfe40fddebf5ca60998c2418d0162f9cc",
+      "path": "pyproject.toml",
+      "role": "provenance",
+      "sha256": "b75026e09b60897e2133e8e9c891bb7d1a3e1d827f19830f72f9173c0fd44062",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/pyproject.toml"
+    },
+    {
+      "git_blob_sha1": "c880ac565277a7539bf66ff111a8cdfe704fa6ee",
+      "path": "setup.cfg",
+      "role": "provenance",
+      "sha256": "ef19181b9bacdd8230ed1777b25cf0ac49d29964a0fd18879cd86a1d7a243cf1",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/setup.cfg"
+    }
+  ],
+  "repository": "nsidnev/fastapi-realworld-example-app",
+  "upstream_tree": [
+    {
+      "git_blob_sha1": "71a0fe62515e912f74dc167571653f272648c02a",
+      "path": ".dockerignore",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/.dockerignore"
+    },
+    {
+      "git_blob_sha1": "34e9932b1e80bef283ea8026432e21b0de5ddeee",
+      "path": ".env.example",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/.env.example"
+    },
+    {
+      "git_blob_sha1": "5e753f08a0e21c17900a9237d1d2708cb9b755d6",
+      "path": ".github/assets/logo.png",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/.github/assets/logo.png"
+    },
+    {
+      "git_blob_sha1": "668dfc007f45ba5244409d5d7bdcdff74285fdf9",
+      "path": ".github/dependabot.yml",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/.github/dependabot.yml"
+    },
+    {
+      "git_blob_sha1": "5e65fd088970aed8580a7c5f882f9122b1c14632",
+      "path": ".github/workflows/conduit.yml",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/.github/workflows/conduit.yml"
+    },
+    {
+      "git_blob_sha1": "abeb63ba820b0da634c064bda9714023fbd43bc6",
+      "path": ".github/workflows/deploy.yml",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/.github/workflows/deploy.yml"
+    },
+    {
+      "git_blob_sha1": "7b962674d55a1ae951841b81f90bb29d629461fb",
+      "path": ".github/workflows/styles.yml",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/.github/workflows/styles.yml"
+    },
+    {
+      "git_blob_sha1": "7179857e1a329f924a456f324cf754e9aee70385",
+      "path": ".github/workflows/tests.yml",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/.github/workflows/tests.yml"
+    },
+    {
+      "git_blob_sha1": "ab61e76f2b23941190b6c8da82acb7b33c9656b5",
+      "path": ".gitignore",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/.gitignore"
+    },
+    {
+      "git_blob_sha1": "2caa8404ebf55b2756377ce3d50c6fb8a7dfa533",
+      "path": "Dockerfile",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/Dockerfile"
+    },
+    {
+      "git_blob_sha1": "c33674bb4c345484ac71c98193ecf7a1d9440289",
+      "path": "LICENSE",
+      "selected": true,
+      "selection_reason": "selected_root_support",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/LICENSE"
+    },
+    {
+      "git_blob_sha1": "b84e137cb98e69c0dfaede2a4b357f75b4e1b109",
+      "path": "README.rst",
+      "selected": true,
+      "selection_reason": "selected_root_support",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/README.rst"
+    },
+    {
+      "git_blob_sha1": "2c43e60bcc227110aa5aadd2905942d93c39cd70",
+      "path": "alembic.ini",
+      "selected": true,
+      "selection_reason": "selected_root_support",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/alembic.ini"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/__init__.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/api/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/__init__.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/api/dependencies/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/dependencies/__init__.py"
+    },
+    {
+      "git_blob_sha1": "460806c4e78a6bf436d99af847e336bab1a7eb04",
+      "path": "app/api/dependencies/articles.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/dependencies/articles.py"
+    },
+    {
+      "git_blob_sha1": "dbc8d48c802c6a42ae009a362f6d71720aefa68c",
+      "path": "app/api/dependencies/authentication.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/dependencies/authentication.py"
+    },
+    {
+      "git_blob_sha1": "c00a0778951833c113e539ad7bcd9e6aabbcbed6",
+      "path": "app/api/dependencies/comments.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/dependencies/comments.py"
+    },
+    {
+      "git_blob_sha1": "cc91306bf110dd3581112a7f784439ce3139a45e",
+      "path": "app/api/dependencies/database.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/dependencies/database.py"
+    },
+    {
+      "git_blob_sha1": "db8f9b078a97a2e326fe5679e738d695b8872553",
+      "path": "app/api/dependencies/profiles.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/dependencies/profiles.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/api/errors/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/errors/__init__.py"
+    },
+    {
+      "git_blob_sha1": "c5032293589b89ee8b80ecde1c9ea8e4f155cd58",
+      "path": "app/api/errors/http_error.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/errors/http_error.py"
+    },
+    {
+      "git_blob_sha1": "a85730c8fe2e63864f5bb3d91fc7707c4ae840ae",
+      "path": "app/api/errors/validation_error.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/errors/validation_error.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/api/routes/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/__init__.py"
+    },
+    {
+      "git_blob_sha1": "0839307bafa28a9da9fe351ff91ab4a7f823fa14",
+      "path": "app/api/routes/api.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/api.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/api/routes/articles/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/articles/__init__.py"
+    },
+    {
+      "git_blob_sha1": "4a32eee1799ab6258aa43f73631577dc31309823",
+      "path": "app/api/routes/articles/api.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/articles/api.py"
+    },
+    {
+      "git_blob_sha1": "3edd297190c9d2c0cba7fee301945784dcbf9116",
+      "path": "app/api/routes/articles/articles_common.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/articles/articles_common.py"
+    },
+    {
+      "git_blob_sha1": "7670fd84dff69a3d3887c2b75cb44a6be81bb240",
+      "path": "app/api/routes/articles/articles_resource.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/articles/articles_resource.py"
+    },
+    {
+      "git_blob_sha1": "c202742014c48367fa97fc1b000306adb6c13875",
+      "path": "app/api/routes/authentication.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/authentication.py"
+    },
+    {
+      "git_blob_sha1": "dfe6fc656593dde240ac834ae3e23022fb365bfe",
+      "path": "app/api/routes/comments.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/comments.py"
+    },
+    {
+      "git_blob_sha1": "6ec1bf06274760e8cca24a3ab5f9f97016f82bb7",
+      "path": "app/api/routes/profiles.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/profiles.py"
+    },
+    {
+      "git_blob_sha1": "4706187b40a43fdc432b7786db4c56d5cd67c952",
+      "path": "app/api/routes/tags.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/tags.py"
+    },
+    {
+      "git_blob_sha1": "81bcf97606c4b5ded85fdc12001b69badac84ccc",
+      "path": "app/api/routes/users.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/api/routes/users.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/core/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/__init__.py"
+    },
+    {
+      "git_blob_sha1": "87f58a8520487610da507731c2310a9556022fbe",
+      "path": "app/core/config.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/config.py"
+    },
+    {
+      "git_blob_sha1": "3e82ee3e7be4a5cea047b301a4c4b677fe752cb8",
+      "path": "app/core/events.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/events.py"
+    },
+    {
+      "git_blob_sha1": "10ceda76c676bca633b1ea1f3406b3a88e587083",
+      "path": "app/core/logging.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/logging.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/core/settings/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/settings/__init__.py"
+    },
+    {
+      "git_blob_sha1": "9be01b6b52ff56336cf18e68593a9a1ae9483845",
+      "path": "app/core/settings/app.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/settings/app.py"
+    },
+    {
+      "git_blob_sha1": "0397cbb983130a8a2f0c980d8002c64462e0c121",
+      "path": "app/core/settings/base.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/settings/base.py"
+    },
+    {
+      "git_blob_sha1": "041a77d27eb25b19b7bc29bfe3d56a80f1c31f5d",
+      "path": "app/core/settings/development.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/settings/development.py"
+    },
+    {
+      "git_blob_sha1": "f2d3eab64b7a476bb25365441f67904c3362ae15",
+      "path": "app/core/settings/production.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/settings/production.py"
+    },
+    {
+      "git_blob_sha1": "bea3c53b8de186992dd5fdd8c266fa32627b6107",
+      "path": "app/core/settings/test.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/core/settings/test.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/db/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/__init__.py"
+    },
+    {
+      "git_blob_sha1": "bb3ef669024fab4a8a2576e64bc10d3a2295c9ef",
+      "path": "app/db/errors.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/errors.py"
+    },
+    {
+      "git_blob_sha1": "5fa7f73b0c9c755a8b4c8c82b3042263163bf98d",
+      "path": "app/db/events.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/events.py"
+    },
+    {
+      "git_blob_sha1": "f3129f35f5b351826ad632498bf0fbfc23dae229",
+      "path": "app/db/migrations/env.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/migrations/env.py"
+    },
+    {
+      "git_blob_sha1": "3217cf0fb33a6bb96a9de74b86841642c3fb2ff1",
+      "path": "app/db/migrations/script.py.mako",
+      "selected": true,
+      "selection_reason": "selected_app_provenance",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/migrations/script.py.mako"
+    },
+    {
+      "git_blob_sha1": "526d3605ae9ddea99ee85cd62e1183ef2366fa9c",
+      "path": "app/db/migrations/versions/fdf8821871d7_main_tables.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/migrations/versions/fdf8821871d7_main_tables.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/db/queries/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/__init__.py"
+    },
+    {
+      "git_blob_sha1": "a190595c9144e5b8cede9bbb0a25ea24753d7fe3",
+      "path": "app/db/queries/queries.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/queries.py"
+    },
+    {
+      "git_blob_sha1": "001af2f5ed6e0ef5807ef2ced3c3a0525a47867a",
+      "path": "app/db/queries/queries.pyi",
+      "selected": true,
+      "selection_reason": "selected_app_provenance",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/queries.pyi"
+    },
+    {
+      "git_blob_sha1": "3814f71050db1f46d2b91cf98c4be36e971ffbd3",
+      "path": "app/db/queries/sql/articles.sql",
+      "selected": true,
+      "selection_reason": "selected_app_provenance",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/sql/articles.sql"
+    },
+    {
+      "git_blob_sha1": "87dd3b8e0296142deffde1f805ac3bda18682cb9",
+      "path": "app/db/queries/sql/comments.sql",
+      "selected": true,
+      "selection_reason": "selected_app_provenance",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/sql/comments.sql"
+    },
+    {
+      "git_blob_sha1": "cca00563a49f03e0860141cf683cd019165ac5e3",
+      "path": "app/db/queries/sql/profiles.sql",
+      "selected": true,
+      "selection_reason": "selected_app_provenance",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/sql/profiles.sql"
+    },
+    {
+      "git_blob_sha1": "c862a759b6b9663860c314e62b0c65f8c3d3ace2",
+      "path": "app/db/queries/sql/tags.sql",
+      "selected": true,
+      "selection_reason": "selected_app_provenance",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/sql/tags.sql"
+    },
+    {
+      "git_blob_sha1": "03d6fd68735f880cc23bfbbe103c73468be54090",
+      "path": "app/db/queries/sql/users.sql",
+      "selected": true,
+      "selection_reason": "selected_app_provenance",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/sql/users.sql"
+    },
+    {
+      "git_blob_sha1": "5dcbf840713e035d02e37853ea267586f38d71f4",
+      "path": "app/db/queries/tables.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/queries/tables.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/db/repositories/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/repositories/__init__.py"
+    },
+    {
+      "git_blob_sha1": "fef422e268a5a23fea57748a83d9f3657ec7e106",
+      "path": "app/db/repositories/articles.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/repositories/articles.py"
+    },
+    {
+      "git_blob_sha1": "8f8a5c38b4adebd8551829cee86c5f2fae222bd0",
+      "path": "app/db/repositories/base.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/repositories/base.py"
+    },
+    {
+      "git_blob_sha1": "7c21911af70dca21cb046e3ac12f8bfa7baa84cc",
+      "path": "app/db/repositories/comments.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/repositories/comments.py"
+    },
+    {
+      "git_blob_sha1": "20d43a003c9f7655db0c1a4b09c37c85b89fe79c",
+      "path": "app/db/repositories/profiles.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/repositories/profiles.py"
+    },
+    {
+      "git_blob_sha1": "573499227b7e4af947948de5bdd44269ecb71de5",
+      "path": "app/db/repositories/tags.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/repositories/tags.py"
+    },
+    {
+      "git_blob_sha1": "0bb18ec32a1e3cb96c62c2bed6743a397822abc6",
+      "path": "app/db/repositories/users.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/db/repositories/users.py"
+    },
+    {
+      "git_blob_sha1": "e403bc5ba6704550fb77e71533d17a7fea3bc619",
+      "path": "app/main.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/main.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/models/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/__init__.py"
+    },
+    {
+      "git_blob_sha1": "fdc515bef13e6e1604cceea9017547d7e9085c9d",
+      "path": "app/models/common.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/common.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/models/domain/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/domain/__init__.py"
+    },
+    {
+      "git_blob_sha1": "0c032bdb1b147e4aa1adad5967d0417d16a3da49",
+      "path": "app/models/domain/articles.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/domain/articles.py"
+    },
+    {
+      "git_blob_sha1": "ce5fc6af427ea2b3987de16363a4928e13e38a33",
+      "path": "app/models/domain/comments.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/domain/comments.py"
+    },
+    {
+      "git_blob_sha1": "b1e6ac00603606c5a04584b7a9849997a94886ea",
+      "path": "app/models/domain/profiles.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/domain/profiles.py"
+    },
+    {
+      "git_blob_sha1": "1c34f3b0be47bed7d917fc9a5adf536d78f30809",
+      "path": "app/models/domain/rwmodel.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/domain/rwmodel.py"
+    },
+    {
+      "git_blob_sha1": "3da2f9d05a43ae3de4ca100df207cc6b909b4859",
+      "path": "app/models/domain/users.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/domain/users.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/models/schemas/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/__init__.py"
+    },
+    {
+      "git_blob_sha1": "d7bededee296dc07c200cd1db77d01c568aec80e",
+      "path": "app/models/schemas/articles.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/articles.py"
+    },
+    {
+      "git_blob_sha1": "e230697021e42f08a12b19196420124a09378d21",
+      "path": "app/models/schemas/comments.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/comments.py"
+    },
+    {
+      "git_blob_sha1": "56d1fa30d640d43780c26ca58306fe0549d33256",
+      "path": "app/models/schemas/jwt.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/jwt.py"
+    },
+    {
+      "git_blob_sha1": "5662dfcf69b46140d4c1872cee4a27fb6b4cb023",
+      "path": "app/models/schemas/profiles.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/profiles.py"
+    },
+    {
+      "git_blob_sha1": "018ad4be2788a89176d4248ec3a3a4b62b7a149d",
+      "path": "app/models/schemas/rwschema.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/rwschema.py"
+    },
+    {
+      "git_blob_sha1": "e9655fb58a5573def8f462ec1cfc6648eaf2b304",
+      "path": "app/models/schemas/tags.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/tags.py"
+    },
+    {
+      "git_blob_sha1": "d0f2bba64cf32e3841d30314b75ee11daabc2dea",
+      "path": "app/models/schemas/users.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/models/schemas/users.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/resources/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/resources/__init__.py"
+    },
+    {
+      "git_blob_sha1": "a137dc2a1351689cc78aad3ee591e60fce4ba3a4",
+      "path": "app/resources/strings.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/resources/strings.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "app/services/__init__.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/services/__init__.py"
+    },
+    {
+      "git_blob_sha1": "02dff69165c131d9f3101aa1c12186dc1957dfcb",
+      "path": "app/services/articles.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/services/articles.py"
+    },
+    {
+      "git_blob_sha1": "84539a6dcf8381fc130c72027697548dc2d326e9",
+      "path": "app/services/authentication.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/services/authentication.py"
+    },
+    {
+      "git_blob_sha1": "33f220e68a6d283061bfcb0ed96df84dd1c9ff80",
+      "path": "app/services/comments.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/services/comments.py"
+    },
+    {
+      "git_blob_sha1": "355ecea357a9d4667759a05c8d340a6edc5124b6",
+      "path": "app/services/jwt.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/services/jwt.py"
+    },
+    {
+      "git_blob_sha1": "08c523b3deeca29d74fe201c21956d259baacea3",
+      "path": "app/services/security.py",
+      "selected": true,
+      "selection_reason": "selected_app_source",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/app/services/security.py"
+    },
+    {
+      "git_blob_sha1": "cb35ad1d57e7d611022b98eee7dfe9681eb4ea40",
+      "path": "docker-compose.yml",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/docker-compose.yml"
+    },
+    {
+      "git_blob_sha1": "97240428884c4b0d18f2343716ca3093aedcc0c1",
+      "path": "poetry.lock",
+      "selected": true,
+      "selection_reason": "selected_root_support",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/poetry.lock"
+    },
+    {
+      "git_blob_sha1": "98e202127eb1c92af7fc1eac971a9bbffe79dbd9",
+      "path": "postman/Conduit.postman_collection.json",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/postman/Conduit.postman_collection.json"
+    },
+    {
+      "git_blob_sha1": "2337fd877c01e149b1a02ef6f197a278a5ad5e81",
+      "path": "postman/run-api-tests.sh",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/postman/run-api-tests.sh"
+    },
+    {
+      "git_blob_sha1": "74e5183cfe40fddebf5ca60998c2418d0162f9cc",
+      "path": "pyproject.toml",
+      "selected": true,
+      "selection_reason": "selected_root_support",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/pyproject.toml"
+    },
+    {
+      "git_blob_sha1": "64a9b14e2b54c876d545462ca29c2c1d0b5296d7",
+      "path": "scripts/format",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/scripts/format"
+    },
+    {
+      "git_blob_sha1": "ea56cfeeddfb8309981b8d1ad6790f061a0d4e34",
+      "path": "scripts/lint",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/scripts/lint"
+    },
+    {
+      "git_blob_sha1": "23f48d123ea93da18d52acff7eab5fc15f22dd24",
+      "path": "scripts/test",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/scripts/test"
+    },
+    {
+      "git_blob_sha1": "de5f3b1be34f23eeb456fae627cb73d25fcfe5b4",
+      "path": "scripts/test-cov-html",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/scripts/test-cov-html"
+    },
+    {
+      "git_blob_sha1": "c880ac565277a7539bf66ff111a8cdfe704fa6ee",
+      "path": "setup.cfg",
+      "selected": true,
+      "selection_reason": "selected_root_support",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/setup.cfg"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "tests/__init__.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/__init__.py"
+    },
+    {
+      "git_blob_sha1": "d6a217f4b691699e8218d7cf3dc20c9d5283d8ab",
+      "path": "tests/conftest.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/conftest.py"
+    },
+    {
+      "git_blob_sha1": "e442a0fb3a1f437867006760105c67dad89ade2a",
+      "path": "tests/fake_asyncpg_pool.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/fake_asyncpg_pool.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "tests/test_api/__init__.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_api/__init__.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "tests/test_api/test_errors/__init__.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_api/test_errors/__init__.py"
+    },
+    {
+      "git_blob_sha1": "e3102b73e71a51760369f8e358eeff1dbc7fcfe4",
+      "path": "tests/test_api/test_errors/test_422_error.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_api/test_errors/test_422_error.py"
+    },
+    {
+      "git_blob_sha1": "841cdd1b17e945ced50879b50ddf14e0f878e5dd",
+      "path": "tests/test_api/test_errors/test_error.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_api/test_errors/test_error.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "tests/test_api/test_routes/__init__.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_api/test_routes/__init__.py"
+    },
+    {
+      "git_blob_sha1": "07bd06c928166b85762082d229e36b24b5f5297e",
+      "path": "tests/test_api/test_routes/test_articles.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_api/test_routes/test_articles.py"
+    },
+    {
+      "git_blob_sha1": "8298b82094cf9f78b63cd8df06d41689cf2324b6",
+      "path": "tests/test_api/test_routes/test_authentication.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_api/test_routes/test_authentication.py"
+    },
+    {
+      "git_blob_sha1": "d93813bfaefa934a3432e72126baaffc30a93b55",
+      "path": "tests/test_api/test_routes/test_comments.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_api/test_routes/test_comments.py"
+    },
+    {
+      "git_blob_sha1": "c2f14d67a30b77896007e94657a4255383f9c8a2",
+      "path": "tests/test_api/test_routes/test_login.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_api/test_routes/test_login.py"
+    },
+    {
+      "git_blob_sha1": "e32298f66c333f3006a0e7696c98582ddef97d6d",
+      "path": "tests/test_api/test_routes/test_profiles.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_api/test_routes/test_profiles.py"
+    },
+    {
+      "git_blob_sha1": "89cdb835a174d0a4a1e21cfe52d111e995c834a1",
+      "path": "tests/test_api/test_routes/test_registration.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_api/test_routes/test_registration.py"
+    },
+    {
+      "git_blob_sha1": "2d37dc43909669b9ef8ccdc8589eeac32ff1921e",
+      "path": "tests/test_api/test_routes/test_tags.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_api/test_routes/test_tags.py"
+    },
+    {
+      "git_blob_sha1": "c582b294e056458eaae5748706c9a68b06088551",
+      "path": "tests/test_api/test_routes/test_users.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_api/test_routes/test_users.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "tests/test_db/__init__.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_db/__init__.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "tests/test_db/test_queries/__init__.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_db/test_queries/__init__.py"
+    },
+    {
+      "git_blob_sha1": "34a8ea9c3a6c2667421ab6ec9722f30302ba0793",
+      "path": "tests/test_db/test_queries/test_tables.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_db/test_queries/test_tables.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "tests/test_schemas/__init__.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_schemas/__init__.py"
+    },
+    {
+      "git_blob_sha1": "ef68bc51bb70cfa16a2668c235c1d719081f96d3",
+      "path": "tests/test_schemas/test_rw_model.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_schemas/test_rw_model.py"
+    },
+    {
+      "git_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "tests/test_services/__init__.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_services/__init__.py"
+    },
+    {
+      "git_blob_sha1": "05ea1473cfb22de34549200539ec2831214596f2",
+      "path": "tests/test_services/test_jwt.py",
+      "selected": false,
+      "selection_reason": "excluded_from_fixture_scope",
+      "source_url": "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/tests/test_services/test_jwt.py"
+    }
+  ]
+}

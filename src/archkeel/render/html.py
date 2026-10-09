@@ -529,7 +529,9 @@ _FLOW_GUIDE = """
         interfaces use teal circles, enumerations use pink compartments. Functions use ƒ and
         methods use (). Visibility: + public, − private, # protected, ~ package, ? unknown.
         These conventions do not claim Python access enforcement. Border verdicts and edge
-        styles are separate from element types; use the relationship legend to filter edges.</p>
+        styles are separate from element types. Mixins appear as their own classifier and use a
+        directed edge distinct from inheritance. Use the
+        relationship legend to filter edges.</p>
         <p>As-Is uses observed source facts with declared boundaries for navigation. Target
         uses independent declarations; missing file paths remain undeclared. Diff uses recorded
         Core assessments. Select for details; double-click, press Enter or Open selected to

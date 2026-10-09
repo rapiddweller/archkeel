@@ -1,0 +1,2602 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "contracts-shared-conventions",
+      "label": "Shared model conventions and response strings",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.models",
+        "app.models.common",
+        "app.models.domain",
+        "app.models.domain.rwmodel",
+        "app.models.schemas",
+        "app.models.schemas.rwschema",
+        "app.resources",
+        "app.resources.strings"
+      ],
+      "responsibilities": [
+        "Define shared IDs, timestamps, Pydantic configuration, and response strings."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "app.models",
+        "app.models.common",
+        "app.models.domain",
+        "app.models.domain.rwmodel",
+        "app.models.schemas",
+        "app.models.schemas.rwschema",
+        "app.resources",
+        "app.resources.strings"
+      ]
+    },
+    {
+      "id": "contracts-identity",
+      "label": "User, profile, and token contracts",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.models.domain.profiles",
+        "app.models.domain.users",
+        "app.models.schemas.jwt",
+        "app.models.schemas.profiles",
+        "app.models.schemas.users"
+      ],
+      "responsibilities": [
+        "Define account, current-user, profile, and token request and response fields."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Shared model conventions and response strings",
+          "through": [
+            "app.models.common",
+            "app.models.domain.rwmodel",
+            "app.models.schemas.rwschema"
+          ],
+          "rationale": "User, profile, and token contracts directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.models.domain.profiles",
+        "app.models.domain.users",
+        "app.models.schemas.jwt",
+        "app.models.schemas.profiles",
+        "app.models.schemas.users"
+      ]
+    },
+    {
+      "id": "contracts-publishing",
+      "label": "Article, comment, and tag contracts",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.models.domain.articles",
+        "app.models.domain.comments",
+        "app.models.schemas.articles",
+        "app.models.schemas.comments",
+        "app.models.schemas.tags"
+      ],
+      "responsibilities": [
+        "Define article, comment, filter, pagination, and tag fields."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "User, profile, and token contracts",
+          "through": [
+            "app.models.domain.profiles"
+          ],
+          "rationale": "Article, comment, and tag contracts directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Shared model conventions and response strings",
+          "through": [
+            "app.models.common",
+            "app.models.domain.rwmodel",
+            "app.models.schemas.rwschema"
+          ],
+          "rationale": "Article, comment, and tag contracts directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.models.domain.articles",
+        "app.models.domain.comments",
+        "app.models.schemas.articles",
+        "app.models.schemas.comments",
+        "app.models.schemas.tags"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Source imports outside the declared direct child dependencies are outside the Target.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-app-models",
+          "kind": "module",
+          "qualified_name": "app.models",
+          "parent_id": "contracts-shared-conventions",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define shared IDs, timestamps, Pydantic configuration, and response strings."
+          ],
+          "file_path": "app/models/__init__.py"
+        },
+        {
+          "id": "module-app-models-common",
+          "kind": "module",
+          "qualified_name": "app.models.common",
+          "parent_id": "contracts-shared-conventions",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define shared IDs, timestamps, Pydantic configuration, and response strings."
+          ],
+          "file_path": "app/models/common.py"
+        },
+        {
+          "id": "module-app-models-domain",
+          "kind": "module",
+          "qualified_name": "app.models.domain",
+          "parent_id": "contracts-shared-conventions",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define shared IDs, timestamps, Pydantic configuration, and response strings."
+          ],
+          "file_path": "app/models/domain/__init__.py"
+        },
+        {
+          "id": "module-app-models-domain-articles",
+          "kind": "module",
+          "qualified_name": "app.models.domain.articles",
+          "parent_id": "contracts-publishing",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define article, comment, filter, pagination, and tag fields."
+          ],
+          "file_path": "app/models/domain/articles.py"
+        },
+        {
+          "id": "module-app-models-domain-comments",
+          "kind": "module",
+          "qualified_name": "app.models.domain.comments",
+          "parent_id": "contracts-publishing",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define article, comment, filter, pagination, and tag fields."
+          ],
+          "file_path": "app/models/domain/comments.py"
+        },
+        {
+          "id": "module-app-models-domain-profiles",
+          "kind": "module",
+          "qualified_name": "app.models.domain.profiles",
+          "parent_id": "contracts-identity",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define account, current-user, profile, and token request and response fields."
+          ],
+          "file_path": "app/models/domain/profiles.py"
+        },
+        {
+          "id": "module-app-models-domain-rwmodel",
+          "kind": "module",
+          "qualified_name": "app.models.domain.rwmodel",
+          "parent_id": "contracts-shared-conventions",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define shared IDs, timestamps, Pydantic configuration, and response strings."
+          ],
+          "file_path": "app/models/domain/rwmodel.py"
+        },
+        {
+          "id": "module-app-models-domain-users",
+          "kind": "module",
+          "qualified_name": "app.models.domain.users",
+          "parent_id": "contracts-identity",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define account, current-user, profile, and token request and response fields."
+          ],
+          "file_path": "app/models/domain/users.py"
+        },
+        {
+          "id": "module-app-models-schemas",
+          "kind": "module",
+          "qualified_name": "app.models.schemas",
+          "parent_id": "contracts-shared-conventions",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define shared IDs, timestamps, Pydantic configuration, and response strings."
+          ],
+          "file_path": "app/models/schemas/__init__.py"
+        },
+        {
+          "id": "module-app-models-schemas-articles",
+          "kind": "module",
+          "qualified_name": "app.models.schemas.articles",
+          "parent_id": "contracts-publishing",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define article, comment, filter, pagination, and tag fields."
+          ],
+          "file_path": "app/models/schemas/articles.py"
+        },
+        {
+          "id": "module-app-models-schemas-comments",
+          "kind": "module",
+          "qualified_name": "app.models.schemas.comments",
+          "parent_id": "contracts-publishing",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define article, comment, filter, pagination, and tag fields."
+          ],
+          "file_path": "app/models/schemas/comments.py"
+        },
+        {
+          "id": "module-app-models-schemas-jwt",
+          "kind": "module",
+          "qualified_name": "app.models.schemas.jwt",
+          "parent_id": "contracts-identity",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define account, current-user, profile, and token request and response fields."
+          ],
+          "file_path": "app/models/schemas/jwt.py"
+        },
+        {
+          "id": "module-app-models-schemas-profiles",
+          "kind": "module",
+          "qualified_name": "app.models.schemas.profiles",
+          "parent_id": "contracts-identity",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define account, current-user, profile, and token request and response fields."
+          ],
+          "file_path": "app/models/schemas/profiles.py"
+        },
+        {
+          "id": "module-app-models-schemas-rwschema",
+          "kind": "module",
+          "qualified_name": "app.models.schemas.rwschema",
+          "parent_id": "contracts-shared-conventions",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define shared IDs, timestamps, Pydantic configuration, and response strings."
+          ],
+          "file_path": "app/models/schemas/rwschema.py"
+        },
+        {
+          "id": "module-app-models-schemas-tags",
+          "kind": "module",
+          "qualified_name": "app.models.schemas.tags",
+          "parent_id": "contracts-publishing",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define article, comment, filter, pagination, and tag fields."
+          ],
+          "file_path": "app/models/schemas/tags.py"
+        },
+        {
+          "id": "module-app-models-schemas-users",
+          "kind": "module",
+          "qualified_name": "app.models.schemas.users",
+          "parent_id": "contracts-identity",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define account, current-user, profile, and token request and response fields."
+          ],
+          "file_path": "app/models/schemas/users.py"
+        },
+        {
+          "id": "module-app-resources",
+          "kind": "module",
+          "qualified_name": "app.resources",
+          "parent_id": "contracts-shared-conventions",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define shared IDs, timestamps, Pydantic configuration, and response strings."
+          ],
+          "file_path": "app/resources/__init__.py"
+        },
+        {
+          "id": "module-app-resources-strings",
+          "kind": "module",
+          "qualified_name": "app.resources.strings",
+          "parent_id": "contracts-shared-conventions",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define shared IDs, timestamps, Pydantic configuration, and response strings."
+          ],
+          "file_path": "app/resources/strings.py"
+        },
+        {
+          "id": "class-app-models-common-datetimemodelmixin",
+          "kind": "class",
+          "qualified_name": "app.models.common.DateTimeModelMixin",
+          "parent_id": "module-app-models-common",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Datetimemodelmixin source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-common-idmodelmixin",
+          "kind": "class",
+          "qualified_name": "app.models.common.IDModelMixin",
+          "parent_id": "module-app-models-common",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Idmodelmixin source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-domain-articles-article",
+          "kind": "class",
+          "qualified_name": "app.models.domain.articles.Article",
+          "parent_id": "module-app-models-domain-articles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Article source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-domain-comments-comment",
+          "kind": "class",
+          "qualified_name": "app.models.domain.comments.Comment",
+          "parent_id": "module-app-models-domain-comments",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Comment source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-domain-profiles-profile",
+          "kind": "class",
+          "qualified_name": "app.models.domain.profiles.Profile",
+          "parent_id": "module-app-models-domain-profiles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Profile source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-domain-rwmodel-rwmodel",
+          "kind": "class",
+          "qualified_name": "app.models.domain.rwmodel.RWModel",
+          "parent_id": "module-app-models-domain-rwmodel",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Rwmodel source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-domain-rwmodel-rwmodel-config",
+          "kind": "class",
+          "qualified_name": "app.models.domain.rwmodel.RWModel.Config",
+          "parent_id": "class-app-models-domain-rwmodel-rwmodel",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Config source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-domain-users-user",
+          "kind": "class",
+          "qualified_name": "app.models.domain.users.User",
+          "parent_id": "module-app-models-domain-users",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define User source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-domain-users-userindb",
+          "kind": "class",
+          "qualified_name": "app.models.domain.users.UserInDB",
+          "parent_id": "module-app-models-domain-users",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Userindb source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-articles-articleforresponse",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.articles.ArticleForResponse",
+          "parent_id": "module-app-models-schemas-articles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Articleforresponse source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-articles-articleinresponse",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.articles.ArticleInResponse",
+          "parent_id": "module-app-models-schemas-articles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Articleinresponse source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-articles-articleincreate",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.articles.ArticleInCreate",
+          "parent_id": "module-app-models-schemas-articles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Articleincreate source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-articles-articleinupdate",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.articles.ArticleInUpdate",
+          "parent_id": "module-app-models-schemas-articles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Articleinupdate source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-articles-listofarticlesinresponse",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.articles.ListOfArticlesInResponse",
+          "parent_id": "module-app-models-schemas-articles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Listofarticlesinresponse source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-articles-articlesfilters",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.articles.ArticlesFilters",
+          "parent_id": "module-app-models-schemas-articles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Articlesfilters source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-comments-listofcommentsinresponse",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.comments.ListOfCommentsInResponse",
+          "parent_id": "module-app-models-schemas-comments",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Listofcommentsinresponse source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-comments-commentinresponse",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.comments.CommentInResponse",
+          "parent_id": "module-app-models-schemas-comments",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Commentinresponse source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-comments-commentincreate",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.comments.CommentInCreate",
+          "parent_id": "module-app-models-schemas-comments",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Commentincreate source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-jwt-jwtmeta",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.jwt.JWTMeta",
+          "parent_id": "module-app-models-schemas-jwt",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Jwtmeta source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-jwt-jwtuser",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.jwt.JWTUser",
+          "parent_id": "module-app-models-schemas-jwt",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Jwtuser source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-profiles-profileinresponse",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.profiles.ProfileInResponse",
+          "parent_id": "module-app-models-schemas-profiles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Profileinresponse source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-rwschema-rwschema",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.rwschema.RWSchema",
+          "parent_id": "module-app-models-schemas-rwschema",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Rwschema source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-rwschema-rwschema-config",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.rwschema.RWSchema.Config",
+          "parent_id": "class-app-models-schemas-rwschema-rwschema",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Config source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-tags-tagsinlist",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.tags.TagsInList",
+          "parent_id": "module-app-models-schemas-tags",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Tagsinlist source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-users-userinlogin",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.users.UserInLogin",
+          "parent_id": "module-app-models-schemas-users",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Userinlogin source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-users-userincreate",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.users.UserInCreate",
+          "parent_id": "module-app-models-schemas-users",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Userincreate source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-users-userinupdate",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.users.UserInUpdate",
+          "parent_id": "module-app-models-schemas-users",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Userinupdate source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-users-userwithtoken",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.users.UserWithToken",
+          "parent_id": "module-app-models-schemas-users",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Userwithtoken source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-models-schemas-users-userinresponse",
+          "kind": "class",
+          "qualified_name": "app.models.schemas.users.UserInResponse",
+          "parent_id": "module-app-models-schemas-users",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Userinresponse source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-app-models-common-datetimemodelmixin-created-at",
+          "kind": "attribute",
+          "qualified_name": "app.models.common.DateTimeModelMixin.created_at",
+          "parent_id": "class-app-models-common-datetimemodelmixin",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Created at member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "datetime.datetime"
+        },
+        {
+          "id": "attribute-app-models-common-datetimemodelmixin-updated-at",
+          "kind": "attribute",
+          "qualified_name": "app.models.common.DateTimeModelMixin.updated_at",
+          "parent_id": "class-app-models-common-datetimemodelmixin",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Updated at member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "datetime.datetime"
+        },
+        {
+          "id": "method-app-models-common-datetimemodelmixin-default-datetime",
+          "kind": "method",
+          "qualified_name": "app.models.common.DateTimeModelMixin.default_datetime",
+          "parent_id": "class-app-models-common-datetimemodelmixin",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Default datetime operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "cls",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "value",
+                "annotation": "datetime.datetime",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "datetime.datetime"
+          }
+        },
+        {
+          "id": "attribute-app-models-common-idmodelmixin-id",
+          "kind": "attribute",
+          "qualified_name": "app.models.common.IDModelMixin.id_",
+          "parent_id": "class-app-models-common-idmodelmixin",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Id member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "attribute-app-models-domain-articles-article-slug",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.articles.Article.slug",
+          "parent_id": "class-app-models-domain-articles-article",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Slug member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-domain-articles-article-title",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.articles.Article.title",
+          "parent_id": "class-app-models-domain-articles-article",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Title member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-domain-articles-article-description",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.articles.Article.description",
+          "parent_id": "class-app-models-domain-articles-article",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Description member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-domain-articles-article-body",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.articles.Article.body",
+          "parent_id": "class-app-models-domain-articles-article",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Body member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-domain-articles-article-tags",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.articles.Article.tags",
+          "parent_id": "class-app-models-domain-articles-article",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Tags member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "List[str]"
+        },
+        {
+          "id": "attribute-app-models-domain-articles-article-author",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.articles.Article.author",
+          "parent_id": "class-app-models-domain-articles-article",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Author member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Profile"
+        },
+        {
+          "id": "attribute-app-models-domain-articles-article-favorited",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.articles.Article.favorited",
+          "parent_id": "class-app-models-domain-articles-article",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Favorited member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "bool"
+        },
+        {
+          "id": "attribute-app-models-domain-articles-article-favorites-count",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.articles.Article.favorites_count",
+          "parent_id": "class-app-models-domain-articles-article",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Favorites count member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "attribute-app-models-domain-comments-comment-body",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.comments.Comment.body",
+          "parent_id": "class-app-models-domain-comments-comment",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Body member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-domain-comments-comment-author",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.comments.Comment.author",
+          "parent_id": "class-app-models-domain-comments-comment",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Author member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Profile"
+        },
+        {
+          "id": "attribute-app-models-domain-profiles-profile-username",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.profiles.Profile.username",
+          "parent_id": "class-app-models-domain-profiles-profile",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Username member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-domain-profiles-profile-bio",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.profiles.Profile.bio",
+          "parent_id": "class-app-models-domain-profiles-profile",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Bio member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-domain-profiles-profile-image",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.profiles.Profile.image",
+          "parent_id": "class-app-models-domain-profiles-profile",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Image member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Optional[str]"
+        },
+        {
+          "id": "attribute-app-models-domain-profiles-profile-following",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.profiles.Profile.following",
+          "parent_id": "class-app-models-domain-profiles-profile",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Following member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "bool"
+        },
+        {
+          "id": "attribute-app-models-domain-users-user-username",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.users.User.username",
+          "parent_id": "class-app-models-domain-users-user",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Username member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-domain-users-user-email",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.users.User.email",
+          "parent_id": "class-app-models-domain-users-user",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Email member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-domain-users-user-bio",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.users.User.bio",
+          "parent_id": "class-app-models-domain-users-user",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Bio member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-domain-users-user-image",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.users.User.image",
+          "parent_id": "class-app-models-domain-users-user",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Image member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Optional[str]"
+        },
+        {
+          "id": "attribute-app-models-domain-users-userindb-salt",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.users.UserInDB.salt",
+          "parent_id": "class-app-models-domain-users-userindb",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Salt member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-domain-users-userindb-hashed-password",
+          "kind": "attribute",
+          "qualified_name": "app.models.domain.users.UserInDB.hashed_password",
+          "parent_id": "class-app-models-domain-users-userindb",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Hashed password member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "method-app-models-domain-users-userindb-check-password",
+          "kind": "method",
+          "qualified_name": "app.models.domain.users.UserInDB.check_password",
+          "parent_id": "class-app-models-domain-users-userindb",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Check password operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "password",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "method-app-models-domain-users-userindb-change-password",
+          "kind": "method",
+          "qualified_name": "app.models.domain.users.UserInDB.change_password",
+          "parent_id": "class-app-models-domain-users-userindb",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Change password operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "password",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-articleforresponse-tags",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ArticleForResponse.tags",
+          "parent_id": "class-app-models-schemas-articles-articleforresponse",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Tags member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "List[str]"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-articleinresponse-article",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ArticleInResponse.article",
+          "parent_id": "class-app-models-schemas-articles-articleinresponse",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Article member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "ArticleForResponse"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-articleincreate-title",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ArticleInCreate.title",
+          "parent_id": "class-app-models-schemas-articles-articleincreate",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Title member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-articleincreate-description",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ArticleInCreate.description",
+          "parent_id": "class-app-models-schemas-articles-articleincreate",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Description member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-articleincreate-body",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ArticleInCreate.body",
+          "parent_id": "class-app-models-schemas-articles-articleincreate",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Body member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-articleincreate-tags",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ArticleInCreate.tags",
+          "parent_id": "class-app-models-schemas-articles-articleincreate",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Tags member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "List[str]"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-articleinupdate-title",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ArticleInUpdate.title",
+          "parent_id": "class-app-models-schemas-articles-articleinupdate",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Title member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Optional[str]"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-articleinupdate-description",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ArticleInUpdate.description",
+          "parent_id": "class-app-models-schemas-articles-articleinupdate",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Description member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Optional[str]"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-articleinupdate-body",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ArticleInUpdate.body",
+          "parent_id": "class-app-models-schemas-articles-articleinupdate",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Body member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Optional[str]"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-listofarticlesinresponse-articles",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ListOfArticlesInResponse.articles",
+          "parent_id": "class-app-models-schemas-articles-listofarticlesinresponse",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Articles member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "List[ArticleForResponse]"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-listofarticlesinresponse-articles-count",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ListOfArticlesInResponse.articles_count",
+          "parent_id": "class-app-models-schemas-articles-listofarticlesinresponse",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Articles count member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-articlesfilters-tag",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ArticlesFilters.tag",
+          "parent_id": "class-app-models-schemas-articles-articlesfilters",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Tag member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Optional[str]"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-articlesfilters-author",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ArticlesFilters.author",
+          "parent_id": "class-app-models-schemas-articles-articlesfilters",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Author member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Optional[str]"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-articlesfilters-favorited",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ArticlesFilters.favorited",
+          "parent_id": "class-app-models-schemas-articles-articlesfilters",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Favorited member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Optional[str]"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-articlesfilters-limit",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ArticlesFilters.limit",
+          "parent_id": "class-app-models-schemas-articles-articlesfilters",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Limit member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "attribute-app-models-schemas-articles-articlesfilters-offset",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.articles.ArticlesFilters.offset",
+          "parent_id": "class-app-models-schemas-articles-articlesfilters",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Offset member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "attribute-app-models-schemas-comments-listofcommentsinresponse-comments",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.comments.ListOfCommentsInResponse.comments",
+          "parent_id": "class-app-models-schemas-comments-listofcommentsinresponse",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Comments member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "List[Comment]"
+        },
+        {
+          "id": "attribute-app-models-schemas-comments-commentinresponse-comment",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.comments.CommentInResponse.comment",
+          "parent_id": "class-app-models-schemas-comments-commentinresponse",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Comment member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Comment"
+        },
+        {
+          "id": "attribute-app-models-schemas-comments-commentincreate-body",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.comments.CommentInCreate.body",
+          "parent_id": "class-app-models-schemas-comments-commentincreate",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Body member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-schemas-jwt-jwtmeta-exp",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.jwt.JWTMeta.exp",
+          "parent_id": "class-app-models-schemas-jwt-jwtmeta",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Exp member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "datetime"
+        },
+        {
+          "id": "attribute-app-models-schemas-jwt-jwtmeta-sub",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.jwt.JWTMeta.sub",
+          "parent_id": "class-app-models-schemas-jwt-jwtmeta",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Sub member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-schemas-jwt-jwtuser-username",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.jwt.JWTUser.username",
+          "parent_id": "class-app-models-schemas-jwt-jwtuser",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Username member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-schemas-profiles-profileinresponse-profile",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.profiles.ProfileInResponse.profile",
+          "parent_id": "class-app-models-schemas-profiles-profileinresponse",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Profile member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Profile"
+        },
+        {
+          "id": "attribute-app-models-schemas-tags-tagsinlist-tags",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.tags.TagsInList.tags",
+          "parent_id": "class-app-models-schemas-tags-tagsinlist",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Tags member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "List[str]"
+        },
+        {
+          "id": "attribute-app-models-schemas-users-userinlogin-email",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.users.UserInLogin.email",
+          "parent_id": "class-app-models-schemas-users-userinlogin",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Email member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "EmailStr"
+        },
+        {
+          "id": "attribute-app-models-schemas-users-userinlogin-password",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.users.UserInLogin.password",
+          "parent_id": "class-app-models-schemas-users-userinlogin",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Password member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-schemas-users-userincreate-username",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.users.UserInCreate.username",
+          "parent_id": "class-app-models-schemas-users-userincreate",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Username member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-schemas-users-userinupdate-username",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.users.UserInUpdate.username",
+          "parent_id": "class-app-models-schemas-users-userinupdate",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Username member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Optional[str]"
+        },
+        {
+          "id": "attribute-app-models-schemas-users-userinupdate-email",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.users.UserInUpdate.email",
+          "parent_id": "class-app-models-schemas-users-userinupdate",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Email member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Optional[EmailStr]"
+        },
+        {
+          "id": "attribute-app-models-schemas-users-userinupdate-password",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.users.UserInUpdate.password",
+          "parent_id": "class-app-models-schemas-users-userinupdate",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Password member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Optional[str]"
+        },
+        {
+          "id": "attribute-app-models-schemas-users-userinupdate-bio",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.users.UserInUpdate.bio",
+          "parent_id": "class-app-models-schemas-users-userinupdate",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Bio member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Optional[str]"
+        },
+        {
+          "id": "attribute-app-models-schemas-users-userinupdate-image",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.users.UserInUpdate.image",
+          "parent_id": "class-app-models-schemas-users-userinupdate",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Image member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Optional[HttpUrl]"
+        },
+        {
+          "id": "attribute-app-models-schemas-users-userwithtoken-token",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.users.UserWithToken.token",
+          "parent_id": "class-app-models-schemas-users-userwithtoken",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the Token member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "attribute-app-models-schemas-users-userinresponse-user",
+          "kind": "attribute",
+          "qualified_name": "app.models.schemas.users.UserInResponse.user",
+          "parent_id": "class-app-models-schemas-users-userinresponse",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the User member."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "UserWithToken"
+        }
+      ],
+      "relationships": [
+        {
+          "id": "module-import-e1b7ee288d63437f",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-articles",
+          "target_id": "module-app-models-common",
+          "reason": "Selected source import at app/models/domain/articles.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-8d6377e2f8df28cb",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-articles",
+          "target_id": "module-app-models-domain-profiles",
+          "reason": "Selected source import at app/models/domain/articles.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4bf2cc441045a620",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-articles",
+          "target_id": "module-app-models-domain-rwmodel",
+          "reason": "Selected source import at app/models/domain/articles.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ba00911ece371f40",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-comments",
+          "target_id": "module-app-models-common",
+          "reason": "Selected source import at app/models/domain/comments.py:1.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-af610ddebddcb726",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-comments",
+          "target_id": "module-app-models-domain-profiles",
+          "reason": "Selected source import at app/models/domain/comments.py:2.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9fc3eb8a2d56678f",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-comments",
+          "target_id": "module-app-models-domain-rwmodel",
+          "reason": "Selected source import at app/models/domain/comments.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b9c8a04c30260693",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-profiles",
+          "target_id": "module-app-models-domain-rwmodel",
+          "reason": "Selected source import at app/models/domain/profiles.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-db648925d3015292",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-users",
+          "target_id": "module-app-models-common",
+          "reason": "Selected source import at app/models/domain/users.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-dd44cb5c486b1677",
+          "kind": "imports",
+          "source_id": "module-app-models-domain-users",
+          "target_id": "module-app-models-domain-rwmodel",
+          "reason": "Selected source import at app/models/domain/users.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-47327724265698de",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-articles",
+          "target_id": "module-app-models-domain-articles",
+          "reason": "Selected source import at app/models/schemas/articles.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9f55c8993ceda93c",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-articles",
+          "target_id": "module-app-models-schemas-rwschema",
+          "reason": "Selected source import at app/models/schemas/articles.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-50cba50bbc3e2050",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-comments",
+          "target_id": "module-app-models-domain-comments",
+          "reason": "Selected source import at app/models/schemas/comments.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-85afdbf85d281aa5",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-comments",
+          "target_id": "module-app-models-schemas-rwschema",
+          "reason": "Selected source import at app/models/schemas/comments.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1a211040da6216e7",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-profiles",
+          "target_id": "module-app-models-domain-profiles",
+          "reason": "Selected source import at app/models/schemas/profiles.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-a9b8dcb2a54ba52f",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-rwschema",
+          "target_id": "module-app-models-domain-rwmodel",
+          "reason": "Selected source import at app/models/schemas/rwschema.py:1.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-5103b3fdae24d431",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-users",
+          "target_id": "module-app-models-domain-users",
+          "reason": "Selected source import at app/models/schemas/users.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-50320f93eb1537fd",
+          "kind": "imports",
+          "source_id": "module-app-models-schemas-users",
+          "target_id": "module-app-models-schemas-rwschema",
+          "reason": "Selected source import at app/models/schemas/users.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "class-app-models-common-datetimemodelmixin",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.common.DateTimeModelMixin.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-common-idmodelmixin",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.common.IDModelMixin.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-domain-articles-article",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.domain.articles.Article.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-domain-comments-comment",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.domain.comments.Comment.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-domain-profiles-profile",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.domain.profiles.Profile.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-domain-users-user",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.domain.users.User.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-domain-users-userindb",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.domain.users.UserInDB.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-articles-articleforresponse",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.articles.ArticleForResponse.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-articles-articleinresponse",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.articles.ArticleInResponse.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-articles-articleincreate",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.articles.ArticleInCreate.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-articles-articleinupdate",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.articles.ArticleInUpdate.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-articles-listofarticlesinresponse",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.articles.ListOfArticlesInResponse.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-articles-articlesfilters",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.articles.ArticlesFilters.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-comments-listofcommentsinresponse",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.comments.ListOfCommentsInResponse.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-comments-commentinresponse",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.comments.CommentInResponse.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-comments-commentincreate",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.comments.CommentInCreate.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-jwt-jwtmeta",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.jwt.JWTMeta.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-jwt-jwtuser",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.jwt.JWTUser.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-profiles-profileinresponse",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.profiles.ProfileInResponse.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-tags-tagsinlist",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.tags.TagsInList.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-users-userinlogin",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.users.UserInLogin.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-users-userincreate",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.users.UserInCreate.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-users-userinupdate",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.users.UserInUpdate.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-users-userwithtoken",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.users.UserWithToken.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-models-schemas-users-userinresponse",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.models.schemas.users.UserInResponse.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,965 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "utilities-utilities",
+      "label": "Reusable async, result and image utilities",
+      "role": "component",
+      "packages": [
+        "compass.utils"
+      ],
+      "public": [
+        "compass.utils.command",
+        "compass.utils.image_error_listener",
+        "compass.utils.result"
+      ],
+      "responsibilities": [
+        "Provide generic command lifecycle state, typed result cases, and image error handling."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "namespace": "compass.utils",
+      "exact_modules": [
+        "compass.utils.command",
+        "compass.utils.image_error_listener",
+        "compass.utils.result"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Dependencies outside the declared component boundaries are not part of the Target.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "mod-compass-utils-command",
+          "kind": "module",
+          "qualified_name": "compass.utils.command",
+          "parent_id": "utilities-utilities",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reusable async, result and image utilities"
+          ],
+          "file_path": "lib/utils/command.dart"
+        },
+        {
+          "id": "mod-compass-utils-image-error-listener",
+          "kind": "module",
+          "qualified_name": "compass.utils.image_error_listener",
+          "parent_id": "utilities-utilities",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reusable async, result and image utilities"
+          ],
+          "file_path": "lib/utils/image_error_listener.dart"
+        },
+        {
+          "id": "mod-compass-utils-result",
+          "kind": "module",
+          "qualified_name": "compass.utils.result",
+          "parent_id": "utilities-utilities",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Reusable async, result and image utilities"
+          ],
+          "file_path": "lib/utils/result.dart"
+        },
+        {
+          "id": "class-compass-utils-command-command",
+          "kind": "class",
+          "qualified_name": "compass.utils.command.Command",
+          "parent_id": "mod-compass-utils-command",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Track async command state and notify listeners."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-utils-command-command0",
+          "kind": "class",
+          "qualified_name": "compass.utils.command.Command0",
+          "parent_id": "mod-compass-utils-command",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Execute a zero-argument async command."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-utils-command-command1",
+          "kind": "class",
+          "qualified_name": "compass.utils.command.Command1",
+          "parent_id": "mod-compass-utils-command",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Execute an async command with one argument."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-utils-result-result",
+          "kind": "class",
+          "qualified_name": "compass.utils.result.Result",
+          "parent_id": "mod-compass-utils-result",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent a success or error result."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-utils-result-ok",
+          "kind": "class",
+          "qualified_name": "compass.utils.result.Ok",
+          "parent_id": "mod-compass-utils-result",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Carry a successful value."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-compass-utils-result-error",
+          "kind": "class",
+          "qualified_name": "compass.utils.result.Error",
+          "parent_id": "mod-compass-utils-result",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Carry an error value."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-compass-utils-command-command-running",
+          "kind": "attribute",
+          "qualified_name": "compass.utils.command.Command._running",
+          "parent_id": "class-compass-utils-command-command",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _running state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "bool"
+        },
+        {
+          "id": "attribute-compass-utils-command-command-result",
+          "kind": "attribute",
+          "qualified_name": "compass.utils.command.Command._result",
+          "parent_id": "class-compass-utils-command-command",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _result state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "Result<T>?"
+        },
+        {
+          "id": "method-compass-utils-command-command-command",
+          "kind": "method",
+          "qualified_name": "compass.utils.command.Command.Command",
+          "parent_id": "class-compass-utils-command-command",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Command<T>"
+          }
+        },
+        {
+          "id": "method-compass-utils-command-command-running-getter",
+          "kind": "method",
+          "qualified_name": "compass.utils.command.Command.running::getter",
+          "parent_id": "class-compass-utils-command-command",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "method-compass-utils-command-command-error-getter",
+          "kind": "method",
+          "qualified_name": "compass.utils.command.Command.error::getter",
+          "parent_id": "class-compass-utils-command-command",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "method-compass-utils-command-command-completed-getter",
+          "kind": "method",
+          "qualified_name": "compass.utils.command.Command.completed::getter",
+          "parent_id": "class-compass-utils-command-command",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "method-compass-utils-command-command-result-getter",
+          "kind": "method",
+          "qualified_name": "compass.utils.command.Command.result::getter",
+          "parent_id": "class-compass-utils-command-command",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Result?"
+          }
+        },
+        {
+          "id": "method-compass-utils-command-command-clearresult",
+          "kind": "method",
+          "qualified_name": "compass.utils.command.Command.clearResult",
+          "parent_id": "class-compass-utils-command-command",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "void"
+          }
+        },
+        {
+          "id": "method-compass-utils-command-command-execute",
+          "kind": "method",
+          "qualified_name": "compass.utils.command.Command._execute",
+          "parent_id": "class-compass-utils-command-command",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared",
+            "spelling": "_execute"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "action",
+                "annotation": "CommandAction0<T>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<void>"
+          }
+        },
+        {
+          "id": "attribute-compass-utils-command-command0-action",
+          "kind": "attribute",
+          "qualified_name": "compass.utils.command.Command0._action",
+          "parent_id": "class-compass-utils-command-command0",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _action state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "CommandAction0<T>"
+        },
+        {
+          "id": "method-compass-utils-command-command0-command0",
+          "kind": "method",
+          "qualified_name": "compass.utils.command.Command0.Command0",
+          "parent_id": "class-compass-utils-command-command0",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "_action",
+                "annotation": "CommandAction0<T>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Command0<T>"
+          }
+        },
+        {
+          "id": "method-compass-utils-command-command0-execute",
+          "kind": "method",
+          "qualified_name": "compass.utils.command.Command0.execute",
+          "parent_id": "class-compass-utils-command-command0",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Future<void>"
+          }
+        },
+        {
+          "id": "attribute-compass-utils-command-command1-action",
+          "kind": "attribute",
+          "qualified_name": "compass.utils.command.Command1._action",
+          "parent_id": "class-compass-utils-command-command1",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal _action state."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "CommandAction1<T, A>"
+        },
+        {
+          "id": "method-compass-utils-command-command1-command1",
+          "kind": "method",
+          "qualified_name": "compass.utils.command.Command1.Command1",
+          "parent_id": "class-compass-utils-command-command1",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "_action",
+                "annotation": "CommandAction1<T, A>",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Command1<T, A>"
+          }
+        },
+        {
+          "id": "method-compass-utils-command-command1-execute",
+          "kind": "method",
+          "qualified_name": "compass.utils.command.Command1.execute",
+          "parent_id": "class-compass-utils-command-command1",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "argument",
+                "annotation": "A",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Future<void>"
+          }
+        },
+        {
+          "id": "method-compass-utils-result-result-result",
+          "kind": "method",
+          "qualified_name": "compass.utils.result.Result.Result",
+          "parent_id": "class-compass-utils-result-result",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Result<T>"
+          }
+        },
+        {
+          "id": "method-compass-utils-result-result-ok",
+          "kind": "method",
+          "qualified_name": "compass.utils.result.Result.Result.ok",
+          "parent_id": "class-compass-utils-result-result",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "annotation": "T",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Result<T>"
+          }
+        },
+        {
+          "id": "method-compass-utils-result-result-error",
+          "kind": "method",
+          "qualified_name": "compass.utils.result.Result.Result.error",
+          "parent_id": "class-compass-utils-result-result",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "error",
+                "annotation": "Exception",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Result<T>"
+          }
+        },
+        {
+          "id": "attribute-compass-utils-result-ok-value",
+          "kind": "attribute",
+          "qualified_name": "compass.utils.result.Ok.value",
+          "parent_id": "class-compass-utils-result-ok",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal value state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared",
+            "spelling": "value"
+          },
+          "annotation": "T"
+        },
+        {
+          "id": "method-compass-utils-result-ok-ok",
+          "kind": "method",
+          "qualified_name": "compass.utils.result.Ok.Ok._",
+          "parent_id": "class-compass-utils-result-ok",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "language",
+            "spelling": "_"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "annotation": "T",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Ok<T>"
+          }
+        },
+        {
+          "id": "method-compass-utils-result-ok-tostring",
+          "kind": "method",
+          "qualified_name": "compass.utils.result.Ok.toString",
+          "parent_id": "class-compass-utils-result-ok",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        },
+        {
+          "id": "attribute-compass-utils-result-error-error",
+          "kind": "attribute",
+          "qualified_name": "compass.utils.result.Error.error",
+          "parent_id": "class-compass-utils-result-error",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Source-declared internal error state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared",
+            "spelling": "error"
+          },
+          "annotation": "Exception"
+        },
+        {
+          "id": "method-compass-utils-result-error-error",
+          "kind": "method",
+          "qualified_name": "compass.utils.result.Error.Error._",
+          "parent_id": "class-compass-utils-result-error",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "language",
+            "spelling": "_"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "error",
+                "annotation": "Exception",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Error<T>"
+          }
+        },
+        {
+          "id": "method-compass-utils-result-error-tostring",
+          "kind": "method",
+          "qualified_name": "compass.utils.result.Error.toString",
+          "parent_id": "class-compass-utils-result-error",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose generic asynchronous state or result behavior."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "String"
+          }
+        }
+      ],
+      "relationships": [
+        {
+          "id": "calls-command-execute-shared-state",
+          "kind": "calls",
+          "source_id": "method-compass-utils-command-command0-execute",
+          "target_id": "method-compass-utils-command-command-execute",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-compass-utils-command-command0-compass-utils-command-command",
+          "kind": "inherits",
+          "source_id": "class-compass-utils-command-command0",
+          "target_id": "class-compass-utils-command-command",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-compass-utils-command-command1-compass-utils-command-command",
+          "kind": "inherits",
+          "source_id": "class-compass-utils-command-command1",
+          "target_id": "class-compass-utils-command-command",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-compass-utils-result-ok-compass-utils-result-result",
+          "kind": "inherits",
+          "source_id": "class-compass-utils-result-ok",
+          "target_id": "class-compass-utils-result-result",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "inherits-compass-utils-result-error-compass-utils-result-result",
+          "kind": "inherits",
+          "source_id": "class-compass-utils-result-error",
+          "target_id": "class-compass-utils-result-result",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "mod-compass-utils-command",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-utils-image-error-listener",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "mod-compass-utils-result",
+          "mode": "open",
+          "entity_kinds": [
+            "class",
+            "enum",
+            "mixin",
+            "function",
+            "method",
+            "attribute"
+          ],
+          "relationship_kinds": [
+            "calls",
+            "imports",
+            "mixes_in"
+          ],
+          "rationale": "The Target declares principal architecture and API facts, not every UI/helper declaration or runtime edge.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-utils-command-command",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "This generic utility surface is explicitly declared in the source Target.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-utils-command-command0",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "This generic utility surface is explicitly declared in the source Target.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-utils-command-command1",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "This generic utility surface is explicitly declared in the source Target.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-utils-result-result",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "This generic utility surface is explicitly declared in the source Target.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-utils-result-ok",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "This generic utility surface is explicitly declared in the source Target.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-compass-utils-result-error",
+          "mode": "closed",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "This generic utility surface is explicitly declared in the source Target.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

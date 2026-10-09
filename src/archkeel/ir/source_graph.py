@@ -38,7 +38,7 @@ _VISIBILITIES: tuple[VisibilityKind, ...] = get_args(VisibilityKind)
 _BASES: tuple[VisibilityBasis, ...] = get_args(VisibilityBasis)
 _PARAMETERS: tuple[ParameterKind, ...] = get_args(ParameterKind)
 _MODIFIERS: tuple[ModifierKind, ...] = get_args(ModifierKind)
-_CLASSIFIER_RELATIONSHIPS: tuple[RelationshipKind, ...] = ("inherits", "realizes")
+_CLASSIFIER_RELATIONSHIPS: tuple[RelationshipKind, ...] = ("inherits", "realizes", "mixes_in")
 
 
 def _choice(value: JsonValue, choices: tuple[_Choice, ...], default: _Choice) -> _Choice:
@@ -135,9 +135,17 @@ def _symbol(record: Record, language: str) -> Entity:
         if category not in {"static_constant", "dynamic_binding"}
         else ("constant" if category == "static_constant" else "binding")
     )
-    if kind == "class" and data.get("class_kind") in {"protocol", "enum"}:
-        kind = "interface" if data.get("class_kind") == "protocol" else "enum"
+    class_kind = _text(data.get("class_kind"))
+    if kind == "class":
+        if class_kind == "protocol":
+            kind = "interface"
+        elif class_kind == "enum":
+            kind = "enum"
+        elif class_kind == "mixin":
+            kind = "mixin"
     modifiers: list[ModifierKind] = []
+    if data.get("mixin_capable") is True:
+        modifiers.append("mixin")
     for key, modifier in (("async", "async"), ("frozen_object", "frozen")):
         if data.get(key) is True:
             modifiers.append(_choice(modifier, _MODIFIERS, "async"))
@@ -341,6 +349,51 @@ def _source_endpoint(
     return _endpoint(name, record, by_name, entities, language)
 
 
+def _reconcile_result_binding(
+    previous: Entity | None,
+    owner: Entity,
+    source: str,
+    name: str,
+    target_kind: str,
+    annotation: str | None,
+    definition_contexts: tuple[DefinitionContext, ...],
+) -> tuple[str, str | None, tuple[DefinitionContext, ...]]:
+    qualified_name = f"{owner.qualified_name}.{name}"
+    if previous is not None:
+        if (
+            previous.kind != "binding"
+            or previous.parent_id != source
+            or previous.initializer is not None
+        ):
+            raise ValueError("static result binding identity conflicts")
+        if target_kind == "name":
+            if (
+                not previous.qualified_name.startswith(f"{owner.qualified_name}.")
+                or previous.qualified_name.rsplit(".", 1)[-1] != name
+            ):
+                raise ValueError("static result binding identity conflicts")
+            qualified_name = previous.qualified_name
+        elif previous.qualified_name != qualified_name:
+            raise ValueError("static result binding identity conflicts")
+        if (
+            previous.annotation is not None
+            and annotation is not None
+            and previous.annotation != annotation
+        ):
+            raise ValueError("static result binding identity conflicts")
+        if (
+            previous.definition_contexts
+            and definition_contexts
+            and tuple((item.kind, item.branch) for item in previous.definition_contexts)
+            != tuple((item.kind, item.branch) for item in definition_contexts)
+        ):
+            raise ValueError("static result binding identity conflicts")
+        annotation = annotation if annotation is not None else previous.annotation
+        if not definition_contexts:
+            definition_contexts = previous.definition_contexts
+    return qualified_name, annotation, definition_contexts
+
+
 def _value_bindings(
     record: Record,
     source: str,
@@ -376,13 +429,24 @@ def _value_bindings(
         ):
             raise ValueError("invalid static result binding")
         previous = next((item for item in entities if item.id == identity), None)
+        annotation = _text(site.get("annotation"))
+        definition_contexts = _definition_contexts(site.get("definition_contexts"))
+        qualified_name, annotation, definition_contexts = _reconcile_result_binding(
+            previous,
+            owner,
+            source,
+            name,
+            target_kind,
+            annotation,
+            definition_contexts,
+        )
         value = Entity(
             identity,
             "binding",
-            f"{owner.qualified_name}.{name}",
+            qualified_name,
             language,
             parent_id=source,
-            annotation=_text(site.get("annotation")),
+            annotation=annotation,
             presence="defined",
             evidence_ids=tuple(
                 sorted(
@@ -394,16 +458,10 @@ def _value_bindings(
             record_ids=tuple(
                 sorted(set((record.id,)) | set(previous.record_ids if previous else ()))
             ),
-            definition_contexts=_definition_contexts(site.get("definition_contexts")),
+            definition_contexts=definition_contexts,
             initializer=initializer,
         )
         if previous:
-            if (
-                previous.kind != "binding"
-                or previous.qualified_name != value.qualified_name
-                or previous.initializer is not None
-            ):
-                raise ValueError("static result binding identity conflicts")
             entities[entities.index(previous)] = value
             by_name[value.qualified_name] = [
                 value if item.id == identity else item for item in by_name[value.qualified_name]
@@ -653,7 +711,7 @@ def _partial_inventory_coverage(
     result.append(
         Coverage(
             entity.id,
-            relationship_kinds=("inherits", "realizes"),
+            relationship_kinds=("inherits", "realizes", "mixes_in"),
             status="partial" if entity.qualified_name in base_modules else "unavailable",
             reason="explicit bases are recorded; the classifier inventory is not exhaustive"
             if entity.qualified_name in base_modules
@@ -734,6 +792,7 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
         "class",
         "interface",
         "enum",
+        "mixin",
         "method",
         "function",
         "type_alias",
@@ -769,7 +828,7 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
         result.append(
             Coverage(
                 item.id,
-                relationship_kinds=("inherits", "realizes"),
+                relationship_kinds=("inherits", "realizes", "mixes_in"),
                 status="complete" if complete else "partial",
                 reason=None if complete else "a base binding or classifier kind is not proven",
             )

@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import ast
+import hashlib
 import json
 import re
 import subprocess
@@ -27,7 +28,15 @@ FORBIDDEN = (
     b"/" + b"tmp/",
     b"/" + b"var/folders",
 )
-WINDOWS_DRIVE_ROOT = b"C:" + bytes([92])
+PATH_COMPONENT = re.compile(rb"[A-Za-z0-9_.-]")
+WINDOWS_ABSOLUTE_ROOT = re.compile(rb"(?<![A-Za-z0-9_.-])[A-Za-z]:\\")
+PYTHON_README_PATH_EXAMPLES = (
+    b'   connections on Unix domain socket "' + b"/" + b'tmp/.s.PGSQL.5432"?',
+    b"    rootdir: "
+    + b"/"
+    + b"home/some-user/user-projects/fastapi-realworld-example-app, inifile: setup.cfg, "
+    + b"testpaths: tests",
+)
 # Split so this file does not match itself. A lone `=======` is a Markdown setext heading, so
 # only the two unambiguous markers count; a conflict always leaves at least one of them.
 CONFLICT_MARKERS = (b"<<<" + b"<<<<", b">>>" + b">>>>")
@@ -163,6 +172,7 @@ ALLOWED_LONG_FUNCTIONS = {
 # the report shapes that happened to land this time.
 ROOT_FILES = frozenset(
     (
+        ".gitattributes",
         ".gitignore",
         ".python-version",
         "CODE_OF_CONDUCT.md",
@@ -194,10 +204,21 @@ def _functions(node: ast.AST, prefix: str) -> Iterator[tuple[str, int]]:
 
 def test_tracked_python_files_have_license_header() -> None:
     assert TRACKED
+    snapshot = ROOT / "fixtures/K-python-realworld/SNAPSHOT.json"
+    exemptions = {}
+    if snapshot.is_file():
+        entries = json.loads(snapshot.read_bytes())["files"]
+        exemptions = {
+            ROOT / "fixtures/K-python-realworld" / item["path"]: item["sha256"]
+            for item in entries
+            if item["path"].startswith("app/") and item["path"].endswith(".py")
+        }
     missing = [
         str(path.relative_to(ROOT))
         for path in TRACKED
-        if path.suffix == ".py" and not path.read_bytes().startswith(HEADER)
+        if path.suffix == ".py"
+        and not path.read_bytes().startswith(HEADER)
+        and exemptions.get(path) != hashlib.sha256(path.read_bytes()).hexdigest()
     ]
     assert missing == []
 
@@ -299,19 +320,54 @@ def test_repository_root_holds_no_stray_file() -> None:
 
 def test_tracked_text_has_no_local_absolute_paths() -> None:
     hits = []
+    python_snapshot = ROOT / "fixtures/K-python-realworld/SNAPSHOT.json"
+    allowed_examples = {}
+    if python_snapshot.is_file():
+        snapshot = json.loads(python_snapshot.read_bytes())
+        entry = next((item for item in snapshot["files"] if item["path"] == "README.rst"), None)
+        if entry is not None:
+            allowed_examples[ROOT / "fixtures/K-python-realworld/README.rst"] = (
+                entry["sha256"],
+                frozenset(PYTHON_README_PATH_EXAMPLES),
+            )
     for path in TRACKED:
         payload = path.read_bytes()
         if b"\0" in payload:
             continue
+        allowed = allowed_examples.get(path)
+        allowed_lines = (
+            allowed[1]
+            if allowed and hashlib.sha256(payload).hexdigest() == allowed[0]
+            else frozenset()
+        )
         for line, text in enumerate(payload.splitlines(), 1):
-            suffix = text.partition(WINDOWS_DRIVE_ROOT)[2]
-            windows_path = bool(suffix) and not (
-                suffix.startswith((b"n", b"t", b"r"))
-                and suffix[1:2] in (b'"', b"'", b",", b")", b"]", b" ", b"\t")
-            )
-            if any(prefix in text for prefix in FORBIDDEN) or windows_path:
+            if text not in allowed_lines and _contains_local_absolute_path(text):
                 hits.append(f"{path.relative_to(ROOT)}:{line}")
     assert hits == []
+
+
+def _contains_local_absolute_path(text: bytes) -> bool:
+    for prefix in FORBIDDEN:
+        start = 0
+        while (index := text.find(prefix, start)) != -1:
+            if index == 0 or PATH_COMPONENT.fullmatch(text[index - 1 : index]) is None:
+                return True
+            start = index + 1
+
+    for match in WINDOWS_ABSOLUTE_ROOT.finditer(text):
+        suffix = text[match.end() :]
+        escaped = suffix.startswith((b"n", b"t", b"r")) and suffix[1:2] in (
+            b'"',
+            b"'",
+            b",",
+            b")",
+            b"]",
+            b" ",
+            b"\t",
+        )
+        if not escaped:
+            return True
+    return False
 
 
 def test_tracked_text_carries_no_unresolved_merge_conflict() -> None:
@@ -368,3 +424,21 @@ def test_every_decision_reference_names_a_record() -> None:
             if number.lstrip("0") not in numbers:
                 dangling.setdefault(f"AD-{number}", []).append(str(path.relative_to(ROOT)))
     assert dangling == {}, f"a decision reference names no record under decisions/: {dangling}"
+
+
+def test_absolute_path_detection_requires_a_root_boundary() -> None:
+    slash = bytes([47])
+    backslash = bytes([92])
+    cases = (
+        (b"import '../ui/home/widgets/home_screen_container.dart';", False),
+        (b'path = "' + slash + b'home/user/project"', True),
+        (b"path = '" + slash + b"Users/alex/project'", True),
+        (b'path = "' + slash + b'private/tmp/cache"', True),
+        (b'path = "' + slash + b'tmp/cache"', True),
+        (b'path = "' + slash + b'var/folders/cache"', True),
+        (b'path = "C:' + backslash + b"Users" + backslash + b'Alex\\project"', True),
+        (b'path = "C:' + backslash + b"home" + backslash + b'Alex\\project"', True),
+        (b'path = "C:' + backslash + b'n"', False),
+    )
+    for text, expected in cases:
+        assert _contains_local_absolute_path(text) is expected
