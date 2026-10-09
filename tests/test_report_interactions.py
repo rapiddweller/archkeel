@@ -702,6 +702,16 @@ def test_opening_details_reveals_selected_card_without_changing_scene(
         else:
             card.press("Space")
         assert details.get_attribute("aria-expanded") == "true"
+        if input_method == "mouse":
+            page.wait_for_function("""() => {
+              const card = document.querySelector('.flow-nodes [aria-pressed="true"]');
+              const viewport = document.querySelector('.flow-canvas');
+              if (!card || !viewport) return false;
+              const bounds = card.getBoundingClientRect();
+              const visible = viewport.getBoundingClientRect();
+              return bounds.left >= visible.left - 1 && bounds.right <= visible.right + 1
+                && bounds.top >= visible.top - 1 && bounds.bottom <= visible.bottom + 1;
+            }""")
         bounds = card.bounding_box()
         viewport = page.locator(".flow-canvas").bounding_box()
         assert bounds and viewport

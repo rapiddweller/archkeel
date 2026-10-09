@@ -71,9 +71,10 @@
   let transform = { k: 1 }, umlPath = !SIDECAR && DATA.initial_scope ? [{ id: DATA.initial_scope, origin: "observed" }] : [], umlSelection = null, scopeNotice = null;
   let dragState = null, panState = null, expansionRestore = null;
   let panOffset = { x: 0, y: 0 };
-  let lastPointerTap = null, skipSvgClick = false;
+  let lastPointerTap = null, pendingPointerReveal = null, skipSvgClick = false;
   const viewStates = new Map(), navigationHistory = new Map();
   const CARD = { w: 200, h: 92 };
+  const POINTER_DOUBLE_CLICK_MS = 500;
   const cardHeights = new Map();
   const GAP = 34;
   const ROW_GAP = 90;
@@ -1576,12 +1577,13 @@
     return { nodes, frames: [], edges, owner: scope, componentOverview };
   }
 
-  function selectArchitectureSubject(type, id) {
+  function selectArchitectureSubject(type, id, reveal = true) {
+    if (reveal) cancelPointerTap();
     if (ATLAS) { atlasModule = viewMode !== "target" && atlasModuleById(id) ? id : null; atlasCell = null; }
     const node = !ATLAS && type === "node"
       ? nodeLayer.querySelector(`[data-uml-id="${CSS.escape(id)}"]`) : null;
     // If Details is already open, read geometry before selection writes can force layout.
-    const measuredBounds = targetDetailsOpen && node
+    const measuredBounds = reveal && targetDetailsOpen && node
       ? {
         card: node.getBoundingClientRect(),
         canvas: canvas.getBoundingClientRect(),
@@ -1606,7 +1608,7 @@
     else architectureInspector(architectureGraphContext(), renderedScene);
     updateOpenSelected();
     if (ATLAS) return;
-    if (type === "node") {
+    if (type === "node" && reveal) {
       if (!node) return;
       const box = measuredBounds?.card || node.getBoundingClientRect();
       const bounds = measuredBounds?.canvas || canvas.getBoundingClientRect();
@@ -1879,7 +1881,8 @@
     }
   }
 
-  function renderSidecar() {
+  async function renderSidecar() {
+    const generation = layoutGeneration;
     root.dataset.umlGraph = "true";
     root.querySelector(".flow-explore").hidden = true;
     const entry = umlPath.at(-1);
@@ -1897,8 +1900,9 @@
     viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === viewMode)));
     if (entity && !missingTarget) {
       const graph = counterpart?.entity ? destination : source;
-      renderArchitectureGraph({ graph, scope: counterpart?.entity?.id || entity.id, base: null,
+      await renderArchitectureGraph({ graph, scope: counterpart?.entity?.id || entity.id, base: null,
         comparison: viewMode === "diff" ? DATA.comparison : null });
+      if (generation !== layoutGeneration || root.dataset.layoutState !== "ready") return;
       const scene = renderedScene;
       if (!scene.nodes.length) {
         canvas.hidden = true; alternative.hidden = false;
@@ -2520,6 +2524,7 @@
   }
 
   function fit(overview = false) {
+    cancelPointerTap();
     if (layoutPending) {
       pendingLayoutFit = true;
       pendingLayoutFitOverview ||= overview;
@@ -2573,6 +2578,7 @@
   }
 
   function zoomBy(factor) {
+    cancelPointerTap();
     const minimumScale = ATLAS && renderedScene?.moduleOverview ? 0 : 0.1;
     transform.k = Math.min(2.4, Math.max(minimumScale, transform.k * factor));
     sizeDiagram();
@@ -3091,6 +3097,12 @@
     pendingLayoutFit = false;
     pendingLayoutFitOverview = false;
     fit(overview);
+  }
+
+  function cancelPointerTap() {
+    if (pendingPointerReveal !== null) window.clearTimeout(pendingPointerReveal);
+    pendingPointerReveal = null;
+    lastPointerTap = null;
   }
 
   function elkRoute(sections, offsetX, offsetY, id) {
@@ -3789,6 +3801,7 @@
   }
 
   function render() {
+    cancelPointerTap();
     layoutGeneration += 1;
     layoutPending = false;
     pendingLayoutFit = false;
@@ -3870,6 +3883,7 @@
   zoomInButton.addEventListener("click", () => zoomBy(1.2));
   svg.addEventListener("pointerdown", (event) => {
     if (!event.isPrimary || event.button !== 0 || event.target.closest(".node, .hit")) return;
+    cancelPointerTap();
     capturePointer(svg, event);
     panState = { x: event.clientX, y: event.clientY, offset: { ...panOffset } };
     svg.classList.add("panning");
@@ -3901,10 +3915,26 @@
       dragState = null;
       skipSvgClick = true;
       if (id) {
-        const doubled = lastPointerTap?.id === id && event.timeStamp - lastPointerTap.timeStamp <= 500;
-        lastPointerTap = doubled ? null : { id, timeStamp: event.timeStamp };
-        if (doubled) { openArchitectureEntity(id); fit(); }
-        else selectArchitectureSubject("node", id);
+        const doubled = lastPointerTap?.id === id
+          && event.timeStamp - lastPointerTap.timeStamp <= POINTER_DOUBLE_CLICK_MS;
+        if (doubled) {
+          cancelPointerTap();
+          openArchitectureEntity(id);
+          fit();
+        } else {
+          cancelPointerTap();
+          lastPointerTap = { id, timeStamp: event.timeStamp };
+          // Keep the first tap from moving the card before a second tap can open it.
+          selectArchitectureSubject("node", id, false);
+          const generation = layoutGeneration;
+          pendingPointerReveal = window.setTimeout(() => {
+            pendingPointerReveal = null;
+            if (generation === layoutGeneration && lastPointerTap?.id === id
+                && umlSelection?.type === "node" && umlSelection.id === id) {
+              selectArchitectureSubject("node", id);
+            }
+          }, POINTER_DOUBLE_CLICK_MS + 1);
+        }
       }
     }
     if (panState) {
@@ -3914,7 +3944,7 @@
     }
   });
   svg.addEventListener("pointercancel", () => {
-    dragState = null; panState = null; lastPointerTap = null;
+    dragState = null; panState = null; cancelPointerTap();
     svg.classList.remove("panning");
   });
   svg.addEventListener("click", (event) => {

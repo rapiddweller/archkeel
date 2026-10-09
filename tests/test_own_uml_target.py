@@ -341,7 +341,9 @@ def test_own_ir_scope_sizes_the_canvas_after_collecting_shared_evidence(
     )
     try:
         page.get_by_role("button", name=view, exact=True).click()
+        _wait_for_layout(page)
         page.locator('.flow-nodes [data-label="ir"]').dblclick()
+        _wait_for_layout(page)
         assert not errors
         assert page.locator(".flow-graph").evaluate("""svg => {
           const box = svg.viewBox.baseVal, bounds = svg.querySelector('.flow-viewport').getBBox();
@@ -350,8 +352,75 @@ def test_own_ir_scope_sizes_the_canvas_after_collecting_shared_evidence(
             && bounds.y + bounds.height <= box.y + box.height;
         }""")
         page.locator('.flow-nodes [data-label="governance"]').dblclick()
+        _wait_for_layout(page)
         assert "governance" in page.locator(".flow-breadcrumb").inner_text()
         assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_pointer_selection_keeps_card_under_second_tap(self_observation: Observation):
+    api = pytest.importorskip("playwright.sync_api")
+    model = self_observation
+    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
+    playwright, browser, page = _browser_page(
+        api, render_html(result, model, repository="archkeel", architecture_href=None).decode()
+    )
+    try:
+        page.get_by_role("button", name="Diff", exact=True).click()
+        _wait_for_layout(page)
+        card = page.locator('.flow-nodes [data-label="ir"]')
+        card.scroll_into_view_if_needed()
+        bounds = card.bounding_box()
+        assert bounds is not None
+        canvas = page.locator(".flow-canvas")
+        scroll_before = canvas.evaluate("node => [node.scrollLeft, node.scrollTop]")
+        point = (bounds["x"] + bounds["width"] / 2, bounds["y"] + bounds["height"] / 2)
+        page.mouse.click(*point)
+        after = card.bounding_box()
+        assert after is not None
+        assert after["x"] <= point[0] <= after["x"] + after["width"]
+        assert after["y"] <= point[1] <= after["y"] + after["height"]
+        assert canvas.evaluate("node => [node.scrollLeft, node.scrollTop]") == scroll_before
+        page.mouse.click(*point)
+        _wait_for_layout(page)
+        assert "ir [component]" in page.locator(".flow-breadcrumb").inner_text()
+        assert page.locator('.flow-nodes [data-label="governance"]').count() == 1
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_zoom_cancels_pending_pointer_reveal(self_observation: Observation):
+    api = pytest.importorskip("playwright.sync_api")
+    model = self_observation
+    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
+    html = render_html(result, model, repository="archkeel", architecture_href=None).decode()
+    playwright, browser, page = _browser_page(api, html, width=375, height=1000)
+    try:
+        page.get_by_role("button", name="As-Is", exact=True).click()
+        _wait_for_layout(page)
+        page.get_by_role("button", name="Fit overview", exact=True).click()
+        cards = page.locator(".flow-nodes [data-uml-id]")
+        card = cards.nth(max(range(cards.count()), key=lambda i: cards.nth(i).bounding_box()["x"]))
+        card.scroll_into_view_if_needed()
+        bounds = card.bounding_box()
+        assert bounds is not None
+
+        page.clock.install()
+        page.mouse.click(bounds["x"] + bounds["width"] / 2, bounds["y"] + bounds["height"] / 2)
+        assert page.locator(".flow-details-toggle").get_attribute("aria-expanded") == "true"
+        canvas = page.locator(".flow-canvas")
+        zoom = page.locator(".flow-zoom-value")
+        zoom_before = zoom.inner_text()
+        page.get_by_role("button", name="Zoom in", exact=True).click()
+        zoom_after = zoom.inner_text()
+        assert zoom_after != zoom_before
+
+        scroll_after_action = canvas.evaluate("node => [node.scrollLeft, node.scrollTop]")
+        page.clock.fast_forward(501)
+        assert canvas.evaluate("node => [node.scrollLeft, node.scrollTop]") == scroll_after_action
     finally:
         browser.close()
         playwright.stop()
@@ -369,14 +438,17 @@ def test_own_graph_boundary_has_readable_members_and_directed_calls(
     playwright, browser, page = _browser_page(api, html, errors=errors)
     try:
         page.get_by_role("button", name=view, exact=True).click()
+        _wait_for_layout(page)
         module = "architecture_graph"
         for label in ("ir", "governance", module, "ArchitectureGraph"):
             page.locator(f'.flow-nodes [data-label="{label}"]').dblclick()
+            _wait_for_layout(page)
         validate = page.locator('.flow-nodes [data-label="validate"]:not([data-outside])')
         private = page.locator('.flow-nodes [data-label="_validate_entities"]')
         assert "+ (self): None" in validate.locator(".meta").text_content()
         assert private.locator(".meta").text_content().startswith("− (")
         validate.dblclick()
+        _wait_for_layout(page)
         validate = page.locator('.flow-nodes [data-label="validate"]:not([data-outside])')
         validate.click()
         page.get_by_role("button", name="Fit overview", exact=True).click()
@@ -422,8 +494,10 @@ def test_own_type_dependencies_have_visible_endpoints_and_connected_focus(
     )
     try:
         page.get_by_role("button", name=view, exact=True).click()
+        _wait_for_layout(page)
         for label in ("ir", "governance", "architecture_graph"):
             page.locator(f'.flow-nodes [data-label="{label}"]').dblclick()
+            _wait_for_layout(page)
         edges = page.locator('.flow-edges [data-relationship-kind="references"]')
         assert edges.count() == len(TYPE_DEPENDENCIES)
         page.get_by_role("button", name="Fit overview", exact=True).click()
@@ -451,6 +525,7 @@ def test_own_type_dependencies_have_visible_endpoints_and_connected_focus(
         assert "dim" in page.locator('.flow-nodes [data-label="Parameter"]').get_attribute("class")
         assert page.locator('.flow-legend [data-relationship-kind="references"]').count() == 1
         page.locator('.flow-nodes [data-label="ArchitectureGraph"]').dblclick()
+        _wait_for_layout(page)
         page.get_by_role("button", name="Fit overview", exact=True).click()
         assert not _route_problems(page.locator(".flow-edges .edge"))
         assert not errors
@@ -477,9 +552,11 @@ def test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence(
     try:
         payload = page.locator("#flow-data").text_content()
         page.get_by_role("button", name=view, exact=True).click()
+        _wait_for_layout(page)
         module = "architecture_graph"
         for label in ("ir", "governance", module):
             page.locator(f'.flow-nodes [data-label="{label}"]').dblclick()
+            _wait_for_layout(page)
         card = page.locator('.flow-nodes [data-label="ArchitectureGraph"]')
         card.click()
         previews = page.get_by_role("button", name="Member previews", exact=True)
@@ -512,6 +589,7 @@ def test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence(
             assert not _route_problems(page.locator(".flow-edges .edge"))
         previews.focus()
         previews.press("Space")
+        _wait_for_layout(page)
         assert previews.get_attribute("aria-pressed") == "true"
         assert card.locator(".uml-member").count() > 0
         assert card.locator(".uml-member").evaluate_all("""nodes => nodes.every(node =>
@@ -534,11 +612,14 @@ def test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence(
         )
         assert page.locator("#flow-data").text_content() == payload
         previews.press("Space")
+        _wait_for_layout(page)
         card.dblclick()
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-label="origin"]').count() >= 1
         validate = page.locator('.flow-nodes [data-label="validate"]')
         assert "+ (self): None" in validate.locator(".meta").text_content()
         page.locator(".flow-back").click()
+        _wait_for_layout(page)
         assert card.locator(".uml-member").count() == 0
         assert (
             page.locator(".flow-nodes [data-uml-id]").evaluate_all(

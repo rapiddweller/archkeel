@@ -676,11 +676,13 @@ def _flow_section(observation: Observation) -> str:
     payload: str = encoded.decode("utf-8")
     payload = payload.replace("<", "\\u003c")
     script = _asset("flow.js").decode("utf-8")
+    elk_bytes: bytes = _asset("elkjs-0.12.0.bundled.js")
+    elk_script: str = elk_bytes.decode("utf-8")
     return (
         _FLOW_SECTION_HEAD
         + payload
         + '</script>\n      <script data-elkjs-version="0.12.0">'
-        + _asset("elkjs-0.12.0.bundled.js").decode("utf-8")
+        + elk_script
         + "</script>\n      <script>"
         + script
         + _FLOW_SECTION_TAIL
@@ -719,11 +721,13 @@ def _atlas_section(payload: dict[str, object]) -> str:
     encoded = json.dumps(
         payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).replace("<", "\\u003c")
+    elk_bytes: bytes = _asset("elkjs-0.12.0.bundled.js")
+    elk_script: str = elk_bytes.decode("utf-8")
     return (
         head
         + encoded
         + '</script>\n      <script data-elkjs-version="0.12.0">'
-        + _asset("elkjs-0.12.0.bundled.js").decode("utf-8")
+        + elk_script
         + "</script>\n      <script>"
         + _asset("flow.js").decode()
         + _FLOW_SECTION_TAIL
