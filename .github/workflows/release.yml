@@ -11,7 +11,16 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+[ab][0-9]+"
 
 jobs:
+  verify:
+    uses: ./.github/workflows/full-verification.yml
+    permissions:
+      actions: write
+      contents: read
+      pages: write
+      id-token: write
+
   build:
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -22,11 +31,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Install Node
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
-        with:
-          node-version: "22"
-
       - name: Install uv and Python
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
@@ -34,22 +38,8 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
 
-      - name: Install supported runtimes
-        run: uv python install 3.11.12 3.12.10
-
-      - name: Install Dart SDK
-        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
-        with:
-          sdk: "3.12.2"
-
-      - name: Install locked dependencies
-        run: uv sync --locked
-
-      - name: Prepare native Dart analyzer
-        run: make dart-setup
-
-      - name: Check source and distributions
-        run: make release-check
+      - name: Build distributions after full verification
+        run: make build
 
       - name: Upload distributions
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

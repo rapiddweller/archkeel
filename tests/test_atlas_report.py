@@ -134,7 +134,12 @@ def test_atlas_inlines_pinned_elk_before_flow_script_under_offline_csp(tmp_path)
     elk_script = '<script data-elkjs-version="0.12.0">'
     flow_script = '<script>"use strict";'
     assert elk_script in page
-    assert page.index(elk_script) < page.index(flow_script)
+    assert (
+        page.index(elk_script)
+        < page.index('<script data-report-asset="scene">')
+        < page.index('<script data-report-asset="layout">')
+        < page.index(flow_script)
+    )
     assert "default-src 'none'" in page
     assert "script-src 'unsafe-inline'" in page
     assert "worker-src" not in page

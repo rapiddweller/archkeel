@@ -219,3 +219,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-210 | [TypeScript frontend ships in the package](ad-210-typescript-frontend-ships-in-the-package.md) |
 | AD-211 | [Dart source facts use the official Analyzer](ad-211-dart-source-facts-use-the-official-analyzer.md) |
 | AD-212 | [Native DTO values use exact field and depth](ad-212-native-dto-values-use-exact-field-and-depth.md) |
+| AD-213 | [Renderer responsibility boundaries](ad-213-renderer-responsibility-boundaries.md) |
