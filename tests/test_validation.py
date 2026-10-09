@@ -1394,12 +1394,12 @@ def test_human_graph_labels_round_trip_through_collision_safe_mermaid_aliases() 
 
 def test_graph_reader_resolves_human_node_labels_back_to_contract_labels() -> None:
     raw = _contract_with_allowed_dependency("core", "api")
-    raw["components"][0]["label"] = "Core domain"
+    raw["components"][0]["label"] = "Core <br> domain"
     raw["components"][1]["label"] = "Public API"
     raw["rules"][0]["source"] = "sample.core"
     raw["rules"][0]["target"] = "sample.api"
     contract = parse_contract(raw)
-    edges = frozenset({("Core domain", "Public API")})
+    edges = frozenset({("Core <br> domain", "Public API")})
     documents = rewrite_component_graph(
         (
             (
@@ -1415,7 +1415,7 @@ def test_graph_reader_resolves_human_node_labels_back_to_contract_labels() -> No
 
     assert graph_diagnostics(contract, observation, documents) == ()
     source_document = mermaid_edges(edges)
-    assert '"Core domain"' in source_document
+    assert '"Core #60;br#62; domain"' in source_document
     assert (
         graph_diagnostics(
             contract,
@@ -1430,6 +1430,13 @@ def test_graph_reader_resolves_human_node_labels_back_to_contract_labels() -> No
         )
         == ()
     )
+
+
+def test_graph_rewrite_refuses_an_isolated_quoted_node() -> None:
+    body = 'graph TD\n    n_0["Standalone store"]\n'
+    document = (("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n{body}```\n"),)
+
+    assert rewrite_component_graph(document, frozenset({("Core", "API")}), frozenset()) == ()
 
 
 def test_graph_rewrite_rejects_conflicting_node_label_declarations() -> None:

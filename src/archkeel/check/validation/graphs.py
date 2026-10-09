@@ -52,9 +52,17 @@ def _unwritable_line(body: str) -> str | None:
     AD-46: a subgraph, a labeled edge or a style can depend on where an edge sits, so a rewrite
     that reorders the edges could change what the graph says; such a block is left to a human.
     """
-    _, conflict = _node_labels(body)
+    labels, conflict = _node_labels(body)
     if conflict is not None:
         return conflict
+    referenced: set[str] = set()
+    for line in body.splitlines():
+        match = re.fullmatch(_GRAPH_EDGE, line)
+        if match is not None:
+            referenced.update(match.groups())
+    orphaned = set(labels).difference(referenced)
+    if orphaned:
+        return f"isolated quoted node {min(orphaned)}"
     for line in body.splitlines():
         stripped = line.strip()
         if not stripped:
@@ -106,10 +114,10 @@ def _unescape_label(value: str) -> str | None:
 
 
 def _escape_label(value: str) -> str:
-    """Keep declarations on one line and prevent Mermaid entity syntax from changing labels."""
+    """Keep declarations on one line and preserve literal Mermaid control markup."""
     return "".join(
         f"#{ord(character)};"
-        if character in '#"&' or ord(character) < 32 or ord(character) == 127
+        if character in '#"&<>' or ord(character) < 32 or ord(character) == 127
         else character
         for character in value
     )
