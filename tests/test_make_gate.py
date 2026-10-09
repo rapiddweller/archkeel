@@ -164,6 +164,32 @@ def test_pr_report_gate_runs_its_browser_sample_and_propagates_failure(tmp_path,
     assert result.returncode == (0 if failed is None else 2)
 
 
+def test_pr_report_sample_uses_two_loadfile_workers_and_keeps_selected_tests() -> None:
+    result = subprocess.run(
+        ["make", "-n", "pr-report-test"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": ""},
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    command = result.stdout
+    assert "--with playwright==1.62.0" in command
+    assert "python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q" in command
+    assert "--junitxml=test-artifacts/pytest/pr-report.xml" in command
+    for test_file in (
+        "tests/test_report_pages.py",
+        "tests/test_report_interactions.py",
+        "tests/test_report_browser.py",
+        "tests/test_uml_rendering.py",
+        "tests/test_compass_project_report.py",
+        "tests/test_python_realworld_project_report.py",
+        "tests/test_nest_realworld_project_report.py",
+    ):
+        assert test_file in command
+
+
 @pytest.mark.parametrize("fail_pytest", [False, True])
 def test_report_browser_runs_report_tests_before_evidence(
     tmp_path: Path, fail_pytest: bool

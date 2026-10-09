@@ -47,7 +47,7 @@ pr-test:
 		tests/test_unknown_positions.py tests/test_inside_rule_coverage.py tests/test_report_159_160.py
 
 pr-report-test:
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q \
+	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
 		--junitxml=test-artifacts/pytest/pr-report.xml tests/test_report_pages.py \
 		tests/test_report_interactions.py tests/test_report_browser.py tests/test_uml_rendering.py \
 		tests/test_compass_project_report.py tests/test_python_realworld_project_report.py \
