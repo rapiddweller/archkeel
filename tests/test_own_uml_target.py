@@ -726,14 +726,14 @@ def test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation(
         payload = page.locator("#flow-data").text_content()
         page.get_by_role("button", name=view, exact=True).click()
         page.locator('.flow-nodes [data-label="ir"]').dblclick()
-        boundary = page.locator('.flow-nodes [data-label="protocol"]')
+        boundary = page.locator('.flow-nodes [data-uml-id="ir:TARGET-PROTOCOL"]')
         assert boundary.get_attribute("data-uml-kind") == "component"
         assert "Architecture boundary" in boundary.text_content()
         boundary_color = boundary.locator(".stereotype").evaluate(
             "node => getComputedStyle(node).fill"
         )
         boundary.dblclick()
-        module = page.locator('.flow-nodes [data-label="protocol"]')
+        module = page.locator('.flow-nodes [data-label="protocol"][data-uml-kind="module"]')
         assert module.get_attribute("data-uml-kind") == "module"
         assert ("protocol.py" if view == "As-Is" else "File not declared") in module.text_content()
         assert "protocol [component]" in page.locator(".flow-breadcrumb").inner_text()
