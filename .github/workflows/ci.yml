@@ -128,11 +128,14 @@ jobs:
         if: ${{ !cancelled() && needs.changes.result != 'success' }}
         run: exit 1
 
+      - name: Fail PR aggregate on workflow cancellation
+        if: github.event_name == 'pull_request' && cancelled()
+        run: exit 1
+
       - name: Verify PR check results
         if: github.event_name == 'pull_request' && always()
         env:
           EVENT: ${{ github.event_name }}
-          CANCELLED: ${{ cancelled() }}
           CHANGES_RESULT: ${{ needs.changes.result }}
           CORE: ${{ needs.changes.outputs.core }}
           REPORT: ${{ needs.changes.outputs.report }}
@@ -140,8 +143,8 @@ jobs:
           REPORT_RESULT: ${{ needs.pr-report-check.result }}
         run: |
           set -euo pipefail
-          if [[ "$EVENT" != pull_request || "$CANCELLED" != false || "$CHANGES_RESULT" != success ]]; then
-            echo "PR aggregate prerequisites failed or cancellation state is invalid" >&2
+          if [[ "$EVENT" != pull_request || "$CHANGES_RESULT" != success ]]; then
+            echo "PR change classification did not succeed" >&2
             exit 1
           fi
 
