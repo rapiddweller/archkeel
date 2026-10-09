@@ -5,7 +5,6 @@
 
 import json
 import re
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -21,7 +20,7 @@ from archkeel.render.summary import init_summary
 from fixtures.reproduce_onboarding import SHOP, _architect_decides, _repository
 
 
-def repository(root: Path, *, cyclic: bool = False) -> Path:
+def repository(root: Path, *, cyclic: bool = False, initialize_git: bool = True) -> Path:
     files = {
         "src/demo/__init__.py": "",
         "src/demo/domain/__init__.py": "",
@@ -36,14 +35,15 @@ def repository(root: Path, *, cyclic: bool = False) -> Path:
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(source)
-    for args in (
-        ("init", "-q"),
-        ("config", "user.email", "guidance@example.invalid"),
-        ("config", "user.name", "Guidance test"),
-        ("add", "."),
-        ("-c", "commit.gpgsign=false", "commit", "-qm", "source"),
-    ):
-        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+    if initialize_git:
+        for args in (
+            ("init", "-q"),
+            ("config", "user.email", "guidance@example.invalid"),
+            ("config", "user.name", "Guidance test"),
+            ("add", "."),
+            ("-c", "commit.gpgsign=false", "commit", "-qm", "source"),
+        ):
+            subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
     return root
 
 
@@ -98,10 +98,14 @@ def test_unsafe_config_keeps_corrective_failure(
 def test_init_without_head_names_git_prerequisite(
     tmp_path: Path, capsys: pytest.CaptureFixture, unborn: bool
 ) -> None:
-    root = repository(tmp_path)
-    shutil.rmtree(root / ".git")
+    root = repository(tmp_path, initialize_git=False)
     if unborn:
         subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    assert (root / ".git").exists() is unborn
+    head = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD"], cwd=root, check=False, capture_output=True
+    )
+    assert head.returncode != 0
     assert main(["init", "--root", str(root), "--json"]) == 2
     result = json.loads(capsys.readouterr().out)
     remedy = result["diagnostics"][0]["remedy"]
@@ -262,8 +266,8 @@ def test_dart_draft_keeps_unmeasured_scalars_unavailable(tmp_path: Path) -> None
 def test_init_api_returns_the_same_typed_git_remedy(tmp_path: Path) -> None:
     from archkeel.ir.model import DiagnosticError
 
-    root = repository(tmp_path)
-    shutil.rmtree(root / ".git")
+    root = repository(tmp_path, initialize_git=False)
+    assert not (root / ".git").exists()
     with pytest.raises(DiagnosticError) as failure:
         run_init(root, source=None, namespace=None, force=False, analyzer=observe)
     assert failure.value.diagnostic.kind == "parse_error"

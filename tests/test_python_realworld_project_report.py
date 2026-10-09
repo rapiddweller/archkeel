@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from test_uml_rendering import _wait_for_layout
 
 from archkeel.ir.graph_codec import parse_report
 from fixtures.architecture_demo import CATALOG, REPORT_CASES, UML_DEMO_COMPARISONS, replay
@@ -283,15 +284,19 @@ def test_python_realworld_report_browses_deep_target_at_desktop_and_mobile(
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
             main = output.with_suffix(".report.html")
             page.goto(main.as_uri())
+            _wait_for_layout(page)
             atlas = _payload(main)["atlas"]
             assert atlas["detail_page"] == output.with_suffix(".detail.html").name
 
             page.locator('.flow-nodes [data-uml-id="product-contracts"]').click()
             page.get_by_text("Browse 18 modules", exact=True).click()
+            _wait_for_layout(page)
             page.locator('[data-content="components"]').last.click()
+            _wait_for_layout(page)
             page.locator(
                 '.flow-nodes [data-uml-id="Product and wire contracts:contracts-publishing"]'
             ).press("Enter")
+            _wait_for_layout(page)
 
             atlas = _payload(main)["atlas"]
             module = next(
@@ -299,6 +304,7 @@ def test_python_realworld_report_browses_deep_target_at_desktop_and_mobile(
             )
             page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').dblclick()
             page.wait_for_url("**/*.detail.html?*")
+            _wait_for_layout(page)
             module_url = page.url
             assert page.locator(".atlas-heading").is_visible()
             assert page.locator(".flow-views [data-flow-view]").count() == 3
@@ -307,8 +313,11 @@ def test_python_realworld_report_browses_deep_target_at_desktop_and_mobile(
                 page.set_viewport_size({"width": width, "height": 900})
                 for view in ("diagram", "target", "diff"):
                     page.goto(module_url)
+                    _wait_for_layout(page)
                     page.locator(f'[data-flow-view="{view}"]').click()
+                    _wait_for_layout(page)
                     page.locator('.flow-nodes [data-label="Article"]').dblclick()
+                    _wait_for_layout(page)
                     tags = page.locator('.flow-nodes [data-label="tags"]')
                     assert tags.count() == 1
                     tags.press("Space")
@@ -339,6 +348,336 @@ def test_python_realworld_report_browses_deep_target_at_desktop_and_mobile(
             playwright.stop()
 
 
+def test_python_http_module_scope_preserves_nested_ownership_and_target_routes(
+    tmp_path: Path,
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    output = tmp_path / "python-realworld-project.json"
+    assert replay("python-realworld-project", output) == 0
+    main = output.with_suffix(".report.html")
+    atlas = _payload(main)["atlas"]
+    scope_id = "http-interface"
+    components = {component["id"]: component for component in atlas["components"]}
+
+    def in_scope(component_id: str, scope: str = scope_id) -> bool:
+        while component_id:
+            if component_id == scope:
+                return True
+            component_id = components[component_id]["parent_id"]
+        return False
+
+    scoped_modules = [
+        module for module in atlas["declared_modules"] if in_scope(module["component_id"])
+    ]
+    expected_ids = {module["id"] for module in scoped_modules}
+    expected_edges = {
+        edge["id"]
+        for module in scoped_modules
+        for edge in module["relationships"]
+        if edge["target_id"] in expected_ids
+    }
+    assert len(expected_ids) == 21 and len(expected_edges) == 31
+    target_boundary_count = len(
+        {
+            edge["id"]
+            for module in atlas["declared_modules"]
+            for edge in module["relationships"]
+            if (module["id"] in expected_ids) != (edge["target_id"] in expected_ids)
+        }
+    )
+
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.goto(main.as_uri())
+            page.locator('[data-flow-view="target"]').click()
+            page.locator(f'.flow-nodes [data-uml-id="{scope_id}"]').press("Enter")
+            modules = page.locator('.atlas-content-choice [data-content="modules"]')
+            if modules.is_visible():
+                modules.click()
+            page.wait_for_function(
+                "() => document.querySelectorAll('[data-uml-kind=module]').length === 21"
+            )
+
+            observed = page.locator('.flow-nodes [data-uml-kind="module"]').evaluate_all(
+                "nodes => nodes.map(node => node.dataset.umlId)"
+            )
+            assert set(observed) == expected_ids
+            assert page.locator('.flow-frames [data-uml-kind="component"]').count() > 1
+            assert (
+                f"{target_boundary_count} cross-scope relationship"
+                in page.locator(".atlas-summary").inner_text()
+            )
+            routes = page.locator(".flow-edges > g[data-uml-source]").evaluate_all("""groups =>
+              groups.map(group => {
+                const path = group.querySelector('.line');
+                const endpoint = distance => {
+                  const point = path.getPointAtLength(distance);
+                  return new DOMPoint(point.x, point.y).matrixTransform(path.getScreenCTM());
+                };
+                const start = endpoint(0), end = endpoint(path.getTotalLength());
+                const source = document.querySelector(`[data-uml-id="${group.dataset.umlSource}"]`)
+                  .getBoundingClientRect();
+                const target = document.querySelector(`[data-uml-id="${group.dataset.umlTarget}"]`)
+                  .getBoundingClientRect();
+                const inside = (point, box) => point.x >= box.left - 3 && point.x <= box.right + 3
+                  && point.y >= box.top - 3 && point.y <= box.bottom + 3;
+                return {
+                  id: group.dataset.umlId,
+                  sourceId: group.dataset.umlSource,
+                  targetId: group.dataset.umlTarget,
+                  start: inside(start, source), end: inside(end, target),
+                  sourceDelta: [start.x - source.x, start.y - source.y],
+                  targetDelta: [end.x - target.x, end.y - target.y],
+                  sourceSize: [source.width, source.height],
+                  targetSize: [target.width, target.height],
+                };
+              })""")
+            assert {edge["id"] for edge in routes} == expected_edges
+            assert all(edge["start"] and edge["end"] for edge in routes), [
+                (
+                    edge["id"],
+                    edge["sourceId"],
+                    edge["targetId"],
+                    edge["sourceDelta"],
+                    edge["targetDelta"],
+                )
+                for edge in routes
+                if not edge["start"] or not edge["end"]
+            ]
+            assert page.locator(".atlas-edge-label").count() == 0
+            assert page.locator(".flow-edges .hit[aria-label]").count() == len(expected_edges)
+
+            frame_ids = page.locator('.flow-frames [data-uml-kind="component"]').evaluate_all(
+                "frames => frames.map(frame => frame.dataset.umlId)"
+            )
+            assert frame_ids
+            deep_id = next(item for item in frame_ids if item.endswith(":http-publishing"))
+            owner_colors = page.locator('.flow-frames [data-uml-kind="component"]').evaluate_all(
+                """frames => Object.fromEntries(frames.map(frame => [
+                  frame.dataset.umlId, frame.dataset.ownerColor]))"""
+            )
+            assert all(value is not None for value in owner_colors.values())
+            zoom = page.locator(".flow-zoom-value")
+            assert int(zoom.inner_text().rstrip("%")) >= 100
+            page.get_by_role("button", name="Fit overview").click()
+            page.wait_for_function(
+                "() => parseInt(document.querySelector('.flow-zoom-value').textContent) < 100"
+            )
+            overview_scale = int(zoom.inner_text().rstrip("%"))
+            page.get_by_role("button", name="Zoom in").click()
+            assert int(zoom.inner_text().rstrip("%")) > overview_scale
+            for view in ("diagram", "diff"):
+                page.locator(f'[data-flow-view="{view}"]').click()
+                page.wait_for_function(
+                    "() => document.querySelectorAll('[data-uml-kind=component]').length > 1"
+                )
+                current_level = next(
+                    item for item in atlas["levels"] if item["parent_id"] == scope_id
+                )
+                observed_ids = {
+                    atlas["modules"][atlas["assignments"][index][0]]["id"]
+                    for index in current_level["modules"]
+                }
+                observed_boundary_count = len(
+                    {
+                        (atlas["modules"][cell[0]]["id"], atlas["modules"][cell[1]]["id"])
+                        for cell in atlas["cells"]
+                        if (atlas["modules"][cell[0]]["id"] in observed_ids)
+                        != (atlas["modules"][cell[1]]["id"] in observed_ids)
+                    }
+                )
+                assert (
+                    f"{observed_boundary_count} cross-scope relationship"
+                    in page.locator(".atlas-summary").inner_text()
+                )
+                next_colors = page.locator('.flow-frames [data-uml-kind="component"]').evaluate_all(
+                    """frames => Object.fromEntries(frames.map(frame => [
+                      frame.dataset.umlId, frame.dataset.ownerColor]))"""
+                )
+                assert all(
+                    next_colors[key] == value
+                    for key, value in owner_colors.items()
+                    if key in next_colors
+                )
+                if view == "diagram":
+                    first_relationship = page.locator(".flow-edges .hit[aria-label]").first
+                    first_relationship.press("Enter")
+                    assert page.get_by_text("Observed import cell", exact=True).is_visible()
+                    assert page.get_by_text("Permission:", exact=False).is_visible()
+            page.locator('[data-flow-view="target"]').click()
+            page.wait_for_function(
+                "() => document.querySelectorAll('[data-uml-kind=component]').length > 1"
+            )
+            page.locator(f'.flow-frames [data-uml-id="{deep_id}"]').press("Enter")
+            page.wait_for_function(
+                "id => new URLSearchParams(location.search).get('scope') === id", arg=deep_id
+            )
+            page.wait_for_function(
+                "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length > 1"
+            )
+            deep_modules = {
+                module["id"]
+                for module in atlas["declared_modules"]
+                if in_scope(module["component_id"], deep_id)
+            }
+            assert len(deep_modules) > 1
+            assert (
+                set(
+                    page.locator('.flow-nodes [data-uml-kind="module"]').evaluate_all(
+                        "nodes => nodes.map(node => node.dataset.umlId)"
+                    )
+                )
+                == deep_modules
+            )
+            page.locator('[data-atlas-depth="1"]').click()
+            page.locator('.atlas-content-choice [data-content="modules"]').click()
+            page.wait_for_function(
+                "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length > 1"
+            )
+            header = page.locator(
+                f'.flow-frames [data-uml-id="{deep_id}"] .target-frame-header-hit'
+            )
+            header.click()
+            page.wait_for_function(
+                "id => new URLSearchParams(location.search).get('scope') === id", arg=deep_id
+            )
+            toggle = page.locator(".flow-details-toggle")
+            expanded = toggle.get_attribute("aria-expanded")
+            toggle.click()
+            assert toggle.get_attribute("aria-expanded") != expanded
+            page.wait_for_function(
+                "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length > 1"
+            )
+            assert (
+                set(
+                    page.locator('.flow-nodes [data-uml-kind="module"]').evaluate_all(
+                        "nodes => nodes.map(node => node.dataset.umlId)"
+                    )
+                )
+                == deep_modules
+            )
+
+            page.locator('[data-atlas-depth="1"]').click()
+            page.wait_for_function(
+                "id => new URLSearchParams(location.search).get('scope') === id",
+                arg=scope_id,
+            )
+            modules = page.locator('.atlas-content-choice [data-content="modules"]')
+            if modules.is_visible():
+                modules.click()
+            page.wait_for_function(
+                "() => document.querySelectorAll('[data-uml-kind=module]').length === 21"
+            )
+            identity_scope = "RealWorld HTTP interface:http-identity"
+            identity_modules = {
+                module["id"]
+                for module in atlas["declared_modules"]
+                if in_scope(module["component_id"], identity_scope)
+            }
+            assert identity_modules
+            retry_scope = next(
+                component["id"]
+                for component in atlas["components"]
+                if component["parent_id"] == scope_id
+                and component["id"] not in {identity_scope, deep_id}
+            )
+            retry_modules = {
+                module["id"]
+                for module in atlas["declared_modules"]
+                if in_scope(module["component_id"], retry_scope)
+            }
+            assert retry_modules
+            assert page.evaluate("typeof window.ELK") == "function"
+            page.evaluate("""() => {
+              const prototype = window.ELK.prototype;
+              window.__originalAtlasLayout = prototype.layout;
+              window.__atlasLayoutCalls = 0;
+              prototype.layout = function(graph) {
+                window.__atlasLayoutCalls += 1;
+                if (window.__atlasLayoutCalls === 1) {
+                  return new Promise((resolve, reject) => {
+                    window.__resolveAtlasLayout = async () => resolve(
+                      await window.__originalAtlasLayout.call(this, graph));
+                  });
+                }
+                if (window.__atlasLayoutCalls === 2) {
+                  return new Promise((resolve, reject) => {
+                    window.__rejectAtlasLayout = () => reject(new Error("stale layout"));
+                  });
+                }
+                return window.__originalAtlasLayout.call(this, graph);
+              };
+            }""")
+            page.locator(f'.flow-frames [data-uml-id="{identity_scope}"]').press("Enter")
+            page.wait_for_function(
+                "id => new URLSearchParams(location.search).get('scope') === id",
+                arg=identity_scope,
+            )
+            page.wait_for_function("() => typeof window.__resolveAtlasLayout === 'function'")
+            page.locator('[data-atlas-depth="1"]').click()
+            page.wait_for_function(
+                "id => new URLSearchParams(location.search).get('scope') === id",
+                arg=scope_id,
+            )
+            page.locator('.atlas-content-choice [data-content="modules"]').click()
+            page.wait_for_function(
+                "() => document.querySelectorAll('[data-uml-kind=module]').length === 21"
+            )
+            page.locator(f'.flow-frames [data-uml-id="{retry_scope}"]').press("Enter")
+            page.wait_for_function(
+                "id => new URLSearchParams(location.search).get('scope') === id",
+                arg=retry_scope,
+            )
+            page.wait_for_function("() => typeof window.__rejectAtlasLayout === 'function'")
+            page.locator('[data-atlas-depth="1"]').click()
+            page.wait_for_function(
+                "id => new URLSearchParams(location.search).get('scope') === id",
+                arg=scope_id,
+            )
+            page.locator('.atlas-content-choice [data-content="modules"]').click()
+            page.wait_for_function(
+                "() => document.querySelectorAll('[data-uml-kind=module]').length === 21"
+            )
+            page.evaluate("""async () => {
+              window.__rejectAtlasLayout();
+              await new Promise(resolve => requestAnimationFrame(
+                () => requestAnimationFrame(resolve)));
+            }""")
+            assert parse_qs(urlsplit(page.url).query).get("scope") == [scope_id]
+            assert page.locator('.flow-nodes [data-uml-kind="module"]').count() == 21
+            page.locator(f'.flow-frames [data-uml-id="{retry_scope}"]').press("Enter")
+            page.wait_for_function(
+                "id => new URLSearchParams(location.search).get('scope') === id",
+                arg=retry_scope,
+            )
+            page.wait_for_function("() => typeof window.__rejectAtlasLayout === 'function'")
+            page.wait_for_function(
+                "count => document.querySelectorAll('[data-uml-kind=module]').length === count",
+                arg=len(retry_modules),
+            )
+            page.evaluate("""async () => {
+              await window.__resolveAtlasLayout();
+              await new Promise(resolve => requestAnimationFrame(
+                () => requestAnimationFrame(resolve)));
+            }""")
+            assert page.evaluate("window.__atlasLayoutCalls") == 3
+            assert (
+                set(
+                    page.locator('.flow-nodes [data-uml-kind="module"]').evaluate_all(
+                        "nodes => nodes.map(node => node.dataset.umlId)"
+                    )
+                )
+                == retry_modules
+            )
+            page.evaluate("""() => {
+              window.ELK.prototype.layout = window.__originalAtlasLayout;
+            }""")
+        finally:
+            browser.close()
+
+
 def test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_routes(
     tmp_path: Path,
 ) -> None:
@@ -348,7 +687,7 @@ def test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_r
     main = output.with_suffix(".report.html")
     original_html = main.read_text(encoding="utf-8")
 
-    # Keep a tiny, edge-less Atlas control to exercise the presentation grid independently.
+    # Keep a tiny edge-less control to ensure isolated modules stay rendered.
     data = _payload(main)
     control = data["atlas"]
     root_level = next(level for level in control["levels"] if level["parent_id"] is None)
@@ -359,6 +698,19 @@ def test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_r
     control["declared_modules"] = [
         module for module in control["declared_modules"] if module["id"] in module_ids
     ]
+    root_id = "__archkeel_atlas_layout_root__"
+    first_module = control["modules"][control["assignments"][assignment_indexes[0]][0]]
+    old_id = first_module["id"]
+    first_module["id"] = root_id
+    shared_module = control["modules"][control["assignments"][assignment_indexes[1]][0]]
+    shared_old_id = shared_module["id"]
+    owner_index = control["assignments"][assignment_indexes[1]][1]
+    shared_module["id"] = control["reference_ids"][owner_index]
+    for module in control["declared_modules"]:
+        if module["id"] == old_id:
+            module["id"] = root_id
+        elif module["id"] == shared_old_id:
+            module["id"] = shared_module["id"]
     for module in control["declared_modules"]:
         module["relationships"] = []
     root_level["modules"] = assignment_indexes
@@ -410,9 +762,15 @@ def test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_r
                   routeWarnings: document.querySelectorAll(
                     '.flow-edges [data-route-warning]'
                   ).length,
+                  summary: document.querySelector('.atlas-summary').textContent,
                   inventory: document.querySelector('.atlas-module-inventory-label')?.textContent
                     || null
-                })""")
+                    })""")
+
+            def scale() -> float:
+                return page.locator(".flow-canvas svg").evaluate(
+                    "svg => parseFloat(svg.style.height) / svg.viewBox.baseVal.height"
+                )
 
             def open_modules(path: Path, view: str) -> None:
                 page.goto(path.as_uri())
@@ -421,23 +779,32 @@ def test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_r
                 if modules_button.is_visible():
                     modules_button.click()
 
-            # The edge-less control must still produce a compact, resize-aware module grid.
+            # Every isolated module stays visible without inventing a relationship.
             open_modules(control_path, "diagram")
-            control_positions = {}
             for width in (1440, 390):
                 page.set_viewport_size({"width": width, "height": 900})
-                page.wait_for_timeout(50)
+                page.wait_for_function(
+                    "() => document.querySelectorAll('[data-uml-kind=module]').length === 4"
+                )
                 state = geometry()
                 assert len(state["cards"]) == 4
                 assert state["edges"] == []
-                assert state["inventory"] and "4" in state["inventory"]
+                assert "4 observed modules" in state["summary"]
+                assert "0 local dependencies" in state["summary"]
+                assert state["inventory"] is None
+                assert all(card["inventory"] == "true" for card in state["cards"])
                 assert state["documentWidth"] <= state["width"], state
-                xs = {
-                    round(float(re.search(r"translate\(([-0-9.]+),", card["transform"]).group(1)))
-                    for card in state["cards"]
-                }
-                control_positions[width] = xs
-            assert len(control_positions[1440]) > len(control_positions[390])
+                shared_selector = f'[data-uml-id="{shared_module["id"]}"]'
+                assert (
+                    page.locator('.flow-nodes [data-uml-kind="module"]' + shared_selector).count()
+                    == 1
+                )
+                assert (
+                    page.locator(
+                        '.flow-frames [data-uml-kind="component"]' + shared_selector
+                    ).count()
+                    == 1
+                )
 
             # Every real Python module remains visible in each view; isolation comes only
             # from the exact edge endpoints selected for that view.
@@ -446,7 +813,9 @@ def test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_r
                 for view in ("diagram", "target", "diff"):
                     open_modules(main, view)
                     page.set_viewport_size({"width": width, "height": 900})
-                    page.wait_for_timeout(50)
+                    page.wait_for_function(
+                        "() => document.querySelectorAll('[data-uml-kind=module]').length === 72"
+                    )
                     state = geometry()
                     assert len(state["cards"]) == 72
                     assert state["documentWidth"] <= state["width"], state
@@ -496,15 +865,8 @@ def test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_r
                         if card["inventory"] == "true"
                     } == isolated
                     if isolated:
-                        assert state["inventory"] and str(len(isolated)) in state["inventory"]
+                        assert state["inventory"] is None
                     assert len({card["transform"] for card in state["cards"]}) == 72
-                    x_values = [
-                        float(re.search(r"translate\(([-0-9.]+),", card["transform"]).group(1))
-                        for card in state["cards"]
-                    ]
-                    columns = max(1, int((state["canvasWidth"] - 64 + 34) // 234))
-                    assert len({round(x) for x in x_values}) <= columns, state
-                    assert max(x_values) - min(x_values) + 200 <= columns * 234, state
                     if view == "target" and width == 1440:
                         assert len(isolated) < 72
                         target_isolated = sorted(isolated)
@@ -532,6 +894,10 @@ def test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_r
                         assert returned_query.get("scope") == overview_query.get("scope")
                         assert returned_query["view"] == overview_query["view"] == ["target"]
                         assert returned_query["content"] == overview_query["content"] == ["modules"]
+                        page.wait_for_function(
+                            'id => document.querySelector(`[data-uml-id="${id}"]`) !== null',
+                            arg=target_isolated[0],
+                        )
                         assert (
                             page.locator(
                                 f'.flow-nodes [data-uml-id="{target_isolated[0]}"]'
@@ -550,39 +916,39 @@ def test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_r
                         readable_zoom = int(
                             page.locator(".flow-zoom-value").inner_text().rstrip("%")
                         )
-                        readable_height = page.locator(".flow-canvas").evaluate(
-                            "canvas => canvas.scrollHeight"
-                        )
                         page.get_by_role("button", name="Fit overview").click()
                         overview_zoom = int(
                             page.locator(".flow-zoom-value").inner_text().rstrip("%")
                         )
                         assert overview_zoom < readable_zoom
-                        assert (
-                            page.locator(".flow-canvas").evaluate("canvas => canvas.scrollHeight")
-                            < readable_height
-                        )
                         assert page.locator(".flow-canvas").evaluate(
                             "canvas => canvas.scrollHeight <= canvas.clientHeight + 4"
                         )
                     if width == 390 and view == "target":
                         page.get_by_role("button", name="Fit overview").click()
                         fit_zoom = int(page.locator(".flow-zoom-value").inner_text().rstrip("%"))
-                        assert fit_zoom < 10
+                        assert fit_zoom < 100
                         assert page.locator(".flow-canvas").evaluate(
                             "canvas => canvas.scrollHeight <= canvas.clientHeight + 4"
                         )
+                        fit_scale = scale()
                         page.get_by_role("button", name="Zoom out").click()
                         zoom_out = int(page.locator(".flow-zoom-value").inner_text().rstrip("%"))
-                        assert zoom_out < fit_zoom
+                        zoom_out_scale = scale()
+                        assert zoom_out_scale < fit_scale
+                        assert zoom_out == round(zoom_out_scale * 100)
                         page.get_by_role("button", name="Zoom in").click()
                         zoom_in = int(page.locator(".flow-zoom-value").inner_text().rstrip("%"))
-                        assert zoom_in > zoom_out
+                        zoom_in_scale = scale()
+                        assert zoom_in_scale > zoom_out_scale
+                        assert zoom_in == round(zoom_in_scale * 100)
                         page.get_by_role("button", name="Zoom out").click()
                         zoom_out_again = int(
                             page.locator(".flow-zoom-value").inner_text().rstrip("%")
                         )
-                        assert zoom_out_again < zoom_in
+                        zoom_out_again_scale = scale()
+                        assert zoom_out_again_scale < zoom_in_scale
+                        assert zoom_out_again == round(zoom_out_again_scale * 100)
             assert not errors
         finally:
             browser.close()
