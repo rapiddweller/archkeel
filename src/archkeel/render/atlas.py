@@ -556,6 +556,9 @@ def atlas_payload(
             for module in root.modules
         ),
         "declared_modules": _declared_modules(report),
+        "module_inventories": [asdict(item) for item in report.target.module_inventories]
+        if report.target
+        else [],
         "module_correspondences": _module_correspondences(report),
         "symbol_coverages": symbol_coverages,
         "assignments": [
