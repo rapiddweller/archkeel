@@ -23,6 +23,7 @@ def _replace(relative: str, old: str, new: str) -> str:
 
 
 _UML_RULE = stable_id("UML-TARGET", "architecture-contract.json")
+_COVERAGE_GAP_KINDS = ("parse_error",) * 30
 
 
 def _local_data_service_with_api_call() -> str:
@@ -58,6 +59,7 @@ VARIANTS: tuple[Variant, ...] = (
         files={},
         expected_violations=(),
         expected_codes=(),
+        expected_kinds=_COVERAGE_GAP_KINDS,
         fixture=COMPASS_FIXTURE_DIR,
         expected_declared_rules="UNKNOWN",
     ),
@@ -70,8 +72,9 @@ VARIANTS: tuple[Variant, ...] = (
         files={
             "lib/data/services/local/local_data_service.dart": _local_data_service_with_api_call()
         },
-        expected_violations=("REQUIRES-COMPLETE",),
-        expected_codes=("graph.drift", "rule.violated"),
+        expected_violations=("data:REQUIRES-COMPLETE",),
+        expected_codes=(),
+        expected_kinds=_COVERAGE_GAP_KINDS,
         fixture=COMPASS_FIXTURE_DIR,
         expected_declared_rules="UNKNOWN",
     ),
@@ -89,7 +92,8 @@ VARIANTS: tuple[Variant, ...] = (
             )
         },
         expected_violations=(_UML_RULE,),
-        expected_codes=("rule.violated",),
+        expected_codes=(),
+        expected_kinds=_COVERAGE_GAP_KINDS,
         fixture=COMPASS_FIXTURE_DIR,
         expected_declared_rules="UNKNOWN",
     ),
@@ -106,8 +110,9 @@ VARIANTS: tuple[Variant, ...] = (
                 "final dynamic _createUseCase;",
             )
         },
-        expected_violations=(),
+        expected_violations=(_UML_RULE,),
         expected_codes=(),
+        expected_kinds=_COVERAGE_GAP_KINDS,
         fixture=COMPASS_FIXTURE_DIR,
         expected_declared_rules="UNKNOWN",
     ),

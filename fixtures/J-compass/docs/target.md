@@ -12,4 +12,31 @@ Required dependencies follow imports in the pinned source. Root edges include lo
 
 Source input digest: `c6c1b8fe62fbc950af3b3dc4a033cac300bdeec2564e563909504a69df753e72` (111 Dart files; `pubspec.yaml` is configuration, not a module).
 
+## Observed source imports
+
+The graph records cross-component imports found in pinned source and attributed to Target ownership.
+
+<!-- archkeel-component-graph -->
+```mermaid
+graph TD
+    n_0["Compose environment, localization, routes and app shell"]
+    n_1["data"]
+    n_2["domain"]
+    n_3["presentation"]
+    n_4["utilities"]
+    n_0 --> n_1
+    n_0 --> n_2
+    n_0 --> n_3
+    n_1 --> n_0
+    n_1 --> n_2
+    n_1 --> n_4
+    n_2 --> n_1
+    n_2 --> n_3
+    n_2 --> n_4
+    n_3 --> n_0
+    n_3 --> n_1
+    n_3 --> n_2
+    n_3 --> n_4
+```
+
 Target bundle SHA-256: `c9dc389b1175a2d7097508ed69bb40c344a99aafdbb0591fda10500c2ea9533d`

@@ -12,4 +12,29 @@ The selected app contains 79 files: 72 Python modules plus five SQL files, one `
 
 Upstream: `nsidnev/fastapi-realworld-example-app` at `029eb7781c60d5f563ee8990a0cbfb79b244538c` (MIT).
 
+## Observed source imports
+
+The graph records cross-component imports found in pinned source and attributed to Target ownership.
+
+<!-- archkeel-component-graph -->
+```mermaid
+graph TD
+    n_0["Host and runtime composition"]
+    n_1["PostgreSQL persistence adapter"]
+    n_2["Product and wire contracts"]
+    n_3["Product policy and identity services"]
+    n_4["RealWorld HTTP interface"]
+    n_0 --> n_1
+    n_0 --> n_4
+    n_1 --> n_0
+    n_1 --> n_2
+    n_2 --> n_3
+    n_3 --> n_1
+    n_3 --> n_2
+    n_4 --> n_0
+    n_4 --> n_1
+    n_4 --> n_2
+    n_4 --> n_3
+```
+
 Target bundle SHA-256: `c15508d0515c640e36f365943a54f8becff32d1523ed0d34aecee2aa3a3e9839`
