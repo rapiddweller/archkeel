@@ -1403,22 +1403,6 @@
                 }
               }
             },
-            "allOf": [
-              {
-                "if": {
-                  "required": [
-                    "container_depth"
-                  ]
-                },
-                "then": {
-                  "properties": {
-                    "field_path": {
-                      "const": ""
-                    }
-                  }
-                }
-              }
-            ],
             "if": {
               "properties": {
                 "field_path": {

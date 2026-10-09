@@ -348,13 +348,15 @@ def test_decoder_refuses_a_float_container_coordinate_without_coercing() -> None
         parse_contract(raw)
 
 
-def test_dto_field_and_container_coordinate_cannot_be_combined() -> None:
+def test_dto_field_and_container_coordinate_can_be_combined() -> None:
     raw = _contract()
     raw["rules"][0]["allowed_positions"] = [{**_VALUE, "field_path": "items"}]
 
-    assert list(VALIDATOR.iter_errors(raw))
-    with pytest.raises(ValueError):
-        parse_contract(raw)
+    assert not list(VALIDATOR.iter_errors(raw))
+    parsed = parse_contract(raw)
+    assert json.loads(contract_bytes(parsed))["rules"][0]["allowed_positions"] == [
+        {**_VALUE, "field_path": "items"}
+    ]
 
 
 def test_new_depth_permission_is_a_widening_and_removal_narrows() -> None:

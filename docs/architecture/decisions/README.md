@@ -218,3 +218,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-209 | [One offline detail snapshot](ad-209-atlas-uses-one-offline-detail-snapshot.md) |
 | AD-210 | [TypeScript frontend ships in the package](ad-210-typescript-frontend-ships-in-the-package.md) |
 | AD-211 | [Dart source facts use the official Analyzer](ad-211-dart-source-facts-use-the-official-analyzer.md) |
+| AD-212 | [Native DTO values use exact field and depth](ad-212-native-dto-values-use-exact-field-and-depth.md) |
