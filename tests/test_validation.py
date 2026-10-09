@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
+import shutil
 from collections.abc import Callable
 from pathlib import Path
 from typing import get_args, get_origin, get_type_hints
@@ -70,32 +71,11 @@ def test_an_inside_may_not_grant_what_requires_never_named(tmp_path: Path) -> No
         if component.get("inside") is not None
     }
     check_path = nested_contracts["check"]
-    analyzer_path = nested_contracts["analyzer"]
     inner = json.loads((ROOT / check_path).read_text())
-    analyzer_inner = json.loads((ROOT / analyzer_path).read_text())
     root = tmp_path / "repository"
-    inside = root / check_path
-    analyzer_inside = root / analyzer_path
-    inside.parent.mkdir(parents=True)
-    analyzer_inside.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(ROOT / "docs/architecture", root / "docs/architecture")
     (root / "architecture-contract.json").write_text(json.dumps(outer))
-    inside.write_text(json.dumps(inner))
-    analyzer_inside.write_text(json.dumps(analyzer_inner))
-    for source in (ROOT / "docs/architecture/contracts").glob("*.json"):
-        target = root / source.relative_to(ROOT)
-        if not target.exists():
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(source.read_bytes())
-    evidence_paths = {
-        "docs/architecture/archkeel.md",
-        "docs/architecture/language-adapter-target.md",
-        "docs/architecture/decisions/ad-178-target-navigation-projects-the-standard-graph.md",
-        "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md",
-    }
-    for source in evidence_paths:
-        target = root / source
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes((ROOT / source).read_bytes())
+    inside = root / check_path
 
     inside_config = ScanConfig(("src",), "archkeel", "architecture-contract.json", "0" * 64)
     assert inside_diagnostics(root, parse_contract(outer), inside_config) == ()
