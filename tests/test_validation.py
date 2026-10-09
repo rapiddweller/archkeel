@@ -1440,6 +1440,13 @@ def test_graph_rewrite_refuses_an_isolated_node(node: str) -> None:
     assert rewrite_component_graph(document, frozenset({("Core", "API")}), frozenset()) == ()
 
 
+def test_graph_rewrite_refuses_connected_bare_node_when_human_label_needs_alias() -> None:
+    body = "graph TD\n    core\n    core --> api\n"
+    document = (("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n{body}```\n"),)
+
+    assert rewrite_component_graph(document, frozenset({("core", "Public API")}), frozenset()) == ()
+
+
 def test_graph_rewrite_rejects_conflicting_node_label_declarations() -> None:
     body = (
         "graph TD\n"

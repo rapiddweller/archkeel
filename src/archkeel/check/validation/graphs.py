@@ -71,6 +71,8 @@ def _unwritable_line(body: str, *, allow_isolated_nodes: bool = False) -> str | 
         stripped = line.strip()
         if not stripped:
             continue
+        if not allow_isolated_nodes and re.fullmatch(_GRAPH_ID, stripped):
+            return stripped
         if any(
             re.fullmatch(pattern, stripped)
             for pattern in (_GRAPH_EDGE, _GRAPH_NODE, _GRAPH_ID, _GRAPH_DECLARATION, _GRAPH_COMMENT)
