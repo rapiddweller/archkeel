@@ -171,10 +171,13 @@ class _Collection:
 
     def _source_facts(self) -> SourceFacts:
         inputs = tuple(self.snapshot.inputs)
-        listing = json.dumps(
-            [{"path": item.path, "digest": item.digest, "role": item.role} for item in inputs],
-            separators=(",", ":"),
-            ensure_ascii=False,
+        listing = b"".join(
+            json.dumps(
+                {"path": item.path, "digest": item.digest, "role": item.role},
+                separators=(",", ":"),
+                ensure_ascii=False,
+            ).encode("utf-8")
+            for item in inputs
         )
         adapter, runtime = collector_provenance("dart")
         records: dict[SourceSectionName, tuple[Record, ...]] = {
@@ -203,7 +206,7 @@ class _Collection:
             SourceInfo(
                 self.request.snapshot.git_head,
                 self.request.snapshot.dirty,
-                hashlib.sha256(listing.encode("utf-8")).hexdigest(),
+                hashlib.sha256(listing).hexdigest(),
                 tuple(
                     f"{root}/**/*.dart" if root != "." else "**/*.dart"
                     for root in self.snapshot.roots
@@ -946,8 +949,19 @@ class _Collection:
             if binding_site.initializer == site.expression
             and binding_site.span.start_byte <= site.span.start_byte <= binding_site.span.end_byte
         ]
-        if not call and matching:
-            scope, scope_id = matching[0]["qualified_name"], matching[0]["id"]
+        if not call and site.use in {"read", "read_write", "value"}:
+            owner = next(
+                (
+                    binding
+                    for binding_site, binding in reversed(site_bindings)
+                    if binding_site.scope_span == site.scope_span
+                    and binding_site.span.start_byte <= site.span.start_byte
+                    and site.span.end_byte <= binding_site.span.end_byte
+                ),
+                None,
+            )
+            if owner is not None:
+                scope, scope_id = owner["qualified_name"], owner["id"]
         call_data: RawData = {
             "source_scope": scope,
             **({"source_definition_id": scope_id} if scope_id else {}),
