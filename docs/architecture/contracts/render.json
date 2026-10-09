@@ -8,8 +8,7 @@
       "role": "projection",
       "exact_modules": [
         "archkeel.render",
-        "archkeel.render.html",
-        "archkeel.render.atlas"
+        "archkeel.render.html"
       ],
       "public": [
         "archkeel.render.html"
@@ -29,8 +28,38 @@
           "component": "summary",
           "rationale": "Use the shared explanation of Core verdicts.",
           "decided_by": "agent"
+        },
+        {
+          "component": "atlas-payload",
+          "rationale": "Compose HTML from the Atlas payload prepared from authenticated Core values.",
+          "decided_by": "agent"
         }
       ],
+      "packages": []
+    },
+    {
+      "id": "RENDER-ATLAS-PAYLOAD",
+      "label": "atlas-payload",
+      "role": "projection",
+      "exact_modules": [
+        "archkeel.render.atlas"
+      ],
+      "public": [
+        "archkeel.render.atlas:atlas_payload"
+      ],
+      "responsibilities": [
+        "Build the compact Atlas payload from authenticated Core report, projection and result values."
+      ],
+      "forbidden_responsibilities": [
+        "Compose HTML, format terminal output or change Core verdicts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md",
+        "docs/architecture/render-target.md",
+        "docs/architecture/decisions/ad-213-renderer-responsibility-boundaries.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
       "packages": []
     },
     {
@@ -90,7 +119,7 @@
     {
       "id": "RENDER-COMPLETE-REQUIRES",
       "kind": "complete_requires",
-      "rationale": "Summary values flow to HTML and terminal output; summary has no output dependency.",
+      "rationale": "HTML consumes the Atlas payload and shared summary; terminal consumes the summary, and neither helper depends on HTML.",
       "provenance": [
         "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
       ],
@@ -137,10 +166,64 @@
           "parent_id": "RENDER-HTML",
           "presence": "planned",
           "responsibilities": [
-            "Embed one validated ArchitectureReport and compose portable evidence HTML."
+            "Compose offline HTML reports from the authenticated observation and presentation values."
           ],
           "provenance": [
-            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-render-html",
+          "kind": "function",
+          "qualified_name": "archkeel.render.html.render_html",
+          "language": "python",
+          "parent_id": "RENDER-UML-html",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Render the command result and shared architecture report."
+          ],
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-render-architecture-html",
+          "kind": "function",
+          "qualified_name": "archkeel.render.html.render_architecture_html",
+          "language": "python",
+          "parent_id": "RENDER-UML-html",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Render the validated architecture snapshot and Atlas report."
+          ],
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-atlas-document",
+          "kind": "function",
+          "qualified_name": "archkeel.render.html._atlas_document",
+          "language": "python",
+          "parent_id": "RENDER-UML-html",
+          "presence": "planned",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Build an HTML document from the authenticated Atlas payload."
+          ],
+          "provenance": [
+            "docs/architecture/render-target.md"
           ]
         },
         {
@@ -155,10 +238,10 @@
             "basis": "declared"
           },
           "responsibilities": [
-            "Serialize the shared report without rebuilding architecture trees."
+            "Serialize the shared report for the browser explorer."
           ],
           "provenance": [
-            "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+            "docs/architecture/render-target.md"
           ],
           "signature": {
             "parameters": [
@@ -171,9 +254,204 @@
             ],
             "returns": "str"
           }
+        },
+        {
+          "id": "RENDER-UML-atlas",
+          "kind": "module",
+          "qualified_name": "archkeel.render.atlas",
+          "language": "python",
+          "parent_id": "RENDER-ATLAS-PAYLOAD",
+          "presence": "planned",
+          "responsibilities": [
+            "Build the compact Atlas payload from authenticated Core values."
+          ],
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-atlas-payload",
+          "kind": "function",
+          "qualified_name": "archkeel.render.atlas.atlas_payload",
+          "language": "python",
+          "parent_id": "RENDER-UML-atlas",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Project authenticated Core values into the compact browser payload."
+          ],
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-summary",
+          "kind": "module",
+          "qualified_name": "archkeel.render.summary",
+          "language": "python",
+          "parent_id": "RENDER-SUMMARY",
+          "presence": "planned",
+          "responsibilities": [
+            "Explain Core results consistently for HTML and terminal output."
+          ],
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-report-summary",
+          "kind": "function",
+          "qualified_name": "archkeel.render.summary.report_summary",
+          "language": "python",
+          "parent_id": "RENDER-UML-summary",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Summarize a report or validation result without evaluating expectations."
+          ],
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-check-summary",
+          "kind": "function",
+          "qualified_name": "archkeel.render.summary.check_summary",
+          "language": "python",
+          "parent_id": "RENDER-UML-summary",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Summarize check results for output projections."
+          ],
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-terminal",
+          "kind": "module",
+          "qualified_name": "archkeel.render.terminal",
+          "language": "python",
+          "parent_id": "RENDER-TERMINAL",
+          "presence": "planned",
+          "responsibilities": [
+            "Format shared summaries for terminal readers."
+          ],
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-print-result",
+          "kind": "function",
+          "qualified_name": "archkeel.render.terminal.print_result",
+          "language": "python",
+          "parent_id": "RENDER-UML-terminal",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Print the decision, verdicts, regressions, failures and artifact paths."
+          ],
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
         }
       ],
-      "relationships": [],
+      "relationships": [
+        {
+          "id": "RENDER-UML-IMPORT-html-atlas",
+          "kind": "imports",
+          "source_id": "RENDER-UML-html",
+          "target_id": "RENDER-UML-atlas",
+          "reason": "HTML imports the payload builder for the offline Atlas document.",
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-IMPORT-html-summary",
+          "kind": "imports",
+          "source_id": "RENDER-UML-html",
+          "target_id": "RENDER-UML-summary",
+          "reason": "HTML imports the shared summary projections.",
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-IMPORT-terminal-summary",
+          "kind": "imports",
+          "source_id": "RENDER-UML-terminal",
+          "target_id": "RENDER-UML-summary",
+          "reason": "Terminal imports the shared summary types and badge formatter.",
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-CALL-html-atlas-document",
+          "kind": "calls",
+          "source_id": "RENDER-UML-render-architecture-html",
+          "target_id": "RENDER-UML-atlas-document",
+          "reason": "The architecture HTML entry point selects the authenticated Atlas document path.",
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-CALL-atlas-payload",
+          "kind": "calls",
+          "source_id": "RENDER-UML-atlas-document",
+          "target_id": "RENDER-UML-atlas-payload",
+          "reason": "The Atlas document obtains its browser payload from the Atlas projection component.",
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-CALL-html-summary",
+          "kind": "calls",
+          "source_id": "RENDER-UML-render-html",
+          "target_id": "RENDER-UML-report-summary",
+          "reason": "HTML uses the shared summary when rendering command results.",
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-CALL-html-flow",
+          "kind": "calls",
+          "source_id": "RENDER-UML-render-html",
+          "target_id": "RENDER-UML-flow-section",
+          "reason": "The report embeds the shared ArchitectureReport in the browser explorer.",
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        },
+        {
+          "id": "RENDER-UML-CALL-html-fallback",
+          "kind": "calls",
+          "source_id": "RENDER-UML-render-architecture-html",
+          "target_id": "RENDER-UML-render-html",
+          "reason": "Without a matching authenticated projection, the architecture entry point renders the ordinary HTML report.",
+          "provenance": [
+            "docs/architecture/render-target.md"
+          ]
+        }
+      ],
       "scopes": []
     },
     "modules": [
@@ -195,7 +473,7 @@
       },
       {
         "path": "src/archkeel/render/atlas.py",
-        "responsibility": "Prepare compact Atlas display payloads and scoped offline UML pages from authenticated Core values."
+        "responsibility": "Prepare compact Atlas display payloads from authenticated Core values."
       }
     ]
   }

@@ -588,25 +588,15 @@ _FLOW_SVG = """
   </g>
 </svg>"""
 
-_FLOW_SECTION_HEAD = f"""
-    <section class="report-section flow-section" aria-label="Architecture explorer">
-      <div id="flow" class="flow">
-        <h2 id="flow-heading">Component dependencies</h2>
-        <nav class="flow-views" aria-label="Architecture views" hidden>
-        <div class="flow-view-group" role="group" aria-label="Architecture diagrams">
-          <span class="flow-view-group-label">Architecture</span>
-          <button type="button" data-flow-view="diagram" aria-pressed="true">As-Is</button>
-          <button type="button" data-flow-view="target" aria-pressed="false">Target</button>
-          <button type="button" data-flow-view="diff" aria-pressed="false">Diff</button>
-        </div>
-        <div class="flow-view-group" role="group" aria-label="Evidence views">
-          <span class="flow-view-group-label">Evidence</span>
-          <button type="button" data-flow-view="structure" aria-pressed="false">Structure</button>
-          <button type="button" data-flow-view="review" aria-pressed="false">Review</button>
-          <button type="button" data-flow-view="actual" aria-pressed="false">Actual</button>
-        </div>
-        </nav>
-        <div class="flow-toolbar" hidden>
+
+def _flow_toolbar(*, atlas: bool = False) -> str:
+    content_choice = (
+        '<div class="atlas-content-choice" role="group" aria-label="Content" hidden></div>'
+        if atlas
+        else ""
+    )
+    zoom_label = "100%" if atlas else "Reset"
+    return f"""        <div class="flow-toolbar" hidden>{content_choice}
           <details class="flow-filters">
           <summary>Filters</summary><div class="flow-filter-controls">
           <label class="flow-diagram-control flow-diagram-filter flow-graph-filter"
@@ -637,7 +627,7 @@ _FLOW_SECTION_HEAD = f"""
                aria-label="Diagram zoom">
             <button type="button" class="flow-fit flow-zoom-out" aria-label="Zoom out">−</button>
             <button type="button" class="flow-fit flow-zoom-100"
-                    aria-label="Set zoom to 100%">Reset</button>
+                    aria-label="Set zoom to 100%">{zoom_label}</button>
             <output class="flow-zoom-value" aria-live="polite">100%</output>
             <button type="button" class="flow-fit flow-zoom-in" aria-label="Zoom in">+</button>
             <button type="button" class="flow-fit flow-fit-overview">Fit overview</button>
@@ -647,15 +637,52 @@ _FLOW_SECTION_HEAD = f"""
           <button type="button" class="flow-fit flow-open-selected" disabled>Open selected</button>
           <button type="button" class="flow-fit flow-fullscreen">Fullscreen</button>
           <output class="flow-expand-status" role="status" aria-live="polite" hidden></output>
+        </div>"""
+
+
+def _flow_section_head(*, atlas: bool = False) -> str:
+    section_suffix = " atlas-section" if atlas else ""
+    atlas_attribute = ' data-atlas="true"' if atlas else ""
+    summary = '<div class="atlas-summary" role="status"></div>' if atlas else ""
+    map_open = '<div class="flow-map-column">' if atlas else ""
+    exploration = (
+        '<section class="flow-explore" aria-label="Module exploration">'
+        "<h3>Worth a look</h3></section></div>"
+        if atlas
+        else ""
+    )
+    evidence_views = (
+        ""
+        if atlas
+        else """        <div class="flow-view-group" role="group" aria-label="Evidence views">
+          <span class="flow-view-group-label">Evidence</span>
+          <button type="button" data-flow-view="structure" aria-pressed="false">Structure</button>
+          <button type="button" data-flow-view="review" aria-pressed="false">Review</button>
+          <button type="button" data-flow-view="actual" aria-pressed="false">Actual</button>
+        </div>"""
+    )
+    return f"""
+    <section class="report-section flow-section{section_suffix}" aria-label="Architecture explorer">
+      <div id="flow" class="flow"{atlas_attribute}>
+        <h2 id="flow-heading">Component dependencies</h2>
+        <nav class="flow-views" aria-label="Architecture views" hidden>
+        <div class="flow-view-group" role="group" aria-label="Architecture diagrams">
+          <span class="flow-view-group-label">Architecture</span>
+          <button type="button" data-flow-view="diagram" aria-pressed="true">As-Is</button>
+          <button type="button" data-flow-view="target" aria-pressed="false">Target</button>
+          <button type="button" data-flow-view="diff" aria-pressed="false">Diff</button>
         </div>
+{evidence_views}
+        </nav>
+{_flow_toolbar(atlas=atlas)}
         {_FLOW_GUIDE}
-        <div class="flow-layout">
-          <div class="flow-canvas" tabindex="0" role="region"
+        {summary}<div class="flow-layout">
+          {map_open}<div class="flow-canvas" tabindex="0" role="region"
                aria-label="Pannable component dependencies diagram">
             {_FLOW_SVG}
           </div>
           <div class="flow-alternative" hidden></div>
-          <aside class="flow-inspector" aria-label="Selection details" hidden>
+          {exploration}<aside class="flow-inspector" aria-label="Selection details" hidden>
             <div class="flow-inspector-content"></div>
           </aside>
         </div>
@@ -665,73 +692,40 @@ _FLOW_SECTION_HEAD = f"""
       </div>
       <script id="flow-data" type="application/json">"""
 
-_FLOW_SECTION_TAIL = "</script>\n    </section>"
+
+def _explorer_section(payload: str, *, atlas: bool = False) -> str:
+    scripts: list[str] = []
+    for name, attributes in (
+        ("elkjs-0.12.0.bundled.js", ' data-elkjs-version="0.12.0"'),
+        ("report-scene.js", ' data-report-asset="scene"'),
+        ("report-layout.js", ' data-report-asset="layout"'),
+        ("flow.js", ""),
+    ):
+        source: bytes = _asset(name)
+        script: str = source.decode("utf-8")
+        scripts.append(f"      <script{attributes}>{script}</script>")
+    return (
+        _flow_section_head(atlas=atlas)
+        + payload
+        + "</script>\n"
+        + "\n".join(scripts)
+        + "\n    </section>"
+    )
 
 
 def _flow_section(observation: Observation) -> str:
     """Render the validated report boundary through one UML scene renderer."""
-    # Canonical, sorted-key JSON keeps report bytes deterministic; `<` is escaped because this
-    # value is embedded inside a <script> element, where a literal "</script" would close it.
     encoded: bytes = _html_report_bytes(architecture_report(observation))
     payload: str = encoded.decode("utf-8")
-    payload = payload.replace("<", "\\u003c")
-    script = _asset("flow.js").decode("utf-8")
-    elk_bytes: bytes = _asset("elkjs-0.12.0.bundled.js")
-    elk_script: str = elk_bytes.decode("utf-8")
-    return (
-        _FLOW_SECTION_HEAD
-        + payload
-        + '</script>\n      <script data-elkjs-version="0.12.0">'
-        + elk_script
-        + "</script>\n      <script>"
-        + script
-        + _FLOW_SECTION_TAIL
-    )
+    # A literal closing script tag must not escape the embedded JSON element.
+    return _explorer_section(payload.replace("<", "\\u003c"))
 
 
 def _atlas_section(payload: dict[str, object]) -> str:
-    head = re.sub(
-        r'<div class="flow-view-group" role="group" aria-label="Evidence views">.*?</div>',
-        "",
-        _FLOW_SECTION_HEAD,
-        flags=re.S,
-    )
-    head = head.replace(
-        'class="report-section flow-section"', 'class="report-section flow-section atlas-section"'
-    )
-    head = head.replace('id="flow" class="flow"', 'id="flow" class="flow" data-atlas="true"')
-    head = head.replace(
-        '<div class="flow-layout">',
-        '<div class="atlas-summary" role="status"></div><div class="flow-layout">',
-    )
-    head = head.replace(
-        '<div class="flow-toolbar" hidden>',
-        '<div class="flow-toolbar" hidden><div class="atlas-content-choice" role="group" '
-        'aria-label="Content" hidden></div>',
-    )
-    head = head.replace(
-        '<div class="flow-canvas"', '<div class="flow-map-column"><div class="flow-canvas"'
-    )
-    head = head.replace(
-        '<aside class="flow-inspector"',
-        '<section class="flow-explore" aria-label="Module exploration">'
-        '<h3>Worth a look</h3></section></div><aside class="flow-inspector"',
-    )
-    head = head.replace('aria-label="Set zoom to 100%">Reset', 'aria-label="Set zoom to 100%">100%')
     encoded = json.dumps(
         payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).replace("<", "\\u003c")
-    elk_bytes: bytes = _asset("elkjs-0.12.0.bundled.js")
-    elk_script: str = elk_bytes.decode("utf-8")
-    return (
-        head
-        + encoded
-        + '</script>\n      <script data-elkjs-version="0.12.0">'
-        + elk_script
-        + "</script>\n      <script>"
-        + _asset("flow.js").decode()
-        + _FLOW_SECTION_TAIL
-    )
+    return _explorer_section(encoded, atlas=True)
 
 
 def _atlas_rule_status_cards(result: RunResult) -> str:

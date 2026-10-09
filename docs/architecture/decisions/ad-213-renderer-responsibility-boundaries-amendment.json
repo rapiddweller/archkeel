@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "37dedc4e135682519bb23ef3dd09aa1d7595502d968d63a8585129f0421b4964",
+  "after_digest": "f692f5576bfcbaff282f88e52ba5b12faf505b9d513f2d9e580eef9963c372bc",
+  "before_baseline_digest": "9d3089fc49400ab64dfd5ee2ab08e727690e088266cd6aa4c1b7af8a3c59b1f0",
+  "before_digest": "47d5848f42a4a03fd2d824facb838b50387ee1cb5eac5955cdfb188cfe8ea6b9",
+  "decided_by": "Codex (agent; user-authorized renderer responsibility split)",
+  "rationale": "Separate Atlas payload ownership from HTML composition with one narrow atlas_payload export and one HTML-to-payload dependency. Preserve the outer public API and existing rules. Lower measured unresolved-call debt from 714 to 704 after removing regex-based shell rewrites; accept no new violation or measurement debt.",
+  "schema_version": "2.0.0"
+}

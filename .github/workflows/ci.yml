@@ -13,76 +13,6 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  report-pages:
-    name: Build architecture report site
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      pages: read
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          enable-cache: true
-          python-version: "3.11.12"
-          version: "0.12.13"
-
-      - name: Install Dart SDK
-        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
-        with:
-          sdk: "3.12.2"
-
-      - name: Prepare native Dart analyzer
-        run: make dart-setup
-
-      - name: Build current report and demo gallery
-        run: make report-pages
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-
-      - name: Upload report
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
-        with:
-          path: test-artifacts/pages
-
-  deploy-report-pages:
-    name: Publish current architecture report
-    needs: report-pages
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    concurrency:
-      group: github-pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      # An older rerun must not replace a newer Main report.
-      - name: Read current Main revision
-        id: main
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          head=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
-          echo "sha=$head" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy report
-        if: steps.main.outputs.sha == github.sha
-        id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
-
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -119,131 +49,49 @@ jobs:
           git diff --no-renames --name-only -z "$BASE" "$HEAD" | python3 tools/ci_changes.py >> "$GITHUB_OUTPUT"
 
   check:
-    needs: [changes, pr-core-check, pr-report-check]
-    if: ${{ (github.event_name == 'pull_request' && always()) || (github.event_name == 'push' && !cancelled()) }}
+    needs: [changes, pr-core-check, pr-report-check, mermaid]
+    if: ${{ always() }}
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ github.event_name == 'pull_request' && 25 || 90 }}
+    timeout-minutes: 5
     steps:
-      - name: Fail if change detection failed
-        if: ${{ !cancelled() && needs.changes.result != 'success' }}
+      - name: Fail required check after workflow cancellation
+        if: cancelled()
         run: exit 1
 
-      - name: Fail PR aggregate on workflow cancellation
-        if: github.event_name == 'pull_request' && cancelled()
-        run: exit 1
-
-      - name: Verify PR check results
-        if: github.event_name == 'pull_request' && always()
+      - name: Verify selected checks and fail closed
+        if: ${{ !cancelled() }}
         env:
           EVENT: ${{ github.event_name }}
           CHANGES_RESULT: ${{ needs.changes.result }}
           CORE: ${{ needs.changes.outputs.core }}
           REPORT: ${{ needs.changes.outputs.report }}
+          MERMAID: ${{ needs.changes.outputs.mermaid }}
           CORE_RESULT: ${{ needs.pr-core-check.result }}
           REPORT_RESULT: ${{ needs.pr-report-check.result }}
+          MERMAID_RESULT: ${{ needs.mermaid.result }}
         run: |
           set -euo pipefail
-          if [[ "$EVENT" != pull_request || "$CHANGES_RESULT" != success ]]; then
-            echo "PR change classification did not succeed" >&2
+          if [[ "$EVENT" != pull_request && "$EVENT" != push ]]; then
+            echo "Unexpected CI event: $EVENT" >&2
             exit 1
           fi
+          [[ "$CHANGES_RESULT" == success ]] || { echo "Change classification did not succeed" >&2; exit 1; }
 
-          case "$CORE" in
-            true) [[ "$CORE_RESULT" == success ]] || { echo "Required PR core checks did not succeed: $CORE_RESULT" >&2; exit 1; } ;;
-            false) [[ "$CORE_RESULT" == skipped ]] || { echo "Unselected PR core checks were not skipped: $CORE_RESULT" >&2; exit 1; } ;;
-            *) echo "Invalid PR core selection: $CORE" >&2; exit 1 ;;
-          esac
-
-          case "$REPORT" in
-            true) [[ "$REPORT_RESULT" == success ]] || { echo "Required PR report checks did not succeed: $REPORT_RESULT" >&2; exit 1; } ;;
-            false) [[ "$REPORT_RESULT" == skipped ]] || { echo "Unselected PR report checks were not skipped: $REPORT_RESULT" >&2; exit 1; } ;;
-            *) echo "Invalid PR report selection: $REPORT" >&2; exit 1 ;;
-          esac
-
-      - name: Check out source
-        if: github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Install Node
-        if: github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
-        with:
-          node-version: "22"
-
-      - name: Install uv and Python
-        if: github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          enable-cache: true
-          python-version: "3.11.12"
-          version: "0.12.13"
-
-      - name: Install Dart SDK
-        if: github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
-        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
-        with:
-          sdk: "3.12.2"
-
-      - name: Install supported runtimes
-        if: github.event_name == 'push' && needs.changes.outputs.core == 'true'
-        run: uv python install 3.11.12 3.12.10
-
-      - name: Install locked dependencies
-        if: github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
-        run: uv sync --locked
-
-      - name: Prepare native Dart analyzer
-        if: github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
-        run: make dart-setup
-
-      - name: Clean previous CI artifacts
-        if: github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
-        run: make ci-artifacts-clean
-
-      - name: Run full core checks
-        if: github.event_name == 'push' && needs.changes.outputs.core == 'true'
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-        run: make ci-core-check
-
-      - name: Run full report checks
-        if: github.event_name == 'push' && needs.changes.outputs.report == 'true'
-        run: make ci-report-check
-
-      - name: Upload test timings
-        if: always() && github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: pytest-results
-          path: test-artifacts/pytest/*.xml
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Upload report runtime
-        if: always() && github.event_name == 'push' && needs.changes.outputs.report == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: report-runtime
-          path: test-artifacts/report-timing/architecture.timing.json
-          if-no-files-found: warn
-          retention-days: 7
-
-      # Only synthetic fixtures/F-architecture reports, never a consumer repository.
-      - name: Upload synthetic report browser evidence
-        if: always() && github.event_name == 'push' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.report == 'true')
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: report-browser-evidence
-          path: test-artifacts/report-browser/
-          if-no-files-found: warn
-          retention-days: 1
+          verify_area() {
+            local area="$1" selected="$2" result="$3"
+            case "$selected" in
+              true) [[ "$result" == success ]] || { echo "Selected $area check did not succeed: $result" >&2; exit 1; } ;;
+              false) [[ "$result" == skipped ]] || { echo "Unselected $area check was not skipped: $result" >&2; exit 1; } ;;
+              *) echo "Invalid $area selection: $selected" >&2; exit 1 ;;
+            esac
+          }
+          verify_area core "$CORE" "$CORE_RESULT"
+          verify_area report "$REPORT" "$REPORT_RESULT"
+          verify_area mermaid "$MERMAID" "$MERMAID_RESULT"
 
   pr-core-check:
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.core == 'true'
+    if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -297,7 +145,7 @@ jobs:
 
   pr-report-check:
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.report == 'true'
+    if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.changes.outputs.report == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -321,16 +169,8 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
 
-      - name: Install Dart SDK
-        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
-        with:
-          sdk: "3.12.2"
-
       - name: Install locked dependencies
         run: uv sync --locked
-
-      - name: Prepare native Dart analyzer
-        run: make dart-setup
 
       - name: Run PR report checks
         run: make ci-pr-report-check
@@ -373,138 +213,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: make prune-report-artifacts DELETE=true REPORT_ARTIFACT_PRUNE_DIR="$RUNNER_TEMP/report-artifact-prune"
-
-  collector-safety-windows:
-    needs: changes
-    if: needs.changes.outputs.core == 'true'
-    runs-on: windows-latest
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        python: ["3.11.12", "3.12.10"]
-    env:
-      UV_PYTHON: ${{ matrix.python }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Install Make
-        run: choco install make --version=4.4.1 --yes --no-progress
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          enable-cache: true
-          python-version: ${{ matrix.python }}
-          version: "0.12.13"
-
-      - name: Install supported runtimes and locked package
-        run: |
-          uv python install 3.11.12 3.12.10
-          uv sync --locked --python ${{ matrix.python }}
-
-      - name: Install Dart SDK
-        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
-        with:
-          sdk: "3.12.2"
-
-      - name: Prepare native Dart analyzer
-        shell: bash
-        run: make dart-setup SHELL=bash
-
-      - name: Verify native collector safety
-        shell: bash
-        run: make collector-safety SHELL=bash
-
-  typescript-native:
-    needs: changes
-    if: github.event_name == 'push' && needs.changes.outputs.core == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        python: ["3.11.12", "3.12.10"]
-    runs-on: ${{ matrix.os }}
-    env:
-      UV_PYTHON: ${{ matrix.python }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install Make on Windows
-        if: runner.os == 'Windows'
-        run: choco install make --version=4.4.1 --yes --no-progress
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          python-version: ${{ matrix.python }}
-          version: "0.12.13"
-
-      - name: Install Dart SDK
-        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
-        with:
-          sdk: "3.12.2"
-
-      - name: Install locked package
-        run: uv sync --locked --python ${{ matrix.python }}
-
-      - name: Prepare native Dart analyzer
-        shell: bash
-        run: make dart-setup SHELL=bash
-
-      - name: Verify native TypeScript collector
-        shell: bash
-        run: |
-          make typescript-native SHELL=bash
-          make build smoke SHELL=bash
-
-  dart-native:
-    needs: changes
-    if: needs.changes.outputs.core == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        dart: ["3.9.0", "3.12.2"]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install Make on Windows
-        if: runner.os == 'Windows'
-        run: choco install make --version=4.4.1 --yes --no-progress
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-
-      - name: Install Dart SDK
-        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
-        with:
-          sdk: ${{ matrix.dart }}
-
-      - name: Install locked package
-        run: uv sync --locked
-
-      - name: Prepare native Dart analyzer
-        shell: bash
-        run: make dart-setup SHELL=bash
-
-      - name: Verify native Dart collector
-        shell: bash
-        run: make dart-native SHELL=bash
 
   github-order-report:
     name: Collect GitHub order evidence (report only)
