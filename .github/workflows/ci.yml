@@ -120,7 +120,7 @@ jobs:
 
   check:
     needs: [changes, pr-core-check, pr-report-check]
-    if: ${{ !cancelled() }}
+    if: ${{ (github.event_name == 'pull_request' && always()) || (github.event_name == 'push' && !cancelled()) }}
     runs-on: ubuntu-latest
     timeout-minutes: ${{ github.event_name == 'pull_request' && 25 || 90 }}
     steps:
@@ -129,9 +129,10 @@ jobs:
         run: exit 1
 
       - name: Verify PR check results
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && always()
         env:
           EVENT: ${{ github.event_name }}
+          CANCELLED: ${{ cancelled() }}
           CHANGES_RESULT: ${{ needs.changes.result }}
           CORE: ${{ needs.changes.outputs.core }}
           REPORT: ${{ needs.changes.outputs.report }}
@@ -139,8 +140,8 @@ jobs:
           REPORT_RESULT: ${{ needs.pr-report-check.result }}
         run: |
           set -euo pipefail
-          if [[ "$EVENT" != pull_request || "$CHANGES_RESULT" != success ]]; then
-            echo "PR change classification did not succeed" >&2
+          if [[ "$EVENT" != pull_request || "$CANCELLED" != false || "$CHANGES_RESULT" != success ]]; then
+            echo "PR aggregate prerequisites failed or cancellation state is invalid" >&2
             exit 1
           fi
 

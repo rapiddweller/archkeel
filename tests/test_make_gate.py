@@ -280,7 +280,10 @@ def test_main_core_uses_pinned_playwright_once_and_report_stage_only_runs_proof(
 def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     check = workflow.split("  check:\n", 1)[1].split("\n  pr-core-check:", 1)[0]
-    assert "if: ${{ !cancelled() }}" in check
+    assert (
+        "if: ${{ (github.event_name == 'pull_request' && always()) || "
+        "(github.event_name == 'push' && !cancelled()) }}"
+    ) in check
     assert "needs: [changes, pr-core-check, pr-report-check]" in check
     classifier_failure = check.split("- name: Fail if change detection failed\n", 1)[1].split(
         "\n      - name:", 1
@@ -290,7 +293,8 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     aggregate = check.split("- name: Verify PR check results\n", 1)[1].split("\n      - name:", 1)[
         0
     ]
-    assert "if: github.event_name == 'pull_request'" in aggregate
+    assert "if: github.event_name == 'pull_request' && always()" in aggregate
+    assert "CANCELLED: ${{ cancelled() }}" in aggregate
     assert "CHANGES_RESULT: ${{ needs.changes.result }}" in aggregate
     assert "CORE: ${{ needs.changes.outputs.core }}" in aggregate
     assert "REPORT: ${{ needs.changes.outputs.report }}" in aggregate
@@ -435,6 +439,7 @@ def test_pr_aggregate_executes_exact_workflow_script_fail_closed() -> None:
     script = dedent(step.split("        run: |\n", 1)[1])
     baseline = {
         "EVENT": "pull_request",
+        "CANCELLED": "false",
         "CHANGES_RESULT": "success",
         "CORE": "true",
         "REPORT": "true",
@@ -456,6 +461,9 @@ def test_pr_aggregate_executes_exact_workflow_script_fail_closed() -> None:
             0,
         ),
         ("classifier failed", {"CHANGES_RESULT": "failure"}, 1),
+        ("whole workflow cancelled", {"CANCELLED": "true"}, 1),
+        ("malformed cancellation state", {"CANCELLED": "yes"}, 1),
+        ("missing cancellation state", {"CANCELLED": None}, 1),
         ("malformed core flag", {"CORE": "yes"}, 1),
         ("malformed report flag", {"REPORT": "TRUE"}, 1),
         ("missing core flag", {"CORE": None}, 1),
