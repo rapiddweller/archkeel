@@ -1432,8 +1432,9 @@ def test_graph_reader_resolves_human_node_labels_back_to_contract_labels() -> No
     )
 
 
-def test_graph_rewrite_refuses_an_isolated_quoted_node() -> None:
-    body = 'graph TD\n    n_0["Standalone store"]\n'
+@pytest.mark.parametrize("node", ["standalone", 'n_0["Standalone store"]'], ids=["bare", "quoted"])
+def test_graph_rewrite_refuses_an_isolated_node(node: str) -> None:
+    body = f"graph TD\n    {node}\n"
     document = (("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n{body}```\n"),)
 
     assert rewrite_component_graph(document, frozenset({("Core", "API")}), frozenset()) == ()
@@ -1470,13 +1471,25 @@ def test_graph_rewrite_rejects_conflicting_node_label_declarations() -> None:
     assert "by hand" in drift.remedy
 
 
-def test_graph_diagnostics_accept_equal_empty_edges_with_isolated_alias_node() -> None:
+@pytest.mark.parametrize("node", ["standalone", 'n_0["Standalone store"]'], ids=["bare", "quoted"])
+def test_graph_diagnostics_accept_equal_empty_edges_with_isolated_node(node: str) -> None:
     contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": []})
     observation = parse_observation(_model(git_head="a" * 40))
-    body = 'graph TD\n    n_0["demo"]\n'
+    body = f"graph TD\n    {node}\n"
     documents = (("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n{body}```\n"),)
 
     assert graph_diagnostics(contract, observation, documents) == ()
+
+
+def test_graph_diagnostics_rejects_unsupported_edge_with_equal_empty_edges() -> None:
+    contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": []})
+    observation = parse_observation(_model(git_head="a" * 40))
+    documents = (
+        ("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n    core --- api\n```\n"),
+    )
+
+    (diagnostic,) = graph_diagnostics(contract, observation, documents)
+    assert diagnostic.code == "graph.drift"
 
 
 def test_write_graph_changes_nothing_without_exactly_one_marked_graph() -> None:

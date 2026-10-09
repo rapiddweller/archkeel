@@ -46,8 +46,8 @@ def _marked_bodies(content: str, marker: str) -> list[tuple[int, int]]:
     return spans
 
 
-def _unwritable_line(body: str) -> str | None:
-    """The first line of a marked block that is not a declaration, a `%%` comment or an edge.
+def _unwritable_line(body: str, *, allow_isolated_nodes: bool = False) -> str | None:
+    """Find graph content the rewrite cannot preserve, optionally allowing isolated nodes.
 
     AD-46: a subgraph, a labeled edge or a style can depend on where an edge sits, so a rewrite
     that reorders the edges could change what the graph says; such a block is left to a human.
@@ -56,20 +56,24 @@ def _unwritable_line(body: str) -> str | None:
     if conflict is not None:
         return conflict
     referenced: set[str] = set()
+    declared = set(labels)
     for line in body.splitlines():
+        stripped = line.strip()
+        if re.fullmatch(_GRAPH_ID, stripped):
+            declared.add(stripped)
         match = re.fullmatch(_GRAPH_EDGE, line)
         if match is not None:
             referenced.update(match.groups())
-    orphaned = set(labels).difference(referenced)
-    if orphaned:
-        return f"isolated quoted node {min(orphaned)}"
+    orphaned = declared.difference(referenced)
+    if orphaned and not allow_isolated_nodes:
+        return f"isolated node {min(orphaned)}"
     for line in body.splitlines():
         stripped = line.strip()
         if not stripped:
             continue
         if any(
             re.fullmatch(pattern, stripped)
-            for pattern in (_GRAPH_EDGE, _GRAPH_NODE, _GRAPH_DECLARATION, _GRAPH_COMMENT)
+            for pattern in (_GRAPH_EDGE, _GRAPH_NODE, _GRAPH_ID, _GRAPH_DECLARATION, _GRAPH_COMMENT)
         ):
             continue
         return stripped
@@ -266,10 +270,10 @@ def _marker_diagnostics(
         )
     path, body = graphs[0]
     declared = _declared_edges(body)
-    _, conflict = _node_labels(body)
-    if declared == edges and conflict is None:
+    unwritable = _unwritable_line(body, allow_isolated_nodes=True)
+    if declared == edges and unwritable is None:
         return ()
-    unwritable = conflict or _unwritable_line(body)
+    unwritable = unwritable or _unwritable_line(body)
     new_edges = ", ".join(f"{a}->{b}" for a, b in sorted(edges - declared)) or "none"
     gone_edges = ", ".join(f"{a}->{b}" for a, b in sorted(declared - edges)) or "none"
     return (
