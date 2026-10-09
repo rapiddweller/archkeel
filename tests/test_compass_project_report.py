@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 
 import pytest
+from test_uml_rendering import _wait_for_layout
 
 from archkeel.ir.graph_codec import parse_report
 from fixtures.architecture_demo import REPORT_CASES, replay
@@ -210,14 +211,17 @@ def test_compass_report_opens_generated_detail_page_in_browser(tmp_path: Path) -
         try:
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
             page.goto(output.with_suffix(".report.html").as_uri())
+            _wait_for_layout(page)
             atlas = json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"]
             assert atlas["detail_page"] == output.with_suffix(".detail.html").name
             page.locator('.flow-nodes [data-uml-id="presentation"]').click()
             page.get_by_text("Browse 42 modules", exact=True).click()
             page.locator('[data-content="components"]').last.click()
+            _wait_for_layout(page)
             page.locator('.flow-nodes [data-uml-id="presentation:presentation-booking"]').press(
                 "Enter"
             )
+            _wait_for_layout(page)
             atlas = json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"]
             module = next(
                 item
@@ -226,6 +230,7 @@ def test_compass_report_opens_generated_detail_page_in_browser(tmp_path: Path) -
             )
             page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').dblclick()
             page.wait_for_url("**/*.detail.html?*")
+            _wait_for_layout(page)
             module_url = page.url
             assert page.locator(".atlas-heading").is_visible()
             assert page.locator(".flow-views [data-flow-view]").count() == 3
@@ -234,8 +239,11 @@ def test_compass_report_opens_generated_detail_page_in_browser(tmp_path: Path) -
                 page.set_viewport_size({"width": width, "height": 900})
                 for view in ("diagram", "target", "diff"):
                     page.goto(module_url)
+                    _wait_for_layout(page)
                     page.locator(f'[data-flow-view="{view}"]').click()
+                    _wait_for_layout(page)
                     page.locator('.flow-nodes [data-label="BookingViewModel"]').dblclick()
+                    _wait_for_layout(page)
                     member = page.locator('.flow-nodes [data-label="_createBooking"]')
                     assert member.count() == 1
                     member.press("Space")

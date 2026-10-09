@@ -11,7 +11,7 @@ from browser_report_support import _browser_page, _open_details, _tour_report_pa
 from test_atlas_report import _page
 from test_exact_module_ownership import _component, _contract, _report
 from test_module_explore import _sample
-from test_uml_rendering import _open_module, _uml_report
+from test_uml_rendering import _open_module, _uml_report, _wait_for_layout
 
 from archkeel.ir.architecture_graph import Entity
 
@@ -30,9 +30,11 @@ def test_view_switch_uses_the_corresponding_scope_and_restores_selection(
         identity = client.get_attribute("data-uml-id")
         breadcrumb = page.locator(".flow-breadcrumb").inner_text()
         page.get_by_role("button", name=destination, exact=True).click()
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-label="Client"]').count() == 1
         assert page.locator(".flow-breadcrumb button").count() == 3
         page.get_by_role("button", name=source, exact=True).click()
+        _wait_for_layout(page)
         assert page.locator(".flow-breadcrumb").inner_text() == breadcrumb
         assert client.get_attribute("data-uml-id") == identity
         assert client.get_attribute("aria-pressed") == "true"
@@ -48,9 +50,12 @@ def test_view_switch_does_not_restore_an_unrelated_saved_target_scope(tmp_path):
     try:
         _open_module(page, "Target")
         page.locator('.flow-nodes [data-label="Client"]').press("Enter")
+        _wait_for_layout(page)
         page.get_by_role("button", name="As-Is", exact=True).click()
         page.locator(".flow-breadcrumb button").nth(2).click()
+        _wait_for_layout(page)
         page.get_by_role("button", name="Target", exact=True).click()
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-label="Client"]').count() == 1
         assert page.locator(".flow-breadcrumb button").count() == 3
     finally:
@@ -91,6 +96,7 @@ def test_unavailable_counterpart_keeps_location_and_offers_verified_ancestor(tmp
     try:
         _open_module(page, "Target")
         page.locator('.flow-nodes [data-label="Twin"]').press("Enter")
+        _wait_for_layout(page)
         page.locator('.flow-nodes [data-label="run"]').press("Space")
         original = page.locator(".flow-breadcrumb").inner_text()
         data = page.locator("#flow-data").text_content()
@@ -101,15 +107,18 @@ def test_unavailable_counterpart_keeps_location_and_offers_verified_ancestor(tmp
         assert "Twin" in page.locator(".flow-breadcrumb").inner_text()
         assert page.locator(".flow-canvas").is_hidden()
         page.get_by_role("button", name="Target", exact=True).click()
+        _wait_for_layout(page)
         assert page.locator(".flow-breadcrumb").inner_text() == original
         assert (
             page.locator('.flow-nodes [data-label="run"]').get_attribute("aria-pressed") == "true"
         )
         page.get_by_role("button", name="As-Is", exact=True).click()
         notice.get_by_role("button", name="Open nearest scope").click()
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-label="Client"]').count() == 1
         assert page.locator(".flow-breadcrumb button").count() == 3
         page.get_by_role("button", name="Target", exact=True).click()
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-label="Client"]').count() == 1
         assert "Twin" not in page.locator(".flow-breadcrumb").inner_text()
         assert page.locator("#flow-data").text_content() == data
@@ -136,6 +145,7 @@ def test_unmapped_namespace_offers_root_without_inventing_a_target_owner(tmp_pat
         assert "No counterpart" in notice.inner_text()
         assert "sample" in page.locator(".flow-breadcrumb").inner_text()
         notice.get_by_role("button", name="Open nearest scope").click()
+        _wait_for_layout(page)
         assert page.locator(".flow-breadcrumb button").count() == 1
         assert page.locator('.flow-nodes [data-label="other"]').count() == 1
         assert page.locator('.flow-nodes [data-uml-kind="package"]').count() == 0
@@ -197,12 +207,14 @@ def test_legacy_diff_observed_selection_keeps_exact_source_site(tmp_path):
     playwright, browser, page = _browser_page(api, html)
     try:
         page.get_by_role("button", name="Diff", exact=True).click()
+        _wait_for_layout(page)
         page.locator(".flow-unassigned-code").click()
         groups = page.locator(".flow-inspector-content details").filter(
             has=page.locator("summary", has_text="Recorded namespace groups")
         )
         groups.locator("summary").click()
         groups.get_by_role("button", name="Open", exact=True).click()
+        _wait_for_layout(page)
         _open_details(page)
         details = page.locator(".flow-inspector-content").inner_text()
         assert "Relationship sites" in details
@@ -303,6 +315,7 @@ def test_hiding_all_failed_and_unknown_entities_does_not_change_the_report(tmp_p
                 for b in controls[index + 1 :]
             )
         page.get_by_label("Element kind", exact=True).select_option("interface")
+        _wait_for_layout(page)
         assert page.locator(".flow-nodes [data-uml-id]").count() > 0
         assert page.locator('.flow-nodes [data-assessment-status="FAIL"]').count() == 0
         assert page.locator('.flow-nodes [data-assessment-status="UNKNOWN"]').count() == 0
@@ -312,6 +325,7 @@ def test_hiding_all_failed_and_unknown_entities_does_not_change_the_report(tmp_p
         assert page.locator("#flow-data").text_content() == data
         page.locator(".flow-filters > summary").click()
         page.locator("#flow").get_by_role("button", name="Reset filters", exact=True).click()
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-assessment-status="FAIL"]').count() > 0
         assert page.locator('.flow-nodes [data-assessment-status="UNKNOWN"]').count() > 0
     finally:

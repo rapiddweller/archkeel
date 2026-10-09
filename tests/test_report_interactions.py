@@ -16,7 +16,7 @@ from test_atlas_report import _result as _atlas_result
 from test_module_explore import _sample
 from test_report_159_160_e2e_oracle import _variant
 from test_target_graph import _nested_repository, _permission_contract
-from test_uml_rendering import _open_module, _uml_report
+from test_uml_rendering import _open_module, _uml_report, _wait_for_layout
 
 from archkeel.check.report import run_report
 from archkeel.cli.config import load_config
@@ -434,6 +434,7 @@ def test_equal_root_diagram_uses_one_viewport_alignment_in_every_architecture_vi
         geometry = []
         for name in ("As-Is", "Target", "Diff", "As-Is"):
             page.get_by_role("button", name=name, exact=True).click()
+            _wait_for_layout(page)
             card = page.locator('.flow-nodes [data-label="core"] .card')
             assert card.count() == 1
             box = card.bounding_box()
@@ -745,6 +746,7 @@ def test_native_card_drag_reroutes_all_hits_and_keeps_architecture_unchanged(tmp
         page.locator(".flow-toolbar").get_by_role(
             "button", name="Reset filters", exact=True
         ).click()
+        _wait_for_layout(page)
         canvas = page.locator(".flow-canvas")
         canvas.scroll_into_view_if_needed()
         payload = page.locator("#flow-data").text_content()
@@ -763,7 +765,19 @@ def test_native_card_drag_reroutes_all_hits_and_keeps_architecture_unchanged(tmp
           edge.querySelector('.line').getAttribute('d')
           === edge.querySelector('.hit').getAttribute('d')
           && getComputedStyle(edge.querySelector('.line')).markerEnd !== 'none')""")
+        manual_position = card.get_attribute("transform")
+        card.click()
+        page.get_by_role("button", name="Open selected Client", exact=True).click()
+        _wait_for_layout(page)
+        page.locator(".flow-back").click()
+        _wait_for_layout(page)
+        card = page.locator('.flow-nodes [data-label="Client"]')
+        assert card.get_attribute("transform") == manual_position
         page.get_by_role("button", name="Fit overview").click()
+        assert card.get_attribute("transform") == manual_position
+        page.locator(".flow-zoom-100").click()
+        _wait_for_layout(page)
+        assert card.get_attribute("transform") == before
         assert page.locator("#flow-data").text_content() == payload
     finally:
         browser.close()
@@ -784,6 +798,7 @@ def test_left_up_drag_keeps_other_cards_fixed_and_small_scope_starts_unscrolled(
         page.locator(".flow-toolbar").get_by_role(
             "button", name="Reset filters", exact=True
         ).click()
+        _wait_for_layout(page)
         for _ in range(zoom_steps):
             page.get_by_role("button", name="Zoom in", exact=True).click()
         payload = page.locator("#flow-data").text_content()
@@ -821,6 +836,7 @@ def test_left_up_drag_keeps_other_cards_fixed_and_small_scope_starts_unscrolled(
         )
         assert max(scroll) > 0
         page.get_by_role("button", name="Open selected Client", exact=True).click()
+        _wait_for_layout(page)
         assert canvas.evaluate("n => [n.scrollLeft,n.scrollTop]") == [0, 0]
         assert page.locator('.flow-nodes [data-uml-kind="method"]').count() > 0
         assert page.locator("#flow-data").text_content() == payload
@@ -863,6 +879,16 @@ def test_opening_details_reveals_selected_card_without_changing_scene(
         else:
             card.press("Space")
         assert details.get_attribute("aria-expanded") == "true"
+        if input_method == "mouse":
+            page.wait_for_function("""() => {
+              const card = document.querySelector('.flow-nodes [aria-pressed="true"]');
+              const viewport = document.querySelector('.flow-canvas');
+              if (!card || !viewport) return false;
+              const bounds = card.getBoundingClientRect();
+              const visible = viewport.getBoundingClientRect();
+              return bounds.left >= visible.left - 1 && bounds.right <= visible.right + 1
+                && bounds.top >= visible.top - 1 && bounds.bottom <= visible.bottom + 1;
+            }""")
         bounds = card.bounding_box()
         viewport = page.locator(".flow-canvas").bounding_box()
         assert bounds and viewport
@@ -885,6 +911,55 @@ def test_opening_details_reveals_selected_card_without_changing_scene(
         )
         assert page.locator("#flow-data").text_content() == payload
         assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_keyboard_selection_reveals_focused_card_after_pan_with_details_open(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    html, _ = _uml_report(tmp_path)
+    playwright, browser, page = _browser_page(api, html, width=375, height=1000)
+    try:
+        _open_module(page, "As-Is")
+        details = page.locator(".flow-details-toggle")
+        if details.get_attribute("aria-expanded") != "true":
+            details.click()
+        page.get_by_role("button", name="Fit overview", exact=True).click()
+        for _ in range(2):
+            page.get_by_role("button", name="Zoom in", exact=True).click()
+
+        canvas = page.locator(".flow-canvas")
+        scroll = canvas.evaluate(
+            "n => { n.scrollLeft = n.scrollWidth; n.scrollTop = n.scrollHeight; "
+            "return [n.scrollLeft, n.scrollTop] }"
+        )
+        assert max(scroll) > 0
+        index = page.locator(".flow-nodes [data-uml-id]").evaluate_all(
+            "nodes => nodes.findIndex(n => { const r = n.getBoundingClientRect(); "
+            "const c = n.closest('.flow-canvas').getBoundingClientRect(); "
+            "return r.width <= c.width && r.height <= c.height && "
+            "(r.left < c.left || r.right > c.right || r.top < c.top || r.bottom > c.bottom) })"
+        )
+        assert index >= 0
+        card = page.locator(".flow-nodes [data-uml-id]").nth(index)
+        card.evaluate("n => n.focus({ preventScroll: true })")
+        page.keyboard.press("Space")
+
+        card_bounds = card.bounding_box()
+        canvas_bounds = canvas.bounding_box()
+        assert card_bounds and canvas_bounds
+        assert card_bounds["x"] >= canvas_bounds["x"] - 1
+        assert (
+            card_bounds["x"] + card_bounds["width"]
+            <= canvas_bounds["x"] + canvas_bounds["width"] + 1
+        )
+        assert card_bounds["y"] >= canvas_bounds["y"] - 1
+        assert (
+            card_bounds["y"] + card_bounds["height"]
+            <= canvas_bounds["y"] + canvas_bounds["height"] + 1
+        )
+        assert details.get_attribute("aria-expanded") == "true"
     finally:
         browser.close()
         playwright.stop()

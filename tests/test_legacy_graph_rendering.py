@@ -9,6 +9,7 @@ import pytest
 from browser_report_support import _browser_page
 from test_target_graph import _nested_repository, _permission_contract
 from test_uml_evaluation import _repository
+from test_uml_rendering import _wait_for_layout
 
 from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
@@ -115,8 +116,10 @@ def test_legacy_permission_browser_keeps_distinct_selection_and_connected_focus(
     playwright, browser, page = _browser_page(api, html, errors=errors)
     try:
         page.locator('[data-flow-view="target"]').click()
+        _wait_for_layout(page)
         if nested:
             page.locator(f'.flow-nodes [data-uml-id="{intent.parent_id}"]').press("Enter")
+            _wait_for_layout(page)
         owner_card = page.locator(f'.flow-nodes [data-uml-id="{owner.id}"]')
         assert "foundation" in owner_card.locator(".meta").text_content()
         owner_card.click()
@@ -192,8 +195,10 @@ def test_explicit_uml_keeps_each_dependency_permission_selectable(tmp_path, nest
     playwright, browser, page = _browser_page(api, html, errors=errors)
     try:
         page.locator('[data-flow-view="target"]').click()
+        _wait_for_layout(page)
         if nested:
             page.locator(f'.flow-nodes [data-uml-id="{intent.parent_id}"]').press("Enter")
+            _wait_for_layout(page)
         edges = page.locator('.flow-edges [data-relationship-kind="requires"]')
         assert edges.count() == len(permissions)
         paths = []
@@ -250,14 +255,32 @@ def test_target_cycle_self_loop_and_dependents_keep_every_permission(tmp_path):
     playwright, browser, page = _browser_page(api, html)
     try:
         page.get_by_role("button", name="Target", exact=True).click()
+        _wait_for_layout(page)
         payload = page.locator("#flow-data").text_content()
         assert page.locator('.flow-edges [data-relationship-kind="requires"]').count() == 5
         coordinates = page.locator(".flow-nodes [data-uml-id]").evaluate_all("""nodes =>
-          Object.fromEntries(nodes.map(node => [node.dataset.label,
-            node.transform.baseVal.getItem(0).matrix.f]))
+          Object.fromEntries(nodes.map(node => {
+            const matrix = node.transform.baseVal.getItem(0).matrix;
+            return [node.dataset.label, {x: matrix.e, y: matrix.f}];
+          }))
         """)
-        assert coordinates["a"] == coordinates["b"] == coordinates["dependent"]
-        assert coordinates["leaf"] > coordinates["entry"]
+        assert coordinates["leaf"]["x"] > coordinates["entry"]["x"]
+        assert page.locator(".flow-nodes [data-uml-id]").evaluate_all("""nodes => {
+            const cards = nodes.map(node => node.querySelector('.card').getBoundingClientRect());
+            return cards.every((card, index) => cards.slice(index + 1).every(other =>
+                card.right <= other.left || other.right <= card.left
+                    || card.bottom <= other.top || other.bottom <= card.top));
+        }""")
+        edge_facts = page.locator('.flow-edges [data-relationship-kind="requires"]').evaluate_all(
+            "edges => edges.map(edge => [edge.dataset.umlSource, edge.dataset.umlTarget])"
+        )
+        assert set(map(tuple, edge_facts)) == {
+            ("a", "a"),
+            ("a", "b"),
+            ("a", "dependent"),
+            ("b", "a"),
+            ("entry", "leaf"),
+        }
         page.locator('.flow-nodes [data-label="dependent"]').press("Space")
         assert (
             "Keep this explicit permission" in page.locator(".flow-inspector-content").inner_text()
@@ -296,16 +319,25 @@ def test_large_component_chain_stays_readable_on_automatic_fit(tmp_path):
     playwright, browser, page = _browser_page(api, html)
     try:
         page.get_by_role("button", name="Target", exact=True).click()
+        _wait_for_layout(page)
         payload = page.locator("#flow-data").text_content()
         assert int(page.locator(".flow-zoom-value").inner_text().removesuffix("%")) >= 85
         assert page.locator(".flow-nodes .node").count() == 12
+        assert page.locator(".flow-nodes .node").evaluate_all("""nodes => {
+            const canvas = document.querySelector('.flow-canvas').getBoundingClientRect();
+            return nodes.some(node => { const box = node.getBoundingClientRect();
+                return box.left >= canvas.left && box.right <= canvas.right
+                    && box.top >= canvas.top && box.bottom <= canvas.bottom; });
+        }""")
+        assert page.locator(".flow-edges .edge").count() == 11
+        page.get_by_role("button", name="Fit overview", exact=True).click()
         assert page.locator(".flow-nodes .node").evaluate_all("""nodes => {
             const canvas = document.querySelector('.flow-canvas').getBoundingClientRect();
             return nodes.every(node => { const box = node.getBoundingClientRect();
                 return box.left >= canvas.left && box.right <= canvas.right
                     && box.top >= canvas.top && box.bottom <= canvas.bottom; });
         }""")
-        assert page.locator(".flow-edges .edge").count() == 11
+        assert page.locator("#flow-data").text_content() == payload
         page.mouse.move(0, 0)
         assert (
             float(

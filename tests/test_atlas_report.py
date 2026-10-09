@@ -7,6 +7,7 @@ import json
 import re
 import sys
 from dataclasses import replace
+from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -15,6 +16,7 @@ from test_architecture_demo import _prepare_repo
 from test_module_explore import _sample
 from test_report_filter import CONFIG as TOUR_CONFIG
 from test_report_filter import _tour_root
+from test_uml_rendering import _wait_for_layout
 
 from archkeel.check.report import run_report
 from archkeel.cli import main
@@ -123,6 +125,20 @@ def test_html_graph_omits_resolvable_record_id_lists_only(tmp_path):
                     for item in expected_items
                 ]
                 assert all("record_ids" not in item for item in actual_items)
+
+
+def test_atlas_inlines_pinned_elk_before_flow_script_under_offline_csp(tmp_path):
+    model = _sample(tmp_path)
+    page = _page(model)
+
+    elk_script = '<script data-elkjs-version="0.12.0">'
+    flow_script = '<script>"use strict";'
+    assert elk_script in page
+    assert page.index(elk_script) < page.index(flow_script)
+    assert "default-src 'none'" in page
+    assert "script-src 'unsafe-inline'" in page
+    assert "worker-src" not in page
+    assert not re.search(r"<script\b[^>]*\bsrc=", page)
 
 
 def _atlas(page):
@@ -246,7 +262,15 @@ def test_default_report_is_one_authentic_repository_with_sparse_native_cells(tmp
     assert "EXT-TS" not in page
     assert "Worth a look" in page
     assert 'aria-label="Switch to light theme"' in page
-    assert len(page.encode()) < 1_000_000
+    page_bytes = len(page.encode())
+    elk_bytes = (
+        (Path(__file__).parents[1] / "src/archkeel/render/assets/elkjs-0.12.0.bundled.js")
+        .stat()
+        .st_size
+    )
+    # The offline engine adds 1,609,707 bytes; this fixture renders to 1,916,009 bytes.
+    assert page_bytes < 2_000_000
+    assert page_bytes - elk_bytes < 350_000
 
 
 def test_atlas_header_shows_four_status_cards_with_native_rule_counts(tmp_path):
@@ -551,6 +575,39 @@ def test_component_detail_links_are_relative_and_keep_shared_uml(tmp_path):
         assert "default-src 'none'" in page
 
 
+@pytest.mark.parametrize("width", [1440, 390])
+@pytest.mark.parametrize("expanded", [False, True])
+def test_atlas_closed_details_releases_diagram_space(tmp_path, width, expanded):
+    api = pytest.importorskip("playwright.sync_api")
+    errors = []
+    playwright, browser, page = _browser_page(
+        api, _page(_sample(tmp_path)), width=width, height=900, errors=errors
+    )
+    try:
+        if expanded:
+            page.locator(".flow-fullscreen").click()
+            api.expect(page.locator(".flow")).to_have_attribute("data-expanded", re.compile(".+"))
+        _open_details(page)
+        opened = page.locator(".flow-canvas").bounding_box()
+        page.locator(".flow-details-toggle").click()
+        api.expect(page.locator(".flow-inspector")).to_be_hidden()
+        layout = page.locator(".flow-layout").bounding_box()
+        closed = page.locator(".flow-canvas").bounding_box()
+        assert closed["width"] >= layout["width"] - 2
+        if width == 1440:
+            assert closed["width"] > opened["width"] + 200
+        elif expanded:
+            assert closed["height"] > opened["height"] + 100
+        page.locator(".flow-details-toggle").click()
+        api.expect(page.locator(".flow-inspector")).to_be_visible()
+        reopened = page.locator(".flow-canvas").bounding_box()
+        assert reopened["width"] == pytest.approx(opened["width"], abs=2)
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 @pytest.mark.parametrize("width", [1440, 400])
 def test_atlas_browser_keeps_positions_and_unknown_cells_across_lenses(tmp_path, width):
     api = pytest.importorskip("playwright.sync_api")
@@ -603,6 +660,191 @@ def test_atlas_browser_keeps_positions_and_unknown_cells_across_lenses(tmp_path,
             "rgb(0, 0, 0)" if dark else "rgb(255, 255, 255)"
         )
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_atlas_component_layout_keeps_union_geometry_and_active_edges(tmp_path):
+    model = _sample(
+        tmp_path,
+        permitted=True,
+        other_component=True,
+        extra_files={"sample/other.py": "import sample.core\n"},
+    )
+    html = _page(model)
+    match = re.search(
+        r'(<script id="flow-data" type="application/json">)(.*?)(</script>)', html, re.S
+    )
+    assert match is not None
+    data = json.loads(match.group(2))
+    atlas = data["atlas"]
+    components = atlas["components"]
+    by_id = {component["id"]: component for component in components}
+    peer_index = next(
+        index for index, component in enumerate(components) if component["id"] == "peer"
+    )
+
+    peer_edge_id = by_id["peer"]["requires"][0]["id"]
+    parallel = dict(by_id["peer"]["requires"][0], id="parallel-peer-core")
+    by_id["peer"]["requires"].append(parallel)
+    cycle = dict(by_id["peer"]["requires"][0], id="cycle-core-peer", target_id=peer_index)
+    by_id["core"]["requires"].append(cycle)
+    html = (
+        html[: match.start()]
+        + match.group(1)
+        + json.dumps(data, separators=(",", ":"))
+        + match.group(3)
+        + html[match.end() :]
+    )
+
+    api = pytest.importorskip("playwright.sync_api")
+    errors = []
+    path = tmp_path / "architecture.report.html"
+    path.write_text(html)
+    playwright, browser, page = _browser_page(api, html, width=390, errors=errors)
+    try:
+        page.goto(path.as_uri())
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=component]').length === 3"
+        )
+        assert page.evaluate("""() => {
+          const canvas = document.querySelector('.flow-canvas').getBoundingClientRect();
+          return [...document.querySelectorAll('.flow-nodes [data-uml-kind=component] .card')]
+            .some(card => {
+              const box = card.getBoundingClientRect();
+              return box.left >= canvas.left && box.right <= canvas.right
+                && box.top >= canvas.top && box.bottom <= canvas.bottom;
+            });
+        }"""), "the initial mobile component view must show a complete card"
+        page.locator('[data-flow-view="diagram"]').click()
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=component]').length === 3"
+        )
+
+        def scene() -> dict:
+            return page.evaluate("""() => ({
+            nodes: [...document.querySelectorAll('.flow-nodes [data-uml-kind="component"]')]
+                .map(node => {
+                  const box = node.getBoundingClientRect();
+                  const card = node.querySelector('.card');
+                  return {id: node.dataset.umlId, transform: node.getAttribute('transform'),
+                    x: box.x, y: box.y, right: box.right, bottom: box.bottom,
+                    width: card.getAttribute('width'), height: card.getAttribute('height')};
+                }),
+              edges: [...document.querySelectorAll('.flow-edges > g[data-uml-source]')]
+                .map(edge => ({id: edge.dataset.umlId, source: edge.dataset.umlSource,
+                  target: edge.dataset.umlTarget, classes: [...edge.classList],
+                  tooltip: edge.querySelector('.line title')?.textContent,
+                  labels: [...edge.querySelectorAll('.atlas-edge-label')]
+                    .map(label => label.textContent),
+                  path: edge.querySelector('.line').getAttribute('d')})),
+              labels: [...document.querySelectorAll('.atlas-edge-label')].map(label => {
+                const box = label.getBoundingClientRect();
+                return {text: label.textContent, x: box.x, y: box.y,
+                  right: box.right, bottom: box.bottom};
+              })
+            })""")
+
+        target_edge_ids = {"cycle-core-peer", "parallel-peer-core", peer_edge_id}
+        views = {}
+        for lens in ("As-Is", "Target", "Diff"):
+            page.get_by_role("button", name=lens, exact=True).click()
+            expected_count = 3 if lens == "Target" else 2
+            page.wait_for_function(
+                "count => document.querySelectorAll('.flow-edges > g[data-uml-source]').length "
+                "=== count",
+                arg=expected_count,
+            )
+            views[lens] = scene()
+
+        positions = {
+            lens: {node["id"]: node["transform"] for node in view["nodes"]}
+            for lens, view in views.items()
+        }
+        dimensions = {
+            lens: {node["id"]: (node["width"], node["height"]) for node in view["nodes"]}
+            for lens, view in views.items()
+        }
+        assert positions["As-Is"] == positions["Target"] == positions["Diff"]
+        assert dimensions["As-Is"] == dimensions["Target"] == dimensions["Diff"]
+        assert len({positions["Target"]["core"], positions["Target"]["peer"]}) == 2
+
+        root_level = next(level for level in atlas["levels"] if level["parent_id"] is None)
+        expected_observed = {
+            f"observed:{edge['source_id']}>{edge['target_id']}": edge
+            for edge in root_level["edges"]
+        }
+        deviations = {
+            (item["source_id"], item["target_id"]): item["kind"] for item in atlas["deviations"]
+        }
+        state_for_status = {"FAIL": "violation", "UNKNOWN": "undecided"}
+        expected_observed_labels = {
+            edge_id: f"{edge['import_sites']} import" + ("s" if edge["import_sites"] != 1 else "")
+            for edge_id, edge in expected_observed.items()
+        }
+        for lens in ("As-Is", "Diff"):
+            edges = {edge["id"]: edge for edge in views[lens]["edges"]}
+            assert set(edges) == set(expected_observed)
+            for edge_id, source_edge in expected_observed.items():
+                pair = (source_edge["source_id"], source_edge["target_id"])
+                state = (
+                    "violation"
+                    if lens == "Diff" and deviations.get(pair) == "undeclared"
+                    else state_for_status.get(source_edge["status"], "observed")
+                )
+                assert state in edges[edge_id]["classes"]
+                assert edges[edge_id]["labels"] == [expected_observed_labels[edge_id]]
+        observed = {(edge["source"], edge["target"]) for edge in views["As-Is"]["edges"]}
+        declared = {(edge["source"], edge["target"]) for edge in views["Target"]["edges"]}
+        assert ("other", "core") in observed
+        assert ("other", "core") not in declared
+        assert ("core", "peer") in declared
+        assert {edge["id"] for edge in views["Target"]["edges"]} == target_edge_ids
+        target_declarations = {
+            edge["id"]: edge for component in components for edge in component["requires"]
+        }
+        target_edges = {edge["id"]: edge for edge in views["Target"]["edges"]}
+        for edge_id in target_edge_ids:
+            declaration = target_declarations[edge_id]
+            rationale = atlas["reference_ids"][declaration["rationale_ref"]]
+            assert "declared" in target_edges[edge_id]["classes"]
+            assert target_edges[edge_id]["labels"] == ["requires"]
+            assert rationale in target_edges[edge_id]["tooltip"]
+        assert (
+            sum(
+                edge["source"] == "peer" and edge["target"] == "core"
+                for edge in views["Target"]["edges"]
+            )
+            == 2
+        )
+        assert len(views["Target"]["labels"]) == len(views["Target"]["edges"])
+        assert len({edge["path"] for edge in views["Target"]["edges"]}) == len(
+            views["Target"]["edges"]
+        )
+        assert "violation" in next(
+            edge["classes"]
+            for edge in views["Diff"]["edges"]
+            if edge["id"] == "observed:other>core"
+        )
+        for view in views.values():
+            for label in view["labels"]:
+                for node in view["nodes"]:
+                    assert (
+                        label["right"] <= node["x"] + 1
+                        or node["right"] <= label["x"] + 1
+                        or label["bottom"] <= node["y"] + 1
+                        or node["bottom"] <= label["y"] + 1
+                    ), (label, node)
+            for left_index, left in enumerate(view["labels"]):
+                for right in view["labels"][left_index + 1 :]:
+                    assert (
+                        left["right"] <= right["x"] + 1
+                        or right["right"] <= left["x"] + 1
+                        or left["bottom"] <= right["y"] + 1
+                        or right["bottom"] <= left["y"] + 1
+                    ), (left, right)
         assert not errors
     finally:
         browser.close()
@@ -785,7 +1027,7 @@ def test_findings_show_only_distinct_nested_annotation_without_deduplication(tmp
     assert "nested_annotation" not in by_id[violations[1].id]
 
 
-def test_target_view_is_independent_of_observed_evidence(tmp_path):
+def test_target_content_is_independent_of_observed_evidence(tmp_path):
     from archkeel.check.ports import ScanConfig
 
     api = pytest.importorskip("playwright.sync_api")
@@ -849,6 +1091,20 @@ def test_target_view_is_independent_of_observed_evidence(tmp_path):
                 item for item in atlas["declared_modules"] if item["component_id"] == "peer"
             )
             page.get_by_role("button", name="Target", exact=True).click()
+            target_component_ids = set(root_levels[0]["component_ids"])
+            target_edge_count = sum(
+                1
+                for component in atlas["components"]
+                if component["id"] in target_component_ids
+                for edge in component["requires"]
+                if atlas["components"][edge["target_id"]]["id"] in target_component_ids
+            )
+            page.wait_for_function(
+                "count => { const edges = [...document.querySelectorAll("
+                "'.flow-edges > g[data-uml-source]')]; return edges.length === count "
+                "&& edges.every(edge => edge.classList.contains('declared')); }",
+                arg=target_edge_count,
+            )
             page.evaluate(
                 """async () => {
                   await document.fonts.ready;
@@ -862,13 +1118,22 @@ def test_target_view_is_independent_of_observed_evidence(tmp_path):
             cards = page.locator(".flow-nodes > g").evaluate_all("""nodes => nodes.map(node => ({
               id: node.dataset.umlId,
               label: node.dataset.label,
-              transform: node.getAttribute('transform'),
+              width: node.querySelector('.card')?.getAttribute('width'),
               height: node.querySelector('.card')?.getAttribute('height'),
               text: [...node.querySelectorAll('text')].map(item => item.textContent).join(' | '),
               findingChips: node.querySelectorAll('.atlas-finding-chip').length,
               deviationChips: node.querySelectorAll('.atlas-deviation-chip').length
             }))""")
             assert all(item["findingChips"] == item["deviationChips"] == 0 for item in cards)
+            target_edges = page.locator(".flow-edges > g[data-uml-source]").evaluate_all(
+                """edges => edges.map(edge => ({
+                  id: edge.dataset.umlId, source: edge.dataset.umlSource,
+                  target: edge.dataset.umlTarget, state: edge.getAttribute('class'),
+                  labels: [...edge.querySelectorAll('.atlas-edge-label')]
+                    .map(label => label.textContent)
+                }))"""
+            )
+            assert all(edge["state"].split()[1] == "declared" for edge in target_edges)
             legend = page.locator(".flow-legend").inner_text()
             assert "observed import sites" not in legend
             assert "declared" in legend.lower()
@@ -881,7 +1146,9 @@ def test_target_view_is_independent_of_observed_evidence(tmp_path):
             page.locator("[data-browse-component]").click()
             page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').click()
             module_sheet = page.locator(".flow-inspector-content").inner_text()
-            target_views.append((root_sheet, cards, legend, component_sheet, module_sheet))
+            target_views.append(
+                (root_sheet, cards, target_edges, legend, component_sheet, module_sheet)
+            )
         finally:
             browser.close()
             playwright.stop()
@@ -1101,7 +1368,7 @@ def test_tour_nested_scope_chips_balances_and_deviation_links(tmp_path):
             store_card = page.locator(f'.flow-nodes [data-uml-id="{store["id"]}"]')
             if lens == "Target":
                 assert store_card.locator(".atlas-finding-chip, .atlas-deviation-chip").count() == 0
-                assert store_card.locator(".card").get_attribute("height") == "164"
+                assert store_card.locator(".card").get_attribute("height") == "178"
             else:
                 assert (
                     store_card.locator(".atlas-finding-chip").text_content() == "7 findings inside"
@@ -1148,6 +1415,11 @@ def test_tour_nested_scope_chips_balances_and_deviation_links(tmp_path):
             page.locator('.atlas-content-choice [data-content="components"]').click()
             assert (
                 "7 recorded failing findings" in page.locator(".atlas-scoped-findings").inner_text()
+            )
+            page.wait_for_function(
+                "count => [...document.querySelectorAll('.flow-nodes > g')]"
+                ".filter(node => node.dataset.umlKind === 'component').length === count",
+                arg=len(store_level["component_ids"]),
             )
             for component_id in store_level["component_ids"]:
                 child_level = next(
@@ -1511,14 +1783,17 @@ def test_module_and_classifier_defaults_show_only_direct_native_children(tmp_pat
             == "class · 1"
         )
         page.get_by_label("Element kind", exact=True).select_option("class")
+        _wait_for_layout(page)
         assert scene_ids() == {
             item.id
             for item in graph.entities
             if item.parent_id == module.id and item.kind == "class"
         }
         page.get_by_label("Element kind", exact=True).select_option("")
+        _wait_for_layout(page)
         page.locator(".flow-filters > summary").click()
         page.locator('.flow-legend [data-relationship-kind="inherits"]').click()
+        _wait_for_layout(page)
         assert (
             "in context"
             in page.locator('.flow-legend [data-relationship-kind="inherits"]').inner_text()
@@ -1526,6 +1801,7 @@ def test_module_and_classifier_defaults_show_only_direct_native_children(tmp_pat
         assert page.locator('.flow-nodes [data-label="Base"]').count() == 1
         assert page.locator(".flow-edges .hit").count() > 0
         page.locator('.flow-legend [data-relationship-kind=""]').click()
+        _wait_for_layout(page)
         assert scene_ids() == direct_ids(module.id)
         for name in ("Client", "State"):
             classifier = next(
@@ -1535,8 +1811,10 @@ def test_module_and_classifier_defaults_show_only_direct_native_children(tmp_pat
             )
             page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').click()
             page.locator(".flow-open-selected").click()
+            _wait_for_layout(page)
             assert scene_ids() == direct_ids(classifier.id)
             page.locator(".flow-back").click()
+            _wait_for_layout(page)
             assert scene_ids() == direct_ids(module.id)
         assert not errors
     finally:
@@ -1605,12 +1883,37 @@ def test_unknown_detail_links_keep_deeper_claimed_modules_and_distinct_names(
         page.goto(index.as_uri())
         page.locator(f'.flow-nodes [data-uml-id="{component_id}"]').dblclick()
         page.locator(".atlas-module-list > summary").click()
-        page.locator(".atlas-module-list").get_by_role("link", name="core.py", exact=True).click()
-        assert "component=unassigned" in page.url
+        entry = page.locator(".atlas-module-list").get_by_role("link", name="core.py", exact=True)
+        entry_href = entry.get_attribute("href")
+        assert entry_href is not None
+        entry_query = parse_qs(urlsplit(entry_href).query)
+        assert entry_query.get("component") == ["unassigned"]
+        assert entry_query.get("module") == [module["id"]]
+        assert entry_query.get("return_scope") == [component_id]
+        entry.click()
+        detail_path = urlsplit(entry_href).path
+
+        def at_module_route(url):
+            query = parse_qs(urlsplit(str(url)).query)
+            return (
+                urlsplit(str(url)).path.endswith(detail_path)
+                and query.get("module") == [module["id"]]
+                and query.get("return_scope") == [component_id]
+            )
+
+        page.wait_for_url(at_module_route)
         assert page.locator('.flow-nodes [data-label="Service"]').count() == 1
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
-        assert page.url.startswith(index.as_uri())
-        assert "scope=" in page.url
+
+        def at_return_route(url):
+            query = parse_qs(urlsplit(str(url)).query)
+            return (
+                urlsplit(str(url)).path == urlsplit(index.as_uri()).path
+                and query.get("scope") == [component_id]
+                and query.get("content") == ["components"]
+            )
+
+        page.wait_for_url(at_return_route)
         assert not errors
     finally:
         browser.close()
@@ -1716,6 +2019,7 @@ def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_pat
             item for item in graph.entities if item.qualified_name == "sample.core.Client.run"
         )
         page.get_by_role("button", name=lens, exact=True).click()
+        _wait_for_layout(page)
         assert page.locator(".flow-canvas").is_visible()
         page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').press("Space")
         assert (
@@ -1725,12 +2029,15 @@ def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_pat
             == "true"
         )
         page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').press("Enter")
+        _wait_for_layout(page)
         assert "module=" + module.id in page.url and "scope=" + classifier.id in page.url
         page.goto(page.url)
         page.reload()
+        _wait_for_layout(page)
         assert page.locator(f'.flow-nodes [data-uml-id="{method.id}"]').count() == 1
         assert "Client [class]" in page.locator(".flow-breadcrumb").inner_text()
         page.locator(".flow-back").click()
+        _wait_for_layout(page)
         assert "scope=" + classifier.id not in page.url
         assert "selected=" + classifier.id in page.url
         assert (
@@ -1740,6 +2047,7 @@ def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_pat
             == "true"
         )
         page.go_back()
+        _wait_for_layout(page)
         assert "scope=" + classifier.id in page.url
         assert page.locator(f'.flow-nodes [data-uml-id="{method.id}"]').count() == 1
         page.goto(page.url.replace(classifier.id, "unknown-native-id"))
@@ -1747,6 +2055,7 @@ def test_offline_scope_url_history_matches_direct_classifier_and_members(tmp_pat
         assert "not recorded inside this module" in page.locator(".flow-alternative").inner_text()
         assert page.locator(".flow-canvas").is_hidden()
         page.get_by_role("button", name="Open recorded module", exact=True).click()
+        _wait_for_layout(page)
         assert "scope=unknown-native-id" not in page.url
         assert page.locator(f'.flow-nodes [data-uml-id="{classifier.id}"]').count() == 1
         assert not errors
@@ -1818,11 +2127,14 @@ def test_target_counterpart_and_planned_classifier_open_declared_members(tmp_pat
         page.locator('.flow-nodes [data-label="core"]').press("Enter")
         page.locator('.flow-nodes [data-label="core.py"]').press("Enter")
         page.get_by_role("button", name="Target", exact=True).click()
+        _wait_for_layout(page)
         for identity, member in (("service", "run"), ("future", "execute")):
             page.locator(f'.flow-nodes [data-uml-id="{identity}"]').press("Enter")
+            _wait_for_layout(page)
             assert "origin=declared" in page.url and "scope=" + identity in page.url
             page.goto(page.url)
             page.reload()
+            _wait_for_layout(page)
             assert (
                 page.get_by_role("button", name="Target", exact=True).get_attribute("aria-pressed")
                 == "true"
@@ -1830,6 +2142,7 @@ def test_target_counterpart_and_planned_classifier_open_declared_members(tmp_pat
             assert page.locator(f'.flow-nodes [data-uml-id="{member}"]').count() == 1
             assert page.locator('.flow-nodes [data-uml-kind="component"]').count() == 0
             page.locator(".flow-back").click()
+            _wait_for_layout(page)
             assert "origin=declared" in page.url and "selected=" + identity in page.url
             assert (
                 page.locator(f'.flow-nodes [data-uml-id="{identity}"]').get_attribute(
@@ -1841,17 +2154,21 @@ def test_target_counterpart_and_planned_classifier_open_declared_members(tmp_pat
         page.locator('.flow-nodes [data-label="core.py"]').dblclick()
         page.wait_for_url("**/architecture.detail.html?*")
         page.get_by_role("button", name="Diff", exact=True).click()
+        _wait_for_layout(page)
         assert "origin=declared" in page.url and "module=declared-module" in page.url
         page.locator('.flow-nodes [data-uml-id="future"]').dblclick()
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-uml-id="execute"]').count() == 1
         page.goto(index.as_uri() + "?scope=core&view=diff&theme=dark")
         page.locator('.flow-nodes [data-label="core.py"]').dblclick()
         page.wait_for_url("**/architecture.detail.html?*")
         assert "origin=declared" in page.url and "module=declared-module" in page.url
         page.locator('.flow-nodes [data-uml-id="future"]').dblclick()
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-uml-id="execute"]').count() == 1
         page.goto(index.as_uri() + "?scope=core&view=target&theme=dark")
         page.locator('.flow-nodes [data-uml-id="declared-module"]').press("Enter")
+        _wait_for_layout(page)
         assert "module=declared-module" in page.url and "origin=declared" in page.url
         assert page.locator('.flow-nodes [data-uml-id="future"]').is_visible()
         assert not errors
@@ -1877,6 +2194,10 @@ def test_offline_import_cell_return_preserves_native_cell_and_source_lens(tmp_pa
         page.get_by_role("button", name="As-Is", exact=True).click()
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
         assert "cell=0" in page.url and "view=diff" in page.url and "theme=dark" in page.url
+        page.wait_for_function(
+            "expected => document.querySelector('.flow-inspector-content').innerText === expected",
+            arg=before,
+        )
         assert page.locator(".flow-inspector-content").inner_text() == before
         page.goto(index.as_uri() + "?view=target&cell=0&theme=dark")
         assert "cell=" not in page.url
@@ -1910,6 +2231,9 @@ def test_generic_uml_entry_keeps_theme_return_selection_and_has_no_fragment(tmp_
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
         assert "view=diff" in page.url and "theme=dark" in page.url
         assert "scope=core" in page.url
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length > 0"
+        )
         assert page.locator('.flow-nodes [data-uml-kind="module"]').count() > 0
         page.goto(index.as_uri() + "?scope=not-a-component&theme=dark")
         assert "scope=not-a-component" in page.url
@@ -1957,6 +2281,7 @@ def test_component_leaf_draws_native_module_cards_and_local_import_cells(tmp_pat
         assert "theme=dark" in page.url and "view=diff" in page.url
         assert page.locator('.flow-nodes [data-label="Client"]').is_visible()
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
+        page.wait_for_function("() => document.querySelector('[data-label=\"core.py\"]') !== null")
         assert page.locator('.flow-nodes [data-label="core.py"]').is_visible()
         page.locator('.flow-nodes [data-label="__init__.py"]').press("Enter")
         assert "No direct declarations" in page.locator(".flow-alternative").inner_text()
@@ -1966,6 +2291,9 @@ def test_component_leaf_draws_native_module_cards_and_local_import_cells(tmp_pat
         assert "No declared modules" in page.locator(".flow-alternative").inner_text()
         assert page.locator('.flow-nodes [data-uml-kind="module"]').count() == 0
         page.get_by_role("button", name="Show As-Is modules", exact=True).click()
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length === 2"
+        )
         assert page.locator('.flow-nodes [data-uml-kind="module"]').count() == 2
         assert not errors
     finally:
@@ -2007,20 +2335,35 @@ def test_components_and_modules_choice_uses_native_scope_and_survives_return(tmp
         choice.get_by_role("button", name=re.compile("^Modules")).click()
         assert "content=modules" in page.url
         assert page.locator(".flow-canvas").is_visible()
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length > 0"
+        )
         assert page.locator('.flow-nodes [data-uml-kind="module"]').count() > 0
         page.reload()
         assert "content=modules" in page.url
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length > 0"
+        )
         page.get_by_role("button", name="Diff", exact=True).click()
         assert "content=modules" in page.url and "view=diff" in page.url
         choice.get_by_role("button", name=re.compile("^Components")).click()
         assert "content=components" in page.url and page.locator(".flow-canvas").is_visible()
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=component]').length > 0"
+        )
         page.go_back()
         assert "content=modules" in page.url and page.locator(".flow-canvas").is_visible()
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length > 0"
+        )
         page.locator('.flow-nodes [data-uml-kind="module"]').first.press("Enter")
         assert "return_content=modules" in page.url
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
         assert "scope=ROOT" in page.url and "content=modules" in page.url
         assert "view=diff" in page.url and "theme=dark" in page.url
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length > 0"
+        )
         assert not errors
     finally:
         browser.close()

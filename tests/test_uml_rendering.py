@@ -286,6 +286,225 @@ def test_report_embeds_the_standard_graph_schema_with_independent_target(tmp_pat
     assert all(entity.provenance for entity in target.entities)
 
 
+def test_standard_uml_inlines_pinned_elk_before_flow_under_offline_csp(tmp_path):
+    html, _ = _uml_report(tmp_path)
+
+    elk = html.index('<script data-elkjs-version="0.12.0">')
+    flow = html.index('<script>"use strict";')
+    csp = html.split('http-equiv="Content-Security-Policy"', 1)[1].split(">", 1)[0]
+
+    assert elk < flow
+    assert "worker-src" not in csp
+    assert "<script src=" not in html
+
+
+def test_standard_uml_ignores_stale_layout_and_retries_rejected_layout(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    html, _ = _uml_report(tmp_path)
+    marker = '<script>"use strict";'
+    assert marker in html
+    hook = """window.__originalUmlLayout = ELK.prototype.layout;
+window.__umlLayoutCalls = 0;
+ELK.prototype.layout = function(graph) {
+  const call = ++window.__umlLayoutCalls;
+  if (call === 1) return new Promise(resolve => {
+    window.__oldUmlSettled = false;
+    window.__resolveOldUmlLayout = async () => {
+      const result = await window.__originalUmlLayout.call(this, graph);
+      window.__oldUmlSettled = true;
+      resolve(result);
+    };
+  });
+  if (call === 3) return new Promise((resolve, reject) => {
+    window.__rejectUmlLayout = () => reject(new Error("deliberate layout failure"));
+  });
+  return window.__originalUmlLayout.call(this, graph);
+};"""
+    flow_index = html.rindex(marker)
+    html = (
+        html[:flow_index]
+        + f"<script>{hook}</script>\n      {marker}"
+        + html[flow_index + len(marker) :]
+    )
+    errors = []
+    playwright, browser, page = _browser_page(api, html, errors=errors)
+    try:
+        page.locator('[data-flow-view="target"]').click()
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes .target-node').length > 0"
+        )
+        target_ids = page.locator(".flow-nodes [data-uml-id]").evaluate_all(
+            "nodes => nodes.map(node => node.dataset.umlId).sort()"
+        )
+        page.evaluate("window.__resolveOldUmlLayout()")
+        page.wait_for_function("() => window.__oldUmlSettled === true")
+        assert page.locator('[data-flow-view="target"]').get_attribute("aria-pressed") == "true"
+        assert (
+            page.locator(".flow-nodes [data-uml-id]").evaluate_all(
+                "nodes => nodes.map(node => node.dataset.umlId).sort()"
+            )
+            == target_ids
+        )
+
+        page.locator('[data-flow-view="diff"]').click()
+        page.wait_for_function("() => typeof window.__rejectUmlLayout === 'function'")
+        page.evaluate("window.__rejectUmlLayout()")
+        page.get_by_text("Architecture layout unavailable").wait_for()
+        page.locator(".flow-zoom-100").click()
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-id]').length > 0"
+        )
+        assert page.evaluate("window.__umlLayoutCalls") >= 4
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_fit_overview_waits_for_ordinary_uml_layout(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    html, _ = _uml_report(tmp_path)
+    marker = '<script>"use strict";'
+    hook = """window.__originalUmlLayout = ELK.prototype.layout;
+ELK.prototype.layout = function(graph) {
+  return new Promise(resolve => {
+    window.__releaseUmlLayout = async () => resolve(
+      await window.__originalUmlLayout.call(this, graph));
+  });
+};"""
+    flow_index = html.rindex(marker)
+    html = (
+        html[:flow_index]
+        + f"<script>{hook}</script>\n      {marker}"
+        + html[flow_index + len(marker) :]
+    )
+    playwright, browser, page = _browser_page(api, html)
+    try:
+        page.wait_for_function("() => typeof window.__releaseUmlLayout === 'function'")
+        page.locator(".flow-fit-overview").click()
+        assert page.locator(".flow-zoom-value").inner_text() == "100%"
+        page.evaluate("window.__releaseUmlLayout()")
+        page.wait_for_function(
+            "() => document.querySelector('#flow')?.dataset.layoutState === 'ready'"
+        )
+        assert page.locator(".flow-zoom-value").inner_text() != "100%"
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_table_views_do_not_wait_for_or_request_uml_layout(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    html, _ = _uml_report(tmp_path)
+    marker = '<script>"use strict";'
+    hook = """window.__umlLayoutCalls = 0;
+window.__originalUmlLayout = ELK.prototype.layout;
+ELK.prototype.layout = function(graph) {
+  window.__umlLayoutCalls += 1;
+  return window.__originalUmlLayout.call(this, graph);
+};"""
+    flow_index = html.rindex(marker)
+    html = (
+        html[:flow_index]
+        + f"<script>{hook}</script>\n      {marker}"
+        + html[flow_index + len(marker) :]
+    )
+    errors = []
+    playwright, browser, page = _browser_page(api, html, errors=errors)
+    try:
+        page.wait_for_function(
+            "() => document.querySelector('#flow')?.dataset.layoutState === 'ready'"
+        )
+        page.evaluate("""() => {
+          ELK.prototype.layout = function() {
+            window.__umlLayoutCalls += 1;
+            return Promise.reject(new Error("layout must not run for table views"));
+          };
+        }""")
+        for view, heading in (
+            ("structure", "Architecture structure"),
+            ("review", "Recorded findings"),
+            ("actual", "Observed modules"),
+        ):
+            page.locator(f'[data-flow-view="{view}"]').click()
+            assert not errors, errors
+            page.get_by_role("heading", name=heading).wait_for()
+            assert page.locator(".flow-alternative").is_visible()
+            assert page.evaluate("window.__umlLayoutCalls") == 1
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_uml_layout_preserves_prototype_named_entity_ids(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    entities = tuple(
+        Entity(
+            identity,
+            "class",
+            f"sample.core.{label}",
+            "python",
+            parent_id="module",
+            presence="planned",
+            responsibilities=(f"Own {label}.",),
+            provenance=("docs/target.md",),
+        )
+        for identity, label in (
+            ("constructor", "ConstructorName"),
+            ("toString", "ToStringName"),
+            ("__proto__", "ProtoName"),
+        )
+    ) + (
+        Entity(
+            "proto-run",
+            "method",
+            "sample.core.ProtoName.run",
+            "python",
+            parent_id="__proto__",
+            presence="planned",
+            responsibilities=("Exercise saved manual coordinates.",),
+            provenance=("docs/target.md",),
+            signature=Signature(()),
+            visibility=Visibility("public", "declared"),
+        ),
+    )
+    html, _ = _uml_report(tmp_path, extra_target_entities=entities)
+    errors = []
+    playwright, browser, page = _browser_page(api, html, errors=errors)
+    try:
+        _open_module(page, "Target")
+        for identity in ("constructor", "toString", "__proto__"):
+            card = page.locator(f'.flow-nodes [data-uml-id="{identity}"]')
+            assert card.count() == 1
+            assert card.get_attribute("transform")
+        card = page.locator('.flow-nodes [data-uml-id="__proto__"]')
+        card.scroll_into_view_if_needed()
+        before = card.get_attribute("transform")
+        box = card.bounding_box()
+        assert box
+        x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+        page.mouse.move(x, y)
+        page.mouse.down()
+        page.mouse.move(x + 40, y + 30, steps=4)
+        page.mouse.up()
+        manual_position = card.get_attribute("transform")
+        assert manual_position and manual_position != before
+        card.click()
+        page.get_by_role("button", name="Open selected ProtoName", exact=True).click()
+        _wait_for_layout(page)
+        page.locator(".flow-back").click()
+        _wait_for_layout(page)
+        assert (
+            page.locator('.flow-nodes [data-uml-id="__proto__"]').get_attribute("transform")
+            == manual_position
+        )
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 def test_mixin_classifier_and_composition_have_distinct_uml_notation(tmp_path):
     api = pytest.importorskip("playwright.sync_api")
     mixin = Entity(
@@ -485,6 +704,7 @@ def test_nested_intent_uses_component_ids_and_keeps_physical_scope(tmp_path, vie
     playwright, browser, page = _browser_page(api, html, errors=errors)
     try:
         page.locator(f'[data-flow-view="{view}"]').click()
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-uml-kind="component"]').evaluate_all(
             "nodes => nodes.map(n => n.dataset.umlId)"
         ) == ["ROOT"]
@@ -503,6 +723,7 @@ def test_nested_intent_uses_component_ids_and_keeps_physical_scope(tmp_path, vie
                 for item in payload["findings"]
             )
         page.locator('[data-uml-id="ROOT"]').dblclick()
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-uml-kind="component"]').evaluate_all(
             "nodes => nodes.map(n => n.dataset.umlId)"
         ) == ["core:core"]
@@ -518,6 +739,7 @@ def test_nested_intent_uses_component_ids_and_keeps_physical_scope(tmp_path, vie
         )
         assert "sample.future" in details.inner_text()
         page.locator('[data-uml-id="core:core"]').dblclick()
+        _wait_for_layout(page)
         assert "service" in page.locator(".flow-breadcrumb").inner_text()
         assert set(
             page.locator(".flow-nodes [data-uml-id]").evaluate_all(
@@ -527,6 +749,7 @@ def test_nested_intent_uses_component_ids_and_keeps_physical_scope(tmp_path, vie
         assert "Explicitly empty" in details.inner_text()
         assert "Permitted package layout" not in details.inner_text()
         page.locator('[data-uml-id="core:service:core"]').dblclick()
+        _wait_for_layout(page)
         assert "operations" in page.locator(".flow-breadcrumb").inner_text()
         assert set(
             page.locator(".flow-nodes [data-uml-id]").evaluate_all(
@@ -534,6 +757,7 @@ def test_nested_intent_uses_component_ids_and_keeps_physical_scope(tmp_path, vie
             )
         ) == {"core:service:service", "core:service:interface"}
         page.locator('[data-uml-id="core:service:service"]').dblclick()
+        _wait_for_layout(page)
         assert page.locator('[data-uml-id="core:service:run"]').count() == 1
         page.locator('[data-uml-id="core:service:run"]').click()
         assert "Execute one request" in details.inner_text()
@@ -605,6 +829,7 @@ def test_diff_draws_core_unlisted_relationships_with_real_endpoints_and_sites(tm
         _open_module(page, "Diff")
         site = "sample.core.extra" if kind == "calls" else "sample.other"
         page.locator(f'.flow-legend button[data-relationship-kind="{kind}"]').click()
+        _wait_for_layout(page)
         edge = page.locator(f'.flow-edges [data-relationship-kind="{kind}"]').filter(has_text=site)
         assert edge.count() == 1
         assert edge.get_attribute("data-assessment-status") == "FAIL"
@@ -680,13 +905,16 @@ def test_diff_never_borrows_a_target_identity_for_repeated_class_definitions(tmp
             card.click()
             assert "sample/core.py:" in page.locator(".flow-inspector-content").inner_text()
             card.press("Enter")
+            _wait_for_layout(page)
             method = page.locator('.flow-nodes [data-uml-kind="method"]')
             assert method.count() == 1
             method.click()
+            _wait_for_layout(page)
             details = page.locator(".flow-inspector-content").inner_text()
             assert "Closed scope contains an unlisted relationship" in details
             assert "sample/core.py:" in details
             page.locator(".flow-back").click()
+            _wait_for_layout(page)
             assert card.get_attribute("aria-pressed") == "true"
         assert page.locator('.flow-nodes [data-label="Twin"]').count() == 3
         assert not errors
@@ -713,11 +941,14 @@ def test_diff_opens_observed_only_class_method_and_preserves_navigation(tmp_path
         identity = spare.get_attribute("data-uml-id")
         spare.click()
         page.locator(".flow-inspector-content [data-uml-detail]").click()
+        _wait_for_layout(page)
         assert "Observed: run" in page.locator(".flow-breadcrumb").inner_text()
         page.locator(".flow-back").click()
+        _wait_for_layout(page)
         assert spare.get_attribute("aria-pressed") == "true"
         assert page.evaluate("document.activeElement.dataset.umlId") == identity
         page.get_by_role("button", name="Open selected Spare", exact=True).click()
+        _wait_for_layout(page)
         assert "Observed: Spare" in page.locator(".flow-breadcrumb").inner_text()
         method = page.locator('.flow-nodes [data-uml-kind="method"]')
         assert method.count() == 1
@@ -731,11 +962,14 @@ def test_diff_opens_observed_only_class_method_and_preserves_navigation(tmp_path
         assert "Closed scope contains an unlisted relationship" in details
         assert "sample/core.py:" in details
         page.get_by_role("button", name="Target", exact=True).click()
+        _wait_for_layout(page)
         assert page.locator('.flow-nodes [data-label="Spare"]').count() == 0
         page.get_by_role("button", name="Diff", exact=True).click()
+        _wait_for_layout(page)
         assert "Observed: Spare" in page.locator(".flow-breadcrumb").inner_text()
         assert method.get_attribute("aria-pressed") == "true"
         method.press("Enter")
+        _wait_for_layout(page)
         edge = page.locator('.flow-edges [data-relationship-kind="calls"]')
         assert edge.count() == 1 and edge.get_attribute("data-assessment-status") == "FAIL"
         assert edge.locator(".line").get_attribute("d") == edge.locator(".hit").get_attribute("d")
@@ -745,8 +979,10 @@ def test_diff_opens_observed_only_class_method_and_preserves_navigation(tmp_path
             in page.locator(".flow-inspector-content").inner_text()
         )
         page.locator(".flow-back").click()
+        _wait_for_layout(page)
         assert method.get_attribute("aria-pressed") == "true"
         page.locator(".flow-back").click()
+        _wait_for_layout(page)
         assert page.locator(f'[data-uml-id="{identity}"]').get_attribute("aria-pressed") == "true"
         assert not errors
     finally:
@@ -799,12 +1035,24 @@ def uml_page(tmp_path):
 
 def _open_module(page, view):
     page.get_by_role("button", name=view, exact=True).click()
+    _wait_for_layout(page)
     if view == "As-Is":
         page.locator('.flow-nodes [data-label="core"]').dblclick()
+        _wait_for_layout(page)
         page.locator('.flow-nodes [data-uml-kind="module"][data-label="core"]').dblclick()
+        _wait_for_layout(page)
     else:
         page.locator('.flow-nodes [data-uml-id="core"]').dblclick()
+        _wait_for_layout(page)
         page.locator('.flow-nodes [data-uml-id="module"]').dblclick()
+        _wait_for_layout(page)
+
+
+def _wait_for_layout(page):
+    page.wait_for_function(
+        "() => ['ready', 'error'].includes(document.querySelector('#flow')?.dataset.layoutState)"
+    )
+    assert page.locator("#flow").get_attribute("data-layout-state") == "ready"
 
 
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
@@ -877,6 +1125,7 @@ def test_conditional_definitions_use_visible_cards_and_inspectable_contexts(tmp_
         assert "Definition context" in details and "if · body" in details
         assert "Runtime name binding is not proven" in details
         card.dblclick()
+        _wait_for_layout(page)
         operation = page.locator(f'.flow-nodes [data-uml-id="{method.id}"]')
         assert operation.is_visible()
         operation.click()
@@ -948,6 +1197,7 @@ def test_static_binding_and_constructor_sites_use_the_shared_renderer(tmp_path, 
         build_id = observed_build.id if view == "As-Is" else "build"
         item_id = observed_item.id if view == "As-Is" else "item"
         page.locator(f'.flow-nodes [data-uml-id="{build_id}"]').dblclick()
+        _wait_for_layout(page)
         card = page.locator(f'.flow-nodes [data-uml-id="{item_id}"]')
         assert card.is_visible() and card.get_attribute("data-uml-kind") == "binding"
         assert "Unit()" in card.text_content()
@@ -972,8 +1222,13 @@ def test_static_binding_and_constructor_sites_use_the_shared_renderer(tmp_path, 
 def test_class_compartments_show_visibility_and_typed_operations(uml_page, view):
     page, _ = uml_page
     _open_module(page, view)
-    page.get_by_role("button", name="Member previews", exact=True).click()
     client = page.locator('.flow-nodes [data-label="Client"]')
+    client.click()
+    previews = page.get_by_role("button", name="Member previews", exact=True)
+    previews.focus()
+    previews.press("Space")
+    _wait_for_layout(page)
+    assert previews.evaluate("button => button === document.activeElement")
     assert client.get_attribute("data-uml-kind") == "class"
     members = client.locator(".uml-member").evaluate_all(
         "nodes => nodes.map(n => Array.from(n.querySelectorAll('tspan'),"
@@ -987,9 +1242,11 @@ def test_class_compartments_show_visibility_and_typed_operations(uml_page, view)
         == "interface"
     )
     client.dblclick()
+    _wait_for_layout(page)
     assert page.locator('.flow-nodes [data-uml-kind="method"]').count() == 1
     assert page.locator('.flow-nodes [data-uml-kind="attribute"]').count() == 1
     page.locator(".flow-back").click()
+    _wait_for_layout(page)
     assert page.locator('.flow-nodes [data-label="Client"]').count() == 1
 
 
@@ -1126,6 +1383,7 @@ def test_long_operations_stay_compact_and_keep_full_details(tmp_path):
     try:
         _open_module(page, "As-Is")
         page.get_by_role("button", name="Member previews", exact=True).click()
+        _wait_for_layout(page)
         card = page.locator('.flow-nodes [data-label="Long"]')
         assert card.locator(".uml-member tspan").count() <= 2
         assert "…" in card.locator(".uml-member").text_content()
@@ -1160,13 +1418,16 @@ def test_outside_callers_use_their_recorded_module_and_keep_every_site(tmp_path)
             and "3 symbols" in uses.get_attribute("aria-label")
         )
         uses.click()
+        _wait_for_layout(page)
         assert uses.get_attribute("aria-expanded") == "true"
         assert uses.get_attribute("aria-label").startswith("Hide outside uses:")
         assert page.locator('.flow-nodes [data-label="other"]').count() == 1
         uses.click()
+        _wait_for_layout(page)
         assert uses.get_attribute("aria-expanded") == "false"
         assert page.locator('.flow-nodes [data-label="other"]').count() == 0
         page.locator('.flow-legend button[data-relationship-kind="calls"]').click()
+        _wait_for_layout(page)
         outside = page.locator('.flow-nodes [data-label="other"]')
         assert outside.get_attribute("data-uml-kind") == "module"
         assert (
@@ -1239,6 +1500,7 @@ def test_module_overview_keeps_referenced_symbols_in_explicit_relationship_views
         assert "referenced symbols" in page.locator(".flow-filter-status").inner_text()
         page.locator(".flow-filters > summary").click()
         page.locator('.flow-legend button[data-relationship-kind="calls"]').click()
+        _wait_for_layout(page)
         referenced = page.locator('.flow-nodes [data-label="print"]')
         assert referenced.count() == 1
         referenced.press("Space")
@@ -1302,6 +1564,7 @@ def test_static_members_are_underlined_in_previews_and_drilldown(tmp_path, view)
     try:
         _open_module(page, view)
         page.get_by_role("button", name="Member previews", exact=True).click()
+        _wait_for_layout(page)
         card = page.locator('.flow-nodes [data-label="Data"]')
         assert card.locator(".uml-member").count() == 3
         assert card.locator(".uml-member").evaluate_all("""lines => lines.every(line =>
@@ -1310,6 +1573,7 @@ def test_static_members_are_underlined_in_previews_and_drilldown(tmp_path, view)
             "lines => lines.every(line => getComputedStyle(line).textDecorationLine === 'none')"
         )
         card.dblclick()
+        _wait_for_layout(page)
         for name in ("limit", "_cache", "reset"):
             member = page.locator(f'.flow-nodes [data-label="{name}"]')
             assert member.count() == 1
@@ -1356,12 +1620,14 @@ def test_enum_literals_share_a_distinct_compartment_and_drilldown_kind(tmp_path,
         card = page.locator('.flow-nodes [data-label="State"]')
         assert "2 literals" in card.locator(".meta").text_content()
         page.get_by_role("button", name="Member previews", exact=True).click()
+        _wait_for_layout(page)
         assert card.locator(".uml-compartment-title").all_text_contents() == ["Literals"]
         assert set(card.locator(".uml-member").all_text_contents()) == {"READY", "FAILED"}
         assert card.locator(".uml-member").evaluate_all(
             "lines => lines.every(line => getComputedStyle(line).textDecorationLine === 'none')"
         )
         card.dblclick()
+        _wait_for_layout(page)
         for name in ("READY", "FAILED"):
             member = page.locator(f'.flow-nodes [data-label="{name}"]')
             assert member.get_attribute("data-uml-kind") == "enum_literal"
@@ -1391,6 +1657,7 @@ def test_component_overview_keeps_file_intent_and_unassigned_code_out_of_the_gra
     playwright, browser, page = _browser_page(api, html)
     try:
         page.locator(f'[data-flow-view="{view}"]').click()
+        _wait_for_layout(page)
         assert set(
             page.locator(".flow-nodes .node").evaluate_all(
                 "nodes => nodes.map(node => node.dataset.umlKind)"
@@ -1405,6 +1672,7 @@ def test_component_overview_keeps_file_intent_and_unassigned_code_out_of_the_gra
             details.locator("li").filter(has_text="sample/unassigned.py").get_by_role(
                 "button", name="Open", exact=True
             ).click()
+            _wait_for_layout(page)
             if source:
                 assert page.locator('.flow-nodes [data-label="Unassigned"]').count() == 1
             else:
