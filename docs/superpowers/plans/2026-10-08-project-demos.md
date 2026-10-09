@@ -183,9 +183,19 @@
 - [ ] Correct the Compass catalog assertions to the already verified reports: preserve thirty typed source gaps and their validation diagnostics, the scoped data rule ID, and the dynamic variant's separate known field mismatch alongside the required-call UNKNOWN. No blanket diagnostic exemptions or changed Target.
 - [ ] Run covering validation/rewrite and Dart control tests, Ruff/mypy/diff checks, then independent review. Resume Task8 with fresh four-case proof and measured exits/diagnostics after the gate.
 
+### Task 8c: Restore control-demo graph and generic constructor checks
+
+**Files:** `src/archkeel/check/validation/graphs.py`, `tests/test_validation.py`, `fixtures/I-flutter-shop/contracts/state.json`, `tests/test_flutter_demo.py`.
+
+**Interface:** repairs two concrete integration regressions exposed by Task8 broad acceptance; preserves all canonical project source and Target bytes.
+
+- [ ] Separate graph edge correctness from rewrite support. A valid isolated node with equal observed/declared empty edges must not produce graph.drift; preserve refusal to discard it during rewriting. Conflicting/ambiguous alias labels must still produce a diagnostic, even when projected edges match. Do not remove legitimate nodes from fixture docs or weaken catalog expectations.
+- [ ] Correct the first-party Flutter control's typed generic constructor Target and its source-fact assertion: source class AsyncState<T> constructs AsyncState<T>, not an erased AsyncState. Keep the shared native generic-constructor repair and all application source unchanged.
+- [ ] Reproduce the graph failure with a focused RED test, retain alias-conflict/lossless rewrite negatives, and test all thirteen failed catalog controls plus relevant Flutter/source checks. Persist exact commands/output, commit and obtain independent spec/quality review. Do not repeat the complete 313-case catalog until final gates without new evidence requiring it.
+
 ### Task 8a: Superseded by the graph simplification
 
-Task8b's simpler shared graph reader/writer reduces the measured repository count from718 to712, below the accepted714. The planned runtime/binding edits no longer solve a blocking problem and are omitted. Preserve their reviewed behavior. After all remaining product changes, record the fresh count and ratchet the baseline downward through the existing workflow where required; do not widen it.
+Task8b restored the self-validation gate: the initial simplification measured712 unresolved calls, and its reviewed lossless-rewrite fix measured714, equal to the accepted714. The planned runtime/binding edits no longer solve a blocking problem and are omitted. After all remaining product changes, measure again and use the existing downward ratchet only if required; never widen the baseline.
 
 ### Task 9: Verify Nest/Mikro source-resolution feasibility
 
