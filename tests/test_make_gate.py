@@ -565,3 +565,21 @@ def test_ci_cleanup_preserves_test_evidence(tmp_path: Path) -> None:
     assert not output.exists()
     assert not browser.exists()
     assert evidence.read_text() == "keep"
+
+
+@pytest.mark.parametrize("target", ["test", "ci-core-check", "ci-check", "ci"])
+def test_only_full_ci_stops_pytest_after_first_failure(target):
+    result = subprocess.run(
+        ["make", "-n", target],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": "", "PYTEST_STOP": ""},
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    command = result.stdout
+    assert command.count("python -m pytest") == 1
+    assert ("--maxfail=1" in command) == (target != "test")
+    assert "--dist=loadfile" in command and "--max-worker-restart=0" in command
+    assert "--junitxml=test-artifacts/pytest/results.xml" in command

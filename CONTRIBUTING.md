@@ -31,7 +31,9 @@ These samples do not replace testing the behavior you change. Rare or platform-s
 regressions may first surface on Main. The PR check has a 15-minute cap.
 
 Every Main push runs the full `make ci`: all tests, build/smoke, TypeScript demos, report timing,
-browser acceptance and Mermaid. Native collector matrices also run on Main, including
+browser acceptance and Mermaid. The full CI test run requests an early stop after its first
+failure; in-flight worker tests may finish. Local `make test` still collects all failures.
+Native collector matrices also run on Main, including
 Linux/Windows and Dart 3.9/3.12. Use `make ci BASE=origin/main` locally for that full scope.
 Obsolete PR runs cancel automatically; Main runs remain independent with a 60-minute check cap.
 
