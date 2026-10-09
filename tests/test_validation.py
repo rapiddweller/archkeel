@@ -1442,9 +1442,10 @@ def test_graph_rewrite_refuses_an_isolated_quoted_node() -> None:
 def test_graph_rewrite_rejects_conflicting_node_label_declarations() -> None:
     body = (
         "graph TD\n"
-        '    n_636f7265["Core"]\n'
-        '    n_636f7265["Another core"]\n'
-        "    n_636f7265 --> n_617069\n"
+        '    n_core["Core"]\n'
+        '    n_api["API"]\n'
+        '    n_api["Renamed API"]\n'
+        "    n_core --> n_api\n"
     )
     document = (("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n{body}```\n"),)
 
@@ -1467,6 +1468,15 @@ def test_graph_rewrite_rejects_conflicting_node_label_declarations() -> None:
     assert drift.code == "graph.drift"
     assert drift.subject == "sample.md (target graph)"
     assert "by hand" in drift.remedy
+
+
+def test_graph_diagnostics_accept_equal_empty_edges_with_isolated_alias_node() -> None:
+    contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": []})
+    observation = parse_observation(_model(git_head="a" * 40))
+    body = 'graph TD\n    n_0["demo"]\n'
+    documents = (("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n{body}```\n"),)
+
+    assert graph_diagnostics(contract, observation, documents) == ()
 
 
 def test_write_graph_changes_nothing_without_exactly_one_marked_graph() -> None:

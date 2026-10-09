@@ -266,9 +266,10 @@ def _marker_diagnostics(
         )
     path, body = graphs[0]
     declared = _declared_edges(body)
-    unwritable = _unwritable_line(body)
-    if declared == edges and unwritable is None:
+    _, conflict = _node_labels(body)
+    if declared == edges and conflict is None:
         return ()
+    unwritable = conflict or _unwritable_line(body)
     new_edges = ", ".join(f"{a}->{b}" for a, b in sorted(edges - declared)) or "none"
     gone_edges = ", ".join(f"{a}->{b}" for a, b in sorted(declared - edges)) or "none"
     return (

@@ -397,7 +397,9 @@ def test_flutter_target_pins_journey_signatures_member_scopes_and_flutter_inheri
             entity.qualified_name == port and entity.kind == "interface"
             for entity in graph.entities
         )
-    assert names["shop.state.async_state.AsyncState.AsyncState"].signature.returns == "AsyncState"
+    assert (
+        names["shop.state.async_state.AsyncState.AsyncState"].signature.returns == "AsyncState<T>"
+    )
     assert names["shop.domain.orders.order.Order.Order"].signature.returns == "Order"
     assert names["shop.app.shop_app.ShopApp.createState"].signature.returns == "State<ShopApp>"
     assert names["shop.app.shop_app._ShopAppState.dispose"].signature.returns == "void"
