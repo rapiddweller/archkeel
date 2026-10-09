@@ -37,6 +37,7 @@ from fixtures.demo_catalog_flutter import FLUTTER_FIXTURE_DIR
 from fixtures.demo_catalog_flutter import VARIANTS as _FLUTTER_VARIANTS
 from fixtures.demo_catalog_interfaces import VARIANTS as _INTERFACE_VARIANTS
 from fixtures.demo_catalog_layout import VARIANTS as _LAYOUT_VARIANTS
+from fixtures.demo_catalog_nest_realworld import VARIANTS as _NEST_REALWORLD_VARIANTS
 from fixtures.demo_catalog_python_realworld import VARIANTS as _PYTHON_REALWORLD_VARIANTS
 from fixtures.demo_catalog_showcase import VARIANTS as _SHOWCASE_VARIANTS
 from fixtures.demo_catalog_support import Variant, apply_overlay
@@ -66,6 +67,7 @@ CATALOG: tuple[Variant, ...] = (
     *_FLUTTER_VARIANTS,
     *_COMPASS_VARIANTS,
     *_PYTHON_REALWORLD_VARIANTS,
+    *_NEST_REALWORLD_VARIANTS,
 )
 
 
@@ -91,6 +93,10 @@ REPORT_CASES = {
     "uml-python-realworld-forbidden-edge": ("python-realworld-forbidden-edge", 2),
     "uml-python-realworld-signature-fail": ("python-realworld-signature-fail", 2),
     "uml-python-realworld-dynamic-unknown": ("python-realworld-dynamic-unknown", 2),
+    "uml-nest-realworld-project": ("nest-realworld-project", 2),
+    "uml-nest-realworld-forbidden-edge": ("nest-realworld-forbidden-edge", 2),
+    "uml-nest-realworld-signature-fail": ("nest-realworld-signature-fail", 2),
+    "uml-nest-realworld-dynamic-unknown": ("nest-realworld-dynamic-unknown", 2),
     "uml-typescript": ("uml-typescript", 0),
     "uml-typescript-match": ("uml-typescript-match", 0),
     "uml-typescript-mismatch": ("uml-typescript-mismatch", 2),
@@ -134,6 +140,10 @@ UML_DEMO_COMPARISONS = {
     "uml-python-realworld-forbidden-edge": "UNKNOWN",
     "uml-python-realworld-signature-fail": "FAIL",
     "uml-python-realworld-dynamic-unknown": "UNKNOWN",
+    "uml-nest-realworld-project": "UNKNOWN",
+    "uml-nest-realworld-forbidden-edge": "UNKNOWN",
+    "uml-nest-realworld-signature-fail": "FAIL",
+    "uml-nest-realworld-dynamic-unknown": "UNKNOWN",
     "uml-typescript": "UNKNOWN",
     "uml-typescript-match": "PASS",
     "uml-typescript-mismatch": "FAIL",
@@ -356,15 +366,26 @@ def materialized_fixture(variant: Variant) -> Iterator[Path]:
             else None
         )
         shutil.copytree(variant.fixture, root, ignore=ignored)
+        resolver_inputs = root / "resolver-inputs"
+        has_resolver_inputs = resolver_inputs.is_dir()
+        if has_resolver_inputs:
+            shutil.copytree(resolver_inputs, root / "node_modules")
         if variant.against is not None:
             apply_overlay(root, variant.against.base_files)
-        for command in (
+        commands = [
             ("init", "-q", "-b", "main"),
             ("config", "user.email", "demo@example.invalid"),
             ("config", "user.name", "Demo"),
-            ("add", "-A"),
+        ]
+        if has_resolver_inputs:
+            commands.append(("config", "core.autocrlf", "false"))
+        commands.append(("add", "-A"))
+        if has_resolver_inputs:
+            commands.append(("add", "--force", "node_modules"))
+        commands.append(
             ("-c", "commit.gpgsign=false", "commit", "-q", "-m", variant.id),
-        ):
+        )
+        for command in commands:
             subprocess.run(["git", *command], cwd=root, check=True, capture_output=True)
         apply_overlay(root, variant.files)
         yield root
