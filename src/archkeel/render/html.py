@@ -589,47 +589,14 @@ _FLOW_SVG = """
 </svg>"""
 
 
-def _flow_section_head(*, atlas: bool = False) -> str:
-    section_suffix = " atlas-section" if atlas else ""
-    atlas_attribute = ' data-atlas="true"' if atlas else ""
+def _flow_toolbar(*, atlas: bool = False) -> str:
     content_choice = (
         '<div class="atlas-content-choice" role="group" aria-label="Content" hidden></div>'
         if atlas
         else ""
     )
-    summary = '<div class="atlas-summary" role="status"></div>' if atlas else ""
-    map_open = '<div class="flow-map-column">' if atlas else ""
-    exploration = (
-        '<section class="flow-explore" aria-label="Module exploration">'
-        "<h3>Worth a look</h3></section></div>"
-        if atlas
-        else ""
-    )
     zoom_label = "100%" if atlas else "Reset"
-    evidence_views = (
-        ""
-        if atlas
-        else """        <div class="flow-view-group" role="group" aria-label="Evidence views">
-          <span class="flow-view-group-label">Evidence</span>
-          <button type="button" data-flow-view="structure" aria-pressed="false">Structure</button>
-          <button type="button" data-flow-view="review" aria-pressed="false">Review</button>
-          <button type="button" data-flow-view="actual" aria-pressed="false">Actual</button>
-        </div>"""
-    )
-    return f"""
-    <section class="report-section flow-section{section_suffix}" aria-label="Architecture explorer">
-      <div id="flow" class="flow"{atlas_attribute}>
-        <h2 id="flow-heading">Component dependencies</h2>
-        <nav class="flow-views" aria-label="Architecture views" hidden>
-        <div class="flow-view-group" role="group" aria-label="Architecture diagrams">
-          <span class="flow-view-group-label">Architecture</span>
-          <button type="button" data-flow-view="diagram" aria-pressed="true">As-Is</button>
-          <button type="button" data-flow-view="target" aria-pressed="false">Target</button>
-          <button type="button" data-flow-view="diff" aria-pressed="false">Diff</button>
-        </div>
-{evidence_views}
-        </nav>
-        <div class="flow-toolbar" hidden>{content_choice}
+    return f"""        <div class="flow-toolbar" hidden>{content_choice}
           <details class="flow-filters">
           <summary>Filters</summary><div class="flow-filter-controls">
           <label class="flow-diagram-control flow-diagram-filter flow-graph-filter"
@@ -670,7 +637,44 @@ def _flow_section_head(*, atlas: bool = False) -> str:
           <button type="button" class="flow-fit flow-open-selected" disabled>Open selected</button>
           <button type="button" class="flow-fit flow-fullscreen">Fullscreen</button>
           <output class="flow-expand-status" role="status" aria-live="polite" hidden></output>
+        </div>"""
+
+
+def _flow_section_head(*, atlas: bool = False) -> str:
+    section_suffix = " atlas-section" if atlas else ""
+    atlas_attribute = ' data-atlas="true"' if atlas else ""
+    summary = '<div class="atlas-summary" role="status"></div>' if atlas else ""
+    map_open = '<div class="flow-map-column">' if atlas else ""
+    exploration = (
+        '<section class="flow-explore" aria-label="Module exploration">'
+        "<h3>Worth a look</h3></section></div>"
+        if atlas
+        else ""
+    )
+    evidence_views = (
+        ""
+        if atlas
+        else """        <div class="flow-view-group" role="group" aria-label="Evidence views">
+          <span class="flow-view-group-label">Evidence</span>
+          <button type="button" data-flow-view="structure" aria-pressed="false">Structure</button>
+          <button type="button" data-flow-view="review" aria-pressed="false">Review</button>
+          <button type="button" data-flow-view="actual" aria-pressed="false">Actual</button>
+        </div>"""
+    )
+    return f"""
+    <section class="report-section flow-section{section_suffix}" aria-label="Architecture explorer">
+      <div id="flow" class="flow"{atlas_attribute}>
+        <h2 id="flow-heading">Component dependencies</h2>
+        <nav class="flow-views" aria-label="Architecture views" hidden>
+        <div class="flow-view-group" role="group" aria-label="Architecture diagrams">
+          <span class="flow-view-group-label">Architecture</span>
+          <button type="button" data-flow-view="diagram" aria-pressed="true">As-Is</button>
+          <button type="button" data-flow-view="target" aria-pressed="false">Target</button>
+          <button type="button" data-flow-view="diff" aria-pressed="false">Diff</button>
         </div>
+{evidence_views}
+        </nav>
+{_flow_toolbar(atlas=atlas)}
         {_FLOW_GUIDE}
         {summary}<div class="flow-layout">
           {map_open}<div class="flow-canvas" tabindex="0" role="region"
