@@ -1605,12 +1605,37 @@ def test_unknown_detail_links_keep_deeper_claimed_modules_and_distinct_names(
         page.goto(index.as_uri())
         page.locator(f'.flow-nodes [data-uml-id="{component_id}"]').dblclick()
         page.locator(".atlas-module-list > summary").click()
-        page.locator(".atlas-module-list").get_by_role("link", name="core.py", exact=True).click()
-        assert "component=unassigned" in page.url
+        entry = page.locator(".atlas-module-list").get_by_role("link", name="core.py", exact=True)
+        entry_href = entry.get_attribute("href")
+        assert entry_href is not None
+        entry_query = parse_qs(urlsplit(entry_href).query)
+        assert entry_query.get("component") == ["unassigned"]
+        assert entry_query.get("module") == [module["id"]]
+        assert entry_query.get("return_scope") == [component_id]
+        entry.click()
+        detail_path = urlsplit(entry_href).path
+
+        def at_module_route(url):
+            query = parse_qs(urlsplit(str(url)).query)
+            return (
+                urlsplit(str(url)).path.endswith(detail_path)
+                and query.get("module") == [module["id"]]
+                and query.get("return_scope") == [component_id]
+            )
+
+        page.wait_for_url(at_module_route)
         assert page.locator('.flow-nodes [data-label="Service"]').count() == 1
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
-        assert page.url.startswith(index.as_uri())
-        assert "scope=" in page.url
+
+        def at_return_route(url):
+            query = parse_qs(urlsplit(str(url)).query)
+            return (
+                urlsplit(str(url)).path == urlsplit(index.as_uri()).path
+                and query.get("scope") == [component_id]
+                and query.get("content") == ["components"]
+            )
+
+        page.wait_for_url(at_return_route)
         assert not errors
     finally:
         browser.close()

@@ -187,6 +187,8 @@ def test_pr_report_sample_uses_two_loadfile_workers_and_keeps_selected_tests() -
         "tests/test_compass_project_report.py",
         "tests/test_python_realworld_project_report.py",
         "tests/test_nest_realworld_project_report.py",
+        "tests/test_atlas_report.py",
+        "tests/test_own_uml_target.py",
     ):
         assert test_file in command
 
@@ -430,6 +432,8 @@ def test_ci_workflow_keeps_pinned_policy_and_required_acceptance() -> None:
     assert "tests/test_compass_project_report.py" in pr_report_tests
     assert "tests/test_python_realworld_project_report.py" in pr_report_tests
     assert "tests/test_nest_realworld_project_report.py" in pr_report_tests
+    assert "tests/test_atlas_report.py" in pr_report_tests
+    assert "tests/test_own_uml_target.py" in pr_report_tests
 
 
 def test_pr_aggregate_executes_exact_workflow_script_fail_closed() -> None:
