@@ -316,6 +316,23 @@ def test_missing_typescript_export_target_does_not_substitute_sibling(tmp_path: 
     assert result.reason == "Package exports target is unavailable: pkg"
 
 
+@pytest.mark.parametrize("target", ["./style.css", "./metadata"])
+def test_unsupported_export_target_kinds_remain_unknown(tmp_path: Path, target: str) -> None:
+    filename = target.removeprefix("./")
+    resolver = _resolver(
+        tmp_path,
+        {
+            "node_modules/pkg/package.json": json.dumps({"exports": target}),
+            f"node_modules/pkg/{filename}": _EMPTY,
+        },
+        NODENEXT,
+    )
+
+    result = resolver.resolve("pkg", "src/main.ts", "esm")
+    assert isinstance(result, Unknown)
+    assert result.reason == "Package exports target is unavailable: pkg"
+
+
 @pytest.mark.parametrize(
     ("exports", "mode", "expected"),
     [
