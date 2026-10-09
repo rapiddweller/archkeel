@@ -48,7 +48,8 @@ pr-test:
 pr-report-test:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q \
 		--junitxml=test-artifacts/pytest/pr-report.xml tests/test_report_pages.py \
-		tests/test_report_interactions.py tests/test_report_browser.py tests/test_uml_rendering.py
+		tests/test_report_interactions.py tests/test_report_browser.py tests/test_uml_rendering.py \
+		tests/test_compass_project_report.py
 
 ci-typescript: OUTPUT := test-artifacts/typescript-demo
 ci-typescript: demo-typescript

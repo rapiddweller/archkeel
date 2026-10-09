@@ -26,6 +26,7 @@ from archkeel.cli import main as archkeel_main
 from archkeel.ir.graph_codec import parse_report
 from fixtures.demo_catalog_check import VARIANTS as _CHECK_PROTOCOL_VARIANTS
 from fixtures.demo_catalog_check_regressions import VARIANTS as _CHECK_REGRESSION_VARIANTS
+from fixtures.demo_catalog_compass import VARIANTS as _COMPASS_VARIANTS
 from fixtures.demo_catalog_compatibility import VARIANTS as _COMPATIBILITY_VARIANTS
 from fixtures.demo_catalog_constructs import VARIANTS as _CONSTRUCT_VARIANTS
 from fixtures.demo_catalog_dart import VARIANTS as _DART_VARIANTS
@@ -62,6 +63,7 @@ CATALOG: tuple[Variant, ...] = (
     *_EXACT_OWNERSHIP_VARIANTS,
     *_DART_VARIANTS,
     *_FLUTTER_VARIANTS,
+    *_COMPASS_VARIANTS,
 )
 
 
@@ -79,6 +81,10 @@ REPORT_CASES = {
     "uml-flutter-forbidden-dependency-fail": ("flutter-forbidden-dependency-fail", 2),
     "uml-flutter-dynamic-unknown": ("flutter-dynamic-unknown", 0),
     "uml-flutter-unsupported-declaration": ("flutter-unsupported-declaration", 2),
+    "uml-compass-project": ("compass-project", 2),
+    "uml-compass-forbidden-edge": ("compass-forbidden-edge", 2),
+    "uml-compass-signature-fail": ("compass-signature-fail", 2),
+    "uml-compass-dynamic-unknown": ("compass-dynamic-unknown", 2),
     "uml-typescript": ("uml-typescript", 0),
     "uml-typescript-match": ("uml-typescript-match", 0),
     "uml-typescript-mismatch": ("uml-typescript-mismatch", 2),
@@ -114,6 +120,10 @@ UML_DEMO_COMPARISONS = {
     "uml-flutter-forbidden-dependency-fail": "UNKNOWN",
     "uml-flutter-dynamic-unknown": "UNKNOWN",
     "uml-flutter-unsupported-declaration": "UNKNOWN",
+    "uml-compass-project": "UNKNOWN",
+    "uml-compass-forbidden-edge": "UNKNOWN",
+    "uml-compass-signature-fail": "FAIL",
+    "uml-compass-dynamic-unknown": "FAIL",
     "uml-typescript": "UNKNOWN",
     "uml-typescript-match": "PASS",
     "uml-typescript-mismatch": "FAIL",
