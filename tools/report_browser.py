@@ -241,6 +241,7 @@ def _check_atlas(page: Page, architecture: Path) -> None:
 def _check_atlas_interactions(page: Page) -> None:
     payload = page.locator("#flow-data").text_content()
     page.get_by_role("button", name="As-Is", exact=True).click()
+    _wait_for_layout(page)
     card = page.locator(".flow-nodes [data-uml-id]").first
     position = card.get_attribute("transform") if card.count() else None
     if card.count():
@@ -248,6 +249,7 @@ def _check_atlas_interactions(page: Page) -> None:
         assert "core facts" in page.locator(".flow-inspector-content").inner_text().lower()
     for lens in ("Target", "Diff", "As-Is"):
         page.get_by_role("button", name=lens, exact=True).click()
+        _wait_for_layout(page)
         if card.count():
             assert card.get_attribute("transform") == position
         assert page.locator("#flow-data").text_content() == payload
@@ -265,8 +267,10 @@ def _check_atlas_interactions(page: Page) -> None:
         module.click()
         assert "observed module" in page.locator(".flow-inspector-content").inner_text().lower()
         page.get_by_role("button", name="Target", exact=True).click()
+        _wait_for_layout(page)
         assert "observed module" not in page.locator(".flow-inspector-content").inner_text().lower()
         page.get_by_role("button", name="As-Is", exact=True).click()
+        _wait_for_layout(page)
     question = page.locator("[data-copy-question]").first
     if question.count():
         page.evaluate("""() => Object.defineProperty(navigator, 'clipboard', {
@@ -286,7 +290,17 @@ def _check_atlas_interactions(page: Page) -> None:
     assert page.evaluate("getComputedStyle(document.body).backgroundColor") == before
 
 
+def _wait_for_layout(page: Page) -> None:
+    page.wait_for_function("""() => {
+      const state = document.querySelector('#flow')?.dataset.layoutState;
+      return state === 'ready' || state === 'error';
+    }""")
+    state = page.locator("#flow").get_attribute("data-layout-state")
+    assert state == "ready", f"The active report layout ended in {state!r}."
+
+
 def _check_module_graph(page: Page) -> None:
+    _wait_for_layout(page)
     data = json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"]
     query = parse_qs(urlsplit(page.url).query)
     assert query.get("view") != ["target"]
@@ -296,6 +310,7 @@ def _check_module_graph(page: Page) -> None:
     assert choice.is_visible() == bool(level["component_ids"] and level["modules"])
     if choice.is_visible():
         choice.locator('[data-content="modules"]').click()
+        _wait_for_layout(page)
         assert parse_qs(urlsplit(page.url).query)["content"] == ["modules"]
     modules = [data["modules"][data["assignments"][index][0]] for index in level["modules"]]
     ids = {item["id"] for item in modules}
@@ -313,13 +328,11 @@ def _check_module_graph(page: Page) -> None:
         and data["modules"][data["cells"][index][1]]["id"] in ids
     }
     assert page.locator(".flow-edges .hit").count() == len(cells)
+    checked_detail = False
     for index, cell in cells.items():
         edge = page.locator(f'.flow-edges [data-uml-id="module-cell:{index}"]')
         assert edge.get_attribute("data-uml-source") == data["modules"][cell[0]]["id"]
         assert edge.get_attribute("data-uml-target") == data["modules"][cell[1]]["id"]
-        assert edge.locator(".atlas-edge-label").text_content() == (
-            f"{cell[2] if cell[2] is not None else '?'} import{'s' if cell[2] != 1 else ''}"
-        )
         state = (
             "violation"
             if cell[3] == "FAIL"
@@ -328,19 +341,41 @@ def _check_module_graph(page: Page) -> None:
             else "observed"
         )
         assert edge.evaluate("(edge, state) => edge.classList.contains(state)", state)
-        assert f"Core {cell[3]}; permission UNKNOWN" in edge.locator(".hit").get_attribute(
-            "aria-label"
-        )
+        aria_label = edge.locator(".hit").get_attribute("aria-label")
+        site_count = "UNKNOWN" if cell[2] is None else cell[2]
+        assert f"{site_count} import sites" in aria_label
+        assert f"Core {cell[3]}; permission UNKNOWN" in aria_label
+        if not checked_detail:
+            edge.locator(".hit").press("Enter")
+            details = page.locator(".flow-inspector-content").inner_text()
+            source = data["modules"][cell[0]]["name"]
+            target = data["modules"][cell[1]]["name"]
+            assert f"{source} → {target}" in details
+            assert f"{site_count} import sites · Core finding status: {cell[3]}" in details
+            assert "Permission: UNKNOWN" in details
+            checked_detail = True
     sites = (
         sum(cell[2] for cell in cells.values())
         if all(cell[2] is not None for cell in cells.values())
         else "UNKNOWN"
     )
-    assert page.locator(".atlas-summary").inner_text() == (
+    boundary_edges = {
+        (cell[0], cell[1])
+        for cell in data["cells"]
+        if (data["modules"][cell[0]]["id"] in ids) != (data["modules"][cell[1]]["id"] in ids)
+    }
+    boundary_summary = (
+        f" · {len(boundary_edges)} cross-scope relationship"
+        f"{'s' if len(boundary_edges) != 1 else ''} not drawn at this level"
+        if boundary_edges
+        else ""
+    )
+    summary = page.locator(".atlas-summary").inner_text()
+    assert summary == (
         f"Current level: {len(ids)} observed module{'s' if len(ids) != 1 else ''} · "
         f"{len(cells)} local {'dependency' if len(cells) == 1 else 'dependencies'} · "
-        f"{sites} import site{'s' if sites != 1 else ''}"
-    )
+        f"{sites} import site{'s' if sites != 1 else ''}{boundary_summary}"
+    ), summary
 
 
 def _assert_visible_hit_paths(page: Page) -> None:
@@ -423,6 +458,7 @@ def _open_uml_details(page: Page, name: str, output: Path) -> None:
             ("orders", "ordering:domain:orders"),
         ):
             page.locator(f'.flow-nodes [data-label="{label}"]').press("Enter")
+            _wait_for_layout(page)
             assert parse_qs(urlsplit(page.url).query)["scope"] == [scope]
             assert (
                 set(
@@ -441,6 +477,7 @@ def _open_uml_details(page: Page, name: str, output: Path) -> None:
             assert page.locator(".flow-views [data-flow-view]").count() == 3
             for view in ("target", "diff", "diagram"):
                 page.locator(f'[data-flow-view="{view}"]').click()
+                _wait_for_layout(page)
                 assert parse_qs(urlsplit(page.url).query)["scope"] == [scope]
                 assert page.locator("#flow-data").text_content()
             assert (
@@ -459,6 +496,7 @@ def _open_uml_details(page: Page, name: str, output: Path) -> None:
         module = next(item for item in data["modules"] if Path(item["path"]).name == "order.dart")
         page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').dblclick()
         page.wait_for_url("**/*.detail.html?*")
+        _wait_for_layout(page)
         query = parse_qs(urlsplit(page.url).query)
         assert query["module"] == [module["id"]]
         assert query["return_scope"] == ["ordering:domain:orders"]
@@ -468,9 +506,11 @@ def _open_uml_details(page: Page, name: str, output: Path) -> None:
     module = next(item for item in data["modules"] if Path(item["path"]).stem == "core")
     component = next(item for item in data["components"] if item["label"] == "demo")
     page.locator(f'.flow-nodes [data-uml-id="{component["id"]}"]').press("Enter")
+    _wait_for_layout(page)
     _check_module_graph(page)
     page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').dblclick()
     page.wait_for_url("**/*.detail.html?*")
+    _wait_for_layout(page)
     assert page.url.startswith("file:") and ".detail.html" in page.url
     query = parse_qs(urlsplit(page.url).query)
     view = parse_qs(urlsplit(page.url).query).get("view", ["diagram"])[0]
@@ -507,10 +547,13 @@ def _open_project_uml_details(
     assert root_node.is_visible()
     root_node.click()
     page.locator("[data-browse-component]").press("Enter")
+    _wait_for_layout(page)
     page.locator('[data-content="components"]').last.click()
+    _wait_for_layout(page)
     nested_node = page.locator(f'.flow-nodes [data-uml-id="{nested_id}"]')
     assert nested_node.is_visible()
     nested_node.press("Enter")
+    _wait_for_layout(page)
     assert parse_qs(urlsplit(page.url).query).get("scope") == [nested_id]
     nested_atlas = json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"]
     assert nested_atlas["levels"]
@@ -521,6 +564,7 @@ def _open_project_uml_details(
     assert module_node.is_visible()
     module_node.dblclick()
     page.wait_for_url("**/*.detail.html?*")
+    _wait_for_layout(page)
     module_url = page.url
     assert page.locator(".atlas-heading").is_visible()
     assert page.locator(".flow-views [data-flow-view]").count() == 3
@@ -529,7 +573,9 @@ def _open_project_uml_details(
         page.set_viewport_size({"width": width, "height": 1000})
         for view in ("diagram", "target", "diff"):
             page.goto(module_url, wait_until="load")
+            _wait_for_layout(page)
             page.locator(f'[data-flow-view="{view}"]').click()
+            _wait_for_layout(page)
             detail = json.loads(page.locator("#flow-data").text_content() or "{}")
             report = parse_report(
                 {
@@ -545,6 +591,7 @@ def _open_project_uml_details(
             class_node = page.locator(f'.flow-nodes [data-label="{class_name}"]')
             assert class_node.count() == 1 and class_node.is_visible()
             class_node.dblclick()
+            _wait_for_layout(page)
             member = page.locator(f'.flow-nodes [data-label="{member_name}"]')
             assert member.count() == 1 and member.is_visible()
             member.press("Space")
@@ -562,6 +609,8 @@ def _open_project_uml_details(
     overview = page.get_by_role("link", name="Architecture overview", exact=True)
     assert overview.get_attribute("href") == f"{name}.report.html"
     overview.click()
+    page.wait_for_url(f"**/{name}.report.html*")
+    _wait_for_layout(page)
     assert page.locator(".atlas-heading").is_visible()
     assert page.locator('[data-atlas="true"]').is_visible()
     assert root_component["label"]
@@ -571,6 +620,7 @@ def _show_details(page: Page) -> None:
     toggle = page.locator(".flow-details-toggle")
     if toggle.get_attribute("aria-expanded") != "true":
         toggle.click()
+        _wait_for_layout(page)
 
 
 def _check_dart_uml_detail(
@@ -602,7 +652,9 @@ def _check_dart_uml_detail(
             assert "unresolved" in matches[0].reason.lower()
     for view in ("diagram", "target", "diff"):
         page.goto(module_url, wait_until="load")
+        _wait_for_layout(page)
         page.locator(f'[data-flow-view="{view}"]').click()
+        _wait_for_layout(page)
         assert page.locator(".flow-views [data-flow-view]").count() == 3
         assert {
             key: value
@@ -627,6 +679,7 @@ def _check_dart_uml_detail(
         })""")
         page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-uml.png"))
         page.locator('.flow-nodes [data-label="Order"]').dblclick()
+        _wait_for_layout(page)
         member_names = set(
             page.locator(".flow-nodes [data-uml-id]").evaluate_all(
                 "items => items.map(item => item.dataset.label)"
@@ -648,23 +701,30 @@ def _check_dart_uml_detail(
         assert page.locator("#flow-data").text_content() == payload
         page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-member.png"))
         page.locator(".flow-back").click()
+        _wait_for_layout(page)
         assert page.locator(".flow-nodes [data-label=Order]").count() == 1
         if view == "diff":
             page.locator(".flow-back").click()
+            _wait_for_layout(page)
             assert parse_qs(urlsplit(page.url).query)["scope"] == ["ordering:domain:orders"]
             for scope in ("ordering:domain", "ordering", None):
                 page.locator(".flow-back").click()
+                _wait_for_layout(page)
                 query = parse_qs(urlsplit(page.url).query)
                 assert query.get("scope", [None])[0] == scope
 
     if name == "uml-dart-missing-member-fail":
         page.goto(module_url, wait_until="load")
+        _wait_for_layout(page)
         enum = page.locator('.flow-nodes [data-label="OrderStatus"]')
         enum.scroll_into_view_if_needed()
         enum.dblclick()
         page.wait_for_function("new URL(location.href).searchParams.has('scope')")
+        _wait_for_layout(page)
         page.locator('[data-flow-view="target"]').click()
+        _wait_for_layout(page)
         page.locator('[data-flow-view="diff"]').click()
+        _wait_for_layout(page)
         missing_literal = page.locator('.flow-nodes [data-label="cancelled"]')
         assert missing_literal.count() == 1, page.locator(".flow-nodes [data-uml-id]").evaluate_all(
             "items => items.map(item => item.dataset.label)"
@@ -677,8 +737,10 @@ def _check_dart_uml_detail(
         payload_data = json.loads(payload)
         main_url = urljoin(module_url, payload_data["navigation"]["main_href"])
         page.goto(main_url, wait_until="load")
+        _wait_for_layout(page)
         for component in ("ordering", "domain", "pricing"):
             page.locator(f'.flow-nodes [data-label="{component}"]').press("Enter")
+            _wait_for_layout(page)
         module_id = next(
             item["id"]
             for item in json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"][
@@ -688,8 +750,11 @@ def _check_dart_uml_detail(
         )
         page.locator(f'.flow-nodes [data-uml-id="{module_id}"]').dblclick()
         page.wait_for_url("**/*.detail.html?*")
+        _wait_for_layout(page)
         page.locator('.flow-nodes [data-label="PercentageDiscount"]').dblclick()
+        _wait_for_layout(page)
         page.locator('[data-flow-view="diff"]').click()
+        _wait_for_layout(page)
         method = page.locator('.flow-nodes [data-label="discountCents"]')
         method.press("Space")
         _show_details(page)
@@ -700,9 +765,12 @@ def _check_dart_uml_detail(
         payload_data = json.loads(payload)
         main_url = urljoin(module_url, payload_data["navigation"]["main_href"])
         page.goto(main_url, wait_until="load")
+        _wait_for_layout(page)
         for component in ("ordering", "domain"):
             page.locator(f'.flow-nodes [data-label="{component}"]').press("Enter")
+            _wait_for_layout(page)
         page.locator('[data-flow-view="diff"]').click()
+        _wait_for_layout(page)
         edge = page.locator(
             '.flow-edges [data-uml-kind="dependency"]'
             '[data-uml-source="ordering:domain:orders"]'
@@ -749,19 +817,23 @@ def _check_flutter_uml_detail(page: Page, name: str, output: Path) -> None:
     for width in (1440, 375):
         page.set_viewport_size({"width": width, "height": 1000})
         page.goto(report_url, wait_until="load")
+        _wait_for_layout(page)
         page.get_by_role("button", name="As-Is", exact=True).click()
+        _wait_for_layout(page)
         scope = None
         for label in route:
             node = page.locator(f'.flow-nodes [data-label="{label}"]')
             assert node.count() == 1, f"{name}: missing component {label}"
             scope = node.get_attribute("data-uml-id")
             node.press("Enter")
+            _wait_for_layout(page)
             assert parse_qs(urlsplit(page.url).query)["scope"] == [scope]
         _check_module_graph(page)
         current = json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"]
         module = next(item for item in current["modules"] if Path(item["path"]).name == module_name)
         page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').dblclick()
         page.wait_for_url("**/*.detail.html?*")
+        _wait_for_layout(page)
         module_url = page.url
         detail_payload = json.loads(page.locator("#flow-data").text_content() or "{}")
         core_payload = {
@@ -807,7 +879,9 @@ def _check_flutter_uml_detail(page: Page, name: str, output: Path) -> None:
             )
         for view in ("diagram", "target", "diff"):
             page.goto(module_url, wait_until="load")
+            _wait_for_layout(page)
             page.locator(f'[data-flow-view="{view}"]').click()
+            _wait_for_layout(page)
             assert {
                 key: value
                 for key, value in json.loads(
@@ -816,6 +890,7 @@ def _check_flutter_uml_detail(page: Page, name: str, output: Path) -> None:
                 if key not in {"initial_scope", "initial_view", "navigation"}
             } == core_payload
             page.locator(f'.flow-nodes [data-label="{classifier}"]').dblclick()
+            _wait_for_layout(page)
             names = set(
                 page.locator(".flow-nodes [data-uml-id]").evaluate_all(
                     "items => items.map(item => item.dataset.label)"
@@ -836,6 +911,7 @@ def _check_flutter_uml_detail(page: Page, name: str, output: Path) -> None:
 
 
 def _check_inner_uml(page: Page, name: str, output: Path) -> None:
+    _wait_for_layout(page)
     _open_uml_details(page, name, output)
     if any(name in {group["baseline"], *group["variants"]} for group in PROJECT_REPORT_GROUPS):
         return
@@ -882,7 +958,9 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
     returns = "None" if language == "python" else "void"
     for view in ("diagram", "target", "diff"):
         page.goto(module_url, wait_until="load")
+        _wait_for_layout(page)
         page.locator(f'[data-flow-view="{view}"]').click()
+        _wait_for_layout(page)
         assert page.locator(".atlas-heading").count() == 1
         assert page.locator(".flow-views [data-flow-view]").count() == 3
         assert page.locator('.flow-nodes [data-uml-kind="component"]').count() == 0
@@ -924,6 +1002,7 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
             )
             page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-internal-uses.png"))
         page.get_by_role("button", name="Member previews", exact=True).click()
+        _wait_for_layout(page)
         client = page.locator('.flow-nodes [data-label="Client"]')
         assert f"− _token: {annotation}" in client.text_content()
         assert client.locator(".uml-icon").count() > 0
@@ -934,6 +1013,7 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
         assert page.locator(".flow-nodes .node.dim").count() > 0
         page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-core.png"))
         client.dblclick()
+        _wait_for_layout(page)
         reset = page.locator('.flow-nodes [data-label="reset"]')
         assert reset.get_attribute("data-uml-kind") == "method"
         assert (
@@ -951,7 +1031,9 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
         )
         page.locator("#flow").screenshot(path=str(output / f"{name}-{view}-members.png"))
         page.locator(".flow-back").click()
+        _wait_for_layout(page)
         page.locator('.flow-nodes [data-label="State"]').dblclick()
+        _wait_for_layout(page)
         ready = page.locator('.flow-nodes [data-label="READY"][data-uml-kind="enum_literal"]')
         if name == "uml-partial" and view == "diagram":
             assert ready.count() == 0
@@ -985,7 +1067,9 @@ def _check_inner_uml(page: Page, name: str, output: Path) -> None:
             assert ready.count() == 1
             assert ready.locator(".stereotype").text_content() == "«enumeration literal»"
         page.locator(".flow-back").click()
+        _wait_for_layout(page)
         page.locator('.flow-nodes [data-label="build"]').dblclick()
+        _wait_for_layout(page)
         item = page.locator('.flow-nodes [data-label="item"]')
         assert item.get_attribute("data-uml-kind") == "binding"
         if view in {"diagram", "diff"} and name == "uml-typescript-partial":
@@ -1040,6 +1124,7 @@ def _check_flutter_unsupported(page: Page, name: str, output: Path) -> None:
 
 
 def _check_wide_inventory(page: Page) -> None:
+    _wait_for_layout(page)
     data = json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"]
     names = {item["name"] for item in data["modules"]}
     expected = {
@@ -1061,8 +1146,10 @@ def _check_wide_inventory(page: Page) -> None:
     }
     assert {name for name in names if name.startswith("shop.store.backend.tasks")} == expected
     page.get_by_role("button", name="As-Is", exact=True).click()
+    _wait_for_layout(page)
     for label in ("store", "backend", "tasks"):
         page.locator(f'.flow-nodes [data-label="{label}"]').press("Enter")
+        _wait_for_layout(page)
     _check_module_graph(page)
     module = next(
         item for item in data["modules"] if item["name"] == "shop.store.backend.tasks.isolated"
@@ -1071,6 +1158,7 @@ def _check_wide_inventory(page: Page) -> None:
     assert card.is_visible()
     card.press("Enter")
     page.wait_for_url("**/*.detail.html?*")
+    _wait_for_layout(page)
     assert page.url.startswith("file:")
     assert parse_qs(urlsplit(page.url).query)["module"] == [module["id"]]
     assert page.locator("#flow-data").text_content()
@@ -1093,6 +1181,7 @@ def _capture_assets(browser: Browser, reports: dict[str, Path], output: Path) ->
         page.screenshot(path=str(output / "archkeel-report-preview.png"), full_page=True)
         page.locator("#flow").screenshot(path=str(output / "archkeel-component-flow.png"))
         page.locator('.flow-nodes [data-label="store"]').dblclick()
+        _wait_for_layout(page)
         page.locator(".atlas-findings").evaluate("node => node.open = true")
         page.locator(".atlas-finding-group").first.locator("summary").click()
         assert page.locator(".atlas-findings li").first.is_visible()
