@@ -116,6 +116,7 @@ def test_compass_every_library_has_one_effective_owner_at_each_contract_level() 
         root_owner = root.component_for(module.qualified_name)
         assert root_owner == root_owners[0]
         nested = mounts[root_owner.id]
+        assert root_owner.namespace is None or in_scope(module.qualified_name, root_owner.namespace)
         nested_owners = [
             component
             for component in nested.components
@@ -123,6 +124,9 @@ def test_compass_every_library_has_one_effective_owner_at_each_contract_level() 
         ]
         assert len(nested_owners) == 1, (module.qualified_name, nested_owners)
         assert nested.component_for(module.qualified_name) == nested_owners[0]
+        assert nested_owners[0].namespace is None or in_scope(
+            module.qualified_name, nested_owners[0].namespace
+        )
         assert module.parent_id == nested_owners[0].id
 
 
@@ -148,13 +152,20 @@ def test_compass_requires_cover_source_justified_edges_and_forbid_local_to_api()
         ("presentation", "utilities", "compass.utils.image_error_listener"),
     ):
         assert requires_covers(roots[source], target, module)
+    for module in (
+        "compass.data.services.api.model.booking.booking_api_model",
+        "compass.data.services.api.model.login_request.login_request",
+        "compass.data.services.api.model.login_response.login_response",
+        "compass.data.services.api.model.user.user_api_model",
+    ):
+        assert not requires_covers(roots["application"], "data", module)
 
     for parent, source, target, module in (
         (
             "application",
             "application-composition",
             "application-navigation",
-            "compass.routing.routes",
+            "compass.routing.router",
         ),
         (
             "domain",
@@ -200,6 +211,16 @@ def test_compass_requires_cover_source_justified_edges_and_forbid_local_to_api()
         source_component = components[source]
         target_component = components[target]
         assert requires_covers(source_component, target_component.label, module)
+
+    app_components = {
+        component.id.rsplit(":", 1)[-1]: component
+        for component in mounted["application"].components
+    }
+    assert not requires_covers(
+        app_components["application-composition"],
+        app_components["application-navigation"].label,
+        "compass.routing.routes",
+    )
 
     data = mounted["data"]
     data_components = {component.id.rsplit(":", 1)[-1]: component for component in data.components}

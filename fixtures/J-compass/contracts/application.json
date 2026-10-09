@@ -27,14 +27,12 @@
         {
           "component": "Route definitions and navigation",
           "through": [
-            "compass.routing.router",
-            "compass.routing.routes"
+            "compass.routing.router"
           ],
           "rationale": "The app shell delegates route construction to the navigation boundary.",
           "decided_by": "agent"
         }
       ],
-      "namespace": "compass.config",
       "exact_modules": [
         "compass.config.assets",
         "compass.config.dependencies",

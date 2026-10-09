@@ -74,10 +74,6 @@
             "compass.data.repositories.user.user_repository_remote",
             "compass.data.services.api.api_client",
             "compass.data.services.api.auth_api_client",
-            "compass.data.services.api.model.booking.booking_api_model",
-            "compass.data.services.api.model.login_request.login_request",
-            "compass.data.services.api.model.login_response.login_response",
-            "compass.data.services.api.model.user.user_api_model",
             "compass.data.services.local.local_data_service",
             "compass.data.services.shared_preferences_service"
           ],
