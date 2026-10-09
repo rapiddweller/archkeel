@@ -828,6 +828,8 @@ def _widening_failures(
     cycle_rules: frozenset[str],
     after_digest: str,
     after_policy_digest: str | None,
+    *,
+    amendment_written: bool,
 ) -> tuple[tuple[str, ...], tuple[WideningFinding, ...], Literal["valid", "stale"] | None]:
     """Every unamended widening from `ctx.contract` to `contract` (AD-61, #11).
 
@@ -858,7 +860,7 @@ def _widening_failures(
     if baseline is not None and violations is not None:
         findings += baseline_widening_changes(violations, after_baseline, cycle_rules=cycle_rules)
         findings += measurement_budget_changes(budgets, after_budgets, targets)
-    amended = ctx.write_amendment or (
+    amended = amendment_written or (
         ctx.parsed_amendment is not None
         and verify_amendment(
             ctx.parsed_amendment,
@@ -888,8 +890,15 @@ def _widening_failures(
     return empty_messages, empty_findings, status
 
 
+def _same_destination(first: Path, second: Path) -> bool:
+    return first.resolve() == second.resolve() or (
+        first.exists() and second.exists() and first.samefile(second)
+    )
+
+
 def _artifact_files(
     *,
+    root: Path,
     write_baseline: bool,
     baseline: Path | None,
     violations: tuple[KnownViolation, ...],
@@ -900,7 +909,7 @@ def _artifact_files(
     current_digest: str,
     after_baseline_digest: str | None,
     refused: bool,
-) -> tuple[dict[str, bytes], str | None]:
+) -> tuple[dict[str, bytes], str | None, bool]:
     """Every file this run writes, and the last one written, as the result's `artifact`.
 
     AD-46/AD-57: every rewritten graph page is written before the diagnostics judge it,
@@ -909,6 +918,7 @@ def _artifact_files(
     """
     files: dict[str, bytes] = {}
     artifact: str | None = None
+    amendment_written = False
     if write_baseline and baseline is not None and exit_code != 2:
         artifact = str(baseline)
         files[artifact] = baseline_bytes(violations, budgets)
@@ -930,10 +940,14 @@ def _artifact_files(
                 after_baseline_digest,
             )
         )
+        amendment_written = True
     for page, written in edits:
         artifact = page
         files[page] = written.encode()
-    return files, artifact
+        page_path: Path = root / page
+        if against.amendment is not None and _same_destination(page_path, against.amendment):
+            amendment_written = False
+    return files, artifact, amendment_written
 
 
 def _baseline_at(root: Path, baseline: Path | None) -> str | None:
@@ -1095,6 +1109,22 @@ def run_validate(
         resolved_public_entries,
         inside_tree,
     )
+    if (
+        write_amendment
+        and baseline is not None
+        and amendment is not None
+        and _same_destination(baseline, amendment)
+    ):
+        diagnostics = [
+            *diagnostics,
+            _diagnostic(
+                "amendment.invalid",
+                "",
+                str(amendment),
+                "The amendment destination is also the baseline file.",
+                "Choose separate baseline and amendment paths.",
+            ),
+        ]
     try:
         observed_budgets = selected_budgets(measure_python_ratchets(observation), declared_budgets)
     except RatchetError as error:
@@ -1152,6 +1182,27 @@ def run_validate(
             after_policy_digest = baseline_digest(violations, observed_budgets)
         else:
             after_policy_digest = baseline_digest(known, known_budgets)
+    result = _observed_result(
+        observation,
+        [*diagnostics, *budget_diagnostics],
+        baseline_new=baseline_new if baseline is not None else None,
+        baseline_resolved=baseline_resolved if baseline is not None else None,
+        interface_budgets=budget_results or None,
+    )
+    # Diagnostics decide artifact eligibility; widening failures can only change exit 0 to 1.
+    files, artifact, amendment_written = _artifact_files(
+        root=root,
+        write_baseline=write_baseline and not refused,
+        baseline=baseline,
+        violations=violations,
+        budgets=observed_budgets,
+        against=against_ctx,
+        edits=edits,
+        exit_code=result.exit_code,
+        current_digest=current_tree_digest,
+        after_baseline_digest=after_policy_digest,
+        refused=refused,
+    )
     widening_failures, widening_findings, amendment_status = _widening_failures(
         against_ctx,
         comparison_contract,
@@ -1162,19 +1213,18 @@ def run_validate(
         cycle_rules,
         current_tree_digest,
         after_policy_digest,
+        amendment_written=amendment_written,
     )
-    result = _observed_result(
-        observation,
-        [*diagnostics, *budget_diagnostics],
-        (
-            *baseline_failures,
-            *interface_narrowings,
-            *widening_failures,
-            *((_WRITE_REFUSED,) if refused else ()),
-        ),
-        baseline_new=baseline_new if baseline is not None else None,
-        baseline_resolved=baseline_resolved if baseline is not None else None,
-        interface_budgets=budget_results or None,
+    failures = (
+        *baseline_failures,
+        *interface_narrowings,
+        *widening_failures,
+        *((_WRITE_REFUSED,) if refused else ()),
+    )
+    result = replace(
+        result,
+        exit_code=2 if result.exit_code == 2 else 1 if failures else 0,
+        failures=failures,
         widenings=widening_findings if against is not None else None,
         amendment_status=amendment_status,
     )
@@ -1194,16 +1244,4 @@ def run_validate(
     ):
         changes, note = _unresolved_calls_since(root, config, analyzer, against, observation)
         result = replace(result, unresolved_call_changes=changes, unresolved_call_note=note)
-    files, artifact = _artifact_files(
-        write_baseline=write_baseline and not refused,
-        baseline=baseline,
-        violations=violations,
-        budgets=observed_budgets,
-        against=against_ctx,
-        edits=edits,
-        exit_code=result.exit_code,
-        current_digest=current_tree_digest,
-        after_baseline_digest=after_policy_digest,
-        refused=refused,
-    )
     return (result if artifact is None else replace(result, artifact=artifact)), FilesToWrite(files)

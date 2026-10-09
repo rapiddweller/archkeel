@@ -698,6 +698,30 @@ def test_a_widening_with_a_valid_amendment_passes(tmp_path: Path) -> None:
     assert (result.exit_code, result.failures) == (0, ())
 
 
+def test_amendment_write_without_a_path_preserves_widenings(tmp_path: Path) -> None:
+    root, base = _repo_at_two_revisions(tmp_path, {})
+    apply_overlay(root, dict(_WIDEN_ALLOWED_SOURCES))
+
+    result, files = run_validate(
+        root,
+        SHOP_CONFIG,
+        observe,
+        against=base,
+        write_amendment=True,
+        decided_by="Jordan (architect)",
+        rationale="Orders needs the sqlite exemption during the migration.",
+    )
+
+    assert result.exit_code == 1
+    assert result.failures == (
+        "rule DEP-APP-NO-STORE-SQLITE.allowed_sources gained 'shop.app.orders'",
+    )
+    assert result.widenings
+    assert result.amendment_status is None
+    assert result.artifact is None
+    assert not files
+
+
 def test_the_same_amendment_against_a_different_change_fails(tmp_path: Path) -> None:
     root, base = _repo_at_two_revisions(tmp_path, {})
     apply_overlay(root, dict(_WIDEN_ALLOWED_SOURCES))
