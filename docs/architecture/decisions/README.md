@@ -221,3 +221,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-212 | [Native DTO values use exact field and depth](ad-212-native-dto-values-use-exact-field-and-depth.md) |
 | AD-213 | [Renderer responsibility boundaries](ad-213-renderer-responsibility-boundaries.md) |
 | AD-214 | [Dart collection runs without an SDK](ad-214-dart-collector-runs-without-sdk.md) |
+| AD-215 | [Preserve Dart source evidence](ad-215-dart-source-evidence.md) |
