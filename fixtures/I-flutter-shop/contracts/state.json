@@ -274,7 +274,7 @@
                 "default_known": true
               }
             ],
-            "returns": "AsyncState"
+            "returns": "AsyncState<T>"
           }
         }
       ],

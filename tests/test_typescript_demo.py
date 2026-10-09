@@ -130,7 +130,7 @@ def test_clean_graph_has_independently_counted_modules_and_edges(
     assert {
         name: scalars[name]
         for name in ("violations", "cycle_edges", "coverage_failures", "unknown_positions")
-    } == {"violations": 0, "cycle_edges": 0, "coverage_failures": 0, "unknown_positions": 10}
+    } == {"violations": 0, "cycle_edges": 0, "coverage_failures": 0, "unknown_positions": 9}
     target_assessment = next(
         item for item in outcome.report.rule_assessments or () if item.kind == "uml_target"
     )
@@ -238,6 +238,12 @@ def test_main_typescript_target_is_explicit_and_independent(
     assert entities["local-load"].modifiers == ("async",)
     assert entities["main"].annotation == "() => Promise<string>"
     observed = observed_graph(outcome.observation)
+    observed_page = next(
+        entity
+        for entity in observed.entities
+        if entity.qualified_name == "shop.src.presentation.page_x2e_ts.page"
+    )
+    assert observed_page.modifiers == ("async",)
     observed_names = {entity.id: entity.qualified_name for entity in observed.entities}
     observed_imports = {
         (observed_names[edge.source_id], observed_names[edge.target_id])

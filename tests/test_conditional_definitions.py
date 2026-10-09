@@ -235,7 +235,7 @@ def test_legacy_snapshots_remain_partial_without_context_capabilities(tmp_path):
         item.status == "partial"
         for item in old.coverage
         if item.entity_kinds
-        == ("class", "interface", "enum", "method", "function", "type_alias", "constant")
+        == ("class", "interface", "enum", "mixin", "method", "function", "type_alias", "constant")
     )
 
 

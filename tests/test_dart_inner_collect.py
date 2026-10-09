@@ -9,11 +9,13 @@ import hashlib
 import os
 import shutil
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from archkeel.ir.facts_codec import decode_response, encode_request
+from archkeel.ir.facts_validation import validate_source_facts
 from archkeel.ir.protocol import CollectionRequest, DartSettings, SnapshotInput, SourceScope
 
 _REPO = Path(__file__).parents[1]
@@ -464,6 +466,149 @@ class Implements implements Alias {}
     )
 
 
+def test_native_mixin_declarations_and_with_compositions_are_shared_classifier_facts(
+    tmp_path: Path,
+) -> None:
+    _write_package(
+        tmp_path,
+        """part 'main.freezed.dart';
+class Root {}
+class Base extends Root {}
+class Child extends Base with Stamp, Track, Shared {}
+enum Status with Track { started, ended }
+""",
+    )
+    (tmp_path / "lib/main.freezed.dart").write_text(
+        """part of 'main.dart';
+mixin Stamp on Root { String get stamp => 'stamp'; }
+mixin Track {}
+mixin class Shared {}
+mixin _$Order { String get id; }
+class Order with _$Order {}
+""",
+        encoding="utf-8",
+    )
+
+    facts = _native_facts(tmp_path)
+    graph = _source_graph(facts)
+    by_id = {item.id: item for item in graph.entities}
+    by_name = {item.qualified_name: item for item in graph.entities}
+    symbols = [
+        item for section in facts.sections if section.name == "symbols" for item in section.records
+    ]
+    mixin_records = {
+        item.data.get("qualified_name"): item
+        for item in symbols
+        if item.data.get("class_kind") == "mixin"
+    }
+    assert set(mixin_records) == {
+        "commerce.main.Stamp",
+        "commerce.main.Track",
+        "commerce.main._$Order",
+    }
+    assert {name for name, entity in by_name.items() if entity.kind == "mixin"} == set(
+        mixin_records
+    )
+    assert by_name["commerce.main.Shared"].kind == "class"
+    assert "mixin" in by_name["commerce.main.Shared"].modifiers
+    assert by_name["commerce.main._$Order.id::getter"].kind == "method"
+    assert (
+        by_name["commerce.main._$Order.id::getter"].parent_id == by_name["commerce.main._$Order"].id
+    )
+
+    edges = {
+        (
+            by_id[edge.source_id].qualified_name,
+            edge.kind,
+            by_id[edge.target_id].qualified_name if edge.target_id else None,
+        )
+        for edge in graph.relationships
+        if edge.kind in {"inherits", "mixes_in"}
+    }
+    assert edges == {
+        ("commerce.main.Base", "inherits", "commerce.main.Root"),
+        ("commerce.main.Child", "inherits", "commerce.main.Base"),
+        ("commerce.main.Child", "mixes_in", "commerce.main.Stamp"),
+        ("commerce.main.Child", "mixes_in", "commerce.main.Track"),
+        ("commerce.main.Child", "mixes_in", "commerce.main.Shared"),
+        ("commerce.main.Status", "mixes_in", "commerce.main.Track"),
+        ("commerce.main.Order", "mixes_in", "commerce.main._$Order"),
+    }
+    assert ("commerce.main.Child", "inherits", "commerce.main.Stamp") not in edges
+    evidence = {item.id: item for item in facts.evidence}
+    generated = mixin_records["commerce.main._$Order"]
+    assert evidence[generated.evidence_ids[0]].file == "lib/main.freezed.dart"
+    assert any(
+        gap.kind == "UnsupportedDeclaration" and "on" in gap.title for gap in facts.coverage.gaps
+    )
+    assert any(
+        receipt.scope_id == by_name["commerce.main.Stamp"].id
+        and "mixes_in" in receipt.relationship_kinds
+        and receipt.status == "partial"
+        for receipt in graph.coverage
+    )
+
+    symbol_index = next(
+        index for index, section in enumerate(facts.sections) if section.name == "symbols"
+    )
+    symbol_section = facts.sections[symbol_index]
+    symbol_index_in_section = next(
+        index
+        for index, record in enumerate(symbol_section.records)
+        if record.data.get("base_declarations")
+    )
+    symbol_record = symbol_section.records[symbol_index_in_section]
+    bases = symbol_record.data.get("base_declarations")
+    invalid_base = replace(
+        bases[0],
+        entries=tuple(
+            (key, "compose") if key == "relationship_kind" else (key, value)
+            for key, value in bases[0].entries
+        ),
+    )
+    invalid_record = replace(
+        symbol_record,
+        data=replace(
+            symbol_record.data,
+            entries=tuple(
+                (key, (invalid_base, *bases[1:])) if key == "base_declarations" else (key, value)
+                for key, value in symbol_record.data.entries
+            ),
+        ),
+    )
+    invalid_section = replace(
+        symbol_section,
+        records=tuple(
+            invalid_record if index == symbol_index_in_section else record
+            for index, record in enumerate(symbol_section.records)
+        ),
+    )
+    invalid_facts = replace(
+        facts,
+        sections=tuple(
+            invalid_section if index == symbol_index else section
+            for index, section in enumerate(facts.sections)
+        ),
+    )
+    with pytest.raises(ValueError, match="invalid typed base declaration"):
+        validate_source_facts(invalid_facts)
+
+
+def test_native_with_clause_does_not_confirm_an_ordinary_class_as_a_mixin(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        "class Ordinary {}\nclass InvalidUse with Ordinary {}\n",
+    )
+    facts = _native_facts(tmp_path)
+    graph = _source_graph(facts)
+    entities = {item.id: item for item in graph.entities}
+    [edge] = [item for item in graph.relationships if item.kind == "mixes_in"]
+    assert entities[edge.source_id].qualified_name == "commerce.main.InvalidUse"
+    assert edge.target_id is None
+    assert edge.resolution == "unresolved"
+    assert edge.reason and "mixin" in edge.reason.lower()
+
+
 def test_native_sites_keep_unprovable_and_shadowed_bindings_unknown(tmp_path: Path) -> None:
     _write_package(
         tmp_path,
@@ -537,8 +682,9 @@ void main() {
     assert repeated_run.resolution == "partial"
     assert facts.coverage.full_scope is False
     assert any(gap.kind == "DuplicateDeclaration" for gap in facts.coverage.gaps)
-    assert any(
-        gap.kind == "UnsupportedDeclaration" and "mixin" in gap.title for gap in facts.coverage.gaps
+    assert not any(
+        gap.kind == "UnsupportedDeclaration" and "mixin declarations" in gap.title
+        for gap in facts.coverage.gaps
     )
     assert any(
         gap.kind == "UnsupportedDeclaration" and "extension" in gap.title.lower()
@@ -893,6 +1039,64 @@ def _source_graph(facts):
         evidence=facts.evidence,
     )
     return observed_graph(observation)
+
+
+def test_native_closure_result_binding_keeps_lexical_identity_and_exact_call_site(
+    tmp_path: Path,
+) -> None:
+    _write_package(
+        tmp_path,
+        """class Inner {}
+Inner makeInner() => Inner();
+class Box { Box(Inner value); }
+void register(void Function() callback) {}
+void configure() {
+  register(() {
+    final value = Box(makeInner());
+  });
+}
+""",
+    )
+    facts = _native_facts(tmp_path)
+    sections = {section.name: section.records for section in facts.sections}
+    configure = next(
+        record
+        for record in sections["symbols"]
+        if record.data.get("qualified_name", "").endswith(".configure")
+    )
+    binding = next(
+        record
+        for record in sections["symbols"]
+        if record.kind == "binding" and record.data.get("name") == "value"
+    )
+    outer = next(
+        record
+        for record in sections["calls"]
+        if record.data.get("expression") == "Box(makeInner())"
+    )
+    inner = next(
+        record for record in sections["calls"] if record.data.get("expression") == "makeInner()"
+    )
+
+    [site] = outer.data.get("result_bindings")
+    assert site.get("id") == binding.id
+    assert site.get("name") == "value"
+    assert "_closure_" in binding.data.get("qualified_name")
+    assert binding.data.get("lexical_parent_id") == configure.id
+    assert outer.data.get("source_definition_id") == configure.id
+    assert not inner.data.get("result_bindings")
+
+    graph = _source_graph(facts)
+    observed_binding = next(item for item in graph.entities if item.id == binding.id)
+    assert observed_binding.qualified_name == binding.data.get("qualified_name")
+    assert observed_binding.parent_id == configure.id
+    assert observed_binding.initializer == "Box(makeInner())"
+    assert any(
+        edge.kind == "creates" and edge.source_id == configure.id for edge in graph.relationships
+    )
+    assert any(
+        edge.kind == "instance_of" and edge.source_id == binding.id for edge in graph.relationships
+    )
 
 
 def test_native_declarations_project_enum_literals_interfaces_and_signatures(
@@ -1282,3 +1486,507 @@ def test_native_pubspec_symlink_is_rejected_before_read(tmp_path: Path) -> None:
     )
     assert result.returncode != 0
     assert b"regular pubspec.yaml" in result.stderr
+
+
+def test_native_callback_locals_use_their_function_expression_scope(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """void invoke(void Function() callback) => callback();
+void work() {
+  invoke(() { final value = 'first'; print(value); });
+  invoke(() { final value = 'second'; print(value); });
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    symbols = [
+        record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "binding" and record.data.get("name") == "value"
+    ]
+
+    assert len(symbols) == 2
+    assert len({record.data.get("qualified_name") for record in symbols}) == 2
+    assert len({record.data.get("lexical_parent_id") for record in symbols}) == 1
+    target_ids = {
+        record.data.get("targets")[0]
+        for section in facts.sections
+        if section.name == "references"
+        for record in section.records
+        if record.data.get("expression") == "value"
+    }
+    assert target_ids == {record.data.get("qualified_name") for record in symbols}
+
+
+def test_native_getter_and_setter_references_bind_to_their_own_declarations(
+    tmp_path: Path,
+) -> None:
+    _write_package(
+        tmp_path,
+        """class Box {
+  String get value => 'read';
+  set value(String next) {}
+}
+String get status => 'ready';
+set status(String value) {}
+void use(Box box) {
+  final read = box.value;
+  box.value = 'write';
+  final current = status;
+  status = 'changed';
+  box.value += 'more';
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    accessors = [
+        record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method" and record.data.get("name") == "value"
+    ]
+    assert len(accessors) == 2
+    assert {record.data.get("accessor_kind") for record in accessors} == {"getter", "setter"}
+    accessors_by_kind = {record.data.get("accessor_kind"): record for record in accessors}
+    assert len({record.data.get("qualified_name") for record in accessors}) == 2
+    evidence = {item.id: item for item in facts.evidence}
+    by_line = {
+        evidence[record.evidence_ids[0]].line: record.data.get("targets")
+        for section in facts.sections
+        if section.name == "references"
+        for record in section.records
+        if record.data.get("expression") == "box.value"
+    }
+    all_references_by_line = {
+        evidence[record.evidence_ids[0]].line: record.data.get("targets")
+        for section in facts.sections
+        if section.name == "references"
+        for record in section.records
+    }
+    assert by_line[8] == (accessors_by_kind["getter"].data.get("qualified_name"),)
+    assert by_line[9] == (accessors_by_kind["setter"].data.get("qualified_name"),)
+    assert by_line[8] != by_line[9]
+
+    top_level = [
+        record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "function" and record.data.get("name") == "status"
+    ]
+    assert len(top_level) == 2
+    assert {record.data.get("accessor_kind") for record in top_level} == {"getter", "setter"}
+    top_level_by_kind = {record.data.get("accessor_kind"): record for record in top_level}
+    assert len({record.data.get("qualified_name") for record in top_level}) == 2
+    assert all_references_by_line[10] == (top_level_by_kind["getter"].data.get("qualified_name"),)
+    assert all_references_by_line[11] == (top_level_by_kind["setter"].data.get("qualified_name"),)
+    assert all_references_by_line[10] != all_references_by_line[11]
+    compound = {
+        record.data.get("use"): record.data.get("targets")
+        for section in facts.sections
+        if section.name == "references"
+        for record in section.records
+        if evidence[record.evidence_ids[0]].line == 12
+        and record.data.get("expression") == "box.value"
+    }
+    assert compound == {
+        "read": (accessors_by_kind["getter"].data.get("qualified_name"),),
+        "write": (accessors_by_kind["setter"].data.get("qualified_name"),),
+    }
+
+
+def test_native_super_formal_inherits_resolved_type_and_default(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """class Parent {
+  Parent({String key = 'x'});
+}
+class Child extends Parent {
+  Child({super.key});
+}
+class DynamicParent {
+  DynamicParent({dynamic value});
+}
+class DynamicChild extends DynamicParent {
+  DynamicChild({super.value});
+}
+class GenericParent<T> {
+  GenericParent({required T value});
+}
+class GenericChild extends GenericParent<String> {
+  GenericChild({required super.value});
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    methods = {
+        record.data.get("qualified_name"): record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method"
+    }
+    child = methods["commerce.main.Child.Child"].data
+    assert child.get("signature_complete") is True
+    key = child.get("parameters")[0]
+    assert key.get("name") == "key"
+    assert key.get("annotation") == "String"
+    assert key.get("kind") == "keyword_only"
+    assert key.get("default") == "'x'"
+    assert key.get("default_known") is True
+
+    dynamic_child = methods["commerce.main.DynamicChild.DynamicChild"].data
+    assert dynamic_child.get("signature_complete") is True
+    value = dynamic_child.get("parameters")[0]
+    assert value.get("annotation") == "dynamic"
+    assert value.get("default_known") is True
+
+    generic_child = methods["commerce.main.GenericChild.GenericChild"].data
+    generic_value = generic_child.get("parameters")[0]
+    assert generic_value.get("annotation") == "String"
+    assert generic_value.get("default") is None
+    assert generic_value.get("default_known") is True
+
+
+def test_native_unresolved_super_formal_stays_present_but_incomplete(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """class Child extends MissingParent {
+  Child({super.key});
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    child = next(
+        record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method"
+        and record.data.get("qualified_name") == "commerce.main.Child.Child"
+    )
+    assert child.data.get("signature_complete") is False
+    key = child.data.get("parameters")[0]
+    assert key.get("name") == "key"
+    assert key.get("annotation") is None
+    assert key.get("kind") == "keyword_only"
+    assert key.get("default") is None
+    assert key.get("default_known") is False
+    assert [gap.kind for gap in facts.coverage.gaps] == ["source_resolution_gap"]
+    gap = facts.coverage.gaps[0]
+    evidence = {item.id: item for item in facts.evidence}
+    assert gap.evidence_ids
+    assert all(evidence[item].file == "lib/main.dart" for item in gap.evidence_ids)
+    assert all(evidence[item].line == 2 for item in gap.evidence_ids)
+
+    from archkeel.check.uml_compare import compare_graphs
+    from archkeel.ir.architecture_graph import ArchitectureGraph, Entity, Parameter, Signature
+
+    observed = _source_graph(facts)
+    target = ArchitectureGraph(
+        "declared",
+        (
+            Entity(
+                "target-child",
+                "class",
+                "commerce.main.Child",
+                "dart",
+                provenance=("independent-target-spec",),
+            ),
+            Entity(
+                "target-constructor",
+                "method",
+                "commerce.main.Child.Child",
+                "dart",
+                parent_id="target-child",
+                signature=Signature(
+                    (Parameter("key", "String", "keyword_only", None),),
+                    "Child",
+                ),
+                provenance=("independent-target-spec",),
+            ),
+        ),
+    )
+    comparison = compare_graphs(observed, target)
+    assert comparison.status == "UNKNOWN"
+    signature = next(
+        item
+        for item in comparison.assessments
+        if item.subject_id == "target-constructor" and item.aspect == "signature"
+    )
+    assert signature.status == "UNKNOWN"
+
+
+def test_native_unmatched_resolved_super_parameter_stays_generic_gap(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """class Parent {
+  Parent({required String other});
+}
+class Child extends Parent {
+  Child({super.key});
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    child = next(
+        record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method"
+        and record.data.get("qualified_name") == "commerce.main.Child.Child"
+    )
+    assert child.data.get("signature_complete") is False
+    key = child.data.get("parameters")[0]
+    assert key.get("name") == "key"
+    assert key.get("annotation") is None
+    assert {gap.kind for gap in facts.coverage.gaps} == {"UnsupportedParameter"}
+
+
+def test_native_invalid_inherited_super_parameter_type_stays_generic_gap(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """class Parent {
+  Parent({required MissingType key});
+}
+class Child extends Parent {
+  Child({super.key});
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    child = next(
+        record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method"
+        and record.data.get("qualified_name") == "commerce.main.Child.Child"
+    )
+    assert child.data.get("signature_complete") is False
+    assert {gap.kind for gap in facts.coverage.gaps} == {"UnsupportedParameter"}
+
+
+def test_native_redirecting_factory_defaults_follow_typed_constructor_chain(
+    tmp_path: Path,
+) -> None:
+    _write_package(
+        tmp_path,
+        """abstract interface class Direct {
+  List<String> get value;
+  factory Direct({List<String> value}) = DirectImpl;
+}
+class DirectImpl implements Direct {
+  DirectImpl({this.value = const []});
+  @override final List<String> value;
+}
+abstract interface class Multi {
+  List<String> get left;
+  List<String> get right;
+  factory Multi({List<String> left, List<String> right}) = MultiHop;
+}
+abstract class MultiHop implements Multi {
+  List<String> get left;
+  List<String> get right;
+  factory MultiHop({List<String> right, List<String> left}) = MultiImpl;
+}
+class MultiImpl implements MultiHop {
+  MultiImpl({this.right = const [], this.left = const []});
+  @override final List<String> left;
+  @override final List<String> right;
+}
+abstract interface class Positional {
+  String get value;
+  factory Positional([String requested]) = PositionalImpl;
+}
+class PositionalImpl implements Positional {
+  PositionalImpl([this.value = 'position']);
+  @override final String value;
+}
+abstract interface class AbsentDefault {
+  String? get value;
+  factory AbsentDefault({String? value}) = AbsentDefaultImpl;
+}
+class AbsentDefaultImpl implements AbsentDefault {
+  AbsentDefaultImpl({this.value});
+  @override final String? value;
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    constructors = {
+        record.data.get("qualified_name"): record.data
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method" and record.data.get("method_kind") == "factory"
+    }
+
+    def defaults(name):
+        return [parameter.get("default") for parameter in constructors[name].get("parameters")]
+
+    assert defaults("commerce.main.Direct.Direct") == ["const []"]
+    assert defaults("commerce.main.Multi.Multi") == ["const []", "const []"]
+    assert defaults("commerce.main.Positional.Positional") == ["'position'"]
+    assert defaults("commerce.main.AbsentDefault.AbsentDefault") == ["null"]
+    assert all(
+        all(parameter.get("default_known") for parameter in data.get("parameters", ()))
+        for data in constructors.values()
+    )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        """abstract interface class MissingTarget {
+  factory MissingTarget({String value}) = MissingImpl;
+}
+""",
+        """abstract interface class Mismatch {
+  factory Mismatch({String value}) = MismatchImpl;
+}
+class MismatchImpl implements Mismatch {
+  MismatchImpl({String other = 'wrong'});
+}
+""",
+        """class RedirectCycle {
+  factory RedirectCycle({String value}) = RedirectCycle.named;
+  factory RedirectCycle.named({String value}) = RedirectCycle;
+}
+""",
+        """abstract interface class FactoryTerminal {
+  factory FactoryTerminal({String value}) = FactoryBody;
+}
+class FactoryBody implements FactoryTerminal {
+  factory FactoryBody({String value = 'body'}) { return Impl(); }
+}
+class Impl implements FactoryBody {}
+""",
+    ],
+    ids=("unresolved", "mismatched-formal", "cycle", "unproven-factory-terminal"),
+)
+def test_native_unresolved_redirecting_factory_default_stays_unknown_and_blocked(
+    tmp_path: Path, source: str
+) -> None:
+    from archkeel.check.uml_compare import compare_graphs
+    from archkeel.ir.architecture_graph import ArchitectureGraph, Entity, Parameter, Signature
+
+    _write_package(tmp_path, source)
+    facts = _native_facts(tmp_path)
+    factory = next(
+        record.data
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method" and record.data.get("method_kind") == "factory"
+    )
+    parameter = factory.get("parameters")[0]
+    assert parameter.get("default") is None
+    assert parameter.get("default_known") is False
+    assert factory.get("signature_complete") is False
+    assert any(gap.kind == "UnsupportedParameter" for gap in facts.coverage.gaps)
+    assert not any(gap.kind == "source_resolution_gap" for gap in facts.coverage.gaps)
+
+    observed = _source_graph(facts)
+    owner = factory.get("parent")
+    target = ArchitectureGraph(
+        "declared",
+        (
+            Entity("target-owner", "class", owner, "dart", provenance=("test",)),
+            Entity(
+                "target-factory",
+                "method",
+                factory.get("qualified_name"),
+                "dart",
+                parent_id="target-owner",
+                signature=Signature(
+                    (Parameter(parameter.get("name"), "String", "keyword_only", "fallback"),),
+                    owner.rsplit(".", 1)[-1],
+                ),
+                provenance=("test",),
+            ),
+        ),
+    )
+    comparison = compare_graphs(observed, target)
+    assessment = next(
+        item
+        for item in comparison.assessments
+        if item.subject_id == "target-factory" and item.aspect == "signature"
+    )
+    assert assessment.status == "UNKNOWN"
+
+
+def test_native_constructor_returns_setters_and_private_names_keep_dart_semantics(
+    tmp_path: Path,
+) -> None:
+    _write_package(
+        tmp_path,
+        """class Box<T> {
+  Box();
+  Box.named();
+  Box._();
+}
+class Maker<T> {
+  factory Maker() = MakerImpl<T>;
+}
+class MakerImpl<T> implements Maker<T> {
+  MakerImpl();
+}
+class Values {
+  int get value => 1;
+  set value(int next) {}
+  int set invalid(int next) {}
+}
+int get status => 1;
+set status(int next) {}
+String describe() => 'value';
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    symbols = {
+        record.data.get("qualified_name"): record.data
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method" or record.kind == "function"
+    }
+    assert symbols["commerce.main.Box.Box"].get("returns") == "Box<T>"
+    assert symbols["commerce.main.Box.Box.named"].get("returns") == "Box<T>"
+    assert symbols["commerce.main.Maker.Maker"].get("returns") == "Maker<T>"
+    assert symbols["commerce.main.MakerImpl.MakerImpl"].get("returns") == "MakerImpl<T>"
+    assert symbols["commerce.main.Values.value::getter"].get("returns") == "int"
+    assert symbols["commerce.main.Values.value::setter"].get("returns") == "void"
+    assert symbols["commerce.main.Values.invalid::setter"].get("returns") == "int"
+    assert symbols["commerce.main.status::getter"].get("returns") == "int"
+    assert symbols["commerce.main.status::setter"].get("returns") == "void"
+    assert symbols["commerce.main.describe"].get("returns") == "String"
+    assert symbols["commerce.main.Box.Box._"].get("qualified_name") == "commerce.main.Box.Box._"
+    assert symbols["commerce.main.Box.Box._"].get("visibility_detail").get("kind") == "private"
+    assert symbols["commerce.main.Box.Box.named"].get("visibility_detail").get("kind") == "public"
+    assert symbols["commerce.main.Box.Box"].get("visibility_detail").get("kind") == "public"
+
+
+def test_native_duplicate_functions_remain_an_explicit_gap(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """String value() => 'first';
+String value() => 'second';
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+
+    assert facts.coverage.full_scope is False
+    assert any(gap.kind == "DuplicateDeclaration" for gap in facts.coverage.gaps)

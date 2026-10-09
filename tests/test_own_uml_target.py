@@ -468,7 +468,8 @@ def test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence(
         previews = page.get_by_role("button", name="Member previews", exact=True)
         assert previews.get_attribute("aria-pressed") == "false"
         assert card.locator(".uml-member").count() == 0
-        assert "12 fields · 7 methods" in card.locator(".meta").text_content()
+        expected_methods = 8 if view == "As-Is" else 7
+        assert f"12 fields · {expected_methods} methods" in card.locator(".meta").text_content()
         details = page.locator(".flow-inspector-content").inner_text()
         assert "+ origin: OriginKind" in details and "+ validate(self): None" in details
         page.get_by_role("button", name="Fit overview", exact=True).click()

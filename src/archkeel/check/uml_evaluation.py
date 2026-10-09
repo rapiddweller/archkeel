@@ -12,9 +12,11 @@ from archkeel.ir.model import (
     UML_TARGET_KIND,
     Diagnostic,
     EvidenceClass,
+    Observation,
     ObservationResult,
     Record,
     Section,
+    UmlEligibility,
     stable_id,
 )
 from archkeel.ir.source_graph import observed_graph
@@ -24,7 +26,9 @@ from archkeel.ir.trace import validate_evidence_classes
 from .uml_compare import compare_graphs
 
 
-def _records(declaration: Record, comparison: GraphComparison) -> dict[str, list[Record]]:
+def _records(
+    declaration: Record, comparison: GraphComparison, *, partial: bool = False
+) -> dict[str, list[Record]]:
     receipts: list[Record] = []
     violations: list[Record] = []
     unknowns: list[Record] = []
@@ -52,7 +56,8 @@ def _records(declaration: Record, comparison: GraphComparison) -> dict[str, list
             "evidence_ids": evidence,
             "data": {
                 "scope": "root",
-                "assessment_complete": comparison.status != "UNKNOWN"
+                "assessment_complete": not partial
+                and comparison.status != "UNKNOWN"
                 and not any(item.status == "UNKNOWN" for item in comparison.assessments),
                 "comparison": json.loads(json.dumps(asdict(comparison))),
             },
@@ -110,9 +115,64 @@ def _validate_receipt_identity(declaration: Record, receipts: tuple[Record, ...]
             raise ValueError("UML evaluation identity conflicts with recorded content")
 
 
+def _replace_evaluations(
+    model: Observation,
+    declarations: tuple[Record, ...],
+    additions: dict[str, list[Record]],
+) -> Observation:
+    known = {record.id: record for section in model.sections for record in section.records}
+    for records in additions.values():
+        for record in records:
+            previous = known.get(record.id)
+            if previous is not None and previous != record:
+                raise ValueError("UML evaluation identity conflicts with recorded content")
+    placeholders = {
+        stable_id("UML-UNKNOWN", path)
+        for declaration in declarations
+        for path in declaration.provenance
+    }
+    generated = {record.id for records in additions.values() for record in records}
+    sections = tuple(
+        replace(
+            section,
+            records=(
+                *(
+                    record
+                    for record in section.records
+                    if record.id not in placeholders | generated
+                ),
+                *additions.get(section.name, ()),
+            ),
+        )
+        for section in model.sections
+    )
+    present = {section.name for section in model.sections}
+    sections = (
+        *sections,
+        *(
+            Section(name, tuple(records))
+            for name, records in additions.items()
+            if name not in present and records
+        ),
+    )
+    evaluated = replace(model, sections=sections)
+    validate_evidence_classes(evaluated)
+    return evaluated
+
+
 def evaluate_uml(result: ObservationResult) -> ObservationResult:
     model = result.observation
-    if model is None or result.diagnostics:
+    authenticated = result.uml_eligibility == UmlEligibility.AUTHENTICATED_PARTIAL
+    partial = (
+        authenticated
+        and bool(result.partial_uml_diagnostics)
+        and result.diagnostics == result.partial_uml_diagnostics
+    )
+    if authenticated and not partial:
+        return replace(result, uml_eligibility=UmlEligibility.BLOCKED)
+    if model is None:
+        return replace(result, uml_eligibility=UmlEligibility.BLOCKED)
+    if result.diagnostics and not partial:
         return result
     declarations = tuple(
         record
@@ -129,55 +189,26 @@ def evaluate_uml(result: ObservationResult) -> ObservationResult:
             "violations": [],
             "unknowns": [],
         }
+        partial_receipt = False
         for declaration in declarations:
             _validate_receipt_identity(declaration, model.records("scope_observations") or ())
             compared = compare_graphs(observed, recorded_target_graph(model, declaration))
-            projected: dict[str, list[Record]] = _records(declaration, compared)
+            if partial and compared.status == "PASS":
+                continue
+            projected: dict[str, list[Record]] = _records(declaration, compared, partial=partial)
             for name, records in projected.items():
                 destination: list[Record] = additions[name]
                 destination.extend(records)
-        known = {record.id: record for section in model.sections for record in section.records}
-        for records in additions.values():
-            for record in records:
-                previous = known.get(record.id)
-                if previous is not None and previous != record:
-                    raise ValueError("UML evaluation identity conflicts with recorded content")
-        placeholders = {
-            stable_id("UML-UNKNOWN", path)
-            for declaration in declarations
-            for path in declaration.provenance
-        }
-        generated = {record.id for records in additions.values() for record in records}
-        sections = tuple(
-            replace(
-                section,
-                records=(
-                    *(
-                        record
-                        for record in section.records
-                        if record.id not in placeholders | generated
-                    ),
-                    *additions.get(section.name, ()),
-                ),
-            )
-            for section in model.sections
-        )
-        present = {section.name for section in model.sections}
-        sections = (
-            *sections,
-            *(
-                Section(name, tuple(records))
-                for name, records in additions.items()
-                if name not in present and records
-            ),
-        )
-        evaluated = replace(model, sections=sections)
-        validate_evidence_classes(evaluated)
-        return replace(result, observation=evaluated)
+            partial_receipt = partial_receipt or bool(projected["scope_observations"])
+        if partial and not partial_receipt:
+            return replace(result, uml_eligibility=UmlEligibility.BLOCKED)
+        return replace(result, observation=_replace_evaluations(model, declarations, additions))
     except ValueError as error:
         return replace(
             result,
+            uml_eligibility=UmlEligibility.BLOCKED,
             diagnostics=(
+                *result.diagnostics,
                 Diagnostic(
                     "parse_error",
                     model.contract.path,

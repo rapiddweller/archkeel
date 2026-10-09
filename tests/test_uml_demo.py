@@ -14,6 +14,9 @@ from archkeel.ir.architecture_graph import EntityKind
 from archkeel.ir.graph_codec import parse_report
 from fixtures.architecture_demo import CATALOG, replay
 
+# The shared vocabulary includes mixins, but these source-backed demos are Python-only.
+_PYTHON_DEMO_ENTITY_KINDS = frozenset(get_args(EntityKind)) - {"mixin"}
+
 
 def _demo_report(output):
     main = output.with_suffix(".report.html")
@@ -70,7 +73,7 @@ def test_complete_uml_demo_declares_closed_intent_without_claiming_full_observat
     result = json.loads(capsys.readouterr().out.splitlines()[-1])
     assert result["declared_rules"] == "UNKNOWN"
     report = _demo_report(output)
-    assert {e.kind for e in report.target.entities} == set(get_args(EntityKind))
+    assert {e.kind for e in report.target.entities} == _PYTHON_DEMO_ENTITY_KINDS
     assert report.target.target_scopes and all(
         s.mode == "closed" for s in report.target.target_scopes
     )
@@ -157,7 +160,7 @@ def test_uml_demo_uses_independent_target_and_recorded_core_comparison(
         if variant == "uml-match":
             assert {
                 item.kind for item in (*report.observed.entities, *report.target.entities)
-            } == set(get_args(EntityKind))
+            } == _PYTHON_DEMO_ENTITY_KINDS
     elif status == "FAIL":
         failed_signature = "reset" if variant == "uml-typescript-mismatch" else "run"
         assert any(

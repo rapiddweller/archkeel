@@ -591,14 +591,25 @@ def _prepare_repo(
 ) -> Path:
     root = tmp_path / "repo"
     shutil.copytree(fixture, root)
+    resolver_inputs = root / "resolver-inputs"
+    has_resolver_inputs = resolver_inputs.is_dir()
+    if has_resolver_inputs:
+        shutil.copytree(resolver_inputs, root / "node_modules")
     apply_overlay(root, files)
-    for args in (
+    commands = [
         ["git", "init", "-q", "-b", "main"],
         ["git", "config", "user.email", "demo@example.invalid"],
         ["git", "config", "user.name", "Demo"],
-        ["git", "add", "-A"],
+    ]
+    if has_resolver_inputs:
+        commands.append(["git", "config", "core.autocrlf", "false"])
+    commands.append(["git", "add", "-A"])
+    if has_resolver_inputs:
+        commands.append(["git", "add", "--force", "node_modules"])
+    commands.append(
         ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "variant"],
-    ):
+    )
+    for args in commands:
         subprocess.run(args, cwd=root, check=True, capture_output=True)
     return root
 

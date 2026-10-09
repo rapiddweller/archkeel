@@ -20,6 +20,12 @@ class ChangeClassificationTests(unittest.TestCase):
         cases = (
             ("src/archkeel/check/report.py", Areas(core=True, report=True)),
             ("src/archkeel/render/html.py", Areas(core=True, report=True)),
+            ("fixtures/J-compass/lib/domain/use_cases/booking.dart", Areas(core=True, report=True)),
+            ("fixtures/K-python-realworld/app/api/routes/users.py", Areas(core=True, report=True)),
+            (
+                "fixtures/L-nest-realworld/src/article/article.service.ts",
+                Areas(core=True, report=True),
+            ),
             (
                 "src/archkeel/render/assets/archkeel-logo-dark.svg",
                 Areas(core=True, report=True),

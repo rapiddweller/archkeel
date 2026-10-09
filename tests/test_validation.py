@@ -30,6 +30,7 @@ from archkeel.check.validation import (
     rewrite_component_graph,
     run_validate,
 )
+from archkeel.check.validation.graphs import mermaid_edges
 from archkeel.check.validation.observation import observation_diagnostics
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe
@@ -1368,6 +1369,134 @@ def test_write_graph_writes_the_graph_init_writes() -> None:
             block.replace("```\n", "graph TD\n    app --> model\n    cli --> app\n```\n"),
         ),
     )
+
+
+def test_human_graph_labels_round_trip_through_collision_safe_mermaid_aliases() -> None:
+    """Human labels stay readable while identifiers remain safe and reversible."""
+    edges = frozenset({("Core", "n_0"), ("n_0", 'Store # "west"\nline')})
+    document = (("sample.md", COMPONENT_GRAPH_MARKER + "\n```mermaid\ngraph TD\n```\n"),)
+
+    edited = rewrite_component_graph(document, edges, frozenset())
+
+    assert len(edited) == 1
+    body = edited[0][1].split("```mermaid\n", 1)[1].split("```", 1)[0]
+    expected_edges = (
+        '    n_0["Core"]\n'
+        '    n_1["Store #35; #34;west#34;#10;line"]\n'
+        '    n_2["n_0"]\n'
+        "    n_0 --> n_2\n"
+        "    n_2 --> n_1\n"
+    )
+    assert mermaid_edges(edges) == expected_edges
+    assert body == f"graph TD\n{expected_edges}"
+    assert rewrite_component_graph(edited, edges, frozenset()) == ()
+
+
+def test_graph_reader_resolves_human_node_labels_back_to_contract_labels() -> None:
+    raw = _contract_with_allowed_dependency("core", "api")
+    raw["components"][0]["label"] = "Core <br> domain"
+    raw["components"][1]["label"] = "Public API"
+    raw["rules"][0]["source"] = "sample.core"
+    raw["rules"][0]["target"] = "sample.api"
+    contract = parse_contract(raw)
+    edges = frozenset({("Core <br> domain", "Public API")})
+    documents = rewrite_component_graph(
+        (
+            (
+                "sample.md",
+                f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n\n"
+                f"{TARGET_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n",
+            ),
+        ),
+        frozenset(),
+        edges,
+    )
+    observation = parse_observation(_model(git_head="a" * 40))
+
+    assert graph_diagnostics(contract, observation, documents) == ()
+    source_document = mermaid_edges(edges)
+    assert '"Core #60;br#62; domain"' in source_document
+    assert (
+        graph_diagnostics(
+            contract,
+            observation,
+            (
+                (
+                    "sample.md",
+                    f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n\n"
+                    f"{TARGET_GRAPH_MARKER}\n```mermaid\ngraph TD\n{source_document}```\n",
+                ),
+            ),
+        )
+        == ()
+    )
+
+
+@pytest.mark.parametrize("node", ["standalone", 'n_0["Standalone store"]'], ids=["bare", "quoted"])
+def test_graph_rewrite_refuses_an_isolated_node(node: str) -> None:
+    body = f"graph TD\n    {node}\n"
+    document = (("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n{body}```\n"),)
+
+    assert rewrite_component_graph(document, frozenset({("Core", "API")}), frozenset()) == ()
+
+
+def test_graph_rewrite_refuses_connected_bare_node_when_human_label_needs_alias() -> None:
+    body = "graph TD\n    core\n    core --> api\n"
+    document = (("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n{body}```\n"),)
+
+    assert rewrite_component_graph(document, frozenset({("core", "Public API")}), frozenset()) == ()
+
+
+def test_graph_rewrite_rejects_conflicting_node_label_declarations() -> None:
+    body = (
+        "graph TD\n"
+        '    n_core["Core"]\n'
+        '    n_api["API"]\n'
+        '    n_api["Renamed API"]\n'
+        "    n_core --> n_api\n"
+    )
+    document = (("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n{body}```\n"),)
+
+    assert rewrite_component_graph(document, frozenset({("Core", "API")}), frozenset()) == ()
+
+    raw = _contract_with_allowed_dependency("core", "api")
+    raw["components"][0]["label"] = "Core"
+    raw["components"][1]["label"] = "API"
+    contract = parse_contract(raw)
+    document = (
+        (
+            "sample.md",
+            f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n\n"
+            f"{TARGET_GRAPH_MARKER}\n```mermaid\n{body}```\n",
+        ),
+    )
+    observation = parse_observation(_model(git_head="a" * 40))
+
+    (drift,) = graph_diagnostics(contract, observation, document)
+    assert drift.code == "graph.drift"
+    assert drift.subject == "sample.md (target graph)"
+    assert "by hand" in drift.remedy
+
+
+@pytest.mark.parametrize("node", ["standalone", 'n_0["Standalone store"]'], ids=["bare", "quoted"])
+def test_graph_diagnostics_accept_equal_empty_edges_with_isolated_node(node: str) -> None:
+    contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": []})
+    observation = parse_observation(_model(git_head="a" * 40))
+    body = f"graph TD\n    {node}\n"
+    documents = (("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n{body}```\n"),)
+
+    assert graph_diagnostics(contract, observation, documents) == ()
+
+
+def test_graph_diagnostics_rejects_unsupported_edge_with_equal_empty_edges() -> None:
+    contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": []})
+    observation = parse_observation(_model(git_head="a" * 40))
+    documents = (
+        ("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n    core --- api\n```\n"),
+    )
+
+    (diagnostic,) = graph_diagnostics(contract, observation, documents)
+    assert diagnostic.code == "graph.drift"
 
 
 def test_write_graph_changes_nothing_without_exactly_one_marked_graph() -> None:

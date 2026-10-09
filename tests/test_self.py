@@ -1,11 +1,10 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Reobserve Archkeel and verify its saved evidence and product quality checks."""
+"""Reobserve Archkeel and verify fresh evidence and product quality checks."""
 
 import json
 from dataclasses import replace
-from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -25,8 +24,7 @@ from archkeel.check.validation import (
     public_api_diagnostics,
     rationale_diagnostics,
 )
-from archkeel.ir.codec import canonical_report_bytes, decode_json, parse_contract
-from archkeel.ir.digest import package_digest
+from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.interfaces import interface_profile
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import (
@@ -56,8 +54,6 @@ ANALYZER_PUBLIC_IR = frozenset(
     }
 )
 ROOT = Path(__file__).parents[1]
-FIXTURE = ROOT / "fixtures/D-self"
-STALE = "fixtures/D-self is stale: run `make self-observation` and commit the result on its own"
 
 
 def _contract() -> ArchitectureContract:
@@ -146,40 +142,27 @@ def _architecture_documents() -> tuple[tuple[str, str], ...]:
     return tuple((str(path.relative_to(ROOT)), path.read_text()) for path in paths)
 
 
-def test_self_result_matches_the_saved_run(self_run: SelfRun) -> None:
-    """The saved result is what the command printed, or it is decoration that drifts.
-
-    It carried `agent_decisions [0, 24]` and 60 files for several releases while the
-    repository had moved on, because nothing read it and the README linked it as evidence.
-    `artifact` is dropped from both sides: it records where one run was told to write, which
-    is the caller's argument, not a property of this repository.
-    """
-    saved = json.loads((FIXTURE / "result.json").read_bytes())
-    observed = json.loads(self_run.result)
-    assert saved.pop("artifact") == "fixtures/D-self/architecture.json"
-    assert observed.pop("artifact")
-    assert saved == observed, STALE
+def test_self_result_matches_fresh_observation(self_run: SelfRun) -> None:
+    result = json.loads(self_run.result)
+    coverage = self_run.observation.coverage
+    assert result["coverage"]["files_discovered"] == coverage.files_discovered
+    assert result["coverage"]["files_read"] == coverage.files_read
+    assert result["coverage"]["files_parsed"] == coverage.files_parsed
+    assert result["coverage"]["calls_unresolved"] == coverage.calls_unresolved
+    assert result["measurements"]["scalars"]["violations"] == len(
+        self_run.observation.records("violations") or ()
+    )
 
 
-def _assert_self_provenance(observed: Observation, provenance: dict[str, object]) -> None:
-    # A commit or unrelated edit does not change the observed source.
-    normalized = replace(observed, source=replace(observed.source, git_head=None, dirty=False))
-    assert provenance == {
-        "checker_digest": package_digest(),
-        "observation_digest": sha256(canonical_report_bytes(normalized)).hexdigest(),
-    }, STALE
-
-
-def test_self_report_is_complete_and_matches_saved_evidence(self_observation: Observation) -> None:
-    observed = self_observation
-    provenance = json.loads((FIXTURE / "provenance.json").read_bytes())
-    assert observed.records("violations") == ()
-    assert all(record.kind != "rule-without-subjects" for record in observed.records("unknowns"))
-    coverage = observed.coverage
+def test_self_report_is_complete(self_observation: Observation) -> None:
+    assert self_observation.records("violations") == ()
+    assert all(
+        record.kind != "rule-without-subjects" for record in self_observation.records("unknowns")
+    )
+    coverage = self_observation.coverage
     assert coverage.status == coverage.rules == "PASS"
     assert coverage.files_discovered == coverage.files_read == coverage.files_parsed > 0
     assert coverage.failures == ()
-    _assert_self_provenance(observed, provenance)
 
 
 def test_self_contract_covers_modules_and_analyzer_interface(

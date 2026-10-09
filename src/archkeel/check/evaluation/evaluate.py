@@ -14,6 +14,7 @@ from typing import Any, TypeAlias
 
 from archkeel.ir.codec import InsideContractMount
 from archkeel.ir.facts import (
+    SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
     ConstructCapability,
     ExternalPackageTarget,
@@ -661,7 +662,7 @@ def evaluate_source(
                 item_id=stable_id("UNKNOWN-IMPORT", item["id"]),
                 evidence_class=EvidenceClass.UNKNOWN,
                 area="analysis_coverage",
-                kind="unresolved-import",
+                kind=SOURCE_RESOLUTION_GAP_KIND,
                 title=unresolved.reason,
                 subjects=item["subjects"],
                 evidence_ids=item["evidence_ids"],

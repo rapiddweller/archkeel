@@ -94,6 +94,7 @@ _BOOLEAN_FIELDS = frozenset(
         "reexport_candidate",
         "symbols_known",
         "frozen_object",
+        "mixin_capable",
         "candidates_truncated",
         "conditional",
         "is_async",
@@ -288,7 +289,66 @@ def _source_record(record: Record, section: str) -> None:
         if section != "symbols" or record.kind != "class":
             raise ValueError("member inventory needs its class owner")
         member_inventories(record.data.get("member_inventories"))
+    if "base_declarations" in fields:
+        _base_declarations(record, section)
     _payload(record.data)
+
+
+def _base_declarations(record: Record, section: str) -> None:
+    value = record.data.get("base_declarations")
+    if (
+        section != "symbols"
+        or record.kind != "class"
+        or not isinstance(value, tuple)
+        or any(not isinstance(item, RecordData) for item in value)
+    ):
+        raise ValueError("base declarations need a class symbol and typed base records")
+    bases = tuple(item for item in value if isinstance(item, RecordData))
+    required = {
+        "id",
+        "relationship_kind",
+        "status",
+        "targets",
+        "candidate_count",
+        "expression",
+        "evidence_ids",
+    }
+    optional = {"candidates_truncated", "reason"}
+    for base in bases:
+        fields = {key for key, _ in base.entries}
+        relation = base.get("relationship_kind")
+        status = base.get("status")
+        targets = base.get("targets")
+        count = base.get("candidate_count")
+        evidence_ids = base.get("evidence_ids")
+        truncated = base.get("candidates_truncated", False)
+        if (
+            not required <= fields
+            or fields - required - optional
+            or not isinstance(base.get("id"), str)
+            or not base.get("id")
+            or relation not in {"inherits", "realizes", "mixes_in"}
+            or status not in {"resolved", "partially_resolved", "unresolved"}
+            or not isinstance(base.get("expression"), str)
+            or not base.get("expression")
+            or not isinstance(targets, tuple)
+            or any(not isinstance(target, str) or not target for target in targets)
+            or not isinstance(count, int)
+            or isinstance(count, bool)
+            or count < len(targets)
+            or not isinstance(truncated, bool)
+            or status == "resolved"
+            and len(targets) != 1
+            or status == "unresolved"
+            and targets
+            or truncated
+            and (status != "partially_resolved" or count <= len(targets))
+            or not isinstance(evidence_ids, tuple)
+            or any(not isinstance(identity, str) or not identity for identity in evidence_ids)
+            or base.get("reason") is not None
+            and not isinstance(base.get("reason"), str)
+        ):
+            raise ValueError("invalid typed base declaration")
 
 
 def _member_inventory_bindings(records: list[Record]) -> None:
