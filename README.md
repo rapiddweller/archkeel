@@ -14,8 +14,11 @@ Use it in your coding-agent harness or CI. Checks run locally and deterministica
 without an LLM. They complement tests of runtime behavior.
 
 <p>
-  <img src="docs/assets/archkeel-shop-store-inside.png" alt="Dark-theme store report with component map, review hints, import matrix and findings" width="1000">
+  <img src="docs/assets/archkeel-compass-target.png" alt="Compass Flutter Target: five components, responsibilities and thirteen declared dependencies" width="1000">
 </p>
+
+Compass Flutter: declared components, responsibilities and dependencies.
+[Explore this Target](https://rapiddweller.github.io/archkeel/demos/uml-compass-project/architecture.report.html?content=components&view=target&theme=dark).
 
 Explore observed code, declared architecture and their differences in one offline report.
 See [ArchKeel's current Main report](https://rapiddweller.github.io/archkeel/), updated by CI.
@@ -63,8 +66,12 @@ Validation diagnoses only absent responsibilities on components explicitly marke
 ## Review the evidence
 
 <p>
-  <img src="docs/assets/archkeel-report-preview.png" alt="Dark-theme shop report with component map, review hints, module matrix and findings" width="1000">
+  <img src="docs/assets/archkeel-python-module-target.png" alt="Python RealWorld Target: nested article, comment and tag modules with declared relationships and cross-scope counts" width="1000">
 </p>
+
+Python RealWorld: drill down from components to the article, comment and tag modules.
+[Explore this Target](https://rapiddweller.github.io/archkeel/demos/uml-python-realworld-project/architecture.report.html?scope=Product%20and%20wire%20contracts%3Acontracts-publishing&content=modules&view=target&theme=dark).
+Target shows declared intent; cross-scope relationships remain counted separately.
 
 Use the report to inspect findings and source locations, then explore the components.
 Filters narrow the view without changing the verdicts.
