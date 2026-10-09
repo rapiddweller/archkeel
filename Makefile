@@ -45,7 +45,8 @@ pr-test:
 		tests/test_references.py tests/test_levels.py tests/test_widening.py tests/test_measurement_budgets.py \
 		tests/test_onboarding.py tests/test_terminal.py \
 		tests/test_onboarding_demo.py tests/test_pypi_description.py tests/test_typescript_onboarding.py \
-		tests/test_unknown_positions.py tests/test_inside_rule_coverage.py tests/test_report_159_160.py
+		tests/test_unknown_positions.py tests/test_inside_rule_coverage.py tests/test_report_159_160.py \
+		tests/test_target_navigation_graph.py
 
 pr-report-test:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
@@ -53,7 +54,7 @@ pr-report-test:
 		tests/test_report_interactions.py tests/test_report_browser.py tests/test_uml_rendering.py \
 		tests/test_compass_project_report.py tests/test_python_realworld_project_report.py \
 		tests/test_nest_realworld_project_report.py tests/test_atlas_report.py \
-		tests/test_own_uml_target.py
+		tests/test_own_uml_target.py tests/test_report_renderer_units.py
 
 ci-typescript: OUTPUT := test-artifacts/typescript-demo
 ci-typescript: demo-typescript

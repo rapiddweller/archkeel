@@ -293,7 +293,12 @@ def test_standard_uml_inlines_pinned_elk_before_flow_under_offline_csp(tmp_path)
     flow = html.index('<script>"use strict";')
     csp = html.split('http-equiv="Content-Security-Policy"', 1)[1].split(">", 1)[0]
 
-    assert elk < flow
+    assert (
+        elk
+        < html.index('<script data-report-asset="scene">')
+        < html.index('<script data-report-asset="layout">')
+        < flow
+    )
     assert "worker-src" not in csp
     assert "<script src=" not in html
 
