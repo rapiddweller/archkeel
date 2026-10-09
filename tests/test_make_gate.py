@@ -583,3 +583,29 @@ def test_only_full_ci_stops_pytest_after_first_failure(target):
     assert ("--maxfail=1" in command) == (target != "test")
     assert "--dist=loadfile" in command and "--max-worker-restart=0" in command
     assert "--junitxml=test-artifacts/pytest/results.xml" in command
+
+
+@pytest.mark.parametrize("exit_code", [0, 2])
+def test_self_observation_generates_ignored_output_and_preserves_failure(tmp_path, exit_code):
+    arguments = tmp_path / "arguments"
+    runner = tmp_path / "uv"
+    runner.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" > "{arguments}"\nexit {exit_code}\n')
+    runner.chmod(0o755)
+    result = subprocess.run(
+        ["make", "self-observation", f"UV={runner}"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": ""},
+        capture_output=True,
+        text=True,
+    )
+    assert arguments.read_text().split() == [
+        "run",
+        "--locked",
+        "archkeel",
+        "report",
+        "--root",
+        ".",
+        "--output",
+        "test-artifacts/self-observation/architecture.json",
+    ]
+    assert result.returncode == exit_code

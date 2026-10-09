@@ -12,7 +12,7 @@ uv sync --locked
 make dart-setup
 ```
 
-`.python-version` pins 3.11.12: CI runs the gate on it, and the saved self-observation records it.
+`.python-version` pins 3.11.12: CI runs the gate on it, and the fresh self-observation records it.
 The runtime test in `make check` also starts `python3.12`, so 3.12 must be on your `PATH`.
 Flow browser tests and Mermaid rendering require Node.js 22; CI installs it for these tools.
 Dart checks need an SDK in `>=3.9,<4`; `make dart-setup` prepares the pinned native Analyzer.
@@ -49,27 +49,20 @@ Run `make report-pages` to generate the same site in `test-artifacts/pages/`: an
 the current report and the Python, Dart and TypeScript demos with shared detail pages and canonical
 JSON. Demo links open in the dark theme; `/demos/` leads to the gallery.
 
-## Regenerate the self-observation
+## Inspect the self-observation
 
-`tests/test_self.py` runs `archkeel report` on this repository and compares the result with the
-saved result and provenance in `fixtures/D-self`. The full JSON and HTML are generated once
-per test session and shared by local workers. A change to Python code under `src/`,
-`pyproject.toml`, or a contract (`architecture-contract.json` or an inside contract) moves
-that run, and the test fails with
-`fixtures/D-self is stale`. Documentation does not. Regenerate it and commit the compact evidence:
+Tests generate one fresh report per session and share it across workers. They check
+coverage, architecture rules, interfaces and declared budgets against the current code.
+No generated result or provenance snapshot needs to be committed.
+
+To inspect the same repository locally:
 
 ```bash
 make self-observation
-git add fixtures/D-self/result.json fixtures/D-self/provenance.json
-git commit -m "Regenerate the self-observation after <your change>"
 ```
 
-Two branches that both regenerate conflict in these files. Rebase and run `make self-observation`
-again instead of resolving the JSON by hand.
-
-`make self-observation` also writes the ignored full JSON and HTML locally. Provenance keeps
-only the checker and observation digests; tests normalize Git HEAD/dirty and check all other content.
-Only regenerate when the test says so.
+This prints the result and writes JSON/HTML to ignored `test-artifacts/self-observation/`.
+Architecture contracts, baselines and amendments remain reviewed source files.
 
 ## A behaviour change carries its decision
 

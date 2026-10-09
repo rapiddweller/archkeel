@@ -59,6 +59,11 @@ not every helper. Types published by their actual owner, builtins, enums and
 Pydantic models qualify. Broad maps and native `object` need reviewed exact
 allowances. `allowed_positions` removes only its matching finding; other member
 findings and UNKNOWNs remain. Accepted opacity never proves type closure.
+For a DTO's native map value, combine `field_path` with `container_depth` and
+the complete field `annotation`. Only one alias-free map and literal `object`
+or `list[object]` value can match. Depth counts containers from the signature,
+including containers before the DTO; fields and unions do not add depth.
+The outer map needs a separate allowance. Ambiguous paths or occurrences grant nothing.
 See [boundary examples](../tests/test_boundary_types_facades.py) before choosing
 selectors. Aliases, inheritance, re-exports and unsupported forms require proof.
 

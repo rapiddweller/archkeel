@@ -1,13 +1,16 @@
-# AD-156 Self evidence keeps compact provenance
+# AD-156 Self evidence is generated per test session
 
-Commit compact self-result and provenance files; generate full JSON/HTML through
-`make self-observation` or tests. Large generated copies add conflicts
-without another source of truth.
+Generate self evidence from current code; do not commit result or provenance
+snapshots. Even compact snapshots change on unrelated branches and create merge
+conflicts without adding a source of truth. This replaces the original decision
+to commit two compact evidence files.
 
-Share one validated report per test session with a dev lock and atomic
-completion marker. Failed generation cannot become cached evidence; sessions start
-fresh. Provenance normalizes only Git HEAD/dirty and retains source, analyzer, policy,
-coverage, UNKNOWNs and records in digest comparison. Mutation tests decode independent
-copies.
+Share one validated report per test session with a dev lock and atomic completion
+marker. Failed generation cannot become cached evidence; sessions start fresh.
+Self tests retain coverage, rule, interface and contract checks. Reviewed baselines
+and amendments remain versioned.
+
+`make self-observation` writes local JSON/HTML under ignored `test-artifacts/`.
+It uses the normal report command; no separate snapshot generator is needed.
 
 [Fixture proof](../../../tests/test_self_fixture.py).
