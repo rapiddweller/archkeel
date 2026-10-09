@@ -1572,6 +1572,18 @@
 
   function selectArchitectureSubject(type, id) {
     if (ATLAS) { atlasModule = viewMode !== "target" && atlasModuleById(id) ? id : null; atlasCell = null; }
+    const node = !ATLAS && type === "node"
+      ? nodeLayer.querySelector(`[data-uml-id="${CSS.escape(id)}"]`) : null;
+    // If Details is already open, read geometry before selection writes can force layout.
+    const measuredBounds = targetDetailsOpen && node
+      ? {
+        card: node.getBoundingClientRect(),
+        canvas: canvas.getBoundingClientRect(),
+        clientLeft: canvas.clientLeft,
+        clientTop: canvas.clientTop,
+        clientWidth: canvas.clientWidth,
+        clientHeight: canvas.clientHeight,
+      } : null;
     umlSelection = { type, id };
     setTargetDetails(true);
     nodeLayer.querySelectorAll("[data-uml-id]").forEach((node) => {
@@ -1589,14 +1601,13 @@
     updateOpenSelected();
     if (ATLAS) return;
     if (type === "node") {
-      const node = nodeLayer.querySelector(`[data-uml-id="${CSS.escape(id)}"]`);
       if (!node) return;
-      const box = node.getBoundingClientRect();
-      const bounds = canvas.getBoundingClientRect();
-      const left = bounds.left + canvas.clientLeft + 8;
-      const top = bounds.top + canvas.clientTop + 8;
-      const width = canvas.clientWidth - 16;
-      const height = canvas.clientHeight - 16;
+      const box = measuredBounds?.card || node.getBoundingClientRect();
+      const bounds = measuredBounds?.canvas || canvas.getBoundingClientRect();
+      const left = bounds.left + (measuredBounds?.clientLeft ?? canvas.clientLeft) + 8;
+      const top = bounds.top + (measuredBounds?.clientTop ?? canvas.clientTop) + 8;
+      const width = (measuredBounds?.clientWidth ?? canvas.clientWidth) - 16;
+      const height = (measuredBounds?.clientHeight ?? canvas.clientHeight) - 16;
       // Opening Details reduces the canvas; keep the selected card in view without relayout.
       canvas.scrollLeft += box.width > width || box.left < left
         ? box.left - left : Math.max(0, box.right - left - width);

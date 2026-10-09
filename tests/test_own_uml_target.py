@@ -722,8 +722,9 @@ def test_own_dense_scenes_remain_actionable_at_reduced_cpu(view, self_observatio
         page.context.new_cdp_session(page).send("Emulation.setCPUThrottlingRate", {"rate": 2})
         payload = page.locator("#flow-data").text_content()
         page.get_by_role("button", name=view, exact=True).click()
-        for label in ("ir", "governance", "architecture_graph"):
+        for depth, label in enumerate(("ir", "governance", "architecture_graph"), start=2):
             page.locator(f'.flow-nodes [data-label="{label}"]').dblclick()
+            assert page.locator(".flow-breadcrumb button").count() == depth
         nodes = page.locator(".flow-nodes [data-uml-id]")
         edges = page.locator(".flow-edges [data-uml-id]")
         identities = nodes.evaluate_all("nodes => nodes.map(node => node.dataset.umlId).sort()")

@@ -713,6 +713,55 @@ def test_opening_details_reveals_selected_card_without_changing_scene(
         playwright.stop()
 
 
+def test_keyboard_selection_reveals_focused_card_after_pan_with_details_open(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    html, _ = _uml_report(tmp_path)
+    playwright, browser, page = _browser_page(api, html, width=375, height=1000)
+    try:
+        _open_module(page, "As-Is")
+        details = page.locator(".flow-details-toggle")
+        if details.get_attribute("aria-expanded") != "true":
+            details.click()
+        page.get_by_role("button", name="Fit overview", exact=True).click()
+        for _ in range(2):
+            page.get_by_role("button", name="Zoom in", exact=True).click()
+
+        canvas = page.locator(".flow-canvas")
+        scroll = canvas.evaluate(
+            "n => { n.scrollLeft = n.scrollWidth; n.scrollTop = n.scrollHeight; "
+            "return [n.scrollLeft, n.scrollTop] }"
+        )
+        assert max(scroll) > 0
+        index = page.locator(".flow-nodes [data-uml-id]").evaluate_all(
+            "nodes => nodes.findIndex(n => { const r = n.getBoundingClientRect(); "
+            "const c = n.closest('.flow-canvas').getBoundingClientRect(); "
+            "return r.width <= c.width && r.height <= c.height && "
+            "(r.left < c.left || r.right > c.right || r.top < c.top || r.bottom > c.bottom) })"
+        )
+        assert index >= 0
+        card = page.locator(".flow-nodes [data-uml-id]").nth(index)
+        card.evaluate("n => n.focus({ preventScroll: true })")
+        page.keyboard.press("Space")
+
+        card_bounds = card.bounding_box()
+        canvas_bounds = canvas.bounding_box()
+        assert card_bounds and canvas_bounds
+        assert card_bounds["x"] >= canvas_bounds["x"] - 1
+        assert (
+            card_bounds["x"] + card_bounds["width"]
+            <= canvas_bounds["x"] + canvas_bounds["width"] + 1
+        )
+        assert card_bounds["y"] >= canvas_bounds["y"] - 1
+        assert (
+            card_bounds["y"] + card_bounds["height"]
+            <= canvas_bounds["y"] + canvas_bounds["height"] + 1
+        )
+        assert details.get_attribute("aria-expanded") == "true"
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
 def test_keyboard_back_restores_the_open_component(tmp_path, view):
     api = pytest.importorskip("playwright.sync_api")
