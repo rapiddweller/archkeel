@@ -171,6 +171,17 @@
 - [ ] Verify every mutation preserves path selection, pinned upstream input hashes other than the changed overlay, Target bytes and exact assessment evidence. Keep SQL/data-flow and external library semantics unknown.
 - [ ] Record measured completeness, comparison/assessment counts, source hashes and reasons; do not run archived app/tests or install its dependencies. Commit and review.
 
+### Task 8b: Repair demo provenance graphs and Dart control inputs
+
+**Files:** `src/archkeel/check/validation/graphs.py` and existing graph callers/tests as needed; `fixtures/{J-compass,K-python-realworld}/docs/target.md`; `fixtures/G-dart/lib/presentation/{order_page,order_tile}.dart`; focused validation/Dart control tests.
+
+**Measured defects:** Python validation reports `graph.count` because the required observed component graph is absent; Compass documentation has the same omission. The graph reader/writer assumes identifier-shaped labels although the contract accepts human labels. G-dart controls now honestly expose unavailable inherited defaults from two `super.key` parameters.
+
+- [ ] Preserve human component labels and support a bounded valid Mermaid representation in the shared graph reader/writer. Reuse existing identities/formatting where possible. Prove label preservation, deterministic rewrite round-trip and collision safety; unsupported graph structures remain unwritable. Do not relax graph validation or rename Target components merely to fit the parser.
+- [ ] Add the required observed graph to both demo provenance documents using the original source imports. Keep every Target JSON byte, intended dependency and frozen bundle hash unchanged. The marked observed graph is documentation, never authority for Target intent. Prevent missing/drifted baseline graphs with focused checks.
+- [ ] Keep G-dart as a self-contained control: spell its two widget keys as ordinary optional `Key? key` parameters forwarded by `super(key: key)`, so the default is source-local. This fixture is first-party, not pinned upstream. Preserve native inherited-default uncertainty and all pinned Compass bytes; test the actual affected controls.
+- [ ] Run covering validation/rewrite and Dart control tests, Ruff/mypy/diff checks, then independent review. Resume Task8 with fresh four-case proof and measured exits/diagnostics after the gate.
+
 ### Task 8a: Restore the repository self-observation gate
 
 **Files:** `src/archkeel/analyzer/runtime.py`, `src/archkeel/ir/source_graph.py`; reuse existing runtime and result-binding tests.
