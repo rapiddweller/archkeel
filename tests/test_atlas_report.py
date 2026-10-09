@@ -551,6 +551,39 @@ def test_component_detail_links_are_relative_and_keep_shared_uml(tmp_path):
         assert "default-src 'none'" in page
 
 
+@pytest.mark.parametrize("width", [1440, 390])
+@pytest.mark.parametrize("expanded", [False, True])
+def test_atlas_closed_details_releases_diagram_space(tmp_path, width, expanded):
+    api = pytest.importorskip("playwright.sync_api")
+    errors = []
+    playwright, browser, page = _browser_page(
+        api, _page(_sample(tmp_path)), width=width, height=900, errors=errors
+    )
+    try:
+        if expanded:
+            page.locator(".flow-fullscreen").click()
+            api.expect(page.locator(".flow")).to_have_attribute("data-expanded", re.compile(".+"))
+        _open_details(page)
+        opened = page.locator(".flow-canvas").bounding_box()
+        page.locator(".flow-details-toggle").click()
+        api.expect(page.locator(".flow-inspector")).to_be_hidden()
+        layout = page.locator(".flow-layout").bounding_box()
+        closed = page.locator(".flow-canvas").bounding_box()
+        assert closed["width"] >= layout["width"] - 2
+        if width == 1440:
+            assert closed["width"] > opened["width"] + 200
+        elif expanded:
+            assert closed["height"] > opened["height"] + 100
+        page.locator(".flow-details-toggle").click()
+        api.expect(page.locator(".flow-inspector")).to_be_visible()
+        reopened = page.locator(".flow-canvas").bounding_box()
+        assert reopened["width"] == pytest.approx(opened["width"], abs=2)
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 @pytest.mark.parametrize("width", [1440, 400])
 def test_atlas_browser_keeps_positions_and_unknown_cells_across_lenses(tmp_path, width):
     api = pytest.importorskip("playwright.sync_api")
