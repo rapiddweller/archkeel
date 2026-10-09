@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "7a7c7a1aea4dc605df4c840e2ae0d6664b43457bdd5bc603ea6fe13cff85ba27",
+  "after_digest": "43e861313d01c28e72e8e20f0586cb0f9f62dc44e657f86f2815c9508a63e900",
+  "before_baseline_digest": "8f6e018f6a6a3470e9899f4aa87256f4e4995ad0a71ae895c7c5876310b02827",
+  "before_digest": "521ae6ef52873532802fac4ca122a83ac5fe15b3a031927d9fbe9f920e73d2ea",
+  "decided_by": "Codex (agent; user-authorized SDK-free Dart migration)",
+  "rationale": "Complete the authored syntax DTO boundary and preserve source identity, generic bases, full member spans and initializer read ownership. The measured unresolved-call count rises from 915 to 921 for five standard-library string operations and one bytes join; all other budgets and component permissions remain unchanged. See AD-215.",
+  "schema_version": "2.0.0"
+}
