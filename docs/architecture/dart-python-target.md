@@ -3,7 +3,10 @@
 User decision, 2026-10-09: define the Target before implementation; analyze Dart
 without installing or invoking the Dart SDK. This supersedes AD-211's runtime
 choice. [Machine-readable Target](contracts/dart.json) owns component permissions,
-module responsibilities and the principal UML types, fields and operations.
+module responsibilities and the principal UML types, fields and operations. Its
+syntax boundary describes definitions, member signatures and parameter defaults,
+directive alternatives/combinators, source spans and lexical site scope; these are
+linked as typed DTOs rather than hidden in helper behavior.
 
 ```
 entry -> collect -> snapshot
