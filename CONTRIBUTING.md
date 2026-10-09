@@ -29,7 +29,8 @@ Without `BASE`, the local gate validates only the checked-out policy.
 PRs and Main pushes run the change-selected core and report regression checks; Mermaid checks
 follow Markdown changes. The report sample includes the real nested-Python route regression,
 renderer, drag/async and independent-Target checks. Samples do not replace testing the behavior
-you change.
+you change. The normal core set uses one Dart CLI smoke, one UNKNOWN safety case and four Flutter
+Target guards; complete Dart and Flutter variant coverage stays in the full/native checks.
 
 The scheduled **Full verification** workflow runs the complete `make ci` gate, report timing and
 browser proof, gallery generation, plus Windows/Python, TypeScript and Dart SDK/OS matrices. It
