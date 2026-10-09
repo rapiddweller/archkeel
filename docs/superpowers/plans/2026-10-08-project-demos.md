@@ -171,6 +171,16 @@
 - [ ] Verify every mutation preserves path selection, pinned upstream input hashes other than the changed overlay, Target bytes and exact assessment evidence. Keep SQL/data-flow and external library semantics unknown.
 - [ ] Record measured completeness, comparison/assessment counts, source hashes and reasons; do not run archived app/tests or install its dependencies. Commit and review.
 
+### Task 8a: Restore the repository self-observation gate
+
+**Files:** `src/archkeel/analyzer/runtime.py`, `src/archkeel/ir/source_graph.py`; reuse existing runtime and result-binding tests.
+
+**Measured defect:** exact comparison of f4876998 against origin/main82f83d9b reports718 unresolved calls against714 accepted. Five new dynamic string receivers minus one removed TOML lookup explain the net increase; paired synthetic-scope line shifts do not.
+
+- [ ] Remove duplicate Poetry string validation by reusing the final common check; normalize only actual strings. Validate stripped caret syntax without a capture and use an explicitly typed string slice for the version.
+- [ ] Bind the frozen Entity qualified_name to a typed string local before prefix/terminal-name checks. Preserve every result-binding identity/conflict invariant; no casts, new receiver inference, or budget widening.
+- [ ] Run existing runtime, source-graph/static-instance and native closure regression checks, Ruff/mypy, then fresh `make self-validate` and `make against BASE=origin/main`. Record exact call deltas and actual count, not the predicted713. Independently review before Task9.
+
 ### Task 9: Verify Nest/Mikro source-resolution feasibility
 
 **Files:** inspect the pinned `fixtures/L-nest-realworld/{package.json,yarn.lock,tsconfig.json,tsconfig.build.json,src/**}` inputs; modify bounded TypeScript `resolve.py`, `parse.py`, `collect.py` and focused resolver/parser/collector tests. Add pinned `resolver-inputs/**` and portable resolver provenance; preserve package-local licenses. No application source edits.
