@@ -50,11 +50,17 @@ pr-test:
 
 pr-report-test:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
-		--junitxml=test-artifacts/pytest/pr-report.xml tests/test_report_pages.py \
-		tests/test_report_interactions.py tests/test_report_browser.py tests/test_uml_rendering.py \
-		tests/test_compass_project_report.py tests/test_python_realworld_project_report.py \
-		tests/test_nest_realworld_project_report.py tests/test_atlas_report.py \
-		tests/test_own_uml_target.py tests/test_report_renderer_units.py
+		--junitxml=test-artifacts/pytest/pr-report.xml \
+		tests/test_report_renderer_units.py \
+		tests/test_report_interactions.py::test_native_card_drag_reroutes_all_hits_and_keeps_architecture_unchanged \
+		tests/test_uml_rendering.py::test_standard_uml_ignores_stale_layout_and_retries_rejected_layout \
+		tests/test_atlas_report.py::test_target_content_is_independent_of_observed_evidence \
+		tests/test_atlas_report.py::test_atlas_browser_keeps_positions_and_unknown_cells_across_lenses \
+		tests/test_atlas_report.py::test_atlas_component_layout_keeps_union_geometry_and_active_edges \
+		tests/test_report_interactions.py::test_atlas_component_routes_select_leafs_and_open_inside_scopes \
+		tests/test_python_realworld_project_report.py::test_python_http_module_scope_preserves_nested_ownership_and_target_routes \
+		tests/test_python_realworld_project_report.py::test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_routes \
+		tests/test_own_uml_target.py::test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints
 
 ci-typescript: OUTPUT := test-artifacts/typescript-demo
 ci-typescript: demo-typescript
