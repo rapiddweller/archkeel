@@ -485,31 +485,15 @@ class _Collection:
         ):
             if site.receiver is None:
                 candidates.extend(
-                    f"{module}.{item.name}"
-                    for _, item in top_by_module.get(module, [])
-                    if item.name == name
-                    and (
-                        site.kind == "reference"
-                        or (site.kind == "call" and item.kind == "function")
-                        or (site.kind == "new" and item.kind == "class")
+                    self._unqualified_candidates(
+                        module,
+                        name,
+                        site,
+                        top_by_module,
+                        import_by_local,
+                        definitions_by_module,
                     )
                 )
-                for target_module, imported, namespace, type_only in import_by_local.get(
-                    module, {}
-                ).get(name, []):
-                    if namespace or (type_only and site.use != "type"):
-                        continue
-                    candidates.extend(
-                        f"{target_module}.{item.name}"
-                        for item in definitions_by_module.get(target_module, [])
-                        if item.name == imported
-                        and item.exported
-                        and (
-                            site.kind == "reference"
-                            or (site.kind == "call" and item.kind == "function")
-                            or (site.kind == "new" and item.kind == "class")
-                        )
-                    )
             elif site.kind == "reference" and site.receiver == "this":
                 class_scope = scope.rpartition(".")[0]
                 local_class = by_qualified.get(class_scope, [])
@@ -551,6 +535,43 @@ class _Collection:
         if reason is None and status != "resolved":
             reason = "definition is missing or ambiguous"
         return candidates, status, reason
+
+    def _unqualified_candidates(
+        self,
+        module: str,
+        name: str,
+        site: Site,
+        top_by_module: dict[str, list[tuple[str, Definition]]],
+        import_by_local: dict[str, dict[str, list[tuple[str, str, bool, bool]]]],
+        definitions_by_module: dict[str, list[Definition]],
+    ) -> list[str]:
+        candidates = [
+            f"{module}.{item.name}"
+            for _, item in top_by_module.get(module, [])
+            if item.name == name
+            and (
+                site.kind == "reference"
+                or (site.kind == "call" and item.kind == "function")
+                or (site.kind == "new" and item.kind == "class")
+            )
+        ]
+        for target_module, imported, namespace, type_only in import_by_local.get(module, {}).get(
+            name, []
+        ):
+            if namespace or (type_only and site.use != "type"):
+                continue
+            candidates.extend(
+                f"{target_module}.{item.name}"
+                for item in definitions_by_module.get(target_module, [])
+                if item.name == imported
+                and item.exported
+                and (
+                    site.kind == "reference"
+                    or (site.kind == "call" and item.kind == "function")
+                    or (site.kind == "new" and item.kind == "class")
+                )
+            )
+        return candidates
 
     def _reference_record(
         self,

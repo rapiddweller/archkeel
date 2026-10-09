@@ -635,6 +635,33 @@ class ArchitectureGraph:
                     raise ValueError("definition contexts describe observed source declarations")
                 self._validate_evidence(context.evidence_ids, (), evidence_ids)
 
+    def _validate_permission_metadata(
+        self, edge: Relationship, entities: dict[str, Entity]
+    ) -> None:
+        if edge.kind == "requires":
+            rationale: str = edge.reason or ""
+            if (
+                self.origin != "declared"
+                or entities[edge.source_id].kind != "component"
+                or edge.target_id is None
+                or entities[edge.target_id].kind != "component"
+                or not rationale.strip()
+                or edge.expression is not None
+            ):
+                raise ValueError(
+                    "dependency permission needs declared component endpoints and rationale"
+                )
+            if len(set(edge.through)) != len(edge.through):
+                raise ValueError("duplicate dependency permission selector")
+            for value in edge.through:
+                selector: str = value
+                if not selector.strip():
+                    raise ValueError("empty dependency permission selector")
+            if edge.decided_by not in {None, "architect", "agent"}:
+                raise ValueError("invalid dependency permission decider")
+        elif edge.through or edge.decided_by is not None:
+            raise ValueError("permission metadata belongs on requires relationships")
+
     def _validate_relationships(self, entities: dict[str, Entity], evidence_ids: set[str]) -> None:
         for edge in self.relationships:
             if not edge.id or edge.source_id not in entities:
@@ -663,29 +690,7 @@ class ArchitectureGraph:
                         and not (target.kind == "symbol" and target.presence == "referenced")
                     ):
                         raise ValueError("mixes_in relationship needs a mixin-capable target")
-            if edge.kind == "requires":
-                rationale: str = edge.reason or ""
-                if (
-                    self.origin != "declared"
-                    or entities[edge.source_id].kind != "component"
-                    or edge.target_id is None
-                    or entities[edge.target_id].kind != "component"
-                    or not rationale.strip()
-                    or edge.expression is not None
-                ):
-                    raise ValueError(
-                        "dependency permission needs declared component endpoints and rationale"
-                    )
-                if len(set(edge.through)) != len(edge.through):
-                    raise ValueError("duplicate dependency permission selector")
-                for value in edge.through:
-                    selector: str = value
-                    if not selector.strip():
-                        raise ValueError("empty dependency permission selector")
-                if edge.decided_by not in {None, "architect", "agent"}:
-                    raise ValueError("invalid dependency permission decider")
-            elif edge.through or edge.decided_by is not None:
-                raise ValueError("permission metadata belongs on requires relationships")
+            self._validate_permission_metadata(edge, entities)
             if len(set(edge.candidate_ids)) != len(edge.candidate_ids) or any(
                 candidate not in entities for candidate in edge.candidate_ids
             ):

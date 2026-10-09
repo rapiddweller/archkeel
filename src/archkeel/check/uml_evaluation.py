@@ -12,6 +12,7 @@ from archkeel.ir.model import (
     UML_TARGET_KIND,
     Diagnostic,
     EvidenceClass,
+    Observation,
     ObservationResult,
     Record,
     Section,
@@ -114,6 +115,51 @@ def _validate_receipt_identity(declaration: Record, receipts: tuple[Record, ...]
             raise ValueError("UML evaluation identity conflicts with recorded content")
 
 
+def _replace_evaluations(
+    model: Observation,
+    declarations: tuple[Record, ...],
+    additions: dict[str, list[Record]],
+) -> Observation:
+    known = {record.id: record for section in model.sections for record in section.records}
+    for records in additions.values():
+        for record in records:
+            previous = known.get(record.id)
+            if previous is not None and previous != record:
+                raise ValueError("UML evaluation identity conflicts with recorded content")
+    placeholders = {
+        stable_id("UML-UNKNOWN", path)
+        for declaration in declarations
+        for path in declaration.provenance
+    }
+    generated = {record.id for records in additions.values() for record in records}
+    sections = tuple(
+        replace(
+            section,
+            records=(
+                *(
+                    record
+                    for record in section.records
+                    if record.id not in placeholders | generated
+                ),
+                *additions.get(section.name, ()),
+            ),
+        )
+        for section in model.sections
+    )
+    present = {section.name for section in model.sections}
+    sections = (
+        *sections,
+        *(
+            Section(name, tuple(records))
+            for name, records in additions.items()
+            if name not in present and records
+        ),
+    )
+    evaluated = replace(model, sections=sections)
+    validate_evidence_classes(evaluated)
+    return evaluated
+
+
 def evaluate_uml(result: ObservationResult) -> ObservationResult:
     model = result.observation
     authenticated = result.uml_eligibility == UmlEligibility.AUTHENTICATED_PARTIAL
@@ -156,44 +202,7 @@ def evaluate_uml(result: ObservationResult) -> ObservationResult:
             partial_receipt = partial_receipt or bool(projected["scope_observations"])
         if partial and not partial_receipt:
             return replace(result, uml_eligibility=UmlEligibility.BLOCKED)
-        known = {record.id: record for section in model.sections for record in section.records}
-        for records in additions.values():
-            for record in records:
-                previous = known.get(record.id)
-                if previous is not None and previous != record:
-                    raise ValueError("UML evaluation identity conflicts with recorded content")
-        placeholders = {
-            stable_id("UML-UNKNOWN", path)
-            for declaration in declarations
-            for path in declaration.provenance
-        }
-        generated = {record.id for records in additions.values() for record in records}
-        sections = tuple(
-            replace(
-                section,
-                records=(
-                    *(
-                        record
-                        for record in section.records
-                        if record.id not in placeholders | generated
-                    ),
-                    *additions.get(section.name, ()),
-                ),
-            )
-            for section in model.sections
-        )
-        present = {section.name for section in model.sections}
-        sections = (
-            *sections,
-            *(
-                Section(name, tuple(records))
-                for name, records in additions.items()
-                if name not in present and records
-            ),
-        )
-        evaluated = replace(model, sections=sections)
-        validate_evidence_classes(evaluated)
-        return replace(result, observation=evaluated)
+        return replace(result, observation=_replace_evaluations(model, declarations, additions))
     except ValueError as error:
         return replace(
             result,

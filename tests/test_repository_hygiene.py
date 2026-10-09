@@ -172,6 +172,7 @@ ALLOWED_LONG_FUNCTIONS = {
 # the report shapes that happened to land this time.
 ROOT_FILES = frozenset(
     (
+        ".gitattributes",
         ".gitignore",
         ".python-version",
         "CODE_OF_CONDUCT.md",

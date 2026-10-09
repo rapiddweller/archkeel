@@ -349,6 +349,51 @@ def _source_endpoint(
     return _endpoint(name, record, by_name, entities, language)
 
 
+def _reconcile_result_binding(
+    previous: Entity | None,
+    owner: Entity,
+    source: str,
+    name: str,
+    target_kind: str,
+    annotation: str | None,
+    definition_contexts: tuple[DefinitionContext, ...],
+) -> tuple[str, str | None, tuple[DefinitionContext, ...]]:
+    qualified_name = f"{owner.qualified_name}.{name}"
+    if previous is not None:
+        if (
+            previous.kind != "binding"
+            or previous.parent_id != source
+            or previous.initializer is not None
+        ):
+            raise ValueError("static result binding identity conflicts")
+        if target_kind == "name":
+            if (
+                not previous.qualified_name.startswith(f"{owner.qualified_name}.")
+                or previous.qualified_name.rsplit(".", 1)[-1] != name
+            ):
+                raise ValueError("static result binding identity conflicts")
+            qualified_name = previous.qualified_name
+        elif previous.qualified_name != qualified_name:
+            raise ValueError("static result binding identity conflicts")
+        if (
+            previous.annotation is not None
+            and annotation is not None
+            and previous.annotation != annotation
+        ):
+            raise ValueError("static result binding identity conflicts")
+        if (
+            previous.definition_contexts
+            and definition_contexts
+            and tuple((item.kind, item.branch) for item in previous.definition_contexts)
+            != tuple((item.kind, item.branch) for item in definition_contexts)
+        ):
+            raise ValueError("static result binding identity conflicts")
+        annotation = annotation if annotation is not None else previous.annotation
+        if not definition_contexts:
+            definition_contexts = previous.definition_contexts
+    return qualified_name, annotation, definition_contexts
+
+
 def _value_bindings(
     record: Record,
     source: str,
@@ -386,39 +431,15 @@ def _value_bindings(
         previous = next((item for item in entities if item.id == identity), None)
         annotation = _text(site.get("annotation"))
         definition_contexts = _definition_contexts(site.get("definition_contexts"))
-        qualified_name = f"{owner.qualified_name}.{name}"
-        if previous:
-            if (
-                previous.kind != "binding"
-                or previous.parent_id != source
-                or previous.initializer is not None
-            ):
-                raise ValueError("static result binding identity conflicts")
-            if target_kind == "name":
-                if (
-                    not previous.qualified_name.startswith(f"{owner.qualified_name}.")
-                    or previous.qualified_name.rsplit(".", 1)[-1] != name
-                ):
-                    raise ValueError("static result binding identity conflicts")
-                qualified_name = previous.qualified_name
-            elif previous.qualified_name != qualified_name:
-                raise ValueError("static result binding identity conflicts")
-            if (
-                previous.annotation is not None
-                and annotation is not None
-                and previous.annotation != annotation
-            ):
-                raise ValueError("static result binding identity conflicts")
-            if (
-                previous.definition_contexts
-                and definition_contexts
-                and tuple((item.kind, item.branch) for item in previous.definition_contexts)
-                != tuple((item.kind, item.branch) for item in definition_contexts)
-            ):
-                raise ValueError("static result binding identity conflicts")
-            annotation = annotation if annotation is not None else previous.annotation
-            if not definition_contexts:
-                definition_contexts = previous.definition_contexts
+        qualified_name, annotation, definition_contexts = _reconcile_result_binding(
+            previous,
+            owner,
+            source,
+            name,
+            target_kind,
+            annotation,
+            definition_contexts,
+        )
         value = Entity(
             identity,
             "binding",
