@@ -728,7 +728,9 @@
         d: orthogonalPath(points),
         mid: [(sx + tx) / 2, drop], end: [tx, end],
       };
-      return routeAroundHeaders(direct, points, sx, sy, tx, end, headers, edge, frames, occupied, laneIndex);
+      return routeAroundHeaders(
+        direct, points, sx, sy, tx, end, headers, edge, frames, occupied, laneIndex, inIndex,
+      );
     }
     const startY = sy ?? (upward ? sPos.y : sPos.y + sourceHeight);
     const endY = ty ?? (upward ? tPos.y + targetHeight : tPos.y);
@@ -751,7 +753,9 @@
       mid: [(sx + tx) / 2, my],
       end: finish,
     };
-    return routeAroundHeaders(direct, points, sx, startY, tx, end, headers, edge, frames, occupied, laneIndex);
+    return routeAroundHeaders(
+      direct, points, sx, startY, tx, end, headers, edge, frames, occupied, laneIndex, inIndex,
+    );
   }
 
   function sharedRouteLength(points, occupied, limit = Infinity, clearance = LANE_GAP, avoidCrossings = false) {
@@ -790,7 +794,9 @@
     return total;
   }
 
-  function routeAroundHeaders(direct, points, sx, sy, tx, end, headers, edge, frames, occupied, laneIndex) {
+  function routeAroundHeaders(
+    direct, points, sx, sy, tx, end, headers, edge, frames, occupied, laneIndex, targetPortIndex,
+  ) {
     const avoidCrossings = occupied.callFan;
     const cards = Object.entries(positions).filter(([id, position]) =>
       !frames[id] && Number.isFinite(position.x) && Number.isFinite(position.y));
@@ -824,7 +830,7 @@
     const endDirection = targetCard ? Math.sign(targetCard.y + targetHeight / 2 - end)
       : Math.sign(end - points.at(-2)?.[1]) || Math.sign(end - sy) || 1;
     // Separate arrival heights keep dependencies from sharing their final rail.
-    const lead = 14 + Math.min(laneIndex * LANE_GAP, Math.max(0, Math.abs(end - sy) / 2 - 14));
+    const lead = 14 + Math.min(targetPortIndex * LANE_GAP, Math.max(0, Math.abs(end - sy) / 2 - 14));
     const normalSource = frames[edge.source]
       ? { point: [sx, sy], lead: points[1], axis: "horizontal" }
       : { point: [sx, sy], lead: [sx, sy + sourceDirection * 14], axis: "vertical" };
