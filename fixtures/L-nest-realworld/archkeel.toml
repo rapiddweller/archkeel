@@ -1,0 +1,6 @@
+[scan]
+language = "typescript"
+roots = ["src"]
+namespace = "nestjs.realworld"
+contract = "architecture-contract.json"
+tsconfig = "tsconfig.build.json"

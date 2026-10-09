@@ -1,0 +1,1923 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "composition",
+      "label": "API composition",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.main_x2e_ts",
+        "nestjs.realworld.src.app_x2e_module_x2e_ts",
+        "nestjs.realworld.src.app_x2e_controller_x2e_ts"
+      ],
+      "responsibilities": [
+        "Start Nest, configure HTTP/Swagger behavior, register features, and initialize migrations."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Account and authentication",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_module_x2e_ts"
+          ],
+          "rationale": "API composition directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Article and comment publishing",
+          "through": [
+            "nestjs.realworld.src.article.article_x2e_module_x2e_ts"
+          ],
+          "rationale": "API composition directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Profile and follow",
+          "through": [
+            "nestjs.realworld.src.profile.profile_x2e_module_x2e_ts"
+          ],
+          "rationale": "API composition directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Tag catalogue",
+          "through": [
+            "nestjs.realworld.src.tag.tag_x2e_module_x2e_ts"
+          ],
+          "rationale": "API composition directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Persistence and schema lifecycle",
+          "through": [
+            "nestjs.realworld.src.mikro_x2d_orm_x2e_config_x2e_ts"
+          ],
+          "rationale": "API composition directly imports this module.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.main_x2e_ts",
+        "nestjs.realworld.src.app_x2e_module_x2e_ts",
+        "nestjs.realworld.src.app_x2e_controller_x2e_ts"
+      ],
+      "inside": "contracts/runtime.json"
+    },
+    {
+      "id": "shared",
+      "label": "Shared request infrastructure",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.user.auth_x2e_middleware_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_decorator_x2e_ts",
+        "nestjs.realworld.src.shared.pipes.validation_x2e_pipe_x2e_ts",
+        "nestjs.realworld.src.config_x2e_ts"
+      ],
+      "responsibilities": [
+        "Provide JWT request identity, request-user access, body validation, and the JWT secret setting."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Account and authentication",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_entity_x2e_ts"
+          ],
+          "rationale": "Shared request infrastructure directly imports this module.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.user.auth_x2e_middleware_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_decorator_x2e_ts",
+        "nestjs.realworld.src.shared.pipes.validation_x2e_pipe_x2e_ts",
+        "nestjs.realworld.src.config_x2e_ts"
+      ]
+    },
+    {
+      "id": "account",
+      "label": "Account and authentication",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.user.user_x2e_controller_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_service_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_entity_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_repository_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_interface_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_module_x2e_ts",
+        "nestjs.realworld.src.user.dto.create_x2d_user_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.user.dto.login_x2d_user_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.user.dto.update_x2d_user_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.user.dto.index_x2e_ts"
+      ],
+      "responsibilities": [
+        "Register/login users, retrieve/update account data, and own the User model and explicit repository."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Shared request infrastructure",
+          "through": [
+            "nestjs.realworld.src.user.auth_x2e_middleware_x2e_ts"
+          ],
+          "rationale": "Account and authentication directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Shared request infrastructure",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_decorator_x2e_ts"
+          ],
+          "rationale": "Account and authentication directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Shared request infrastructure",
+          "through": [
+            "nestjs.realworld.src.shared.pipes.validation_x2e_pipe_x2e_ts"
+          ],
+          "rationale": "Account and authentication directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Shared request infrastructure",
+          "through": [
+            "nestjs.realworld.src.config_x2e_ts"
+          ],
+          "rationale": "Account and authentication directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Article and comment publishing",
+          "through": [
+            "nestjs.realworld.src.article.article_x2e_entity_x2e_ts"
+          ],
+          "rationale": "Account and authentication directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Persistence and schema lifecycle",
+          "through": [
+            "nestjs.realworld.src.entities_x2e_generated_x2e_ts"
+          ],
+          "rationale": "Account and authentication directly imports this module.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.user.user_x2e_controller_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_service_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_entity_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_repository_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_interface_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_module_x2e_ts",
+        "nestjs.realworld.src.user.dto.create_x2d_user_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.user.dto.login_x2d_user_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.user.dto.update_x2d_user_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.user.dto.index_x2e_ts"
+      ],
+      "inside": "contracts/identity.json"
+    },
+    {
+      "id": "publishing",
+      "label": "Article and comment publishing",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.article.article_x2e_controller_x2e_ts",
+        "nestjs.realworld.src.article.article_x2e_service_x2e_ts",
+        "nestjs.realworld.src.article.article_x2e_entity_x2e_ts",
+        "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts",
+        "nestjs.realworld.src.article.article_x2e_interface_x2e_ts",
+        "nestjs.realworld.src.article.article_x2e_module_x2e_ts",
+        "nestjs.realworld.src.article.dto.create_x2d_article_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.article.dto.create_x2d_comment_x2e_ts",
+        "nestjs.realworld.src.article.dto.index_x2e_ts"
+      ],
+      "responsibilities": [
+        "List/filter articles, produce feeds, create/update/delete articles and comments, and favorite/unfavorite."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Account and authentication",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_entity_x2e_ts"
+          ],
+          "rationale": "Article and comment publishing directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Account and authentication",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_module_x2e_ts"
+          ],
+          "rationale": "Article and comment publishing directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Shared request infrastructure",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_decorator_x2e_ts"
+          ],
+          "rationale": "Article and comment publishing directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Shared request infrastructure",
+          "through": [
+            "nestjs.realworld.src.user.auth_x2e_middleware_x2e_ts"
+          ],
+          "rationale": "Article and comment publishing directly imports this module.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.article.article_x2e_controller_x2e_ts",
+        "nestjs.realworld.src.article.article_x2e_service_x2e_ts",
+        "nestjs.realworld.src.article.article_x2e_entity_x2e_ts",
+        "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts",
+        "nestjs.realworld.src.article.article_x2e_interface_x2e_ts",
+        "nestjs.realworld.src.article.article_x2e_module_x2e_ts",
+        "nestjs.realworld.src.article.dto.create_x2d_article_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.article.dto.create_x2d_comment_x2e_ts",
+        "nestjs.realworld.src.article.dto.index_x2e_ts"
+      ],
+      "inside": "contracts/publishing.json"
+    },
+    {
+      "id": "profile",
+      "label": "Profile and follow",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.profile.profile_x2e_controller_x2e_ts",
+        "nestjs.realworld.src.profile.profile_x2e_service_x2e_ts",
+        "nestjs.realworld.src.profile.profile_x2e_interface_x2e_ts",
+        "nestjs.realworld.src.profile.profile_x2e_module_x2e_ts"
+      ],
+      "responsibilities": [
+        "Retrieve profiles and follow/unfollow users."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Account and authentication",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_entity_x2e_ts"
+          ],
+          "rationale": "Profile and follow directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Account and authentication",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_module_x2e_ts"
+          ],
+          "rationale": "Profile and follow directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Account and authentication",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_repository_x2e_ts"
+          ],
+          "rationale": "Profile and follow directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Shared request infrastructure",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_decorator_x2e_ts"
+          ],
+          "rationale": "Profile and follow directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Shared request infrastructure",
+          "through": [
+            "nestjs.realworld.src.user.auth_x2e_middleware_x2e_ts"
+          ],
+          "rationale": "Profile and follow directly imports this module.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.profile.profile_x2e_controller_x2e_ts",
+        "nestjs.realworld.src.profile.profile_x2e_service_x2e_ts",
+        "nestjs.realworld.src.profile.profile_x2e_interface_x2e_ts",
+        "nestjs.realworld.src.profile.profile_x2e_module_x2e_ts"
+      ]
+    },
+    {
+      "id": "tags",
+      "label": "Tag catalogue",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.tag.tag_x2e_controller_x2e_ts",
+        "nestjs.realworld.src.tag.tag_x2e_service_x2e_ts",
+        "nestjs.realworld.src.tag.tag_x2e_entity_x2e_ts",
+        "nestjs.realworld.src.tag.tag_x2e_interface_x2e_ts",
+        "nestjs.realworld.src.tag.tag_x2e_module_x2e_ts"
+      ],
+      "responsibilities": [
+        "Return the tag catalogue for article discovery."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Account and authentication",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_module_x2e_ts"
+          ],
+          "rationale": "Tag catalogue directly imports this module.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.tag.tag_x2e_controller_x2e_ts",
+        "nestjs.realworld.src.tag.tag_x2e_service_x2e_ts",
+        "nestjs.realworld.src.tag.tag_x2e_entity_x2e_ts",
+        "nestjs.realworld.src.tag.tag_x2e_interface_x2e_ts",
+        "nestjs.realworld.src.tag.tag_x2e_module_x2e_ts"
+      ]
+    },
+    {
+      "id": "persistence",
+      "label": "Persistence and schema lifecycle",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.entities_x2e_generated_x2e_ts",
+        "nestjs.realworld.src.mikro_x2d_orm_x2e_config_x2e_ts",
+        "nestjs.realworld.src.migrations.Migration20211219155639_x2e_ts",
+        "nestjs.realworld.src.migrations.Migration20240114223020_x2e_ts",
+        "nestjs.realworld.src.migrations.Migration20240114224028_x2e_ts",
+        "nestjs.realworld.src.seeders.test_x2e_seeder_x2e_ts"
+      ],
+      "responsibilities": [
+        "Configure MikroORM, register feature entities, evolve schema, and provide development seed data."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Account and authentication",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_entity_x2e_ts"
+          ],
+          "rationale": "Persistence and schema lifecycle directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Article and comment publishing",
+          "through": [
+            "nestjs.realworld.src.article.article_x2e_entity_x2e_ts"
+          ],
+          "rationale": "Persistence and schema lifecycle directly imports this module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Tag catalogue",
+          "through": [
+            "nestjs.realworld.src.tag.tag_x2e_entity_x2e_ts"
+          ],
+          "rationale": "Persistence and schema lifecycle directly imports this module.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.entities_x2e_generated_x2e_ts",
+        "nestjs.realworld.src.mikro_x2d_orm_x2e_config_x2e_ts",
+        "nestjs.realworld.src.migrations.Migration20211219155639_x2e_ts",
+        "nestjs.realworld.src.migrations.Migration20240114223020_x2e_ts",
+        "nestjs.realworld.src.migrations.Migration20240114224028_x2e_ts",
+        "nestjs.realworld.src.seeders.test_x2e_seeder_x2e_ts"
+      ],
+      "inside": "contracts/persistence.json"
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Direct internal source imports must cross declared responsibility boundaries.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-343a52c89c45",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.auth_x2e_middleware_x2e_ts",
+          "parent_id": "shared",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide JWT request identity, request-user access, body validation, and the JWT secret setting."
+          ],
+          "file_path": "src/user/auth.middleware.ts"
+        },
+        {
+          "id": "module-efe1a115c73f",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_decorator_x2e_ts",
+          "parent_id": "shared",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide JWT request identity, request-user access, body validation, and the JWT secret setting."
+          ],
+          "file_path": "src/user/user.decorator.ts"
+        },
+        {
+          "id": "module-6d97b80feecf",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.shared.pipes.validation_x2e_pipe_x2e_ts",
+          "parent_id": "shared",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide JWT request identity, request-user access, body validation, and the JWT secret setting."
+          ],
+          "file_path": "src/shared/pipes/validation.pipe.ts"
+        },
+        {
+          "id": "module-0808bc7167af",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.config_x2e_ts",
+          "parent_id": "shared",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide JWT request identity, request-user access, body validation, and the JWT secret setting."
+          ],
+          "file_path": "src/config.ts"
+        },
+        {
+          "id": "module-5f00830749c8",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_controller_x2e_ts",
+          "parent_id": "profile",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve profiles and follow/unfollow users."
+          ],
+          "file_path": "src/profile/profile.controller.ts"
+        },
+        {
+          "id": "module-4d3d789486da",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_service_x2e_ts",
+          "parent_id": "profile",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve profiles and follow/unfollow users."
+          ],
+          "file_path": "src/profile/profile.service.ts"
+        },
+        {
+          "id": "module-e96c30838e46",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_interface_x2e_ts",
+          "parent_id": "profile",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve profiles and follow/unfollow users."
+          ],
+          "file_path": "src/profile/profile.interface.ts"
+        },
+        {
+          "id": "module-917fb5ad11ed",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_module_x2e_ts",
+          "parent_id": "profile",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve profiles and follow/unfollow users."
+          ],
+          "file_path": "src/profile/profile.module.ts"
+        },
+        {
+          "id": "module-56b8371bc71a",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_controller_x2e_ts",
+          "parent_id": "tags",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the tag catalogue for article discovery."
+          ],
+          "file_path": "src/tag/tag.controller.ts"
+        },
+        {
+          "id": "module-b30746f58857",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_service_x2e_ts",
+          "parent_id": "tags",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the tag catalogue for article discovery."
+          ],
+          "file_path": "src/tag/tag.service.ts"
+        },
+        {
+          "id": "module-606982d1e7d2",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_entity_x2e_ts",
+          "parent_id": "tags",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the tag catalogue for article discovery."
+          ],
+          "file_path": "src/tag/tag.entity.ts"
+        },
+        {
+          "id": "module-8cece98eda4b",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_interface_x2e_ts",
+          "parent_id": "tags",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the tag catalogue for article discovery."
+          ],
+          "file_path": "src/tag/tag.interface.ts"
+        },
+        {
+          "id": "module-888d958a75ee",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_module_x2e_ts",
+          "parent_id": "tags",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the tag catalogue for article discovery."
+          ],
+          "file_path": "src/tag/tag.module.ts"
+        },
+        {
+          "id": "class-authmiddleware",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.user.auth_x2e_middleware_x2e_ts.AuthMiddleware",
+          "parent_id": "module-343a52c89c45",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Load JWT request identity."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-validationpipe",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.shared.pipes.validation_x2e_pipe_x2e_ts.ValidationPipe",
+          "parent_id": "module-6d97b80feecf",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Validate and transform request payloads."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-validationpipe.transform",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.shared.pipes.validation_x2e_pipe_x2e_ts.ValidationPipe.transform",
+          "parent_id": "class-validationpipe",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Transform or reject a request value."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "annotation": "unknown"
+              },
+              {
+                "name": "metadata",
+                "kind": "positional",
+                "annotation": "ArgumentMetadata"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-authmiddleware.use",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.auth_x2e_middleware_x2e_ts.AuthMiddleware.use",
+          "parent_id": "class-authmiddleware",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Validate request identity and continue middleware."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "req",
+                "kind": "positional",
+                "annotation": "Request & { user?: User }"
+              },
+              {
+                "name": "res",
+                "kind": "positional",
+                "annotation": "Response"
+              },
+              {
+                "name": "next",
+                "kind": "positional",
+                "annotation": "NextFunction"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "class-profileservice",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_service_x2e_ts.ProfileService",
+          "parent_id": "module-4d3d789486da",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve profiles and coordinate follows."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-profileservice.findprofile",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_service_x2e_ts.ProfileService.findProfile",
+          "parent_id": "class-profileservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Read profile or update follow state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "kind": "positional",
+                "annotation": "number"
+              },
+              {
+                "name": "followingUsername",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": "Promise<IProfileRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-profileservice.follow",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_service_x2e_ts.ProfileService.follow",
+          "parent_id": "class-profileservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Read profile or update follow state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "followerEmail",
+                "kind": "positional",
+                "annotation": "string"
+              },
+              {
+                "name": "username",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": "Promise<IProfileRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-profileservice.unfollow",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_service_x2e_ts.ProfileService.unFollow",
+          "parent_id": "class-profileservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Read profile or update follow state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "followerId",
+                "kind": "positional",
+                "annotation": "number"
+              },
+              {
+                "name": "username",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": "Promise<IProfileRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "class-profilecontroller",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_controller_x2e_ts.ProfileController",
+          "parent_id": "module-5f00830749c8",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Delegate profile and follow endpoints to ProfileService."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-profilecontroller.getprofile",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_controller_x2e_ts.ProfileController.getProfile",
+          "parent_id": "class-profilecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve a public profile."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "userId",
+                "kind": "positional",
+                "annotation": "number"
+              },
+              {
+                "name": "username",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": "Promise<IProfileRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-profilecontroller.follow",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_controller_x2e_ts.ProfileController.follow",
+          "parent_id": "class-profilecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Follow a user."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "email",
+                "kind": "positional",
+                "annotation": "string"
+              },
+              {
+                "name": "username",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": "Promise<IProfileRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-profilecontroller.unfollow",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_controller_x2e_ts.ProfileController.unFollow",
+          "parent_id": "class-profilecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Unfollow a user."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "userId",
+                "kind": "positional",
+                "annotation": "number"
+              },
+              {
+                "name": "username",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": "Promise<IProfileRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "interface-iprofiledata",
+          "kind": "interface",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_interface_x2e_ts.IProfileData",
+          "parent_id": "module-e96c30838e46",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare public profile response data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-iprofiledata.username",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_interface_x2e_ts.IProfileData.username",
+          "parent_id": "interface-iprofiledata",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-iprofiledata.bio",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_interface_x2e_ts.IProfileData.bio",
+          "parent_id": "interface-iprofiledata",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-iprofiledata.image",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_interface_x2e_ts.IProfileData.image",
+          "parent_id": "interface-iprofiledata",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-iprofiledata.following",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_interface_x2e_ts.IProfileData.following",
+          "parent_id": "interface-iprofiledata",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "boolean"
+        },
+        {
+          "id": "interface-iprofilero",
+          "kind": "interface",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_interface_x2e_ts.IProfileRO",
+          "parent_id": "module-e96c30838e46",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare public profile response data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-iprofilero.profile",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_interface_x2e_ts.IProfileRO.profile",
+          "parent_id": "interface-iprofilero",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "IProfileData"
+        },
+        {
+          "id": "method-profileservice.findall",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_service_x2e_ts.ProfileService.findAll",
+          "parent_id": "class-profileservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve users for profile use."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Promise<User[]>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-profileservice.findone",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_service_x2e_ts.ProfileService.findOne",
+          "parent_id": "class-profileservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve one profile."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "where",
+                "kind": "positional",
+                "annotation": "FilterQuery<User>"
+              }
+            ],
+            "returns": "Promise<IProfileRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "class-tagservice",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_service_x2e_ts.TagService",
+          "parent_id": "module-b30746f58857",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve tags."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-tag",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_entity_x2e_ts.Tag",
+          "parent_id": "module-606982d1e7d2",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent a tag."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-tagservice.findall",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_service_x2e_ts.TagService.findAll",
+          "parent_id": "class-tagservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the tag catalogue."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Promise<ITagsRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "attribute-tag.id",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_entity_x2e_ts.Tag.id",
+          "parent_id": "class-tag",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare tag state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "number"
+        },
+        {
+          "id": "attribute-tag.tag",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_entity_x2e_ts.Tag.tag",
+          "parent_id": "class-tag",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare tag state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "interface-itagsro",
+          "kind": "interface",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_interface_x2e_ts.ITagsRO",
+          "parent_id": "module-8cece98eda4b",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the tag catalogue response."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-itagsro.tags",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_interface_x2e_ts.ITagsRO.tags",
+          "parent_id": "interface-itagsro",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Tag[]"
+        },
+        {
+          "id": "class-tagcontroller",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_controller_x2e_ts.TagController",
+          "parent_id": "module-56b8371bc71a",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Delegate tag catalogue retrieval to TagService."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-tagcontroller.findall",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_controller_x2e_ts.TagController.findAll",
+          "parent_id": "class-tagcontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the tag catalogue."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Promise<ITagsRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-profileservice.constructor",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_service_x2e_ts.ProfileService.constructor",
+          "parent_id": "class-profileservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive the user repository and entity manager."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "userRepository",
+                "kind": "positional",
+                "annotation": "UserRepository"
+              },
+              {
+                "name": "em",
+                "kind": "positional",
+                "annotation": "EntityManager"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "attribute-profileservice.userrepository",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_service_x2e_ts.ProfileService.userRepository",
+          "parent_id": "class-profileservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "UserRepository"
+        },
+        {
+          "id": "attribute-profileservice.em",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_service_x2e_ts.ProfileService.em",
+          "parent_id": "class-profileservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "EntityManager"
+        },
+        {
+          "id": "method-profilecontroller.constructor",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_controller_x2e_ts.ProfileController.constructor",
+          "parent_id": "class-profilecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive the profile application service."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "profileService",
+                "kind": "positional",
+                "annotation": "ProfileService"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "attribute-profilecontroller.profileservice",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_controller_x2e_ts.ProfileController.profileService",
+          "parent_id": "class-profilecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "ProfileService"
+        },
+        {
+          "id": "method-tagservice.constructor",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_service_x2e_ts.TagService.constructor",
+          "parent_id": "class-tagservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive the tag repository."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "tagRepository",
+                "kind": "positional",
+                "annotation": "EntityRepository<Tag>"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "attribute-tagservice.tagrepository",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_service_x2e_ts.TagService.tagRepository",
+          "parent_id": "class-tagservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "EntityRepository<Tag>"
+        },
+        {
+          "id": "method-tagcontroller.constructor",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_controller_x2e_ts.TagController.constructor",
+          "parent_id": "class-tagcontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive the tag application service."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "tagService",
+                "kind": "positional",
+                "annotation": "TagService"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "attribute-tagcontroller.tagservice",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_controller_x2e_ts.TagController.tagService",
+          "parent_id": "class-tagcontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "TagService"
+        },
+        {
+          "id": "method-authmiddleware.constructor",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.auth_x2e_middleware_x2e_ts.AuthMiddleware.constructor",
+          "parent_id": "class-authmiddleware",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive the entity manager for request identity lookup."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "em",
+                "kind": "positional",
+                "annotation": "EntityManager"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "attribute-authmiddleware.em",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.auth_x2e_middleware_x2e_ts.AuthMiddleware.em",
+          "parent_id": "class-authmiddleware",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "EntityManager"
+        },
+        {
+          "id": "method-profilemodule.configure",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_module_x2e_ts.ProfileModule.configure",
+          "parent_id": "class-profilemodule",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Bind request middleware to profile routes."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "consumer",
+                "kind": "positional",
+                "annotation": "MiddlewareConsumer"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "attribute-tag.[entityname]",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_entity_x2e_ts.Tag.[EntityName]",
+          "parent_id": "class-tag",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the ORM entity-name key."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "'Tag'"
+        },
+        {
+          "id": "method-validationpipe.builderror",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.shared.pipes.validation_x2e_pipe_x2e_ts.ValidationPipe.buildError",
+          "parent_id": "class-validationpipe",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Format validation errors for the HTTP response."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "errors",
+                "kind": "positional",
+                "annotation": "ValidationError[]"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "method-validationpipe.tovalidate",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.shared.pipes.validation_x2e_pipe_x2e_ts.ValidationPipe.toValidate",
+          "parent_id": "class-validationpipe",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Decide whether the metatype can be validated."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "metatype",
+                "kind": "positional",
+                "annotation": "unknown"
+              }
+            ],
+            "returns": "boolean"
+          },
+          "modifiers": []
+        },
+        {
+          "id": "class-profilemodule",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.profile.profile_x2e_module_x2e_ts.ProfileModule",
+          "parent_id": "module-917fb5ad11ed",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Register feature controllers and providers."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-tagmodule",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.tag.tag_x2e_module_x2e_ts.TagModule",
+          "parent_id": "module-888d958a75ee",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Register feature controllers and providers."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "class-authmiddleware",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-validationpipe",
+          "entity_kinds": [
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-profilemodule",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-tagmodule",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-profileservice",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-profilecontroller",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "interface-iprofiledata",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "interface-iprofilero",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-tagservice",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-tag",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "interface-itagsro",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-tagcontroller",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}
