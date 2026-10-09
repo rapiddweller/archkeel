@@ -30,8 +30,8 @@ existing widening gate.
 
 Python records definitions, members, signatures, explicit bases, contexts and
 static assignment sites. Classifier, attribute and instance coverage remains
-partial. Dart's native Analyzer records declarations, members, signatures and
-resolved static sites. TypeScript records lexical declarations and statically
+partial. The Python-hosted Dart collector records declarations, members, signatures
+and bounded source relationships. TypeScript records lexical declarations and statically
 bound relationships. Static sites do not prove live object identity, lifetime,
 runtime dispatch or composition; unsupported and unresolved facts stay UNKNOWN.
 

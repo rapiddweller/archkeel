@@ -190,9 +190,27 @@ def test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct(
     base = reports["flutter-shop"][0]
     assert base["observation_complete"] == "PASS"
     assert base["coverage"]["files_discovered"] == 21
-    assert base["measurements"]["scalars"]["unknown_positions"] == 35
+    assert base["measurements"]["scalars"]["unknown_positions"] == 27
     assert base["declared_rules"] == "UNKNOWN"
     base_detail = reports["flutter-shop"][1]
+    local_reads = {
+        f"main-reads-{name}"
+        for name in (
+            "backend",
+            "store",
+            "catalogRepository",
+            "orderRepository",
+            "placeOrder",
+            "catalogViewModel",
+            "cartViewModel",
+            "ordersViewModel",
+        )
+    }
+    assert {
+        item["subject_id"]
+        for item in base_detail["comparison"]["assessments"]
+        if item["subject_id"] in local_reads and item["status"] == "PASS"
+    } == local_reads
     getter_names = {
         item["qualified_name"]
         for item in base_detail["target"]["entities"]
@@ -262,9 +280,9 @@ def test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct(
         sum(item["aspect"] == "relationship" for item in base_detail["comparison"]["assessments"])
         == 88
     )
-    assert sum(item["status"] == "PASS" for item in base_detail["comparison"]["assessments"]) == 791
+    assert sum(item["status"] == "PASS" for item in base_detail["comparison"]["assessments"]) == 799
     assert (
-        sum(item["status"] == "UNKNOWN" for item in base_detail["comparison"]["assessments"]) == 35
+        sum(item["status"] == "UNKNOWN" for item in base_detail["comparison"]["assessments"]) == 27
     )
     assert all(
         item["status"] == "PASS"
@@ -317,7 +335,7 @@ def test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct(
         if item["subject_id"] == "presentation:orders-vm-calls-watch"
     ] == [("presentation:orders-vm-calls-watch", "relationship", "UNKNOWN")]
     assert (
-        reports["flutter-dynamic-unknown"][0]["measurements"]["scalars"]["unknown_positions"] == 36
+        reports["flutter-dynamic-unknown"][0]["measurements"]["scalars"]["unknown_positions"] == 28
     )
 
 

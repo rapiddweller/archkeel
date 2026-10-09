@@ -397,19 +397,20 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "retention-days: 1" in evidence
     assert 'matrix:\n        python: ["3.11.12", "3.12.10"]' in full
     assert "matrix:\n        os: [ubuntu-latest, windows-latest]\n        python:" in full
-    assert (
-        'matrix:\n        os: [ubuntu-latest, windows-latest]\n        dart: ["3.9.0", "3.12.2"]'
-        in full
-    )
+    assert "setup-dart@" not in full
+    assert "dart-setup" not in full
+    assert "dart-native:" not in full
+    assert "make dart-test SHELL=bash" in full
+    assert "setup-dart@" not in workflow
+    assert "dart-setup" not in workflow
     assert "if: always()" in full
     assert (
         "needs:\n      - full-suite-and-reports\n      - collector-safety-windows\n"
-        "      - typescript-native\n      - dart-native" in full
+        "      - language-collectors" in full
     )
     assert "${{ needs.full-suite-and-reports.result }}" in full
     assert "${{ needs.collector-safety-windows.result }}" in full
-    assert "${{ needs.typescript-native.result }}" in full
-    assert "${{ needs.dart-native.result }}" in full
+    assert "${{ needs.language-collectors.result }}" in full
     prune = full.split("  prune-report-artifacts:\n", 1)[1].split("\n  deploy-report-pages:", 1)[0]
     assert "needs: [verified, deploy-report-pages]" in prune
     assert "make prune-report-artifacts DELETE=true" in prune

@@ -19,12 +19,13 @@ classifiers = [
     "Typing :: Typed",
 ]
 # Stdlib has no PEP 440 specifier parser and no styled terminal or help output.
-# TypeScript has no stdlib parser: imports can occur anywhere, so a lexer cannot prove absence.
+# Dart and TypeScript need grammar parsers to observe declarations and expression sites.
 dependencies = [
     "packaging>=24.2,<27",
     "rich>=13.9,<16",
     "rich-argparse>=1.6,<2",
     "tree-sitter>=0.26,<0.27",
+    "tree-sitter-dart==0.1.0",
     "tree-sitter-typescript>=0.23.2,<0.24",
 ]
 
@@ -35,7 +36,6 @@ Issues = "https://github.com/rapiddweller/archkeel/issues"
 
 [project.scripts]
 archkeel = "archkeel.cli:main"
-archkeel-dart-setup = "archkeel.analyzer.dart.setup:main"
 
 [build-system]
 # Hatchling maps the single schema/ source into wheels without a custom build hook.

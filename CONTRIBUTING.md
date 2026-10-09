@@ -9,13 +9,13 @@ Install [uv](https://docs.astral.sh/uv/), then:
 ```bash
 uv python install 3.11.12 3.12.10
 uv sync --locked
-make dart-setup
 ```
 
 `.python-version` pins 3.11.12: CI runs the gate on it, and the fresh self-observation records it.
 The runtime test in `make check` also starts `python3.12`, so 3.12 must be on your `PATH`.
 Flow browser tests and Mermaid rendering require Node.js 22; CI installs it for these tools.
-Dart checks need an SDK in `>=3.9,<4`; `make dart-setup` prepares the pinned native Analyzer.
+Dart analysis runs in Python. `make dart-test` checks it without installing a Dart SDK.
+Only `make flutter-demo-check`, which builds and runs the demo app, needs Flutter and Dart.
 
 ## Before you push
 
@@ -30,10 +30,10 @@ PRs and Main pushes run the change-selected core and report regression checks; M
 follow Markdown changes. The report sample includes the real nested-Python route regression,
 renderer, drag/async and independent-Target checks. Samples do not replace testing the behavior
 you change. The normal core set uses one Dart CLI smoke, one UNKNOWN safety case and four Flutter
-Target guards; complete Dart and Flutter variant coverage stays in the full/native checks.
+Target guards; complete Dart and Flutter variant coverage stays in the full checks.
 
 The scheduled **Full verification** workflow runs the complete `make ci` gate, report timing and
-browser proof, gallery generation, plus Windows/Python, TypeScript and Dart SDK/OS matrices. It
+browser proof, gallery generation, plus Windows collector safety and a shared Python/OS matrix for TypeScript and Dart. It
 also supports manual dispatch. Release tags call that same full workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
 

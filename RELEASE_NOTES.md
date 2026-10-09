@@ -1,13 +1,13 @@
 # Archkeel 1.1.0 — Dart UML and project-scale architecture reports
 
-Inspect Dart declarations and UML with the official Analyzer, and explore larger
+Inspect Dart declarations and UML without a Dart SDK, and explore larger
 architecture reports through components, modules and members.
 
 ## Highlights
 
-- **Native Dart UML.** Observe classes, mixins, enums, members, signatures and resolved
-  static relationships. The native Analyzer replaces the old directive-only collector;
-  missing resolution and dynamic behavior remain UNKNOWN.
+- **SDK-free Dart UML.** Observe classes, mixins, enums, members, signatures and bounded
+  source relationships through the Python installation. A pinned Tree-sitter grammar
+  replaces the SDK dependency; missing resolution and dynamic behavior remain UNKNOWN.
 - **Complete-project demos.** Explore pinned Flutter Compass (111 Dart files), Python
   RealWorld (72 modules) and Nest RealWorld (41 prepared TypeScript inputs). Their Targets
   define responsibilities, nested components, module relationships and principal UML
@@ -30,13 +30,11 @@ architecture reports through components, modules and members.
 
 ```sh
 uv tool upgrade archkeel
-archkeel-dart-setup
 ```
 
-The second command is required only for Dart analysis. Install Dart SDK `>=3.9,<4`
-first, with a native `dart` executable on PATH or set `DART_EXECUTABLE`. Run setup once
-for the upgraded installation; it prepares the pinned Analyzer dependencies. Scans do
-not install packages or modify the scanned project.
+Python, TypeScript and Dart analysis use the installed Python package. Dart no longer
+needs an SDK, `DART_EXECUTABLE` or `archkeel-dart-setup`. Scans do not download packages
+or modify the scanned project. Building or running a Flutter app still requires Flutter.
 
 The Dart migration intentionally drops the legacy `archkeel-dart-directives` producer.
 Re-observe both revisions with 1.1.0 before comparing Dart snapshots. This is an explicit

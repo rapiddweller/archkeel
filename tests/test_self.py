@@ -308,7 +308,10 @@ def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) 
     assert modules_by_component["dart"] == {
         "archkeel.analyzer.dart",
         "archkeel.analyzer.dart.entry",
-        "archkeel.analyzer.dart.setup",
+        "archkeel.analyzer.dart.collect",
+        "archkeel.analyzer.dart.parse",
+        "archkeel.analyzer.dart.resolve",
+        "archkeel.analyzer.dart.snapshot",
     }
     assert modules_by_component["typescript"] == {
         "archkeel.analyzer.typescript",

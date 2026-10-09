@@ -16,8 +16,6 @@ from the documented additive fields.
 """
 
 import json
-import os
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -187,11 +185,7 @@ def test_validate_never_passes_unsupported_dart_language_input(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dart = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
-    if dart is None:
-        pytest.skip("Dart SDK is not installed; CLI language checks require Dart")
-    monkeypatch.setenv("DART_EXECUTABLE", dart)
-    monkeypatch.setenv("DART_SUPPRESS_ANALYTICS", "true")
+    monkeypatch.setenv("DART_EXECUTABLE", str(tmp_path / "absent-dart"))
     root = dart_package(
         tmp_path / "pkg",
         {"lib/core/api.dart": "// @dart=3.99\nclass Api {}\n"},

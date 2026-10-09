@@ -3,7 +3,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts mermaid check test collector-safety typescript-native dart-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart dart-setup demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-browser-proof report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
+.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts mermaid check test collector-safety typescript-native dart-test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-browser-proof report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
 
 check: lint typecheck test
 
@@ -36,6 +36,8 @@ pr-test:
 		tests/test_analyzer.py tests/test_typescript_config.py tests/test_typescript_resolve.py \
 		tests/test_uml_comparison.py tests/test_saved_report.py tests/test_cli.py \
 		tests/test_result_schema.py \
+		tests/test_dart_parse.py tests/test_dart_snapshot.py tests/test_dart_resolve.py \
+		tests/test_dart_sdk_free.py tests/test_dart_inner_collect.py tests/test_dart_target.py \
 		tests/test_dart_uml_acceptance.py::test_checkout_cli_report_fulfills_independent_target \
 		tests/test_dart_unknowns.py::test_no_show_import_hiding_a_real_crossing_is_unknown_not_pass \
 		tests/test_flutter_demo.py::test_flutter_target_has_agent_owned_responsibilities_and_closed_permissions \
@@ -141,15 +143,9 @@ typescript-native:
 		tests/test_typescript_resolve.py tests/test_typescript_provenance.py \
 		tests/test_typescript_init_acceptance.py tests/test_typescript_demo.py
 
-dart-native:
-	@test -n "$(DART_EXECUTABLE)" || { echo "DART_EXECUTABLE must name an installed Dart SDK"; exit 2; }
-	@command -v "$(DART_EXECUTABLE)" >/dev/null 2>&1 || test -x "$(DART_EXECUTABLE)" || { echo "Dart SDK not found: $(DART_EXECUTABLE)"; exit 2; }
-	@test -f src/archkeel/analyzer/dart/native/.dart_tool/package_config.json || { echo "Native Dart dependencies are missing; run make dart-setup"; exit 2; }
-	"$(DART_EXECUTABLE)" format --output=none --set-exit-if-changed src/archkeel/analyzer/dart/native
-	cd src/archkeel/analyzer/dart/native && "$(DART_EXECUTABLE)" analyze
-	DART_EXECUTABLE="$(DART_EXECUTABLE)" $(UV) run --locked python -m pytest -q \
-		tests/test_dart_profile.py tests/test_dart_inner_collect.py tests/test_dart_unknowns.py \
-		tests/test_uml_source_facts.py tests/test_dart_uml_acceptance.py
+dart-test:
+	$(UV) run --locked python -m pytest -q tests/test_dart_*.py \
+		tests/test_uml_source_facts.py tests/test_language_collectors.py
 
 # Compare against the immutable output captured from the former Node collector.
 typescript-differential:
@@ -215,9 +211,6 @@ demo-onboarding:
 demo-dart:
 	@$(UV) run --locked python -m fixtures.reproduce_dart
 
-dart-setup:
-	DART_EXECUTABLE="$(DART_EXECUTABLE)" $(UV) run --locked archkeel-dart-setup
-
 flutter-demo-check:
 	@command -v "$(FLUTTER_EXECUTABLE)" >/dev/null 2>&1 || test -x "$(FLUTTER_EXECUTABLE)" || { echo "Flutter SDK not found: $(FLUTTER_EXECUTABLE)"; exit 2; }
 	@command -v "$(DART_EXECUTABLE)" >/dev/null 2>&1 || test -x "$(DART_EXECUTABLE)" || { echo "Dart SDK not found: $(DART_EXECUTABLE)"; exit 2; }
@@ -242,7 +235,7 @@ demo-architecture:
 
 demo-uml:
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
-	@DART_EXECUTABLE="$(DART_EXECUTABLE)" $(UV) run --locked python -m fixtures.architecture_demo --uml-suite --output "$(OUTPUT)"
+	@$(UV) run --locked python -m fixtures.architecture_demo --uml-suite --output "$(OUTPUT)"
 
 # The figure is derived from the run above, so a test compares it with a fresh render.
 loop-figure:

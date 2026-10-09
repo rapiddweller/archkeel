@@ -6,27 +6,19 @@
 from __future__ import annotations
 
 import hashlib
-import os
-import shutil
-import subprocess
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from dart_native_helpers import collect_native_dart, require_native_dart
 
-from archkeel.ir.facts_codec import decode_response, encode_request
 from archkeel.ir.facts_validation import validate_source_facts
 from archkeel.ir.protocol import CollectionRequest, DartSettings, SnapshotInput, SourceScope
 
 _REPO = Path(__file__).parents[1]
-_NATIVE = _REPO / "src/archkeel/analyzer/dart/native"
 
 
 def test_native_process_collects_dart_declarations_and_member_coverage(tmp_path: Path) -> None:
-    dart = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
-    if dart is None:
-        pytest.skip("Dart SDK is not installed; native collector checks require Dart")
-    package_config = _NATIVE / ".dart_tool/package_config.json"
     (tmp_path / "pubspec.yaml").write_text(
         "name: commerce\nenvironment:\n  sdk: '>=3.9.0 <4.0.0'\n", encoding="utf-8"
     )
@@ -57,20 +49,9 @@ String describe(Order order, {required bool verbose}) =>
         SourceScope(("lib",), "commerce"),
         DartSettings(),
     )
-    result = subprocess.run(
-        [
-            dart,
-            f"--packages={package_config}",
-            str(_NATIVE / "bin/collect.dart"),
-        ],
-        input=encode_request(request),
-        capture_output=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr.decode(errors="replace")
-    facts = decode_response(result.stdout).facts
+    facts = require_native_dart(collect_native_dart(request))
     assert facts.profile == "archkeel-dart-analyzer"
-    assert facts.runtime.name == "dart"
+    assert facts.runtime.name == "python"
     assert facts.adapter.name == "archkeel-dart-analyzer"
     assert len(facts.adapter.code_digest) == 64
     assert facts.source.source_digest
@@ -138,9 +119,6 @@ def test_native_process_rejects_unsupported_package_language_floor(
 
 
 def test_native_process_marks_duplicate_declarations_incomplete(tmp_path: Path) -> None:
-    dart = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
-    if dart is None:
-        pytest.skip("Dart SDK is not installed; native collector checks require Dart")
     (tmp_path / "pubspec.yaml").write_text(
         "name: commerce\nenvironment:\n  sdk: '>=3.9.0 <4.0.0'\n", encoding="utf-8"
     )
@@ -154,18 +132,7 @@ def test_native_process_marks_duplicate_declarations_incomplete(tmp_path: Path) 
         SourceScope(("lib",), "commerce"),
         DartSettings(),
     )
-    result = subprocess.run(
-        [
-            dart,
-            f"--packages={_NATIVE / '.dart_tool/package_config.json'}",
-            str(_NATIVE / "bin/collect.dart"),
-        ],
-        input=encode_request(request),
-        capture_output=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr.decode(errors="replace")
-    facts = decode_response(result.stdout).facts
+    facts = require_native_dart(collect_native_dart(request))
     assert facts.coverage.full_scope is False
     assert any(gap.kind == "DuplicateDeclaration" for gap in facts.coverage.gaps)
     duplicate = next(
@@ -178,9 +145,6 @@ def test_native_process_marks_duplicate_declarations_incomplete(tmp_path: Path) 
 
 
 def test_native_process_keeps_part_declaration_in_library_module(tmp_path: Path) -> None:
-    dart = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
-    if dart is None:
-        pytest.skip("Dart SDK is not installed; native collector checks require Dart")
     (tmp_path / "pubspec.yaml").write_text(
         "name: commerce\nenvironment:\n  sdk: '>=3.9.0 <4.0.0'\n", encoding="utf-8"
     )
@@ -195,18 +159,7 @@ def test_native_process_keeps_part_declaration_in_library_module(tmp_path: Path)
         SourceScope(("lib",), "commerce"),
         DartSettings(),
     )
-    result = subprocess.run(
-        [
-            dart,
-            f"--packages={_NATIVE / '.dart_tool/package_config.json'}",
-            str(_NATIVE / "bin/collect.dart"),
-        ],
-        input=encode_request(request),
-        capture_output=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr.decode(errors="replace")
-    facts = decode_response(result.stdout).facts
+    facts = require_native_dart(collect_native_dart(request))
     declaration = next(
         record
         for section in facts.sections
@@ -228,21 +181,7 @@ def test_native_declarations_match_the_independently_reviewed_checkout_target() 
         SourceScope(("lib",), "commerce"),
         DartSettings(),
     )
-    dart = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
-    if dart is None:
-        pytest.skip("Dart SDK is not installed; native collector checks require Dart")
-    result = subprocess.run(
-        [
-            dart,
-            f"--packages={_NATIVE / '.dart_tool/package_config.json'}",
-            str(_NATIVE / "bin/collect.dart"),
-        ],
-        input=encode_request(request),
-        capture_output=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr.decode(errors="replace")
-    facts = decode_response(result.stdout).facts
+    facts = require_native_dart(collect_native_dart(request))
     assert facts.coverage.full_scope is True, facts.coverage.gaps
 
     actual = {
@@ -672,7 +611,10 @@ void main() {
     }
     assert constructions["m.Widget.named()"]["status"] == "resolved"
     assert constructions["Widget.factory()"]["status"] == "partially_resolved"
-    assert constructions["Repeated()"]["status"] == "resolved"
+    repeated = next(item for item in calls if item["expression"] == "Repeated()")
+    assert repeated["status"] == "unresolved"
+    assert repeated["targets"] == ()
+    assert repeated.get("construction") is None
     graph = _source_graph(facts)
     repeated_run = next(
         item
@@ -971,26 +913,12 @@ def test_native_sites_keep_part_declarations_in_the_library_scope(tmp_path: Path
 
 
 def _native_facts(root: Path, roots: tuple[str, ...] = ("lib",)):
-    dart = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
-    if dart is None:
-        pytest.skip("Dart SDK is not installed; native collector checks require Dart")
     request = CollectionRequest(
         SnapshotInput(str(root), "b" * 40, False),
         SourceScope(roots, "commerce"),
         DartSettings(),
     )
-    result = subprocess.run(
-        [
-            dart,
-            f"--packages={_NATIVE / '.dart_tool/package_config.json'}",
-            str(_NATIVE / "bin/collect.dart"),
-        ],
-        input=encode_request(request),
-        capture_output=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr.decode(errors="replace")
-    return decode_response(result.stdout).facts
+    return require_native_dart(collect_native_dart(request))
 
 
 def _write_package(root: Path, source: str, *, pubspec: str = "name: commerce\n") -> None:
@@ -1097,6 +1025,29 @@ void configure() {
     assert any(
         edge.kind == "instance_of" and edge.source_id == binding.id for edge in graph.relationships
     )
+
+
+def test_native_async_body_binding_stays_in_its_callable_scope(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """class Value {}
+Future<Value> load() async {
+  final result = Value();
+  return result;
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    binding = next(
+        record
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "binding" and record.data.get("name") == "result"
+    )
+
+    assert binding.data.get("qualified_name") == "commerce.main.load.result"
 
 
 def test_native_declarations_project_enum_literals_interfaces_and_signatures(
@@ -1267,17 +1218,18 @@ def test_native_unsupported_declaration_cannot_claim_full_coverage(tmp_path: Pat
 
 
 @pytest.mark.parametrize(
-    ("sdk_constraint", "minimum", "maximum"),
+    ("sdk_constraint", "supported"),
     [
-        (">=3.9.0 <3.10.0", (3, 9, 0), (3, 10, 0)),
-        (">=3.99.0 <4.0.0", (3, 99, 0), (4, 0, 0)),
+        (">=3.9.0 <3.10.0", True),
+        ("^3.9", True),
+        (">=3.99.0 <4.0.0", False),
+        (">=3.11.0 <2.12.0", False),
     ],
 )
 def test_native_project_sdk_range_is_checked(
     tmp_path: Path,
     sdk_constraint: str,
-    minimum: tuple[int, int, int],
-    maximum: tuple[int, int, int],
+    supported: bool,
 ) -> None:
     _write_package(tmp_path, "class Item { final int id = 1; }\n")
     (tmp_path / "pubspec.yaml").write_text(
@@ -1285,12 +1237,10 @@ def test_native_project_sdk_range_is_checked(
     )
 
     facts = _native_facts(tmp_path)
-    running_version = tuple(int(part) for part in facts.runtime.version.split("."))
-    compatible = minimum <= running_version < maximum
-
-    assert facts.coverage.full_scope is compatible
-    assert any(gap.kind == "SdkConstraintError" for gap in facts.coverage.gaps) == (not compatible)
-    if not compatible:
+    assert facts.runtime.name == "python"
+    assert facts.coverage.full_scope is supported
+    assert any(gap.kind == "SdkConstraintError" for gap in facts.coverage.gaps) == (not supported)
+    if not supported:
         assert not any(
             record.data.get("member_inventories")
             for section in facts.sections
@@ -1356,8 +1306,6 @@ def test_native_missing_selected_root_is_an_explicit_gap(tmp_path: Path) -> None
 
 
 def test_unsafe_uri_units_never_enter_the_analyzer_snapshot(tmp_path: Path) -> None:
-    import os
-
     root = tmp_path / "repo"
     root.mkdir()
     outside = tmp_path / "outside.dart"
@@ -1393,20 +1341,7 @@ def test_unsafe_uri_units_never_enter_the_analyzer_snapshot(tmp_path: Path) -> N
         for record in section.records
     )
 
-    dart = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
-    if dart is None:
-        pytest.skip("Dart SDK is not installed; snapshot-boundary checks require Dart")
-    boundary = subprocess.run(
-        [
-            dart,
-            f"--packages={_NATIVE / '.dart_tool/package_config.json'}",
-            str(_NATIVE / "test/snapshot_boundary.dart"),
-            str(root),
-        ],
-        capture_output=True,
-        check=False,
-    )
-    assert boundary.returncode == 0, boundary.stderr.decode(errors="replace")
+    assert {item.path for item in facts.inputs}.isdisjoint({"outside.dart", "../outside.dart"})
 
 
 def test_native_source_root_dot_uses_paths_relative_to_that_root(tmp_path: Path) -> None:
@@ -1456,7 +1391,7 @@ def test_native_symlinked_dart_source_is_an_explicit_gap(tmp_path: Path) -> None
 
 
 def test_native_pubspec_symlink_is_rejected_before_read(tmp_path: Path) -> None:
-    import os
+    from archkeel.ir.protocol import CollectionError
 
     outside = tmp_path / "outside-pubspec.yaml"
     outside.write_text("name: commerce\n", encoding="utf-8")
@@ -1465,27 +1400,15 @@ def test_native_pubspec_symlink_is_rejected_before_read(tmp_path: Path) -> None:
     (root / "lib").mkdir()
     (root / "lib/main.dart").write_text("class Main {}\n", encoding="utf-8")
     (root / "pubspec.yaml").symlink_to(outside)
-    dart = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
-    if dart is None:
-        pytest.skip("Dart SDK is not installed; native collector checks require Dart")
-    result = subprocess.run(
-        [
-            dart,
-            f"--packages={_NATIVE / '.dart_tool/package_config.json'}",
-            str(_NATIVE / "bin/collect.dart"),
-        ],
-        input=encode_request(
-            CollectionRequest(
-                SnapshotInput(str(root), "c" * 40, False),
-                SourceScope(("lib",), "commerce"),
-                DartSettings(),
-            )
-        ),
-        capture_output=True,
-        check=False,
+    result = collect_native_dart(
+        CollectionRequest(
+            SnapshotInput(str(root), "c" * 40, False),
+            SourceScope(("lib",), "commerce"),
+            DartSettings(),
+        )
     )
-    assert result.returncode != 0
-    assert b"regular pubspec.yaml" in result.stderr
+    assert isinstance(result, CollectionError)
+    assert "regular pubspec.yaml" in result.message
 
 
 def test_native_callback_locals_use_their_function_expression_scope(tmp_path: Path) -> None:
@@ -1519,6 +1442,60 @@ void work() {
         if record.data.get("expression") == "value"
     }
     assert target_ids == {record.data.get("qualified_name") for record in symbols}
+
+
+def test_native_same_initializer_bindings_stay_in_their_lexical_functions(
+    tmp_path: Path,
+) -> None:
+    _write_package(
+        tmp_path,
+        """class Value {}
+Value first() { final result = Value(); return result; }
+Value second() { final result = Value(); return result; }
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    graph = _source_graph(facts)
+    bindings = [
+        item
+        for item in graph.entities
+        if item.kind == "binding" and item.qualified_name.endswith(".result")
+    ]
+
+    assert {item.qualified_name for item in bindings} == {
+        "commerce.main.first.result",
+        "commerce.main.second.result",
+    }
+    assert len({item.id for item in bindings}) == 2
+
+
+def test_native_multiline_call_expression_uses_canonical_source_text(tmp_path: Path) -> None:
+    _write_package(
+        tmp_path,
+        """class Backend {}
+class Store {}
+class ShopApp { ShopApp(Backend backend, Store store); }
+void main(Backend backend, Store store) {
+  final app = ShopApp(
+    backend,
+    store,
+  );
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    call = next(
+        record
+        for section in facts.sections
+        if section.name == "calls"
+        for record in section.records
+        if record.data.get("expression", "").startswith("ShopApp")
+    )
+
+    assert call.data.get("expression") == "ShopApp(backend, store)"
+    assert call.title == "ShopApp(backend, store)"
 
 
 def test_native_getter_and_setter_references_bind_to_their_own_declarations(
@@ -1847,25 +1824,38 @@ class AbsentDefaultImpl implements AbsentDefault {
 
 
 @pytest.mark.parametrize(
-    "source",
+    ("source", "factory_name"),
     [
-        """abstract interface class MissingTarget {
+        pytest.param(
+            """abstract interface class MissingTarget {
   factory MissingTarget({String value}) = MissingImpl;
 }
 """,
-        """abstract interface class Mismatch {
+            "MissingTarget",
+            id="unresolved",
+        ),
+        pytest.param(
+            """abstract interface class Mismatch {
   factory Mismatch({String value}) = MismatchImpl;
 }
 class MismatchImpl implements Mismatch {
   MismatchImpl({String other = 'wrong'});
 }
 """,
-        """class RedirectCycle {
+            "Mismatch",
+            id="mismatched-formal",
+        ),
+        pytest.param(
+            """class RedirectCycle {
   factory RedirectCycle({String value}) = RedirectCycle.named;
   factory RedirectCycle.named({String value}) = RedirectCycle;
 }
 """,
-        """abstract interface class FactoryTerminal {
+            "RedirectCycle",
+            id="cycle",
+        ),
+        pytest.param(
+            """abstract interface class FactoryTerminal {
   factory FactoryTerminal({String value}) = FactoryBody;
 }
 class FactoryBody implements FactoryTerminal {
@@ -1873,11 +1863,13 @@ class FactoryBody implements FactoryTerminal {
 }
 class Impl implements FactoryBody {}
 """,
+            "FactoryTerminal",
+            id="unproven-factory-terminal",
+        ),
     ],
-    ids=("unresolved", "mismatched-formal", "cycle", "unproven-factory-terminal"),
 )
 def test_native_unresolved_redirecting_factory_default_stays_unknown_and_blocked(
-    tmp_path: Path, source: str
+    tmp_path: Path, source: str, factory_name: str
 ) -> None:
     from archkeel.check.uml_compare import compare_graphs
     from archkeel.ir.architecture_graph import ArchitectureGraph, Entity, Parameter, Signature
@@ -1889,7 +1881,9 @@ def test_native_unresolved_redirecting_factory_default_stays_unknown_and_blocked
         for section in facts.sections
         if section.name == "symbols"
         for record in section.records
-        if record.kind == "method" and record.data.get("method_kind") == "factory"
+        if record.kind == "method"
+        and record.data.get("method_kind") == "factory"
+        and record.data.get("qualified_name") == f"commerce.main.{factory_name}.{factory_name}"
     )
     parameter = factory.get("parameters")[0]
     assert parameter.get("default") is None
@@ -1897,6 +1891,17 @@ def test_native_unresolved_redirecting_factory_default_stays_unknown_and_blocked
     assert factory.get("signature_complete") is False
     assert any(gap.kind == "UnsupportedParameter" for gap in facts.coverage.gaps)
     assert not any(gap.kind == "source_resolution_gap" for gap in facts.coverage.gaps)
+    if factory_name == "FactoryTerminal":
+        body_factory = next(
+            record.data
+            for section in facts.sections
+            if section.name == "symbols"
+            for record in section.records
+            if record.data.get("qualified_name") == "commerce.main.FactoryBody.FactoryBody"
+        )
+        body_parameter = body_factory.get("parameters")[0]
+        assert body_parameter.get("default") == "'body'"
+        assert body_parameter.get("default_known") is True
 
     observed = _source_graph(facts)
     owner = factory.get("parent")
@@ -1937,6 +1942,10 @@ def test_native_constructor_returns_setters_and_private_names_keep_dart_semantic
   Box.named();
   Box._();
 }
+class _Hidden {
+  _Hidden.named();
+  _Hidden._();
+}
 class Maker<T> {
   factory Maker() = MakerImpl<T>;
 }
@@ -1974,7 +1983,16 @@ String describe() => 'value';
     assert symbols["commerce.main.describe"].get("returns") == "String"
     assert symbols["commerce.main.Box.Box._"].get("qualified_name") == "commerce.main.Box.Box._"
     assert symbols["commerce.main.Box.Box._"].get("visibility_detail").get("kind") == "private"
+    assert symbols["commerce.main.Box.Box._"].get("visibility_detail").get("spelling") == "_"
     assert symbols["commerce.main.Box.Box.named"].get("visibility_detail").get("kind") == "public"
+    assert (
+        symbols["commerce.main._Hidden._Hidden.named"].get("visibility_detail").get("kind")
+        == "public"
+    )
+    assert (
+        symbols["commerce.main._Hidden._Hidden.named"].get("visibility_detail").get("spelling")
+        == "named"
+    )
     assert symbols["commerce.main.Box.Box"].get("visibility_detail").get("kind") == "public"
 
 
