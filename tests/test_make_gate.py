@@ -561,3 +561,29 @@ def test_ci_cleanup_preserves_test_evidence(tmp_path: Path) -> None:
     assert not output.exists()
     assert not browser.exists()
     assert evidence.read_text() == "keep"
+
+
+@pytest.mark.parametrize("exit_code", [0, 2])
+def test_self_observation_generates_ignored_output_and_preserves_failure(tmp_path, exit_code):
+    arguments = tmp_path / "arguments"
+    runner = tmp_path / "uv"
+    runner.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" > "{arguments}"\nexit {exit_code}\n')
+    runner.chmod(0o755)
+    result = subprocess.run(
+        ["make", "self-observation", f"UV={runner}"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": ""},
+        capture_output=True,
+        text=True,
+    )
+    assert arguments.read_text().split() == [
+        "run",
+        "--locked",
+        "archkeel",
+        "report",
+        "--root",
+        ".",
+        "--output",
+        "test-artifacts/self-observation/architecture.json",
+    ]
+    assert result.returncode == exit_code

@@ -143,7 +143,7 @@ typescript-differential:
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py tools/ci_changes.py \
 	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_browser.py tools/report_pages.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
-	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
+	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/reproduce_typescript.py fixtures/typescript_differential.py fixtures/typescript_scenarios.py fixtures/typescript_realworld.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
@@ -172,7 +172,7 @@ fixtures:
 	$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)")
 
 self-observation:
-	$(UV) run --locked python -m fixtures.reproduce_self
+	$(UV) run --locked archkeel report --root . --output test-artifacts/self-observation/architecture.json
 
 rule-yield:
 	@test -n "$(ROOT)" || { echo "ROOT is required"; exit 2; }

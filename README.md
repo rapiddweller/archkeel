@@ -178,7 +178,7 @@ make browser-install
 make report-browser OUTPUT=test-artifacts/report-browser
 ```
 
-Archkeel checks its own [architecture contract](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) and compares fresh
-observations with [fixtures/D-self](https://github.com/rapiddweller/archkeel/tree/main/fixtures/D-self). See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).
+Archkeel checks its own [architecture contract](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) using fresh
+observations on every test run. See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).
 
 MIT © 2026 Rapiddweller Asia Co., Ltd. Maintained by [Alexander Kell](https://github.com/ake2l).

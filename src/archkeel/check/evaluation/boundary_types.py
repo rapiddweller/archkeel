@@ -2839,11 +2839,11 @@ def _boundary_type_allowance_fact(
     return None
 
 
-def _nested_field_allowance_matches(
+def _matching_field_position(
     allowance: BoundaryTypeAllowance, data: RecordData, verdict: _Position
-) -> bool:
+) -> _FieldPosition | None:
     if sum(".".join(path) == allowance.field_path for path in verdict.field_declarations) != 1:
-        return False
+        return None
     finding = (data["reason"], data.get("nested_annotation"), data.get("container_depth", 0))
     fields = tuple(
         field
@@ -2852,14 +2852,23 @@ def _nested_field_allowance_matches(
         and (field.finding[0], field.finding[2], field.finding[3]) == finding
     )
     if len(fields) != 1 or fields[0].annotation != allowance.annotation:
+        return None
+    return fields[0]
+
+
+def _nested_field_allowance_matches(
+    allowance: BoundaryTypeAllowance, data: RecordData, verdict: _Position
+) -> bool:
+    field = _matching_field_position(allowance, data, verdict)
+    if field is None:
         return False
     if data.get("nested_annotation") == allowance.annotation:
         return True
-    path = fields[0].finding[1]
+    path = field.finding[1]
     mappings = tuple(
         occurrence for occurrence in verdict.mapping_occurrences if occurrence.path == path
     )
-    if not mappings or not fields[0].alias_free:
+    if not mappings or not field.alias_free:
         return False
     outer_depth = min(occurrence.depth for occurrence in mappings)
     outer = tuple(occurrence for occurrence in mappings if occurrence.depth == outer_depth)
@@ -2881,8 +2890,14 @@ def _opaque_mapping_value_allowance_matches(
         or data.get("container_depth") != depth
     ):
         return False
+    path: tuple[str, ...] = ()
+    if allowance.field_path:
+        field = _matching_field_position(allowance, data, verdict)
+        if field is None or not field.alias_free:
+            return False
+        path = field.finding[1]
     mappings = tuple(
-        occurrence for occurrence in verdict.mapping_occurrences if not occurrence.path
+        occurrence for occurrence in verdict.mapping_occurrences if occurrence.path == path
     )
     return (
         len(mappings) == 1
@@ -2890,7 +2905,7 @@ def _opaque_mapping_value_allowance_matches(
         and mappings[0].opaque_value_depth is not None
         and mappings[0].depth + mappings[0].opaque_value_depth == depth
         # Findings deduplicate; the selector must not accept two equal opaque occurrences.
-        and verdict.violations.count((reason, (), "object", depth)) == 1
+        and verdict.violations.count((reason, path, "object", depth)) == 1
     )
 
 
