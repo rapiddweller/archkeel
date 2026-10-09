@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "8f6e018f6a6a3470e9899f4aa87256f4e4995ad0a71ae895c7c5876310b02827",
+  "after_digest": "521ae6ef52873532802fac4ca122a83ac5fe15b3a031927d9fbe9f920e73d2ea",
+  "before_baseline_digest": "37dedc4e135682519bb23ef3dd09aa1d7595502d968d63a8585129f0421b4964",
+  "before_digest": "f692f5576bfcbaff282f88e52ba5b12faf505b9d513f2d9e580eef9963c372bc",
+  "decided_by": "Codex (agent; user-authorized SDK-free Dart migration)",
+  "rationale": "Replace SDK-hosted Dart collection with five authored Python responsibilities and principal UML boundaries. Keep shared protocol definitions canonical and confine the Dart grammar to parse. The Python self-scan expands to include 213 unresolved receiver/expression calls in the new collector; 702 remain elsewhere, so ratchet calls_unresolved at the measured 915 instead of 704. All other budgets and zero architecture violations remain unchanged. See AD-214 for the verified source digest and scope decision.",
+  "schema_version": "2.0.0"
+}
