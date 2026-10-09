@@ -286,6 +286,55 @@ def test_report_embeds_the_standard_graph_schema_with_independent_target(tmp_pat
     assert all(entity.provenance for entity in target.entities)
 
 
+def test_mixin_classifier_and_composition_have_distinct_uml_notation(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    mixin = Entity(
+        "auditable",
+        "mixin",
+        "sample.core.Auditable",
+        "python",
+        parent_id="module",
+        presence="planned",
+        responsibilities=("Supply audit behavior.",),
+        provenance=("docs/target.md",),
+    )
+    html, payload = _uml_report(
+        tmp_path,
+        extra_target_entities=(mixin,),
+        extra_target_relationships=(
+            Relationship(
+                "apply-auditable",
+                "mixes_in",
+                "client",
+                "auditable",
+                provenance=("docs/target.md",),
+            ),
+        ),
+    )
+    target = parse_graph(payload["target"])
+    assert any(entity.kind == "mixin" for entity in target.entities)
+    assert any(edge.kind == "mixes_in" for edge in target.relationships)
+
+    errors = []
+    playwright, browser, page = _browser_page(api, html, errors=errors)
+    try:
+        page.locator('[data-flow-view="target"]').click()
+        page.locator('.flow-nodes [data-uml-id="core"]').dblclick()
+        page.locator('.flow-nodes [data-uml-id="module"]').dblclick()
+        card = page.locator('.flow-nodes [data-label="Auditable"]')
+        assert card.get_attribute("data-uml-kind") == "mixin"
+        edge = page.locator('.flow-edges [data-relationship-kind="mixes_in"]')
+        line = edge.locator(".line")
+        assert "#flow-arrow-uml-mixes_in" in line.evaluate(
+            "node => getComputedStyle(node).markerEnd"
+        )
+        assert line.evaluate("node => getComputedStyle(node).strokeDasharray") == "6px, 4px"
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 @pytest.mark.parametrize("view", ["target", "diff"])
 def test_global_api_intent_stays_inspectable_without_inventing_uml_or_visibility(tmp_path, view):
     api = pytest.importorskip("playwright.sync_api")

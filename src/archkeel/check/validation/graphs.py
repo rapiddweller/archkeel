@@ -16,10 +16,13 @@ COMPONENT_GRAPH_MARKER = "<!-- archkeel-component-graph -->"
 # AD-57: a second, independent marker for the graph the contract permits, beside the one
 # above for the graph the code observes. A page may carry either, both or neither.
 TARGET_GRAPH_MARKER = "<!-- archkeel-target-graph -->"
-_GRAPH_EDGE = re.compile(r"\s*([a-z_][a-z0-9_]*)\s*-->\s*([a-z_][a-z0-9_]*)\s*")
+_GRAPH_EDGE = r"\s*([a-z_][a-z0-9_]*)\s*-->\s*([a-z_][a-z0-9_]*)\s*"
+_GRAPH_NODE = r'\s*([a-z_][a-z0-9_]*)\s*\["([^"\r\n]*)"\]\s*'
+_GRAPH_ID = r"[a-z_][a-z0-9_]*\Z"
+_GRAPH_ENTITY = r"#([0-9]+);"
 _MERMAID_FENCE = "```mermaid\n"
-_GRAPH_DECLARATION = re.compile(r"\s*(?:graph|flowchart)\b.*")
-_GRAPH_COMMENT = re.compile(r"\s*%%.*")
+_GRAPH_DECLARATION = r"\s*(?:graph|flowchart)\b.*"
+_GRAPH_COMMENT = r"\s*%%.*"
 
 
 def _marked_bodies(content: str, marker: str) -> list[tuple[int, int]]:
@@ -43,28 +46,120 @@ def _marked_bodies(content: str, marker: str) -> list[tuple[int, int]]:
     return spans
 
 
-def _unwritable_line(body: str) -> str | None:
-    """The first line of a marked block that is not a declaration, a `%%` comment or an edge.
+def _unwritable_line(body: str, *, allow_isolated_nodes: bool = False) -> str | None:
+    """Find graph content the rewrite cannot preserve, optionally allowing isolated nodes.
 
     AD-46: a subgraph, a labeled edge or a style can depend on where an edge sits, so a rewrite
     that reorders the edges could change what the graph says; such a block is left to a human.
     """
-    return next(
-        (
-            line.strip()
-            for line in body.splitlines()
-            if line.strip()
-            and not _GRAPH_EDGE.fullmatch(line)
-            and not _GRAPH_DECLARATION.fullmatch(line)
-            and not _GRAPH_COMMENT.fullmatch(line)
-        ),
-        None,
+    labels, conflict = _node_labels(body)
+    if conflict is not None:
+        return conflict
+    referenced: set[str] = set()
+    declared = set(labels)
+    for line in body.splitlines():
+        stripped = line.strip()
+        if re.fullmatch(_GRAPH_ID, stripped):
+            declared.add(stripped)
+        match = re.fullmatch(_GRAPH_EDGE, line)
+        if match is not None:
+            referenced.update(match.groups())
+    orphaned = declared.difference(referenced)
+    if orphaned and not allow_isolated_nodes:
+        return f"isolated node {min(orphaned)}"
+    for line in body.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if not allow_isolated_nodes and re.fullmatch(_GRAPH_ID, stripped):
+            return stripped
+        if any(
+            re.fullmatch(pattern, stripped)
+            for pattern in (_GRAPH_EDGE, _GRAPH_NODE, _GRAPH_ID, _GRAPH_DECLARATION, _GRAPH_COMMENT)
+        ):
+            continue
+        return stripped
+    return None
+
+
+def _node_labels(body: str) -> tuple[dict[str, str], str | None]:
+    """Read quoted node declarations; conflicting identities make the block ambiguous."""
+    labels: dict[str, str] = {}
+    aliases_by_label: dict[str, str] = {}
+    for line in body.splitlines():
+        stripped = line.strip()
+        match = re.fullmatch(_GRAPH_NODE, stripped)
+        if match is None:
+            continue
+        alias, encoded_label = match.groups()
+        label = _unescape_label(encoded_label)
+        if label is None:
+            return labels, stripped
+        previous = labels.get(alias)
+        if previous is not None and previous != label:
+            return labels, stripped
+        previous_alias = aliases_by_label.get(label)
+        if previous_alias is not None and previous_alias != alias:
+            return labels, stripped
+        labels[alias] = label
+        aliases_by_label[label] = alias
+    return labels, None
+
+
+def _unescape_label(value: str) -> str | None:
+    """Decode the numeric entities emitted by `_escape_label`, without recursive decoding."""
+
+    def decode(match: re.Match[str]) -> str:
+        (digits,) = match.groups()
+        return chr(int(digits))
+
+    try:
+        return re.sub(_GRAPH_ENTITY, decode, value)
+    except (ValueError, OverflowError):
+        return None
+
+
+def _escape_label(value: str) -> str:
+    """Keep declarations on one line and preserve literal Mermaid control markup."""
+    return "".join(
+        f"#{ord(character)};"
+        if character in '#"&<>' or ord(character) < 32 or ord(character) == 127
+        else character
+        for character in value
     )
 
 
+def _node_aliases(edges: frozenset[tuple[str, str]]) -> dict[str, str] | None:
+    labels = sorted({label for edge in edges for label in edge})
+    if all(re.fullmatch(_GRAPH_ID, label) for label in labels):
+        return None
+    return {label: f"n_{index}" for index, label in enumerate(labels)}
+
+
+def _declared_edges(body: str) -> frozenset[tuple[str, str]]:
+    labels, _ = _node_labels(body)
+    edges: set[tuple[str, str]] = set()
+    for line in body.splitlines():
+        match = re.fullmatch(_GRAPH_EDGE, line)
+        if match is None:
+            continue
+        source, target = match.groups()
+        edges.add((labels.get(source, source), labels.get(target, target)))
+    return frozenset(edges)
+
+
 def mermaid_edges(edges: frozenset[tuple[str, str]]) -> str:
-    """One sorted Mermaid line per component edge: what `init` and `--write-graph` write."""
-    return "".join(f"    {source} --> {target}\n" for source, target in sorted(edges))
+    """Write sorted graph edges, preserving human labels through quoted alias declarations."""
+    aliases = _node_aliases(edges)
+    if aliases is None:
+        return "".join(f"    {source} --> {target}\n" for source, target in sorted(edges))
+    declarations = "".join(
+        f'    {alias}["{_escape_label(label)}"]\n' for label, alias in sorted(aliases.items())
+    )
+    projected = frozenset((aliases[source], aliases[target]) for source, target in edges)
+    return declarations + "".join(
+        f"    {source} --> {target}\n" for source, target in sorted(projected)
+    )
 
 
 def rewrite_component_graph(
@@ -100,10 +195,13 @@ def rewrite_component_graph(
         body = content[start:end]
         if _unwritable_line(body) is not None:
             continue
-        kept = [
-            line for line in body.splitlines() if line.strip() and not _GRAPH_EDGE.fullmatch(line)
-        ]
-        if not any(_GRAPH_DECLARATION.fullmatch(line) for line in kept):
+        kept: list[str] = []
+        for line in body.splitlines():
+            stripped = line.strip()
+            if not stripped or re.fullmatch(_GRAPH_EDGE, line) or re.fullmatch(_GRAPH_NODE, line):
+                continue
+            kept.append(line)
+        if not any(re.fullmatch(_GRAPH_DECLARATION, line) for line in kept):
             kept.insert(0, "graph TD")
         written = (
             content[:start]
@@ -173,16 +271,13 @@ def _marker_diagnostics(
             ),
         )
     path, body = graphs[0]
-    declared = frozenset(
-        (match.group(1), match.group(2))
-        for line in body.splitlines()
-        if (match := _GRAPH_EDGE.fullmatch(line))
-    )
-    if declared == edges:
+    declared = _declared_edges(body)
+    unwritable = _unwritable_line(body, allow_isolated_nodes=True)
+    if declared == edges and unwritable is None:
         return ()
+    unwritable = unwritable or _unwritable_line(body)
     new_edges = ", ".join(f"{a}->{b}" for a, b in sorted(edges - declared)) or "none"
     gone_edges = ", ".join(f"{a}->{b}" for a, b in sorted(declared - edges)) or "none"
-    unwritable = _unwritable_line(body)
     return (
         _diagnostic(
             "graph.drift",

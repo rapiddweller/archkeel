@@ -1,0 +1,46 @@
+# Compass whole-app Target
+
+This Target covers all 89 logical libraries from the pinned Compass application. Its five architecture areas are application composition and routing, presentation, domain, data, and shared utilities. Presentation is grouped by login/logout, home, search, results, activities, booking, and shared UI. Data is grouped by repository family and API, local-data, token-storage, and serialized-model services.
+
+The expected journey is: environment setup → auth-aware route selection → search form and saved itinerary → destination results → activity selection → booking creation and persistence → booking detail/share or home history. Repository ports remain in the data subtree because that is where this sample declares them. Dependencies reflect these source boundaries; the Target does not invent a stricter layered design.
+
+Each source library has one component owner. The 22 generated `.freezed.dart` and `.g.dart` inputs remain in the source inventory and are attributed to their model library. They are not separate modules. Each Freezed API mixin is a closed contract for its model property getters, JSON serialization method, and typed `copyWith` getter. Generated implementation and CopyWith helper classes are outside that principal API.
+
+Principal contracts cover auth/session, search and itinerary state, result/activity selection, booking creation/detail/share, home booking summaries, repository ports, API/local/token services, immutable data models, and generic `Command`/`Result` utilities. Widget/framework inheritance and external runtime behavior remain outside this Target. Open module scopes leave unlisted helper declarations and incidental calls unresolved; named contracts and their relationships are the intentional architectural comparison surface.
+
+Required dependencies follow imports in the pinned source. Root edges include local data to `config.assets` (`lib/data/services/local/local_data_service.dart:9`), booking use cases to `utils.result` and shared date formatting (`lib/domain/use_cases/booking/booking_create_use_case.dart:10`, `lib/domain/use_cases/booking/booking_share_use_case.dart:9-10`), and presentation to route definitions and shared UI/utilities (`lib/ui/search_form/widgets/search_form_submit.dart:8`, `lib/ui/activities/widgets/activities_header.dart:11`, `lib/ui/activities/widgets/activity_entry.dart:9`). App composition imports the router, and the router owns route definitions (`lib/main.dart:10`, `lib/routing/router.dart:22`). Within the nested contracts, domain use cases use domain models; home and search compose logout and results; presentation features use shared UI; API clients and remote repositories use their DTOs (`lib/data/services/api/api_client.dart:12-13`, `lib/data/services/api/auth_api_client.dart:9-10`, `lib/data/repositories/auth/auth_repository_remote.dart:10-11`, `lib/data/repositories/booking/booking_repository_remote.dart:11`, `lib/data/repositories/user/user_repository_remote.dart:8`). The bundled local-data service has no API-client dependency, so that boundary remains closed.
+
+Source input digest: `c6c1b8fe62fbc950af3b3dc4a033cac300bdeec2564e563909504a69df753e72` (111 Dart files; `pubspec.yaml` is configuration, not a module).
+
+## Required module paths
+
+The Target links the app entry points and provider wiring to navigation, each principal screen to its ViewModel, and auth/search/results/activities/booking state through repository ports to local or remote adapters. Booking creation also links its use case to the repository ports and the remote/local booking implementations to their respective data services. These are selected source-backed paths; module import scopes remain open, so this is not a complete import inventory.
+
+## Observed source imports
+
+The graph records cross-component imports found in pinned source and attributed to Target ownership.
+
+<!-- archkeel-component-graph -->
+```mermaid
+graph TD
+    n_0["Compose environment, localization, routes and app shell"]
+    n_1["data"]
+    n_2["domain"]
+    n_3["presentation"]
+    n_4["utilities"]
+    n_0 --> n_1
+    n_0 --> n_2
+    n_0 --> n_3
+    n_1 --> n_0
+    n_1 --> n_2
+    n_1 --> n_4
+    n_2 --> n_1
+    n_2 --> n_3
+    n_2 --> n_4
+    n_3 --> n_0
+    n_3 --> n_1
+    n_3 --> n_2
+    n_3 --> n_4
+```
+
+Target bundle SHA-256: `47e9644d744777c0acab7c76df551924eaa395a9bc391aa32a97367364bdc566`

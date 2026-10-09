@@ -8,6 +8,7 @@ import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/type.dart';
 import 'package:analyzer/error/error.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
@@ -75,6 +76,7 @@ class DartCollector {
   final List<Map<String, Object?>> calls = [];
   final List<Map<String, Object?>> references = [];
   final Map<Element, String> definitions = HashMap.identity();
+  final Map<AstNode, String> definitionIdsByNode = HashMap.identity();
   final Map<String, Map<String, Object?>> symbolByQualified = {};
   final Map<String, Map<String, Object?>> symbolById = {};
   final Map<String, String> modules = {};
@@ -517,6 +519,7 @@ class DartCollector {
           declaration,
           declaration.namePart.typeName.lexeme,
           classKind,
+          mixinCapable: declaration.mixinKeyword != null,
         );
         _indexElement(
           declaration.declaredFragment?.element,
@@ -580,12 +583,22 @@ class DartCollector {
           owner,
         );
       } else if (declaration is MixinDeclaration) {
-        _gap(
-          source.rel,
-          declaration.offset,
-          'UnsupportedDeclaration',
-          'mixin declarations have no shared UML entity kind',
+        final name = declaration.name.lexeme;
+        final owner = _classifier(source, declaration, name, 'mixin');
+        _indexElement(
+          declaration.declaredFragment?.element,
+          owner['qualified'] as String,
         );
+        _members(source, declaration.members, owner);
+        _indexClassMembers(source, declaration.members, owner);
+        if (declaration.onClause != null) {
+          _gap(
+            source.rel,
+            declaration.onClause!.offset,
+            'UnsupportedDeclaration',
+            'mixin on constraints are not represented in the shared classifier graph',
+          );
+        }
       } else if (declaration is ExtensionDeclaration ||
           declaration is ExtensionTypeDeclaration) {
         _gap(
@@ -595,6 +608,11 @@ class DartCollector {
           'extension declarations have no shared UML entity kind',
         );
       } else if (declaration is FunctionDeclaration) {
+        final accessorKind = declaration.isGetter
+            ? 'getter'
+            : declaration.isSetter
+            ? 'setter'
+            : null;
         final id = _function(
           source,
           declaration,
@@ -602,6 +620,10 @@ class DartCollector {
           null,
           declaration.functionExpression.parameters,
           declaration.returnType?.toSource(),
+          false,
+          null,
+          null,
+          accessorKind,
         );
         _indexElement(
           declaration.declaredFragment?.element,
@@ -712,18 +734,10 @@ class DartCollector {
           );
         }
       } else if (member is MethodDeclaration) {
-        final record = symbols.firstWhere(
-          (item) =>
-              item['data'] is Map<String, Object?> &&
-              (item['data'] as Map<String, Object?>)['source_file'] ==
-                  source.rel &&
-              (item['data'] as Map<String, Object?>)['qualified_name'] ==
-                  '$ownerName.${member.name.lexeme}',
-        );
-        _indexElement(
-          member.declaredFragment?.element,
-          symbolsByIdName(record['id'] as String),
-        );
+        final id = definitionIdsByNode[member];
+        if (id != null) {
+          _indexElement(member.declaredFragment?.element, symbolsByIdName(id));
+        }
       } else if (member is ConstructorDeclaration) {
         final suffix = member.name?.lexeme;
         final constructorName = suffix == null
@@ -737,11 +751,14 @@ class DartCollector {
 
   void _emitBases(DartSource source, ResolvedUnitResult resolved) {
     for (final declaration in resolved.unit.declarations) {
-      if (declaration is! ClassDeclaration && declaration is! EnumDeclaration)
+      if (declaration is! ClassDeclaration &&
+          declaration is! EnumDeclaration &&
+          declaration is! MixinDeclaration)
         continue;
       final name = switch (declaration) {
         ClassDeclaration value => value.namePart.typeName.lexeme,
         EnumDeclaration value => value.namePart.typeName.lexeme,
+        MixinDeclaration value => value.name.lexeme,
         _ => '',
       };
       final record = symbolByQualified['${source.module}.$name'];
@@ -756,7 +773,7 @@ class DartCollector {
       if (declaration is ClassDeclaration) {
         for (final type
             in declaration.withClause?.mixinTypes ?? const <NamedType>[]) {
-          bases.add(_baseFact(source, type, 'inherits'));
+          bases.add(_baseFact(source, type, 'mixes_in'));
         }
         for (final type
             in declaration.implementsClause?.interfaces ??
@@ -764,6 +781,16 @@ class DartCollector {
           bases.add(_baseFact(source, type, 'realizes'));
         }
       } else if (declaration is EnumDeclaration) {
+        for (final type
+            in declaration.withClause?.mixinTypes ?? const <NamedType>[]) {
+          bases.add(_baseFact(source, type, 'mixes_in'));
+        }
+        for (final type
+            in declaration.implementsClause?.interfaces ??
+                const <NamedType>[]) {
+          bases.add(_baseFact(source, type, 'realizes'));
+        }
+      } else if (declaration is MixinDeclaration) {
         for (final type
             in declaration.implementsClause?.interfaces ??
                 const <NamedType>[]) {
@@ -781,7 +808,12 @@ class DartCollector {
   ) {
     final target = _definitionOf(type.type?.element);
     final targetRecord = target == null ? null : symbolByQualified[target];
-    final isResolved = targetRecord?['kind'] == 'class';
+    final targetData = targetRecord?['data'] as Map<String, Object?>?;
+    final classifierTarget = targetRecord?['kind'] == 'class';
+    final mixinTarget =
+        targetData?['class_kind'] == 'mixin' ||
+        targetData?['mixin_capable'] == true;
+    final isResolved = classifierTarget && (kind != 'mixes_in' || mixinTarget);
     return {
       'id': _id('DARTBASE', [source.rel, type.offset, kind]),
       'relationship_kind': kind,
@@ -792,6 +824,8 @@ class DartCollector {
       'expression': type.toSource(),
       'reason': isResolved
           ? 'Analyzer resolved local declared type'
+          : kind == 'mixes_in'
+          ? 'with target is not proven to be a local mixin-capable declaration'
           : 'base type is external or unresolved',
       'evidence_ids': [_cite(source, type)],
     };
@@ -805,7 +839,7 @@ class DartCollector {
     DartSource source,
     AstNode node,
     String scope,
-    String scopeId,
+    String? scopeId,
     String expression,
     Element? target, {
     required bool call,
@@ -826,12 +860,13 @@ class DartCollector {
     final id = _id(call ? 'DARTCALL' : 'DARTREF', [
       source.rel,
       node.offset,
-      scopeId,
+      scopeId ?? '',
       expression,
+      if (use != null) use,
     ]);
     final data = <String, Object?>{
       'source_scope': scope,
-      'source_definition_id': scopeId,
+      if (scopeId != null) 'source_definition_id': scopeId,
       'source_module': moduleForSource[source.rel] ?? source.module,
       'source_file': source.rel,
       'expression': expression,
@@ -863,11 +898,11 @@ class DartCollector {
     DartSource source,
     VariableDeclaration node,
     String scope,
-    String scopeId,
+    String? scopeId,
   ) {
     final name = node.name.lexeme;
     final qualified = '$scope.$name';
-    final id = _id('DARTBIND', [source.rel, node.offset, scopeId, name]);
+    final id = _id('DARTBIND', [source.rel, node.offset, scopeId ?? '', name]);
     final initializer =
         node.initializer is InstanceCreationExpression ||
             node.initializer is MethodInvocation ||
@@ -915,35 +950,41 @@ class DartCollector {
     String kind,
     String? parent,
     String? parentId,
-  ) => {
-    'qualified_name': parent == null
-        ? source.module + '.' + name
-        : parent + '.' + name,
-    'module': source.module,
-    'source_file': source.rel,
-    'package': packages[source.module],
-    'name': name,
-    'parent': parent,
-    'lexical_parent_id': parentId,
-    'visibility_detail': {
-      'kind': name.startsWith('_') ? 'private' : 'public',
-      'basis': 'language',
-      'spelling': name,
-    },
-    'symbol_category': kind == 'class' ? 'class' : kind,
-    'source_binding_unique': true,
-    'source_member_binding_static': true,
-    'class_header_static': true,
-    'decorators': <String>[],
-    'signature_complete': true,
-    'overload_signature': false,
-  };
+  ) {
+    final spelling = node is ConstructorDeclaration && node.name != null
+        ? node.name!.lexeme
+        : name;
+    return {
+      'qualified_name': parent == null
+          ? source.module + '.' + name
+          : parent + '.' + name,
+      'module': source.module,
+      'source_file': source.rel,
+      'package': packages[source.module],
+      'name': name,
+      'parent': parent,
+      'lexical_parent_id': parentId,
+      'visibility_detail': {
+        'kind': spelling.startsWith('_') ? 'private' : 'public',
+        'basis': 'language',
+        'spelling': spelling,
+      },
+      'symbol_category': kind == 'class' ? 'class' : kind,
+      'source_binding_unique': true,
+      'source_member_binding_static': true,
+      'class_header_static': true,
+      'decorators': <String>[],
+      'signature_complete': true,
+      'overload_signature': false,
+    };
+  }
 
   Map<String, Object?> _classifier(
     DartSource source,
     AstNode node,
     String name,
     String classKind, {
+    bool mixinCapable = false,
     List<String>? enumMembers,
     List<Map<String, Object?>>? enumAttributes,
   }) {
@@ -961,6 +1002,7 @@ class DartCollector {
         {
           ..._meta(source, node, name, 'class', null, null),
           'class_kind': classKind,
+          if (mixinCapable) 'mixin_capable': true,
           'enum_members': enumMembers ?? <String>[],
           'attribute_declarations': attributes,
           'member_inventories': [
@@ -1037,6 +1079,11 @@ class DartCollector {
         }
       } else if (member is MethodDeclaration) {
         final name = member.name.lexeme;
+        final accessorKind = member.isGetter
+            ? 'getter'
+            : member.isSetter
+            ? 'setter'
+            : null;
         methods.add(
           _function(
             source,
@@ -1046,6 +1093,9 @@ class DartCollector {
             member.parameters,
             member.returnType?.toSource(),
             member.isStatic,
+            null,
+            null,
+            accessorKind,
           ),
         );
       } else if (member is ConstructorDeclaration) {
@@ -1096,45 +1146,66 @@ class DartCollector {
     bool isStatic = false,
     String? methodKind,
     Map<String, String>? fieldTypes,
+    String? accessorKind,
   ]) {
     final qualifiedParent = parent?['qualified'] as String?;
     final parentId = parent?['id'] as String?;
-    final qualified = qualifiedParent == null
+    final baseQualified = qualifiedParent == null
         ? source.module + '.' + name
         : qualifiedParent + '.' + name;
-    final id = _id('DARTDEF', [
-      source.rel,
-      node.offset,
-      qualified,
-      parent == null ? 'function' : 'method',
-    ]);
-    final params = _params(source, list, fieldTypes ?? const {});
+    final qualified = accessorKind == null
+        ? baseQualified
+        : '$baseQualified::$accessorKind';
+    final kind = parent == null ? 'function' : 'method';
+    final id = _id('DARTDEF', [source.rel, node.offset, qualified, kind]);
+    final constructor = node is ConstructorDeclaration
+        ? node.declaredFragment?.element
+        : null;
+    final redirectingFactory =
+        node is ConstructorDeclaration &&
+        node.factoryKeyword != null &&
+        node.redirectedConstructor != null;
+    final params = _params(
+      source,
+      list,
+      fieldTypes ?? const {},
+      constructor: constructor,
+      redirectingFactory: redirectingFactory,
+    );
+    final constructorReturn =
+        (methodKind == 'constructor' || methodKind == 'factory') &&
+        parent != null;
+    if (constructorReturn && constructor == null) {
+      _gap(
+        source.rel,
+        node.offset,
+        'UnsupportedMember',
+        'constructor return type is unavailable from a resolved element',
+      );
+    }
+    definitionIdsByNode[node] = id;
     _addSymbol(
       _record(
         id,
         'source',
-        parent == null ? 'function' : 'method',
+        kind,
         qualified + ' declaration',
         [qualified],
         [_cite(source, node)],
         {
-          ..._meta(
-            source,
-            node,
-            name,
-            parent == null ? 'function' : 'method',
-            qualifiedParent,
-            parentId,
-          ),
+          ..._meta(source, node, name, kind, qualifiedParent, parentId),
+          'qualified_name': qualified,
+          if (accessorKind != null) 'accessor_kind': accessorKind,
           'annotation': null,
-          'returns':
-              (methodKind == 'constructor' || methodKind == 'factory') &&
-                  parent != null
-              ? parent['name']
+          'returns': constructorReturn
+              ? constructor?.returnType.getDisplayString()
+              : accessorKind == 'setter' && returns == null
+              ? 'void'
               : returns,
           'parameters': params.values,
           'method_kind': methodKind ?? (isStatic ? 'static' : 'instance'),
-          'signature_complete': params.complete,
+          'signature_complete':
+              params.complete && (!constructorReturn || constructor != null),
         },
       ),
     );
@@ -1144,19 +1215,54 @@ class DartCollector {
   ({List<Map<String, Object?>> values, bool complete}) _params(
     DartSource source,
     FormalParameterList? list,
-    Map<String, String> fieldTypes,
-  ) {
+    Map<String, String> fieldTypes, {
+    ConstructorElement? constructor,
+    bool redirectingFactory = false,
+  }) {
     if (list == null) return (values: <Map<String, Object?>>[], complete: true);
     final result = <Map<String, Object?>>[];
     var complete = true;
     for (final item in list.parameters) {
       var actual = item;
       String? defaultValue;
+      var defaultKnown = true;
       var kind = item.isNamed ? 'keyword_only' : 'positional';
       if (item is DefaultFormalParameter) {
         actual = item.parameter;
         defaultValue = item.defaultValue?.toSource();
-        if (item.isOptional && defaultValue == null) defaultValue = 'null';
+        if (item.isOptional && defaultValue == null && !redirectingFactory) {
+          defaultValue = 'null';
+        }
+      }
+      if (redirectingFactory && item.isOptional && defaultValue == null) {
+        final parameterElement = actual.declaredFragment?.element;
+        final resolvedDefault = _redirectedDefault(
+          constructor,
+          parameterElement is FormalParameterElement ? parameterElement : null,
+        );
+        defaultValue = resolvedDefault.$1;
+        defaultKnown = resolvedDefault.$2;
+        if (!defaultKnown) {
+          complete = false;
+          _gap(
+            source.rel,
+            item.offset,
+            'UnsupportedParameter',
+            'redirecting constructor parameter default is unresolved',
+          );
+        }
+      }
+      final inheritedParameter = actual is SuperFormalParameter
+          ? _superParameterElement(actual)
+          : null;
+      if (actual is SuperFormalParameter) {
+        defaultKnown = inheritedParameter != null;
+        defaultValue = inheritedParameter?.defaultValueCode;
+        if (inheritedParameter != null &&
+            defaultValue == null &&
+            item.isOptional) {
+          defaultValue = 'null';
+        }
       }
       final name = switch (actual) {
         SimpleFormalParameter() => actual.name?.lexeme,
@@ -1179,7 +1285,7 @@ class DartCollector {
         SimpleFormalParameter() => actual.type?.toSource(),
         FieldFormalParameter() =>
           actual.type?.toSource() ?? fieldTypes[actual.name.lexeme],
-        SuperFormalParameter() => actual.type?.toSource(),
+        SuperFormalParameter() => _superParameterType(actual),
         FunctionTypedFormalParameter() =>
           '${actual.returnType?.toSource() ?? 'dynamic'} Function'
               '${actual.typeParameters?.toSource() ?? ''}'
@@ -1189,16 +1295,25 @@ class DartCollector {
       };
       final supported = switch (actual) {
         SimpleFormalParameter() || FunctionTypedFormalParameter() => true,
-        FieldFormalParameter() || SuperFormalParameter() => type != null,
+        FieldFormalParameter() => type != null,
+        SuperFormalParameter() => _superParameterIsKnown(actual),
         _ => false,
       };
       if (!supported) {
         complete = false;
+        final unresolvedSuperclass =
+            actual is SuperFormalParameter &&
+            _superclassBindingUnavailable(actual);
         _gap(
           source.rel,
           item.offset,
-          'UnsupportedParameter',
-          'parameter type is not represented in the shared signature',
+          unresolvedSuperclass
+              ? 'source_resolution_gap'
+              : 'UnsupportedParameter',
+          unresolvedSuperclass
+              ? 'inherited parameter is unavailable because the superclass binding is unresolved'
+              : 'parameter type is not represented in the shared signature',
+          evidenceIds: unresolvedSuperclass ? [_cite(source, actual)] : null,
         );
       }
       result.add({
@@ -1206,10 +1321,112 @@ class DartCollector {
         'annotation': type,
         'kind': kind,
         'default': defaultValue,
-        'default_known': true,
+        'default_known': defaultKnown,
       });
     }
     return (values: result, complete: complete);
+  }
+
+  (String?, bool) _redirectedDefault(
+    ConstructorElement? source,
+    FormalParameterElement? sourceParameter,
+  ) {
+    if (source == null || sourceParameter == null) return (null, false);
+    final visited = HashSet<Element>.identity();
+    var current = source;
+    var parameter = sourceParameter;
+    while (visited.add(current.baseElement)) {
+      final target = current.redirectedConstructor;
+      if (target == null) return (null, false);
+      final redirectedParameter = _redirectedParameter(
+        current,
+        parameter,
+        target,
+      );
+      if (redirectedParameter == null) return (null, false);
+      if (!target.isFactory) {
+        if (!redirectedParameter.isOptional) return (null, false);
+        return (redirectedParameter.defaultValueCode ?? 'null', true);
+      }
+      // ponytail: factory-body terminals stay unknown because no redirect link proves a default.
+      if (target.redirectedConstructor == null) return (null, false);
+      current = target;
+      parameter = redirectedParameter;
+    }
+    return (null, false);
+  }
+
+  FormalParameterElement? _redirectedParameter(
+    ConstructorElement source,
+    FormalParameterElement sourceParameter,
+    ConstructorElement target,
+  ) {
+    final sourceParameters = source.formalParameters.where((parameter) {
+      return parameter.name == sourceParameter.name &&
+          parameter.isNamed == sourceParameter.isNamed &&
+          parameter.isOptional == sourceParameter.isOptional;
+    }).toList();
+    if (sourceParameters.length != 1) return null;
+    if (sourceParameter.isNamed) {
+      final matches = target.formalParameters.where((parameter) {
+        return parameter.isNamed &&
+            parameter.name == sourceParameter.name &&
+            parameter.isOptional == sourceParameter.isOptional;
+      }).toList();
+      return matches.length == 1 ? matches.single : null;
+    }
+    final position = source.formalParameters
+        .where((parameter) => parameter.isPositional)
+        .toList()
+        .indexOf(sourceParameters.single);
+    if (position < 0) return null;
+    final targetParameters = target.formalParameters
+        .where((parameter) => parameter.isPositional)
+        .toList();
+    if (position >= targetParameters.length) return null;
+    final match = targetParameters[position];
+    return match.isOptional == sourceParameter.isOptional ? match : null;
+  }
+
+  String? _superParameterType(SuperFormalParameter parameter) {
+    final inherited = _superParameterElement(parameter);
+    if (inherited == null || inherited.type is InvalidType) return null;
+    return inherited.type.getDisplayString();
+  }
+
+  bool _superParameterIsKnown(SuperFormalParameter parameter) {
+    final inherited = _superParameterElement(parameter);
+    return inherited != null && inherited.type is! InvalidType;
+  }
+
+  FormalParameterElement? _superParameterElement(
+    SuperFormalParameter parameter,
+  ) {
+    final element = parameter.declaredFragment?.element;
+    return element is SuperFormalParameterElement
+        ? element.superConstructorParameter
+        : null;
+  }
+
+  bool _superclassBindingUnavailable(SuperFormalParameter parameter) {
+    final parameterElement = parameter.declaredFragment?.element;
+    if (parameterElement is! SuperFormalParameterElement) return false;
+    final constructor = parameter
+        .thisOrAncestorOfType<ConstructorDeclaration>();
+    final constructorElement = parameterElement.enclosingElement;
+    if (constructor == null || constructorElement is! ConstructorElement) {
+      return false;
+    }
+    if (constructor.declaredFragment?.element != constructorElement)
+      return false;
+    final declaration = constructor.thisOrAncestorOfType<ClassDeclaration>();
+    final classElement = declaration?.declaredFragment?.element;
+    if (declaration == null || classElement == null) return false;
+    if (constructorElement.enclosingElement != classElement) return false;
+    final superclass = declaration.extendsClause?.superclass;
+    return superclass != null &&
+        superclass.element == null &&
+        superclass.type is InvalidType;
   }
 
   String _variable(
@@ -1471,6 +1688,9 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
   final ResolvedUnitResult resolved;
   String? scope;
   String? scopeId;
+  bool syntheticScope = false;
+  String? enclosingScope;
+  String? enclosingScopeId;
   Map<String, Object?>? binding;
   final Map<AstNode, Map<String, Object?>> resultBindings = HashMap.identity();
 
@@ -1488,15 +1708,19 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
     scopeId = oldId;
   }
 
-  (String, String)? get _sourceContext {
+  (String, String?)? get _sourceContext {
     final local = binding;
     if (local != null)
       return (local['qualified_name'] as String, local['id'] as String);
     return _functionContext;
   }
 
-  (String, String)? get _functionContext {
-    if (scope != null && scopeId != null) return (scope!, scopeId!);
+  (String, String?)? get _functionContext {
+    if (scope != null) {
+      return syntheticScope
+          ? (enclosingScope ?? scope!, enclosingScopeId)
+          : (scope!, scopeId);
+    }
     return null;
   }
 
@@ -1507,6 +1731,37 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
       node.declaredFragment?.element,
       () => super.visitFunctionDeclaration(node),
     );
+  }
+
+  @override
+  void visitFunctionExpression(FunctionExpression node) {
+    if (node.parent is FunctionDeclaration) {
+      super.visitFunctionExpression(node);
+      return;
+    }
+    final previousScope = scope;
+    final previousScopeId = scopeId;
+    final previousBinding = binding;
+    final previousSyntheticScope = syntheticScope;
+    final previousEnclosingScope = enclosingScope;
+    final previousEnclosingScopeId = enclosingScopeId;
+    scope = '${previousScope ?? source.module}._closure_${node.offset}';
+    scopeId = previousScopeId;
+    enclosingScope = previousSyntheticScope
+        ? previousEnclosingScope
+        : previousScope;
+    enclosingScopeId = previousSyntheticScope
+        ? previousEnclosingScopeId
+        : previousScopeId;
+    syntheticScope = true;
+    binding = null;
+    super.visitFunctionExpression(node);
+    scope = previousScope;
+    scopeId = previousScopeId;
+    syntheticScope = previousSyntheticScope;
+    enclosingScope = previousEnclosingScope;
+    enclosingScopeId = previousEnclosingScopeId;
+    binding = previousBinding;
   }
 
   @override
@@ -1659,14 +1914,13 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
   void visitPropertyAccess(PropertyAccess node) {
     final context = _sourceContext;
     if (context != null) {
-      collector._site(
+      _emitReference(
         source,
         node,
         context.$1,
         context.$2,
         node.toSource(),
         node.propertyName.element,
-        call: false,
       );
     }
     super.visitPropertyAccess(node);
@@ -1688,14 +1942,13 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
           call: false,
         );
       }
-      collector._site(
+      _emitReference(
         source,
         node,
         context.$1,
         context.$2,
         node.toSource(),
         node.element,
-        call: false,
       );
     }
     super.visitPrefixedIdentifier(node);
@@ -1728,7 +1981,7 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
     final parent = node.parent;
     if (parent is MethodInvocation && identical(parent.methodName, node) ||
         parent is NamedType ||
-        parent is Declaration ||
+        node.inDeclarationContext() ||
         parent is VariableDeclaration && identical(parent.name, node) ||
         parent is PropertyAccess && identical(parent.propertyName, node) ||
         parent is PrefixedIdentifier) {
@@ -1736,17 +1989,76 @@ class _DartSiteVisitor extends RecursiveAstVisitor<void> {
       return;
     }
     final context = _sourceContext;
-    if (context != null && collector._definitionOf(node.element) != null) {
-      collector._site(
-        source,
-        node,
-        context.$1,
-        context.$2,
-        node.name,
-        node.element,
-        call: false,
-      );
+    final target = node.element;
+    if (context != null && _hasLocalReferenceTarget(node, target)) {
+      _emitReference(source, node, context.$1, context.$2, node.name, target);
     }
     super.visitSimpleIdentifier(node);
+  }
+
+  void _emitReference(
+    DartSource source,
+    AstNode node,
+    String scope,
+    String? scopeId,
+    String expression,
+    Element? readElement,
+  ) {
+    final parent = node.parent;
+    if (parent is AssignmentExpression &&
+        identical(parent.leftHandSide, node)) {
+      final writeElement = parent.writeElement;
+      if (parent.operator.lexeme == '=') {
+        collector._site(
+          source,
+          node,
+          scope,
+          scopeId,
+          expression,
+          writeElement,
+          call: false,
+          use: 'write',
+        );
+      } else {
+        collector._site(
+          source,
+          node,
+          scope,
+          scopeId,
+          expression,
+          parent.readElement ?? readElement,
+          call: false,
+          use: 'read',
+        );
+        collector._site(
+          source,
+          node,
+          scope,
+          scopeId,
+          expression,
+          writeElement,
+          call: false,
+          use: 'write',
+        );
+      }
+      return;
+    }
+    collector._site(
+      source,
+      node,
+      scope,
+      scopeId,
+      expression,
+      readElement,
+      call: false,
+    );
+  }
+
+  bool _hasLocalReferenceTarget(AstNode node, Element? readElement) {
+    if (collector._definitionOf(readElement) != null) return true;
+    final parent = node.parent;
+    return parent is AssignmentExpression &&
+        identical(parent.leftHandSide, node) &&
+        collector._definitionOf(parent.writeElement) != null;
   }
 }

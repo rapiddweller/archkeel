@@ -229,6 +229,34 @@ def test_call_result_bindings_keep_identity_initializer_and_creation(language, t
     assert entities[construction.target_id].qualified_name.endswith("Client")
 
 
+def test_typescript_lexical_async_reaches_shared_uml_without_promise_inference(tmp_path):
+    from test_typescript_collect import _facts as collect_typescript
+
+    facts = collect_typescript(
+        tmp_path,
+        {
+            "src/main.ts": (
+                "export class Service {\n"
+                "  async run(): Promise<void> {}\n"
+                "  promiseOnly(): Promise<void> {}\n"
+                "  async(): void {}\n"
+                "}\n"
+                "export async function load(): Promise<void> {}\n"
+            )
+        },
+    )
+    graph = _graph_from_source_facts(facts, ("src",))
+    operations = {
+        item.qualified_name.rsplit(".", 1)[-1]: item
+        for item in graph.entities
+        if item.kind in {"method", "function"}
+    }
+    assert operations["run"].modifiers == ("async",)
+    assert operations["load"].modifiers == ("async",)
+    assert operations["promiseOnly"].modifiers == ()
+    assert operations["async"].modifiers == ()
+
+
 def test_legacy_signatures_keep_unknown_parameter_details(observation) -> None:
     symbols = tuple(
         replace(

@@ -425,7 +425,7 @@ def _internal_relationship_scope(
         return None
     if intents[owner].role in {ComponentRole.INTERFACE, ComponentRole.CONTRACT}:
         return None
-    detail_kinds = {"class", "method", "attribute", "type_alias", "enum"}
+    detail_kinds = {"class", "method", "attribute", "type_alias", "enum", "mixin"}
     for identity in (source_id, target_id):
         entity = target_entities[identity]
         if entity.kind not in detail_kinds:

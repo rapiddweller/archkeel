@@ -1,0 +1,353 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "bootstrap",
+      "label": "Bootstrap lifecycle",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.main_x2e_ts"
+      ],
+      "responsibilities": [
+        "Configure and start Nest and global HTTP/Swagger behavior."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Nest root module",
+          "through": [
+            "nestjs.realworld.src.app_x2e_module_x2e_ts"
+          ],
+          "rationale": "Bootstrap imports the Nest root module.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.main_x2e_ts"
+      ]
+    },
+    {
+      "id": "nest-root",
+      "label": "Nest root module",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.app_x2e_module_x2e_ts"
+      ],
+      "responsibilities": [
+        "Register persistence and feature modules and invoke migration startup."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Root response controller",
+          "through": [
+            "nestjs.realworld.src.app_x2e_controller_x2e_ts"
+          ],
+          "rationale": "Root module registers its controller.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.app_x2e_module_x2e_ts"
+      ]
+    },
+    {
+      "id": "root-controller",
+      "label": "Root response controller",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.app_x2e_controller_x2e_ts"
+      ],
+      "responsibilities": [
+        "Expose the root greeting response."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "nestjs.realworld.src.app_x2e_controller_x2e_ts"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Direct internal source imports must cross declared responsibility boundaries.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-1af9a5bdf96d",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.main_x2e_ts",
+          "parent_id": "bootstrap",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Configure and start Nest and global HTTP/Swagger behavior."
+          ],
+          "file_path": "src/main.ts"
+        },
+        {
+          "id": "module-98571d6c78f5",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.app_x2e_module_x2e_ts",
+          "parent_id": "nest-root",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Register persistence and feature modules and invoke migration startup."
+          ],
+          "file_path": "src/app.module.ts"
+        },
+        {
+          "id": "module-00a268f52c1e",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.app_x2e_controller_x2e_ts",
+          "parent_id": "root-controller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Expose the root greeting response."
+          ],
+          "file_path": "src/app.controller.ts"
+        },
+        {
+          "id": "class-appmodule",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.app_x2e_module_x2e_ts.AppModule",
+          "parent_id": "module-98571d6c78f5",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Register features and initialize migration startup."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-appcontroller",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.app_x2e_controller_x2e_ts.AppController",
+          "parent_id": "module-00a268f52c1e",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the root greeting."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-appmodule.onmoduleinit",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.app_x2e_module_x2e_ts.AppModule.onModuleInit",
+          "parent_id": "class-appmodule",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Run migrations on initialization."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Promise<void>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-appcontroller.root",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.app_x2e_controller_x2e_ts.AppController.root",
+          "parent_id": "class-appcontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the root greeting."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "string"
+          },
+          "modifiers": []
+        },
+        {
+          "id": "function-bootstrap",
+          "kind": "function",
+          "qualified_name": "nestjs.realworld.src.main_x2e_ts.bootstrap",
+          "parent_id": "module-1af9a5bdf96d",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Start Nest and configure global HTTP and Swagger behavior."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-appmodule.constructor",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.app_x2e_module_x2e_ts.AppModule.constructor",
+          "parent_id": "class-appmodule",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive MikroORM for startup migration lifecycle."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "orm",
+                "kind": "positional",
+                "annotation": "MikroORM"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "attribute-appmodule.orm",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.app_x2e_module_x2e_ts.AppModule.orm",
+          "parent_id": "class-appmodule",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "MikroORM"
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "class-appmodule",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-appcontroller",
+          "entity_kinds": [
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "module-import-fee463b28e4e862c",
+          "kind": "imports",
+          "source_id": "module-98571d6c78f5",
+          "target_id": "module-00a268f52c1e",
+          "reason": "Selected source import at src/app.module.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-0bad7620b0db91fa",
+          "kind": "imports",
+          "source_id": "module-1af9a5bdf96d",
+          "target_id": "module-98571d6c78f5",
+          "reason": "Selected source import at src/main.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -20,6 +20,7 @@ EntityKind: TypeAlias = Literal[
     "class",
     "interface",
     "enum",
+    "mixin",
     "enum_literal",
     "method",
     "function",
@@ -30,13 +31,14 @@ EntityKind: TypeAlias = Literal[
     "symbol",
 ]
 GraphSchemaVersion: TypeAlias = Literal["1.2.0", "1.1.0", "1.0.0"]
-_CLASSIFIER_KINDS: frozenset[EntityKind] = frozenset({"class", "interface", "enum"})
+_CLASSIFIER_KINDS: frozenset[EntityKind] = frozenset({"class", "interface", "enum", "mixin"})
 RelationshipKind: TypeAlias = Literal[
     "imports",
     "calls",
     "references",
     "inherits",
     "realizes",
+    "mixes_in",
     "creates",
     "instance_of",
     "owns",
@@ -48,7 +50,7 @@ VisibilityBasis: TypeAlias = Literal["language", "convention", "declared", "unkn
 ParameterKind: TypeAlias = Literal[
     "positional_only", "positional", "keyword_only", "varargs", "kwargs", "unknown"
 ]
-ModifierKind: TypeAlias = Literal["abstract", "static", "class", "async", "frozen"]
+ModifierKind: TypeAlias = Literal["abstract", "static", "class", "async", "frozen", "mixin"]
 DefinitionContextKind: TypeAlias = Literal[
     "if", "for", "async_for", "while", "try", "try_star", "with", "async_with", "match"
 ]
@@ -633,13 +635,40 @@ class ArchitectureGraph:
                     raise ValueError("definition contexts describe observed source declarations")
                 self._validate_evidence(context.evidence_ids, (), evidence_ids)
 
+    def _validate_permission_metadata(
+        self, edge: Relationship, entities: dict[str, Entity]
+    ) -> None:
+        if edge.kind == "requires":
+            rationale: str = edge.reason or ""
+            if (
+                self.origin != "declared"
+                or entities[edge.source_id].kind != "component"
+                or edge.target_id is None
+                or entities[edge.target_id].kind != "component"
+                or not rationale.strip()
+                or edge.expression is not None
+            ):
+                raise ValueError(
+                    "dependency permission needs declared component endpoints and rationale"
+                )
+            if len(set(edge.through)) != len(edge.through):
+                raise ValueError("duplicate dependency permission selector")
+            for value in edge.through:
+                selector: str = value
+                if not selector.strip():
+                    raise ValueError("empty dependency permission selector")
+            if edge.decided_by not in {None, "architect", "agent"}:
+                raise ValueError("invalid dependency permission decider")
+        elif edge.through or edge.decided_by is not None:
+            raise ValueError("permission metadata belongs on requires relationships")
+
     def _validate_relationships(self, entities: dict[str, Entity], evidence_ids: set[str]) -> None:
         for edge in self.relationships:
             if not edge.id or edge.source_id not in entities:
                 raise ValueError("unknown relationship source")
             if edge.target_id is not None and edge.target_id not in entities:
                 raise ValueError("unknown relationship target")
-            if self.origin == "declared" and edge.kind in {"inherits", "realizes"}:
+            if self.origin == "declared" and edge.kind in {"inherits", "realizes", "mixes_in"}:
                 for identity in (edge.source_id, edge.target_id):
                     if identity is None:
                         continue
@@ -648,29 +677,20 @@ class ArchitectureGraph:
                         endpoint.kind == "symbol" and endpoint.presence == "referenced"
                     ):
                         raise ValueError("classifier relationship needs classifier endpoints")
-            if edge.kind == "requires":
-                rationale: str = edge.reason or ""
-                if (
-                    self.origin != "declared"
-                    or entities[edge.source_id].kind != "component"
-                    or edge.target_id is None
-                    or entities[edge.target_id].kind != "component"
-                    or not rationale.strip()
-                    or edge.expression is not None
-                ):
-                    raise ValueError(
-                        "dependency permission needs declared component endpoints and rationale"
-                    )
-                if len(set(edge.through)) != len(edge.through):
-                    raise ValueError("duplicate dependency permission selector")
-                for value in edge.through:
-                    selector: str = value
-                    if not selector.strip():
-                        raise ValueError("empty dependency permission selector")
-                if edge.decided_by not in {None, "architect", "agent"}:
-                    raise ValueError("invalid dependency permission decider")
-            elif edge.through or edge.decided_by is not None:
-                raise ValueError("permission metadata belongs on requires relationships")
+                if edge.kind == "mixes_in" and edge.target_id is not None:
+                    source = entities[edge.source_id]
+                    target = entities[edge.target_id]
+                    if source.kind not in {"class", "enum"} and not (
+                        source.kind == "symbol" and source.presence == "referenced"
+                    ):
+                        raise ValueError("mixes_in relationship needs a class or enum source")
+                    if (
+                        target.kind != "mixin"
+                        and not (target.kind == "class" and "mixin" in target.modifiers)
+                        and not (target.kind == "symbol" and target.presence == "referenced")
+                    ):
+                        raise ValueError("mixes_in relationship needs a mixin-capable target")
+            self._validate_permission_metadata(edge, entities)
             if len(set(edge.candidate_ids)) != len(edge.candidate_ids) or any(
                 candidate not in entities for candidate in edge.candidate_ids
             ):

@@ -3,7 +3,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety typescript-native dart-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart dart-setup demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
+.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts mermaid check test collector-safety typescript-native dart-native lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart dart-setup demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-browser-proof report-pages plugin plugin-directory build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
 
 check: lint typecheck test
 
@@ -18,9 +18,10 @@ ci: ci-check mermaid
 
 ci-check: ci-artifacts-clean ci-core-check ci-report-check
 
-ci-core-check: gate ci-typescript
+ci-core-check: PYTEST_EXTRA = --with playwright==$(PLAYWRIGHT_VERSION)
+ci-core-check: browser-install gate ci-typescript
 
-ci-report-check: report-timing browser-install report-browser
+ci-report-check: report-timing report-browser-proof
 
 ci-pr-check: $(if $(strip $(BASE)),against,self-validate) lint typecheck pr-test
 
@@ -46,15 +47,40 @@ pr-test:
 		tests/test_unknown_positions.py tests/test_inside_rule_coverage.py tests/test_report_159_160.py
 
 pr-report-test:
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q \
+	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
 		--junitxml=test-artifacts/pytest/pr-report.xml tests/test_report_pages.py \
-		tests/test_report_interactions.py tests/test_report_browser.py tests/test_uml_rendering.py
+		tests/test_report_interactions.py tests/test_report_browser.py tests/test_uml_rendering.py \
+		tests/test_compass_project_report.py tests/test_python_realworld_project_report.py \
+		tests/test_nest_realworld_project_report.py
 
 ci-typescript: OUTPUT := test-artifacts/typescript-demo
 ci-typescript: demo-typescript
 
 ci-artifacts-clean:
 	rm -rf test-artifacts/typescript-demo test-artifacts/report-browser test-artifacts/report-timing
+
+REPORT_ARTIFACT_PRUNE_DIR ?= test-artifacts/report-artifact-prune
+DELETE ?= false
+prune-report-artifacts: SHELL := /bin/bash
+prune-report-artifacts: .SHELLFLAGS := -euo pipefail -c
+prune-report-artifacts:
+	@set -euo pipefail; \
+		case "$(DELETE)" in true|false) ;; *) echo "DELETE must be true or false" >&2; exit 2 ;; esac; \
+		: "$${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"; \
+		command -v gh >/dev/null; \
+		mkdir -p "$(REPORT_ARTIFACT_PRUNE_DIR)"; \
+		inventory="$(REPORT_ARTIFACT_PRUNE_DIR)/inventory.json"; \
+		plan="$(REPORT_ARTIFACT_PRUNE_DIR)/plan.json"; \
+		gh api --paginate --slurp "repos/$${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" > "$$inventory"; \
+		python3 -m tools.report_artifact_retention "$$inventory" --output "$$plan"; \
+		if [ "$(DELETE)" = "true" ]; then \
+			artifact_ids=$$(python3 -c 'import json,sys; print(" ".join(map(str, json.load(open(sys.argv[1], encoding="utf-8"))["delete_ids"])))' "$$plan"); \
+			for artifact_id in $$artifact_ids; do \
+				gh api --method DELETE "repos/$${GITHUB_REPOSITORY}/actions/artifacts/$$artifact_id" >/dev/null; \
+			done; \
+		else \
+			echo "Dry run: review $$plan; rerun with DELETE=true to delete selected IDs."; \
+		fi
 
 mermaid:
 	@set -eu; mermaid_dir=$$(mktemp -d); \
@@ -81,7 +107,7 @@ self-validate:
 	$(UV) run --locked archkeel validate --root . --baseline architecture-baseline.json --json
 
 test:
-	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 \
+	$(UV) run --locked $(PYTEST_EXTRA) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 \
 		-q --durations=20 --junitxml=test-artifacts/pytest/results.xml
 
 collector-safety:
@@ -121,7 +147,7 @@ LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/r
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/reproduce_typescript.py fixtures/typescript_differential.py fixtures/typescript_scenarios.py fixtures/typescript_realworld.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
-	tools/architecture_graph_schema.py tools/report_timing.py
+	tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py
 
 REPORT_MAX_SECONDS ?= 90
 report-timing:
@@ -140,7 +166,7 @@ lint:
 	$(UV) run --locked ruff check $(LINT_PATHS)
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/github_pr_report.py tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/ci_changes.py
+	$(UV) run --locked mypy src/archkeel tools/github_pr_report.py tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/ci_changes.py tools/report_artifact_retention.py
 
 fixtures:
 	$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)")
@@ -236,8 +262,13 @@ plugin-directory:
 		$(MAKE) plugin OUTPUT="$$stage/archkeel" && \
 		cp -R "$$stage/archkeel/." plugins/archkeel/
 
-report-browser:
+report-browser: report-browser-tests
+	$(MAKE) report-browser-proof OUTPUT="$(OUTPUT)"
+
+report-browser-tests:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q tests/test_*report*.py tests/test_*uml*.py tests/test_*flow*.py tests/test_secondary_table_acceptance.py tests/test_legacy_graph_rendering.py tests/test_diff_import_rendering.py
+
+report-browser-proof:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m tools.report_browser $(if $(OUTPUT),--output "$(OUTPUT)")
 
 # Twine validates PyPI metadata; it is a build-only tool.

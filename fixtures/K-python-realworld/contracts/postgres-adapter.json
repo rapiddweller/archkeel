@@ -1,0 +1,2445 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "persistence-lifecycle",
+      "label": "Connection lifecycle and persistence errors",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.db",
+        "app.db.errors",
+        "app.db.events"
+      ],
+      "responsibilities": [
+        "Represent persistence errors and manage the async connection pool."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "app.db",
+        "app.db.errors",
+        "app.db.events"
+      ]
+    },
+    {
+      "id": "persistence-query-binding",
+      "label": "SQL query and table bindings",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.db.queries",
+        "app.db.queries.queries",
+        "app.db.queries.tables"
+      ],
+      "responsibilities": [
+        "Bind named SQL statements and table names to the query layer."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "app.db.queries",
+        "app.db.queries.queries",
+        "app.db.queries.tables"
+      ]
+    },
+    {
+      "id": "persistence-repository-base",
+      "label": "Shared repository connection access",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.db.repositories",
+        "app.db.repositories.base"
+      ],
+      "responsibilities": [
+        "Provide each repository with its database connection."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "app.db.repositories",
+        "app.db.repositories.base"
+      ]
+    },
+    {
+      "id": "persistence-article-repository",
+      "label": "Article, feed, and favorite persistence",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.db.repositories.articles"
+      ],
+      "responsibilities": [
+        "Persist article details, filters, feeds, tags, and favorites."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Comment and tag persistence",
+          "through": [
+            "app.db.repositories.tags"
+          ],
+          "rationale": "Article, feed, and favorite persistence directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Account, profile, and follow persistence",
+          "through": [
+            "app.db.repositories.profiles"
+          ],
+          "rationale": "Article, feed, and favorite persistence directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Connection lifecycle and persistence errors",
+          "through": [
+            "app.db.errors"
+          ],
+          "rationale": "Article, feed, and favorite persistence directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "SQL query and table bindings",
+          "through": [
+            "app.db.queries.queries",
+            "app.db.queries.tables"
+          ],
+          "rationale": "Article, feed, and favorite persistence directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Shared repository connection access",
+          "through": [
+            "app.db.repositories.base"
+          ],
+          "rationale": "Article, feed, and favorite persistence directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.db.repositories.articles"
+      ]
+    },
+    {
+      "id": "persistence-identity-profile-repositories",
+      "label": "Account, profile, and follow persistence",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.db.repositories.profiles",
+        "app.db.repositories.users"
+      ],
+      "responsibilities": [
+        "Persist users, profiles, and follow relationships."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Connection lifecycle and persistence errors",
+          "through": [
+            "app.db.errors"
+          ],
+          "rationale": "Account, profile, and follow persistence directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "SQL query and table bindings",
+          "through": [
+            "app.db.queries.queries"
+          ],
+          "rationale": "Account, profile, and follow persistence directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Shared repository connection access",
+          "through": [
+            "app.db.repositories.base"
+          ],
+          "rationale": "Account, profile, and follow persistence directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.db.repositories.profiles",
+        "app.db.repositories.users"
+      ]
+    },
+    {
+      "id": "persistence-comment-tag-repositories",
+      "label": "Comment and tag persistence",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.db.repositories.comments",
+        "app.db.repositories.tags"
+      ],
+      "responsibilities": [
+        "Persist article comments and tag listings."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Account, profile, and follow persistence",
+          "through": [
+            "app.db.repositories.profiles"
+          ],
+          "rationale": "Comment and tag persistence directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Connection lifecycle and persistence errors",
+          "through": [
+            "app.db.errors"
+          ],
+          "rationale": "Comment and tag persistence directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "SQL query and table bindings",
+          "through": [
+            "app.db.queries.queries"
+          ],
+          "rationale": "Comment and tag persistence directly imports these source modules.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Shared repository connection access",
+          "through": [
+            "app.db.repositories.base"
+          ],
+          "rationale": "Comment and tag persistence directly imports these source modules.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "app.db.repositories.comments",
+        "app.db.repositories.tags"
+      ]
+    },
+    {
+      "id": "persistence-migrations",
+      "label": "PostgreSQL schema evolution",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "app.db.migrations.env",
+        "app.db.migrations.versions.fdf8821871d7_main_tables"
+      ],
+      "responsibilities": [
+        "Create the source-declared initial PostgreSQL schema."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "app.db.migrations.env",
+        "app.db.migrations.versions.fdf8821871d7_main_tables"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Source imports outside the declared direct child dependencies are outside the Target.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-app-db",
+          "kind": "module",
+          "qualified_name": "app.db",
+          "parent_id": "persistence-lifecycle",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent persistence errors and manage the async connection pool."
+          ],
+          "file_path": "app/db/__init__.py"
+        },
+        {
+          "id": "module-app-db-errors",
+          "kind": "module",
+          "qualified_name": "app.db.errors",
+          "parent_id": "persistence-lifecycle",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent persistence errors and manage the async connection pool."
+          ],
+          "file_path": "app/db/errors.py"
+        },
+        {
+          "id": "module-app-db-events",
+          "kind": "module",
+          "qualified_name": "app.db.events",
+          "parent_id": "persistence-lifecycle",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent persistence errors and manage the async connection pool."
+          ],
+          "file_path": "app/db/events.py"
+        },
+        {
+          "id": "module-app-db-migrations-env",
+          "kind": "module",
+          "qualified_name": "app.db.migrations.env",
+          "parent_id": "persistence-migrations",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create the source-declared initial PostgreSQL schema."
+          ],
+          "file_path": "app/db/migrations/env.py"
+        },
+        {
+          "id": "module-app-db-migrations-versions-fdf8821871d7-main-tables",
+          "kind": "module",
+          "qualified_name": "app.db.migrations.versions.fdf8821871d7_main_tables",
+          "parent_id": "persistence-migrations",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create the source-declared initial PostgreSQL schema."
+          ],
+          "file_path": "app/db/migrations/versions/fdf8821871d7_main_tables.py"
+        },
+        {
+          "id": "module-app-db-queries",
+          "kind": "module",
+          "qualified_name": "app.db.queries",
+          "parent_id": "persistence-query-binding",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Bind named SQL statements and table names to the query layer."
+          ],
+          "file_path": "app/db/queries/__init__.py"
+        },
+        {
+          "id": "module-app-db-queries-queries",
+          "kind": "module",
+          "qualified_name": "app.db.queries.queries",
+          "parent_id": "persistence-query-binding",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Bind named SQL statements and table names to the query layer."
+          ],
+          "file_path": "app/db/queries/queries.py"
+        },
+        {
+          "id": "module-app-db-queries-tables",
+          "kind": "module",
+          "qualified_name": "app.db.queries.tables",
+          "parent_id": "persistence-query-binding",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Bind named SQL statements and table names to the query layer."
+          ],
+          "file_path": "app/db/queries/tables.py"
+        },
+        {
+          "id": "module-app-db-repositories",
+          "kind": "module",
+          "qualified_name": "app.db.repositories",
+          "parent_id": "persistence-repository-base",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide each repository with its database connection."
+          ],
+          "file_path": "app/db/repositories/__init__.py"
+        },
+        {
+          "id": "module-app-db-repositories-articles",
+          "kind": "module",
+          "qualified_name": "app.db.repositories.articles",
+          "parent_id": "persistence-article-repository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Persist article details, filters, feeds, tags, and favorites."
+          ],
+          "file_path": "app/db/repositories/articles.py"
+        },
+        {
+          "id": "module-app-db-repositories-base",
+          "kind": "module",
+          "qualified_name": "app.db.repositories.base",
+          "parent_id": "persistence-repository-base",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide each repository with its database connection."
+          ],
+          "file_path": "app/db/repositories/base.py"
+        },
+        {
+          "id": "module-app-db-repositories-comments",
+          "kind": "module",
+          "qualified_name": "app.db.repositories.comments",
+          "parent_id": "persistence-comment-tag-repositories",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Persist article comments and tag listings."
+          ],
+          "file_path": "app/db/repositories/comments.py"
+        },
+        {
+          "id": "module-app-db-repositories-profiles",
+          "kind": "module",
+          "qualified_name": "app.db.repositories.profiles",
+          "parent_id": "persistence-identity-profile-repositories",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Persist users, profiles, and follow relationships."
+          ],
+          "file_path": "app/db/repositories/profiles.py"
+        },
+        {
+          "id": "module-app-db-repositories-tags",
+          "kind": "module",
+          "qualified_name": "app.db.repositories.tags",
+          "parent_id": "persistence-comment-tag-repositories",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Persist article comments and tag listings."
+          ],
+          "file_path": "app/db/repositories/tags.py"
+        },
+        {
+          "id": "module-app-db-repositories-users",
+          "kind": "module",
+          "qualified_name": "app.db.repositories.users",
+          "parent_id": "persistence-identity-profile-repositories",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Persist users, profiles, and follow relationships."
+          ],
+          "file_path": "app/db/repositories/users.py"
+        },
+        {
+          "id": "class-app-db-repositories-articles-articlesrepository",
+          "kind": "class",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository",
+          "parent_id": "module-app-db-repositories-articles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Articlesrepository source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-db-repositories-base-baserepository",
+          "kind": "class",
+          "qualified_name": "app.db.repositories.base.BaseRepository",
+          "parent_id": "module-app-db-repositories-base",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Baserepository source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-db-repositories-comments-commentsrepository",
+          "kind": "class",
+          "qualified_name": "app.db.repositories.comments.CommentsRepository",
+          "parent_id": "module-app-db-repositories-comments",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Commentsrepository source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-db-repositories-profiles-profilesrepository",
+          "kind": "class",
+          "qualified_name": "app.db.repositories.profiles.ProfilesRepository",
+          "parent_id": "module-app-db-repositories-profiles",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Profilesrepository source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-db-repositories-tags-tagsrepository",
+          "kind": "class",
+          "qualified_name": "app.db.repositories.tags.TagsRepository",
+          "parent_id": "module-app-db-repositories-tags",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Tagsrepository source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-app-db-repositories-users-usersrepository",
+          "kind": "class",
+          "qualified_name": "app.db.repositories.users.UsersRepository",
+          "parent_id": "module-app-db-repositories-users",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Define Usersrepository source members."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "function-app-db-events-connect-to-db",
+          "kind": "function",
+          "qualified_name": "app.db.events.connect_to_db",
+          "parent_id": "module-app-db-events",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Connect to db operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "app",
+                "annotation": "FastAPI",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "settings",
+                "annotation": "AppSettings",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "function-app-db-events-close-db-connection",
+          "kind": "function",
+          "qualified_name": "app.db.events.close_db_connection",
+          "parent_id": "module-app-db-events",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Handle the Close db connection operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "app",
+                "annotation": "FastAPI",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-articles-articlesrepository-init",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository.__init__",
+          "parent_id": "class-app-db-repositories-articles-articlesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Init operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "conn",
+                "annotation": "Connection",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "method-app-db-repositories-articles-articlesrepository-create-article",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository.create_article",
+          "parent_id": "class-app-db-repositories-articles-articlesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Create article operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "slug",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "title",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "description",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "body",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "author",
+                "annotation": "User",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "tags",
+                "annotation": "Optional[Sequence[str]]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              }
+            ],
+            "returns": "Article"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-articles-articlesrepository-update-article",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository.update_article",
+          "parent_id": "class-app-db-repositories-articles-articlesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Update article operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "slug",
+                "annotation": "Optional[str]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "title",
+                "annotation": "Optional[str]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "body",
+                "annotation": "Optional[str]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "description",
+                "annotation": "Optional[str]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              }
+            ],
+            "returns": "Article"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-articles-articlesrepository-delete-article",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository.delete_article",
+          "parent_id": "class-app-db-repositories-articles-articlesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Delete article operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-articles-articlesrepository-filter-articles",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository.filter_articles",
+          "parent_id": "class-app-db-repositories-articles-articlesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Filter articles operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "tag",
+                "annotation": "Optional[str]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "author",
+                "annotation": "Optional[str]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "favorited",
+                "annotation": "Optional[str]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "limit",
+                "annotation": "int",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "20"
+              },
+              {
+                "name": "offset",
+                "annotation": "int",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "0"
+              },
+              {
+                "name": "requested_user",
+                "annotation": "Optional[User]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              }
+            ],
+            "returns": "List[Article]"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-articles-articlesrepository-get-articles-for-user-feed",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository.get_articles_for_user_feed",
+          "parent_id": "class-app-db-repositories-articles-articlesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Get articles for user feed operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "limit",
+                "annotation": "int",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "20"
+              },
+              {
+                "name": "offset",
+                "annotation": "int",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "0"
+              }
+            ],
+            "returns": "List[Article]"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-articles-articlesrepository-get-article-by-slug",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository.get_article_by_slug",
+          "parent_id": "class-app-db-repositories-articles-articlesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Get article by slug operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "slug",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "requested_user",
+                "annotation": "Optional[User]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              }
+            ],
+            "returns": "Article"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-articles-articlesrepository-get-tags-for-article-by-slug",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository.get_tags_for_article_by_slug",
+          "parent_id": "class-app-db-repositories-articles-articlesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Get tags for article by slug operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "slug",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "List[str]"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-articles-articlesrepository-get-favorites-count-for-article-by-slug",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository.get_favorites_count_for_article_by_slug",
+          "parent_id": "class-app-db-repositories-articles-articlesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Get favorites count for article by slug operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "slug",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "int"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-articles-articlesrepository-is-article-favorited-by-user",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository.is_article_favorited_by_user",
+          "parent_id": "class-app-db-repositories-articles-articlesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Is article favorited by user operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "slug",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-articles-articlesrepository-add-article-into-favorites",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository.add_article_into_favorites",
+          "parent_id": "class-app-db-repositories-articles-articlesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Add article into favorites operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-articles-articlesrepository-remove-article-from-favorites",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository.remove_article_from_favorites",
+          "parent_id": "class-app-db-repositories-articles-articlesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Remove article from favorites operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-articles-articlesrepository-get-article-from-db-record",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository._get_article_from_db_record",
+          "parent_id": "class-app-db-repositories-articles-articlesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Get article from db record operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "article_row",
+                "annotation": "Record",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "slug",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "author_username",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "requested_user",
+                "annotation": "Optional[User]",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "Article"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-articles-articlesrepository-link-article-with-tags",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.articles.ArticlesRepository._link_article_with_tags",
+          "parent_id": "class-app-db-repositories-articles-articlesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Link article with tags operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "slug",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "tags",
+                "annotation": "Sequence[str]",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-base-baserepository-init",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.base.BaseRepository.__init__",
+          "parent_id": "class-app-db-repositories-base-baserepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Init operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "conn",
+                "annotation": "Connection",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "method-app-db-repositories-base-baserepository-connection",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.base.BaseRepository.connection",
+          "parent_id": "class-app-db-repositories-base-baserepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Connection operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Connection"
+          }
+        },
+        {
+          "id": "method-app-db-repositories-comments-commentsrepository-init",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.comments.CommentsRepository.__init__",
+          "parent_id": "class-app-db-repositories-comments-commentsrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Init operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "conn",
+                "annotation": "Connection",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          }
+        },
+        {
+          "id": "method-app-db-repositories-comments-commentsrepository-get-comment-by-id",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.comments.CommentsRepository.get_comment_by_id",
+          "parent_id": "class-app-db-repositories-comments-commentsrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Get comment by id operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "comment_id",
+                "annotation": "int",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "user",
+                "annotation": "Optional[User]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              }
+            ],
+            "returns": "Comment"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-comments-commentsrepository-get-comments-for-article",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.comments.CommentsRepository.get_comments_for_article",
+          "parent_id": "class-app-db-repositories-comments-commentsrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Get comments for article operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "user",
+                "annotation": "Optional[User]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              }
+            ],
+            "returns": "List[Comment]"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-comments-commentsrepository-create-comment-for-article",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.comments.CommentsRepository.create_comment_for_article",
+          "parent_id": "class-app-db-repositories-comments-commentsrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Create comment for article operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "body",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "article",
+                "annotation": "Article",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "Comment"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-comments-commentsrepository-delete-comment",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.comments.CommentsRepository.delete_comment",
+          "parent_id": "class-app-db-repositories-comments-commentsrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Delete comment operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "comment",
+                "annotation": "Comment",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-comments-commentsrepository-get-comment-from-db-record",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.comments.CommentsRepository._get_comment_from_db_record",
+          "parent_id": "class-app-db-repositories-comments-commentsrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Get comment from db record operation."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "comment_row",
+                "annotation": "Record",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "author_username",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "requested_user",
+                "annotation": "Optional[User]",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "Comment"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-profiles-profilesrepository-init",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.profiles.ProfilesRepository.__init__",
+          "parent_id": "class-app-db-repositories-profiles-profilesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Init operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "conn",
+                "annotation": "Connection",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": null
+          }
+        },
+        {
+          "id": "method-app-db-repositories-profiles-profilesrepository-get-profile-by-username",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.profiles.ProfilesRepository.get_profile_by_username",
+          "parent_id": "class-app-db-repositories-profiles-profilesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Get profile by username operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "username",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "requested_user",
+                "annotation": "Optional[UserLike]",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "Profile"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-profiles-profilesrepository-is-user-following-for-another-user",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.profiles.ProfilesRepository.is_user_following_for_another_user",
+          "parent_id": "class-app-db-repositories-profiles-profilesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Is user following for another user operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "target_user",
+                "annotation": "UserLike",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "requested_user",
+                "annotation": "UserLike",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-profiles-profilesrepository-add-user-into-followers",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.profiles.ProfilesRepository.add_user_into_followers",
+          "parent_id": "class-app-db-repositories-profiles-profilesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Add user into followers operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "target_user",
+                "annotation": "UserLike",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "requested_user",
+                "annotation": "UserLike",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-profiles-profilesrepository-remove-user-from-followers",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.profiles.ProfilesRepository.remove_user_from_followers",
+          "parent_id": "class-app-db-repositories-profiles-profilesrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Remove user from followers operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "target_user",
+                "annotation": "UserLike",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "requested_user",
+                "annotation": "UserLike",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-tags-tagsrepository-get-all-tags",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.tags.TagsRepository.get_all_tags",
+          "parent_id": "class-app-db-repositories-tags-tagsrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Get all tags operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "List[str]"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-tags-tagsrepository-create-tags-that-dont-exist",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.tags.TagsRepository.create_tags_that_dont_exist",
+          "parent_id": "class-app-db-repositories-tags-tagsrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Create tags that dont exist operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "tags",
+                "annotation": "Sequence[str]",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-users-usersrepository-get-user-by-email",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.users.UsersRepository.get_user_by_email",
+          "parent_id": "class-app-db-repositories-users-usersrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Get user by email operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "email",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "UserInDB"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-users-usersrepository-get-user-by-username",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.users.UsersRepository.get_user_by_username",
+          "parent_id": "class-app-db-repositories-users-usersrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Get user by username operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "username",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "UserInDB"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-users-usersrepository-create-user",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.users.UsersRepository.create_user",
+          "parent_id": "class-app-db-repositories-users-usersrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Create user operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "username",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "email",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "password",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "UserInDB"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-app-db-repositories-users-usersrepository-update-user",
+          "kind": "method",
+          "qualified_name": "app.db.repositories.users.UsersRepository.update_user",
+          "parent_id": "class-app-db-repositories-users-usersrepository",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Provide the Update user operation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "user",
+                "annotation": "User",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "username",
+                "annotation": "Optional[str]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "email",
+                "annotation": "Optional[str]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "password",
+                "annotation": "Optional[str]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "bio",
+                "annotation": "Optional[str]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "image",
+                "annotation": "Optional[str]",
+                "kind": "keyword_only",
+                "default_known": true,
+                "default": "None"
+              }
+            ],
+            "returns": "UserInDB"
+          },
+          "modifiers": [
+            "async"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "module-import-b5235c3c35ed432e",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-articles",
+          "target_id": "module-app-db-errors",
+          "reason": "Selected source import at app/db/repositories/articles.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-30bf9742c9f29de0",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-articles",
+          "target_id": "module-app-db-queries-queries",
+          "reason": "Selected source import at app/db/repositories/articles.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-bf68d77f42932911",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-articles",
+          "target_id": "module-app-db-queries-tables",
+          "reason": "Selected source import at app/db/repositories/articles.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-3c54ba6cdf94e1c9",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-articles",
+          "target_id": "module-app-db-repositories-base",
+          "reason": "Selected source import at app/db/repositories/articles.py:16.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c66b58ca656e9199",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-articles",
+          "target_id": "module-app-db-repositories-profiles",
+          "reason": "Selected source import at app/db/repositories/articles.py:17.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1a02021e54f3246b",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-articles",
+          "target_id": "module-app-db-repositories-tags",
+          "reason": "Selected source import at app/db/repositories/articles.py:18.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-cd02a4d24287ffbd",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-comments",
+          "target_id": "module-app-db-errors",
+          "reason": "Selected source import at app/db/repositories/comments.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-4bb9645e83d2bfc5",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-comments",
+          "target_id": "module-app-db-queries-queries",
+          "reason": "Selected source import at app/db/repositories/comments.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-89e61048b11e92a8",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-comments",
+          "target_id": "module-app-db-repositories-base",
+          "reason": "Selected source import at app/db/repositories/comments.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-36f165cbe38b9f8e",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-comments",
+          "target_id": "module-app-db-repositories-profiles",
+          "reason": "Selected source import at app/db/repositories/comments.py:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-3e4cf83209ca6e71",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-profiles",
+          "target_id": "module-app-db-queries-queries",
+          "reason": "Selected source import at app/db/repositories/profiles.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-350a7cad4091b6a1",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-profiles",
+          "target_id": "module-app-db-repositories-base",
+          "reason": "Selected source import at app/db/repositories/profiles.py:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-817dc951b4b3bc69",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-profiles",
+          "target_id": "module-app-db-repositories-users",
+          "reason": "Selected source import at app/db/repositories/profiles.py:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-09e3eec7772341c4",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-tags",
+          "target_id": "module-app-db-queries-queries",
+          "reason": "Selected source import at app/db/repositories/tags.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-13c526df7f91373a",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-tags",
+          "target_id": "module-app-db-repositories-base",
+          "reason": "Selected source import at app/db/repositories/tags.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-780ece71e083b4a1",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-users",
+          "target_id": "module-app-db-errors",
+          "reason": "Selected source import at app/db/repositories/users.py:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-6c5a7decb458b571",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-users",
+          "target_id": "module-app-db-queries-queries",
+          "reason": "Selected source import at app/db/repositories/users.py:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ad874f2b42564a69",
+          "kind": "imports",
+          "source_id": "module-app-db-repositories-users",
+          "target_id": "module-app-db-repositories-base",
+          "reason": "Selected source import at app/db/repositories/users.py:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "class-app-db-repositories-articles-articlesrepository",
+          "mode": "closed",
+          "entity_kinds": [
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.db.repositories.articles.ArticlesRepository.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-db-repositories-base-baserepository",
+          "mode": "closed",
+          "entity_kinds": [
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.db.repositories.base.BaseRepository.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-db-repositories-comments-commentsrepository",
+          "mode": "closed",
+          "entity_kinds": [
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.db.repositories.comments.CommentsRepository.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-db-repositories-profiles-profilesrepository",
+          "mode": "closed",
+          "entity_kinds": [
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.db.repositories.profiles.ProfilesRepository.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-db-repositories-tags-tagsrepository",
+          "mode": "closed",
+          "entity_kinds": [
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.db.repositories.tags.TagsRepository.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-app-db-repositories-users-usersrepository",
+          "mode": "closed",
+          "entity_kinds": [
+            "method"
+          ],
+          "relationship_kinds": [],
+          "rationale": "Declare the direct source members of app.db.repositories.users.UsersRepository.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

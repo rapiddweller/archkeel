@@ -485,7 +485,7 @@
         {
           "id": "cart-lines-getter",
           "kind": "method",
-          "qualified_name": "shop.domain.cart.cart.Cart.lines",
+          "qualified_name": "shop.domain.cart.cart.Cart.lines::getter",
           "parent_id": "cart-class",
           "language": "dart",
           "presence": "planned",
@@ -507,7 +507,7 @@
         {
           "id": "cart-total",
           "kind": "method",
-          "qualified_name": "shop.domain.cart.cart.Cart.totalCents",
+          "qualified_name": "shop.domain.cart.cart.Cart.totalCents::getter",
           "parent_id": "cart-class",
           "language": "dart",
           "presence": "planned",
@@ -735,7 +735,7 @@
         {
           "id": "cart-line-total",
           "kind": "method",
-          "qualified_name": "shop.domain.cart.cart.CartLine.lineTotalCents",
+          "qualified_name": "shop.domain.cart.cart.CartLine.lineTotalCents::getter",
           "parent_id": "cart-line-class",
           "language": "dart",
           "presence": "planned",
@@ -1000,7 +1000,7 @@
         {
           "id": "order-line-total",
           "kind": "method",
-          "qualified_name": "shop.domain.orders.order.OrderLine.lineTotalCents",
+          "qualified_name": "shop.domain.orders.order.OrderLine.lineTotalCents::getter",
           "parent_id": "order-line-class",
           "language": "dart",
           "presence": "planned",

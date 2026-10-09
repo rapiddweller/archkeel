@@ -1,0 +1,377 @@
+{
+  "commit": "a6818d84b6a019cf2df4ef391dc87cea7d02c6a9",
+  "derived_files": [
+    {
+      "method": "byte_copy",
+      "path": "src/config.ts",
+      "sha256": "aded94bb14879d32fdc09a815d55d8b6ce527729ab45df595cd6b6109ae9244a",
+      "source_path": "src/config.ts.example",
+      "source_sha256": "aded94bb14879d32fdc09a815d55d8b6ce527729ab45df595cd6b6109ae9244a",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/config.ts.example"
+    },
+    {
+      "method": "byte_copy",
+      "path": "src/mikro-orm.config.ts",
+      "sha256": "9019ad282f08f74d1bc20571ee44ce4b8764c7b0ea6b86a7733dd89aebb49358",
+      "source_path": "src/mikro-orm.config.ts.example",
+      "source_sha256": "9019ad282f08f74d1bc20571ee44ce4b8764c7b0ea6b86a7733dd89aebb49358",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/mikro-orm.config.ts.example"
+    }
+  ],
+  "original_src_files": [
+    {
+      "build_input": true,
+      "path": "src/app.controller.ts",
+      "sha256": "599ca40d2cdd12027609e05deac305c9606c347f88231c827156edc40d0ef2db",
+      "source_path": "src/app.controller.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/app.controller.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/app.module.ts",
+      "sha256": "7eca9bb1acb754633a8af50586da13413c8b09990e4c42f2c6bc6e7af0e85e76",
+      "source_path": "src/app.module.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/app.module.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/article/article.controller.ts",
+      "sha256": "16c8c42076f3d2997499805413bcdf9b0be40d24a9e69549c6bd03e575431ce3",
+      "source_path": "src/article/article.controller.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/article/article.controller.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/article/article.entity.ts",
+      "sha256": "ca67fc4fb597cc83bcf6696ecb5000e1b36c508aec8d67f0dad185f935e3fcb7",
+      "source_path": "src/article/article.entity.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/article/article.entity.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/article/article.interface.ts",
+      "sha256": "896fdb52e1dbab0c29de1c6f02de51faa6ee3dbf6b4a78583ff1fd18e8086a01",
+      "source_path": "src/article/article.interface.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/article/article.interface.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/article/article.module.ts",
+      "sha256": "5412a33f3b9e6d204d4be101d16f9ffe8628df0a3575d707f142ce5ac36fda1e",
+      "source_path": "src/article/article.module.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/article/article.module.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/article/article.service.ts",
+      "sha256": "aece5edf7ff66e1d28592eec641246e0ae3a5811696d0f7ca0c7de09d152bebb",
+      "source_path": "src/article/article.service.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/article/article.service.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/article/comment.entity.ts",
+      "sha256": "ebca4f97db9135b381c4a747deb0238759f8e0f3dd8ebade0a42de12d95395a0",
+      "source_path": "src/article/comment.entity.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/article/comment.entity.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/article/dto/create-article.dto.ts",
+      "sha256": "d7c274c7548ce48817c94fe706f32f1cb96c9fd0f59602eb1dff98834361f867",
+      "source_path": "src/article/dto/create-article.dto.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/article/dto/create-article.dto.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/article/dto/create-comment.ts",
+      "sha256": "dbd83ccabe93de2be9a8fa5afec5c2613917090fbd02d1272dcc3f5dde569000",
+      "source_path": "src/article/dto/create-comment.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/article/dto/create-comment.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/article/dto/index.ts",
+      "sha256": "e8f13fe67f9de2e14dfc4555c2b9cfedaf1d5cccf4861483e35eab59fb3dd5e9",
+      "source_path": "src/article/dto/index.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/article/dto/index.ts"
+    },
+    {
+      "build_input": false,
+      "path": "src/config.ts.example",
+      "sha256": "aded94bb14879d32fdc09a815d55d8b6ce527729ab45df595cd6b6109ae9244a",
+      "source_path": "src/config.ts.example",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/config.ts.example"
+    },
+    {
+      "build_input": true,
+      "path": "src/entities.generated.ts",
+      "sha256": "635833b1a2cd7511e6241d07b1692d7ef9a90f63192d8af68012c918cf9cd2cf",
+      "source_path": "src/entities.generated.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/entities.generated.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/main.ts",
+      "sha256": "b04de86015133b19cc9c814a7273bb7f70c086051a4007e27f5c489858dd5aea",
+      "source_path": "src/main.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/main.ts"
+    },
+    {
+      "build_input": false,
+      "path": "src/migrations/.snapshot-nestjsrealworld.json",
+      "sha256": "f2c523b83be222031c088b3824b79d86fc832003fc29ef71974993c9c9cc1739",
+      "source_path": "src/migrations/.snapshot-nestjsrealworld.json",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/migrations/.snapshot-nestjsrealworld.json"
+    },
+    {
+      "build_input": true,
+      "path": "src/migrations/Migration20211219155639.ts",
+      "sha256": "0cc8129c8ec05e65c287d0400baaca0555facf208d2b612d311fb77615f23970",
+      "source_path": "src/migrations/Migration20211219155639.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/migrations/Migration20211219155639.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/migrations/Migration20240114223020.ts",
+      "sha256": "a8370f3d4d5ab780654f6822ac3f71463c28c2d3e61ec4c93394804b89f9d7f6",
+      "source_path": "src/migrations/Migration20240114223020.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/migrations/Migration20240114223020.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/migrations/Migration20240114224028.ts",
+      "sha256": "03844fc00920e73d4713ce217474063bda09b6efa00ccec08e7e0ad7c26a1012",
+      "source_path": "src/migrations/Migration20240114224028.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/migrations/Migration20240114224028.ts"
+    },
+    {
+      "build_input": false,
+      "path": "src/mikro-orm.config.ts.example",
+      "sha256": "9019ad282f08f74d1bc20571ee44ce4b8764c7b0ea6b86a7733dd89aebb49358",
+      "source_path": "src/mikro-orm.config.ts.example",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/mikro-orm.config.ts.example"
+    },
+    {
+      "build_input": true,
+      "path": "src/profile/profile.controller.ts",
+      "sha256": "28358435f84265fabb377bfb790a5b1715c82bd877b957c0508c1ac6fef41573",
+      "source_path": "src/profile/profile.controller.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/profile/profile.controller.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/profile/profile.interface.ts",
+      "sha256": "d7874523e6eb9e5d610d2664821cd42de4d7578bfc3f0008875c00e67d498fa7",
+      "source_path": "src/profile/profile.interface.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/profile/profile.interface.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/profile/profile.module.ts",
+      "sha256": "87b17fad18025c136a3c77dd37562fc941d28540e1cef2d30fdebf4c13cdab7d",
+      "source_path": "src/profile/profile.module.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/profile/profile.module.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/profile/profile.service.ts",
+      "sha256": "503592ba9818d90607624fa76609abaae5a9f541785f654c8fa7eab07429e928",
+      "source_path": "src/profile/profile.service.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/profile/profile.service.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/seeders/test.seeder.ts",
+      "sha256": "00bf810f17a8b00345978cfca2aa1234231e79bd6e8f14f51133e31974ce4dfe",
+      "source_path": "src/seeders/test.seeder.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/seeders/test.seeder.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/shared/pipes/validation.pipe.ts",
+      "sha256": "fd880ad463d9bfb786d89e9b3b7abb934dc084df200282c9fe835b600d338642",
+      "source_path": "src/shared/pipes/validation.pipe.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/shared/pipes/validation.pipe.ts"
+    },
+    {
+      "build_input": false,
+      "path": "src/tag/tag.controller.spec.ts",
+      "sha256": "7c0d4e5863b6e1dbd30b0c7701ede7f99fe8df7fee24d65d5f3dc93ea67cfbd6",
+      "source_path": "src/tag/tag.controller.spec.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/tag/tag.controller.spec.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/tag/tag.controller.ts",
+      "sha256": "f919a420ca15e1536d7de7529484b0094e4c52b364a4f4ea1dffba68ad740dd2",
+      "source_path": "src/tag/tag.controller.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/tag/tag.controller.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/tag/tag.entity.ts",
+      "sha256": "c55dca10fa8b83beac67313787d3b7e11f1287c4323c2d54a9a29cfeca21f7d6",
+      "source_path": "src/tag/tag.entity.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/tag/tag.entity.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/tag/tag.interface.ts",
+      "sha256": "664cb9892ce6a7b53e7692a2a61da9c6d6dd69bf52b7c3161acff98f36daa2bc",
+      "source_path": "src/tag/tag.interface.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/tag/tag.interface.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/tag/tag.module.ts",
+      "sha256": "72ab83c4ac6e09fcefbc1906997e8c0c2b8a820995e8ab2cefacdd1825cb665e",
+      "source_path": "src/tag/tag.module.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/tag/tag.module.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/tag/tag.service.ts",
+      "sha256": "968ccce23415e30358730bc206408ef71566d512f4037f48d0bb9dc824fcab27",
+      "source_path": "src/tag/tag.service.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/tag/tag.service.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/user/auth.middleware.ts",
+      "sha256": "a8368c9fa99d2305fbfee0dd9c4a80a6d730f2e1bd2f5f8afeae60e51d855eb0",
+      "source_path": "src/user/auth.middleware.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/user/auth.middleware.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/user/dto/create-user.dto.ts",
+      "sha256": "81eb321c8b55158f48c2845cbe6b51d4afcb44fe9719c6c6c5d0093c04069430",
+      "source_path": "src/user/dto/create-user.dto.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/user/dto/create-user.dto.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/user/dto/index.ts",
+      "sha256": "108a44b2fa00475584294a9c0a6d001d03c47041e43417fc1a3b08e7e9a8a6a5",
+      "source_path": "src/user/dto/index.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/user/dto/index.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/user/dto/login-user.dto.ts",
+      "sha256": "a2e1f7024523c964d067609ac113378bd1cd0716f66535f12e2603e337efdb6e",
+      "source_path": "src/user/dto/login-user.dto.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/user/dto/login-user.dto.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/user/dto/update-user.dto.ts",
+      "sha256": "5c7ff6b1bdf1f49dad376c47b3f5586f09e0ab99e10c77784cc07b43ad8c2eda",
+      "source_path": "src/user/dto/update-user.dto.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/user/dto/update-user.dto.ts"
+    },
+    {
+      "build_input": false,
+      "path": "src/user/test/user.controller.spec.ts",
+      "sha256": "35b4efbf4f6e0e00fb255b3dd7bf638c6ccb5c086bed32cdc69c9db9c0d972a4",
+      "source_path": "src/user/test/user.controller.spec.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/user/test/user.controller.spec.ts"
+    },
+    {
+      "build_input": false,
+      "path": "src/user/test/user.service.spec.ts",
+      "sha256": "0d75a4ab38509dc0a3a4a19a6ed58afaf4e895584a284662525c2296481e3541",
+      "source_path": "src/user/test/user.service.spec.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/user/test/user.service.spec.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/user/user.controller.ts",
+      "sha256": "7ad8210a47882de8736af9c83c9d7ff57d166e9f08dbb8446f1f2c87c1ba1cce",
+      "source_path": "src/user/user.controller.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/user/user.controller.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/user/user.decorator.ts",
+      "sha256": "e0b1942a5d0bfcab52ef7b15fa03f83136ea1323e41cb1fe98a8b3deca3f3ccb",
+      "source_path": "src/user/user.decorator.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/user/user.decorator.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/user/user.entity.ts",
+      "sha256": "ac25604cbca23a242cc2911507ed3592cd3abd0e7cf867b673c1750f3ab999ea",
+      "source_path": "src/user/user.entity.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/user/user.entity.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/user/user.interface.ts",
+      "sha256": "aff2c00c011216e7988fecf73d2e41b535c6112be11c6df85a726938f9666c0b",
+      "source_path": "src/user/user.interface.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/user/user.interface.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/user/user.module.ts",
+      "sha256": "efc76de6198ddeaace36b828450ff5f9aff1e87284cf143f386285606dca63a6",
+      "source_path": "src/user/user.module.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/user/user.module.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/user/user.repository.ts",
+      "sha256": "f03abe083fd9d20c52d4e6bf4ad146228903c44a85615643b3ba3dc8a38f9c24",
+      "source_path": "src/user/user.repository.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/user/user.repository.ts"
+    },
+    {
+      "build_input": true,
+      "path": "src/user/user.service.ts",
+      "sha256": "4ba43b78f6f1acdcd3fed1652a05872e691466bd1771f8eb7fae51cbaf430cac",
+      "source_path": "src/user/user.service.ts",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/src/user/user.service.ts"
+    }
+  ],
+  "repository": "mikro-orm/nestjs-realworld-example-app",
+  "support_files": [
+    {
+      "path": "LICENSE",
+      "sha256": "c14ff5e5851d30b20fa7af2ba478af713587917ad1c1c92edde1fa84a82fd532",
+      "source_path": "LICENSE",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/LICENSE"
+    },
+    {
+      "path": "UPSTREAM_README.md",
+      "sha256": "86c2d4968d8337f39ba769f403c8ec978b2e9a08d81119b986c6acab6155601d",
+      "source_path": "README.md",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/README.md"
+    },
+    {
+      "path": "package.json",
+      "sha256": "127eb2ee056f9ae2f7c35ad1f44e4d24d41ecbd75b8c8ccd8452ba3512bca9a3",
+      "source_path": "package.json",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/package.json"
+    },
+    {
+      "path": "yarn.lock",
+      "sha256": "bb169f1329925c230278b7d60b124012607833ae3cb84dc2f9612a6d56ede4cb",
+      "source_path": "yarn.lock",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/yarn.lock"
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "e68a3eebd11d42f18a8df72f42b2ddf61644186ad550ac526c84e95eaa5a514d",
+      "source_path": "tsconfig.json",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/tsconfig.json"
+    },
+    {
+      "path": "tsconfig.build.json",
+      "sha256": "90325c3ef7c07740457ca5ddd74242ccd6d7c5d54ddc95a96303892253aab8f5",
+      "source_path": "tsconfig.build.json",
+      "source_url": "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/tsconfig.build.json"
+    }
+  ]
+}

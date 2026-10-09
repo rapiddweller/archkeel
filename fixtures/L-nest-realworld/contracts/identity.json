@@ -1,0 +1,1965 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "account-http",
+      "label": "Account HTTP contracts",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.user.user_x2e_controller_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_interface_x2e_ts",
+        "nestjs.realworld.src.user.dto.create_x2d_user_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.user.dto.login_x2d_user_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.user.dto.update_x2d_user_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.user.dto.index_x2e_ts"
+      ],
+      "responsibilities": [
+        "Declare account request/response contracts and delegate controller operations."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Account application service",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_service_x2e_ts"
+          ],
+          "rationale": "Controller delegates account operations to the service.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.user.user_x2e_controller_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_interface_x2e_ts",
+        "nestjs.realworld.src.user.dto.create_x2d_user_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.user.dto.login_x2d_user_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.user.dto.update_x2d_user_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.user.dto.index_x2e_ts"
+      ]
+    },
+    {
+      "id": "account-service",
+      "label": "Account application service",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.user.user_x2e_service_x2e_ts"
+      ],
+      "responsibilities": [
+        "Coordinate account validation, lookup, creation, update, deletion, and token generation."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Account HTTP contracts",
+          "through": [
+            "nestjs.realworld.src.user.dto.index_x2e_ts"
+          ],
+          "rationale": "Service consumes request DTOs.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Account HTTP contracts",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_interface_x2e_ts"
+          ],
+          "rationale": "Service returns the IUserRO response contract.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "User model and repository",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_repository_x2e_ts"
+          ],
+          "rationale": "Service imports the explicit repository.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "User model and repository",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_entity_x2e_ts"
+          ],
+          "rationale": "Service imports the User model.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.user.user_x2e_service_x2e_ts"
+      ]
+    },
+    {
+      "id": "account-model",
+      "label": "User model and repository",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.user.user_x2e_entity_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_repository_x2e_ts"
+      ],
+      "responsibilities": [
+        "Represent user state and the explicit UserRepository specialization."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "nestjs.realworld.src.user.user_x2e_entity_x2e_ts",
+        "nestjs.realworld.src.user.user_x2e_repository_x2e_ts"
+      ]
+    },
+    {
+      "id": "account-module",
+      "label": "Account module wiring",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.user.user_x2e_module_x2e_ts"
+      ],
+      "responsibilities": [
+        "Register the account controller, service, repository and ORM feature."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Account HTTP contracts",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_controller_x2e_ts"
+          ],
+          "rationale": "Module registers the controller.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Account application service",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_service_x2e_ts"
+          ],
+          "rationale": "Module registers the service.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "User model and repository",
+          "through": [
+            "nestjs.realworld.src.user.user_x2e_entity_x2e_ts"
+          ],
+          "rationale": "Module registers the User ORM entity.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.user.user_x2e_module_x2e_ts"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Direct internal source imports must cross declared responsibility boundaries.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-1fe85b2e418b",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_controller_x2e_ts",
+          "parent_id": "account-http",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare account request/response contracts and delegate controller operations."
+          ],
+          "file_path": "src/user/user.controller.ts"
+        },
+        {
+          "id": "module-ef2529cd1917",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_interface_x2e_ts",
+          "parent_id": "account-http",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare account request/response contracts and delegate controller operations."
+          ],
+          "file_path": "src/user/user.interface.ts"
+        },
+        {
+          "id": "module-2c79dfd131cd",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.dto.create_x2d_user_x2e_dto_x2e_ts",
+          "parent_id": "account-http",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare account request/response contracts and delegate controller operations."
+          ],
+          "file_path": "src/user/dto/create-user.dto.ts"
+        },
+        {
+          "id": "module-1225563a33f4",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.dto.login_x2d_user_x2e_dto_x2e_ts",
+          "parent_id": "account-http",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare account request/response contracts and delegate controller operations."
+          ],
+          "file_path": "src/user/dto/login-user.dto.ts"
+        },
+        {
+          "id": "module-c19e8d2e60f4",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.dto.update_x2d_user_x2e_dto_x2e_ts",
+          "parent_id": "account-http",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare account request/response contracts and delegate controller operations."
+          ],
+          "file_path": "src/user/dto/update-user.dto.ts"
+        },
+        {
+          "id": "module-45090b785f5e",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.dto.index_x2e_ts",
+          "parent_id": "account-http",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare account request/response contracts and delegate controller operations."
+          ],
+          "file_path": "src/user/dto/index.ts"
+        },
+        {
+          "id": "module-a93a6b12ed9e",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts",
+          "parent_id": "account-service",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Coordinate account validation, lookup, creation, update, deletion, and token generation."
+          ],
+          "file_path": "src/user/user.service.ts"
+        },
+        {
+          "id": "module-48d536b2256c",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts",
+          "parent_id": "account-model",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent user state and the explicit UserRepository specialization."
+          ],
+          "file_path": "src/user/user.entity.ts"
+        },
+        {
+          "id": "module-0bd32a40cd62",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_repository_x2e_ts",
+          "parent_id": "account-model",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent user state and the explicit UserRepository specialization."
+          ],
+          "file_path": "src/user/user.repository.ts"
+        },
+        {
+          "id": "module-b0208f49231e",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_module_x2e_ts",
+          "parent_id": "account-module",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Register the account controller, service, repository and ORM feature."
+          ],
+          "file_path": "src/user/user.module.ts"
+        },
+        {
+          "id": "class-user",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User",
+          "parent_id": "module-48d536b2256c",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Store user identity and account state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-user.id",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User.id",
+          "parent_id": "class-user",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level user state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "number"
+        },
+        {
+          "id": "attribute-user.username",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User.username",
+          "parent_id": "class-user",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level user state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-user.email",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User.email",
+          "parent_id": "class-user",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level user state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-user.bio",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User.bio",
+          "parent_id": "class-user",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level user state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string & Opt"
+        },
+        {
+          "id": "attribute-user.image",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User.image",
+          "parent_id": "class-user",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level user state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string & Opt"
+        },
+        {
+          "id": "attribute-user.password",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User.password",
+          "parent_id": "class-user",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level user state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-user.favorites",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User.favorites",
+          "parent_id": "class-user",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level user state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": null
+        },
+        {
+          "id": "attribute-user.followers",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User.followers",
+          "parent_id": "class-user",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level user state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": null
+        },
+        {
+          "id": "attribute-user.followed",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User.followed",
+          "parent_id": "class-user",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level user state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": null
+        },
+        {
+          "id": "attribute-user.articles",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User.articles",
+          "parent_id": "class-user",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level user state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": null
+        },
+        {
+          "id": "class-userrepository",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_repository_x2e_ts.UserRepository",
+          "parent_id": "module-0bd32a40cd62",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Specialize EntityRepository for User."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-user.tojson",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User.toJSON",
+          "parent_id": "class-user",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialize a User with an optional viewer."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-user.constructor",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User.constructor",
+          "parent_id": "class-user",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct a User from registration values."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "username",
+                "kind": "positional",
+                "annotation": "string"
+              },
+              {
+                "name": "email",
+                "kind": "positional",
+                "annotation": "string"
+              },
+              {
+                "name": "password",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "class-userservice",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts.UserService",
+          "parent_id": "module-a93a6b12ed9e",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Coordinate account authentication and persistence."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-userservice.findone",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts.UserService.findOne",
+          "parent_id": "class-userservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Look up a login user."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "loginUserDto",
+                "kind": "positional",
+                "annotation": "LoginUserDto"
+              }
+            ],
+            "returns": "Promise<User | null>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-userservice.create",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts.UserService.create",
+          "parent_id": "class-userservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create a user from registration input."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "dto",
+                "kind": "positional",
+                "annotation": "CreateUserDto"
+              }
+            ],
+            "returns": "Promise<IUserRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-userservice.findbyid",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts.UserService.findById",
+          "parent_id": "class-userservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve the account by ID."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "kind": "positional",
+                "annotation": "number"
+              }
+            ],
+            "returns": "Promise<IUserRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-userservice.findbyemail",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts.UserService.findByEmail",
+          "parent_id": "class-userservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve the account by email."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "email",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": "Promise<IUserRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-userservice.generatejwt",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts.UserService.generateJWT",
+          "parent_id": "class-userservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Generate a JWT; the source omits a return annotation."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "User"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "class-usercontroller",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_controller_x2e_ts.UserController",
+          "parent_id": "module-1fe85b2e418b",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Delegate account endpoints to UserService."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-usercontroller.findme",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_controller_x2e_ts.UserController.findMe",
+          "parent_id": "class-usercontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve the current account."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "email",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": "Promise<IUserRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-usercontroller.update",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_controller_x2e_ts.UserController.update",
+          "parent_id": "class-usercontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Update account data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "userId",
+                "kind": "positional",
+                "annotation": "number"
+              },
+              {
+                "name": "userData",
+                "kind": "positional",
+                "annotation": "UpdateUserDto"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-usercontroller.create",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_controller_x2e_ts.UserController.create",
+          "parent_id": "class-usercontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Register an account."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "userData",
+                "kind": "positional",
+                "annotation": "CreateUserDto"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-usercontroller.delete",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_controller_x2e_ts.UserController.delete",
+          "parent_id": "class-usercontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Delete an account."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "params",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": "Promise<any>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-usercontroller.login",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_controller_x2e_ts.UserController.login",
+          "parent_id": "class-usercontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Authenticate an account."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "loginUserDto",
+                "kind": "positional",
+                "annotation": "LoginUserDto"
+              }
+            ],
+            "returns": "Promise<IUserRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "class-createuserdto",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.user.dto.create_x2d_user_x2e_dto_x2e_ts.CreateUserDto",
+          "parent_id": "module-2c79dfd131cd",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare account request fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-createuserdto.username",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.dto.create_x2d_user_x2e_dto_x2e_ts.CreateUserDto.username",
+          "parent_id": "class-createuserdto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-createuserdto.email",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.dto.create_x2d_user_x2e_dto_x2e_ts.CreateUserDto.email",
+          "parent_id": "class-createuserdto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-createuserdto.password",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.dto.create_x2d_user_x2e_dto_x2e_ts.CreateUserDto.password",
+          "parent_id": "class-createuserdto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "class-loginuserdto",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.user.dto.login_x2d_user_x2e_dto_x2e_ts.LoginUserDto",
+          "parent_id": "module-1225563a33f4",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare account request fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-loginuserdto.email",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.dto.login_x2d_user_x2e_dto_x2e_ts.LoginUserDto.email",
+          "parent_id": "class-loginuserdto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-loginuserdto.password",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.dto.login_x2d_user_x2e_dto_x2e_ts.LoginUserDto.password",
+          "parent_id": "class-loginuserdto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "class-updateuserdto",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.user.dto.update_x2d_user_x2e_dto_x2e_ts.UpdateUserDto",
+          "parent_id": "module-c19e8d2e60f4",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare account request fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-updateuserdto.bio",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.dto.update_x2d_user_x2e_dto_x2e_ts.UpdateUserDto.bio",
+          "parent_id": "class-updateuserdto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-updateuserdto.email",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.dto.update_x2d_user_x2e_dto_x2e_ts.UpdateUserDto.email",
+          "parent_id": "class-updateuserdto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-updateuserdto.image",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.dto.update_x2d_user_x2e_dto_x2e_ts.UpdateUserDto.image",
+          "parent_id": "class-updateuserdto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-updateuserdto.username",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.dto.update_x2d_user_x2e_dto_x2e_ts.UpdateUserDto.username",
+          "parent_id": "class-updateuserdto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "interface-iuserdata",
+          "kind": "interface",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_interface_x2e_ts.IUserData",
+          "parent_id": "module-ef2529cd1917",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the public account response shape."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-iuserdata.bio",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_interface_x2e_ts.IUserData.bio",
+          "parent_id": "interface-iuserdata",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-iuserdata.email",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_interface_x2e_ts.IUserData.email",
+          "parent_id": "interface-iuserdata",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-iuserdata.image",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_interface_x2e_ts.IUserData.image",
+          "parent_id": "interface-iuserdata",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-iuserdata.token",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_interface_x2e_ts.IUserData.token",
+          "parent_id": "interface-iuserdata",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-iuserdata.username",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_interface_x2e_ts.IUserData.username",
+          "parent_id": "interface-iuserdata",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "interface-iuserro",
+          "kind": "interface",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_interface_x2e_ts.IUserRO",
+          "parent_id": "module-ef2529cd1917",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the public account response shape."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-iuserro.user",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_interface_x2e_ts.IUserRO.user",
+          "parent_id": "interface-iuserro",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "IUserData"
+        },
+        {
+          "id": "method-userservice.findall",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts.UserService.findAll",
+          "parent_id": "class-userservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve users."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [],
+            "returns": "Promise<User[]>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-userservice.update",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts.UserService.update",
+          "parent_id": "class-userservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Update an account."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "id",
+                "kind": "positional",
+                "annotation": "number"
+              },
+              {
+                "name": "dto",
+                "kind": "positional",
+                "annotation": "UpdateUserDto"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-userservice.delete",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts.UserService.delete",
+          "parent_id": "class-userservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Delete an account."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "email",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-userservice.constructor",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts.UserService.constructor",
+          "parent_id": "class-userservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive the account repository and entity manager."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "userRepository",
+                "kind": "positional",
+                "annotation": "UserRepository"
+              },
+              {
+                "name": "em",
+                "kind": "positional",
+                "annotation": "EntityManager"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "attribute-userservice.userrepository",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts.UserService.userRepository",
+          "parent_id": "class-userservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "UserRepository"
+        },
+        {
+          "id": "attribute-userservice.em",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts.UserService.em",
+          "parent_id": "class-userservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "EntityManager"
+        },
+        {
+          "id": "method-userservice.builduserro",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_service_x2e_ts.UserService.buildUserRO",
+          "parent_id": "class-userservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Build the account response envelope."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "User"
+              }
+            ],
+            "returns": "IUserRO"
+          },
+          "modifiers": []
+        },
+        {
+          "id": "method-usercontroller.constructor",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_controller_x2e_ts.UserController.constructor",
+          "parent_id": "class-usercontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive the account application service."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "userService",
+                "kind": "positional",
+                "annotation": "UserService"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "attribute-usercontroller.userservice",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_controller_x2e_ts.UserController.userService",
+          "parent_id": "class-usercontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "UserService"
+        },
+        {
+          "id": "method-usermodule.configure",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_module_x2e_ts.UserModule.configure",
+          "parent_id": "class-usermodule",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Bind request middleware to account routes."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "consumer",
+                "kind": "positional",
+                "annotation": "MiddlewareConsumer"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "attribute-user.[entityname]",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User.[EntityName]",
+          "parent_id": "class-user",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the ORM entity-name key."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "'User'"
+        },
+        {
+          "id": "attribute-user.[entityrepositorytype]",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.User.[EntityRepositoryType]",
+          "parent_id": "class-user",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the ORM repository key."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "UserRepository"
+        },
+        {
+          "id": "class-usermodule",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_module_x2e_ts.UserModule",
+          "parent_id": "module-b0208f49231e",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Register feature controllers and providers."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "interface-userdto",
+          "kind": "interface",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.UserDTO",
+          "parent_id": "module-48d536b2256c",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the serialized User response extension."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-userdto.following",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.user.user_x2e_entity_x2e_ts.UserDTO.following",
+          "parent_id": "interface-userdto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the optional following response field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "boolean"
+        }
+      ],
+      "relationships": [
+        {
+          "id": "create-user-invocation",
+          "kind": "creates",
+          "source_id": "method-userservice.create",
+          "target_id": "class-user",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-42c6c921b8197bef",
+          "kind": "imports",
+          "source_id": "module-1fe85b2e418b",
+          "target_id": "module-45090b785f5e",
+          "reason": "Selected source import at src/user/user.controller.ts:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b4799bb08d977d22",
+          "kind": "imports",
+          "source_id": "module-1fe85b2e418b",
+          "target_id": "module-ef2529cd1917",
+          "reason": "Selected source import at src/user/user.controller.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-08ee1d3c5d85bf40",
+          "kind": "imports",
+          "source_id": "module-1fe85b2e418b",
+          "target_id": "module-a93a6b12ed9e",
+          "reason": "Selected source import at src/user/user.controller.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-aab28796f58130be",
+          "kind": "imports",
+          "source_id": "module-48d536b2256c",
+          "target_id": "module-0bd32a40cd62",
+          "reason": "Selected source import at src/user/user.entity.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b3008ea3659992a2",
+          "kind": "imports",
+          "source_id": "module-b0208f49231e",
+          "target_id": "module-1fe85b2e418b",
+          "reason": "Selected source import at src/user/user.module.ts:3.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7483ed7a829e543f",
+          "kind": "imports",
+          "source_id": "module-b0208f49231e",
+          "target_id": "module-48d536b2256c",
+          "reason": "Selected source import at src/user/user.module.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-17be2ef569219177",
+          "kind": "imports",
+          "source_id": "module-b0208f49231e",
+          "target_id": "module-a93a6b12ed9e",
+          "reason": "Selected source import at src/user/user.module.ts:5.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-29c5ec8a48d9952a",
+          "kind": "imports",
+          "source_id": "module-0bd32a40cd62",
+          "target_id": "module-48d536b2256c",
+          "reason": "Selected source import at src/user/user.repository.ts:2.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-1c4208873e4fd491",
+          "kind": "imports",
+          "source_id": "module-a93a6b12ed9e",
+          "target_id": "module-45090b785f5e",
+          "reason": "Selected source import at src/user/user.service.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-29620dddfe0c97f4",
+          "kind": "imports",
+          "source_id": "module-a93a6b12ed9e",
+          "target_id": "module-48d536b2256c",
+          "reason": "Selected source import at src/user/user.service.ts:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-e51782c164308610",
+          "kind": "imports",
+          "source_id": "module-a93a6b12ed9e",
+          "target_id": "module-ef2529cd1917",
+          "reason": "Selected source import at src/user/user.service.ts:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ba349608af702a23",
+          "kind": "imports",
+          "source_id": "module-a93a6b12ed9e",
+          "target_id": "module-0bd32a40cd62",
+          "reason": "Selected source import at src/user/user.service.ts:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "class-user",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "interface-userdto",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-userrepository",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-userservice",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-usercontroller",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-createuserdto",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-loginuserdto",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-updateuserdto",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "interface-iuserdata",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "interface-iuserro",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-usermodule",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,2497 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "article-http",
+      "label": "Article and comment HTTP contracts",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.article.article_x2e_controller_x2e_ts",
+        "nestjs.realworld.src.article.article_x2e_interface_x2e_ts",
+        "nestjs.realworld.src.article.dto.create_x2d_article_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.article.dto.create_x2d_comment_x2e_ts",
+        "nestjs.realworld.src.article.dto.index_x2e_ts"
+      ],
+      "responsibilities": [
+        "Declare article/comment request/response contracts and delegate controller operations."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Article application service",
+          "through": [
+            "nestjs.realworld.src.article.article_x2e_service_x2e_ts"
+          ],
+          "rationale": "Controller delegates publishing operations to the service.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Article and comment models",
+          "through": [
+            "nestjs.realworld.src.article.article_x2e_entity_x2e_ts"
+          ],
+          "rationale": "The response contract imports ArticleDTO from the model module.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.article.article_x2e_controller_x2e_ts",
+        "nestjs.realworld.src.article.article_x2e_interface_x2e_ts",
+        "nestjs.realworld.src.article.dto.create_x2d_article_x2e_dto_x2e_ts",
+        "nestjs.realworld.src.article.dto.create_x2d_comment_x2e_ts",
+        "nestjs.realworld.src.article.dto.index_x2e_ts"
+      ]
+    },
+    {
+      "id": "article-service",
+      "label": "Article application service",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.article.article_x2e_service_x2e_ts"
+      ],
+      "responsibilities": [
+        "Coordinate article queries, feeds, comments and favorite state."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Article and comment HTTP contracts",
+          "through": [
+            "nestjs.realworld.src.article.article_x2e_interface_x2e_ts"
+          ],
+          "rationale": "Service returns article response contracts.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Article and comment HTTP contracts",
+          "through": [
+            "nestjs.realworld.src.article.dto.index_x2e_ts"
+          ],
+          "rationale": "Service imports request DTOs from the barrel module.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Article and comment models",
+          "through": [
+            "nestjs.realworld.src.article.article_x2e_entity_x2e_ts"
+          ],
+          "rationale": "Service queries and mutates article/comment models.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Article and comment models",
+          "through": [
+            "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts"
+          ],
+          "rationale": "Service imports the Comment model.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.article.article_x2e_service_x2e_ts"
+      ]
+    },
+    {
+      "id": "article-model",
+      "label": "Article and comment models",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.article.article_x2e_entity_x2e_ts",
+        "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts"
+      ],
+      "responsibilities": [
+        "Represent article/comment state and source-declared references."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "nestjs.realworld.src.article.article_x2e_entity_x2e_ts",
+        "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts"
+      ]
+    },
+    {
+      "id": "article-module",
+      "label": "Article module wiring",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "nestjs.realworld.src.article.article_x2e_module_x2e_ts"
+      ],
+      "responsibilities": [
+        "Register article providers and request middleware."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Article and comment HTTP contracts",
+          "through": [
+            "nestjs.realworld.src.article.article_x2e_controller_x2e_ts"
+          ],
+          "rationale": "Module registers the controller.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Article application service",
+          "through": [
+            "nestjs.realworld.src.article.article_x2e_service_x2e_ts"
+          ],
+          "rationale": "Module registers the service.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Article and comment models",
+          "through": [
+            "nestjs.realworld.src.article.article_x2e_entity_x2e_ts"
+          ],
+          "rationale": "Module registers feature entities.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Article and comment models",
+          "through": [
+            "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts"
+          ],
+          "rationale": "Module registers the Comment entity.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "nestjs.realworld.src.article.article_x2e_module_x2e_ts"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Direct internal source imports must cross declared responsibility boundaries.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "module-ec1b84cfbb59",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts",
+          "parent_id": "article-http",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare article/comment request/response contracts and delegate controller operations."
+          ],
+          "file_path": "src/article/article.controller.ts"
+        },
+        {
+          "id": "module-9d3558107534",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_interface_x2e_ts",
+          "parent_id": "article-http",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare article/comment request/response contracts and delegate controller operations."
+          ],
+          "file_path": "src/article/article.interface.ts"
+        },
+        {
+          "id": "module-71b478ec6c8f",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.article.dto.create_x2d_article_x2e_dto_x2e_ts",
+          "parent_id": "article-http",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare article/comment request/response contracts and delegate controller operations."
+          ],
+          "file_path": "src/article/dto/create-article.dto.ts"
+        },
+        {
+          "id": "module-5afd03080974",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.article.dto.create_x2d_comment_x2e_ts",
+          "parent_id": "article-http",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare article/comment request/response contracts and delegate controller operations."
+          ],
+          "file_path": "src/article/dto/create-comment.ts"
+        },
+        {
+          "id": "module-583463ab878b",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.article.dto.index_x2e_ts",
+          "parent_id": "article-http",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare article/comment request/response contracts and delegate controller operations."
+          ],
+          "file_path": "src/article/dto/index.ts"
+        },
+        {
+          "id": "module-4286fce44572",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts",
+          "parent_id": "article-service",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Coordinate article queries, feeds, comments and favorite state."
+          ],
+          "file_path": "src/article/article.service.ts"
+        },
+        {
+          "id": "module-0ba521efae1b",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts",
+          "parent_id": "article-model",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent article/comment state and source-declared references."
+          ],
+          "file_path": "src/article/article.entity.ts"
+        },
+        {
+          "id": "module-72c13f8f3420",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts",
+          "parent_id": "article-model",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent article/comment state and source-declared references."
+          ],
+          "file_path": "src/article/comment.entity.ts"
+        },
+        {
+          "id": "module-f9356c18e82f",
+          "kind": "module",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_module_x2e_ts",
+          "parent_id": "article-module",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Register article providers and request middleware."
+          ],
+          "file_path": "src/article/article.module.ts"
+        },
+        {
+          "id": "method-article.tojson",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article.toJSON",
+          "parent_id": "class-article",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Serialize an Article with an optional viewer."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-article",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article",
+          "parent_id": "module-0ba521efae1b",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent article content and author."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-comment",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts.Comment",
+          "parent_id": "module-72c13f8f3420",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Represent a comment and references."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "class-articleservice",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService",
+          "parent_id": "module-4286fce44572",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Coordinate article queries and mutations."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-article.id",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article.id",
+          "parent_id": "class-article",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level article data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "number"
+        },
+        {
+          "id": "attribute-article.slug",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article.slug",
+          "parent_id": "class-article",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level article data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-article.title",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article.title",
+          "parent_id": "class-article",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level article data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-article.description",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article.description",
+          "parent_id": "class-article",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level article data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": null
+        },
+        {
+          "id": "attribute-article.body",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article.body",
+          "parent_id": "class-article",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level article data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": null
+        },
+        {
+          "id": "attribute-article.createdat",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article.createdAt",
+          "parent_id": "class-article",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level article data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": null
+        },
+        {
+          "id": "attribute-article.updatedat",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article.updatedAt",
+          "parent_id": "class-article",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level article data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": null
+        },
+        {
+          "id": "attribute-article.taglist",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article.tagList",
+          "parent_id": "class-article",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level article data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string[]"
+        },
+        {
+          "id": "attribute-article.author",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article.author",
+          "parent_id": "class-article",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level article data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "LazyRef<User>"
+        },
+        {
+          "id": "attribute-article.comments",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article.comments",
+          "parent_id": "class-article",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level article data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": null
+        },
+        {
+          "id": "attribute-article.favoritescount",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article.favoritesCount",
+          "parent_id": "class-article",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level article data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": null
+        },
+        {
+          "id": "method-article.constructor",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article.constructor",
+          "parent_id": "class-article",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct an Article."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "author",
+                "kind": "positional",
+                "annotation": "Rel<User>"
+              },
+              {
+                "name": "title",
+                "kind": "positional",
+                "annotation": "string"
+              },
+              {
+                "name": "description",
+                "kind": "positional",
+                "annotation": "string"
+              },
+              {
+                "name": "body",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "attribute-comment.id",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts.Comment.id",
+          "parent_id": "class-comment",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level comment data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "number"
+        },
+        {
+          "id": "attribute-comment.createdat",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts.Comment.createdAt",
+          "parent_id": "class-comment",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level comment data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": null
+        },
+        {
+          "id": "attribute-comment.updatedat",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts.Comment.updatedAt",
+          "parent_id": "class-comment",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level comment data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": null
+        },
+        {
+          "id": "attribute-comment.body",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts.Comment.body",
+          "parent_id": "class-comment",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level comment data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-comment.article",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts.Comment.article",
+          "parent_id": "class-comment",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level comment data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "LazyRef<Article>"
+        },
+        {
+          "id": "attribute-comment.author",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts.Comment.author",
+          "parent_id": "class-comment",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare source-level comment data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "LazyRef<User>"
+        },
+        {
+          "id": "method-articleservice.findfeed",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.findFeed",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return followed-author feed."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "Viewer"
+              },
+              {
+                "name": "query",
+                "kind": "positional",
+                "annotation": "any"
+              }
+            ],
+            "returns": "Promise<IArticlesRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articleservice.favorite",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.favorite",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Update article favorite state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "Viewer"
+              },
+              {
+                "name": "slug",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": "Promise<IArticleRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articleservice.unfavorite",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.unFavorite",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Update article favorite state."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "Viewer"
+              },
+              {
+                "name": "slug",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": "Promise<IArticleRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articleservice.addcomment",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.addComment",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Add an article comment."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "Viewer"
+              },
+              {
+                "name": "slug",
+                "kind": "positional",
+                "annotation": "string"
+              },
+              {
+                "name": "dto",
+                "kind": "positional",
+                "annotation": "CreateCommentDto"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-comment.constructor",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts.Comment.constructor",
+          "parent_id": "class-comment",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Construct a Comment."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "author",
+                "kind": "positional",
+                "annotation": "Rel<User>"
+              },
+              {
+                "name": "article",
+                "kind": "positional",
+                "annotation": "Rel<Article>"
+              },
+              {
+                "name": "body",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "class-articlecontroller",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts.ArticleController",
+          "parent_id": "module-ec1b84cfbb59",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Delegate article and comment endpoints to ArticleService."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "method-articlecontroller.findall",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts.ArticleController.findAll",
+          "parent_id": "class-articlecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "List filtered articles."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "userId",
+                "kind": "positional",
+                "annotation": "number"
+              },
+              {
+                "name": "query",
+                "kind": "positional",
+                "annotation": "any"
+              }
+            ],
+            "returns": "Promise<IArticlesRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articlecontroller.getfeed",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts.ArticleController.getFeed",
+          "parent_id": "class-articlecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Return the authenticated user's feed."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "AuthedUser"
+              },
+              {
+                "name": "query",
+                "kind": "positional",
+                "annotation": "any"
+              }
+            ],
+            "returns": "Promise<IArticlesRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articlecontroller.findone",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts.ArticleController.findOne",
+          "parent_id": "class-articlecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve an article."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "userId",
+                "kind": "positional",
+                "annotation": "number"
+              },
+              {
+                "name": "slug",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": "Promise<IArticleRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articlecontroller.findcomments",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts.ArticleController.findComments",
+          "parent_id": "class-articlecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve article comments."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "slug",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": "Promise<ICommentsRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "class-createarticledto",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.article.dto.create_x2d_article_x2e_dto_x2e_ts.CreateArticleDto",
+          "parent_id": "module-71b478ec6c8f",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare publishing request fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-createarticledto.title",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.dto.create_x2d_article_x2e_dto_x2e_ts.CreateArticleDto.title",
+          "parent_id": "class-createarticledto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-createarticledto.description",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.dto.create_x2d_article_x2e_dto_x2e_ts.CreateArticleDto.description",
+          "parent_id": "class-createarticledto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-createarticledto.body",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.dto.create_x2d_article_x2e_dto_x2e_ts.CreateArticleDto.body",
+          "parent_id": "class-createarticledto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "attribute-createarticledto.taglist",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.dto.create_x2d_article_x2e_dto_x2e_ts.CreateArticleDto.tagList",
+          "parent_id": "class-createarticledto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string[]"
+        },
+        {
+          "id": "class-createcommentdto",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.article.dto.create_x2d_comment_x2e_ts.CreateCommentDto",
+          "parent_id": "module-5afd03080974",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare publishing request fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-createcommentdto.body",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.dto.create_x2d_comment_x2e_ts.CreateCommentDto.body",
+          "parent_id": "class-createcommentdto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "interface-icomment",
+          "kind": "interface",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_interface_x2e_ts.IComment",
+          "parent_id": "module-9d3558107534",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare article and comment response fields."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-icomment.body",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_interface_x2e_ts.IComment.body",
+          "parent_id": "interface-icomment",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "string"
+        },
+        {
+          "id": "interface-icommentsro",
+          "kind": "interface",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_interface_x2e_ts.ICommentsRO",
+          "parent_id": "module-9d3558107534",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare article and comment response fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-icommentsro.comments",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_interface_x2e_ts.ICommentsRO.comments",
+          "parent_id": "interface-icommentsro",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "IComment[]"
+        },
+        {
+          "id": "interface-iarticlero",
+          "kind": "interface",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_interface_x2e_ts.IArticleRO",
+          "parent_id": "module-9d3558107534",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare article and comment response fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-iarticlero.article",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_interface_x2e_ts.IArticleRO.article",
+          "parent_id": "interface-iarticlero",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "ArticleDTO"
+        },
+        {
+          "id": "interface-iarticlesro",
+          "kind": "interface",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_interface_x2e_ts.IArticlesRO",
+          "parent_id": "module-9d3558107534",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare article and comment response fields."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-iarticlesro.articles",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_interface_x2e_ts.IArticlesRO.articles",
+          "parent_id": "interface-iarticlesro",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "ArticleDTO[]"
+        },
+        {
+          "id": "attribute-iarticlesro.articlescount",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_interface_x2e_ts.IArticlesRO.articlesCount",
+          "parent_id": "interface-iarticlesro",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "number"
+        },
+        {
+          "id": "interface-articledto",
+          "kind": "interface",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.ArticleDTO",
+          "parent_id": "module-0ba521efae1b",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Describe the serialized article DTO extension."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "attribute-articledto.favorited",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.ArticleDTO.favorited",
+          "parent_id": "interface-articledto",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source-level field."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "boolean"
+        },
+        {
+          "id": "method-articleservice.findall",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.findAll",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "List articles by query."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "userId",
+                "kind": "positional",
+                "annotation": "number"
+              },
+              {
+                "name": "query",
+                "kind": "positional",
+                "annotation": "any"
+              }
+            ],
+            "returns": "Promise<IArticlesRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articleservice.findone",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.findOne",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve one article."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "userId",
+                "kind": "positional",
+                "annotation": "number"
+              },
+              {
+                "name": "where",
+                "kind": "positional",
+                "annotation": "FilterQuery<Article>"
+              }
+            ],
+            "returns": "Promise<IArticleRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articleservice.findcomments",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.findComments",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Retrieve article comments."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "slug",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": "Promise<ICommentsRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articleservice.deletecomment",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.deleteComment",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Delete a comment."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "Viewer"
+              },
+              {
+                "name": "slug",
+                "kind": "positional",
+                "annotation": "string"
+              },
+              {
+                "name": "id",
+                "kind": "positional",
+                "annotation": "number"
+              }
+            ],
+            "returns": "Promise<IArticleRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articleservice.update",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.update",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Update an article."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "Viewer"
+              },
+              {
+                "name": "slug",
+                "kind": "positional",
+                "annotation": "string"
+              },
+              {
+                "name": "articleData",
+                "kind": "positional",
+                "annotation": "any"
+              }
+            ],
+            "returns": "Promise<IArticleRO>"
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articleservice.create",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.create",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create an article."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "Viewer"
+              },
+              {
+                "name": "dto",
+                "kind": "positional",
+                "annotation": "CreateArticleDto"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articleservice.delete",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.delete",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Delete an article."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "slug",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articlecontroller.create",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts.ArticleController.create",
+          "parent_id": "class-articlecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create an article."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "AuthedUser"
+              },
+              {
+                "name": "articleData",
+                "kind": "positional",
+                "annotation": "CreateArticleDto"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articlecontroller.update",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts.ArticleController.update",
+          "parent_id": "class-articlecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Update an article."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "AuthedUser"
+              },
+              {
+                "name": "params",
+                "kind": "positional",
+                "annotation": "{ slug: string }"
+              },
+              {
+                "name": "articleData",
+                "kind": "positional",
+                "annotation": "CreateArticleDto"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articlecontroller.delete",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts.ArticleController.delete",
+          "parent_id": "class-articlecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Delete an article."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "params",
+                "kind": "positional",
+                "annotation": "{ slug: string }"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articlecontroller.createcomment",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts.ArticleController.createComment",
+          "parent_id": "class-articlecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Create an article comment."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "AuthedUser"
+              },
+              {
+                "name": "slug",
+                "kind": "positional",
+                "annotation": "string"
+              },
+              {
+                "name": "commentData",
+                "kind": "positional",
+                "annotation": "CreateCommentDto"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articlecontroller.deletecomment",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts.ArticleController.deleteComment",
+          "parent_id": "class-articlecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Delete an article comment."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "AuthedUser"
+              },
+              {
+                "name": "params",
+                "kind": "positional",
+                "annotation": "{ slug: string; id: string }"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articlecontroller.favorite",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts.ArticleController.favorite",
+          "parent_id": "class-articlecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Favorite an article."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "AuthedUser"
+              },
+              {
+                "name": "slug",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articlecontroller.unfavorite",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts.ArticleController.unFavorite",
+          "parent_id": "class-articlecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Unfavorite an article."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "user",
+                "kind": "positional",
+                "annotation": "AuthedUser"
+              },
+              {
+                "name": "slug",
+                "kind": "positional",
+                "annotation": "string"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": [
+            "async"
+          ]
+        },
+        {
+          "id": "method-articleservice.constructor",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.constructor",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive entity manager and feature repositories."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "em",
+                "kind": "positional",
+                "annotation": "EntityManager"
+              },
+              {
+                "name": "articleRepository",
+                "kind": "positional",
+                "annotation": "EntityRepository<Article>"
+              },
+              {
+                "name": "commentRepository",
+                "kind": "positional",
+                "annotation": "EntityRepository<Comment>"
+              },
+              {
+                "name": "userRepository",
+                "kind": "positional",
+                "annotation": "EntityRepository<User>"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "attribute-articleservice.em",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.em",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "EntityManager"
+        },
+        {
+          "id": "attribute-articleservice.articlerepository",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.articleRepository",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "EntityRepository<Article>"
+        },
+        {
+          "id": "attribute-articleservice.commentrepository",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.commentRepository",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "EntityRepository<Comment>"
+        },
+        {
+          "id": "attribute-articleservice.userrepository",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_service_x2e_ts.ArticleService.userRepository",
+          "parent_id": "class-articleservice",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "EntityRepository<User>"
+        },
+        {
+          "id": "method-articlecontroller.constructor",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts.ArticleController.constructor",
+          "parent_id": "class-articlecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Receive the article application service."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "articleService",
+                "kind": "positional",
+                "annotation": "ArticleService"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "attribute-articlecontroller.articleservice",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_controller_x2e_ts.ArticleController.articleService",
+          "parent_id": "class-articlecontroller",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the source member."
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "annotation": "ArticleService"
+        },
+        {
+          "id": "method-articlemodule.configure",
+          "kind": "method",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_module_x2e_ts.ArticleModule.configure",
+          "parent_id": "class-articlemodule",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Bind request middleware to article routes."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "consumer",
+                "kind": "positional",
+                "annotation": "MiddlewareConsumer"
+              }
+            ],
+            "returns": null
+          },
+          "modifiers": []
+        },
+        {
+          "id": "attribute-article.[entityname]",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_entity_x2e_ts.Article.[EntityName]",
+          "parent_id": "class-article",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the ORM entity-name key."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "'Article'"
+        },
+        {
+          "id": "attribute-comment.[entityname]",
+          "kind": "attribute",
+          "qualified_name": "nestjs.realworld.src.article.comment_x2e_entity_x2e_ts.Comment.[EntityName]",
+          "parent_id": "class-comment",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Declare the ORM entity-name key."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "'Comment'"
+        },
+        {
+          "id": "class-articlemodule",
+          "kind": "class",
+          "qualified_name": "nestjs.realworld.src.article.article_x2e_module_x2e_ts.ArticleModule",
+          "parent_id": "module-f9356c18e82f",
+          "language": "typescript",
+          "presence": "planned",
+          "provenance": [
+            "docs/target.md"
+          ],
+          "responsibilities": [
+            "Register feature controllers and providers."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "class-article",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-comment",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-articleservice",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-articlecontroller",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-createarticledto",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-createcommentdto",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "interface-icomment",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "interface-icommentsro",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "interface-iarticlero",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "interface-iarticlesro",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "interface-articledto",
+          "entity_kinds": [
+            "attribute"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "scope_id": "class-articlemodule",
+          "entity_kinds": [
+            "attribute",
+            "method"
+          ],
+          "mode": "closed",
+          "rationale": "Declare the complete direct source member set for this principal API; module inventory remains open.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "module-import-88e2e8ed8ad63a28",
+          "kind": "imports",
+          "source_id": "module-ec1b84cfbb59",
+          "target_id": "module-9d3558107534",
+          "reason": "Selected source import at src/article/article.controller.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-10c2a20cf2488577",
+          "kind": "imports",
+          "source_id": "module-ec1b84cfbb59",
+          "target_id": "module-4286fce44572",
+          "reason": "Selected source import at src/article/article.controller.ts:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-89fc2474f648c8b6",
+          "kind": "imports",
+          "source_id": "module-ec1b84cfbb59",
+          "target_id": "module-583463ab878b",
+          "reason": "Selected source import at src/article/article.controller.ts:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-782f52de6394c28a",
+          "kind": "imports",
+          "source_id": "module-0ba521efae1b",
+          "target_id": "module-72c13f8f3420",
+          "reason": "Selected source import at src/article/article.entity.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-b28ede4ed0d3ce6e",
+          "kind": "imports",
+          "source_id": "module-9d3558107534",
+          "target_id": "module-0ba521efae1b",
+          "reason": "Selected source import at src/article/article.interface.ts:1.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-f2b7b06a112eca18",
+          "kind": "imports",
+          "source_id": "module-f9356c18e82f",
+          "target_id": "module-ec1b84cfbb59",
+          "reason": "Selected source import at src/article/article.module.ts:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-15d3995cc1c3418e",
+          "kind": "imports",
+          "source_id": "module-f9356c18e82f",
+          "target_id": "module-0ba521efae1b",
+          "reason": "Selected source import at src/article/article.module.ts:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-c0f98f10d0a804ec",
+          "kind": "imports",
+          "source_id": "module-f9356c18e82f",
+          "target_id": "module-4286fce44572",
+          "reason": "Selected source import at src/article/article.module.ts:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7f2c5f8c61bcf5a3",
+          "kind": "imports",
+          "source_id": "module-f9356c18e82f",
+          "target_id": "module-72c13f8f3420",
+          "reason": "Selected source import at src/article/article.module.ts:10.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-3144f4f872caed94",
+          "kind": "imports",
+          "source_id": "module-4286fce44572",
+          "target_id": "module-0ba521efae1b",
+          "reason": "Selected source import at src/article/article.service.ts:6.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-9f9323a89ca82b5d",
+          "kind": "imports",
+          "source_id": "module-4286fce44572",
+          "target_id": "module-9d3558107534",
+          "reason": "Selected source import at src/article/article.service.ts:7.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-7ea98977994dd072",
+          "kind": "imports",
+          "source_id": "module-4286fce44572",
+          "target_id": "module-72c13f8f3420",
+          "reason": "Selected source import at src/article/article.service.ts:8.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-29c7976a3b1cf5ab",
+          "kind": "imports",
+          "source_id": "module-4286fce44572",
+          "target_id": "module-583463ab878b",
+          "reason": "Selected source import at src/article/article.service.ts:9.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        },
+        {
+          "id": "module-import-ee741455316b9ebd",
+          "kind": "imports",
+          "source_id": "module-72c13f8f3420",
+          "target_id": "module-0ba521efae1b",
+          "reason": "Selected source import at src/article/comment.entity.ts:4.",
+          "provenance": [
+            "docs/target.md"
+          ]
+        }
+      ]
+    }
+  }
+}
