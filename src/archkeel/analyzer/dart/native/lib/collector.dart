@@ -950,29 +950,34 @@ class DartCollector {
     String kind,
     String? parent,
     String? parentId,
-  ) => {
-    'qualified_name': parent == null
-        ? source.module + '.' + name
-        : parent + '.' + name,
-    'module': source.module,
-    'source_file': source.rel,
-    'package': packages[source.module],
-    'name': name,
-    'parent': parent,
-    'lexical_parent_id': parentId,
-    'visibility_detail': {
-      'kind': name.startsWith('_') ? 'private' : 'public',
-      'basis': 'language',
-      'spelling': name,
-    },
-    'symbol_category': kind == 'class' ? 'class' : kind,
-    'source_binding_unique': true,
-    'source_member_binding_static': true,
-    'class_header_static': true,
-    'decorators': <String>[],
-    'signature_complete': true,
-    'overload_signature': false,
-  };
+  ) {
+    final spelling = node is ConstructorDeclaration && node.name != null
+        ? node.name!.lexeme
+        : name;
+    return {
+      'qualified_name': parent == null
+          ? source.module + '.' + name
+          : parent + '.' + name,
+      'module': source.module,
+      'source_file': source.rel,
+      'package': packages[source.module],
+      'name': name,
+      'parent': parent,
+      'lexical_parent_id': parentId,
+      'visibility_detail': {
+        'kind': spelling.startsWith('_') ? 'private' : 'public',
+        'basis': 'language',
+        'spelling': spelling,
+      },
+      'symbol_category': kind == 'class' ? 'class' : kind,
+      'source_binding_unique': true,
+      'source_member_binding_static': true,
+      'class_header_static': true,
+      'decorators': <String>[],
+      'signature_complete': true,
+      'overload_signature': false,
+    };
+  }
 
   Map<String, Object?> _classifier(
     DartSource source,
@@ -1153,7 +1158,31 @@ class DartCollector {
         : '$baseQualified::$accessorKind';
     final kind = parent == null ? 'function' : 'method';
     final id = _id('DARTDEF', [source.rel, node.offset, qualified, kind]);
-    final params = _params(source, list, fieldTypes ?? const {});
+    final constructor = node is ConstructorDeclaration
+        ? node.declaredFragment?.element
+        : null;
+    final redirectingFactory =
+        node is ConstructorDeclaration &&
+        node.factoryKeyword != null &&
+        node.redirectedConstructor != null;
+    final params = _params(
+      source,
+      list,
+      fieldTypes ?? const {},
+      constructor: constructor,
+      redirectingFactory: redirectingFactory,
+    );
+    final constructorReturn =
+        (methodKind == 'constructor' || methodKind == 'factory') &&
+        parent != null;
+    if (constructorReturn && constructor == null) {
+      _gap(
+        source.rel,
+        node.offset,
+        'UnsupportedMember',
+        'constructor return type is unavailable from a resolved element',
+      );
+    }
     definitionIdsByNode[node] = id;
     _addSymbol(
       _record(
@@ -1168,14 +1197,15 @@ class DartCollector {
           'qualified_name': qualified,
           if (accessorKind != null) 'accessor_kind': accessorKind,
           'annotation': null,
-          'returns':
-              (methodKind == 'constructor' || methodKind == 'factory') &&
-                  parent != null
-              ? parent['name']
+          'returns': constructorReturn
+              ? constructor?.returnType.getDisplayString()
+              : accessorKind == 'setter' && returns == null
+              ? 'void'
               : returns,
           'parameters': params.values,
           'method_kind': methodKind ?? (isStatic ? 'static' : 'instance'),
-          'signature_complete': params.complete,
+          'signature_complete':
+              params.complete && (!constructorReturn || constructor != null),
         },
       ),
     );
@@ -1185,8 +1215,10 @@ class DartCollector {
   ({List<Map<String, Object?>> values, bool complete}) _params(
     DartSource source,
     FormalParameterList? list,
-    Map<String, String> fieldTypes,
-  ) {
+    Map<String, String> fieldTypes, {
+    ConstructorElement? constructor,
+    bool redirectingFactory = false,
+  }) {
     if (list == null) return (values: <Map<String, Object?>>[], complete: true);
     final result = <Map<String, Object?>>[];
     var complete = true;
@@ -1198,7 +1230,27 @@ class DartCollector {
       if (item is DefaultFormalParameter) {
         actual = item.parameter;
         defaultValue = item.defaultValue?.toSource();
-        if (item.isOptional && defaultValue == null) defaultValue = 'null';
+        if (item.isOptional && defaultValue == null && !redirectingFactory) {
+          defaultValue = 'null';
+        }
+      }
+      if (redirectingFactory && item.isOptional && defaultValue == null) {
+        final parameterElement = actual.declaredFragment?.element;
+        final resolvedDefault = _redirectedDefault(
+          constructor,
+          parameterElement is FormalParameterElement ? parameterElement : null,
+        );
+        defaultValue = resolvedDefault.$1;
+        defaultKnown = resolvedDefault.$2;
+        if (!defaultKnown) {
+          complete = false;
+          _gap(
+            source.rel,
+            item.offset,
+            'UnsupportedParameter',
+            'redirecting constructor parameter default is unresolved',
+          );
+        }
       }
       final inheritedParameter = actual is SuperFormalParameter
           ? _superParameterElement(actual)
@@ -1273,6 +1325,67 @@ class DartCollector {
       });
     }
     return (values: result, complete: complete);
+  }
+
+  (String?, bool) _redirectedDefault(
+    ConstructorElement? source,
+    FormalParameterElement? sourceParameter,
+  ) {
+    if (source == null || sourceParameter == null) return (null, false);
+    final visited = HashSet<Element>.identity();
+    var current = source;
+    var parameter = sourceParameter;
+    while (visited.add(current.baseElement)) {
+      final target = current.redirectedConstructor;
+      if (target == null) return (null, false);
+      final redirectedParameter = _redirectedParameter(
+        current,
+        parameter,
+        target,
+      );
+      if (redirectedParameter == null) return (null, false);
+      if (!target.isFactory) {
+        if (!redirectedParameter.isOptional) return (null, false);
+        return (redirectedParameter.defaultValueCode ?? 'null', true);
+      }
+      // ponytail: factory-body terminals stay unknown because no redirect link proves a default.
+      if (target.redirectedConstructor == null) return (null, false);
+      current = target;
+      parameter = redirectedParameter;
+    }
+    return (null, false);
+  }
+
+  FormalParameterElement? _redirectedParameter(
+    ConstructorElement source,
+    FormalParameterElement sourceParameter,
+    ConstructorElement target,
+  ) {
+    final sourceParameters = source.formalParameters.where((parameter) {
+      return parameter.name == sourceParameter.name &&
+          parameter.isNamed == sourceParameter.isNamed &&
+          parameter.isOptional == sourceParameter.isOptional;
+    }).toList();
+    if (sourceParameters.length != 1) return null;
+    if (sourceParameter.isNamed) {
+      final matches = target.formalParameters.where((parameter) {
+        return parameter.isNamed &&
+            parameter.name == sourceParameter.name &&
+            parameter.isOptional == sourceParameter.isOptional;
+      }).toList();
+      return matches.length == 1 ? matches.single : null;
+    }
+    final position = source.formalParameters
+        .where((parameter) => parameter.isPositional)
+        .toList()
+        .indexOf(sourceParameters.single);
+    if (position < 0) return null;
+    final targetParameters = target.formalParameters
+        .where((parameter) => parameter.isPositional)
+        .toList();
+    if (position >= targetParameters.length) return null;
+    final match = targetParameters[position];
+    return match.isOptional == sourceParameter.isOptional ? match : null;
   }
 
   String? _superParameterType(SuperFormalParameter parameter) {

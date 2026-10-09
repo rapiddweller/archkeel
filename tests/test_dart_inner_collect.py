@@ -1777,6 +1777,207 @@ class Child extends Parent {
     assert {gap.kind for gap in facts.coverage.gaps} == {"UnsupportedParameter"}
 
 
+def test_native_redirecting_factory_defaults_follow_typed_constructor_chain(
+    tmp_path: Path,
+) -> None:
+    _write_package(
+        tmp_path,
+        """abstract interface class Direct {
+  List<String> get value;
+  factory Direct({List<String> value}) = DirectImpl;
+}
+class DirectImpl implements Direct {
+  DirectImpl({this.value = const []});
+  @override final List<String> value;
+}
+abstract interface class Multi {
+  List<String> get left;
+  List<String> get right;
+  factory Multi({List<String> left, List<String> right}) = MultiHop;
+}
+abstract class MultiHop implements Multi {
+  List<String> get left;
+  List<String> get right;
+  factory MultiHop({List<String> right, List<String> left}) = MultiImpl;
+}
+class MultiImpl implements MultiHop {
+  MultiImpl({this.right = const [], this.left = const []});
+  @override final List<String> left;
+  @override final List<String> right;
+}
+abstract interface class Positional {
+  String get value;
+  factory Positional([String requested]) = PositionalImpl;
+}
+class PositionalImpl implements Positional {
+  PositionalImpl([this.value = 'position']);
+  @override final String value;
+}
+abstract interface class AbsentDefault {
+  String? get value;
+  factory AbsentDefault({String? value}) = AbsentDefaultImpl;
+}
+class AbsentDefaultImpl implements AbsentDefault {
+  AbsentDefaultImpl({this.value});
+  @override final String? value;
+}
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    constructors = {
+        record.data.get("qualified_name"): record.data
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method" and record.data.get("method_kind") == "factory"
+    }
+
+    def defaults(name):
+        return [parameter.get("default") for parameter in constructors[name].get("parameters")]
+
+    assert defaults("commerce.main.Direct.Direct") == ["const []"]
+    assert defaults("commerce.main.Multi.Multi") == ["const []", "const []"]
+    assert defaults("commerce.main.Positional.Positional") == ["'position'"]
+    assert defaults("commerce.main.AbsentDefault.AbsentDefault") == ["null"]
+    assert all(
+        all(parameter.get("default_known") for parameter in data.get("parameters", ()))
+        for data in constructors.values()
+    )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        """abstract interface class MissingTarget {
+  factory MissingTarget({String value}) = MissingImpl;
+}
+""",
+        """abstract interface class Mismatch {
+  factory Mismatch({String value}) = MismatchImpl;
+}
+class MismatchImpl implements Mismatch {
+  MismatchImpl({String other = 'wrong'});
+}
+""",
+        """class RedirectCycle {
+  factory RedirectCycle({String value}) = RedirectCycle.named;
+  factory RedirectCycle.named({String value}) = RedirectCycle;
+}
+""",
+        """abstract interface class FactoryTerminal {
+  factory FactoryTerminal({String value}) = FactoryBody;
+}
+class FactoryBody implements FactoryTerminal {
+  factory FactoryBody({String value = 'body'}) { return Impl(); }
+}
+class Impl implements FactoryBody {}
+""",
+    ],
+    ids=("unresolved", "mismatched-formal", "cycle", "unproven-factory-terminal"),
+)
+def test_native_unresolved_redirecting_factory_default_stays_unknown_and_blocked(
+    tmp_path: Path, source: str
+) -> None:
+    from archkeel.check.uml_compare import compare_graphs
+    from archkeel.ir.architecture_graph import ArchitectureGraph, Entity, Parameter, Signature
+
+    _write_package(tmp_path, source)
+    facts = _native_facts(tmp_path)
+    factory = next(
+        record.data
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method" and record.data.get("method_kind") == "factory"
+    )
+    parameter = factory.get("parameters")[0]
+    assert parameter.get("default") is None
+    assert parameter.get("default_known") is False
+    assert factory.get("signature_complete") is False
+    assert any(gap.kind == "UnsupportedParameter" for gap in facts.coverage.gaps)
+    assert not any(gap.kind == "source_resolution_gap" for gap in facts.coverage.gaps)
+
+    observed = _source_graph(facts)
+    owner = factory.get("parent")
+    target = ArchitectureGraph(
+        "declared",
+        (
+            Entity("target-owner", "class", owner, "dart", provenance=("test",)),
+            Entity(
+                "target-factory",
+                "method",
+                factory.get("qualified_name"),
+                "dart",
+                parent_id="target-owner",
+                signature=Signature(
+                    (Parameter(parameter.get("name"), "String", "keyword_only", "fallback"),),
+                    owner.rsplit(".", 1)[-1],
+                ),
+                provenance=("test",),
+            ),
+        ),
+    )
+    comparison = compare_graphs(observed, target)
+    assessment = next(
+        item
+        for item in comparison.assessments
+        if item.subject_id == "target-factory" and item.aspect == "signature"
+    )
+    assert assessment.status == "UNKNOWN"
+
+
+def test_native_constructor_returns_setters_and_private_names_keep_dart_semantics(
+    tmp_path: Path,
+) -> None:
+    _write_package(
+        tmp_path,
+        """class Box<T> {
+  Box();
+  Box.named();
+  Box._();
+}
+class Maker<T> {
+  factory Maker() = MakerImpl<T>;
+}
+class MakerImpl<T> implements Maker<T> {
+  MakerImpl();
+}
+class Values {
+  int get value => 1;
+  set value(int next) {}
+  int set invalid(int next) {}
+}
+int get status => 1;
+set status(int next) {}
+String describe() => 'value';
+""",
+    )
+
+    facts = _native_facts(tmp_path)
+    symbols = {
+        record.data.get("qualified_name"): record.data
+        for section in facts.sections
+        if section.name == "symbols"
+        for record in section.records
+        if record.kind == "method" or record.kind == "function"
+    }
+    assert symbols["commerce.main.Box.Box"].get("returns") == "Box<T>"
+    assert symbols["commerce.main.Box.Box.named"].get("returns") == "Box<T>"
+    assert symbols["commerce.main.Maker.Maker"].get("returns") == "Maker<T>"
+    assert symbols["commerce.main.MakerImpl.MakerImpl"].get("returns") == "MakerImpl<T>"
+    assert symbols["commerce.main.Values.value::getter"].get("returns") == "int"
+    assert symbols["commerce.main.Values.value::setter"].get("returns") == "void"
+    assert symbols["commerce.main.Values.invalid::setter"].get("returns") == "int"
+    assert symbols["commerce.main.status::getter"].get("returns") == "int"
+    assert symbols["commerce.main.status::setter"].get("returns") == "void"
+    assert symbols["commerce.main.describe"].get("returns") == "String"
+    assert symbols["commerce.main.Box.Box._"].get("qualified_name") == "commerce.main.Box.Box._"
+    assert symbols["commerce.main.Box.Box._"].get("visibility_detail").get("kind") == "private"
+    assert symbols["commerce.main.Box.Box.named"].get("visibility_detail").get("kind") == "public"
+    assert symbols["commerce.main.Box.Box"].get("visibility_detail").get("kind") == "public"
+
+
 def test_native_duplicate_functions_remain_an_explicit_gap(tmp_path: Path) -> None:
     _write_package(
         tmp_path,
