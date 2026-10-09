@@ -2215,6 +2215,17 @@ code {
   fill:var(--ck-surface);
   stroke:var(--ck-border)
 }
+.flow[data-atlas] .uml-frame[data-owner-color] .target-frame {
+  stroke:var(--atlas-owner-color);
+  stroke-opacity:.72
+}
+.flow[data-atlas] .uml-frame[data-owner-color] .target-frame-header-hit {
+  fill:var(--atlas-owner-color);
+  fill-opacity:.055
+}
+.flow[data-atlas] .flow-graph [data-owner-color] .card {
+  stroke:var(--atlas-owner-color)
+}
 .flow[data-atlas] .flow-graph .selected .card {
   stroke:var(--ck-lime);
   stroke-width:2

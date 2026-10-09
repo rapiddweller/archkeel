@@ -717,7 +717,9 @@ def _atlas_section(payload: dict[str, object]) -> str:
     return (
         head
         + encoded
-        + _FLOW_SECTION_BETWEEN_SCRIPTS
+        + '</script>\n      <script data-elkjs-version="0.12.0">'
+        + _asset("elkjs-0.12.0.bundled.js").decode("utf-8")
+        + "</script>\n      <script>"
         + _asset("flow.js").decode()
         + _FLOW_SECTION_TAIL
     )

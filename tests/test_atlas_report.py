@@ -7,6 +7,7 @@ import json
 import re
 import sys
 from dataclasses import replace
+from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -123,6 +124,20 @@ def test_html_graph_omits_resolvable_record_id_lists_only(tmp_path):
                     for item in expected_items
                 ]
                 assert all("record_ids" not in item for item in actual_items)
+
+
+def test_atlas_inlines_pinned_elk_before_flow_script_under_offline_csp(tmp_path):
+    model = _sample(tmp_path)
+    page = _page(model)
+
+    elk_script = '<script data-elkjs-version="0.12.0">'
+    flow_script = '<script>"use strict";'
+    assert elk_script in page
+    assert page.index(elk_script) < page.index(flow_script)
+    assert "default-src 'none'" in page
+    assert "script-src 'unsafe-inline'" in page
+    assert "worker-src" not in page
+    assert not re.search(r"<script\b[^>]*\bsrc=", page)
 
 
 def _atlas(page):
@@ -246,7 +261,15 @@ def test_default_report_is_one_authentic_repository_with_sparse_native_cells(tmp
     assert "EXT-TS" not in page
     assert "Worth a look" in page
     assert 'aria-label="Switch to light theme"' in page
-    assert len(page.encode()) < 1_000_000
+    page_bytes = len(page.encode())
+    elk_bytes = (
+        (Path(__file__).parents[1] / "src/archkeel/render/assets/elkjs-0.12.0.bundled.js")
+        .stat()
+        .st_size
+    )
+    # The offline engine adds 1,609,707 bytes; this fixture renders to 1,916,009 bytes.
+    assert page_bytes < 2_000_000
+    assert page_bytes - elk_bytes < 350_000
 
 
 def test_atlas_header_shows_four_status_cards_with_native_rule_counts(tmp_path):
@@ -1968,6 +1991,9 @@ def test_generic_uml_entry_keeps_theme_return_selection_and_has_no_fragment(tmp_
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
         assert "view=diff" in page.url and "theme=dark" in page.url
         assert "scope=core" in page.url
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length > 0"
+        )
         assert page.locator('.flow-nodes [data-uml-kind="module"]').count() > 0
         page.goto(index.as_uri() + "?scope=not-a-component&theme=dark")
         assert "scope=not-a-component" in page.url
@@ -2015,6 +2041,7 @@ def test_component_leaf_draws_native_module_cards_and_local_import_cells(tmp_pat
         assert "theme=dark" in page.url and "view=diff" in page.url
         assert page.locator('.flow-nodes [data-label="Client"]').is_visible()
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
+        page.wait_for_function("() => document.querySelector('[data-label=\"core.py\"]') !== null")
         assert page.locator('.flow-nodes [data-label="core.py"]').is_visible()
         page.locator('.flow-nodes [data-label="__init__.py"]').press("Enter")
         assert "No direct declarations" in page.locator(".flow-alternative").inner_text()
@@ -2024,6 +2051,9 @@ def test_component_leaf_draws_native_module_cards_and_local_import_cells(tmp_pat
         assert "No declared modules" in page.locator(".flow-alternative").inner_text()
         assert page.locator('.flow-nodes [data-uml-kind="module"]').count() == 0
         page.get_by_role("button", name="Show As-Is modules", exact=True).click()
+        page.wait_for_function(
+            "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length === 2"
+        )
         assert page.locator('.flow-nodes [data-uml-kind="module"]').count() == 2
         assert not errors
     finally:
