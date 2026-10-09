@@ -665,7 +665,6 @@ _FLOW_SECTION_HEAD = f"""
       </div>
       <script id="flow-data" type="application/json">"""
 
-_FLOW_SECTION_BETWEEN_SCRIPTS = "</script>\n      <script>"
 _FLOW_SECTION_TAIL = "</script>\n    </section>"
 
 
@@ -678,7 +677,13 @@ def _flow_section(observation: Observation) -> str:
     payload = payload.replace("<", "\\u003c")
     script = _asset("flow.js").decode("utf-8")
     return (
-        _FLOW_SECTION_HEAD + payload + _FLOW_SECTION_BETWEEN_SCRIPTS + script + _FLOW_SECTION_TAIL
+        _FLOW_SECTION_HEAD
+        + payload
+        + '</script>\n      <script data-elkjs-version="0.12.0">'
+        + _asset("elkjs-0.12.0.bundled.js").decode("utf-8")
+        + "</script>\n      <script>"
+        + script
+        + _FLOW_SECTION_TAIL
     )
 
 

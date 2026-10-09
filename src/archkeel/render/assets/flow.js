@@ -62,9 +62,9 @@
     return;
   }
   let positions = {}, diagramOrigin = null, sizedPositions = positions;
-  let elkLayoutEngine = null, atlasLayoutPending = false, pendingAtlasFit = false;
-  let pendingAtlasFitOverview = false, atlasLayoutGeneration = 0;
-  const atlasLayoutPromises = new Map();
+  let elkLayoutEngine = null, layoutPending = false, pendingLayoutFit = false;
+  let pendingLayoutFitOverview = false, layoutGeneration = 0, layoutMode = "automatic";
+  const layoutPromises = new Map();
   let scrollRemainderX = 0, scrollRemainderY = 0;
   let viewMode = DATA.initial_view || "diagram", renderedScene = null, renderedRoutes = [], focusLabel = null, relationshipKind = null, elementKind = null;
   let showAllModuleElements = false, showExternalSymbols = false;
@@ -1155,7 +1155,7 @@
       const ownWidth = columns * step;
       return ownWidth + childWidths.reduce((sum, width) => sum + width + GAP, 0);
     };
-    const nextPositions = {};
+    const nextPositions = Object.create(null);
     const frameBounds = {};
     const placed = new Set();
 
@@ -2147,7 +2147,8 @@
       .sort((left, right) => (left.file_path || left.qualified_name).localeCompare(right.file_path || right.qualified_name));
   }
 
-  function renderArchitectureGraph(context) {
+  async function renderArchitectureGraph(context) {
+    root.dataset.layoutState = "pending";
     const focus = document.activeElement.closest("[data-uml-id]")?.dataset.umlId;
     const legendFocus = document.activeElement.closest(".flow-legend button")?.dataset.relationshipKind;
     root.dataset.view = viewMode;
@@ -2246,6 +2247,16 @@
         : !node.outside || edges.some((edge) => edge.source === node.id || edge.target === node.id)) };
     if (umlSelection && !(umlSelection.type === "node" ? scene.nodes : edges)
       .some((item) => item.id === umlSelection.id)) umlSelection = null;
+    if (["actual", "structure", "review"].includes(viewMode)) {
+      renderedScene = scene;
+      legend.textContent = "";
+      renderGraphTable(context, scene);
+      architectureInspector(context, scene);
+      inspector.hidden = !targetDetailsOpen;
+      updateOpenSelected();
+      root.dataset.layoutState = "ready";
+      return;
+    }
     const classifiers = scene.nodes.some((node) => !node.outside
       && ["class", "interface", "enum", "mixin"].includes(node.kind));
     const hierarchy = edges.filter((edge) => ["inherits", "realizes", "mixes_in"].includes(edge.relationshipKind));
@@ -2274,7 +2285,48 @@
       emptyLayer.appendChild(text);
     }
     measureUmlCards(scene.nodes);
-    positions = layoutUmlScene(scene, true).positions;
+    let preparedRoutes = null;
+    if (layoutMode === "manual" && Object.keys(positions).length) {
+      // shortcut: Keep the existing router for manually moved cards until ELK can route fixed nodes.
+      layoutPending = false;
+      positions = layoutUmlScene(scene, true).positions;
+    } else if (scene.nodes.length) {
+      layoutMode = "automatic";
+      const generation = layoutGeneration;
+      const key = umlLayoutKey(scene);
+      layoutPending = true;
+      frameLayer.textContent = "";
+      nodeLayer.textContent = "";
+      edgeLayer.textContent = "";
+      chipLayer.textContent = "";
+      canvas.hidden = true;
+      alternative.hidden = false;
+      alternative.innerHTML = '<div class="flow-scope-notice" role="status"><h2>Arranging UML relationships</h2><p>Preserving the active graph while its automatic layout is computed.</p></div>';
+      try {
+        const result = await requestLayout(key, generation, () => layoutUmlSceneWithElk(scene));
+        if (!result || layoutMode !== "automatic") return;
+        positions = Object.fromEntries(Object.entries(result.positions).map(([id, point]) => [id, { ...point }]));
+        preparedRoutes = scene.edges.map((edge) => {
+          const route = result.routesById.get(edge.id);
+          if (!route) throw new Error(`ELK did not route active relationship ${edge.id}.`);
+          return { ...route, edge };
+        });
+        canvas.hidden = false;
+        alternative.hidden = true;
+      } catch (error) {
+        if (generation !== layoutGeneration) return;
+        finishLayout();
+        root.dataset.layoutState = "error";
+        canvas.hidden = true;
+        alternative.hidden = false;
+        alternative.innerHTML = `<div class="flow-scope-notice" role="alert"><h2>Architecture layout unavailable</h2><p>${esc(error.message || "The active UML relationships could not be arranged.")}</p></div>`;
+        return;
+      }
+    } else {
+      layoutMode = "automatic";
+      layoutPending = false;
+      positions = {};
+    }
     const emphasize = (preview = null) => emphasizeUmlScene(preview || umlSelection, Boolean(preview));
     renderUmlScene(scene, {
       frame() {},
@@ -2329,7 +2381,7 @@
             start: { ...positions[node.id] }, moved: 0 };
         });
       },
-    });
+    }, preparedRoutes);
     renderSelectedEdgeLabels();
     emphasize();
     for (const item of viewMode === "target" ? [] : [...scene.nodes, ...scene.edges]) {
@@ -2399,9 +2451,14 @@
     updateOpenSelected();
     sizeDiagram();
     renderGraphTable(context, scene);
-    if (focus) svg.querySelector(`[data-uml-id="${CSS.escape(focus)}"]`)?.focus({ preventScroll: true });
-    if (legendFocus !== undefined) legend.querySelector(`button[data-relationship-kind="${CSS.escape(legendFocus)}"]`)
-      ?.focus({ preventScroll: true });
+    if (document.activeElement === flowHeading) focusCurrentLevel();
+    else if (focus && document.activeElement === document.body)
+      svg.querySelector(`[data-uml-id="${CSS.escape(focus)}"]`)?.focus({ preventScroll: true });
+    if (legendFocus !== undefined && document.activeElement === document.body)
+      legend.querySelector(`button[data-relationship-kind="${CSS.escape(legendFocus)}"]`)
+        ?.focus({ preventScroll: true });
+    root.dataset.layoutState = "ready";
+    finishLayout();
   }
 
   function sizeDiagram() {
@@ -2463,9 +2520,9 @@
   }
 
   function fit(overview = false) {
-    if (atlasLayoutPending) {
-      pendingAtlasFit = true;
-      pendingAtlasFitOverview ||= overview;
+    if (layoutPending) {
+      pendingLayoutFit = true;
+      pendingLayoutFitOverview ||= overview;
       return;
     }
     const bounds = viewport.getBBox();
@@ -2532,11 +2589,12 @@
   function currentState() {
     return { umlPath: [...umlPath], umlSelection, focusLabel, relationshipKind, elementKind,
       atlasContent, positions: Object.fromEntries(Object.entries(positions).map(([id, point]) => [id, { ...point }])),
-      zoom: transform.k, details: targetDetailsOpen, scopeNotice };
+      layoutMode, zoom: transform.k, details: targetDetailsOpen, scopeNotice };
   }
 
   function restoreState(state) {
     ({ umlPath, umlSelection, focusLabel, relationshipKind, elementKind, positions, scopeNotice, atlasContent } = state);
+    layoutMode = state.layoutMode || "automatic";
     transform.k = state.zoom;
     setTargetDetails(state.details);
   }
@@ -2924,14 +2982,136 @@
 
   function atlasLayoutKey(scene, level) {
     const layoutEdges = scene.componentOverview ? scene.layoutEdges : scene.edges;
-    return JSON.stringify([
+    return `atlas:${JSON.stringify([
       scene.componentOverview ? "components" : viewMode,
       level.parent_id,
       scene.nodes.map((node) => [
         node.id, node.module?.component_id, node.label, cardHeight(node.id),
       ]),
       layoutEdges.map((edge) => [edge.layoutId || edge.id, edge.source, edge.target, edge.label]),
-    ]);
+    ])}`;
+  }
+
+  function umlLayoutKey(scene) {
+    return `uml:${JSON.stringify([
+      viewMode,
+      scene.nodes.map((node) => [node.id, node.sourceGraph?.origin, CARD.w, cardHeight(node.id)]),
+      scene.edges.map((edge) => [edge.id, edge.source, edge.target]),
+    ])}`;
+  }
+
+  function umlElkGraph(scene) {
+    const rootId = "__archkeel_uml_layout_root__";
+    const nodeById = new Map(scene.nodes.map((node) => [node.id, node]));
+    const children = scene.nodes.map((node) => ({
+      id: `node:${node.id}`, width: CARD.w, height: cardHeight(node.id),
+    }));
+    const edges = scene.edges.map((edge) => {
+      if (!nodeById.has(edge.source) || !nodeById.has(edge.target)) {
+        throw new Error(`UML relationship ${edge.id} has a missing layout endpoint.`);
+      }
+      return { id: `edge:${edge.id}`, sources: [`node:${edge.source}`], targets: [`node:${edge.target}`] };
+    });
+    return {
+      id: rootId,
+      children,
+      edges,
+      layoutOptions: {
+        "elk.algorithm": "layered", "elk.direction": "RIGHT",
+        "elk.hierarchyHandling": "INCLUDE_CHILDREN", "elk.edgeRouting": "ORTHOGONAL",
+        "elk.layered.cycleBreaking.strategy": "GREEDY",
+        "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
+        "elk.separateConnectedComponents": "true", "elk.spacing.nodeNode": "24",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "68",
+        "elk.layered.spacing.edgeNodeBetweenLayers": "16",
+        "elk.padding": "[top=28,left=28,bottom=28,right=28]",
+      },
+    };
+  }
+
+  async function layoutUmlSceneWithElk(scene) {
+    const result = await runElk(umlElkGraph(scene));
+    const positionsById = Object.create(null), edgeSections = new Map();
+    const walk = (graph, offsetX = 0, offsetY = 0) => {
+      const [x, y] = elkPosition(graph, offsetX, offsetY, result.id);
+      if (graph.id.startsWith("node:")) {
+        const id = graph.id.slice("node:".length);
+        if (!scene.nodes.some((node) => node.id === id) || positionsById[id]) {
+          throw new Error(`ELK returned an unexpected UML card ${id}.`);
+        }
+        positionsById[id] = { x, y };
+      }
+      for (const edge of graph.edges || []) {
+        const sections = edgeSections.get(edge.id) || [];
+        sections.push(...(edge.sections || []));
+        edgeSections.set(edge.id, sections);
+      }
+      for (const child of graph.children || []) walk(child, x, y);
+    };
+    walk(result);
+    if (Object.keys(positionsById).length !== scene.nodes.length) {
+      throw new Error("ELK did not place every active UML card.");
+    }
+    const routesById = new Map();
+    for (const edge of scene.edges) {
+      const sections = edgeSections.get(`edge:${edge.id}`) || [];
+      routesById.set(edge.id, elkRoute(sections, 0, 0, edge.id));
+    }
+    return { positions: positionsById, routesById };
+  }
+
+  async function requestLayout(key, generation, create) {
+    let promise = layoutPromises.get(key);
+    if (!promise) {
+      promise = create();
+      layoutPromises.set(key, promise);
+    }
+    try {
+      const result = await promise;
+      return layoutPromises.get(key) === promise && generation === layoutGeneration ? result : null;
+    } catch (error) {
+      if (layoutPromises.get(key) === promise) layoutPromises.delete(key);
+      if (generation !== layoutGeneration) return null;
+      throw error;
+    }
+  }
+
+  async function runElk(graph) {
+    if (!elkLayoutEngine) {
+      if (typeof ELK !== "function") throw new Error("The pinned ELK layout engine is unavailable.");
+      elkLayoutEngine = new ELK();
+    }
+    return elkLayoutEngine.layout(graph);
+  }
+
+  function finishLayout() {
+    layoutPending = false;
+    if (!pendingLayoutFit) return;
+    const overview = pendingLayoutFitOverview;
+    pendingLayoutFit = false;
+    pendingLayoutFitOverview = false;
+    fit(overview);
+  }
+
+  function elkRoute(sections, offsetX, offsetY, id) {
+    if (!sections.length) throw new Error(`ELK did not route active relationship ${id}.`);
+    const paths = sections.map((section) => [section.startPoint,
+      ...(section.bendPoints || []), section.endPoint].map((point) => [point.x + offsetX, point.y + offsetY]));
+    const points = paths.flat();
+    if (points.length < 2 || points.some(([x, y]) => !Number.isFinite(x) || !Number.isFinite(y))) {
+      throw new Error(`ELK returned an invalid route for relationship ${id}.`);
+    }
+    const mid = points[Math.floor(points.length / 2)];
+    return { points, mid, d: paths.map(orthogonalPath).join(" "), lx: mid[0], ly: mid[1] - 8 };
+  }
+
+  function elkPosition(graph, offsetX, offsetY, rootId) {
+    const x = graph.id === rootId && graph.x === undefined ? 0 : graph.x;
+    const y = graph.id === rootId && graph.y === undefined ? 0 : graph.y;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      throw new Error(`ELK returned invalid coordinates for ${graph.id}.`);
+    }
+    return [offsetX + x, offsetY + y];
   }
 
   function atlasElkGraph(scene, level) {
@@ -3016,17 +3196,13 @@
   }
 
   async function layoutAtlasScene(scene, level) {
-    if (!elkLayoutEngine) {
-      if (typeof ELK !== "function") throw new Error("The pinned ELK layout engine is unavailable.");
-      elkLayoutEngine = new ELK();
-    }
-    const result = await elkLayoutEngine.layout(atlasElkGraph(scene, level));
+    const result = await runElk(atlasElkGraph(scene, level));
     const positionsById = {}, frames = [], edgeSections = new Map(), edgeLabels = new Map();
     const moduleIds = new Set(scene.nodes.map((node) => node.id));
     const moduleById = new Map(scene.nodes.map((node) => [node.id, node]));
     const componentById = new Map(ATLAS.components.map((component) => [component.id, component]));
     const walk = (graph, offsetX = 0, offsetY = 0, parent = null) => {
-      const x = offsetX + (graph.x || 0), y = offsetY + (graph.y || 0);
+      const [x, y] = elkPosition(graph, offsetX, offsetY, result.id);
       if (graph.id !== result.id) {
         if (graph.id.startsWith("module:")) {
           const id = graph.id.slice("module:".length);
@@ -3038,6 +3214,10 @@
         else {
           const id = graph.id.slice("component:".length);
           const component = componentById.get(id);
+          if (!Number.isFinite(graph.width) || !Number.isFinite(graph.height)
+              || graph.width <= 0 || graph.height <= 0) {
+            throw new Error(`ELK returned invalid bounds for frame ${id}.`);
+          }
           frames.push({ id, parent, kind: "component", label: component?.label || id,
             scope: component?.label || id,
             tooltip: `${component?.label || id}: ${(component?.responsibilities || []).join(" ")}`,
@@ -3082,18 +3262,14 @@
       const commonOwner = sourceAncestors.find((id) => targetAncestors.has(id));
       const ownerFrame = frames.find((frame) => frame.id === commonOwner);
       const offsetX = ownerFrame?.bounds.left || 0, offsetY = ownerFrame?.bounds.top || 0;
-      const paths = sections.map((section) => [section.startPoint,
-        ...(section.bendPoints || []), section.endPoint].map((point) => [point.x + offsetX, point.y + offsetY]));
-      const points = paths.flat();
+      const route = elkRoute(sections, offsetX, offsetY, layoutId);
       const label = edgeLabels.get(elkId)?.[0];
       if (scene.componentOverview && (!label || !Number.isFinite(label.x) || !Number.isFinite(label.y))) {
         throw new Error(`ELK did not place the label for relationship ${layoutId}.`);
       }
-      routesById.set(layoutId, {
-        points, mid: points[Math.floor(points.length / 2)],
-        d: paths.map((path) => orthogonalPath(path)).join(" "),
-        lx: label ? label.x + label.width / 2 : points[Math.floor(points.length / 2)][0],
-        ly: label ? label.y + label.height - 2 : points[Math.floor(points.length / 2)][1] - 8,
+      routesById.set(layoutId, { ...route,
+        lx: label ? label.x + offsetX + label.width / 2 : route.mid[0],
+        ly: label ? label.y + offsetY + label.height - 2 : route.ly,
       });
     }
     return { positions: positionsById, frames, routesById,
@@ -3439,7 +3615,7 @@
     if (more) more.onclick = () => { atlasAllHints = !atlasAllHints; atlasExplore(level); };
   }
 
-  function renderAtlas() {
+  async function renderAtlas() {
     const level = atlasLevel(), content = atlasContentPane(level);
     const scene = content === "modules" ? atlasModuleScene(level) : atlasScene(level);
     root.dataset.view = viewMode; root.dataset.umlGraph = "true"; root.dataset.componentOverview = "true";
@@ -3469,45 +3645,38 @@
     cardHeights.clear(); scene.nodes.forEach((node) => {
       cardHeights.set(node.id, scene.moduleOverview ? 144 : 178);
     }); CARD.h = Math.max(144, ...cardHeights.values());
-    atlasLayoutGeneration += 1;
-    const generation = atlasLayoutGeneration;
+    const generation = layoutGeneration;
     if (!scene.nodes.length) {
-      atlasLayoutPending = false;
+      layoutPending = false;
       renderAtlasScene(level, content, scene, {
         positions: {}, frames: [], routesById: new Map(),
       });
+      root.dataset.layoutState = "ready";
+      finishLayout();
       return;
     }
     const key = atlasLayoutKey(scene, level);
-    atlasLayoutPending = true;
-    pendingAtlasFit = false; pendingAtlasFitOverview = false;
+    layoutPending = true;
+    root.dataset.layoutState = "pending";
     frameLayer.textContent = ""; nodeLayer.textContent = ""; edgeLayer.textContent = ""; chipLayer.textContent = "";
     legend.textContent = scene.moduleOverview
       ? "Arranging authored ownership and module relationships…"
       : "Arranging component relationships…";
-    let layout = atlasLayoutPromises.get(key);
-    if (!layout) {
-      layout = layoutAtlasScene(scene, level);
-      atlasLayoutPromises.set(key, layout);
-    }
-    layout.then((result) => {
-      if (atlasLayoutPromises.get(key) !== layout) return;
+    try {
+      const result = await requestLayout(key, generation, () => layoutAtlasScene(scene, level));
+      if (!result) return;
       const expectedContent = scene.moduleOverview ? "modules" : "components";
-      if (generation !== atlasLayoutGeneration || !ATLAS || root.dataset.content !== expectedContent) return;
-      atlasLayoutPending = false;
+      if (!ATLAS || root.dataset.content !== expectedContent) return;
       renderAtlasScene(level, content, scene, result);
-      if (pendingAtlasFit) {
-        const overview = pendingAtlasFitOverview;
-        pendingAtlasFit = false; pendingAtlasFitOverview = false;
-        fit(overview);
-      }
-    }).catch((error) => {
-      if (atlasLayoutPromises.get(key) === layout) atlasLayoutPromises.delete(key);
-      if (generation !== atlasLayoutGeneration) return;
-      atlasLayoutPending = false;
+      root.dataset.layoutState = "ready";
+      finishLayout();
+    } catch (error) {
+      if (generation !== layoutGeneration) return;
+      finishLayout();
+      root.dataset.layoutState = "error";
       canvas.hidden = true; alternative.hidden = false;
       alternative.innerHTML = `<div class="flow-scope-notice"><h3>Architecture layout unavailable</h3><p>${esc(error.message || "The authenticated relationships could not be arranged.")}</p></div>`;
-    });
+    }
   }
 
   function renderAtlasScene(level, content, scene, layout) {
@@ -3620,6 +3789,10 @@
   }
 
   function render() {
+    layoutGeneration += 1;
+    layoutPending = false;
+    pendingLayoutFit = false;
+    pendingLayoutFitOverview = false;
     syncRoute();
     if (routeNotice) { renderRouteNotice(); return; }
     if (SIDECAR) { renderSidecar(); return; }
@@ -3692,7 +3865,7 @@
   zoom100Button.setAttribute("aria-label", "Reset filters");
   zoom100Button.addEventListener("click", resetFlow);
   fitButton.addEventListener("click", () => { positions = {}; render(); fit(); });
-  overviewButton.addEventListener("click", () => { positions = {}; render(); fit(true); });
+  overviewButton.addEventListener("click", () => fit(true));
   zoomOutButton.addEventListener("click", () => zoomBy(1 / 1.2));
   zoomInButton.addEventListener("click", () => zoomBy(1.2));
   svg.addEventListener("pointerdown", (event) => {
@@ -3711,10 +3884,14 @@
       viewport.setAttribute("transform", `translate(${panOffset.x} ${panOffset.y})`);
     }
     if (dragState) {
-      positions[dragState.label] = { x: dragState.start.x + (event.clientX - dragState.x) / transform.k,
-        y: dragState.start.y + (event.clientY - dragState.y) / transform.k };
       dragState.moved = Math.max(dragState.moved, Math.hypot(event.clientX - dragState.x, event.clientY - dragState.y));
-      render();
+      const slack = { mouse: 3, pen: 6, touch: 12 }[dragState.pointerType] ?? 12;
+      if (dragState.moved > slack) {
+        layoutMode = "manual";
+        positions[dragState.label] = { x: dragState.start.x + (event.clientX - dragState.x) / transform.k,
+          y: dragState.start.y + (event.clientY - dragState.y) / transform.k };
+        render();
+      }
     }
   });
   svg.addEventListener("pointerup", (event) => {
