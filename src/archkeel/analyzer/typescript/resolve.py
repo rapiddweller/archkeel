@@ -392,6 +392,8 @@ class Resolver:
             return target
         if target is None:
             return Unknown(f"Package exports conditions are not observed: {name}{key[1:]}")
+        if not isinstance(target, str):
+            return Unknown(f"Package exports conditions are not observed: {name}{key[1:]}")
         if target[:2] != "./":
             return Unknown(f"Package exports target is not package-relative: {name}{key[1:]}")
         if re.fullmatch(r"\./[^/]+(?:/[^/]+)*\Z", target) is None or any(
@@ -402,8 +404,18 @@ class Resolver:
             return Unknown(f"Package exports target path is not observed: {name}{key[1:]}")
         package_dir = join(modules, name)
         candidate = join(package_dir, target[2:])
-        # Exports are exact URLs; permit declaration substitution but no CJS fallback.
-        paths = _file_paths(candidate, True, kinds)
+        # Only runtime JS targets need TS declaration substitution; TS targets are exact.
+        extension = _strip_extension(target)
+        if extension is not None and extension[1] in {".ts", ".tsx", ".mts", ".cts"}:
+            paths = [candidate]
+        elif extension is not None and extension[1] in {".js", ".jsx", ".mjs", ".cjs"}:
+            paths = _file_paths(candidate, True, kinds)
+        else:
+            paths = (
+                [candidate]
+                if extension is None or extension[1] != ".json" or "json" in kinds
+                else []
+            )
         found = next((path for path in paths if self.snapshot.is_file(path)), None)
         if found is None:
             return Unknown(f"Package exports target is unavailable: {name}{key[1:]}")

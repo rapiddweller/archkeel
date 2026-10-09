@@ -287,6 +287,35 @@ def test_package_exports_resolve_exact_javascript_target_to_declaration(tmp_path
     assert _path(resolver.resolve("pkg", "src/main.ts", "cjs")) == "node_modules/pkg/index.d.ts"
 
 
+def test_package_exports_keep_recognized_typescript_target_exact(tmp_path: Path) -> None:
+    resolver = _resolver(
+        tmp_path,
+        {
+            "node_modules/pkg/package.json": '{"exports":"./index.d.ts"}',
+            "node_modules/pkg/index.ts": _EMPTY,
+            "node_modules/pkg/index.d.ts": _EMPTY,
+        },
+        NODENEXT,
+    )
+
+    assert _path(resolver.resolve("pkg", "src/main.ts", "esm")) == "node_modules/pkg/index.d.ts"
+
+
+def test_missing_typescript_export_target_does_not_substitute_sibling(tmp_path: Path) -> None:
+    resolver = _resolver(
+        tmp_path,
+        {
+            "node_modules/pkg/package.json": '{"exports":"./index.d.ts"}',
+            "node_modules/pkg/index.ts": _EMPTY,
+        },
+        NODENEXT,
+    )
+
+    result = resolver.resolve("pkg", "src/main.ts", "esm")
+    assert isinstance(result, Unknown)
+    assert result.reason == "Package exports target is unavailable: pkg"
+
+
 @pytest.mark.parametrize(
     ("exports", "mode", "expected"),
     [
