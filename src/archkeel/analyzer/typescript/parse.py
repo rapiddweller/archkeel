@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from bisect import bisect_right
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import cache
 from typing import Final, Literal
 
@@ -273,6 +273,7 @@ def _inner(source: _Source) -> tuple[tuple[Definition, ...], tuple[Site, ...]]:
     definitions: list[Definition] = []
     declaration_nodes: dict[Node, str] = {}
     scopes: list[tuple[Node, str, int]] = []
+    module_syntax, exported_names, visible_names, exports_complete = _module_exports(source.root)
     for node in _walk(source.root):
         if source.root.has_error and _in_error(node):
             continue
@@ -325,9 +326,92 @@ def _inner(source: _Source) -> tuple[tuple[Definition, ...], tuple[Site, ...]]:
             (node, f"{parent_name}.{name}" if parent_name else name, definition.span.line)
         )
     definitions.extend(_variables(source, scopes, declaration_nodes))
+    definitions = [
+        _module_visibility(item, module_syntax, exported_names, visible_names, exports_complete)
+        for item in definitions
+    ]
     sites = _sites(source, scopes, declaration_nodes)
     return tuple(sorted(definitions, key=lambda item: (item.span.line, item.span.column))), tuple(
         sorted(sites, key=lambda item: (item.span.line, item.span.column, item.kind))
+    )
+
+
+def _specifier_names(specifier: Node) -> tuple[Node | None, Node | None]:
+    """Read the local/imported name and optional public/local alias from one specifier."""
+    return (
+        specifier.child_by_field_name("name"),
+        specifier.child_by_field_name("alias"),
+    )
+
+
+def _module_exports(root: Node) -> tuple[bool, set[str], set[str], bool]:
+    """Return runtime local exports, visible local exports, and classification certainty."""
+    imports = {"import_statement", "import_alias"}
+    declarations = {
+        "class_declaration",
+        "enum_declaration",
+        "function_declaration",
+        "function_signature",
+        "interface_declaration",
+        "lexical_declaration",
+        "type_alias_declaration",
+        "variable_declaration",
+    }
+    statements = [item for item in root.named_children if item.type == "export_statement"]
+    module_syntax = bool(statements) or any(item.type in imports for item in root.named_children)
+    exported_names: set[str] = set()
+    visible_names: set[str] = set()
+    complete = True
+    for statement in statements:
+        if any(item.type in declarations for item in statement.named_children):
+            continue
+        clause = next(
+            (item for item in statement.named_children if item.type == "export_clause"), None
+        )
+        if clause is None:
+            if any(item.type == "string" for item in statement.named_children):
+                continue
+            complete = False
+            continue
+        if any(item.type == "string" for item in statement.named_children):
+            continue
+        statement_is_type_only = any(item.type == "type" for item in statement.children)
+        for candidate in clause.named_children:
+            if candidate.type != "export_specifier":
+                continue
+            specifier: Node = candidate
+            name, alias = _specifier_names(specifier)
+            if name is None or name.type not in {"identifier", "type_identifier"}:
+                complete = False
+                continue
+            local_name = _text(name)
+            visible_names.add(local_name)
+            is_alias = alias is not None and _text(alias) != local_name
+            is_type_only = statement_is_type_only or any(
+                item.type == "type" for item in specifier.children
+            )
+            if not is_alias and not is_type_only:
+                exported_names.add(local_name)
+    return module_syntax, exported_names, visible_names, complete
+
+
+def _module_visibility(
+    definition: Definition,
+    module_syntax: bool,
+    exported_names: set[str],
+    visible_names: set[str],
+    exports_complete: bool,
+) -> Definition:
+    if not definition.top_level:
+        return definition
+    exported = definition.exported or definition.name in exported_names
+    visible = definition.exported or definition.name in visible_names
+    if not visible and not (module_syntax and exports_complete):
+        return replace(definition, exported=exported)
+    return replace(
+        definition,
+        exported=exported,
+        visibility=definition.visibility or ("public" if visible else "private"),
     )
 
 
@@ -576,7 +660,7 @@ def _variables(
         if (
             kind_node is None
             or _text(kind_node) != "const"
-            or value.type not in {"string", "number", "true", "false", "null"}
+            or value.type not in {"identifier", "string", "number", "true", "false", "null"}
         ):
             continue
         name = _text(name_node)
@@ -844,8 +928,8 @@ def _import_bindings(source: _Source) -> tuple[ImportBinding, ...]:
             )
         named = next(iter(_children(clause, "named_imports")), None)
         for item in _children(named, "import_specifier"):
-            imported = item.child_by_field_name("name")
-            local = item.child_by_field_name("alias") or imported
+            imported, alias = _specifier_names(item)
+            local = alias or imported
             if imported is not None and local is not None:
                 result.append(
                     ImportBinding(

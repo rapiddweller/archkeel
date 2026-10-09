@@ -286,8 +286,12 @@ class _Collection:
             "parent": parent_name,
             "lexical_parent_id": parent_id,
             "visibility_detail": {
-                "kind": definition.visibility or "public",
-                "basis": "language",
+                "kind": definition.visibility or ("unknown" if definition.top_level else "public"),
+                "basis": (
+                    "unknown"
+                    if definition.top_level and definition.visibility is None
+                    else "language"
+                ),
                 "spelling": definition.name,
             },
             "symbol_category": category,
@@ -484,6 +488,11 @@ class _Collection:
                     f"{module}.{item.name}"
                     for _, item in top_by_module.get(module, [])
                     if item.name == name
+                    and (
+                        site.kind == "reference"
+                        or (site.kind == "call" and item.kind == "function")
+                        or (site.kind == "new" and item.kind == "class")
+                    )
                 )
                 for target_module, imported, namespace, type_only in import_by_local.get(
                     module, {}
@@ -493,7 +502,13 @@ class _Collection:
                     candidates.extend(
                         f"{target_module}.{item.name}"
                         for item in definitions_by_module.get(target_module, [])
-                        if item.name == imported and item.exported
+                        if item.name == imported
+                        and item.exported
+                        and (
+                            site.kind == "reference"
+                            or (site.kind == "call" and item.kind == "function")
+                            or (site.kind == "new" and item.kind == "class")
+                        )
                     )
             elif site.kind == "reference" and site.receiver == "this":
                 class_scope = scope.rpartition(".")[0]
