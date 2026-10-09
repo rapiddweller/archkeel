@@ -10,6 +10,7 @@ import json
 import re
 from collections import Counter
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -29,7 +30,7 @@ TARGET_FILES = (
     "contracts/product-contracts.json",
     "contracts/postgres-adapter.json",
 )
-TARGET_DIGEST = "c15508d0515c640e36f365943a54f8becff32d1523ed0d34aecee2aa3a3e9839"
+TARGET_DIGEST = "5dcc89c72c96c49f80524b86137a4aba103bbe604f83bc2518aa542c6fa0519d"
 SOURCE_DIGESTS = {
     "python-realworld-project": (
         "177b3854b42b7edd5ffad71c95d167aba3086013686d9a964e198bb079d047ce"
@@ -45,10 +46,10 @@ SOURCE_DIGESTS = {
     ),
 }
 EXPECTED_ASSESSMENT_STATUSES = {
-    "python-realworld-project": Counter(PASS=1025, UNKNOWN=47, FAIL=0),
-    "python-realworld-forbidden-edge": Counter(PASS=1025, UNKNOWN=47, FAIL=0),
-    "python-realworld-signature-fail": Counter(PASS=1024, UNKNOWN=47, FAIL=1),
-    "python-realworld-dynamic-unknown": Counter(PASS=1024, UNKNOWN=48, FAIL=0),
+    "python-realworld-project": Counter(PASS=1195, UNKNOWN=47, FAIL=0),
+    "python-realworld-forbidden-edge": Counter(PASS=1195, UNKNOWN=47, FAIL=0),
+    "python-realworld-signature-fail": Counter(PASS=1194, UNKNOWN=47, FAIL=1),
+    "python-realworld-dynamic-unknown": Counter(PASS=1194, UNKNOWN=48, FAIL=0),
 }
 EXPECTED_UNKNOWN_ASPECTS = {
     "python-realworld-project": Counter(relationship=13, completeness=34),
@@ -204,7 +205,7 @@ def test_python_realworld_reports_keep_coverage_architecture_and_uml_distinct(
         report = _report(output)
         assert report.comparison is not None
         assert report.comparison.status == comparison_status
-        assert len(report.comparison.assessments) == 1072
+        assert len(report.comparison.assessments) == 1242
         assert (
             Counter(item.status for item in report.comparison.assessments)
             == (EXPECTED_ASSESSMENT_STATUSES[variant_id])
@@ -216,7 +217,8 @@ def test_python_realworld_reports_keep_coverage_architecture_and_uml_distinct(
             == EXPECTED_UNKNOWN_ASPECTS[variant_id]
         )
         assert len(report.target.entities) == 329
-        assert len(report.target.relationships) == 89
+        assert len(report.target.relationships) == 259
+        assert sum(item.kind == "imports" for item in report.target.relationships) == 170
         modules = frozenset(
             item.file_path for item in report.target.entities if item.kind == "module"
         )
@@ -324,9 +326,245 @@ def test_python_realworld_report_browses_deep_target_at_desktop_and_mobile(
                         assert "SOURCE SITES" in inspector
                         assert "articles.py:13:4" in inspector
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+                    page.locator(".flow-canvas").scroll_into_view_if_needed()
+                    page.locator(".flow-canvas").evaluate(
+                        "canvas => { canvas.scrollTop = 0; canvas.scrollLeft = 0; }"
+                    )
                     page.screenshot(
                         path=str(screenshots / f"python-realworld-{width}-{view}.png"),
-                        full_page=True,
+                        full_page=False,
                     )
+        finally:
+            browser.close()
+            playwright.stop()
+
+
+def test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_routes(
+    tmp_path: Path,
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    output = tmp_path / "python-realworld-project.json"
+    assert replay("python-realworld-project", output) == 0
+    main = output.with_suffix(".report.html")
+    original_html = main.read_text(encoding="utf-8")
+
+    # Keep a tiny, edge-less Atlas control to exercise the presentation grid independently.
+    data = _payload(main)
+    control = data["atlas"]
+    root_level = next(level for level in control["levels"] if level["parent_id"] is None)
+    assignment_indexes = root_level["modules"][:4]
+    module_ids = {
+        control["modules"][control["assignments"][index][0]]["id"] for index in assignment_indexes
+    }
+    control["declared_modules"] = [
+        module for module in control["declared_modules"] if module["id"] in module_ids
+    ]
+    for module in control["declared_modules"]:
+        module["relationships"] = []
+    root_level["modules"] = assignment_indexes
+    root_level["cells"] = []
+    root_level["component_ids"] = []
+    root_level["questions"] = []
+    control_html = re.sub(
+        r'(<script[^>]*id="flow-data"[^>]*>)(.*?)(</script>)',
+        lambda match: match.group(1) + json.dumps(data, separators=(",", ":")) + match.group(3),
+        original_html,
+        count=1,
+        flags=re.DOTALL,
+    )
+    control_path = tmp_path / "edgeless-atlas.html"
+    control_path.write_text(control_html, encoding="utf-8")
+
+    atlas = _payload(main)["atlas"]
+    level = next(item for item in atlas["levels"] if item["parent_id"] is None)
+    observed_modules = {
+        atlas["modules"][atlas["assignments"][index][0]]["id"] for index in level["modules"]
+    }
+    target_modules = {module["id"] for module in atlas["declared_modules"]}
+    assert len(observed_modules) == len(target_modules) == 72
+
+    screenshots = tmp_path / "module-overview"
+    screenshots.mkdir()
+    errors: list[str] = []
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.on("pageerror", lambda error: errors.append(str(error)))
+
+            page.goto(main.as_uri())
+            page.locator('[data-flow-view="diagram"]').click()
+            assert page.locator('.flow-nodes [data-uml-kind="component"]').count() == 5
+            assert page.locator(".atlas-module-inventory-label").count() == 0
+
+            def geometry() -> dict:
+                return page.evaluate("""() => ({
+                  width: innerWidth,
+                  documentWidth: document.documentElement.scrollWidth,
+                  canvasWidth: document.querySelector('.flow-canvas').clientWidth,
+                  cards: [...document.querySelectorAll('.flow-nodes [data-uml-kind="module"]')]
+                    .map(node => ({id: node.dataset.umlId, inventory: node.dataset.moduleInventory,
+                      transform: node.getAttribute('transform')})),
+                  edges: [...document.querySelectorAll('.flow-edges > g[data-uml-source]')]
+                    .map(edge => [edge.dataset.umlSource, edge.dataset.umlTarget]),
+                  routeWarnings: document.querySelectorAll(
+                    '.flow-edges [data-route-warning]'
+                  ).length,
+                  inventory: document.querySelector('.atlas-module-inventory-label')?.textContent
+                    || null
+                })""")
+
+            def open_modules(path: Path, view: str) -> None:
+                page.goto(path.as_uri())
+                page.locator(f'[data-flow-view="{view}"]').click()
+                modules_button = page.locator('.atlas-content-choice [data-content="modules"]')
+                if modules_button.is_visible():
+                    modules_button.click()
+
+            # The edge-less control must still produce a compact, resize-aware module grid.
+            open_modules(control_path, "diagram")
+            control_positions = {}
+            for width in (1440, 390):
+                page.set_viewport_size({"width": width, "height": 900})
+                page.wait_for_timeout(50)
+                state = geometry()
+                assert len(state["cards"]) == 4
+                assert state["edges"] == []
+                assert state["inventory"] and "4" in state["inventory"]
+                assert state["documentWidth"] <= state["width"], state
+                xs = {
+                    round(float(re.search(r"translate\(([-0-9.]+),", card["transform"]).group(1)))
+                    for card in state["cards"]
+                }
+                control_positions[width] = xs
+            assert len(control_positions[1440]) > len(control_positions[390])
+
+            # Every real Python module remains visible in each view; isolation comes only
+            # from the exact edge endpoints selected for that view.
+            for width in (1440, 390):
+                page.set_viewport_size({"width": width, "height": 900})
+                for view in ("diagram", "target", "diff"):
+                    open_modules(main, view)
+                    page.set_viewport_size({"width": width, "height": 900})
+                    page.wait_for_timeout(50)
+                    state = geometry()
+                    assert len(state["cards"]) == 72
+                    assert state["documentWidth"] <= state["width"], state
+                    zoom = page.locator(".flow-zoom-value").inner_text()
+                    assert int(zoom.rstrip("%")) >= 85, zoom
+                    edges = state["edges"]
+                    if view == "target":
+                        modules_for_view = atlas["declared_modules"]
+                        expected_edges = {
+                            (module["id"], edge["target_id"])
+                            for module in modules_for_view
+                            for edge in module.get("relationships", [])
+                            if edge["target_id"] in target_modules
+                        }
+                        assert len(expected_edges) > 0
+                        expected_modules = target_modules
+                    else:
+                        expected_edges = {
+                            (
+                                atlas["modules"][atlas["cells"][index][0]]["id"],
+                                atlas["modules"][atlas["cells"][index][1]]["id"],
+                            )
+                            for index in level["cells"]
+                            if atlas["modules"][atlas["cells"][index][0]]["id"] in observed_modules
+                            and atlas["modules"][atlas["cells"][index][1]]["id"] in observed_modules
+                        }
+                        expected_modules = observed_modules
+                    actual_edges = {tuple(edge) for edge in edges}
+                    assert actual_edges == expected_edges
+                    assert len(actual_edges) == len(edges)
+                    assert state["routeWarnings"] == 0
+                    if view != "target":
+                        module_list = page.locator("details.atlas-module-list")
+                        assert module_list.locator("summary").inner_text() == "Modules and UML · 72"
+                        module_list.locator("summary").click()
+                        assert module_list.locator("li").count() == 72
+                    degree = {module: 0 for module in expected_modules}
+                    for source, target in actual_edges:
+                        degree[source] += 1
+                        degree[target] += 1
+                    isolated = {module for module, count in degree.items() if count == 0}
+                    state_by_id = {card["id"]: card for card in state["cards"]}
+                    assert set(state_by_id) == expected_modules
+                    assert {
+                        module
+                        for module, card in state_by_id.items()
+                        if card["inventory"] == "true"
+                    } == isolated
+                    if isolated:
+                        assert state["inventory"] and str(len(isolated)) in state["inventory"]
+                    assert len({card["transform"] for card in state["cards"]}) == 72
+                    x_values = [
+                        float(re.search(r"translate\(([-0-9.]+),", card["transform"]).group(1))
+                        for card in state["cards"]
+                    ]
+                    columns = max(1, int((state["canvasWidth"] - 64 + 34) // 234))
+                    assert len({round(x) for x in x_values}) <= columns, state
+                    assert max(x_values) - min(x_values) + 200 <= columns * 234, state
+                    if view == "target" and width == 1440:
+                        assert len(isolated) < 72
+                        target_isolated = sorted(isolated)
+                        overview_query = parse_qs(urlsplit(page.url).query)
+                        page.locator(f'.flow-nodes [data-uml-id="{target_isolated[0]}"]').press(
+                            "Enter"
+                        )
+                        page.wait_for_url("**/*.detail.html?*")
+                        query = parse_qs(urlsplit(page.url).query)
+                        assert query["module"] == [target_isolated[0]]
+                        assert query["origin"] == ["declared"]
+                        declared_module = next(
+                            module
+                            for module in atlas["declared_modules"]
+                            if module["id"] == target_isolated[0]
+                        )
+                        source_name = (declared_module["path"] or declared_module["name"]).split(
+                            "/"
+                        )[-1]
+                        assert source_name in page.locator(".flow-breadcrumb").inner_text()
+                        page.get_by_role(
+                            "link", name="Back to architecture map", exact=True
+                        ).click()
+                        returned_query = parse_qs(urlsplit(page.url).query)
+                        assert returned_query.get("scope") == overview_query.get("scope")
+                        assert returned_query["view"] == overview_query["view"] == ["target"]
+                        assert returned_query["content"] == overview_query["content"] == ["modules"]
+                        assert (
+                            page.locator(
+                                f'.flow-nodes [data-uml-id="{target_isolated[0]}"]'
+                            ).count()
+                            == 1
+                        )
+                    page.locator(".flow-canvas").scroll_into_view_if_needed()
+                    page.locator(".flow-canvas").evaluate(
+                        "canvas => { canvas.scrollTop = 0; canvas.scrollLeft = 0; }"
+                    )
+                    page.screenshot(
+                        path=str(screenshots / f"python-{width}-{view}.png"),
+                        full_page=False,
+                    )
+                    if width == 1440 and view == "target":
+                        readable_zoom = int(
+                            page.locator(".flow-zoom-value").inner_text().rstrip("%")
+                        )
+                        readable_height = page.locator(".flow-canvas").evaluate(
+                            "canvas => canvas.scrollHeight"
+                        )
+                        page.get_by_role("button", name="Fit overview").click()
+                        overview_zoom = int(
+                            page.locator(".flow-zoom-value").inner_text().rstrip("%")
+                        )
+                        assert overview_zoom < readable_zoom
+                        assert (
+                            page.locator(".flow-canvas").evaluate("canvas => canvas.scrollHeight")
+                            < readable_height
+                        )
+                        assert page.locator(".flow-canvas").evaluate(
+                            "canvas => canvas.scrollHeight <= canvas.clientHeight + 4"
+                        )
+            assert not errors
         finally:
             browser.close()

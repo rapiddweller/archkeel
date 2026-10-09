@@ -34,7 +34,7 @@ TARGET_FILES = (
     "contracts/publishing.json",
     "contracts/persistence.json",
 )
-TARGET_DIGEST = "9d8bb7214030ee934c028a1a7960c7c9dac3c15af7595315013498f333fe3b0c"
+TARGET_DIGEST = "0cb24944e3a6f7be9ecfc58deb1f868fd91958f0bcda6872c3b599530e1e4c68"
 SOURCE_DIGESTS = {
     "nest-realworld-project": "d5963c18106b156eedd3149733d4e35aa03c89b811d417e4d7e2e64d07f1ad46",
     "nest-realworld-forbidden-edge": (
@@ -48,10 +48,10 @@ SOURCE_DIGESTS = {
     ),
 }
 EXPECTED_ASSESSMENTS = {
-    "nest-realworld-project": Counter(PASS=765, UNKNOWN=64),
-    "nest-realworld-forbidden-edge": Counter(PASS=765, UNKNOWN=64),
-    "nest-realworld-signature-fail": Counter(PASS=764, UNKNOWN=64, FAIL=1),
-    "nest-realworld-dynamic-unknown": Counter(PASS=764, UNKNOWN=65),
+    "nest-realworld-project": Counter(PASS=841, UNKNOWN=64),
+    "nest-realworld-forbidden-edge": Counter(PASS=841, UNKNOWN=64),
+    "nest-realworld-signature-fail": Counter(PASS=840, UNKNOWN=64, FAIL=1),
+    "nest-realworld-dynamic-unknown": Counter(PASS=840, UNKNOWN=65),
 }
 
 
@@ -212,13 +212,13 @@ def test_nest_realworld_catalog_and_reports_preserve_full_target_with_partial_co
         report = _report(output)
         assert report.comparison is not None
         assert report.comparison.status == UML_DEMO_COMPARISONS[f"uml-{variant.id}"]
-        assert len(report.comparison.assessments) == 829
+        assert len(report.comparison.assessments) == 905
         assert (
             Counter(item.status for item in report.comparison.assessments)
             == EXPECTED_ASSESSMENTS[variant.id]
         )
         assert len(report.target.entities) == 266
-        assert len(report.target.relationships) == 47
+        assert len(report.target.relationships) == 123
         target_modules = {
             item.file_path for item in report.target.entities if item.kind == "module"
         }

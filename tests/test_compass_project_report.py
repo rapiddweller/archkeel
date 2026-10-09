@@ -17,7 +17,7 @@ from fixtures.architecture_demo import REPORT_CASES, replay
 from fixtures.demo_catalog_compass import COMPASS_FIXTURE_DIR, VARIANTS
 
 SOURCE_DIGEST = "c6c1b8fe62fbc950af3b3dc4a033cac300bdeec2564e563909504a69df753e72"
-TARGET_DIGEST = "c9dc389b1175a2d7097508ed69bb40c344a99aafdbb0591fda10500c2ea9533d"
+TARGET_DIGEST = "47e9644d744777c0acab7c76df551924eaa395a9bc391aa32a97367364bdc566"
 
 
 def _payload(html: Path) -> dict:
@@ -132,7 +132,7 @@ def test_compass_reports_keep_target_comparison_and_partial_coverage_distinct(
         report = _report(output)
         assert report.comparison and report.comparison.status == comparison_status
         assert len(report.target.entities) == 468
-        assert len(report.target.relationships) == 75
+        assert len(report.target.relationships) == 275
         assert any(item.status == "UNKNOWN" for item in report.comparison.assessments)
         module_sets.add(
             frozenset(

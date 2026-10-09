@@ -2197,6 +2197,10 @@ code {
   padding:4px 0;
   color:var(--ck-muted)
 }
+.atlas-module-inventory-label {
+  fill:var(--ck-muted);
+  font:12px var(--ck-font-sans)
+}
 .flow[data-atlas] .flow-graph .card {
   fill:var(--ck-surface);
   stroke:var(--ck-border)
