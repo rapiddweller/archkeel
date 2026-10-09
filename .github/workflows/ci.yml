@@ -16,7 +16,7 @@ jobs:
   report-pages:
     name: Build architecture report site
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: read
       pages: read

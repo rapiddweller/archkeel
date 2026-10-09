@@ -31,6 +31,7 @@ def build_demos(output: Path) -> None:
     }
     cases = {**REPORT_CASES, "dart-clean": ("dart-clean", 0), "dart-tour": ("dart-tour", 2)}
     for name, (variant_id, expected_exit) in cases.items():
+        print(f"Building demo: {name} ({variant_id})", flush=True)
         artifact = output / name / "architecture.json"
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
@@ -54,6 +55,7 @@ def build_demos(output: Path) -> None:
         )
 
     variant = next(item for item in VARIANTS if item.id == "typescript-clean")
+    print(f"Building demo: {variant.id} ({variant.id})", flush=True)
     artifact = (output / variant.id / "architecture.json").resolve()
     with TemporaryDirectory(prefix="archkeel-pages-") as temporary:
         root = repository(Path(temporary), variant)
