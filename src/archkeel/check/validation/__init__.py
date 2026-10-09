@@ -890,6 +890,12 @@ def _widening_failures(
     return empty_messages, empty_findings, status
 
 
+def _same_destination(first: Path, second: Path) -> bool:
+    return first.resolve() == second.resolve() or (
+        first.exists() and second.exists() and first.samefile(second)
+    )
+
+
 def _artifact_files(
     *,
     root: Path,
@@ -939,7 +945,7 @@ def _artifact_files(
         artifact = page
         files[page] = written.encode()
         page_path: Path = root / page
-        if page_path.resolve() == against.amendment:
+        if against.amendment is not None and _same_destination(page_path, against.amendment):
             amendment_written = False
     return files, artifact, amendment_written
 
@@ -1103,6 +1109,22 @@ def run_validate(
         resolved_public_entries,
         inside_tree,
     )
+    if (
+        write_amendment
+        and baseline is not None
+        and amendment is not None
+        and _same_destination(baseline, amendment)
+    ):
+        diagnostics = [
+            *diagnostics,
+            _diagnostic(
+                "amendment.invalid",
+                "",
+                str(amendment),
+                "The amendment destination is also the baseline file.",
+                "Choose separate baseline and amendment paths.",
+            ),
+        ]
     try:
         observed_budgets = selected_budgets(measure_python_ratchets(observation), declared_budgets)
     except RatchetError as error:

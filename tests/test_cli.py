@@ -484,14 +484,21 @@ def test_validate_against_emits_typed_widening_and_preserves_amendment_status(
 
 
 @pytest.mark.parametrize(
-    ("write_graph", "amendment", "unused_public", "exit_code"),
+    ("write_graph", "amendment", "unused_public", "exit_code", "hardlink"),
     [
-        (False, "widening.json", True, 2),
-        (True, "widening.json", True, 2),
-        (True, "docs/architecture/shop.md", True, 2),
-        (True, "docs/architecture/shop.md", False, 1),
+        (False, "widening.json", True, 2, False),
+        (True, "widening.json", True, 2, False),
+        (True, "docs/architecture/shop.md", True, 2, False),
+        (True, "docs/architecture/shop.md", False, 1, False),
+        (True, "widening.json", False, 1, True),
     ],
-    ids=["diagnostic", "diagnostic-with-graph", "diagnostic-graph-collision", "graph-collision"],
+    ids=[
+        "diagnostic",
+        "diagnostic-with-graph",
+        "diagnostic-graph-collision",
+        "graph-collision",
+        "graph-hardlink",
+    ],
 )
 def test_unwritten_amendment_preserves_unamended_widenings(
     tmp_path: Path,
@@ -500,6 +507,7 @@ def test_unwritten_amendment_preserves_unamended_widenings(
     amendment: str,
     unused_public: bool,
     exit_code: int,
+    hardlink: bool,
 ) -> None:
     contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
     app = next(item for item in contract["components"] if item["label"] == "app")
@@ -510,6 +518,8 @@ def test_unwritten_amendment_preserves_unamended_widenings(
     (root / "architecture-contract.json").write_text(json.dumps(contract))
     args = ["validate", "--root", str(root), "--against", "HEAD", "--json"]
     graph = root / "docs/architecture/shop.md"
+    if hardlink:
+        (root / amendment).hardlink_to(graph)
     drifted_graph = graph.read_text().replace("    app --> store\n", "")
     if write_graph:
         args.append("--write-graph")
@@ -552,6 +562,76 @@ def test_unwritten_amendment_preserves_unamended_widenings(
     assert refused["amendment_status"] is None
     assert refused["artifact"] == unamended["artifact"]
     assert (amendment_path.read_bytes() if amendment_path.exists() else None) == previous
+
+
+@pytest.mark.parametrize(
+    ("destination", "exists", "write_baseline"),
+    [
+        ("relative", True, True),
+        ("absolute", True, True),
+        ("symlink", True, True),
+        ("hardlink", True, True),
+        ("relative", True, False),
+        ("relative", False, True),
+    ],
+)
+def test_amendment_cannot_overwrite_its_baseline(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+    destination: str,
+    exists: bool,
+    write_baseline: bool,
+) -> None:
+    root = _prepare_repo(tmp_path, {})
+    baseline = root / "baseline.json"
+    previous = baseline_bytes(()) if exists else None
+    if previous is not None:
+        baseline.write_bytes(previous)
+    amendment = Path("baseline.json")
+    if destination == "absolute":
+        amendment = baseline
+    elif destination == "symlink":
+        amendment = root / "alias.json"
+        amendment.symlink_to(baseline)
+    elif destination == "hardlink":
+        amendment = root / "alias.json"
+        amendment.hardlink_to(baseline)
+    (root / "architecture-contract.json").write_text(
+        contract_rule_field(
+            "DEP-APP-NO-STORE-SQLITE", allowed_sources=["shop.app.maintenance", "shop.app.orders"]
+        )
+    )
+    args = [
+        "validate",
+        "--root",
+        str(root),
+        "--against",
+        "HEAD",
+        "--json",
+        "--baseline",
+        "baseline.json",
+        "--amendment",
+        str(amendment),
+        "--write-amendment",
+        "--decided-by",
+        "architect",
+        "--rationale",
+        "Approve widening.",
+    ]
+    if write_baseline:
+        args.extend(["--write-baseline", "--accept-new"])
+
+    assert main(args) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert [item["code"] for item in result["diagnostics"]] == ["amendment.invalid"]
+    assert result["widenings"]
+    assert (
+        "rule DEP-APP-NO-STORE-SQLITE.allowed_sources gained 'shop.app.orders'"
+        in result["failures"]
+    )
+    assert result["amendment_status"] is None
+    assert result["artifact"] is None
+    assert (baseline.read_bytes() if baseline.exists() else None) == previous
 
 
 def test_validate_against_codes_added_requires_permission_and_baseline_growth(
