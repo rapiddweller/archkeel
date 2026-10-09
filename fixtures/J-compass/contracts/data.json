@@ -35,9 +35,7 @@
       "id": "data-api-services",
       "label": "HTTP API clients",
       "role": "component",
-      "packages": [
-        "compass.data.services.api"
-      ],
+      "packages": [],
       "public": [
         "compass.data.services.api.api_client",
         "compass.data.services.api.auth_api_client"
@@ -50,8 +48,19 @@
         "docs/target.md"
       ],
       "decided_by": "agent",
-      "requires": [],
-      "namespace": "compass.data.services.api",
+      "requires": [
+        {
+          "component": "Serialized API value models",
+          "through": [
+            "compass.data.services.api.model.booking.booking_api_model",
+            "compass.data.services.api.model.login_request.login_request",
+            "compass.data.services.api.model.login_response.login_response",
+            "compass.data.services.api.model.user.user_api_model"
+          ],
+          "rationale": "HTTP clients encode and decode the API DTOs declared in the model boundary.",
+          "decided_by": "agent"
+        }
+      ],
       "exact_modules": [
         "compass.data.services.api.api_client",
         "compass.data.services.api.auth_api_client"
@@ -61,9 +70,7 @@
       "id": "data-auth-storage",
       "label": "Persisted authentication state",
       "role": "component",
-      "packages": [
-        "compass.data.services"
-      ],
+      "packages": [],
       "public": [
         "compass.data.services.shared_preferences_service"
       ],
@@ -76,7 +83,6 @@
       ],
       "decided_by": "agent",
       "requires": [],
-      "namespace": "compass.data.services",
       "exact_modules": [
         "compass.data.services.shared_preferences_service"
       ]
@@ -174,6 +180,7 @@
         {
           "component": "HTTP API clients",
           "through": [
+            "compass.data.services.api.api_client",
             "compass.data.services.api.auth_api_client"
           ],
           "rationale": "Remote authentication uses its API client.",
@@ -185,6 +192,15 @@
             "compass.data.services.shared_preferences_service"
           ],
           "rationale": "Authentication persists its token through the preferences service.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Serialized API value models",
+          "through": [
+            "compass.data.services.api.model.login_request.login_request",
+            "compass.data.services.api.model.login_response.login_response"
+          ],
+          "rationale": "Remote authentication exchanges the declared login request and response DTOs.",
           "decided_by": "agent"
         }
       ],
@@ -230,6 +246,14 @@
             "compass.data.services.local.local_data_service"
           ],
           "rationale": "Local adapters read bundled data.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Serialized API value models",
+          "through": [
+            "compass.data.services.api.model.booking.booking_api_model"
+          ],
+          "rationale": "Remote booking persistence maps the API booking DTO.",
           "decided_by": "agent"
         }
       ],
@@ -391,6 +415,14 @@
             "compass.data.services.local.local_data_service"
           ],
           "rationale": "Local adapters read bundled data.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Serialized API value models",
+          "through": [
+            "compass.data.services.api.model.user.user_api_model"
+          ],
+          "rationale": "Remote user persistence maps the API user DTO.",
           "decided_by": "agent"
         }
       ],

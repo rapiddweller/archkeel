@@ -56,7 +56,19 @@
         "docs/target.md"
       ],
       "decided_by": "agent",
-      "requires": [],
+      "requires": [
+        {
+          "component": "Travel and identity domain models",
+          "through": [
+            "compass.domain.models.activity.activity",
+            "compass.domain.models.booking.booking",
+            "compass.domain.models.destination.destination",
+            "compass.domain.models.itinerary_config.itinerary_config"
+          ],
+          "rationale": "Booking operations consume the typed activity, booking, destination and itinerary values.",
+          "decided_by": "agent"
+        }
+      ],
       "namespace": "compass.domain.use_cases.booking",
       "exact_modules": [
         "compass.domain.use_cases.booking.booking_create_use_case",

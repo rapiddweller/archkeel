@@ -25,7 +25,21 @@
         "docs/target.md"
       ],
       "decided_by": "agent",
-      "requires": [],
+      "requires": [
+        {
+          "component": "Shared interface, theme, localization",
+          "through": [
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.dimens",
+            "compass.ui.core.ui.back_button",
+            "compass.ui.core.ui.custom_checkbox",
+            "compass.ui.core.ui.error_indicator",
+            "compass.ui.core.ui.home_button"
+          ],
+          "rationale": "Feature screens reuse shared localization, theme and UI controls.",
+          "decided_by": "agent"
+        }
+      ],
       "namespace": "compass.ui.activities",
       "exact_modules": [
         "compass.ui.activities.view_models.activities_viewmodel",
@@ -58,7 +72,22 @@
         "docs/target.md"
       ],
       "decided_by": "agent",
-      "requires": [],
+      "requires": [
+        {
+          "component": "Shared interface, theme, localization",
+          "through": [
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.colors",
+            "compass.ui.core.themes.dimens",
+            "compass.ui.core.ui.date_format_start_end",
+            "compass.ui.core.ui.error_indicator",
+            "compass.ui.core.ui.home_button",
+            "compass.ui.core.ui.tag_chip"
+          ],
+          "rationale": "Feature screens reuse shared localization, theme and UI controls.",
+          "decided_by": "agent"
+        }
+      ],
       "namespace": "compass.ui.booking",
       "exact_modules": [
         "compass.ui.booking.view_models.booking_viewmodel",
@@ -88,7 +117,29 @@
         "docs/target.md"
       ],
       "decided_by": "agent",
-      "requires": [],
+      "requires": [
+        {
+          "component": "Shared interface, theme, localization",
+          "through": [
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.colors",
+            "compass.ui.core.themes.dimens",
+            "compass.ui.core.ui.date_format_start_end",
+            "compass.ui.core.ui.error_indicator"
+          ],
+          "rationale": "Feature screens reuse shared localization, theme and UI controls.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Authentication / logout",
+          "through": [
+            "compass.ui.auth.logout.view_models.logout_viewmodel",
+            "compass.ui.auth.logout.widgets.logout_button"
+          ],
+          "rationale": "The home screen composes the logout state and action.",
+          "decided_by": "agent"
+        }
+      ],
       "namespace": "compass.ui.home",
       "exact_modules": [
         "compass.ui.home.view_models.home_viewmodel",
@@ -117,7 +168,17 @@
         "docs/target.md"
       ],
       "decided_by": "agent",
-      "requires": [],
+      "requires": [
+        {
+          "component": "Shared interface, theme, localization",
+          "through": [
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.dimens"
+          ],
+          "rationale": "Feature screens reuse shared localization, theme and UI controls.",
+          "decided_by": "agent"
+        }
+      ],
       "namespace": "compass.ui.auth.login",
       "exact_modules": [
         "compass.ui.auth.login.view_models.login_viewmodel",
@@ -144,7 +205,17 @@
         "docs/target.md"
       ],
       "decided_by": "agent",
-      "requires": [],
+      "requires": [
+        {
+          "component": "Shared interface, theme, localization",
+          "through": [
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.colors"
+          ],
+          "rationale": "Feature screens reuse shared localization, theme and UI controls.",
+          "decided_by": "agent"
+        }
+      ],
       "namespace": "compass.ui.auth.logout",
       "exact_modules": [
         "compass.ui.auth.logout.view_models.logout_viewmodel",
@@ -171,7 +242,20 @@
         "docs/target.md"
       ],
       "decided_by": "agent",
-      "requires": [],
+      "requires": [
+        {
+          "component": "Shared interface, theme, localization",
+          "through": [
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.dimens",
+            "compass.ui.core.ui.error_indicator",
+            "compass.ui.core.ui.search_bar",
+            "compass.ui.core.ui.tag_chip"
+          ],
+          "rationale": "Feature screens reuse shared localization, theme and UI controls.",
+          "decided_by": "agent"
+        }
+      ],
       "namespace": "compass.ui.results",
       "exact_modules": [
         "compass.ui.results.view_models.results_viewmodel",
@@ -202,7 +286,29 @@
         "docs/target.md"
       ],
       "decided_by": "agent",
-      "requires": [],
+      "requires": [
+        {
+          "component": "Shared interface, theme, localization",
+          "through": [
+            "compass.ui.core.localization.applocalization",
+            "compass.ui.core.themes.colors",
+            "compass.ui.core.themes.dimens",
+            "compass.ui.core.ui.date_format_start_end",
+            "compass.ui.core.ui.error_indicator",
+            "compass.ui.core.ui.search_bar"
+          ],
+          "rationale": "Feature screens reuse shared localization, theme and UI controls.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Destination results",
+          "through": [
+            "compass.ui.results.widgets.results_screen"
+          ],
+          "rationale": "Submitting a search opens the results screen.",
+          "decided_by": "agent"
+        }
+      ],
       "namespace": "compass.ui.search_form",
       "exact_modules": [
         "compass.ui.search_form.view_models.search_form_viewmodel",

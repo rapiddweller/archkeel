@@ -6,8 +6,7 @@
       "label": "Environment and app composition",
       "role": "component",
       "packages": [
-        "compass.config",
-        "compass.main"
+        "compass.config"
       ],
       "public": [
         "compass.config.assets",
@@ -28,7 +27,8 @@
         {
           "component": "Route definitions and navigation",
           "through": [
-            "compass.routing.router"
+            "compass.routing.router",
+            "compass.routing.routes"
           ],
           "rationale": "The app shell delegates route construction to the navigation boundary.",
           "decided_by": "agent"

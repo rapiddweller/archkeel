@@ -10,8 +10,11 @@ import json
 import re
 from pathlib import Path
 
+from archkeel.check.evaluation.rules import requires_violations
 from archkeel.ir.codec import load_inside_contract_tree, parse_contract
-from archkeel.ir.facts import in_scope
+from archkeel.ir.facts import EvidenceClass, in_scope
+from archkeel.ir.model import component_owns_module, requires_covers
+from archkeel.ir.source_records import classified
 from archkeel.ir.target_graph import declared_tree_graph
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "J-compass"
@@ -56,16 +59,15 @@ def test_compass_target_covers_every_library_and_part_once() -> None:
         for path in source.rglob("*.dart")
         if not path.name.endswith((".freezed.dart", ".g.dart"))
     }
-    declared = []
+    declared = set()
     for relative in CONTRACTS:
         payload = json.loads((FIXTURE / relative).read_text(encoding="utf-8"))
-        declared.extend(
+        declared.update(
             module
             for component in payload["components"]
             for module in component.get("exact_modules", [])
         )
     assert len(declared) == 89
-    assert len(set(declared)) == 89
     assert set(declared) == {
         entity.qualified_name for entity in graph.entities if entity.kind == "module"
     }
@@ -83,6 +85,7 @@ def test_compass_nested_package_ownership_stays_inside_each_parent_component() -
         if nested_path is None:
             continue
         nested = json.loads((FIXTURE / nested_path).read_text(encoding="utf-8"))
+        parent_exact = set(parent.get("exact_modules", []))
         for child in nested["components"]:
             for package in child["packages"]:
                 contained = any(
@@ -90,10 +93,134 @@ def test_compass_nested_package_ownership_stays_inside_each_parent_component() -
                 )
                 assert contained, (parent["id"], package, parent["packages"])
             for module in child.get("exact_modules", []):
-                contained = any(
-                    in_scope(module, parent_package) for parent_package in parent["packages"]
+                contained = (
+                    any(in_scope(module, parent_package) for parent_package in parent["packages"])
+                    or module in parent_exact
                 )
                 assert contained, (parent["id"], module, parent["packages"])
+
+
+def test_compass_every_library_has_one_effective_owner_at_each_contract_level() -> None:
+    tree, graph = _target()
+    root = tree.root
+    mounts = {mount.parent.id: mount.contract for mount in tree.mounts}
+    modules = [entity for entity in graph.entities if entity.kind == "module"]
+    assert len(modules) == 89
+    for module in modules:
+        root_owners = [
+            component
+            for component in root.components
+            if component_owns_module(component, module.qualified_name)
+        ]
+        assert len(root_owners) == 1, (module.qualified_name, root_owners)
+        root_owner = root.component_for(module.qualified_name)
+        assert root_owner == root_owners[0]
+        nested = mounts[root_owner.id]
+        nested_owners = [
+            component
+            for component in nested.components
+            if component_owns_module(component, module.qualified_name)
+        ]
+        assert len(nested_owners) == 1, (module.qualified_name, nested_owners)
+        assert nested.component_for(module.qualified_name) == nested_owners[0]
+        assert module.parent_id == nested_owners[0].id
+
+
+def test_compass_requires_cover_source_justified_edges_and_forbid_local_to_api() -> None:
+    tree, _ = _target()
+    root = tree.root
+    roots = {component.id: component for component in root.components}
+    mounted = {mount.parent.id: mount.contract for mount in tree.mounts}
+    for source, target, module in (
+        (
+            "presentation",
+            "Compose environment, localization, routes and app shell",
+            "compass.routing.routes",
+        ),
+        ("domain", "presentation", "compass.ui.core.ui.date_format_start_end"),
+        ("domain", "utilities", "compass.utils.result"),
+        (
+            "data",
+            "Compose environment, localization, routes and app shell",
+            "compass.config.assets",
+        ),
+        ("data", "utilities", "compass.utils.result"),
+        ("presentation", "utilities", "compass.utils.image_error_listener"),
+    ):
+        assert requires_covers(roots[source], target, module)
+
+    for parent, source, target, module in (
+        (
+            "application",
+            "application-composition",
+            "application-navigation",
+            "compass.routing.routes",
+        ),
+        (
+            "domain",
+            "domain-use-cases",
+            "domain-models",
+            "compass.domain.models.booking.booking",
+        ),
+        (
+            "presentation",
+            "presentation-home",
+            "presentation-logout",
+            "compass.ui.auth.logout.view_models.logout_viewmodel",
+        ),
+        (
+            "presentation",
+            "presentation-search",
+            "presentation-results",
+            "compass.ui.results.widgets.results_screen",
+        ),
+        (
+            "presentation",
+            "presentation-activities",
+            "presentation-shared-ui",
+            "compass.ui.core.ui.back_button",
+        ),
+        (
+            "data",
+            "data-api-services",
+            "data-api-models",
+            "compass.data.services.api.model.booking.booking_api_model",
+        ),
+        (
+            "data",
+            "data-repository-auth",
+            "data-api-models",
+            "compass.data.services.api.model.login_request.login_request",
+        ),
+    ):
+        contract = mounted[parent]
+        components = {
+            component.id.rsplit(":", 1)[-1]: component for component in contract.components
+        }
+        source_component = components[source]
+        target_component = components[target]
+        assert requires_covers(source_component, target_component.label, module)
+
+    data = mounted["data"]
+    data_components = {component.id.rsplit(":", 1)[-1]: component for component in data.components}
+    local = data_components["data-local-services"]
+    api = data_components["data-api-services"]
+    record = classified(
+        item_id="TEST-LOCAL-DATA-TO-API",
+        evidence_class=EvidenceClass.FACT,
+        area="imports",
+        kind="import",
+        title="Local data service imports an HTTP client",
+        data={
+            "source_module": "compass.data.services.local.local_data_service",
+            "target_module": "compass.data.services.api.api_client",
+            "under_type_checking": False,
+        },
+    )
+    [violation] = requires_violations([record], data)
+    assert violation["data"]["source_component"] == local.label
+    assert violation["data"]["target_component"] == api.label
+    assert violation["data"]["target_module"] == "compass.data.services.api.api_client"
 
 
 def test_compass_target_has_nested_responsibilities_and_principal_uml() -> None:

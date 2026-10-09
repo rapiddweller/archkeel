@@ -6,7 +6,8 @@
       "label": "Compose environment, localization, routes and app shell",
       "role": "component",
       "packages": [
-        "compass"
+        "compass.config",
+        "compass.routing"
       ],
       "public": [
         "compass.config.assets",
@@ -93,8 +94,12 @@
           "decided_by": "agent"
         }
       ],
-      "namespace": "compass",
-      "inside": "contracts/application.json"
+      "inside": "contracts/application.json",
+      "exact_modules": [
+        "compass.main",
+        "compass.main_development",
+        "compass.main_staging"
+      ]
     },
     {
       "id": "presentation",
@@ -147,9 +152,18 @@
           "component": "utilities",
           "through": [
             "compass.utils.command",
+            "compass.utils.image_error_listener",
             "compass.utils.result"
           ],
           "rationale": "Use the shared asynchronous command and result contracts.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Compose environment, localization, routes and app shell",
+          "through": [
+            "compass.routing.routes"
+          ],
+          "rationale": "Presentation screens use the app route definitions for navigation.",
           "decided_by": "agent"
         }
       ],
@@ -181,6 +195,22 @@
             "compass.data.repositories.destination.destination_repository"
           ],
           "rationale": "Use repository ports to resolve destinations and activities and persist completed bookings.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "presentation",
+          "through": [
+            "compass.ui.core.ui.date_format_start_end"
+          ],
+          "rationale": "Booking sharing uses the sample\u2019s shared date formatter.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "utilities",
+          "through": [
+            "compass.utils.result"
+          ],
+          "rationale": "Booking operations return the shared Result type.",
           "decided_by": "agent"
         }
       ],
@@ -216,6 +246,22 @@
             "compass.domain.models.user.user"
           ],
           "rationale": "Exchange typed domain values through the repository and service adapters.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Compose environment, localization, routes and app shell",
+          "through": [
+            "compass.config.assets"
+          ],
+          "rationale": "Local data loading reads the app-owned bundled asset paths.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "utilities",
+          "through": [
+            "compass.utils.result"
+          ],
+          "rationale": "Repository and service contracts use the shared Result type.",
           "decided_by": "agent"
         }
       ],
