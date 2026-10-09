@@ -1,61 +1,190 @@
 {
   "$schema": "../../../schema/architecture-contract.schema.json",
-  "schema_version": "2.1.0",
+  "schema_version": "2.3.0",
   "components": [
     {
-      "id": "TARGET-ENTRY",
-      "label": "entry",
+      "id": "DART-PROTOCOL",
+      "label": "protocol",
       "role": "component",
-      "packages": ["archkeel.analyzer.dart"],
+      "exact_modules": [
+        "archkeel.analyzer.dart.entry",
+        "archkeel.analyzer.dart"
+      ],
+      "packages": [],
       "responsibilities": [
-        "Launch the prepared native Dart Analyzer collector through the shared protocol."
+        "Decode one request and encode one response using the shared codec."
       ],
       "forbidden_responsibilities": [
-        "Architecture policy."
+        "Filesystem discovery, syntax parsing and policy."
+      ],
+      "public": [],
+      "requires": [
+        {
+          "component": "collection",
+          "rationale": "protocol consumes the typed output of collection.",
+          "decided_by": "agent"
+        }
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
-      ],
-      "decided_by": "agent",
-      "exact_modules": ["archkeel.analyzer.dart"],
-      "public": []
-    }
-  ],
-  "rules": [
-    {
-      "id": "TARGET-COMPLETE_REQUIRES",
-      "kind": "complete_requires",
-      "rationale": "Only intended component dependencies are permitted.",
-      "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/dart-python-target.md"
       ],
       "decided_by": "agent"
     },
     {
-      "id": "TARGET-COMPLETE_ASSIGNMENT",
-      "kind": "complete_assignment",
-      "rationale": "Every source module has one owner.",
+      "id": "DART-COLLECTION",
+      "label": "collection",
+      "role": "component",
+      "exact_modules": [
+        "archkeel.analyzer.dart.collect"
+      ],
+      "packages": [],
+      "responsibilities": [
+        "Assemble source evidence and coverage into SourceFacts; never evaluate architecture policy."
+      ],
+      "forbidden_responsibilities": [
+        "Parser nodes, direct filesystem reads and rule verdicts."
+      ],
+      "public": [
+        "archkeel.analyzer.dart.collect"
+      ],
+      "requires": [
+        {
+          "component": "snapshot",
+          "rationale": "collection consumes the typed output of snapshot.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "syntax",
+          "rationale": "collection consumes the typed output of syntax.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "resolution",
+          "rationale": "collection consumes the typed output of resolution.",
+          "decided_by": "agent"
+        }
+      ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/dart-python-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "DART-SNAPSHOT",
+      "label": "snapshot",
+      "role": "component",
+      "exact_modules": [
+        "archkeel.analyzer.dart.snapshot"
+      ],
+      "packages": [],
+      "responsibilities": [
+        "Read bounded immutable source bytes and package metadata; reject escapes and record exact input digests."
+      ],
+      "forbidden_responsibilities": [
+        "AST interpretation, symbol resolution and reading outside the snapshot."
+      ],
+      "public": [
+        "archkeel.analyzer.dart.snapshot"
+      ],
+      "requires": [],
+      "provenance": [
+        "docs/architecture/dart-python-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "DART-SYNTAX",
+      "label": "syntax",
+      "role": "component",
+      "exact_modules": [
+        "archkeel.analyzer.dart.parse"
+      ],
+      "packages": [],
+      "responsibilities": [
+        "Own Tree-sitter nodes and extract immutable Dart syntax values with precise spans and gaps."
+      ],
+      "forbidden_responsibilities": [
+        "Filesystem reads, process execution, target contracts and inferred compiler semantics."
+      ],
+      "public": [
+        "archkeel.analyzer.dart.parse"
+      ],
+      "requires": [],
+      "provenance": [
+        "docs/architecture/dart-python-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "DART-RESOLUTION",
+      "label": "resolution",
+      "role": "component",
+      "exact_modules": [
+        "archkeel.analyzer.dart.resolve"
+      ],
+      "packages": [],
+      "responsibilities": [
+        "Bind libraries, parts and source-level names only when unique and supported by selected inputs."
+      ],
+      "forbidden_responsibilities": [
+        "Filesystem reads, parser nodes, runtime dispatch and policy."
+      ],
+      "public": [
+        "archkeel.analyzer.dart.resolve"
+      ],
+      "requires": [
+        {
+          "component": "snapshot",
+          "rationale": "resolution consumes the typed output of snapshot.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "syntax",
+          "rationale": "resolution consumes the typed output of syntax.",
+          "decided_by": "agent"
+        }
+      ],
+      "provenance": [
+        "docs/architecture/dart-python-target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "rules": [
+    {
+      "id": "DART-COMPLETE_ASSIGNMENT",
+      "kind": "complete_assignment",
+      "rationale": "Keep the declared Dart responsibilities and dependency direction enforceable.",
+      "provenance": [
+        "docs/architecture/dart-python-target.md"
       ],
       "decided_by": "agent",
       "source": "archkeel.analyzer.dart"
     },
     {
-      "id": "TARGET-NO_COMPONENT_CYCLES",
-      "kind": "no_component_cycles",
-      "rationale": "Components have one dependency direction.",
+      "id": "DART-COMPLETE_REQUIRES",
+      "kind": "complete_requires",
+      "rationale": "Keep the declared Dart responsibilities and dependency direction enforceable.",
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/dart-python-target.md"
       ],
       "decided_by": "agent"
     },
     {
-      "id": "TARGET-INTERFACE_BOUNDARY",
+      "id": "DART-INTERFACE_BOUNDARY",
       "kind": "interface_boundary",
-      "rationale": "Crossings use declared public interfaces.",
+      "rationale": "Keep the declared Dart responsibilities and dependency direction enforceable.",
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/dart-python-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "DART-NO_COMPONENT_CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Keep the declared Dart responsibilities and dependency direction enforceable.",
+      "provenance": [
+        "docs/architecture/dart-python-target.md"
       ],
       "decided_by": "agent"
     }
@@ -64,20 +193,1193 @@
     "modules": [
       {
         "path": "src/archkeel/analyzer/dart/entry.py",
-        "responsibility": "Serve the shared process protocol."
+        "responsibility": "Decode one request and encode one response using the shared codec."
       },
       {
-        "path": "src/archkeel/analyzer/dart/native/lib/collector.dart",
-        "responsibility": "Collect Analyzer-backed Dart declarations and source coverage."
+        "path": "src/archkeel/analyzer/dart/collect.py",
+        "responsibility": "Assemble source evidence and coverage into SourceFacts; never evaluate architecture policy."
       },
       {
-        "path": "src/archkeel/analyzer/dart/native/lib/snapshot.dart",
-        "responsibility": "Validate and stage source inputs for bounded Analyzer resolution."
+        "path": "src/archkeel/analyzer/dart/snapshot.py",
+        "responsibility": "Read bounded immutable source bytes and package metadata; reject escapes and record exact input digests."
       },
       {
-        "path": "src/archkeel/analyzer/dart/setup.py",
-        "responsibility": "Prepare pinned native collector dependencies on explicit request."
+        "path": "src/archkeel/analyzer/dart/parse.py",
+        "responsibility": "Own Tree-sitter nodes and extract immutable Dart syntax values with precise spans and gaps."
+      },
+      {
+        "path": "src/archkeel/analyzer/dart/resolve.py",
+        "responsibility": "Bind libraries, parts and source-level names only when unique and supported by selected inputs."
       }
-    ]
+    ],
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "archkeel.analyzer.dart.entry",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.dart.entry",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Decode one request and encode one response using the shared codec."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "parent_id": "DART-PROTOCOL"
+        },
+        {
+          "id": "archkeel.analyzer.dart.collect",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.dart.collect",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Assemble source evidence and coverage into SourceFacts; never evaluate architecture policy."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "parent_id": "DART-COLLECTION"
+        },
+        {
+          "id": "archkeel.analyzer.dart.snapshot",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.dart.snapshot",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Read bounded immutable source bytes and package metadata; reject escapes and record exact input digests."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "parent_id": "DART-SNAPSHOT"
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.dart.parse",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Own Tree-sitter nodes and extract immutable Dart syntax values with precise spans and gaps."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "parent_id": "DART-SYNTAX"
+        },
+        {
+          "id": "archkeel.analyzer.dart.resolve",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.dart.resolve",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Bind libraries, parts and source-level names only when unique and supported by selected inputs."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "parent_id": "DART-RESOLUTION"
+        },
+        {
+          "id": "archkeel.analyzer.dart.entry.main",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.dart.entry.main",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Serve the existing source-only collection protocol."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "signature": {
+            "parameters": [],
+            "returns": "int"
+          },
+          "parent_id": "archkeel.analyzer.dart.entry",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.collect.collect",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.dart.collect.collect",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Collect declarations, imports, relationships and explicit evidence gaps."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "request",
+                "annotation": "CollectionRequest",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "SourceFacts"
+          },
+          "parent_id": "archkeel.analyzer.dart.collect",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.snapshot.read_snapshot",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.dart.snapshot.read_snapshot",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Read selected files once without following symlinks or escaping the selected roots."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "request",
+                "annotation": "CollectionRequest",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "Snapshot"
+          },
+          "parent_id": "archkeel.analyzer.dart.snapshot",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.parse",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.dart.parse.parse",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Extract syntax facts without executing source or consulting a Target."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "content",
+                "annotation": "bytes",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "Syntax"
+          },
+          "parent_id": "archkeel.analyzer.dart.parse",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.snapshot.Source",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.dart.snapshot.Source",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "One selected immutable source input."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "parent_id": "archkeel.analyzer.dart.snapshot",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.snapshot.Source.rel_path",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.snapshot.Source.rel_path",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Identify the source within the immutable snapshot."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "str",
+          "parent_id": "archkeel.analyzer.dart.snapshot.Source",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.snapshot.Source.module",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.snapshot.Source.module",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep configured namespace separate from pubspec identity."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "str",
+          "parent_id": "archkeel.analyzer.dart.snapshot.Source",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.snapshot.Source.content",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.snapshot.Source.content",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the exact source bytes that are digested and parsed."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "bytes",
+          "parent_id": "archkeel.analyzer.dart.snapshot.Source",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.snapshot.Snapshot",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.dart.snapshot.Snapshot",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Validated source inputs and package metadata with explicit gaps."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "parent_id": "archkeel.analyzer.dart.snapshot",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.snapshot.Snapshot.sources",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.snapshot.Snapshot.sources",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Supply the selected source bytes."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "tuple[Source, ...]",
+          "parent_id": "archkeel.analyzer.dart.snapshot.Snapshot",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.snapshot.Snapshot.package_name",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.snapshot.Snapshot.package_name",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Resolve own package URIs from pubspec identity."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "str",
+          "parent_id": "archkeel.analyzer.dart.snapshot.Snapshot",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.snapshot.Snapshot.inputs",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.snapshot.Snapshot.inputs",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Authenticate all consumed source and resolver inputs."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "tuple[ResolutionInput, ...]",
+          "parent_id": "archkeel.analyzer.dart.snapshot.Snapshot",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Span",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.dart.parse.Span",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Source location independent of parser objects."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "parent_id": "archkeel.analyzer.dart.parse",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Span.line",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Span.line",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Locate a source site using a one-based line."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "int",
+          "parent_id": "archkeel.analyzer.dart.parse.Span",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Span.end_line",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Span.end_line",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Bound the source evidence range."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "int",
+          "parent_id": "archkeel.analyzer.dart.parse.Span",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Span.column",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Span.column",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Locate the site without assuming ASCII."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "int",
+          "parent_id": "archkeel.analyzer.dart.parse.Span",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Span.excerpt",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Span.excerpt",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the exact cited source text."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "str",
+          "parent_id": "archkeel.analyzer.dart.parse.Span",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Syntax",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.dart.parse.Syntax",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Immutable syntax boundary; no Tree-sitter objects escape."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "parent_id": "archkeel.analyzer.dart.parse",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Syntax.definitions",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Syntax.definitions",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose declarations and their member signatures."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "tuple[Definition, ...]",
+          "parent_id": "archkeel.analyzer.dart.parse.Syntax",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Syntax.directives",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Syntax.directives",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose imports, exports and part declarations."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "tuple[Directive, ...]",
+          "parent_id": "archkeel.analyzer.dart.parse.Syntax",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Syntax.sites",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Syntax.sites",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose lexical relationship sites without claiming resolution."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "tuple[Site, ...]",
+          "parent_id": "archkeel.analyzer.dart.parse.Syntax",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Syntax.concerns",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Syntax.concerns",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain parse errors and unsupported syntax as gaps."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "tuple[Concern, ...]",
+          "parent_id": "archkeel.analyzer.dart.parse.Syntax",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Definition",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.dart.parse.Definition",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Declaration, classifier members and source-written signature."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "parent_id": "archkeel.analyzer.dart.parse",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Definition.name",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Definition.name",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the declared local name."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "str",
+          "parent_id": "archkeel.analyzer.dart.parse.Definition",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Definition.span",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Definition.span",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Cite the source declaration."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "Span",
+          "parent_id": "archkeel.analyzer.dart.parse.Definition",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Directive",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.dart.parse.Directive",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Literal directive targets, prefixes, conditions and ordered combinators."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "parent_id": "archkeel.analyzer.dart.parse",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Directive.span",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Directive.span",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Cite the directive."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "Span",
+          "parent_id": "archkeel.analyzer.dart.parse.Directive",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Site",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.dart.parse.Site",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Lexical scope, receiver and relationship evidence before resolution."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "parent_id": "archkeel.analyzer.dart.parse",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Site.expression",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Site.expression",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the exact relationship expression."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "str",
+          "parent_id": "archkeel.analyzer.dart.parse.Site",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Site.span",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Site.span",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Cite the relationship site."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "Span",
+          "parent_id": "archkeel.analyzer.dart.parse.Site",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Concern",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.dart.parse.Concern",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Explicit parse or unsupported-syntax gap."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "parent_id": "archkeel.analyzer.dart.parse",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Concern.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Concern.kind",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Classify the unsupported or invalid input."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "str",
+          "parent_id": "archkeel.analyzer.dart.parse.Concern",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Concern.message",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Concern.message",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Explain the evidence limitation."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "str",
+          "parent_id": "archkeel.analyzer.dart.parse.Concern",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.parse.Concern.span",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.parse.Concern.span",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Locate the limitation."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "annotation": "Span",
+          "parent_id": "archkeel.analyzer.dart.parse.Concern",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.resolve.Resolver",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.dart.resolve.Resolver",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Index selected libraries, imports, parts and unique source bindings; preserve unresolved candidates."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "parent_id": "archkeel.analyzer.dart.resolve",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.resolve.Resolver.__init__",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.dart.resolve.Resolver.__init__",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Build a source-only resolution index."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "snapshot",
+                "annotation": "Snapshot",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "syntax",
+                "annotation": "dict[str, Syntax]",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "parent_id": "archkeel.analyzer.dart.resolve.Resolver",
+          "visibility": {
+            "kind": "public",
+            "basis": "convention"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.resolve.Resolver.module_for",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.dart.resolve.Resolver.module_for",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Return the unique owning library, including selected part files."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "rel_path",
+                "annotation": "str",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "str | None"
+          },
+          "parent_id": "archkeel.analyzer.dart.resolve.Resolver",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.resolve.Resolver.resolve_name",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.dart.resolve.Resolver.resolve_name",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Return only bounded source candidates; no global short-name fallback."
+          ],
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "rel_path",
+                "annotation": "str",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "name",
+                "annotation": "str",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "tuple[str, ...]"
+          },
+          "parent_id": "archkeel.analyzer.dart.resolve.Resolver",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.ir.facts.ResolutionInput",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.facts.ResolutionInput",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "archkeel.ir.facts.ResolutionInput.path",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.ResolutionInput.path",
+          "parent_id": "archkeel.ir.facts.ResolutionInput",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "archkeel.ir.facts.ResolutionInput.digest",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.ResolutionInput.digest",
+          "parent_id": "archkeel.ir.facts.ResolutionInput",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "archkeel.ir.facts.ResolutionInput.role",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.ResolutionInput.role",
+          "parent_id": "archkeel.ir.facts.ResolutionInput",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "archkeel.ir.facts.SourceFacts",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.facts.SourceFacts",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "archkeel.ir.protocol.CollectionRequest",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.protocol.CollectionRequest",
+          "language": "python",
+          "presence": "referenced",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "DART-REL-1",
+          "kind": "imports",
+          "source_id": "archkeel.analyzer.dart.entry",
+          "target_id": "archkeel.analyzer.dart.collect",
+          "resolution": "not_applicable",
+          "reason": "Consume the declared component interface.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-2",
+          "kind": "imports",
+          "source_id": "archkeel.analyzer.dart.collect",
+          "target_id": "archkeel.analyzer.dart.snapshot",
+          "resolution": "not_applicable",
+          "reason": "Consume the declared component interface.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-3",
+          "kind": "imports",
+          "source_id": "archkeel.analyzer.dart.collect",
+          "target_id": "archkeel.analyzer.dart.parse",
+          "resolution": "not_applicable",
+          "reason": "Consume the declared component interface.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-4",
+          "kind": "imports",
+          "source_id": "archkeel.analyzer.dart.collect",
+          "target_id": "archkeel.analyzer.dart.resolve",
+          "resolution": "not_applicable",
+          "reason": "Consume the declared component interface.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-5",
+          "kind": "imports",
+          "source_id": "archkeel.analyzer.dart.resolve",
+          "target_id": "archkeel.analyzer.dart.snapshot",
+          "resolution": "not_applicable",
+          "reason": "Consume the declared component interface.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-6",
+          "kind": "imports",
+          "source_id": "archkeel.analyzer.dart.resolve",
+          "target_id": "archkeel.analyzer.dart.parse",
+          "resolution": "not_applicable",
+          "reason": "Consume the declared component interface.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-7",
+          "kind": "calls",
+          "source_id": "archkeel.analyzer.dart.entry.main",
+          "target_id": "archkeel.analyzer.dart.collect.collect",
+          "resolution": "not_applicable",
+          "reason": "One request invokes one collection.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-8",
+          "kind": "calls",
+          "source_id": "archkeel.analyzer.dart.collect.collect",
+          "target_id": "archkeel.analyzer.dart.snapshot.read_snapshot",
+          "resolution": "not_applicable",
+          "reason": "Collect only authenticated source inputs.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-9",
+          "kind": "calls",
+          "source_id": "archkeel.analyzer.dart.collect.collect",
+          "target_id": "archkeel.analyzer.dart.parse.parse",
+          "resolution": "not_applicable",
+          "reason": "Read supported syntax from each selected input.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-10",
+          "kind": "references",
+          "source_id": "archkeel.analyzer.dart.snapshot.Snapshot",
+          "target_id": "archkeel.analyzer.dart.snapshot.Source",
+          "resolution": "not_applicable",
+          "reason": "The typed boundary carries this immutable source value.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-11",
+          "kind": "references",
+          "source_id": "archkeel.analyzer.dart.parse.Syntax",
+          "target_id": "archkeel.analyzer.dart.parse.Definition",
+          "resolution": "not_applicable",
+          "reason": "The typed boundary carries this immutable source value.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-12",
+          "kind": "references",
+          "source_id": "archkeel.analyzer.dart.parse.Syntax",
+          "target_id": "archkeel.analyzer.dart.parse.Directive",
+          "resolution": "not_applicable",
+          "reason": "The typed boundary carries this immutable source value.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-13",
+          "kind": "references",
+          "source_id": "archkeel.analyzer.dart.parse.Syntax",
+          "target_id": "archkeel.analyzer.dart.parse.Site",
+          "resolution": "not_applicable",
+          "reason": "The typed boundary carries this immutable source value.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-14",
+          "kind": "references",
+          "source_id": "archkeel.analyzer.dart.parse.Syntax",
+          "target_id": "archkeel.analyzer.dart.parse.Concern",
+          "resolution": "not_applicable",
+          "reason": "The typed boundary carries this immutable source value.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-15",
+          "kind": "references",
+          "source_id": "archkeel.analyzer.dart.parse.Definition",
+          "target_id": "archkeel.analyzer.dart.parse.Span",
+          "resolution": "not_applicable",
+          "reason": "The typed boundary carries this immutable source value.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-16",
+          "kind": "references",
+          "source_id": "archkeel.analyzer.dart.parse.Site",
+          "target_id": "archkeel.analyzer.dart.parse.Span",
+          "resolution": "not_applicable",
+          "reason": "The typed boundary carries this immutable source value.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-INPUT-PROVENANCE",
+          "kind": "references",
+          "source_id": "archkeel.analyzer.dart.snapshot.Snapshot",
+          "target_id": "archkeel.ir.facts.ResolutionInput",
+          "resolution": "not_applicable",
+          "reason": "Every consumed source and pubspec byte sequence is bound to an input digest.",
+          "provenance": [
+            "docs/architecture/dart-python-target.md"
+          ]
+        }
+      ],
+      "scopes": []
+    }
   }
 }

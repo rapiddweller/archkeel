@@ -20,7 +20,10 @@ _ANALYZERS: dict[Language, str] = {
     "typescript": "archkeel-typescript-imports",
 }
 # A parser change can change facts without changing a line of this package.
-_PARSERS = ("tree-sitter", "tree-sitter-typescript")
+_PARSERS: dict[Language, tuple[str, ...]] = {
+    "typescript": ("tree-sitter", "tree-sitter-typescript"),
+    "dart": ("tree-sitter", "tree-sitter-dart"),
+}
 
 
 def collector_provenance(
@@ -58,10 +61,9 @@ def collector_provenance(
         digest.update(b"\0")
         digest.update(path.read_bytes())
         digest.update(b"\0")
-    if language == "typescript":
-        for parser in _PARSERS:
-            digest.update(f"{parser}=={importlib.metadata.version(parser)}".encode())
-            digest.update(b"\0")
+    for parser in _PARSERS.get(language, ()):
+        digest.update(f"{parser}=={importlib.metadata.version(parser)}".encode())
+        digest.update(b"\0")
     try:
         version = importlib.metadata.version("archkeel")
     except importlib.metadata.PackageNotFoundError:

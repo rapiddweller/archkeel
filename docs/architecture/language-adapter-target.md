@@ -26,7 +26,8 @@ stderr; stdout carries one response. The process boundary is not an OS sandbox.
 
 Adapters cannot import each other or Core evaluation. Active
 [contracts](contracts/) govern the dependency boundaries. Python retains specialist
-collectors; Dart uses the official Analyzer through the process port. TypeScript is a
+collectors; Dart targets a Python-hosted parser and bounded resolver
+([AD-214](decisions/ad-214-dart-collector-runs-without-sdk.md)). TypeScript is a
 tree-sitter frontend with its own resolver, run as a process collector like the others
 ([AD-210](decisions/ad-210-typescript-frontend-ships-in-the-package.md)).
 

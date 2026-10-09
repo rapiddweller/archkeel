@@ -88,15 +88,15 @@ def _imports(result: ObservationResult) -> set[tuple[str, str, str | None]]:
     }
 
 
-def test_dart_observation_identifies_its_actual_native_runtime(tmp_path: Path) -> None:
+def test_dart_observation_identifies_its_actual_python_runtime(tmp_path: Path) -> None:
     result = _observe(tmp_path, {"lib/main.dart": "void main() {}\n"})
     assert result.exit_code == 0
     model = result.observation
     assert model is not None
     assert model.runtime is not None
-    assert model.runtime.name == "dart"
+    assert model.runtime.name == "python"
     assert re.fullmatch(r"\d+\.\d+\.\d+", model.runtime.version)
-    assert model.runtime.required == ">=3.9,<4"
+    assert model.runtime.required == ">=3.11"
     assert model.producer is not None
     assert model.producer != model.analyzer
     assert model.producer.name == "archkeel-dart-analyzer"

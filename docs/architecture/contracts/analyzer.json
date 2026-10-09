@@ -65,7 +65,7 @@
         "archkeel.analyzer.dart"
       ],
       "responsibilities": [
-        "Launch the prepared native Dart Analyzer collector and publish Dart source facts."
+        "Collect bounded Dart syntax and source-level relationships entirely in Python, without a Dart SDK."
       ],
       "forbidden_responsibilities": [
         "Unsupported full-Dart claims, governance policy and sibling adapter imports."

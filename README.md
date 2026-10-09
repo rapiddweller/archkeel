@@ -163,8 +163,8 @@ it performs no live approvals. More cases are in the [demo catalog](docs/archite
 ## Scope and limits
 
 Archkeel observes static source in configured roots. Python support covers imports, calls, and declared boundaries.
-Dart records declarations, members, signatures and resolved static sites through the official Analyzer
-(Dart SDK `>=3.9,<4`; run `make dart-setup` once before scanning).
+Dart records declarations, members, signatures and bounded source relationships through a
+Python-hosted Tree-sitter parser. Dart analysis needs no Dart SDK or setup command.
 TypeScript also records lexical UML declarations and statically bound relationships;
 ambiguous bindings and unsupported constructs remain UNKNOWN. TypeScript roots may name files or directories.
 Archkeel does not prove runtime behavior, performance, or the quality of every design decision.
@@ -176,7 +176,8 @@ Read the [docs](docs/README.md).
 
 ## Development
 
-Install Dart SDK `>=3.9,<4` and run `make dart-setup` before Dart demos, checks or smoke tests.
+Python, TypeScript and Dart analysis use the Python installation. Building or running the
+Flutter demo itself still requires Flutter; report generation does not.
 
 ```bash
 make check              # lint, types, tests

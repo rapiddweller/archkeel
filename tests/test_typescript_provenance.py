@@ -36,17 +36,24 @@ def test_typescript_provenance_names_the_profile_and_python_runtime() -> None:
     assert (info.name, info.required) == ("python", ">=3.11")
 
 
-def test_parser_versions_are_part_of_the_analyzer_identity(monkeypatch: pytest.MonkeyPatch) -> None:
-    before = collector_provenance("typescript")[0].code_digest
+@pytest.mark.parametrize(
+    ("language", "grammar"),
+    [("typescript", "tree-sitter-typescript"), ("dart", "tree-sitter-dart")],
+)
+def test_parser_versions_are_part_of_the_analyzer_identity(
+    monkeypatch: pytest.MonkeyPatch, language: runtime.Language, grammar: str
+) -> None:
+    before = collector_provenance(language)[0].code_digest
+    other = "dart" if language == "typescript" else "typescript"
+    other_before = collector_provenance(other)[0].code_digest
     real = importlib.metadata.version
     monkeypatch.setattr(
         runtime.importlib.metadata,
         "version",
-        lambda name: "9.9.9" if name == "tree-sitter-typescript" else real(name),
+        lambda name: "9.9.9" if name == grammar else real(name),
     )
-    assert collector_provenance("typescript")[0].code_digest != before
-    # Other collectors do not depend on the parser.
-    assert collector_provenance("dart")[0] == collector_provenance("dart")[0]
+    assert collector_provenance(language)[0].code_digest != before
+    assert collector_provenance(other)[0].code_digest == other_before
 
 
 def test_entry_round_trips_one_strict_response(tmp_path: Path) -> None:

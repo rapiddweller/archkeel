@@ -29,9 +29,6 @@ PROVENANCE = "docs/target.md"
 
 
 def test_checkout_cli_report_fulfills_independent_target(tmp_path: Path) -> None:
-    dart = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
-    if dart is None:
-        pytest.skip("Dart SDK is not installed; CLI acceptance requires Dart")
     cli = shutil.which("archkeel")
     assert cli is not None
     output = tmp_path / "architecture.json"
@@ -47,7 +44,7 @@ def test_checkout_cli_report_fulfills_independent_target(tmp_path: Path) -> None
         ],
         capture_output=True,
         check=False,
-        env={**os.environ, "DART_EXECUTABLE": dart},
+        env={**os.environ, "DART_EXECUTABLE": str(tmp_path / "absent-dart")},
         text=True,
     )
     assert result.returncode == 0, result.stderr

@@ -5,7 +5,6 @@
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 from importlib.resources import files
@@ -174,17 +173,7 @@ def typescript() -> None:
 
 
 def dart() -> None:
-    """Exercise the native collector shipped in the installed wheel or sdist."""
-    executable = os.environ.get("DART_EXECUTABLE") or shutil.which("dart")
-    assert executable is not None, "installed Dart smoke requires DART_EXECUTABLE"
-    prepared = subprocess.run(
-        [sys.executable, "-m", "archkeel.analyzer.dart.setup"],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        env={**os.environ, "DART_EXECUTABLE": executable},
-    )
-    assert prepared.returncode == 0, (prepared.stdout, prepared.stderr)
+    """Exercise installed Dart analysis with no usable Dart executable."""
     with TemporaryDirectory(prefix="archkeel-smoke-dart-") as temporary:
         root = Path(temporary)
         (root / "lib").mkdir()
@@ -222,7 +211,7 @@ def dart() -> None:
             capture_output=True,
             text=True,
             encoding="utf-8",
-            env={**os.environ, "DART_EXECUTABLE": executable},
+            env={**os.environ, "DART_EXECUTABLE": str(root / "absent-dart")},
         )
         assert report.returncode == 0, (report.stdout, report.stderr)
         assert json.loads(report.stdout)["observation_complete"] == "PASS"
@@ -233,7 +222,7 @@ def dart() -> None:
             decode_canonical_model(json.loads(output.read_text(encoding="utf-8")))
         )
         assert observation.producer and observation.producer.name == "archkeel-dart-analyzer"
-        assert observation.runtime and observation.runtime.name == "dart"
+        assert observation.runtime and observation.runtime.name == "python"
         assert any(
             item.kind == "class" and item.qualified_name == "sample.item.Item"
             for item in observed_graph(observation).entities
