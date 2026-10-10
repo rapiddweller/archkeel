@@ -63,7 +63,13 @@ For a DTO's native map value, combine `field_path` with `container_depth` and
 the complete field `annotation`. Only one alias-free map and literal `object`
 or `list[object]` value can match. Depth counts containers from the signature,
 including containers before the DTO; fields and unions do not add depth.
-The outer map needs a separate allowance. Ambiguous paths or occurrences grant nothing.
+The outer map needs a separate allowance. An inline union can also select alternative
+maps with proven string keys: string-valued arms plus exactly one `object` or
+`list[object]` arm. The complete root or field annotation permits those outer
+maps; a separate depth selector permits only the native value. Nested simultaneous
+maps, aliases, unknown arms and repeated native values grant nothing through this
+union rule. See [AD-216](architecture/decisions/ad-216-native-mapping-alternatives.md)
+and its tests. Ambiguous paths or occurrences grant nothing.
 See [boundary examples](../tests/test_boundary_types_facades.py) before choosing
 selectors. Aliases, inheritance, re-exports and unsupported forms require proof.
 

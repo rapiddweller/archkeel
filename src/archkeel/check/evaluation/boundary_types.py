@@ -135,6 +135,7 @@ class _Position(NamedTuple):
     mapping_occurrences: tuple[_MappingOccurrence, ...] = ()
     field_positions: tuple[_FieldPosition, ...] = ()
     field_declarations: tuple[tuple[str, ...], ...] = ()
+    mapping_alternatives: tuple[_MappingAlternatives, ...] = ()
 
 
 class _FieldPosition(NamedTuple):
@@ -151,6 +152,11 @@ class _MappingOccurrence(NamedTuple):
     path: tuple[str, ...] = ()
     alias_free: bool = True
     opaque_value_depth: int | None = None
+
+
+class _MappingAlternatives(NamedTuple):
+    annotation: str
+    occurrences: tuple[_MappingOccurrence, ...]
 
 
 # A container whose declared element type is the whole of what actually crosses the boundary
@@ -1146,6 +1152,7 @@ def _owned_type_verdict(
             mapping_occurrences=fields.mapping_occurrences,
             field_positions=fields.field_positions,
             field_declarations=fields.field_declarations,
+            mapping_alternatives=fields.mapping_alternatives,
         )
     if class_kind in _EXEMPT_CLASS_KINDS:
         return _Position(resolved=reached, named_origins=(resolved,))
@@ -1192,7 +1199,7 @@ def _annotation_shape_verdict(
         )
     union = _union_parameters(annotation, module, imports_by_binding, type_shapes=type_shapes)
     if union is not None:
-        return _combined_annotation_verdict(
+        verdict = _combined_annotation_verdict(
             union,
             module,
             contract,
@@ -1203,6 +1210,9 @@ def _annotation_shape_verdict(
             enter_fields=enter_fields,
             _aliases_seen=_aliases_seen,
             type_shapes=type_shapes,
+        )
+        return _mapping_union_verdict(
+            annotation, verdict, module, imports_by_binding, classes_by_location, type_shapes
         )
     if enter_collections:
         entered = _collection_verdict(
@@ -1254,6 +1264,130 @@ def _opaque_mapping_value_depth(
     )
 
 
+def _mapping_union_arms(
+    annotation: str,
+    module: str,
+    imports: BindingIndex,
+    classes: BindingIndex,
+    type_shapes: TypeShapeIndex,
+) -> list[str] | None:
+    shape = type_shapes.get(annotation)
+    if isinstance(shape, TypeLiteral) and shape.kind is LiteralKind.NONE:
+        return []
+    members = _union_parameters(annotation, module, imports, type_shapes=type_shapes)
+    if members is not None:
+        if (
+            isinstance(shape, TypeApplication)
+            and _proven_type_head(
+                shape.head,
+                module,
+                imports,
+                classes,
+                frozenset({("typing", "Union"), ("typing", "Optional")}),
+            )
+            is not True
+        ):
+            return None
+        arms: list[str] = []
+        for member in members:
+            nested = _mapping_union_arms(member, module, imports, classes, type_shapes)
+            if nested is None:
+                return None
+            arms.extend(nested)
+        return arms
+    if not isinstance(shape, TypeApplication) or not isinstance(
+        _mapping_parameters(annotation, module, imports, classes, type_shapes=type_shapes), list
+    ):
+        return None
+    key, value = shape.arguments
+    if (
+        _proven_type_head(key, module, imports, classes, frozenset({("builtins", "str")}))
+        is not True
+    ):
+        return None
+    if (
+        _proven_type_head(value, module, imports, classes, frozenset({("builtins", "str")}))
+        is not True
+        and _opaque_mapping_value_depth(value.text, module, imports, classes, type_shapes) is None
+    ):
+        return None
+    return [annotation]
+
+
+def _mapping_union_verdict(
+    annotation: str,
+    verdict: _Position,
+    module: str,
+    imports: BindingIndex,
+    classes: BindingIndex,
+    type_shapes: TypeShapeIndex,
+) -> _Position:
+    arms = _mapping_union_arms(annotation, module, imports, classes, type_shapes)
+    mappings = verdict.mapping_occurrences
+    if (
+        arms is None
+        or len(arms) < 2
+        or verdict.undecidable is not None
+        or len(mappings) != len(arms)
+        or any(
+            occurrence.annotation != arm
+            or occurrence.depth != 0
+            or occurrence.path
+            or not occurrence.alias_free
+            for arm, occurrence in zip(arms, mappings, strict=True)
+        )
+    ):
+        return verdict
+    native_depths = [
+        occurrence.opaque_value_depth
+        for occurrence in mappings
+        if occurrence.opaque_value_depth is not None
+    ]
+    if len(native_depths) != 1:
+        return verdict
+    expected = [(_BROAD_BOUNDARY_REASON, (), arm, 0) for arm in arms]
+    expected.append((f"holding object {_BROAD_BOUNDARY_REASON}", (), "object", native_depths[0]))
+    if tuple(sorted(expected)) != verdict.violations:
+        return verdict
+    return _Position(
+        violation=verdict.violation,
+        undecidable=verdict.undecidable,
+        resolved=verdict.resolved,
+        named_origins=verdict.named_origins,
+        path=verdict.path,
+        nested_annotation=verdict.nested_annotation,
+        violations=verdict.violations,
+        mapping_occurrences=verdict.mapping_occurrences,
+        field_positions=verdict.field_positions,
+        field_declarations=verdict.field_declarations,
+        mapping_alternatives=(
+            *verdict.mapping_alternatives,
+            _MappingAlternatives(annotation, mappings),
+        ),
+    )
+
+
+def _relocate_mapping_alternatives(
+    groups: tuple[_MappingAlternatives, ...], depth: int, path: tuple[str, ...]
+) -> tuple[_MappingAlternatives, ...]:
+    return tuple(
+        _MappingAlternatives(
+            group.annotation,
+            tuple(
+                _MappingOccurrence(
+                    occurrence.annotation,
+                    occurrence.depth + depth,
+                    (*path, *occurrence.path),
+                    occurrence.alias_free,
+                    occurrence.opaque_value_depth,
+                )
+                for occurrence in group.occurrences
+            ),
+        )
+        for group in groups
+    )
+
+
 def _mapping_container_verdict(
     annotation: str,
     parameters: list[str],
@@ -1296,6 +1430,7 @@ def _mapping_container_verdict(
             for reason, path, nested, depth in (field.finding,)
         ),
         field_declarations=contents.field_declarations,
+        mapping_alternatives=_relocate_mapping_alternatives(contents.mapping_alternatives, 1, ()),
         mapping_occurrences=(
             _MappingOccurrence(
                 annotation,
@@ -1433,6 +1568,9 @@ def _field_position_verdict(
         # One field can produce several findings; clean and UNKNOWN fields still count.
         field_declarations=((field_name,),)
         + tuple((field_name, *path) for path in verdict.field_declarations),
+        mapping_alternatives=_relocate_mapping_alternatives(
+            verdict.mapping_alternatives, 0, (field_name,)
+        ),
     )
 
 
@@ -1492,6 +1630,7 @@ def _collection_verdict(
             for reason, path, nested, depth in (field.finding,)
         ),
         field_declarations=verdict.field_declarations,
+        mapping_alternatives=_relocate_mapping_alternatives(verdict.mapping_alternatives, 1, ()),
         mapping_occurrences=tuple(
             _MappingOccurrence(
                 occurrence.annotation,
@@ -1574,6 +1713,9 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
     field_declarations = tuple(
         path for _parameter, verdict in decided for path in verdict.field_declarations
     )
+    mapping_alternatives = tuple(
+        group for _parameter, verdict in decided for group in verdict.mapping_alternatives
+    )
     for _parameter, verdict in decided:
         if verdict.undecidable is not None:
             return _Position(
@@ -1586,6 +1728,7 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
                 mapping_occurrences=mapping_occurrences,
                 field_positions=field_positions,
                 field_declarations=field_declarations,
+                mapping_alternatives=mapping_alternatives,
             )
     if violations:
         reason, path, nested_annotation, _ = violations[0]
@@ -1598,12 +1741,14 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
             mapping_occurrences=mapping_occurrences,
             field_positions=field_positions,
             field_declarations=field_declarations,
+            mapping_alternatives=mapping_alternatives,
         )
     return _Position(
         resolved=reached,
         mapping_occurrences=mapping_occurrences,
         field_positions=field_positions,
         field_declarations=field_declarations,
+        mapping_alternatives=mapping_alternatives,
     )
 
 
@@ -2819,7 +2964,10 @@ def _boundary_type_allowance_fact(
             or allowance.annotation == "dict"
         ):
             continue
-        if allowance.container_depth is not None:
+        alternative = _alternative_mapping_allowance_matches(allowance, data, verdict)
+        if alternative:
+            is_contained = allowance.container_depth is not None
+        elif allowance.container_depth is not None:
             if not _opaque_mapping_value_allowance_matches(allowance, data, verdict):
                 continue
             is_contained = True
@@ -2834,7 +2982,7 @@ def _boundary_type_allowance_fact(
                 continue
             is_contained = not direct_match
         return _boundary_type_allowance_fact_record(
-            rule, facade_module, record, allowance, is_contained
+            rule, facade_module, record, allowance, is_contained, alternative=alternative
         )
     return None
 
@@ -2854,6 +3002,59 @@ def _matching_field_position(
     if len(fields) != 1 or fields[0].annotation != allowance.annotation:
         return None
     return fields[0]
+
+
+def _alternative_mapping_allowance_matches(
+    allowance: BoundaryTypeAllowance, data: RecordData, verdict: _Position
+) -> bool:
+    path: tuple[str, ...] = ()
+    if allowance.field_path:
+        field = _matching_field_position(allowance, data, verdict)
+        if field is None or not field.alias_free:
+            return False
+        path = field.finding[1]
+    groups = tuple(
+        group
+        for group in verdict.mapping_alternatives
+        if group.annotation == allowance.annotation
+        and all(occurrence.path == path for occurrence in group.occurrences)
+    )
+    if len(groups) != 1:
+        return False
+    mappings = tuple(
+        occurrence for occurrence in verdict.mapping_occurrences if occurrence.path == path
+    )
+    if groups[0].occurrences != mappings:
+        return False
+    if allowance.container_depth is not None:
+        return (
+            data["reason"] == f"holding object {_BROAD_BOUNDARY_REASON}"
+            and data.get("nested_annotation") == "object"
+            and data.get("container_depth") == allowance.container_depth
+            and sum(
+                occurrence.opaque_value_depth is not None
+                and occurrence.depth + occurrence.opaque_value_depth == allowance.container_depth
+                for occurrence in mappings
+            )
+            == 1
+            and verdict.violations.count(
+                (data["reason"], path, "object", allowance.container_depth)
+            )
+            == 1
+        )
+    if data["reason"] != _BROAD_BOUNDARY_REASON:
+        return False
+    return (
+        len(
+            tuple(
+                occurrence
+                for occurrence in mappings
+                if occurrence.annotation == data.get("nested_annotation")
+                and occurrence.depth == data.get("container_depth", 0)
+            )
+        )
+        == 1
+    )
 
 
 def _nested_field_allowance_matches(
@@ -2937,6 +3138,8 @@ def _boundary_type_allowance_fact_record(
     record: RawRecord,
     allowance: BoundaryTypeAllowance,
     is_contained: bool,
+    *,
+    alternative: bool = False,
 ) -> RawRecord:
     data = record["data"]
     opaque = allowance.container_depth is not None or (
@@ -2944,6 +3147,8 @@ def _boundary_type_allowance_fact_record(
     )
     if allowance.container_depth is not None:
         allowance_scope = "opaque mapping value "
+    elif alternative:
+        allowance_scope = "alternative mapping "
     elif is_contained:
         allowance_scope = "unique contained mapping "
     else:
@@ -2988,7 +3193,8 @@ def _boundary_type_allowance_fact_record(
             "annotation": allowance.annotation,
             **(
                 {"nested_annotation": data["nested_annotation"]}
-                if allowance.field_path and data.get("nested_annotation") != allowance.annotation
+                if (allowance.field_path or alternative)
+                and data.get("nested_annotation") != allowance.annotation
                 else {}
             ),
             **({"accepted_opacity": True} if opaque else {}),

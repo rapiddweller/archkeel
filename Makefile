@@ -163,7 +163,8 @@ LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/r
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
 	tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py
 
-REPORT_MAX_SECONDS ?= 90
+# The same commit measured 80-96s on hosted runners; allow for runner noise.
+REPORT_MAX_SECONDS ?= 120
 report-timing:
 	$(UV) run --locked python -m tools.report_timing --max-seconds "$(REPORT_MAX_SECONDS)"
 
