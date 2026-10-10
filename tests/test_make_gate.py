@@ -439,6 +439,12 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "run: make release-check" not in build
     publish = release.split("  publish:\n", 1)[1]
     assert "needs: build" in publish
+    refreshed = release.split("  refresh-report-gallery:\n", 1)[1]
+    assert "needs: publish" in refreshed
+    assert "actions: write" in refreshed
+    assert 'main_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main"' in refreshed
+    assert '"$main_sha" != "$GITHUB_SHA"' in refreshed
+    assert 'gh workflow run full-verification.yml --ref main --repo "$GITHUB_REPOSITORY"' in refreshed
 
 
 def test_check_aggregate_executes_exact_workflow_script_fail_closed() -> None:

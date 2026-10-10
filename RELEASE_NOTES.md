@@ -1,3 +1,19 @@
+# Archkeel 1.1.1 — Exact native mapping allowances
+
+`boundary_types` can now prove the alternatives in an inline union such as
+`dict[str, str] | dict[str, object] | None`. An exact annotation allowance permits
+the two outer maps; a separate `container_depth` allowance permits one proven
+native value. The same rule applies to a uniquely declared DTO field.
+Aliases, unknown arms, ambiguous fields and simultaneous maps still grant nothing.
+Accepted native opacity does not prove type closure. Contract and result schemas
+are unchanged. See [AD-216](docs/architecture/decisions/ad-216-native-mapping-alternatives.md).
+
+After successful package publication, the release pipeline starts full
+verification on Main when the tag still points to its current commit. If that
+run passes, it publishes the verified report gallery.
+The report timing guard allows 120 seconds to absorb measured runner variance;
+the generated-output limit is unchanged.
+
 # Archkeel 1.1.0 — Dart UML and project-scale architecture reports
 
 Inspect Dart declarations and UML without a Dart SDK, and explore larger
