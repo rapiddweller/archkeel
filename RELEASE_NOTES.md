@@ -1,3 +1,30 @@
+# Archkeel 1.1.2 — Bind native allowances to exact signatures
+
+- **Nested map allowances stay bound to the root annotation.** An `Annotated`
+  wrapper cannot reuse the inner-map or native-value permission for an unwrapped
+  `Mapping[str, list[dict[str, object]]]` signature. Outer-map permission remains
+  separate; aliases, DTO fields, unions and unproven bindings do not qualify.
+  See [AD-217](docs/architecture/decisions/ad-217-nested-map-allowances.md).
+- **JSON Schema agrees with the parser.** A selector with `mapping_depth`
+  requires an empty `field_path`. Omitting `field_path` still means the direct
+  signature; a nonempty DTO path is rejected.
+- **Exact native Iterable elements.** Direct and proven facade signatures can
+  permit one `object` element in `Iterable[object]`, optionally unioned with
+  `None`. Match the callable, parameter or return position, complete annotation,
+  empty `field_path` and `container_depth: 1`. The `typing` or `collections.abc`
+  origin and builtin `object` must be proven. Aliases, DTO fields, wrappers,
+  other collections, additional union arms and repeated opaque leaves do not
+  qualify. See [AD-218](docs/architecture/decisions/ad-218-native-iterable-elements-use-proven-signatures.md).
+
+Accepted native values remain opaque. These allowances prove neither
+serialization nor materialization nor type closure. Contract and result schema
+versions are unchanged.
+Open gaps remain for [native Properties map unions](https://github.com/rapiddweller/archkeel/issues/438),
+[heterogeneous typed-map unions](https://github.com/rapiddweller/archkeel/issues/439),
+[static overload re-exports](https://github.com/rapiddweller/archkeel/issues/440),
+[quoted builtin annotations](https://github.com/rapiddweller/archkeel/issues/441)
+and [report-view traceability](https://github.com/rapiddweller/archkeel/issues/445).
+
 # Archkeel 1.1.1 — Exact native mapping allowances
 
 `boundary_types` can now prove the alternatives in an inline union such as
