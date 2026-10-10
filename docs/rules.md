@@ -76,6 +76,13 @@ annotation with three separate allowances: no depth for the outer map,
 `container_depth: 3` for its `object` value. This requires a proven, alias-free
 map → list → map → object chain; tuple wrappers, DTO fields and union arms do
 not qualify. See [AD-217](architecture/decisions/ad-217-nested-map-allowances.md).
+For a direct `Iterable[object]` or `Iterable[object] | None` signature, an exact
+callable, position, complete annotation, empty `field_path` and
+`container_depth: 1` permit one native element. Standard `typing` or
+`collections.abc` origin and builtin `object` must be proven. Aliases, DTO fields,
+wrappers, other collections and additional union arms do not qualify. The fact
+retains accepted opacity; iteration structure does not establish type closure.
+See [AD-218](architecture/decisions/ad-218-native-iterable-elements-use-proven-signatures.md).
 See [boundary examples](../tests/test_boundary_types_facades.py) before choosing
 selectors. Aliases, inheritance, re-exports and unsupported forms require proof.
 
