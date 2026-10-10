@@ -1961,6 +1961,140 @@ def _route_pages(tmp_path, *, local_imports=False, package_empty=False):
     return index, architecture_report(model).observed
 
 
+def _cli_route_pages(tmp_path):
+    _sample(
+        tmp_path,
+        uml=True,
+        extra_files={
+            "sample/core.py": "class Client:\n    def run(self):\n        return 1\n",
+            "sample/peer.py": "class Peer:\n    def other(self):\n        return 2\n",
+        },
+    )
+    root = tmp_path / "repo"
+    (root / "archkeel.toml").write_text(
+        '[scan]\nroots=["sample"]\nnamespace="sample"\ncontract="contract.json"\n'
+    )
+    output = tmp_path / "architecture.json"
+    assert main(["report", "--root", str(root), "--output", str(output), "--json"]) == 0
+    detail = output.with_suffix(".detail.html")
+    data = json.loads(
+        re.search(r'<script id="flow-data"[^>]*>(.*?)</script>', detail.read_text(), re.S)[1]
+    )
+    ids = {
+        item["qualified_name"]: item["id"]
+        for item in data["observed"]["entities"]
+        if item["kind"] in ("module", "class", "method")
+    }
+    return output.with_suffix(".report.html"), detail, ids
+
+
+@pytest.mark.parametrize(
+    ("document", "query", "recovery"),
+    [
+        ("detail", "component=peer&module={core}", "notice"),
+        ("detail", "component=missing&module={core}", "notice"),
+        ("detail", "component=core&module=missing", "notice"),
+        ("detail", "module=missing", "notice"),
+        ("detail", "component=core&module={core}&scope={peer_class}", "notice"),
+        ("detail", "component=core&module={core}&scope={peer_method}", "back"),
+        ("detail", "component=core&origin=declared&scope=peer", "notice"),
+        ("detail", "component=core&module=core-module&origin=declared&scope=peer-module", "notice"),
+        ("detail", "component=unassigned&module={core}&return_scope=core", "notice"),
+        ("atlas", "scope=missing&component=core&module={core}", "notice"),
+        ("atlas", "scope=missing&component=core&module={core}", "breadcrumb"),
+        ("detail", "component=%70eer&component=core&module={core}&module=missing", "notice"),
+    ],
+)
+def test_rejected_offline_routes_retain_complete_url_until_explicit_recovery(
+    tmp_path, document, query, recovery
+):
+    api = pytest.importorskip("playwright.sync_api")
+    index, detail, ids = _cli_route_pages(tmp_path)
+    query = query.format(
+        core=ids["sample.core"],
+        peer_class=ids["sample.peer.Peer"],
+        peer_method=ids["sample.peer.Peer.other"],
+    )
+    requested = (detail if document == "detail" else index).as_uri()
+    requested += "?" + query + "&view=diagram&theme=dark&extra=a%2Fb+z&extra=two#retained%2Fhash"
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        page.goto(requested)
+        assert page.locator("#flow-heading").inner_text() == "Requested scope unavailable"
+        assert page.locator(".flow-canvas").is_hidden()
+        assert page.url == requested
+        page.reload()
+        assert page.locator("#flow-heading").inner_text() == "Requested scope unavailable"
+        assert page.url == requested
+        history_length = page.evaluate("history.length")
+        for lens in ("Target", "Diff", "As-Is"):
+            page.get_by_role("button", name=lens, exact=True).click()
+            assert page.locator("#flow-heading").inner_text() == "Requested scope unavailable"
+            assert page.url == requested
+        page.get_by_role("button", name="Switch to light theme", exact=True).click()
+        page.locator(".flow-details-toggle").click()
+        page.locator(".flow-details-toggle").click()
+        assert page.url == requested
+        assert page.evaluate("history.length") == history_length
+        if recovery == "breadcrumb":
+            page.locator(".flow-breadcrumb button").first.click()
+        elif recovery == "back":
+            page.locator(".flow-back").click()
+        else:
+            page.locator(".flow-alternative button").click()
+        page.wait_for_function(
+            "document.querySelector('#flow-heading').textContent !== 'Requested scope unavailable'"
+        )
+        recovered = page.url
+        assert recovered != requested and "theme=light" in recovered
+        assert not urlsplit(recovered).fragment
+        page.reload()
+        assert page.locator("#flow-heading").inner_text() != "Requested scope unavailable"
+        assert page.url == recovered
+        page.go_back()
+        assert page.locator("#flow-heading").inner_text() == "Requested scope unavailable"
+        assert page.url == requested
+        assert page.locator("html").get_attribute("data-theme") == "dark"
+        page.go_forward()
+        assert page.locator("#flow-heading").inner_text() != "Requested scope unavailable"
+        assert page.url == recovered
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_cli_offline_valid_routes_still_normalize_and_reload(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    index, detail, ids = _cli_route_pages(tmp_path)
+    queries = [
+        "component=core&module=" + ids["sample.core"],
+        "component=core&module=" + ids["sample.core"] + "&scope=" + ids["sample.core.Client"],
+        "component=core&module=" + ids["sample.core"] + "&scope=" + ids["sample.core.Client.run"],
+        "component=core&module=core-module&origin=declared",
+        "component=unassigned&module=" + ids["sample.unowned"] + "&return_scope=",
+    ]
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        for query in queries:
+            page.goto(
+                detail.as_uri() + "?" + query + "&view=diagram&theme=light&extra=discard#discard"
+            )
+            assert page.locator("#flow-heading").inner_text() != "Requested scope unavailable"
+            assert "extra=" not in page.url and not urlsplit(page.url).fragment
+            normalized = page.url
+            page.reload()
+            assert page.locator("#flow-heading").inner_text() != "Requested scope unavailable"
+            assert page.url == normalized
+            assert page.locator("html").get_attribute("data-theme") == "light"
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 def test_offline_atlas_and_uml_share_shell_empty_scope_and_url_theme(tmp_path):
     api = pytest.importorskip("playwright.sync_api")
     index, graph = _route_pages(tmp_path)
