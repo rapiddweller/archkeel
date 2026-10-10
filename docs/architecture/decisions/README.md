@@ -224,3 +224,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-215 | [Preserve Dart source evidence](ad-215-dart-source-evidence.md) |
 | AD-216 | [Native mapping alternatives retain their union proof](ad-216-native-mapping-alternatives.md) |
 | AD-217 | [Nested maps need an exact owner coordinate](ad-217-nested-map-allowances.md) |
+| AD-218 | [Native Iterable elements use proven signatures](ad-218-native-iterable-elements-use-proven-signatures.md) |

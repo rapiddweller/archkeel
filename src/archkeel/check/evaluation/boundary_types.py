@@ -137,6 +137,7 @@ class _Position(NamedTuple):
     field_declarations: tuple[tuple[str, ...], ...] = ()
     mapping_alternatives: tuple[_MappingAlternatives, ...] = ()
     exact_nested_map_chain: bool = False
+    native_iterable_annotation: str | None = None
 
 
 class _FieldPosition(NamedTuple):
@@ -833,7 +834,7 @@ def _boundary_type_verdict(
     if annotation.startswith(("'", '"')):
         return _Position(undecidable="forward_reference")
     if not annotation.isidentifier():
-        return _annotation_shape_verdict(
+        verdict = _annotation_shape_verdict(
             annotation,
             module,
             contract,
@@ -845,6 +846,28 @@ def _boundary_type_verdict(
             enter_fields=enter_fields,
             _aliases_seen=_aliases_seen,
             type_shapes=type_shapes,
+        )
+        native_iterable = (
+            not _aliases_seen
+            and verdict.undecidable is None
+            and _native_iterable_shape(
+                annotation, module, imports_by_binding, classes_by_location, type_shapes
+            )
+        )
+        return _Position(
+            violation=verdict.violation,
+            undecidable=verdict.undecidable,
+            resolved=verdict.resolved,
+            named_origins=verdict.named_origins,
+            path=verdict.path,
+            nested_annotation=verdict.nested_annotation,
+            violations=verdict.violations,
+            mapping_occurrences=verdict.mapping_occurrences,
+            field_positions=verdict.field_positions,
+            field_declarations=verdict.field_declarations,
+            mapping_alternatives=verdict.mapping_alternatives,
+            exact_nested_map_chain=verdict.exact_nested_map_chain,
+            native_iterable_annotation=annotation if native_iterable else None,
         )
     return _named_type_verdict(
         annotation,
@@ -1231,6 +1254,52 @@ def _annotation_shape_verdict(
         if entered is not None:
             return entered
     return _Position(undecidable=_unresolvable_shape(annotation))
+
+
+def _native_iterable_shape(
+    annotation: str,
+    module: str,
+    imports: BindingIndex,
+    classes: BindingIndex,
+    type_shapes: TypeShapeIndex,
+) -> bool:
+    shape = type_shapes.get(annotation)
+    if isinstance(shape, TypeUnion):
+        if isinstance(shape.right, TypeLiteral) and shape.right.kind is LiteralKind.NONE:
+            shape = shape.left
+        elif isinstance(shape.left, TypeLiteral) and shape.left.kind is LiteralKind.NONE:
+            shape = shape.right
+        else:
+            return False
+    if (
+        not isinstance(shape, TypeApplication)
+        or shape.tuple_arguments
+        or len(shape.arguments) != 1
+        or not (
+            isinstance(shape.head, TypeName)
+            and shape.head.name == "Iterable"
+            or isinstance(shape.head, TypeMember)
+            and shape.head.member == "Iterable"
+        )
+        or _proven_type_head(
+            shape.head,
+            module,
+            imports,
+            classes,
+            frozenset({("typing", "Iterable"), ("collections.abc", "Iterable")}),
+        )
+        is not True
+    ):
+        return False
+    element = shape.arguments[0]
+    return (
+        isinstance(element, TypeName)
+        and element.name == "object"
+        and _proven_type_head(
+            element, module, imports, classes, frozenset({("builtins", "object")})
+        )
+        is True
+    )
 
 
 def _opaque_mapping_value_depth(
@@ -3026,6 +3095,7 @@ def _boundary_type_allowance_fact(
         ):
             continue
         alternative = False
+        native_iterable = False
         if allowance.mapping_depth is not None:
             if not _nested_mapping_allowance_matches(allowance, data, verdict):
                 continue
@@ -3033,7 +3103,17 @@ def _boundary_type_allowance_fact(
         elif alternative := _alternative_mapping_allowance_matches(allowance, data, verdict):
             is_contained = allowance.container_depth is not None
         elif allowance.container_depth is not None:
-            if not _opaque_mapping_value_allowance_matches(allowance, data, verdict):
+            native_iterable = (
+                verdict.native_iterable_annotation == allowance.annotation
+                and not allowance.field_path
+                and allowance.container_depth == 1
+                and data.get("container_depth") == 1
+                and verdict.violations
+                == ((f"holding object {_BROAD_BOUNDARY_REASON}", (), "object", 1),)
+            )
+            if not native_iterable and not _opaque_mapping_value_allowance_matches(
+                allowance, data, verdict
+            ):
                 continue
             is_contained = True
         elif allowance.field_path:
@@ -3047,7 +3127,13 @@ def _boundary_type_allowance_fact(
                 continue
             is_contained = not direct_match
         return _boundary_type_allowance_fact_record(
-            rule, facade_module, record, allowance, is_contained, alternative=alternative
+            rule,
+            facade_module,
+            record,
+            allowance,
+            is_contained,
+            alternative=alternative,
+            native_iterable=native_iterable,
         )
     return None
 
@@ -3244,13 +3330,14 @@ def _boundary_type_allowance_fact_record(
     is_contained: bool,
     *,
     alternative: bool = False,
+    native_iterable: bool = False,
 ) -> RawRecord:
     data = record["data"]
     opaque = allowance.container_depth is not None or (
         not allowance.field_path and allowance.annotation in _OPAQUE_NATIVE_REASONS
     )
     if allowance.container_depth is not None:
-        allowance_scope = "opaque mapping value "
+        allowance_scope = "opaque iterable element " if native_iterable else "opaque mapping value "
     elif alternative:
         allowance_scope = "alternative mapping "
     elif is_contained:
