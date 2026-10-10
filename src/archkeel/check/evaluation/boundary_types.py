@@ -136,6 +136,7 @@ class _Position(NamedTuple):
     field_positions: tuple[_FieldPosition, ...] = ()
     field_declarations: tuple[tuple[str, ...], ...] = ()
     mapping_alternatives: tuple[_MappingAlternatives, ...] = ()
+    exact_nested_map_chain: bool = False
 
 
 class _FieldPosition(NamedTuple):
@@ -1414,6 +1415,20 @@ def _mapping_container_verdict(
         _aliases_seen=aliases_seen,
         type_shapes=type_shapes,
     )
+    nested_map = _proven_nested_map_chain(
+        parameters, module, imports_by_binding, classes_by_location, type_shapes
+    )
+    exact_nested_map_chain = (
+        nested_map is not None
+        and contents.undecidable is None
+        and not contents.mapping_alternatives
+        and len(contents.mapping_occurrences) == 1
+        and contents.mapping_occurrences[0].annotation == nested_map
+        and contents.mapping_occurrences[0].depth == 1
+        and contents.mapping_occurrences[0].path == ()
+        and contents.mapping_occurrences[0].alias_free
+        and contents.mapping_occurrences[0].opaque_value_depth == 1
+    )
     return _Position(
         violation=_BROAD_BOUNDARY_REASON,
         undecidable=contents.undecidable,
@@ -1450,7 +1465,53 @@ def _mapping_container_verdict(
                 for occurrence in contents.mapping_occurrences
             ),
         ),
+        exact_nested_map_chain=exact_nested_map_chain,
     )
+
+
+def _proven_nested_map_chain(
+    parameters: list[str],
+    module: str,
+    imports: BindingIndex,
+    classes: BindingIndex,
+    type_shapes: TypeShapeIndex,
+) -> str | None:
+    """Return the inner map only for one proven map → list → map → object shape."""
+    if len(parameters) != 2:
+        return None
+    outer_key = type_shapes.get(parameters[0])
+    values = type_shapes.get(parameters[1])
+    if (
+        not isinstance(outer_key, TypeName)
+        or outer_key.name != "str"
+        or _proven_type_head(outer_key, module, imports, classes, frozenset({("builtins", "str")}))
+        is not True
+        or not isinstance(values, TypeApplication)
+        or values.tuple_arguments
+        or len(values.arguments) != 1
+        or _proven_type_head(
+            values.head, module, imports, classes, frozenset({("builtins", "list")})
+        )
+        is not True
+    ):
+        return None
+    inner = values.arguments[0]
+    inner_parameters = _mapping_parameters(
+        inner.text, module, imports, classes, type_shapes=type_shapes
+    )
+    if not isinstance(inner_parameters, list) or len(inner_parameters) != 2:
+        return None
+    inner_key = type_shapes.get(inner_parameters[0])
+    if (
+        not isinstance(inner_key, TypeName)
+        or inner_key.name != "str"
+        or _proven_type_head(inner_key, module, imports, classes, frozenset({("builtins", "str")}))
+        is not True
+        or _opaque_mapping_value_depth(inner_parameters[1], module, imports, classes, type_shapes)
+        != 1
+    ):
+        return None
+    return inner.text
 
 
 def _declared_field_verdict(
@@ -2964,8 +3025,12 @@ def _boundary_type_allowance_fact(
             or allowance.annotation == "dict"
         ):
             continue
-        alternative = _alternative_mapping_allowance_matches(allowance, data, verdict)
-        if alternative:
+        alternative = False
+        if allowance.mapping_depth is not None:
+            if not _nested_mapping_allowance_matches(allowance, data, verdict):
+                continue
+            is_contained = True
+        elif alternative := _alternative_mapping_allowance_matches(allowance, data, verdict):
             is_contained = allowance.container_depth is not None
         elif allowance.container_depth is not None:
             if not _opaque_mapping_value_allowance_matches(allowance, data, verdict):
@@ -3110,6 +3175,44 @@ def _opaque_mapping_value_allowance_matches(
     )
 
 
+def _nested_mapping_allowance_matches(
+    allowance: BoundaryTypeAllowance, data: RecordData, verdict: _Position
+) -> bool:
+    if not verdict.exact_nested_map_chain or verdict.undecidable is not None:
+        return False
+    mappings = verdict.mapping_occurrences
+    if (
+        len(mappings) != 2
+        or mappings[0].depth != 0
+        or mappings[0].path
+        or not mappings[0].alias_free
+        or mappings[1].depth != allowance.mapping_depth
+        or mappings[1].path
+        or not mappings[1].alias_free
+        or mappings[1].opaque_value_depth != 1
+    ):
+        return False
+    depth = allowance.container_depth
+    if depth is None:
+        return (
+            data["reason"] == _BROAD_BOUNDARY_REASON
+            and data.get("nested_annotation") == mappings[1].annotation
+            and data.get("container_depth") == allowance.mapping_depth
+            and verdict.violations.count(
+                (_BROAD_BOUNDARY_REASON, (), mappings[1].annotation, allowance.mapping_depth)
+            )
+            == 1
+        )
+    reason = f"holding object {_BROAD_BOUNDARY_REASON}"
+    return (
+        data["reason"] == reason
+        and data.get("nested_annotation") == "object"
+        and data.get("container_depth") == depth
+        and mappings[1].depth + mappings[1].opaque_value_depth == depth
+        and verdict.violations.count((reason, (), "object", depth)) == 1
+    )
+
+
 def _contained_mapping_allowance_matches(
     allowance: BoundaryTypeAllowance,
     data: RecordData,
@@ -3153,6 +3256,7 @@ def _boundary_type_allowance_fact_record(
         allowance_scope = "unique contained mapping "
     else:
         allowance_scope = "nested " if allowance.field_path else ""
+    map_depth = allowance.mapping_depth
     return classified(
         item_id=stable_id(
             "TYPE",
@@ -3163,6 +3267,7 @@ def _boundary_type_allowance_fact_record(
             allowance.field_path,
             allowance.annotation,
             *((str(allowance.container_depth),) if allowance.container_depth is not None else ()),
+            *((str(allowance.mapping_depth),) if allowance.mapping_depth is not None else ()),
         ),
         evidence_class=EvidenceClass.FACT,
         area="type_architecture",
@@ -3191,6 +3296,7 @@ def _boundary_type_allowance_fact_record(
             "position": allowance.position,
             "field_path": allowance.field_path,
             "annotation": allowance.annotation,
+            **({"mapping_depth": map_depth} if map_depth is not None else {}),
             **(
                 {"nested_annotation": data["nested_annotation"]}
                 if (allowance.field_path or alternative)

@@ -70,6 +70,12 @@ maps; a separate depth selector permits only the native value. Nested simultaneo
 maps, aliases, unknown arms and repeated native values grant nothing through this
 union rule. See [AD-216](architecture/decisions/ad-216-native-mapping-alternatives.md)
 and its tests. Ambiguous paths or occurrences grant nothing.
+For one direct `Mapping[str, list[dict[str, object]]]` signature, use the complete
+annotation with three separate allowances: no depth for the outer map,
+`mapping_depth: 2` for the inner map, and both `mapping_depth: 2` and
+`container_depth: 3` for its `object` value. This requires a proven, alias-free
+map → list → map → object chain; tuple wrappers, DTO fields and union arms do
+not qualify. See [AD-217](architecture/decisions/ad-217-nested-map-allowances.md).
 See [boundary examples](../tests/test_boundary_types_facades.py) before choosing
 selectors. Aliases, inheritance, re-exports and unsupported forms require proof.
 

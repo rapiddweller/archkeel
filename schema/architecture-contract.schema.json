@@ -1401,6 +1401,10 @@
                 "type": "integer",
                 "minimum": 1
               },
+              "mapping_depth": {
+                "type": "integer",
+                "minimum": 1
+              },
               "annotation": {
                 "$ref": "#/$defs/nonEmpty",
                 "not": {

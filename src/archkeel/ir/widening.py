@@ -361,6 +361,7 @@ def _boundary_types_widenings(
                 entry.field_path,
                 entry.annotation,
                 entry.container_depth or 0,
+                entry.mapping_depth or 0,
             ),
         )
     ]

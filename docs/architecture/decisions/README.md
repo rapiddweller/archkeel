@@ -223,3 +223,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-214 | [Dart collection runs without an SDK](ad-214-dart-collector-runs-without-sdk.md) |
 | AD-215 | [Preserve Dart source evidence](ad-215-dart-source-evidence.md) |
 | AD-216 | [Native mapping alternatives retain their union proof](ad-216-native-mapping-alternatives.md) |
+| AD-217 | [Nested maps need an exact owner coordinate](ad-217-nested-map-allowances.md) |

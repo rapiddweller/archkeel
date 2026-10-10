@@ -4,9 +4,16 @@
 `dict[str, str] | dict[str, object] | None`. An exact annotation allowance permits
 the two outer maps; a separate `container_depth` allowance permits one proven
 native value. The same rule applies to a uniquely declared DTO field.
-Aliases, unknown arms, ambiguous fields and simultaneous maps still grant nothing.
+Aliases, unknown arms, ambiguous fields and simultaneous maps still grant nothing
+through that union selector.
 Accepted native opacity does not prove type closure. Contract and result schemas
-are unchanged. See [AD-216](docs/architecture/decisions/ad-216-native-mapping-alternatives.md).
+keep their versions. See [AD-216](docs/architecture/decisions/ad-216-native-mapping-alternatives.md).
+
+For one proven `Mapping[str, list[dict[str, object]]]` boundary, the new optional
+`mapping_depth: 2` permits only the inner map. Add `container_depth: 3` to permit
+only its native `object` value. Outer map permission remains separate. Aliases,
+wrappers, unions and ambiguous or shadowed bindings do not qualify. See
+[AD-217](docs/architecture/decisions/ad-217-nested-map-allowances.md).
 
 After successful package publication, the release pipeline starts full
 verification on Main when the tag still points to its current commit. If that
