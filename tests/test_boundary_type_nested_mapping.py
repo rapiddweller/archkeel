@@ -225,6 +225,34 @@ def test_nested_permissions_work_at_both_signature_positions(
     assert sum(fact.get("accepted_opacity") is True for fact in facts) == 1
 
 
+@pytest.mark.parametrize("facade", [False, True], ids=["direct", "facade"])
+@pytest.mark.parametrize("position", ["products", "return"])
+@pytest.mark.parametrize("selector", [_INNER, _VALUE], ids=["inner", "value"])
+def test_annotated_root_cannot_grant_nested_mapping(
+    tmp_path: Path, facade: bool, position: str, selector: dict[str, object]
+) -> None:
+    annotation = f"Annotated[{_ANNOTATION}, 'meta']"
+    qualified_name = f"sample.app{'' if facade else '.impl'}.capture"
+    allowances = tuple(
+        {**entry, "qualified_name": qualified_name, "position": position, "annotation": annotation}
+        for entry in (_OUTER, selector)
+    )
+    _fixture(
+        tmp_path,
+        allowances,
+        annotation=annotation,
+        position=position,
+        facade=facade,
+        prefix="from typing import Annotated, Mapping\n",
+    )
+    findings, facts = _findings(tmp_path)
+    assert len(findings) == 2
+    assert {item.get("container_depth") for item in findings} == {2, 3}
+    assert len(facts) == 1
+    assert facts[0].get("mapping_depth") is None
+    assert facts[0].get("accepted_opacity") is not True
+
+
 @pytest.mark.parametrize(
     ("annotation", "prefix"),
     [

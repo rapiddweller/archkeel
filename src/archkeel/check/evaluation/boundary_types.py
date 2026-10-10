@@ -3184,6 +3184,7 @@ def _nested_mapping_allowance_matches(
     if (
         len(mappings) != 2
         or mappings[0].depth != 0
+        or mappings[0].annotation != allowance.annotation
         or mappings[0].path
         or not mappings[0].alias_free
         or mappings[1].depth != allowance.mapping_depth
