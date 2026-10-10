@@ -496,6 +496,18 @@ class BoundaryTypeAllowance:
     field_path: str
     annotation: str
     container_depth: int | None = None
+    mapping_depth: int | None = None
+
+    def __repr__(self) -> str:
+        base = (
+            "BoundaryTypeAllowance("
+            f"qualified_name={self.qualified_name!r}, position={self.position!r}, "
+            f"field_path={self.field_path!r}, annotation={self.annotation!r}, "
+            f"container_depth={self.container_depth!r}"
+        )
+        if self.mapping_depth is not None:
+            base += f", mapping_depth={self.mapping_depth!r}"
+        return base + ")"
 
 
 @dataclass(frozen=True, slots=True)

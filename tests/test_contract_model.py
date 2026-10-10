@@ -253,6 +253,13 @@ def _maximal_contract() -> dict[str, object]:
                 "annotation": "dict[str, object]",
                 "container_depth": 1,
             },
+            {
+                "qualified_name": "shop.app.orders.summarize",
+                "position": "return",
+                "annotation": "Mapping[str, list[dict[str, object]]]",
+                "mapping_depth": 2,
+                "container_depth": 3,
+            },
         ],
     )
     raw["rules"] += [

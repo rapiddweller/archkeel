@@ -251,6 +251,11 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
                                 if item.container_depth is not None
                                 else {}
                             ),
+                            **(
+                                {"mapping_depth": item.mapping_depth}
+                                if item.mapping_depth is not None
+                                else {}
+                            ),
                         }
                         for item in rule.allowed_positions
                     ]

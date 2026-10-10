@@ -1670,7 +1670,7 @@ def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
         entry = _contract_fields(
             value,
             {"qualified_name", "position", "annotation"},
-            {"field_path", "container_depth"},
+            {"field_path", "container_depth", "mapping_depth"},
             entry_label,
         )
         qualified_name = _nonempty(entry["qualified_name"], f"{entry_label}.qualified_name")
@@ -1687,12 +1687,24 @@ def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
             if isinstance(raw_depth, bool) or not isinstance(raw_depth, int) or raw_depth < 1:
                 raise ValueError(f"{entry_label}.container_depth must be a positive integer")
             depth = raw_depth
+        mapping_depth: int | None = None
+        if "mapping_depth" in entry:
+            raw_mapping_depth = entry["mapping_depth"]
+            if type(raw_mapping_depth) is not int or raw_mapping_depth < 1:
+                raise ValueError(f"{entry_label}.mapping_depth must be a positive integer")
+            mapping_depth = raw_mapping_depth
+            if field_path:
+                raise ValueError(f"{entry_label}.mapping_depth cannot select a DTO field")
+            if depth is not None and depth != mapping_depth + 1:
+                raise ValueError(f"{entry_label}.container_depth must be mapping_depth plus one")
         if annotation == "dict":
             raise ValueError(f"{entry_label}.annotation cannot allow bare dict")
         if not field_path and annotation in _BARE_BROAD_ANNOTATIONS:
             raise ValueError(f"{entry_label}.annotation cannot allow bare {annotation} at the root")
         positions.append(
-            BoundaryTypeAllowance(qualified_name, position, field_path, annotation, depth)
+            BoundaryTypeAllowance(
+                qualified_name, position, field_path, annotation, depth, mapping_depth
+            )
         )
     if len(set(positions)) != len(positions):
         raise ValueError(f"{label}.allowed_positions must contain unique entries")
