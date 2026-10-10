@@ -1412,6 +1412,15 @@
                 }
               }
             },
+            "dependentSchemas": {
+              "mapping_depth": {
+                "properties": {
+                  "field_path": {
+                    "const": ""
+                  }
+                }
+              }
+            },
             "if": {
               "properties": {
                 "field_path": {

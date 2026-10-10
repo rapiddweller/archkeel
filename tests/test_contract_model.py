@@ -175,6 +175,46 @@ def test_boundary_type_allowance_is_exact_and_round_trips() -> None:
         parse_contract(raw)
 
 
+@pytest.mark.parametrize(
+    ("selector", "accepted"),
+    [
+        ({"mapping_depth": 2}, True),
+        ({"field_path": "", "mapping_depth": 2, "container_depth": 3}, True),
+        ({"field_path": "payload"}, True),
+        ({"field_path": "payload", "mapping_depth": 2}, False),
+    ],
+)
+def test_nested_mapping_selector_schema_matches_parser(
+    selector: dict[str, object], accepted: bool
+) -> None:
+    raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
+    raw["rules"] = [
+        {
+            "id": "BOUNDARY-TYPES",
+            "kind": "boundary_types",
+            "source": "sample.core",
+            "rationale": "Keep declared boundary types narrow.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+            "allowed_positions": [
+                {
+                    "qualified_name": "sample.core.api.run",
+                    "position": "return",
+                    "annotation": "Mapping[str, list[dict[str, object]]]",
+                    **selector,
+                }
+            ],
+        }
+    ]
+    schema_accepts = not list(VALIDATOR.iter_errors(raw))
+    try:
+        parse_contract(raw)
+        parser_accepts = True
+    except ValueError:
+        parser_accepts = False
+    assert schema_accepts == parser_accepts == accepted
+
+
 @pytest.mark.parametrize("annotation", ("Dict", "Mapping", "MutableMapping"))
 def test_root_boundary_allowance_cannot_name_a_bare_broad_type(annotation: str) -> None:
     raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
