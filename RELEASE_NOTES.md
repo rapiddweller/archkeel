@@ -1,39 +1,39 @@
-# ArchKeel 2.0.0 — Exact bound-alias permissions
+# ArchKeel 2.0.0 — Exact permissions and retained uncertainty
 
-- **Truthful alias confidence.** Unproven alias bodies remain UNKNOWN and cannot
-  establish findings or grants. Independent literal findings remain. Self UNKNOWN
-  baseline increases by exactly 12 existing positions, without extra headroom.
+Architecture checks for coding agents.
 
-- **Exact open-map permissions.** Contract **3.3.0** permits explicit bare-map
-  decisions at exact DTO fields and registry parameters, and native object leaves
-  in exact compound literal map arms. Accepted values remain opaque; sibling
-  findings and UNKNOWNs remain.
-- **Consistent product identity.** README and plugin listings use ArchKeel and “Architecture checks for coding agents”.
-- **Bind an alias permission to its source and complete body.** `alias_body`
-  records the exact `module:Alias` origin and proven body. The supported family is
-  `tuple[tuple[str, list[object]] | tuple[str, list[object], Metadata], list[dict[str, object]]]`,
-  with a uniquely proven, declared `Metadata` class. An exact callable, position
-  and root annotation with empty `field_path` permits only the one map at depth 2;
-  a separate `container_depth: 3` selector permits its three syntactic `object`
-  leaves. Changed bodies, ambiguous bindings and unsupported forms grant nothing.
-  Proven standard `TypedDict` metadata with literal `total=True/False` also qualifies;
-  its optional source proof changes evidence and collector digest, with unchanged wire envelopes.
-  See [#438](https://github.com/rapiddweller/archkeel/issues/438) and
-  [boundary rules](docs/rules.md#interfaces-and-types).
-- **Explicit contract upgrade.** Present `alias_body` requires contract schema
-  **3.0.0**. Supported **2.1.0–2.3.0** contracts remain readable with unchanged
-  schemas and absent-binding serialization; existing contracts and defaults are
-  not rewritten. Old 1.x readers reject the new 3.0 contract. Package versioning
-  stays independent of the unchanged result and collector protocols.
-- **Inspect exact permissions in reports.** Atlas distinguishes declared and
-  applied boundary permissions and links their evidence to members. Rejected
-  offline routes retain the complete URL until explicit recovery. See
-  [#445](https://github.com/rapiddweller/archkeel/issues/445) and
-  [#447](https://github.com/rapiddweller/archkeel/issues/447).
+- **Exact native boundary permissions.** Opt-in contract schemas **3.0–3.3**
+  add source-and-body-bound alias permissions, heterogeneous typed-map unions
+  with exact key-alias proof, directly written literal map arms, and explicit
+  bare-map permissions at exact DTO fields or registry parameters. Separate
+  depth selectors accept only the supported native object leaves. Metadata
+  fields, sibling findings and UNKNOWNs remain independently checked.
+  See [boundary rules](docs/rules.md#interfaces-and-types).
+- **Compatibility stays explicit.** Supported **2.1–2.3** contract schemas and
+  serialization without the new bindings remain unchanged. Existing contracts
+  are not rewritten; older readers reject unsupported opt-in schemas.
+- **Unproven alias bodies stay UNKNOWN.** They do not justify body-dependent findings or
+  grants. Proven literal findings remain; ordinary permissions cannot bypass
+  uncertain alias proof by changing union order.
+- **Full reports retain every recorded UNKNOWN.** `report --only architecture
+  --full --json` exports complete original records, including IDs, details and
+  evidence references, even with a component filter. Full architecture output uses schema
+  **2.0.0**, with command-result schema **7.0.0**. Compact architecture output
+  remains **1.0.0**; published legacy **6.0.0** result schemas are unchanged.
+  Empty and unavailable evidence remain distinct. See [CLI reference](docs/reference.md).
+- **Static proof fixes.** Supported quoted builtin annotations retain their
+  original positions; proven stdlib overload re-exports expose all declared
+  signatures; property setters retain their own local binding scope. Safe
+  annotation carriers and nullable DTO paths preserve supported alias and field
+  proof. Unsupported or ambiguous forms retain UNKNOWN.
+- **Review the exact permission.** Atlas distinguishes declared and applied
+  permissions and links evidence to members. Reset and fit controls are labelled
+  consistently; rejected offline routes retain the complete URL until explicit
+  recovery.
 
-Accepted native values remain opaque. Metadata field findings, unrelated findings
-and UNKNOWNs remain. This bounded proof establishes neither serialization nor
-materialization nor type closure, and does not add general alias support.
+Accepted native values remain opaque. These checks certify neither serialization,
+materialization, type closure nor runtime correctness. Product listings use
+ArchKeel and “Architecture checks for coding agents”.
 
 # Archkeel 1.1.2 — Bind native allowances to exact signatures
 
