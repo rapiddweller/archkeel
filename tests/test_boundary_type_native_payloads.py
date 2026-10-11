@@ -624,7 +624,7 @@ def test_a_reached_dto_applies_its_own_class_scope_uncertainty(tmp_path: Path) -
     )
 
 
-def test_class_scope_uncertainty_does_not_hide_a_module_alias_body(tmp_path: Path) -> None:
+def test_class_scope_uncertainty_keeps_unproven_module_alias_unknown(tmp_path: Path) -> None:
     _write_app(
         tmp_path,
         implementation=(
@@ -639,10 +639,22 @@ def test_class_scope_uncertainty_does_not_hide_a_module_alias_body(tmp_path: Pat
     result = _observe(tmp_path)
 
     assert result.observation is not None
-    assert len(trace_valid_violations(result.observation)) == 1
-    assert any(
-        item.kind == "boundary_type_position"
-        for item in result.observation.records("unknowns") or ()
+    assert trace_valid_violations(result.observation) == ()
+    [alias] = [r for r in result.observation.records("symbols") or () if r.title == "Payload"]
+    assert alias.data.get("source_binding_unique") is True
+    assert alias.data.get("source_member_binding_static") is False
+    [unknown] = [
+        r
+        for r in result.observation.records("unknowns") or ()
+        if r.kind == "boundary_type_position"
+    ]
+    assert unknown.data.get("position") == "value"
+    assert unknown.data.get("reason") == "ambiguous_binding"
+    assert unknown.data.get("annotation_bindings") == ("object",)
+    assert unknown.data.get("annotation") == "tuple[object, Payload]"
+    assert not any(
+        r.kind == "boundary_type_allowance"
+        for r in result.observation.records("typing_signals") or ()
     )
 
 

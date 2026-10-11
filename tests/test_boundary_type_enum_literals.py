@@ -54,7 +54,7 @@ def _unknowns(result: ObservationResult) -> list[object]:
 
 
 @pytest.mark.parametrize(
-    ("enum_source", "field_annotation", "expected_enum"),
+    ("enum_source", "field_annotation", "expected_enum", "proven"),
     [
         (
             "from enum import Enum\n"
@@ -62,22 +62,25 @@ def _unknowns(result: ObservationResult) -> list[object]:
             "    PRODUCT = 'product'\n",
             "AuthoringReferenceCategory.PRODUCT",
             "sample.app.facade.AuthoringReferenceCategory",
+            True,
         ),
         (
             "from sample.app.types import AuthoringReferenceCategory as RefCategory\n",
             "RefCategory.PRODUCT",
             "sample.app.types.AuthoringReferenceCategory",
+            True,
         ),
         (
             "from sample.app.types import AuthoringReferenceCategory\n"
             "Category = AuthoringReferenceCategory\n",
             "Category.PRODUCT",
             "sample.app.types.AuthoringReferenceCategory",
+            False,
         ),
     ],
 )
-def test_literal_resolves_exact_static_enum_member_through_signature(
-    tmp_path: Path, enum_source: str, field_annotation: str, expected_enum: str
+def test_literal_enum_member_signature_requires_static_route(
+    tmp_path: Path, enum_source: str, field_annotation: str, expected_enum: str, proven: bool
 ) -> None:
     modules = {
         "types": (
@@ -100,13 +103,29 @@ def test_literal_resolves_exact_static_enum_member_through_signature(
 
     assert result.observation is not None
     assert trace_valid_violations(result.observation) == ()
-    assert _unknowns(result) == []
+    unknowns = _unknowns(result)
+    if proven:
+        assert unknowns == []
+    else:
+        [unknown] = unknowns
+        assert unknown.data.get("position") == "category"
+        assert unknown.data.get("reason") == "dotted_name"
+        assert (
+            unknown.data.get("annotation")
+            == f"Annotated[Literal[{field_annotation}] | str, Field()]"
+        )
+        [alias] = [r for r in result.observation.records("symbols") or () if r.title == "Category"]
+        assert alias.data.get("source_binding_unique") is True
+        assert alias.data.get("source_member_binding_static") is False
     [run] = [
         item
         for item in result.observation.records("symbols") or ()
         if item.data.get("qualified_name") == "sample.app.facade.run"
     ]
-    assert expected_enum in run.data.get("facade_types", ())
+    if proven:
+        assert expected_enum in run.data.get("facade_types", ())
+    else:
+        assert expected_enum not in run.data.get("facade_types", ())
 
 
 @pytest.mark.parametrize(

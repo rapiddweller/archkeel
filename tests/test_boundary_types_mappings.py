@@ -674,7 +674,7 @@ def test_exact_mapping_allowance_does_not_pass_an_unresolved_value_type(tmp_path
     assert allowance_fact.data.get("annotation") == "Mapping[str, MissingType]"
 
 
-def test_mapping_member_allowance_cannot_pin_a_union_alias(tmp_path: Path) -> None:
+def test_mapping_member_allowance_requires_proven_union_alias(tmp_path: Path) -> None:
     allowance = {
         "qualified_name": "sample.app.impl.run",
         "position": "return",
@@ -701,16 +701,14 @@ def test_mapping_member_allowance_cannot_pin_a_union_alias(tmp_path: Path) -> No
     result = _observe(tmp_path)
 
     assert result.observation is not None
-    violations = trace_valid_violations(result.observation)
-    assert any(
-        "HiddenType" in item.title and "does not declare" in item.title for item in violations
-    )
-    unknowns = _type_unknowns(result)
-    assert any(
-        item.data.get("path") == "return.payload" and item.data.get("reason") == "unresolved_name"
-        for item in unknowns
-    )
-    assert len(violations) == 3
+    assert trace_valid_violations(result.observation) == ()
+    [alias] = [r for r in result.observation.records("symbols") or () if r.title == "Payload"]
+    assert alias.data.get("source_binding_unique") is True
+    assert alias.data.get("source_member_binding_static") is False
+    [unknown] = _type_unknowns(result)
+    assert unknown.data.get("path") == "return.payload"
+    assert unknown.data.get("nested_annotation") == "Payload"
+    assert unknown.data.get("reason") == "other"
     assert not [
         item
         for item in result.observation.records("typing_signals") or ()

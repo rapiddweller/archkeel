@@ -136,16 +136,16 @@ def test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes(
         item.data.get("aspect") == "completeness" and item.data.get("status") == "UNKNOWN"
         for item in inventory
     )
-    # AD-207 retains saved-query facade limits without changing these member scopes.
+    # AD-92 retains alias uncertainty without changing these member scopes.
     from archkeel.check.ratchets import unknown_positions_by_rule
 
     counts = dict(unknown_positions_by_rule(self_observation))
     assert {rule: count for rule, count in counts.items() if not rule.startswith("UML-TARGET")} == {
-        "RENDER-TYPES-DECLARED": 25,
-        "CHECK-TYPES-DECLARED": 19,
-        "ANALYZER-TYPES-DECLARED": 1,
+        "RENDER-TYPES-DECLARED": 29,
+        "CHECK-TYPES-DECLARED": 26,
+        "ANALYZER-TYPES-DECLARED": 2,
     }
-    assert sum(counts.values()) == 53
+    assert sum(counts.values()) == 65
     detail_positions = [
         item
         for item in unknowns
@@ -154,6 +154,9 @@ def test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes(
     ]
     assert len(detail_positions) == 1
     assert detail_positions[0].data.get("annotation") == "RunResult"
-    assert detail_positions[0].data.get("reason") == "forward_reference"
+    assert detail_positions[0].data.get("position") == "result"
+    assert detail_positions[0].data.get("path") == "result.declared_rules"
+    assert detail_positions[0].data.get("nested_annotation") == "RuleVerdict"
+    assert detail_positions[0].data.get("reason") == "other"
     baseline = json.loads((ROOT / "architecture-baseline.json").read_text())
-    assert baseline["budgets"]["unknown_positions"] == 53
+    assert baseline["budgets"]["unknown_positions"] == 65
