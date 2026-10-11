@@ -1,5 +1,6 @@
-# Archkeel 2.0.0 — Exact bound-alias permissions
+# ArchKeel 2.0.0 — Exact bound-alias permissions
 
+- **Consistent product identity.** README and plugin listings use ArchKeel and “Architecture checks for coding agents”.
 - **Bind an alias permission to its source and complete body.** `alias_body`
   records the exact `module:Alias` origin and proven body. The supported family is
   `tuple[tuple[str, list[object]] | tuple[str, list[object], Metadata], list[dict[str, object]]]`,

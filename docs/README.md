@@ -1,4 +1,4 @@
-# Archkeel docs
+# ArchKeel docs
 
 | Task | Start here |
 |---|---|
