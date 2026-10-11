@@ -1007,7 +1007,7 @@
         if (declarationRoute?.scope_id) declarationQuery.set("scope", declarationRoute.scope_id);
         if (declarationRoute?.entity_id) declarationQuery.set("selected", declarationRoute.entity_id);
         const declarationHref = `${ATLAS?.detail_page || location.pathname}?${declarationQuery}#${encodeURIComponent(row.declaration_id || "")}`;
-        const keys = ["qualified_name", "position", "field_path", "annotation", "container_depth", "mapping_depth", "literal_mapping_arm", ...(applied ? ["observed_container_depth"] : [])];
+        const keys = ["qualified_name", "position", "field_path", "annotation", "container_depth", "mapping_depth", "literal_mapping_arm", "native_mapping", ...(applied ? ["observed_container_depth"] : [])];
         const bindingRows = ["alias_body", "key_alias_body"].flatMap((name) => {
           const binding = selector[name];
           return !Object.hasOwn(selector, name) ? []

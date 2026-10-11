@@ -349,7 +349,7 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
             "alias_body": {"origin": "shop.app.orders:Page", "shape": "tuple[Opaque]"},
         }
     )
-    if version in {"3.1.0", "3.2.0"}:
+    if version in {"3.1.0", "3.2.0", "3.3.0"}:
         boundary["allowed_positions"].append(
             {
                 "qualified_name": "shop.app.orders.group",
@@ -358,7 +358,7 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
                 "key_alias_body": {"origin": "shop.app.orders:MaskKey", "shape": "str | None"},
             }
         )
-    if version == "3.2.0":
+    if version in {"3.2.0", "3.3.0"}:
         boundary["allowed_positions"].append(
             {
                 "qualified_name": "shop.app.orders.rows",
@@ -444,6 +444,16 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
             ),
         )
     )
+    if version == "3.3.0":
+        boundary["allowed_positions"].append(
+            {
+                "qualified_name": "shop.app.orders.native_rows",
+                "position": "return",
+                "field_path": "rows",
+                "annotation": "list[dict]",
+                "native_mapping": True,
+            }
+        )
     return raw
 
 
@@ -658,7 +668,7 @@ def test_the_maximal_contract_fills_every_field() -> None:
     """The completeness test below only sees a field this contract fills."""
     documents = [
         json.loads(contract_bytes(parse_contract(_maximal_contract(version))))
-        for version in ("3.0.0", "3.1.0", "3.2.0")
+        for version in ("3.0.0", "3.1.0", "3.2.0", "3.3.0")
     ]
 
     assert _unfilled(ArchitectureContract, documents, "contract") == []

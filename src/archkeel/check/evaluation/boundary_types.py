@@ -2067,7 +2067,7 @@ def _mapping_union_verdict(
     aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position:
     arms = _mapping_union_arms(annotation, module, imports, classes, type_shapes)
-    if contract is not None and contract.schema_version in {"3.1.0", "3.2.0"}:
+    if contract is not None and contract.schema_version in {"3.1.0", "3.2.0", "3.3.0"}:
         ordinary_compatible = (
             annotation in _OPAQUE_NATIVE_REASONS
             or _native_iterable_shape(annotation, module, imports, classes, type_shapes)
@@ -3877,6 +3877,12 @@ def _direct_boundary_allowance_matches(
 def _ordinary_mapping_allowance_match(
     allowance: BoundaryTypeAllowance, data: RecordData, verdict: _Position, direct_match: bool
 ) -> tuple[bool, bool, bool] | None:
+    if allowance.native_mapping:
+        return (
+            (bool(allowance.field_path), False, False)
+            if _native_mapping_allowance_matches(allowance, data, verdict)
+            else None
+        )
     alternative = False
     native_iterable = False
     if allowance.mapping_depth is not None:
@@ -3934,9 +3940,59 @@ def _typed_mapping_allowance_matches(
     )
 
 
+def _native_mapping_allowance_matches(
+    allowance: BoundaryTypeAllowance, data: RecordData, verdict: _Position
+) -> bool:
+    if allowance.annotation == "dict" and not allowance.field_path:
+        return (
+            data["reason"] == _BROAD_BOUNDARY_REASON
+            and not verdict.named_origins
+            and verdict.undecidable is None
+            and data.get("container_depth", 0) == 0
+        )
+    reason = f"holding dict {_BROAD_BOUNDARY_REASON}"
+    if (
+        data["reason"] not in {reason, _BROAD_BOUNDARY_REASON}
+        or data.get("nested_annotation") != "dict"
+    ):
+        return False
+    if allowance.field_path:
+        field = _matching_field_position(allowance, data, verdict)
+        return (
+            field is not None
+            and field.alias_free
+            and data.get("container_depth", 0) == (1 if allowance.annotation == "list[dict]" else 0)
+        )
+    return (
+        allowance.annotation == "dict | None"
+        and not verdict.named_origins
+        and verdict.undecidable is None
+        and verdict.violations == ((reason, (), "dict", 0),)
+    )
+
+
 def _literal_mapping_arm_allowance_matches(
     allowance: BoundaryTypeAllowance, data: RecordData, verdict: _Position
 ) -> bool:
+    if allowance.container_depth is not None:
+        candidates = tuple(
+            occurrence
+            for occurrence in verdict.mapping_occurrences
+            if not occurrence.path
+            and occurrence.literal_arm == allowance.literal_mapping_arm
+            and occurrence.alias_free
+            and occurrence.syntax_route is not None
+            and occurrence.opaque_value_depth is not None
+            and occurrence.depth + occurrence.opaque_value_depth == allowance.container_depth
+        )
+        reason = f"holding object {_BROAD_BOUNDARY_REASON}"
+        return (
+            len(candidates) == 1
+            and data["reason"] == reason
+            and data.get("nested_annotation") == "object"
+            and data.get("container_depth") == allowance.container_depth
+            and verdict.violations.count((reason, (), "object", allowance.container_depth)) == 1
+        )
     if data["reason"] != _BROAD_BOUNDARY_REASON:
         return False
     contributors = tuple(
@@ -3993,7 +4049,7 @@ def _boundary_type_allowance_fact(
             or data["position"] != allowance.position
             or path != expected_path
             or (not allowance.field_path and data["annotation"] != allowance.annotation)
-            or allowance.annotation == "dict"
+            or (allowance.annotation == "dict" and not allowance.native_mapping)
         ):
             continue
         if allowance.literal_mapping_arm is not None:
@@ -4018,6 +4074,7 @@ def _boundary_type_allowance_fact(
             )
         if allowance.key_alias_body is not None or (
             not allowance.field_path
+            and not allowance.native_mapping
             and verdict.typed_union_checked
             and not verdict.mapping_alternatives
         ):
@@ -4334,6 +4391,7 @@ def _boundary_type_allowance_data(
             if allowance.literal_mapping_arm is not None
             else {}
         ),
+        **({"native_mapping": True} if allowance.native_mapping else {}),
         **({"accepted_opacity": True} if opaque else {}),
         **(
             {
@@ -4358,6 +4416,7 @@ def _boundary_type_allowance_id(
         allowance.field_path,
         allowance.annotation,
         *((allowance.literal_mapping_arm,) if allowance.literal_mapping_arm is not None else ()),
+        *(("native_mapping",) if allowance.native_mapping else ()),
         *((str(allowance.container_depth),) if allowance.container_depth is not None else ()),
         *((str(allowance.mapping_depth),) if allowance.mapping_depth is not None else ()),
         *(
@@ -4386,10 +4445,14 @@ def _boundary_type_allowance_fact_record(
     source_records: Sequence[RawRecord] = (),
 ) -> RawRecord:
     data = record["data"]
-    opaque = allowance.container_depth is not None or (
-        not allowance.field_path and allowance.annotation in _OPAQUE_NATIVE_REASONS
+    opaque = (
+        allowance.native_mapping
+        or allowance.container_depth is not None
+        or (not allowance.field_path and allowance.annotation in _OPAQUE_NATIVE_REASONS)
     )
-    if allowance.literal_mapping_arm is not None:
+    if allowance.native_mapping:
+        allowance_scope = "native open mapping "
+    elif allowance.literal_mapping_arm is not None:
         allowance_scope = "literal mapping arm "
     elif allowance.container_depth is not None:
         allowance_scope = "opaque iterable element " if native_iterable else "opaque mapping value "

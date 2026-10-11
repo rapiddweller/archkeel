@@ -1,5 +1,9 @@
 # Archkeel 2.0.0 — Exact bound-alias permissions
 
+- **Exact open-map permissions.** Contract **3.3.0** permits explicit bare-map
+  decisions at exact DTO fields and registry parameters, and native object leaves
+  in exact compound literal map arms. Accepted values remain opaque; sibling
+  findings and UNKNOWNs remain.
 - **Bind an alias permission to its source and complete body.** `alias_body`
   records the exact `module:Alias` origin and proven body. The supported family is
   `tuple[tuple[str, list[object]] | tuple[str, list[object], Metadata], list[dict[str, object]]]`,

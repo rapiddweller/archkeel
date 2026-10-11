@@ -776,6 +776,7 @@ def boundary_permissions_payload(
         "container_depth",
         "mapping_depth",
         "literal_mapping_arm",
+        "native_mapping",
         "alias_body",
         "key_alias_body",
     )

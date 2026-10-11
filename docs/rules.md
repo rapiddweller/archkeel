@@ -122,6 +122,15 @@ findings and UNKNOWNs remain. Duplicate or aliased contributors, wrappers,
 fields and missing proof grant nothing. Do not combine it with depth or alias
 selectors. Absent fields preserve 3.1 behavior. See
 [AD-222](architecture/decisions/ad-222-literal-mapping-arms.md).
+Contract **3.3.0** permits a separate `container_depth` on a literal arm to
+accept only its uniquely proven builtin `object` value. Other equal object
+occurrences, unresolved arms and wrong depths grant nothing.
+`native_mapping: true` explicitly accepts unknown key/value schemas at an exact
+`dict`, `dict | None`, or `list[dict]` declaration. A DTO field requires its exact
+path and unique alias-free declaration; a root accepts only `dict` or `dict | None`.
+Other selectors cannot be combined with this flag. Facts retain accepted opacity,
+provenance and UNKNOWNs. These permissions require 3.3; absent grants preserve
+older behavior.
 See [boundary examples](../tests/test_boundary_types_facades.py) before choosing
 selectors. Aliases, inheritance, re-exports and unsupported forms require proof.
 

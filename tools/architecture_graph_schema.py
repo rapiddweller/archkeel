@@ -312,7 +312,11 @@ def member_inventory_schema() -> dict[str, object]:
 
 def _update_contract_schema(path: Path) -> None:
     schema = json.loads(path.read_bytes())
-    if schema["properties"]["schema_version"] in ({"const": "3.1.0"}, {"const": "3.2.0"}):
+    if schema["properties"]["schema_version"] in (
+        {"const": "3.1.0"},
+        {"const": "3.2.0"},
+        {"const": "3.3.0"},
+    ):
         selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
         selector["properties"]["key_alias_body"] = {
             "type": "object",
@@ -327,7 +331,7 @@ def _update_contract_schema(path: Path) -> None:
             "properties": {"field_path": {"const": ""}},
             "not": {"anyOf": [{"required": ["container_depth"]}, {"required": ["mapping_depth"]}]},
         }
-    if schema["properties"]["schema_version"] == {"const": "3.2.0"}:
+    if schema["properties"]["schema_version"] in ({"const": "3.2.0"}, {"const": "3.3.0"}):
         selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
         selector["properties"]["literal_mapping_arm"] = {"$ref": "#/$defs/nonEmpty"}
         selector["dependentSchemas"]["literal_mapping_arm"] = {
@@ -338,6 +342,37 @@ def _update_contract_schema(path: Path) -> None:
                     for name in ("container_depth", "mapping_depth", "alias_body", "key_alias_body")
                 ]
             },
+        }
+    if schema["properties"]["schema_version"] == {"const": "3.3.0"}:
+        selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
+        selector["properties"]["native_mapping"] = {"const": True}
+        selector["properties"]["annotation"] = {"$ref": "#/$defs/nonEmpty"}
+        selector["allOf"] = [
+            {
+                "if": {"required": ["native_mapping"]},
+                "else": {"properties": {"annotation": {"not": {"const": "dict"}}}},
+            }
+        ]
+        selector["dependentSchemas"]["native_mapping"] = {
+            "properties": {"annotation": {"enum": ["dict", "dict | None", "list[dict]"]}},
+            "not": {
+                "anyOf": [
+                    {"required": [name]}
+                    for name in (
+                        "container_depth",
+                        "mapping_depth",
+                        "alias_body",
+                        "key_alias_body",
+                        "literal_mapping_arm",
+                    )
+                ]
+            },
+        }
+        selector["dependentSchemas"]["literal_mapping_arm"]["not"] = {
+            "anyOf": [
+                {"required": [name]}
+                for name in ("mapping_depth", "alias_body", "key_alias_body", "native_mapping")
+            ]
         }
     schema["$defs"]["component"]["properties"]["layer"] = {
         "type": "string",
