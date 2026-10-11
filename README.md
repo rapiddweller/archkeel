@@ -1,4 +1,4 @@
-# Archkeel
+# ArchKeel
 
 **Architecture checks for coding agents.**
 
@@ -7,7 +7,7 @@
 [![PyPI](https://img.shields.io/pypi/v/archkeel)](https://pypi.org/project/archkeel/)
 [![MIT](https://img.shields.io/badge/license-MIT-C5F82A?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/LICENSE)
 
-Archkeel checks code against declared boundaries. It reports forbidden imports,
+ArchKeel checks code against declared boundaries. It reports forbidden imports,
 misplaced types and gaps in static analysis, with source evidence for review.
 
 Use it in your coding-agent harness or CI. Checks run locally and deterministically,
@@ -30,7 +30,7 @@ The gallery leads with three complete source projects: [Compass booking](https:/
 ## Start here
 
 Requires Python 3.11+ and a Git repository with at least one commit.
-Run Archkeel with a Python version that meets your project's requirements.
+Run ArchKeel with a Python version that meets your project's requirements.
 
 ```bash
 uv tool install archkeel
@@ -40,7 +40,7 @@ archkeel skill install codex    # or claude
 Then ask your coding agent:
 
 ```text
-Set up Archkeel for this repository. Read the architecture documents,
+Set up ArchKeel for this repository. Read the architecture documents,
 propose the boundaries, and let me decide which dependencies are allowed.
 ```
 
@@ -126,7 +126,7 @@ change that adds no forbidden import or cycle but makes a call harder to resolve
 ```
 
 `make demo` runs this fixture. Resolved calls drop from 2 of 2 to 0 of 1 while new finding
-fingerprints stay at zero; Archkeel rejects the candidate because unresolved calls increase
+fingerprints stay at zero; ArchKeel rejects the candidate because unresolved calls increase
 from 0 to 1.
 
 `check` compares the accepted and candidate commits, checks the contract, and verifies the
@@ -162,12 +162,12 @@ it performs no live approvals. More cases are in the [demo catalog](docs/archite
 
 ## Scope and limits
 
-Archkeel observes static source in configured roots. Python support covers imports, calls, and declared boundaries.
+ArchKeel observes static source in configured roots. Python support covers imports, calls, and declared boundaries.
 Dart records declarations, members, signatures and bounded source relationships through a
 Python-hosted Tree-sitter parser. Dart analysis needs no Dart SDK or setup command.
 TypeScript also records lexical UML declarations and statically bound relationships;
 ambiguous bindings and unsupported constructs remain UNKNOWN. TypeScript roots may name files or directories.
-Archkeel does not prove runtime behavior, performance, or the quality of every design decision.
+ArchKeel does not prove runtime behavior, performance, or the quality of every design decision.
 Separate test trees need their own scan and contract.
 
 Exit meanings are defined [per command](docs/reference.md#exit-codes).
@@ -186,7 +186,7 @@ make browser-install
 make report-browser OUTPUT=test-artifacts/report-browser
 ```
 
-Archkeel checks its own [architecture contract](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) using fresh
+ArchKeel checks its own [architecture contract](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) using fresh
 observations on every test run. See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).
 
 MIT © 2026 Rapiddweller Asia Co., Ltd. Maintained by [Alexander Kell](https://github.com/ake2l).

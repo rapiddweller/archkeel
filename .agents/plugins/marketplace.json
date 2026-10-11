@@ -1,6 +1,6 @@
 {
   "name": "archkeel",
-  "interface": { "displayName": "Archkeel" },
+  "interface": { "displayName": "ArchKeel" },
   "plugins": [{
     "name": "archkeel",
     "source": { "source": "local", "path": "./" },
