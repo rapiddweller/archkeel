@@ -84,7 +84,7 @@ expectations are n/a. Filtering and baseline display do not change canonical fac
 Exit 0 is not architecture approval. Exit 2 carries diagnostics with `kind`,
 `subject`, `unknown_claim` and `remedy`; inspected evidence may remain available.
 JSON null means unavailable/inapplicable; an empty list means measured empty.
-Pin CLI and [command schema](../schema/command-result.schema.json) together.
+Pin CLI and [command schema](../schema/command-result-7.0.schema.json) together.
 Ignore unknown result properties; required fields and enum meanings remain strict.
 Schema shape validation proves neither authenticity nor conformance.
 `report`/`check --output` also write `.report.html`/`.check.html` companions.
@@ -118,10 +118,17 @@ it also works with live reports and `--component`. Full JSON includes the select
 and `false`. `--only violations` queries full finding rows directly. Assignment findings
 name candidate `owners` (or `none`) and `remedy`. Observed imports never establish permission.
 
+Full JSON also includes `recorded_unknowns`: complete original UNKNOWN records,
+including IDs, references and nested data. This inventory stays global with
+`--component`; grouped projection uncertainty remains separate. `[]` means
+inspected empty, `null` means unavailable. Full output uses schema 2.0.0;
+compact stays 1.0.0 without this field. The published legacy schemas stay unchanged.
+
 Saved queries read recorded evidence without rescanning, verifying current files
 or writing artifacts. `--input` cannot combine with `--root`, `--config`,
 `--baseline` or `--output`. Unknown/ambiguous selectors exit 2.
-See the [projection schema](../schema/architecture-command.schema.json).
+See the [full schema](../schema/architecture-command-2.0.schema.json) and
+[legacy schema](../schema/architecture-command.schema.json).
 
 ## Narrowing a report
 

@@ -2281,7 +2281,7 @@ def _architecture_component_payload(
 
 def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
     envelope = architecture_command_envelope(result)
-    payload = _raw_object(asdict(replace(envelope, filtered_violations=())))
+    payload = _raw_object(asdict(replace(envelope, filtered_violations=(), recorded_unknowns=None)))
     if result.report_filter is not None:
         payload["report_filter"] = _report_filter_payload(result.report_filter)
     full_architecture = bool(result.report_filter and result.report_filter.full_architecture)
@@ -2332,6 +2332,11 @@ def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
     payload["filtered_violation_count"] = len(rows) if rows is not None else None
     payload["violation_details_included"] = full_architecture and rows is not None
     if full_architecture:
+        payload["recorded_unknowns"] = (
+            [_record_payload(record) for record in envelope.recorded_unknowns]
+            if envelope.recorded_unknowns is not None
+            else None
+        )
         if rows is None:
             payload["filtered_violations"] = None
         else:
@@ -2341,6 +2346,7 @@ def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
             ]
     else:
         del payload["filtered_violations"]
+        del payload["recorded_unknowns"]
     for name in ("baseline_path", "baseline_comparisons", "baseline_new", "baseline_resolved"):
         if payload[name] is None:
             del payload[name]

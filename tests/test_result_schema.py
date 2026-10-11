@@ -106,15 +106,24 @@ def _open_decision_results(root: Path, output: Path) -> dict[str, dict]:
     return payloads
 
 
-@pytest.fixture(scope="module")
-def validator() -> Draft202012Validator:
+def _validator(schema_name: str) -> Draft202012Validator:
     schemas = [json.loads(path.read_bytes()) for path in (ROOT / "schema").glob("*.json")]
     registry = Registry().with_resources(
         (schema["$id"], Resource.from_contents(schema)) for schema in schemas
     )
-    schema = json.loads((ROOT / "schema/command-result.schema.json").read_bytes())
+    schema = json.loads((ROOT / "schema" / schema_name).read_bytes())
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema, registry=registry)
+
+
+@pytest.fixture(scope="module")
+def validator() -> Draft202012Validator:
+    return _validator("command-result.schema.json")
+
+
+@pytest.fixture(scope="module")
+def current_validator() -> Draft202012Validator:
+    return _validator("command-result-7.0.schema.json")
 
 
 def test_command_coverage_distinguishes_unmeasured_from_mixed_call_counts(validator) -> None:

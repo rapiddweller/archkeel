@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 from conftest import SelfRun
-from test_result_schema import validator as validator
+from test_result_schema import current_validator as current_validator
 from test_target_graph import _nested_repository
 
 from archkeel.check.ports import ScanConfig
@@ -217,7 +217,9 @@ def _repository(tmp_path, *, closed=True):
     return root, ScanConfig(("sample",), "sample", "architecture-contract.json", "0" * 64)
 
 
-def test_real_cli_answers_intent_permission_ownership_and_finding(tmp_path, capsys, validator):
+def test_real_cli_answers_intent_permission_ownership_and_finding(
+    tmp_path, capsys, current_validator
+):
     root, _ = _repository(tmp_path)
     assert (
         main(
@@ -236,7 +238,7 @@ def test_real_cli_answers_intent_permission_ownership_and_finding(tmp_path, caps
         == 0
     )
     payload = json.loads(capsys.readouterr().out)
-    assert payload["schema_version"] == "1.0.0"
+    assert payload["schema_version"] == "2.0.0"
     view = payload["architecture_projection"]
     core = next(item for item in view["components"] if item["id"] == "CORE")
     assert core["path"] == "sample/core.py"
@@ -270,7 +272,7 @@ def test_real_cli_answers_intent_permission_ownership_and_finding(tmp_path, caps
     assert violation["locations"] == [{"path": "sample/core.py", "line": 2}]
     assert view["violation_remedy"] == "Change the code or amend the contract with owner approval."
     assert payload["declared_rules"] == "FAIL"
-    assert not list(validator.iter_errors(payload))
+    assert not list(current_validator.iter_errors(payload))
 
 
 def test_open_permission_does_not_become_allowed_from_observed_use(tmp_path):
@@ -758,7 +760,7 @@ def test_required_target_relationships_are_distinct_from_permission_and_usage(tm
 
 @pytest.mark.parametrize("implemented", [False, True])
 def test_native_parent_slice_retains_descendant_wiring_and_summaries(
-    tmp_path, capsys, validator, implemented
+    tmp_path, capsys, current_validator, implemented
 ):
     root, config = _nested_repository(tmp_path)
     (root / "archkeel.toml").write_text(
@@ -881,7 +883,7 @@ def test_native_parent_slice_retains_descendant_wiring_and_summaries(
         assert selected.architecture_projection.unknowns == full.architecture_projection.unknowns
         assert selected.declared_rules == full.declared_rules and selected.coverage == full.coverage
         assert view["unknowns"] == whole["unknowns"]
-        assert not list(validator.iter_errors(wire))
+        assert not list(current_validator.iter_errors(wire))
 
 
 def test_symbol_finding_is_attached_to_its_component_without_changing_id_or_location(tmp_path):
@@ -947,7 +949,7 @@ def test_namespace_abbreviation_reconstructs_the_exact_identity(selector):
 
 
 def test_compact_required_relationships_restore_exact_ids_names_and_core_results(
-    tmp_path, validator
+    tmp_path, current_validator
 ):
     root, config = _nested_repository(tmp_path)
     result, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
@@ -979,7 +981,7 @@ def test_compact_required_relationships_restore_exact_ids_names_and_core_results
             original.status,
             original.reasons,
         )
-    assert not list(validator.iter_errors(payload))
+    assert not list(current_validator.iter_errors(payload))
 
 
 def test_full_components_restore_api_modules_and_all_permission_deciders(tmp_path):
@@ -1244,7 +1246,7 @@ def test_native_allowed_declaration_cannot_bypass_complete_requires(tmp_path, ca
 
 @pytest.mark.parametrize("observed_violation", [False, True])
 def test_native_nested_slice_retains_governing_ancestor_policy_without_findings(
-    tmp_path, observed_violation, validator
+    tmp_path, observed_violation, current_validator
 ):
     root, config = _repository(tmp_path)
     path = root / config.contract
@@ -1291,12 +1293,12 @@ def test_native_nested_slice_retains_governing_ancestor_policy_without_findings(
     assert selected.declared_rules == full.declared_rules
     assert view["unknowns"] == json.loads(result_bytes(full))["architecture_projection"]["unknowns"]
     assert selected.coverage == full.coverage
-    assert not list(validator.iter_errors(wire))
+    assert not list(current_validator.iter_errors(wire))
 
 
 @pytest.mark.parametrize("type_only", [False, True])
 def test_native_parent_slice_retains_descendant_policy_and_endpoint_context(
-    tmp_path, capsys, validator, type_only
+    tmp_path, capsys, current_validator, type_only
 ):
     root, config = _repository(tmp_path)
     path = root / config.contract
@@ -1415,7 +1417,7 @@ def test_native_parent_slice_retains_descendant_policy_and_endpoint_context(
     assert selected.architecture_projection.source == full.architecture_projection.source
     assert selected.architecture_projection.unknowns == full.architecture_projection.unknowns
     assert view["unknowns"] == json.loads(result_bytes(full))["architecture_projection"]["unknowns"]
-    assert not list(validator.iter_errors(wire))
+    assert not list(current_validator.iter_errors(wire))
 
 
 def test_native_id_scope_collision_is_diagnosed_instead_of_selecting_first(tmp_path, capsys):
@@ -1638,7 +1640,7 @@ def _policy_row(view, identity="RESTRICT"):
 @pytest.mark.parametrize("kind", _POLICY_KINDS)
 @pytest.mark.parametrize("nested", [False, True])
 def test_native_governing_policy_survives_before_and_after_violation(
-    tmp_path, capsys, validator, kind, nested
+    tmp_path, capsys, current_validator, kind, nested
 ):
     root, config, target = _policy_repository(tmp_path, kind)
     selector = "core"
@@ -1740,7 +1742,7 @@ def test_native_governing_policy_survives_before_and_after_violation(
         elif kind == "no_component_cycles":
             assert row["declaration"]["data"]["components"] == ["core"]
             assert row["assessment"]["scope"] == native.scope
-        assert not list(validator.iter_errors(wire))
+        assert not list(current_validator.iter_errors(wire))
 
 
 @pytest.mark.parametrize("kind", ["sibling_isolation", "interface_boundary"])
