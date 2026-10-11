@@ -359,3 +359,30 @@ def test_native_dto_value_survives_ordinary_cli_and_report(
     else:
         assert len(findings) == 2 and facts == []
         assert any(r.data.get("container_depth") == 2 for r in findings)
+
+
+@pytest.mark.parametrize("schema_version", ["3.1.0", "3.2.0"])
+@pytest.mark.parametrize("depth", [2, 1, 3], ids=["exact", "too-shallow", "too-deep"])
+def test_outer_nullable_dto_native_value_keeps_exact_depth_and_unknown(
+    tmp_path: Path, schema_version: str, depth: int
+) -> None:
+    _fixture(tmp_path, signature="Envelope | None", depth=depth)
+    contract_path = tmp_path / "contract.json"
+    contract = json.loads(contract_path.read_text())
+    contract["schema_version"] = schema_version
+    contract_path.write_text(json.dumps(contract))
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    facts = _opacity_facts(result)
+    assert len(facts) == (1 if depth == 2 else 0)
+    findings = trace_valid_violations(result.observation)
+    assert any(r.data.get("path") == "return.result.control" for r in findings)
+    assert any(
+        r.kind == "boundary_type_position" and r.data.get("path") == "return.result.uncertain"
+        for r in result.observation.records("unknowns") or ()
+    )
+    payload = [r for r in findings if r.data.get("path") == "return.result.payload"]
+    assert len(payload) == (0 if depth == 2 else 1)
+    if payload:
+        assert payload[0].data.get("nested_annotation") == "object"
+        assert payload[0].data.get("container_depth") == 2

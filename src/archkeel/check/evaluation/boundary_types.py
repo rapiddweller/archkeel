@@ -4000,11 +4000,7 @@ def _boundary_type_allowance_fact(
             if not _literal_mapping_arm_allowance_matches(allowance, data, verdict):
                 continue
             return _boundary_type_allowance_fact_record(
-                rule,
-                facade_module,
-                record,
-                allowance,
-                True,
+                rule, facade_module, record, allowance, True
             )
         typed = verdict.typed_mapping_union
         if typed is not None:
@@ -4021,7 +4017,9 @@ def _boundary_type_allowance_fact(
                 source_records=_bound_alias_source_records(typed, source_symbols, source_imports),
             )
         if allowance.key_alias_body is not None or (
-            verdict.typed_union_checked and not verdict.mapping_alternatives
+            not allowance.field_path
+            and verdict.typed_union_checked
+            and not verdict.mapping_alternatives
         ):
             continue
         if allowance.alias_body is not None:
