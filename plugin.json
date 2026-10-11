@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "archkeel",
   "version": "2.0.0",
-  "description": "Declare architecture boundaries and check coding-agent changes with Archkeel.",
+  "description": "Architecture checks for coding agents",
   "author": { "name": "Rapiddweller Asia Co., Ltd.", "email": "info@rapiddweller.com" },
   "homepage": "https://archkeel.com",
   "repository": "https://github.com/rapiddweller/archkeel",
@@ -10,9 +10,9 @@
   "extensions": {
     "com.openai": {
       "interface": {
-        "displayName": "Archkeel",
-        "shortDescription": "Check architecture boundaries",
-        "longDescription": "Use the Archkeel CLI to inspect a repository, review architecture contracts, and check coding-agent changes. Python static analysis and Dart/TypeScript import graphs have explicit limits; missing evidence remains UNKNOWN. Install the CLI separately; its Python package includes all three language collectors.",
+        "displayName": "ArchKeel",
+        "shortDescription": "Architecture checks for agents",
+        "longDescription": "Use the ArchKeel CLI to inspect a repository, review architecture contracts, and check coding-agent changes. Python static analysis and Dart/TypeScript import graphs have explicit limits; missing evidence remains UNKNOWN. Install the CLI separately; its Python package includes all three language collectors.",
         "developerName": "Rapiddweller",
         "category": "Developer Tools",
         "capabilities": ["Read", "Write"],
@@ -20,7 +20,7 @@
         "supportURL": "https://rapiddweller.com/contact/",
         "privacyPolicyURL": "https://rapiddweller.com/privacy-policy/",
         "termsOfServiceURL": "https://github.com/rapiddweller/archkeel/blob/main/LICENSE",
-        "defaultPrompt": ["Use Archkeel to review architecture boundaries in this repository."],
+        "defaultPrompt": ["Use ArchKeel to review architecture boundaries in this repository."],
         "composerIcon": "./assets/archkeel-mark.svg",
         "logo": "./assets/archkeel-mark.svg",
         "brandColor": "#7FA51A"
