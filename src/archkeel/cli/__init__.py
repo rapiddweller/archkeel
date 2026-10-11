@@ -168,7 +168,7 @@ def build_parser() -> _Parser:
     report.add_argument(
         "--full",
         action="store_true",
-        help="With --only architecture, include every projection and violation detail row in JSON.",
+        help="With --only architecture, include projection, violations and UNKNOWN records.",
     )
     report.add_argument(
         "--rule",

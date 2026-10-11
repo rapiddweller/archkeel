@@ -13,7 +13,7 @@ from test_boundary_type_allowances import _ALLOWANCE, _observe_app
 from test_dart_profile import _committed, _component
 from test_exact_type_ignore import RULE as TYPE_IGNORE_RULE
 from test_exact_type_ignore import SOURCE as TYPE_IGNORE_SOURCE
-from test_result_schema import validator as validator
+from test_result_schema import current_validator as current_validator
 from test_target_graph import _nested_repository
 from test_typescript_onboarding import arguments, repository
 
@@ -25,7 +25,7 @@ from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, re
 
 @pytest.mark.parametrize("selector", [None, "CORE", "store"])
 def test_saved_architecture_query_matches_live_bytes_without_repository(
-    tmp_path, monkeypatch, capsys, selector, validator
+    tmp_path, monkeypatch, capsys, selector, current_validator
 ):
     root, config = _repository(tmp_path)
     live, packet = run_report(
@@ -56,7 +56,7 @@ def test_saved_architecture_query_matches_live_bytes_without_repository(
     assert list(query_root.iterdir()) == []
     assert sorted(path.name for path in tmp_path.iterdir()) == ["architecture.json", "query"]
     payload = json.loads(outputs[0])
-    assert not list(validator.iter_errors(payload))
+    assert not list(current_validator.iter_errors(payload))
     assert payload["coverage"]["files_discovered"] == 5
     assert payload["declared_rules"] == "FAIL"
     assert bool(payload["filtered_violations"]) is (selector != "store")

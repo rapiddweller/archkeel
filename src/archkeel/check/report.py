@@ -543,6 +543,11 @@ def _report_result(
                 violations_by_rule=counted.by_rule,
                 violations_by_component_pair=counted.by_component_pair,
                 report_filter=report_filter,
+                observation=model
+                if report_filter
+                and report_filter.only_architecture
+                and report_filter.full_architecture
+                else None,
                 filtered_violations=filtered_violations,
                 filtered_calls=filtered_calls,
                 rule_assessments=assessments,
@@ -551,10 +556,7 @@ def _report_result(
             )
     if model is not None:
         command_result = _architecture_result(
-            model,
-            command_result,
-            report_filter,
-            require_source_graph=require_source_graph,
+            model, command_result, report_filter, require_source_graph=require_source_graph
         )
     return command_result
 

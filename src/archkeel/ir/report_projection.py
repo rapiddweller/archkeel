@@ -1084,11 +1084,12 @@ class ArchitectureCommandEnvelope:
     filtered_violations: tuple[FilteredViolation, ...]
     command: Literal["report"] = "report"
     expectation_fulfilled: Literal["n/a"] = "n/a"
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "2.0.0"] = "1.0.0"
     baseline_path: str | None = None
     baseline_comparisons: tuple[BaselineViolationComparison, ...] | None = None
     baseline_new: int | None = None
     baseline_resolved: int | None = None
+    recorded_unknowns: tuple[Record, ...] | None = None
 
 
 def short_selector(value: str, prefix: str | None) -> str:
@@ -1257,6 +1258,12 @@ def architecture_command_envelope(result: RunResult) -> ArchitectureCommandEnvel
         result.report_filter,
         view,
         violations,
+        schema_version="2.0.0"
+        if result.report_filter and result.report_filter.full_architecture
+        else "1.0.0",
+        recorded_unknowns=result.observation.records("unknowns")
+        if result.observation is not None
+        else None,
         baseline_path=result.baseline_path,
         baseline_comparisons=result.baseline_comparisons,
         baseline_new=result.baseline_new,

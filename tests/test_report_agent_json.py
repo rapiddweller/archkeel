@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from test_architecture_demo import _prepare_repo
 from test_report_filter import CONFIG
-from test_result_schema import validator as validator
+from test_result_schema import current_validator as current_validator
 from test_target_graph import _nested_repository
 
 from archkeel.check.report import run_report
@@ -41,7 +41,7 @@ def _root(tmp_path: Path, variant_id: str) -> Path:
 
 
 def test_architecture_json_is_compact_by_default_and_full_query_restores_details(
-    tmp_path, validator
+    tmp_path, current_validator
 ):
     root = _root(tmp_path, "tour")
     compact, _ = run_report(root, config=CONFIG, analyzer=observe, only_architecture=True)
@@ -63,7 +63,7 @@ def test_architecture_json_is_compact_by_default_and_full_query_restores_details
     assert compact_payload["violation_details_included"] is False
     contradictory_compact = copy.deepcopy(compact_payload)
     contradictory_compact["violation_details_included"] = True
-    assert list(validator.iter_errors(contradictory_compact))
+    assert list(current_validator.iter_errors(contradictory_compact))
     assert all("finding_count" in component for component in compact_projection["components"])
     assert full_projection["permission_rules"]
     assert "policy_context" in full_projection
@@ -78,14 +78,14 @@ def test_architecture_json_is_compact_by_default_and_full_query_restores_details
     assert full_payload["violation_details_included"] is True
     contradictory_full = copy.deepcopy(full_payload)
     contradictory_full["violation_details_included"] = False
-    assert list(validator.iter_errors(contradictory_full))
+    assert list(current_validator.iter_errors(contradictory_full))
     assert compact_payload["declared_rules"] == full_payload["declared_rules"]
     assert compact.exit_code == complete.exit_code
-    assert not list(validator.iter_errors(compact_payload))
-    assert not list(validator.iter_errors(full_payload))
+    assert not list(current_validator.iter_errors(compact_payload))
+    assert not list(current_validator.iter_errors(full_payload))
 
 
-def test_architecture_json_reports_selected_scope_violation_count(tmp_path, validator):
+def test_architecture_json_reports_selected_scope_violation_count(tmp_path, current_validator):
     root = _root(tmp_path, "tour")
     scoped_full, _ = run_report(
         root,
@@ -108,14 +108,16 @@ def test_architecture_json_reports_selected_scope_violation_count(tmp_path, vali
     assert payload["filtered_violation_count"] != global_count
     assert payload["violation_details_included"] is False
     assert payload["declared_rules"] == "FAIL"
-    assert not list(validator.iter_errors(payload))
+    assert not list(current_validator.iter_errors(payload))
     assert len(full_payload["filtered_violations"]) == len(scoped_full.filtered_violations or ())
     assert full_payload["filtered_violation_count"] == len(scoped_full.filtered_violations or ())
     assert full_payload["violation_details_included"] is True
-    assert not list(validator.iter_errors(full_payload))
+    assert not list(current_validator.iter_errors(full_payload))
 
 
-def test_architecture_json_full_empty_and_unavailable_details_are_distinct(tmp_path, validator):
+def test_architecture_json_full_empty_and_unavailable_details_are_distinct(
+    tmp_path, current_validator
+):
     root = _root(tmp_path, "clean")
     measured, _ = run_report(
         root,
@@ -129,10 +131,10 @@ def test_architecture_json_full_empty_and_unavailable_details_are_distinct(tmp_p
     assert measured_payload["filtered_violations"] == []
     assert measured_payload["filtered_violation_count"] == 0
     assert measured_payload["violation_details_included"] is True
-    assert not list(validator.iter_errors(measured_payload))
+    assert not list(current_validator.iter_errors(measured_payload))
     contradictory_empty = copy.deepcopy(measured_payload)
     contradictory_empty["violation_details_included"] = False
-    assert list(validator.iter_errors(contradictory_empty))
+    assert list(current_validator.iter_errors(contradictory_empty))
     compact_measured, _ = run_report(root, config=CONFIG, analyzer=observe, only_architecture=True)
     compact_measured_payload = result_payload(compact_measured)
     assert "filtered_violations" not in compact_measured_payload
@@ -140,8 +142,8 @@ def test_architecture_json_full_empty_and_unavailable_details_are_distinct(tmp_p
     assert compact_measured_payload["violation_details_included"] is False
     leaked_details = copy.deepcopy(compact_measured_payload)
     leaked_details["filtered_violations"] = []
-    assert list(validator.iter_errors(leaked_details))
-    assert not list(validator.iter_errors(compact_measured_payload))
+    assert list(current_validator.iter_errors(leaked_details))
+    assert not list(current_validator.iter_errors(compact_measured_payload))
 
     broken_root = _root(tmp_path / "broken", "class-a-forbidden-dependency-pair")
     (broken_root / "shop/app/broken.py").write_text("def broken(:\n")
@@ -157,10 +159,10 @@ def test_architecture_json_full_empty_and_unavailable_details_are_distinct(tmp_p
     assert unavailable_payload["filtered_violations"] is None
     assert unavailable_payload["filtered_violation_count"] is None
     assert unavailable_payload["violation_details_included"] is False
-    assert not list(validator.iter_errors(unavailable_payload))
+    assert not list(current_validator.iter_errors(unavailable_payload))
     contradictory_unavailable = copy.deepcopy(unavailable_payload)
     contradictory_unavailable["violation_details_included"] = True
-    assert list(validator.iter_errors(contradictory_unavailable))
+    assert list(current_validator.iter_errors(contradictory_unavailable))
     compact_unavailable, _ = run_report(
         broken_root, config=CONFIG, analyzer=observe, only_architecture=True
     )
@@ -168,10 +170,10 @@ def test_architecture_json_full_empty_and_unavailable_details_are_distinct(tmp_p
     assert "filtered_violations" not in compact_unavailable_payload
     assert compact_unavailable_payload["filtered_violation_count"] is None
     assert compact_unavailable_payload["violation_details_included"] is False
-    assert not list(validator.iter_errors(compact_unavailable_payload))
+    assert not list(current_validator.iter_errors(compact_unavailable_payload))
 
 
-def test_nested_architecture_json_compact_and_full_schema_variants(tmp_path, validator):
+def test_nested_architecture_json_compact_and_full_schema_variants(tmp_path, current_validator):
     root, config = _nested_repository(tmp_path)
     compact, _ = run_report(root, config=config, analyzer=observe, only_architecture=True)
     full, _ = run_report(
@@ -189,8 +191,8 @@ def test_nested_architecture_json_compact_and_full_schema_variants(tmp_path, val
     assert all("finding_count" in item for item in compact_components)
     assert all("path" not in item and "provenance" not in item for item in nested)
     assert "permission_rules" not in compact_payload["architecture_projection"]
-    assert not list(validator.iter_errors(compact_payload))
-    assert not list(validator.iter_errors(full_payload))
+    assert not list(current_validator.iter_errors(compact_payload))
+    assert not list(current_validator.iter_errors(full_payload))
     assert all(
         {"path", "provenance", "packages", "not_responsible_for"} <= item.keys()
         for item in full_payload["architecture_projection"]["components"]
@@ -202,10 +204,12 @@ def test_nested_architecture_json_compact_and_full_schema_variants(tmp_path, val
         if item.get("parent_id") is not None
     )
     del nested_full["path"]
-    assert list(validator.iter_errors(incomplete_full))
+    assert list(current_validator.iter_errors(incomplete_full))
 
 
-def test_complete_assignment_json_names_owner_candidates_and_remedy(tmp_path, capsys, validator):
+def test_complete_assignment_json_names_owner_candidates_and_remedy(
+    tmp_path, capsys, current_validator
+):
     root = _root(tmp_path, "clean")
     contract_path = root / "architecture-contract.json"
     contract = json.loads(contract_path.read_bytes())
@@ -232,7 +236,7 @@ def test_complete_assignment_json_names_owner_candidates_and_remedy(tmp_path, ca
     assert set(unowned_violation["owners"]) == expected_owners
     assert unowned_violation["remedy"]
     assert len(json.dumps(unowned_violation, separators=(",", ":")).encode()) <= 5 * 1024
-    assert not list(validator.iter_errors(payload))
+    assert not list(current_validator.iter_errors(payload))
 
     assert (
         main(
@@ -255,10 +259,10 @@ def test_complete_assignment_json_names_owner_candidates_and_remedy(tmp_path, ca
     assert set(focused_violation["owners"]) == expected_owners
     assert focused_violation["remedy"] == unowned_violation["remedy"]
     assert len(json.dumps(focused, separators=(",", ":")).encode()) <= 5000
-    assert not list(validator.iter_errors(focused))
+    assert not list(current_validator.iter_errors(focused))
 
 
-def test_filtered_assignment_names_each_claiming_owner(tmp_path, capsys, validator):
+def test_filtered_assignment_names_each_claiming_owner(tmp_path, capsys, current_validator):
     from test_module_explore import _sample
 
     from archkeel.ir.codec import canonical_report_bytes
@@ -300,18 +304,18 @@ def test_filtered_assignment_names_each_claiming_owner(tmp_path, capsys, validat
     (violation,) = payload["filtered_violations"]
     assert set(violation["owners"]) == {"core", "overlap"}
     assert violation["remedy"]
-    assert not list(validator.iter_errors(payload))
+    assert not list(current_validator.iter_errors(payload))
     assert len(json.dumps(payload, separators=(",", ":")).encode()) <= 5000
 
 
-def test_cli_filtered_violation_opens_the_recorded_source_line(tmp_path, capsys, validator):
+def test_cli_filtered_violation_opens_the_recorded_source_line(tmp_path, capsys, current_validator):
     root = _root(tmp_path, "class-a-forbidden-dependency-pair")
     assert main(["report", "--root", str(root), "--only", "violations", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     (violation,) = payload["filtered_violations"]
     assert violation["rule_ids"] == ["DEP-RENDER-NO-STORE"]
     assert violation["locations"] == [{"path": "shop/render/text.py", "line": 9}]
-    assert not list(validator.iter_errors(payload))
+    assert not list(current_validator.iter_errors(payload))
 
 
 @pytest.mark.parametrize("variant_id", ["class-a-forbidden-dependency-pair", "tour"])
@@ -371,7 +375,9 @@ def test_locations_match_html_recorded_evidence_without_changing_observation(
         "mixed",
     ],
 )
-def test_only_violations_keeps_fail_and_unknown_assessments(tmp_path, validator, variant_id):
+def test_only_violations_keeps_fail_and_unknown_assessments(
+    tmp_path, current_validator, variant_id
+):
     root = _root(tmp_path, variant_id)
     full, _ = run_report(root, config=CONFIG, analyzer=observe)
     filtered, _ = run_report(root, config=CONFIG, analyzer=observe, only_violations=True)
@@ -383,8 +389,8 @@ def test_only_violations_keeps_fail_and_unknown_assessments(tmp_path, validator,
         assert {item.status for item in filtered.rule_assessments} == {"FAIL", "UNKNOWN"}
     assert full.measurements == filtered.measurements
     assert full.declared_rules == filtered.declared_rules
-    assert not list(validator.iter_errors(result_payload(full)))
-    assert not list(validator.iter_errors(result_payload(filtered)))
+    assert not list(current_validator.iter_errors(result_payload(full)))
+    assert not list(current_validator.iter_errors(result_payload(filtered)))
 
 
 def test_passing_assessment_rows_account_for_filtered_output_reduction(tmp_path):
@@ -407,7 +413,7 @@ def test_passing_assessment_rows_account_for_filtered_output_reduction(tmp_path)
 
 @pytest.mark.parametrize("file_only", [False, True])
 def test_locations_never_guess_a_source_line_without_recorded_evidence(
-    tmp_path, file_only, validator
+    tmp_path, file_only, current_validator
 ):
     root = _root(tmp_path, "class-a-forbidden-dependency-pair")
     _, architecture = run_report(root, config=CONFIG, analyzer=observe)
@@ -450,7 +456,7 @@ def test_locations_never_guess_a_source_line_without_recorded_evidence(
     assert payload["filtered_violations"][0]["locations"] == (
         [{"path": "shop/render/text.py", "line": 0}] if file_only else []
     )
-    assert not list(validator.iter_errors(payload))
+    assert not list(current_validator.iter_errors(payload))
 
 
 @pytest.mark.parametrize(
@@ -465,27 +471,31 @@ def test_locations_never_guess_a_source_line_without_recorded_evidence(
         {"path": "x.py", "line": 9, "guess": True},
     ],
 )
-def test_result_schema_rejects_malformed_locations(tmp_path, validator, location):
+def test_result_schema_rejects_malformed_locations(tmp_path, current_validator, location):
     root = _root(tmp_path, "class-a-forbidden-dependency-pair")
     result, _ = run_report(root, config=CONFIG, analyzer=observe, only_violations=True)
     payload = copy.deepcopy(result_payload(result))
     payload["filtered_violations"][0]["locations"] = [location]
-    assert not validator.is_valid(payload)
+    assert not current_validator.is_valid(payload)
 
 
-def test_result_schema_requires_locations_and_filtered_assessment_statuses(tmp_path, validator):
+def test_result_schema_requires_locations_and_filtered_assessment_statuses(
+    tmp_path, current_validator
+):
     root = _root(tmp_path, "class-a-forbidden-dependency-pair")
     full, _ = run_report(root, config=CONFIG, analyzer=observe)
     result, _ = run_report(root, config=CONFIG, analyzer=observe, only_violations=True)
     payload = result_payload(result)
     del payload["filtered_violations"][0]["locations"]
-    assert not validator.is_valid(payload)
+    assert not current_validator.is_valid(payload)
     payload = result_payload(result)
     payload["rule_assessments"] = result_payload(full)["rule_assessments"]
-    assert not validator.is_valid(payload)
+    assert not current_validator.is_valid(payload)
 
 
-def test_incomplete_observation_keeps_unknown_assessments_when_filtered(tmp_path, validator):
+def test_incomplete_observation_keeps_unknown_assessments_when_filtered(
+    tmp_path, current_validator
+):
     root = _root(tmp_path, "class-a-forbidden-dependency-pair")
     (root / "shop/app/broken.py").write_text("def broken(:\n")
     full, _ = run_report(root, config=CONFIG, analyzer=observe)
@@ -497,8 +507,8 @@ def test_incomplete_observation_keeps_unknown_assessments_when_filtered(tmp_path
     assert any(item.status == "UNKNOWN" for item in filtered.rule_assessments)
     assert full.exit_code == filtered.exit_code == 2
     assert full.measurements == filtered.measurements is None
-    assert not list(validator.iter_errors(result_payload(full)))
-    assert not list(validator.iter_errors(result_payload(filtered)))
+    assert not list(current_validator.iter_errors(result_payload(full)))
+    assert not list(current_validator.iter_errors(result_payload(filtered)))
 
 
 def test_filter_preserves_resolved_baseline_comparisons_after_dropping_pass_rows(tmp_path):
@@ -520,7 +530,7 @@ def test_filter_preserves_resolved_baseline_comparisons_after_dropping_pass_rows
     assert filtered.baseline_comparisons[0].status == "resolved"
 
 
-def test_dangling_source_evidence_still_fails_closed(tmp_path, validator):
+def test_dangling_source_evidence_still_fails_closed(tmp_path, current_validator):
     root = _root(tmp_path, "class-a-forbidden-dependency-pair")
 
     def analyzer(*args, **kwargs):
@@ -533,12 +543,14 @@ def test_dangling_source_evidence_still_fails_closed(tmp_path, validator):
     assert filtered.exit_code == 2
     assert filtered.filtered_violations is None
     assert filtered.declared_rules == "UNKNOWN"
-    assert not list(validator.iter_errors(result_payload(filtered)))
+    assert not list(current_validator.iter_errors(result_payload(filtered)))
 
 
 @pytest.mark.parametrize("facet", [{"only_violations": True}, {"only_calls": True}])
 @pytest.mark.parametrize("failure", ["parse", "dangling_evidence"])
-def test_failed_filtered_report_keeps_unmeasured_rows_null(tmp_path, validator, facet, failure):
+def test_failed_filtered_report_keeps_unmeasured_rows_null(
+    tmp_path, current_validator, facet, failure
+):
     root = _root(tmp_path, "class-a-forbidden-dependency-pair")
     if failure == "parse":
         (root / "shop/app/broken.py").write_text("def broken(:\n")
@@ -555,4 +567,4 @@ def test_failed_filtered_report_keeps_unmeasured_rows_null(tmp_path, validator, 
     payload = result_payload(result)
     assert result.exit_code == 2 and result.observation_complete == "UNKNOWN"
     assert payload["filtered_calls"] is None and payload["filtered_violations"] is None
-    assert not list(validator.iter_errors(payload))
+    assert not list(current_validator.iter_errors(payload))

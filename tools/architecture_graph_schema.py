@@ -167,6 +167,7 @@ def command_schema() -> dict[str, object]:
     schema = _schema(
         ArchitectureCommandEnvelope, "architecture-command", "Focused architecture command"
     )
+    schema["$id"] = "urn:archkeel:architecture-command:2.0.0"
     schema["$comment"] = (
         "Default fields may be omitted. Selector names starting with dot or colon (or empty) "
         "are relative to selector_prefix, falling back to namespace. Public/planned group "
@@ -221,6 +222,17 @@ def command_schema() -> dict[str, object]:
     envelope_required = definitions_envelope["required"]
     if not isinstance(envelope_properties, dict) or not isinstance(envelope_required, list):
         raise TypeError("generated command schema has invalid envelope fields")
+    envelope_properties["schema_version"] = {"const": "2.0.0"}
+    envelope_properties["report_filter"] = {
+        "allOf": [
+            envelope_properties["report_filter"],
+            {
+                "type": "object",
+                "properties": {"full_architecture": {"const": True}},
+                "required": ["full_architecture"],
+            },
+        ]
+    }
     envelope_properties["filtered_violation_count"] = {
         "anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]
     }
@@ -234,10 +246,24 @@ def command_schema() -> dict[str, object]:
             {"type": "null"},
         ]
     }
+    envelope_properties["recorded_unknowns"] = {
+        "anyOf": [
+            {
+                "type": "array",
+                "items": {
+                    "allOf": [
+                        {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"},
+                        {"properties": {"evidence_class": {"const": "UNKNOWN"}}},
+                    ]
+                },
+            },
+            {"type": "null"},
+        ]
+    }
     envelope_required[:] = [name for name in envelope_required if name != "filtered_violations"]
     envelope_required.extend(
         name
-        for name in ("filtered_violation_count", "violation_details_included")
+        for name in ("filtered_violation_count", "violation_details_included", "recorded_unknowns")
         if name not in envelope_required
     )
     definitions_envelope["allOf"] = [
@@ -293,7 +319,12 @@ def command_schema() -> dict[str, object]:
                 ],
             },
             "else": {
-                "not": {"required": ["filtered_violations"]},
+                "not": {
+                    "anyOf": [
+                        {"required": ["filtered_violations"]},
+                        {"required": ["recorded_unknowns"]},
+                    ]
+                },
                 "properties": {"violation_details_included": {"const": False}},
             },
         }

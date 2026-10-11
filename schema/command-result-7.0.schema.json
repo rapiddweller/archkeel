@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:command-result:7.0.0",
+  "title": "Archkeel command JSON results",
+  "$comment": "AD-138. Accept unchanged legacy commands or full architecture evidence version 2.0.0. Register all bundled schemas by $id for offline validation.",
+  "anyOf": [
+    {"$ref": "urn:archkeel:command-result:6.0.0"},
+    {"$ref": "urn:archkeel:architecture-command:2.0.0"}
+  ]
+}
