@@ -109,15 +109,23 @@ def test_unavailable_builtin_cannot_gain_native_permission(tmp_path, kind, selec
     assert not any(r.kind == "boundary_type_allowance" for r in after.records("typing_signals"))
 
 
-def test_exact_literal_arm_object_leaf_keeps_recursive_and_other_findings(tmp_path):
+def test_exact_literal_arm_object_leaf_keeps_recursive_unknown_and_other_findings(tmp_path):
     before = fixture(tmp_path, "compound", [ARM_SELECTOR])
     after = fixture(tmp_path, "compound", [ARM_SELECTOR, {**ARM_SELECTOR, "container_depth": 2}])
     old = trace_valid_violations(before)
     new = trace_valid_violations(after)
-    assert len(old) == 4 and len(new) == 3
+    assert len(old) == 3 and len(new) == 2
     assert all(r in old for r in new)
     assert [r.data.get("nested_annotation") for r in old if r not in new] == ["object"]
     assert before.records("unknowns") == after.records("unknowns")
+    assert any(
+        r.kind == "boundary_type_position"
+        and r.data.get("qualified_name") == Q
+        and r.data.get("position") == "return"
+        and r.data.get("reason") == "other"
+        for r in after.records("unknowns")
+    )
+    assert not any(r.data.get("nested_annotation") == "dict[str, 'JsonValue']" for r in old)
     facts = [r for r in after.records("typing_signals") if r.kind == "boundary_type_allowance"]
     assert len(facts) == 2
     leaf = next(r for r in facts if r.data.get("accepted_opacity"))

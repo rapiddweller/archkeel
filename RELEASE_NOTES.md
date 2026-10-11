@@ -1,5 +1,9 @@
 # ArchKeel 2.0.0 — Exact bound-alias permissions
 
+- **Truthful alias confidence.** Unproven alias bodies remain UNKNOWN and cannot
+  establish findings or grants. Independent literal findings remain. Self UNKNOWN
+  baseline increases by exactly 12 existing positions, without extra headroom.
+
 - **Exact open-map permissions.** Contract **3.3.0** permits explicit bare-map
   decisions at exact DTO fields and registry parameters, and native object leaves
   in exact compound literal map arms. Accepted values remain opaque; sibling

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from itertools import permutations
 from pathlib import Path
 
 import pytest
@@ -1132,3 +1133,95 @@ def test_ordinary_nullable_map_cannot_bypass_union_or_binding_proof(
     assert before.observation is not None and before.diagnostics == ()
     assert trace_valid_violations(after.observation) == trace_valid_violations(before.observation)
     assert after.observation.records("unknowns") == before.observation.records("unknowns")
+
+
+@pytest.mark.parametrize("alias_module", [False, True])
+@pytest.mark.parametrize(
+    "suffix", ["Packet.__args__ = ()\n", "unknown(Packet)\n", "unknown(globals())\n"]
+)
+def test_uncertain_alias_body_is_unknown_not_a_concrete_failure(tmp_path, alias_module, suffix):
+    _fixture(tmp_path, alias_module=alias_module, alias_suffix=suffix, selected=())
+    result = _observe(tmp_path)
+    assert result.observation is not None and result.diagnostics == ()
+    assert _targets(result.observation) == []
+    assert _facts(result.observation) == []
+    positions = {item.data.get("qualified_name") for item in _unknowns(result.observation)}
+    assert {"sample.app.impl.Session.prepare", "sample.app.impl.Session.dispatch"} <= positions
+    assert any(
+        item.data.get("qualified_name") == "sample.app.impl.Session.unrelated"
+        for item in trace_valid_violations(result.observation)
+    )
+
+
+def test_metadata_only_escape_keeps_proven_literal_failures(tmp_path):
+    _fixture(tmp_path, selected=(), metadata="class Metadata:\n    label: str\nunknown(Metadata)\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert len(_targets(result.observation)) == 4
+    assert _facts(result.observation) == []
+
+
+def test_literal_outer_and_sibling_survive_uncertain_alias(tmp_path):
+    _fixture(
+        tmp_path,
+        selected=(),
+        alias_suffix="unknown(Packet)\n",
+        annotation="dict[str, Packet] | list[object]",
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    targets = _targets(result.observation)
+    assert len(targets) == 4
+    assert {item.data.get("nested_annotation") for item in targets} == {
+        "dict[str, Packet]",
+        "object",
+    }
+    assert len(_unknowns(result.observation)) >= 3
+
+
+def test_uncertain_inner_alias_does_not_erase_exact_literal_outer_map_permission(tmp_path):
+    annotation = "dict[str, Packet]"
+    _fixture(
+        tmp_path,
+        alias_suffix="unknown(Packet)\n",
+        annotation=annotation,
+        change={"annotation": annotation},
+        bound=False,
+        selected=(0,),
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert len(_facts(result.observation)) == 1
+    assert len(_targets(result.observation)) == 1
+    assert len(_unknowns(result.observation)) >= 3
+
+
+@pytest.mark.parametrize(
+    "annotation",
+    [" | ".join(parts) for parts in permutations(("Missing", "dict[str, int]", "Packet"))],
+)
+@pytest.mark.parametrize("dto", [False, True])
+def test_uncertain_alias_ordinary_permission_is_independent_of_union_order(
+    tmp_path, annotation, dto
+):
+    suffix = "unknown(Packet)\n"
+    if dto:
+        suffix += f"class Envelope:\n    payload: {annotation}\n"
+    _fixture(
+        tmp_path,
+        annotation="Envelope" if dto else annotation,
+        alias_suffix=suffix,
+        change={"annotation": annotation, **({"field_path": "payload"} if dto else {})},
+        bound=False,
+        selected=(0,),
+    )
+    if dto:
+        path = tmp_path / "contract.json"
+        contract = json.loads(path.read_text())
+        contract["components"][0]["public"].append("sample.app.impl:Envelope")
+        path.write_text(json.dumps(contract))
+    result = _observe(tmp_path)
+    assert result.observation is not None and result.diagnostics == ()
+    assert _facts(result.observation) == []
+    assert len(_targets(result.observation)) == 2
+    assert len(_unknowns(result.observation)) >= 3

@@ -1,0 +1,9 @@
+{
+  "schema_version": "2.0.0",
+  "before_digest": "bdbf823108f813a260811651b8271e07e49412f4cfade1989540e4193bad0584",
+  "after_digest": "bdbf823108f813a260811651b8271e07e49412f4cfade1989540e4193bad0584",
+  "before_baseline_digest": "7a7c7a1aea4dc605df4c840e2ae0d6664b43457bdd5bc603ea6fe13cff85ba27",
+  "after_baseline_digest": "cd8f68cdf493c4dc81ebb46b38bfdc784584860de3e9bfb5022e95a145e8f681",
+  "decided_by": "architect (user-authorized, independently reviewed alias certainty migration)",
+  "rationale": "Expose exactly twelve existing unproven alias positions: six Language, two ResolverSettings, four State. UNKNOWN baseline53\u219265; unresolved calls921 and other budgets unchanged. Identical Source resolver comparison and exact union-order controls support this confidence correction; see AD-92."
+}

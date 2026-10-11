@@ -1200,6 +1200,14 @@ def _bound_root_mapping_union(
     return typed
 
 
+def _alias_binding_static(binding: RecordData | _AmbiguousBinding) -> bool:
+    return (
+        isinstance(binding, dict)
+        and binding.get("source_binding_unique") is True
+        and binding.get("source_member_binding_static") is True
+    )
+
+
 def _type_alias_verdict(
     symbol: RecordData | _AmbiguousBinding | None,
     resolved: tuple[str, str],
@@ -1220,6 +1228,8 @@ def _type_alias_verdict(
         return None
     reached: tuple[tuple[str, str], ...] = (resolved,)
     alias = symbol.get("alias")
+    if not _alias_binding_static(symbol):
+        return _Position(undecidable="other", resolved=reached, named_origins=reached)
     if resolved in aliases_seen or not isinstance(alias, str) or alias == annotation:
         return _Position(undecidable="other", resolved=reached, named_origins=reached)
     if classes_by_location.module_bindings is not None:
@@ -1247,10 +1257,7 @@ def _type_alias_verdict(
             classes_by_location,
             type_shapes,
         )
-        if not aliases_seen
-        and not visited
-        and symbol.get("source_binding_unique") is True
-        and symbol.get("source_member_binding_static") is True
+        if not aliases_seen and not visited
         else None
     )
     typed = expanded.typed_mapping_union
@@ -1317,12 +1324,11 @@ def _imported_alias_verdict(
     alias: _Position, module: str, annotation: str, imports_by_binding: BindingIndex
 ) -> _Position:
     imported = imports_by_binding.get((module, annotation))
-    if imported is not None and (
-        not isinstance(imported, dict)
-        or imported.get("source_binding_unique") is not True
-        or imported.get("source_member_binding_static") is not True
-        or len(imported["reexport_chain"] or ()) > 1
-    ):
+    if imported is not None and not _alias_binding_static(imported):
+        return _Position(
+            undecidable="other", resolved=alias.named_origins, named_origins=alias.named_origins
+        )
+    if isinstance(imported, dict) and len(imported["reexport_chain"] or ()) > 1:
         return replace(alias, bound_alias=None, typed_mapping_union=None)
     if imported is not None and alias.typed_mapping_union is not None:
         typed = alias.typed_mapping_union
@@ -2430,7 +2436,12 @@ def _field_position_verdict(
             _FieldPosition(
                 (reason, path, nested, depth),
                 field_annotation,
-                all(
+                not (
+                    verdict.undecidable is not None
+                    and verdict.named_origins
+                    and nested != field_annotation
+                )
+                and all(
                     occurrence.alias_free
                     for occurrence in verdict.mapping_occurrences
                     if (occurrence.path, occurrence.annotation, occurrence.depth)
@@ -2608,21 +2619,21 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
         for index, (_parameter, verdict) in enumerate(decided)
         for occurrence in verdict.mapping_occurrences
     )
-    field_positions = tuple(
-        field for _parameter, verdict in decided for field in verdict.field_positions
-    )
+    field_positions = tuple(field for _, verdict in decided for field in verdict.field_positions)
     field_declarations = tuple(
         path for _parameter, verdict in decided for path in verdict.field_declarations
     )
     mapping_alternatives = tuple(
         group for _parameter, verdict in decided for group in verdict.mapping_alternatives
     )
+    origins = tuple(sorted({origin for _, child in decided for origin in child.named_origins}))
     for _parameter, verdict in decided:
         if verdict.undecidable is not None:
             return _Position(
                 violation=violations[0][0] if violations else None,
                 undecidable=verdict.undecidable,
                 resolved=reached,
+                named_origins=origins,
                 path=verdict.path,
                 nested_annotation=verdict.nested_annotation,
                 violations=violations,
@@ -3877,6 +3888,13 @@ def _direct_boundary_allowance_matches(
 def _ordinary_mapping_allowance_match(
     allowance: BoundaryTypeAllowance, data: RecordData, verdict: _Position, direct_match: bool
 ) -> tuple[bool, bool, bool] | None:
+    if (
+        not allowance.field_path
+        and verdict.undecidable is not None
+        and verdict.named_origins
+        and data.get("nested_annotation") != allowance.annotation
+    ):
+        return None
     if allowance.native_mapping:
         return (
             (bool(allowance.field_path), False, False)
