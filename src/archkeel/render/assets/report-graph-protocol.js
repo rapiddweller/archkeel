@@ -98,7 +98,7 @@ var ArchkeelGraphProtocol;
         return visibilityKindValues.has(value);
     }
     ArchkeelGraphProtocol.isVisibilityKind = isVisibilityKind;
-    // archkeel.ir.architecture_graph.ParameterKind
+    // archkeel.ir.facts.ParameterKind
     let ParameterKind;
     (function (ParameterKind) {
         ParameterKind["POSITIONAL_ONLY"] = "positional_only";

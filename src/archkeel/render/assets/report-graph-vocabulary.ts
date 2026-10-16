@@ -96,7 +96,7 @@ namespace ArchkeelGraphProtocol {
   export function isVisibilityKind(value: unknown): value is VisibilityKind {
     return visibilityKindValues.has(value);
   }
-  // archkeel.ir.architecture_graph.ParameterKind
+  // archkeel.ir.facts.ParameterKind
   export enum ParameterKind {
     POSITIONAL_ONLY = "positional_only",
     POSITIONAL = "positional",
