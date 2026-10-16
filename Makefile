@@ -18,9 +18,9 @@ ci: ci-check mermaid
 
 ci-check: ci-artifacts-clean ci-core-check ci-report-check
 
-ci-core-check: PYTEST_EXTRA = --with playwright==$(PLAYWRIGHT_VERSION) browser-runtime-check
+ci-core-check: PYTEST_EXTRA = --with playwright==$(PLAYWRIGHT_VERSION)
 ci-core-check: PYTEST_STOP := --maxfail=1
-ci-core-check: browser-install gate typescript-compiler-check browser-graph-check ci-typescript
+ci-core-check: browser-install gate typescript-compiler-check browser-graph-check ci-typescript browser-runtime-check
 
 ci-report-check: report-timing report-browser-proof
 
