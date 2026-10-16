@@ -140,3 +140,37 @@ def test_exact_owned_modules_expand_only_legacy_component_pairs():
     namespace = replace(rule.selector, target_kind=type(rule.target_kind).IMPORT_NAMESPACE)
     assert not namespace.select(_ownership(contract)).source.matches("sample.runner")
     assert not namespace.select(_ownership(contract)).target.matches("sample.failure")
+
+
+def test_named_ownership_adapter_preserves_legacy_shapes_order_and_duplicates():
+    from archkeel.ir import dependency, model
+    from archkeel.ir.model import dependency_owners
+
+    legacy = (
+        ("label", ("sample.primary",), ("sample.entry",)),
+        ("label", ("sample.extra",), ()),
+    )
+    owners = dependency_owners(legacy)
+    assert tuple(owner.identity for owner in owners) == ("label", "label")
+    assert tuple(owner.modules.packages for owner in owners) == (
+        ("sample.primary",), ("sample.extra",),
+    )
+    assert owners[0].modules.exact_modules == ("sample.entry",)
+    assert isinstance(owners[0], dependency.DependencyOwner)
+    assert model.ComponentOwnership is dependency.ComponentOwnership
+    assert model.ComponentOwnership == tuple[str, tuple[str, ...], tuple[str, ...]]
+    assert model.PackageComponentOwnership == tuple[str, tuple[str, ...]]
+    assert model.ComponentOwnershipInput == model.ComponentOwnership | model.PackageComponentOwnership
+    with pytest.raises(FrozenInstanceError):
+        owners[0].identity = "changed"
+
+
+def test_typed_policy_consumes_named_ownership_and_reuses_immutable_modules():
+    from archkeel.ir.model import dependency_owners
+
+    contract = codec.parse_contract(_contract())
+    owners = dependency_owners(_ownership(contract))
+    selection = contract.rules[0].selector.select(owners)
+    assert selection.source is owners[0].modules
+    assert selection.target is owners[1].modules
+    assert contract.rules[0].selector.component_pair(owners) == ("caller", "errors")
