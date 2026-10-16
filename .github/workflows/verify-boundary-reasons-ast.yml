@@ -62,13 +62,21 @@ jobs:
                   return key
               scope_names={s.qualified_name:encode(sk(s)) for s in scopes.values()}
               named_nodes={id(s.node):sk(s) for s in scopes.values() if s is not lexical.root and isinstance(s.node,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef))}
-              count=Counter();positions=defaultdict(list);call_positions={}
+              paths={}
+              def locate(node,path):
+                  if id(node) in named_nodes:path=("definition",named_nodes[id(node)])
+                  paths[id(node)]=path
+                  for field,value in ast.iter_fields(node):
+                      if isinstance(value,ast.AST):locate(value,(*path,field))
+                      elif isinstance(value,list):
+                          for n,child in enumerate(value):
+                              if isinstance(child,ast.AST):locate(child,(*path,field,n))
+              locate(tree,("module",module.module))
+              positions=defaultdict(list);call_positions={}
               for node in ast.walk(tree):
                   if not hasattr(node,"lineno"):continue
                   scope=lexical.by_node.get(node,lexical.root)
-                  group=(encode(sk(scope)),type(node).__name__)
-                  key=("definition",named_nodes[id(node)]) if id(node) in named_nodes else ("node",sk(scope),type(node).__name__,count[group])
-                  count[group]+=1
+                  key=("ast",paths[id(node)])
                   location=(node.lineno,node.end_lineno,node.col_offset)
                   positions[location].append(key)
                   if isinstance(node,ast.Call):
@@ -127,7 +135,9 @@ jobs:
           (DIR/"call-full-data-ast-delta.json").write_text(json.dumps(delta,sort_keys=True,indent=2))
           print("CALL_AST_PROOF="+json.dumps(dict(before_sites=len(old),after_sites=len(new),before_owner_sites=len(op),after_owner_sites=len(np),removed=len(delta["removed"]),added=len(delta["added"]))))
           for side in ("removed","added"):
-              for row in delta[side][:8]:print("UNPAIRED_AST_CALL="+json.dumps(dict(side=side,record=json.loads(row))))
+              for row in delta[side][:8]:
+                  value=json.loads(row)
+                  print("UNPAIRED_AST_CALL="+json.dumps(dict(side=side,id=value["id"],expression=value["data"]["expression"],scope=value["data"]["source_scope"])))
           assert not delta["removed"] and not delta["added"],"real call data changed after actual AST/provenance correspondence"
           print("ALL_CALL_DATA_AST_PARITY=PASS")
           
