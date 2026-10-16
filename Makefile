@@ -185,7 +185,7 @@ LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/r
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/reproduce_typescript.py fixtures/typescript_differential.py fixtures/typescript_scenarios.py fixtures/typescript_realworld.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
-	tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py
+	tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py tools/browser_graph_protocol.py
 
 # The same commit measured 80-96s on hosted runners; allow for runner noise.
 REPORT_MAX_SECONDS ?= 120
@@ -318,13 +318,14 @@ smoke:
 
 .PHONY: browser-graph-generate browser-graph-check
 BROWSER_GRAPH_PROTOCOL := src/archkeel/render/assets/report-graph-vocabulary.ts src/archkeel/render/assets/report-graph-protocol.ts
-BROWSER_GRAPH_COMPILER := npx --yes --package typescript@5.9.3 tsc --strict --target ES2022 --module none
+BROWSER_GRAPH_COMPILER := npx --yes --package typescript@5.9.3 tsc --strict --target ES2022 --module none --newLine lf
 
 browser-graph-generate:
 	$(UV) run --locked python -m tools.browser_graph_protocol
 	$(BROWSER_GRAPH_COMPILER) --outFile src/archkeel/render/assets/report-graph-protocol.js $(BROWSER_GRAPH_PROTOCOL)
 
 browser-graph-check:
+	$(UV) run --locked mypy --strict tools/browser_graph_protocol.py
 	$(UV) run --locked python -m tools.browser_graph_protocol --check
 	@set -e; browser_graph_stage=$$(mktemp -d); \
 		trap 'rm -rf "$$browser_graph_stage"' EXIT; \

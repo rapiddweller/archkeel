@@ -57,10 +57,11 @@ def test_scene_create_rejects_unknown_graph_protocol_values(field):
         browser.close()
         playwright.stop()
 
+
 def test_scene_vocabulary_is_generated_from_canonical_owners():
     from tools.browser_graph_protocol import _OUTPUT, vocabulary_source
 
-    assert _OUTPUT.read_text(encoding="utf-8") == vocabulary_source()
+    assert _OUTPUT.read_bytes() == vocabulary_source().encode("utf-8")
 
 
 @pytest.mark.parametrize(
@@ -90,11 +91,12 @@ def test_scene_vocabulary_is_generated_from_canonical_owners():
     ids=["raw-field", "same-spelling-wrong-domain", "field-widening", "return-widening"],
 )
 def test_actual_scene_consumer_rejects_type_mutations(tmp_path, path, before, after):
-    from pathlib import Path
     import shutil
     import subprocess
+    from pathlib import Path
 
-    if shutil.which("npx") is None:
+    compiler = shutil.which("npx")
+    if compiler is None:
         pytest.skip("The browser development compiler requires Node/npx")
     root = Path(__file__).parents[1]
     assets = root / "src/archkeel/render/assets"
@@ -108,9 +110,21 @@ def test_actual_scene_consumer_rejects_type_mutations(tmp_path, path, before, af
     target = tmp_path / "browser_graph_scene_target.ts"
     shutil.copyfile(root / "tests/browser_graph_scene_target.ts", target)
     command = [
-        "npx", "--yes", "--package", "typescript@5.9.3", "tsc",
-        "--strict", "--allowJs", "--checkJs", "--noEmit", "--target", "ES2022",
-        "--module", "none", *(str(tmp_path / name) for name in sources), str(target),
+        compiler,
+        "--yes",
+        "--package",
+        "typescript@5.9.3",
+        "tsc",
+        "--strict",
+        "--allowJs",
+        "--checkJs",
+        "--noEmit",
+        "--target",
+        "ES2022",
+        "--module",
+        "none",
+        *(str(tmp_path / name) for name in sources),
+        str(target),
     ]
     valid = subprocess.run(command, text=True, capture_output=True, check=False)
     assert valid.returncode == 0, valid.stdout + valid.stderr
@@ -188,6 +202,7 @@ def test_graph_scene_keeps_wire_identity_json_and_primitive_tokens():
         browser.close()
         playwright.stop()
 
+
 def test_native_scene_validates_each_graph_once_at_its_index_lifetime():
     api = pytest.importorskip("playwright.sync_api")
     playwright, browser, page = _asset_page(api, ["report-scene.js"])
@@ -221,6 +236,7 @@ def test_native_scene_validates_each_graph_once_at_its_index_lifetime():
 
 def test_actual_own_graph_scene_preserves_full_wire_json(self_observation):
     import json
+
     from archkeel.ir.graph_codec import report_bytes
     from archkeel.ir.report_graph import architecture_report
 
@@ -269,3 +285,17 @@ def test_offline_report_loads_the_actual_protocol_before_scene_consumers():
         < page.index('data-report-asset="scene"')
         < page.index('data-report-asset="layout"')
     )
+
+
+def test_stale_generated_vocabulary_fails_the_actual_check_command(tmp_path, monkeypatch):
+    import sys
+
+    from tools import browser_graph_protocol
+
+    stale = tmp_path / "vocabulary.ts"
+    source = browser_graph_protocol.vocabulary_source()
+    stale.write_text(source.replace('OBSERVED = "observed"', 'OBSERVED = "stale"'), encoding="utf-8")
+    monkeypatch.setattr(browser_graph_protocol, "_OUTPUT", stale)
+    monkeypatch.setattr(sys, "argv", ["browser_graph_protocol", "--check"])
+    with pytest.raises(SystemExit, match="Browser graph vocabulary is stale"):
+        browser_graph_protocol.main()

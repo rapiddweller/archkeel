@@ -21,10 +21,8 @@ jobs:
         with:
           node-version: "22"
       - run: uv sync --locked
-      - name: Generate candidate artifact, then check reproducibility
-        run: |
-          make browser-graph-generate
-          make browser-graph-check
+      - name: Check committed canonical artifacts and actual consumer types
+        run: make browser-graph-check
       - run: make browser-install
       - name: Actual compiler mutations, ingress, original graph and existing scene/layout
         run: uv run --locked --with playwright==1.62.0 python -m pytest -q --basetemp "$RUNNER_TEMP/scene-tests" tests/test_graph_scene_protocol.py tests/test_report_renderer_units.py
@@ -75,7 +73,7 @@ jobs:
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
           node-version: "22"
-      - run: make browser-graph-generate
+      - run: make browser-graph-check
       - name: Actual native graph, routes, filters and Mermaid consumers
         run: |
           uv run --locked --with playwright==1.62.0 python -m pytest -q \
@@ -104,6 +102,34 @@ jobs:
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
           node-version: "22"
-      - run: make browser-graph-generate
+      - run: make browser-graph-check
       - run: uv build --no-sources --clear
       - run: make smoke
+
+  actual-native-source-mutation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - name: Overlay explicit independent observer dependency, never product carrier
+        run: |
+          git fetch origin cf55d12d5673bbbe0e8999056aba1db3653ed208
+          for scene_observer_path in \
+            src/archkeel/analyzer/typescript/parse.py \
+            src/archkeel/analyzer/typescript/syntax.py \
+            src/archkeel/analyzer/typescript/collect.py \
+            src/archkeel/ir/profiles.py \
+            src/archkeel/ir/codec_observation.py \
+            src/archkeel/check/evaluation/evaluate.py; do
+            git show "cf55d12d5673bbbe0e8999056aba1db3653ed208:$scene_observer_path" > "$scene_observer_path"
+          done
+      - run: uv sync --locked
+      - name: Actual scene source mutation is observed; capability stays PARTIAL
+        run: uv run --locked python -m pytest -q -s prototype/test_graph_scene_native_observer.py

@@ -331,10 +331,22 @@ var ArchkeelGraphSceneProtocol;
         EdgeState["VIOLATION"] = "violation";
         EdgeState["UNDECIDED"] = "undecided";
     })(EdgeState = ArchkeelGraphSceneProtocol.EdgeState || (ArchkeelGraphSceneProtocol.EdgeState = {}));
-    let ModuleEntryFile;
-    (function (ModuleEntryFile) {
-        ModuleEntryFile["PYTHON_INITIALIZER"] = "__init__.py";
-    })(ModuleEntryFile = ArchkeelGraphSceneProtocol.ModuleEntryFile || (ArchkeelGraphSceneProtocol.ModuleEntryFile = {}));
+    let SceneEdgeKind;
+    (function (SceneEdgeKind) {
+        SceneEdgeKind["DEPENDENCY"] = "dependency";
+    })(SceneEdgeKind = ArchkeelGraphSceneProtocol.SceneEdgeKind || (ArchkeelGraphSceneProtocol.SceneEdgeKind = {}));
+    let ModuleFileKind;
+    (function (ModuleFileKind) {
+        ModuleFileKind[ModuleFileKind["NAMED"] = 0] = "NAMED";
+        ModuleFileKind[ModuleFileKind["PYTHON_INITIALIZER"] = 1] = "PYTHON_INITIALIZER";
+    })(ModuleFileKind = ArchkeelGraphSceneProtocol.ModuleFileKind || (ArchkeelGraphSceneProtocol.ModuleFileKind = {}));
+    const moduleEntryNames = new Map([
+        ["__init__.py", ModuleFileKind.PYTHON_INITIALIZER],
+    ]);
+    function classifyModuleFileName(name) {
+        return moduleEntryNames.get(name) ?? ModuleFileKind.NAMED;
+    }
+    ArchkeelGraphSceneProtocol.classifyModuleFileName = classifyModuleFileName;
     let JavaScriptType;
     (function (JavaScriptType) {
         JavaScriptType["OBJECT"] = "object";

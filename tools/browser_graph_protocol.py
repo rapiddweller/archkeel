@@ -73,16 +73,20 @@ def vocabulary_source() -> str:
     return "\n".join([*lines, "}", ""])
 
 
+class _Arguments(argparse.Namespace):
+    check: bool = False
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
-    arguments = parser.parse_args()
-    source = vocabulary_source()
+    arguments = parser.parse_args(namespace=_Arguments())
+    source = vocabulary_source().encode("utf-8")
     if arguments.check:
-        if _OUTPUT.read_text(encoding="utf-8") != source:
+        if _OUTPUT.read_bytes() != source:
             raise SystemExit("Browser graph vocabulary is stale")
     else:
-        _OUTPUT.write_text(source, encoding="utf-8")
+        _OUTPUT.write_bytes(source)
 
 
 if __name__ == "__main__":
