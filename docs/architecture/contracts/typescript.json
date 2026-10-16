@@ -176,7 +176,7 @@
       "constructs": [
         "string_literal_compare"
       ],
-      "rationale": "This migrated module dispatches on owned nominal values, including parser/protocol grammar; arbitrary path and module names remain data.",
+      "rationale": "Enforce the native string_literal_compare observation scope across this whole module without allowances. Compiler and resolver dispatch use owned nominal domains; remaining prefix/suffix grammar entry points are explicitly listed in the migration ledger.",
       "provenance": [
         "docs/architecture/typescript-control-types.md"
       ],
@@ -189,7 +189,7 @@
       "constructs": [
         "string_literal_compare"
       ],
-      "rationale": "This migrated module dispatches on owned nominal values, including parser/protocol grammar; arbitrary path and module names remain data.",
+      "rationale": "Enforce the native string_literal_compare observation scope across this whole module without allowances. Compiler and resolver dispatch use owned nominal domains; remaining prefix/suffix grammar entry points are explicitly listed in the migration ledger.",
       "provenance": [
         "docs/architecture/typescript-control-types.md"
       ],

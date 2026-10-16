@@ -94,7 +94,11 @@ def test_native_typescript_api_matches_the_independent_target(tmp_path):
     ("module", "old", "new"),
     [
         ("config", "module: ModuleKind | None", "module: str | None"),
-        ("config", "def has_field(record: Json, name: str) -> bool:", "def has_field(record: Json, name: str) -> str:"),
+        (
+            "config",
+            "def has_field(record: Json, name: str) -> bool:",
+            "def has_field(record: Json, name: str) -> str:",
+        ),
         ("config", "module_resolution: ModuleResolution | None", "module_resolution: str | None"),
         ("config", "target: ScriptTarget | None", "target: str | None"),
         ("config", "def emit_module(self) -> ModuleKind:", "def emit_module(self) -> str:"),
@@ -106,7 +110,16 @@ def test_native_typescript_api_matches_the_independent_target(tmp_path):
             "def format_of(self, rel: str) -> str | Unknown | None:",
         ),
     ],
-    ids=["module", "json-presence-result", "resolution", "target", "derived-emit", "derived-resolution", "mode", "format"],
+    ids=[
+        "module",
+        "json-presence-result",
+        "resolution",
+        "target",
+        "derived-emit",
+        "derived-resolution",
+        "mode",
+        "format",
+    ],
 )
 def test_native_source_type_widening_fails_with_fixed_intent(tmp_path, module, old, new):
     source = (ROOT / f"src/archkeel/analyzer/typescript/{module}.py").read_text()

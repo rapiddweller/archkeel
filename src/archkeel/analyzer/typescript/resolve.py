@@ -17,7 +17,17 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Final, TypeAlias
 
-from .config import Config, Json, ModuleResolution, Options, PathToken, Snapshot, decode, has_field, join
+from .config import (
+    Config,
+    Json,
+    ModuleResolution,
+    Options,
+    PathToken,
+    Snapshot,
+    decode,
+    has_field,
+    join,
+)
 
 
 class ModuleFormat(Enum):

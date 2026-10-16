@@ -36,7 +36,9 @@ def test_real_config_overlay_distinguishes_an_absent_field_from_null(tmp_path, f
     selected, _ = _write(
         tmp_path,
         {
-            "tsconfig.json": json.dumps({"extends": "./base/base.json", "compilerOptions": options}),
+            "tsconfig.json": json.dumps(
+                {"extends": "./base/base.json", "compilerOptions": options}
+            ),
             "base/base.json": json.dumps({"compilerOptions": inherited}),
             "src/main.ts": "export {};",
         },
@@ -66,7 +68,9 @@ def test_real_package_lookup_never_ignores_present_types_versions(tmp_path, valu
         {
             "tsconfig.json": "{}",
             "src/main.ts": "export {};",
-            "node_modules/example/package.json": json.dumps({"typesVersions": value}),
+            "node_modules/example/package.json": json.dumps(
+                {"typesVersions": value} if specifier == "example" else {}
+            ),
             "node_modules/example/index.d.ts": "export interface A {}",
             "node_modules/example/sub/package.json": json.dumps({"typesVersions": value}),
             "node_modules/example/sub/index.d.ts": "export interface A {}",
@@ -89,3 +93,10 @@ def test_absent_types_versions_allows_the_package_index(tmp_path):
     )
     result = Resolver(snapshot, selected).resolve("example", "src/main.ts", None)
     assert isinstance(result, Found) and result.path == "node_modules/example/index.d.ts"
+
+
+def test_absent_project_references_does_not_create_a_reference_gap(tmp_path):
+    _, snapshot = _write(
+        tmp_path, {"tsconfig.json": "{}", "src/main.ts": "export {};"}
+    )
+    assert "Project references require separately observed projects" not in snapshot.problems
