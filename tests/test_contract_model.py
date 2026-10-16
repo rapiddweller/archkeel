@@ -460,6 +460,11 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
     if version == "3.5.0":
         dependency = next(rule for rule in raw["rules"] if rule["kind"] == "forbidden_dependency")
         dependency["target_kind"] = "import_namespace"
+    if version == "3.6.0":
+        interface = next(rule for rule in raw["rules"] if rule["kind"] == "interface_boundary")
+        interface["module_object_grants"] = [
+            {"source_module": "shop.app.orders", "target_module": "shop.model"}
+        ]
     return raw
 
 
@@ -674,7 +679,7 @@ def test_the_maximal_contract_fills_every_field() -> None:
     """The completeness test below only sees a field this contract fills."""
     documents = [
         json.loads(contract_bytes(parse_contract(_maximal_contract(version))))
-        for version in ("3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0")
+        for version in ("3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0")
     ]
 
     assert _unfilled(ArchitectureContract, documents, "contract") == []

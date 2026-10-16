@@ -26,6 +26,16 @@ class _PathToken(StrEnum):
     CURRENT = "."
 
 
+class _GlobToken(StrEnum):
+    STAR = "*"
+    QUESTION = "?"
+    LEFT_BRACKET = "["
+    RIGHT_BRACKET = "]"
+    LEFT_BRACE = "{"
+    RIGHT_BRACE = "}"
+    NEGATION = "!"
+
+
 def _fields_match(fields: set[str], required: set[str], optional: set[str]) -> bool:
     """Field names describe TOML structure rather than selecting a protocol variant."""
     return fields - optional == required
@@ -50,7 +60,7 @@ def _path(value: object, *, field: str, allow_dot: bool = True) -> str:
         _PathToken.NUL in value
         or _PathToken.BACKSLASH in value
         or _PathToken.COLON in value
-        or re.search(r"[*?\[\]{}!]", value) is not None
+        or any(token in value for token in _GlobToken)
     ):
         raise ConfigError(f"{field} must be a safe POSIX relative path")
     parsed = PurePosixPath(value)

@@ -10,9 +10,9 @@ from typing import TypeGuard, get_args
 
 from archkeel.ir.codec_governance import _measurement_payload, parse_measurements
 from archkeel.ir.codec_observation import (
-    _parse_verdict,
     _parse_analyzer,
     _parse_runtime,
+    _parse_verdict,
     _python_version,
 )
 from archkeel.ir.codec_wire import (

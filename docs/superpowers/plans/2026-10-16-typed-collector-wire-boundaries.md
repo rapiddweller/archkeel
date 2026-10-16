@@ -10,7 +10,7 @@
 ## Global constraints
 - Preserve v1/v2/v3 wire bytes, errors, source unknown semantics, open profile-owned Record.kind and existing safety tests.
 - No string-valued Final aliases, imported constants or .value controls to evade guard.
-- Preserve baseline 65 unknown positions and 919 unresolved calls without allowances.
+- Keep unresolved calls at or below the inherited baseline; ratchet genuine UNKNOWN reductions without allowances. The final stack predecessor owns a 918-call ceiling.
 - Parent integrates shared contract, exact authored Target, module ports and guard deltas.
 - Remote GitHub isolation only because executor cannot fork.
 

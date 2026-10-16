@@ -19,7 +19,6 @@ from archkeel.ir.codec import (
 )
 from archkeel.ir.facts import SOURCE_RESOLUTION_GAP_KIND, SourceFacts, UnresolvedTarget
 from archkeel.ir.model import (
-    Verdict,
     ArchitectureContract as _ArchitectureContract,
 )
 from archkeel.ir.model import (
@@ -28,6 +27,7 @@ from archkeel.ir.model import (
     Observation,
     ObservationResult,
     UmlEligibility,
+    Verdict,
     stable_id,
 )
 from archkeel.ir.model import (

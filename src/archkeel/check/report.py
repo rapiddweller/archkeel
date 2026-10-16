@@ -54,9 +54,9 @@ from archkeel.ir.model import (
     ObservationResult,
     ReportFilter,
     ReportLocation,
+    RunResult,
     RuleAssessmentStatus,
     RuleVerdict,
-    RunResult,
 )
 from archkeel.ir.profiles import PROFILES
 from archkeel.ir.report_graph import architecture_report
@@ -354,19 +354,14 @@ def _scope_report_assessments(
             item
             for item in result.rule_assessments
             if item.id in selected_rules
-            and (
-                not report_filter.only_violations
-                or item.status in {RuleAssessmentStatus.FAIL, RuleAssessmentStatus.UNKNOWN}
-            )
+            and (not report_filter.only_violations or item.status in {RuleAssessmentStatus.FAIL, RuleAssessmentStatus.UNKNOWN})
         )
         return replace(result, rule_assessments=assessments)
     if report_filter.only_violations:
         return replace(
             result,
             rule_assessments=tuple(
-                item
-                for item in result.rule_assessments
-                if item.status in {RuleAssessmentStatus.FAIL, RuleAssessmentStatus.UNKNOWN}
+                item for item in result.rule_assessments if item.status in {RuleAssessmentStatus.FAIL, RuleAssessmentStatus.UNKNOWN}
             ),
         )
     return result

@@ -50,7 +50,7 @@ jobs:
               root, config = _repository(Path(directory))
               model = _model(root, config)
               print("FIXTURE_VIOLATIONS=" + repr(trace_valid_violations(model)))
-              print("FIXTURE_UNRESOLVED_GRAPH_CALLS=" + json.dumps([asdict(row) for row in call_rows(model) if row.status == "unresolved" and "architecture_graph" in row.path], separators=(",", ":")))
+              print("FIXTURE_UNRESOLVED_GRAPH_CALLS=" + json.dumps([asdict(row) for row in call_rows(model) if row.status == "unresolved" and any(name in row.path for name in ("architecture_graph", "uml_compare"))], separators=(",", ":")))
           PY
   graph-tests:
     runs-on: ubuntu-latest
@@ -84,7 +84,7 @@ jobs:
       - name: Verify own graph policy and unchanged budgets
         run: |
           set +e
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 5022d1d30d867dd028e52b4e96dbc377d2c730a6 --amendment docs/architecture/decisions/issue-542-graph-vocabulary-amendment.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'Graph and UML control vocabulary has one domain owner, a shared assessment type through the model facade, independently authored API Target and whole migrated module guards. Graph parser has no string-control exception. Historical schemas and valid wire/default behavior remain. No baseline, cap or allowance changes. See docs/architecture/typed-graph-vocabulary.md.' > "$RUNNER_TEMP/graph-native.json"
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against b18add59de890e41e86a5e78098d2d78865de8d0 --amendment docs/architecture/decisions/issue-542-graph-vocabulary-amendment.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'Graph and UML control vocabulary has one domain owner, a shared assessment type through the model facade, independently authored API Target and whole migrated module guards. Graph parser has no string-control exception. Historical schemas and valid wire/default behavior remain. No baseline, cap or allowance changes. See docs/architecture/typed-graph-vocabulary.md.' > "$RUNNER_TEMP/graph-native.json"
           graph_status=$?
           set -e
           python - "$RUNNER_TEMP/graph-native.json" <<'PY'

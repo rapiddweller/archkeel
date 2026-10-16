@@ -1,6 +1,6 @@
 {
   "$schema": "../../../schema/architecture-contract.schema.json",
-  "schema_version": "2.1.0",
+  "schema_version": "2.2.0",
   "components": [
     {
       "id": "TARGET-ENTRY",
@@ -26,7 +26,17 @@
       "requires": [
         {
           "component": "source",
-          "rationale": "Read syntax facts, TSConfig and module resolution to collect bounded source relationships.",
+          "rationale": "Read lexical syntax facts without importing tree-sitter.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "configuration",
+          "rationale": "Select contained source inputs and consume typed compiler modes.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "resolution",
+          "rationale": "Resolve imports through typed format and bounded source lookup.",
           "decided_by": "agent"
         }
       ],
@@ -37,12 +47,10 @@
       "label": "source",
       "role": "component",
       "packages": [
-        "archkeel.analyzer.typescript.parse",
-        "archkeel.analyzer.typescript.config",
-        "archkeel.analyzer.typescript.resolve"
+        "archkeel.analyzer.typescript.parse"
       ],
       "responsibilities": [
-        "Read lexical TypeScript facts with tree-sitter, select snapshot inputs and resolve supported module specifiers."
+        "Own tree-sitter parsing and lexical TypeScript syntax facts; do not select files or resolve imports."
       ],
       "forbidden_responsibilities": [
         "Claiming type-checker semantics, resolving what the compiler would not prove, or evaluating architecture policy."
@@ -52,10 +60,75 @@
       ],
       "decided_by": "agent",
       "public": [
-        "archkeel.analyzer.typescript.parse",
-        "archkeel.analyzer.typescript.config",
-        "archkeel.analyzer.typescript.resolve"
+        "archkeel.analyzer.typescript.parse"
       ]
+    },
+    {
+      "id": "TARGET-CONFIGURATION",
+      "label": "configuration",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.typescript.config"
+      ],
+      "responsibilities": [
+        "Own TSConfig reading, snapshot containment, file selection and conversion into typed compiler options and path grammar."
+      ],
+      "forbidden_responsibilities": [
+        "Resolve imports, interpret source declarations or evaluate architecture policy."
+      ],
+      "public": [
+        "archkeel.analyzer.typescript.config:Config",
+        "archkeel.analyzer.typescript.config:ModuleKind",
+        "archkeel.analyzer.typescript.config:ModuleResolution",
+        "archkeel.analyzer.typescript.config:Options",
+        "archkeel.analyzer.typescript.config:PathToken",
+        "archkeel.analyzer.typescript.config:ScriptTarget",
+        "archkeel.analyzer.typescript.config:Snapshot",
+        "archkeel.analyzer.typescript.config:decode",
+        "archkeel.analyzer.typescript.config:join",
+        "archkeel.analyzer.typescript.config:load_config",
+        "archkeel.analyzer.typescript.config:within",
+        "archkeel.analyzer.typescript.config:Json",
+        "archkeel.analyzer.typescript.config:has_field"
+      ],
+      "provenance": [
+        "docs/architecture/typescript-control-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "TARGET-RESOLUTION",
+      "label": "resolution",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.typescript.resolve"
+      ],
+      "responsibilities": [
+        "Own bounded import resolution, package protocol decoding, source-kind passes and loading format."
+      ],
+      "forbidden_responsibilities": [
+        "Read TSConfig independently, parse TypeScript or evaluate architecture policy."
+      ],
+      "public": [
+        "archkeel.analyzer.typescript.resolve:Found",
+        "archkeel.analyzer.typescript.resolve:ModuleFormat",
+        "archkeel.analyzer.typescript.resolve:Resolver",
+        "archkeel.analyzer.typescript.resolve:Unknown",
+        "archkeel.analyzer.typescript.resolve:is_builtin",
+        "archkeel.analyzer.typescript.resolve:is_relative",
+        "archkeel.analyzer.typescript.resolve:package_name"
+      ],
+      "requires": [
+        {
+          "component": "configuration",
+          "rationale": "Use the snapshot and the single typed compiler/path grammar boundary.",
+          "decided_by": "architect"
+        }
+      ],
+      "provenance": [
+        "docs/architecture/typescript-control-types.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "rules": [
@@ -95,6 +168,32 @@
         "docs/architecture/language-adapter-target.md"
       ],
       "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-TYPESCRIPT-CONFIG-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.typescript.config",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Enforce the native string_literal_compare observation scope across this whole module without allowances. Compiler and resolver dispatch use owned nominal domains; remaining prefix/suffix grammar entry points are explicitly listed in the migration ledger.",
+      "provenance": [
+        "docs/architecture/typescript-control-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "TARGET-TYPESCRIPT-RESOLVE-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.typescript.resolve",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Enforce the native string_literal_compare observation scope across this whole module without allowances. Compiler and resolver dispatch use owned nominal domains; remaining prefix/suffix grammar entry points are explicitly listed in the migration ledger.",
+      "provenance": [
+        "docs/architecture/typescript-control-types.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
@@ -119,6 +218,437 @@
         "path": "src/archkeel/analyzer/typescript/resolve.py",
         "responsibility": "Resolve specifiers by module mode, paths, baseUrl and node_modules."
       }
-    ]
+    ],
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-CONFIG",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.typescript.config",
+          "parent_id": "TARGET-CONFIGURATION",
+          "responsibilities": [
+            "Read contained TSConfig inputs, select files and translate compiler vocabulary into owned values."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-RESOLVE",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.typescript.resolve",
+          "parent_id": "TARGET-RESOLUTION",
+          "responsibilities": [
+            "Resolve source specifiers under parsed compiler options and package metadata without guessing unsupported cases."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-ModuleKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.config.ModuleKind",
+          "parent_id": "TS-TYPED-CONFIG",
+          "responsibilities": [
+            "Name supported compiler emit modes."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-ModuleResolution",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.config.ModuleResolution",
+          "parent_id": "TS-TYPED-CONFIG",
+          "responsibilities": [
+            "Name supported lookup algorithms with one canonical value for legacy Node spelling."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-ScriptTarget",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.config.ScriptTarget",
+          "parent_id": "TS-TYPED-CONFIG",
+          "responsibilities": [
+            "Name explicitly supplied language compilation targets."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-PathToken",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.config.PathToken",
+          "parent_id": "TS-TYPED-CONFIG",
+          "responsibilities": [
+            "Classify recognized path and glob tokens while keeping arbitrary names as data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-ModuleFormat",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.resolve.ModuleFormat",
+          "parent_id": "TS-TYPED-RESOLVE",
+          "responsibilities": [
+            "Distinguish ESM from CommonJS at the resolution and collection API."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-SourceKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.resolve.SourceKind",
+          "parent_id": "TS-TYPED-RESOLVE",
+          "responsibilities": [
+            "Name TypeScript, declaration, JavaScript and JSON lookup passes."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-Options",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.typescript.config.Options",
+          "parent_id": "TS-TYPED-CONFIG",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Hold explicitly parsed compiler settings and derive effective emit and resolution modes."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-Options.module",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.config.Options.module",
+          "parent_id": "TS-TYPED-Options",
+          "annotation": "ModuleKind | None",
+          "responsibilities": [
+            "Retain the explicitly selected nominal compiler emit mode, or its absence."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-Options.module_resolution",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.config.Options.module_resolution",
+          "parent_id": "TS-TYPED-Options",
+          "annotation": "ModuleResolution | None",
+          "responsibilities": [
+            "Retain the explicitly selected canonical nominal lookup algorithm, or its absence."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-Options.target",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.config.Options.target",
+          "parent_id": "TS-TYPED-Options",
+          "annotation": "ScriptTarget | None",
+          "responsibilities": [
+            "Retain the explicitly selected nominal compilation target, or its absence."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-Options.emit_module",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.typescript.config.Options.emit_module",
+          "parent_id": "TS-TYPED-Options",
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "ModuleKind"
+          },
+          "responsibilities": [
+            "Derive the compiler emit mode from explicit module and target settings."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-Options.resolution",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.typescript.config.Options.resolution",
+          "parent_id": "TS-TYPED-Options",
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "ModuleResolution"
+          },
+          "responsibilities": [
+            "Derive the canonical resolver mode from explicit options and compiler defaults."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-Resolver",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.typescript.resolve.Resolver",
+          "parent_id": "TS-TYPED-RESOLVE",
+          "responsibilities": [
+            "Own one contained lookup context and return a known file, an explained unknown, or no result."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-Resolver.format_of",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.typescript.resolve.Resolver.format_of",
+          "parent_id": "TS-TYPED-Resolver",
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "rel",
+                "annotation": "str",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "ModuleFormat | Unknown | None"
+          },
+          "responsibilities": [
+            "Determine ESM or CommonJS format from file suffix and nearest package manifest under Node modes."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-control-types.md"
+          ],
+          "id": "TS-TYPED-Resolver.resolve",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.typescript.resolve.Resolver.resolve",
+          "parent_id": "TS-TYPED-Resolver",
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "specifier",
+                "annotation": "str",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "importer",
+                "annotation": "str",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "mode",
+                "annotation": "ModuleFormat | None",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "prefer_builtin",
+                "annotation": "bool",
+                "kind": "keyword_only",
+                "default": "False",
+                "default_known": true
+              }
+            ],
+            "returns": "Found | Unknown | None"
+          },
+          "responsibilities": [
+            "Resolve specifiers through supported source lookup passes using a nominal loading format."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-json-field-boundary.md"
+          ],
+          "id": "TS-TYPED-has_field",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.typescript.config.has_field",
+          "parent_id": "TS-TYPED-CONFIG",
+          "signature": {
+            "parameters": [
+              {
+                "name": "record",
+                "annotation": "Json",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "name",
+                "annotation": "str",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          },
+          "responsibilities": [
+            "Distinguish absent open JSON field names from present null or falsy values without interpreting their vocabulary."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        }
+      ],
+      "relationships": [],
+      "scopes": []
+    }
   }
 }

@@ -136,7 +136,13 @@ def _collector_contract(module):
 
 
 def _collector_repository(
-    tmp_path, module="facts_codec", probe="", *, weaken_version=False, weaken_language=False, weaken_error=False
+    tmp_path,
+    module="facts_codec",
+    probe="",
+    *,
+    weaken_version=False,
+    weaken_language=False,
+    weaken_error=False,
 ):
     files = {"archkeel/__init__.py": "", "archkeel/ir/__init__.py": ""}
     for name in (*MODULES, "state_facts"):

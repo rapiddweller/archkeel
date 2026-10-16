@@ -11,10 +11,11 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, TypeAlias, get_args, get_type_hints
 
-from .architecture_graph import AssessmentStatus, TargetDefinition
+from .architecture_graph import TargetDefinition
+from .architecture_graph import AssessmentStatus as RuleVerdict
 from .architecture_graph import ComponentRole as ComponentRole
-from .architecture_graph import ContractModuleTarget as ContractModuleTarget
 from .architecture_graph import DecisionMaker as DecisionMaker
+from .architecture_graph import ContractModuleTarget as ContractModuleTarget
 from .architecture_graph import ExternalDependencyScopeRule as ExternalDependencyScopeRule
 from .architecture_graph import RootLayoutRule as RootLayoutRule
 from .architecture_graph import RuleAssessment as RuleAssessment
@@ -92,7 +93,6 @@ class Verdict(StrEnum):
 PackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]
 ComponentOwnershipInput: TypeAlias = ComponentOwnership | PackageComponentOwnership
 # AD-26's full vocabulary, for the one verdict that can also fail to decide (AD-67).
-RuleVerdict: TypeAlias = AssessmentStatus
 ComparisonStatus: TypeAlias = Literal["SUPPORTED", "UNKNOWN"]
 CLASSIFIED_SECTIONS = (
     "metrics",
@@ -475,6 +475,14 @@ class NoComponentCyclesRule:
 
 
 @dataclass(frozen=True, slots=True)
+class ModuleObjectGrant:
+    """One exact caller may import one exact module object, without publishing its names."""
+
+    source_module: str
+    target_module: str
+
+
+@dataclass(frozen=True, slots=True)
 class InterfaceBoundaryRule:
     id: str
     kind: Literal["interface_boundary"]
@@ -482,6 +490,7 @@ class InterfaceBoundaryRule:
     provenance: tuple[str, ...]
     decided_by: Literal["architect", "agent"]
     include_type_checking: bool = True
+    module_object_grants: tuple[ModuleObjectGrant, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -706,7 +715,7 @@ class ContractDeclarations:
 @dataclass(frozen=True, slots=True)
 class ArchitectureContract:
     schema_version: Literal[
-        "2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"
+        "2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0"
     ]
     components: tuple[ContractComponent, ...]
     rules: tuple[ArchitectureRule, ...]
@@ -893,6 +902,19 @@ def _rule_references(
             ("allowed_children", rule.allowed_children, False),
         ]
     references = _references(f"/rules/{index}", named)
+    if isinstance(rule, InterfaceBoundaryRule):
+        references += [
+            ModuleReference(
+                f"/rules/{index}/module_object_grants/{item}/{field}",
+                value,
+                True,
+            )
+            for item, grant in enumerate(rule.module_object_grants or ())
+            for field, value in (
+                ("source_module", grant.source_module),
+                ("target_module", grant.target_module),
+            )
+        ]
     if isinstance(rule, BoundaryTypesRule):
         references += _boundary_allowance_references(index, rule.allowed_positions)
     if isinstance(rule, ForbiddenConstructRule):
@@ -1124,9 +1146,7 @@ class ObservationResult:
         if self.observation is not None and self.observation.coverage != self.coverage:
             raise ValueError("analyzer coverage differs from its observation")
         if (
-            self.observation is None
-            or self.coverage is None
-            or self.coverage.status != Verdict.PASS
+            self.observation is None or self.coverage is None or self.coverage.status != Verdict.PASS
         ) and not self.diagnostics:
             raise ValueError("incomplete observation requires a diagnostic")
 

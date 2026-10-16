@@ -14,13 +14,13 @@ from archkeel.ir.measurements import (
     compare_measurements,
 )
 from archkeel.ir.model import (
-    Verdict,
     CallRow,
     CallStatus,
     EvidenceClass,
     Observation,
     Record,
     UnresolvedCallChange,
+    Verdict,
     text_value,
 )
 from archkeel.ir.profiles import profile_for

@@ -512,7 +512,9 @@ def build_architecture_delta(
         and all(baseline.source.scope + head.source.scope)
         and sorted(baseline.source.scope) == sorted(head.source.scope)
     )
-    coverage_complete = baseline.coverage.status == Verdict.PASS and head.coverage.status == Verdict.PASS
+    coverage_complete = (
+        baseline.coverage.status == Verdict.PASS and head.coverage.status == Verdict.PASS
+    )
     profile = profile_for(head.analyzer.name)
     try:
         if not shared:

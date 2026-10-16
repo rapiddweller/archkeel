@@ -12,12 +12,7 @@ from collections.abc import Callable
 from dataclasses import asdict
 from typing import Final, Literal, TypeGuard, get_args
 
-from archkeel.ir.architecture_graph import (
-    ArchitectureRuleKind,
-    DecisionMaker,
-    validate_layout_rule,
-    validate_module_target,
-)
+from archkeel.ir.architecture_graph import ArchitectureRuleKind, DecisionMaker, validate_layout_rule, validate_module_target
 from archkeel.ir.codec_governance import _measurement_budget_name
 from archkeel.ir.codec_wire import (
     _count,
@@ -63,6 +58,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     LayerOrderRule,
+    ModuleObjectGrant,
     NoComponentCyclesRule,
     Record,
     RequiredComponent,
@@ -147,7 +143,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
     )
     if root["schema_version"] == "2.1.0":
         version: Literal[
-            "2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"
+            "2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0"
         ] = "2.1.0"
     elif root["schema_version"] == "2.2.0":
         version = "2.2.0"
@@ -165,6 +161,8 @@ def parse_contract(raw: object) -> ArchitectureContract:
         version = "3.4.0"
     elif root["schema_version"] == "3.5.0":
         version = "3.5.0"
+    elif root["schema_version"] == "3.6.0":
+        version = "3.6.0"
     else:
         raise ContractVersionError(str(root["schema_version"]))
     components_raw = root["components"]
@@ -278,38 +276,44 @@ def parse_contract(raw: object) -> ArchitectureContract:
     if "uml" in declarations and version == "2.1.0":
         raise ValueError("UML declarations require contract schema_version 2.2.0")
     uml = parse_target(declarations["uml"]) if "uml" in declarations else None
-    if version not in {"2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"}:
+    if version not in {"2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0"}:
         for raw in rules_raw:
             rule_data: dict[str, RawJson] = _object(raw, "rule")
             if rule_data.get("kind") == "layer_order":
                 raise ValueError("layer_order requires contract schema_version 2.3.0")
-    if version not in {"3.4.0", "3.5.0"} and any(
+    if version not in {"3.4.0", "3.5.0", "3.6.0"} and any(
         "source_match" in _object(value, "rule") or "target_match" in _object(value, "rule")
         for value in rules_raw
     ):
         raise ValueError("dependency module selectors require contract schema_version 3.4.0")
-    if version != "3.5.0" and any("target_kind" in _object(value, "rule") for value in rules_raw):
+    if version not in {"3.5.0", "3.6.0"} and any(
+        "target_kind" in _object(value, "rule") for value in rules_raw
+    ):
         raise ValueError("import namespace targets require contract schema_version 3.5.0")
+    if version != "3.6.0" and any(
+        "module_object_grants" in _object(value, "rule") for value in rules_raw
+    ):
+        raise ValueError("module_object_grants require contract schema_version 3.6.0")
     rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
-    if version not in {"3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"} and any(
+    if version not in {"3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0"} and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.alias_body is not None for item in rule.allowed_positions)
         for rule in rules
     ):
         raise ValueError("alias_body requires contract schema_version 3.0.0")
-    if version not in {"3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"} and any(
+    if version not in {"3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0"} and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.key_alias_body is not None for item in rule.allowed_positions)
         for rule in rules
     ):
         raise ValueError("key_alias_body requires contract schema_version 3.1.0")
-    if version not in {"3.2.0", "3.3.0", "3.4.0", "3.5.0"} and any(
+    if version not in {"3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0"} and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.literal_mapping_arm is not None for item in rule.allowed_positions)
         for rule in rules
     ):
         raise ValueError("literal_mapping_arm requires contract schema_version 3.2.0")
-    if version not in {"3.3.0", "3.4.0", "3.5.0"} and any(
+    if version not in {"3.3.0", "3.4.0", "3.5.0", "3.6.0"} and any(
         isinstance(rule, BoundaryTypesRule)
         and any(
             item.native_mapping
@@ -398,6 +402,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
 
 
 def _validate_encoding_version(contract: ArchitectureContract) -> None:
+    if contract.schema_version != "3.6.0" and any(
+        isinstance(rule, InterfaceBoundaryRule) and rule.module_object_grants is not None
+        for rule in contract.rules
+    ):
+        raise ValueError("module_object_grants require contract schema_version 3.6.0")
     if contract.schema_version not in {
         "2.3.0",
         "3.0.0",
@@ -406,6 +415,7 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         "3.3.0",
         "3.4.0",
         "3.5.0",
+        "3.6.0",
     } and (
         any(component.layer is not None for component in contract.components)
         or any(isinstance(rule, LayerOrderRule) for rule in contract.rules)
@@ -418,25 +428,33 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         "3.3.0",
         "3.4.0",
         "3.5.0",
+        "3.6.0",
     } and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.alias_body is not None for item in rule.allowed_positions)
         for rule in contract.rules
     ):
         raise ValueError("alias_body requires contract schema_version 3.0.0")
-    if contract.schema_version not in {"3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"} and any(
+    if contract.schema_version not in {
+        "3.1.0",
+        "3.2.0",
+        "3.3.0",
+        "3.4.0",
+        "3.5.0",
+        "3.6.0",
+    } and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.key_alias_body is not None for item in rule.allowed_positions)
         for rule in contract.rules
     ):
         raise ValueError("key_alias_body requires contract schema_version 3.1.0")
-    if contract.schema_version not in {"3.2.0", "3.3.0", "3.4.0", "3.5.0"} and any(
+    if contract.schema_version not in {"3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0"} and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.literal_mapping_arm is not None for item in rule.allowed_positions)
         for rule in contract.rules
     ):
         raise ValueError("literal_mapping_arm requires contract schema_version 3.2.0")
-    if contract.schema_version not in {"3.3.0", "3.4.0", "3.5.0"} and any(
+    if contract.schema_version not in {"3.3.0", "3.4.0", "3.5.0", "3.6.0"} and any(
         isinstance(rule, BoundaryTypesRule)
         and any(
             item.native_mapping
@@ -448,7 +466,7 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         raise ValueError(
             "native_mapping and literal-arm object values require contract schema_version 3.3.0"
         )
-    if contract.schema_version not in {"3.4.0", "3.5.0"} and any(
+    if contract.schema_version not in {"3.4.0", "3.5.0", "3.6.0"} and any(
         isinstance(rule, ForbiddenDependencyRule)
         and (
             rule.source_match is not SelectorMatch.PREFIX
@@ -457,7 +475,7 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         for rule in contract.rules
     ):
         raise ValueError("dependency module selectors require contract schema_version 3.4.0")
-    if contract.schema_version != "3.5.0" and any(
+    if contract.schema_version not in {"3.5.0", "3.6.0"} and any(
         isinstance(rule, ForbiddenDependencyRule)
         and rule.target_kind is not DependencyTargetKind.MODULE
         for rule in contract.rules
@@ -593,9 +611,7 @@ def parse_required_component(raw: RawJson, label: str = "requires") -> RequiredC
         _nonempty(item["component"], f"{label}.component"),
         _nonempty(item["rationale"], f"{label}.rationale"),
         _contract_strings(item.get("through", []), f"{label}.through"),
-        DecisionMaker(_decided_by(decided_by, f"{label}.decided_by"))
-        if decided_by is not None
-        else None,
+        DecisionMaker(_decided_by(decided_by, f"{label}.decided_by")) if decided_by is not None else None,
     )
 
 
@@ -624,6 +640,7 @@ def _parse_component(raw: RawJson, label: str, *, version: str) -> ContractCompo
         "3.3.0",
         "3.4.0",
         "3.5.0",
+        "3.6.0",
     }:
         raise ValueError(f"{label}.layer requires contract schema_version 2.3.0")
     item, item_id, provenance = _contract_record(
@@ -686,9 +703,7 @@ def _parse_component(raw: RawJson, label: str, *, version: str) -> ContractCompo
         _nonempty(inside, f"{label}.inside") if inside is not None else None,
         public,
         planned,
-        DecisionMaker(_decided_by(decided_by, f"{label}.decided_by"))
-        if decided_by is not None
-        else None,
+        DecisionMaker(_decided_by(decided_by, f"{label}.decided_by")) if decided_by is not None else None,
         namespace,
         exact_modules or None,
         _nonempty(item["layer"], f"{label}.layer") if "layer" in item else None,
@@ -1075,13 +1090,39 @@ def _parse_no_component_cycles(raw: RawJson, label: str) -> NoComponentCyclesRul
     )
 
 
+def _parse_module_object_grants(raw: RawJson, label: str) -> tuple[ModuleObjectGrant, ...]:
+    if not isinstance(raw, list):
+        raise ValueError(f"{label} must be an array")
+    grants = []
+    for index, value in enumerate(raw):
+        entry_label = f"{label}[{index}]"
+        entry = _contract_fields(value, {"source_module", "target_module"}, set(), entry_label)
+        source = _string(entry["source_module"], f"{entry_label}.source_module")
+        target = _string(entry["target_module"], f"{entry_label}.target_module")
+        for field, module in (("source_module", source), ("target_module", target)):
+            if re.fullmatch(_PACKAGE_NAME.pattern, module) is None:
+                raise ValueError(f"{entry_label}.{field} must be a dotted module name")
+        grants.append(ModuleObjectGrant(source, target))
+    if len(set(grants)) != len(grants):
+        raise ValueError(f"{label} must contain unique entries")
+    return tuple(grants)
+
+
 def _parse_interface_boundary(raw: RawJson, label: str) -> InterfaceBoundaryRule:
     item, item_id, provenance = _contract_record(
-        raw, {"kind", "rationale", "decided_by"}, {"include_type_checking"}, label
+        raw,
+        {"kind", "rationale", "decided_by"},
+        {"include_type_checking", "module_object_grants"},
+        label,
     )
     include = item.get("include_type_checking", True)
     if not isinstance(include, bool):
         raise ValueError(f"{label}.include_type_checking must be a boolean")
+    grants = (
+        _parse_module_object_grants(item["module_object_grants"], f"{label}.module_object_grants")
+        if "module_object_grants" in item
+        else None
+    )
     return InterfaceBoundaryRule(
         item_id,
         "interface_boundary",
@@ -1089,6 +1130,7 @@ def _parse_interface_boundary(raw: RawJson, label: str) -> InterfaceBoundaryRule
         provenance,
         _decided_by(item["decided_by"], f"{label}.decided_by"),
         include,
+        grants,
     )
 
 

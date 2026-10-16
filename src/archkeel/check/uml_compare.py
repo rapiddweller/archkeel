@@ -556,8 +556,13 @@ def _closed_relationship_assessments(
             )
             for item in extra_edges
         )
-    complete = all(_complete(observed, actual, kind) for kind in kinds) and not any(
-        item.resolution in {ResolutionKind.PARTIAL, ResolutionKind.UNRESOLVED} for item in sites
+    complete = (
+        all(_complete(observed, actual, kind) for kind in wanted.entity_kinds)
+        and all(_complete(observed, actual, kind) for kind in wanted.relationship_kinds)
+        and not any(
+            item.resolution in {ResolutionKind.PARTIAL, ResolutionKind.UNRESOLVED}
+            for item in sites
+        )
     )
     return (
         _result(

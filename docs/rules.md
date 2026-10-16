@@ -88,6 +88,11 @@ choose both rules if both matter. Known SCC contractions can shrink baselines.
 
 ### Interfaces and types
 
+Contract **3.6.0** adds exact caller-scoped `interface_boundary.module_object_grants`.
+A grant permits only a proven module-object import; named symbols still use the
+component's existing `public` list. See [module-object grants](architecture/module-object-grants.md)
+for syntax, evidence limits, versioning and widening behavior.
+
 `public` governs component crossings; `module:Name` publishes one name, while a
 module entry uses its export surface. A cross-component import or proven facade
 signature can establish use. Unbuilt interfaces belong in `planned`; built but
