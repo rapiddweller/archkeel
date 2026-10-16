@@ -8,16 +8,8 @@ from enum import StrEnum
 from typing import NoReturn
 
 from ..check.ports import Language
+from ..ir.model import Command as Command
 from .skill import InstallationAgent
-
-
-class Command(StrEnum):
-    REPORT = "report"
-    VALIDATE = "validate"
-    CHECK = "check"
-    INIT = "init"
-    SKILL = "skill"
-    ARGUMENTS = "arguments"
 
 
 class ReportMode(StrEnum):

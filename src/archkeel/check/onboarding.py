@@ -41,7 +41,16 @@ from archkeel.ir.model import (
     RunResult,
     in_scope,
 )
+from archkeel.ir.model import (
+    AssessmentStatus as _AssessmentStatus,
+)
+from archkeel.ir.model import (
+    Command as _Command,
+)
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
+from archkeel.ir.model import (
+    ExpectationOutcome as _ExpectationOutcome,
+)
 from archkeel.ir.profiles import Language
 from archkeel.ir.structure import StructureMetric, scope_metrics
 
@@ -462,7 +471,7 @@ def run_init(
             ) from error
     if observed.diagnostics or observed.observation is None:
         return RunResult(
-            "init", 2, diagnostics=observed.diagnostics, coverage=observed.coverage
+            _Command.INIT, 2, diagnostics=observed.diagnostics, coverage=observed.coverage
         ), FilesToWrite()
     contract, edges, sizes = draft_contract(
         observed.observation, namespace, roots=roots, language=language
@@ -512,10 +521,10 @@ def run_init(
         decisions, decision_count = open_decision_summary(observed.observation, ownership)
         decisions_complete = len(decisions) == decision_count
     result = RunResult(
-        "init",
+        _Command.INIT,
         0,
-        observation_complete="PASS",
-        expectation_fulfilled="n/a",
+        observation_complete=_AssessmentStatus.PASS,
+        expectation_fulfilled=_ExpectationOutcome.NOT_APPLICABLE,
         coverage=observed.coverage,
         python_version=observed.observation.python_version,
         artifact=CONTRACT_PATH,

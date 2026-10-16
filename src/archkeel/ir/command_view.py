@@ -32,6 +32,12 @@ from archkeel.ir.model import (
     ReportFilter,
     RunResult,
 )
+from archkeel.ir.model import (
+    Command as _Command,
+)
+from archkeel.ir.model import (
+    ExpectationOutcome as _ExpectationOutcome,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,15 +123,17 @@ class ArchitectureCommandView:
 @dataclass(frozen=True, slots=True)
 class ArchitectureCommandEnvelope:
     exit_code: Literal[0, 1, 2]
-    observation_complete: Literal["PASS", "UNKNOWN"]
+    observation_complete: Literal[AssessmentStatus.PASS, AssessmentStatus.UNKNOWN]
     declared_rules: AssessmentStatus
     coverage: Coverage | None
     diagnostics: tuple[Diagnostic, ...]
     report_filter: ReportFilter | None
     architecture_projection: ArchitectureCommandView
     filtered_violations: tuple[FilteredViolation, ...]
-    command: Literal["report"] = "report"
-    expectation_fulfilled: Literal["n/a"] = "n/a"
+    command: Literal[_Command.REPORT] = _Command.REPORT
+    expectation_fulfilled: Literal[_ExpectationOutcome.NOT_APPLICABLE] = (
+        _ExpectationOutcome.NOT_APPLICABLE
+    )
     schema_version: Literal["1.0.0", "2.0.0"] = "1.0.0"
     baseline_path: str | None = None
     baseline_comparisons: tuple[BaselineViolationComparison, ...] | None = None
