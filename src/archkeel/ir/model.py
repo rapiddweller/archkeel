@@ -262,7 +262,8 @@ def requires_covers(
 def _required_port_assessment(
     port: str, target_module: str, target_symbol: str | None, *, symbols_known: bool
 ) -> AssessmentStatus:
-    module, separator, symbol = port.partition(":")
+    # Selectors are wire text, even when an accepted str subclass overrides partition.
+    module, separator, symbol = builtins.str.partition(port, ":")
     if not separator:
         return AssessmentStatus.PASS if in_scope(target_module, module) else AssessmentStatus.FAIL
     if target_module != module:

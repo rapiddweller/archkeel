@@ -173,7 +173,7 @@ def _api_repository(tmp_path):
         "archkeel/ir/architecture_graph.py": "from enum import StrEnum\n"
         + _source_members("src/archkeel/ir/architecture_graph.py", {"AssessmentStatus"}),
         "archkeel/ir/model.py": (
-            "from __future__ import annotations\nfrom dataclasses import dataclass\n"
+            "from __future__ import annotations\nimport builtins\nfrom dataclasses import dataclass\n"
             "from .dependency import ImportSymbolMarker as _ImportSymbolMarker\n"
             "from .facts import in_scope\n"
             "from .architecture_graph import AssessmentStatus as AssessmentStatus\n"
