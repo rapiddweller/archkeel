@@ -185,7 +185,8 @@ class Site:
         if not isinstance(self.receiver_kind, ReceiverKind):
             builtins.object.__setattr__(self, "receiver_kind", ReceiverKind(self.receiver_kind))
         if self.receiver_kind is ReceiverKind.NONE and self.receiver is not None:
-            legacy_kind = {"this": ReceiverKind.THIS}.get(self.receiver, ReceiverKind.OTHER)
+            legacy_receivers: dict[str, ReceiverKind] = {"this": ReceiverKind.THIS}
+            legacy_kind = legacy_receivers.get(self.receiver, ReceiverKind.OTHER)
             builtins.object.__setattr__(self, "receiver_kind", legacy_kind)
 
 

@@ -223,6 +223,10 @@ class _Tree:
     def optional(self, raw: _RawNode | None) -> _Node | None:
         return self.node(raw) if raw is not None else None
 
+    def clear(self) -> None:
+        nodes: dict[int, _Node] = self.nodes
+        nodes.clear()
+
 
 class _Node:
     """Only the Tree-sitter operations this decoder uses, with kind decoded once."""
@@ -407,7 +411,7 @@ def parse(rel_path: str, data: bytes) -> Syntax:
             _rebound_names(source),
         )
     finally:
-        tree.nodes.clear()
+        tree.clear()
 
 
 def _inner(source: _Source) -> tuple[tuple[Definition, ...], tuple[Site, ...]]:
