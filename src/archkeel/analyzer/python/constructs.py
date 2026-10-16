@@ -213,7 +213,7 @@ def _literal_collections(module: ParsedModule, scopes: LexicalScopes) -> frozens
     return frozenset(candidates)
 
 
-class LiteralComparisons:
+class _LiteralComparisons:
     """Classify written literal vocabularies without adding runtime binding proof."""
 
     def __init__(self, module: ParsedModule) -> None:
@@ -298,7 +298,7 @@ class ConstructCollector(ast.NodeVisitor):
         self.evidence = evidence
         self.items: list[RawRecord] = []
         self.scope_stack: list[str] = [module.module]
-        self.comparisons = LiteralComparisons(module)
+        self.comparisons = _LiteralComparisons(module)
         self.inherits_stack: list[bool] = []
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
