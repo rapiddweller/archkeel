@@ -1,0 +1,53 @@
+name: Prepare reviewed bootstrap source union
+on:
+  push:
+    branches: [verify/542-bootstrap-union-source]
+permissions:
+  contents: read
+jobs:
+  source-union:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 0e3b8a7f62b9b13417cda78e11b52d0de82986cd
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Calculate exact Git three-way source union and publish evidence
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          
+          def git(*args):
+              return subprocess.run(["git", *args], check=True, capture_output=True).stdout.decode()
+          
+          stages = [{"name":"bootstrap","base":"6e3913738d95a22cb9b1572f51822892548f2270","head":"e0ed68775f56bd20b79b470d3e5cbdeb0ffbc970","paths":["docs/architecture/shared-runtime-bootstrap.md","docs/superpowers/plans/2026-10-16-shared-runtime-bootstrap.md","src/archkeel/analyzer/bootstrap.py","src/archkeel/analyzer/dart/entry.py","src/archkeel/analyzer/python/entry.py","src/archkeel/analyzer/runtime.py","src/archkeel/analyzer/typescript/entry.py","tests/test_shared_runtime_bootstrap.py"],"policyPaths":["architecture-contract.json","docs/architecture/contracts/analyzer.json"]}]
+          for stage in stages:
+              patch = subprocess.run(["git", "diff", "--binary", stage["base"], stage["head"], "--", *stage["paths"]], check=True, capture_output=True).stdout
+              if patch:
+                  applied = subprocess.run(["git", "apply", "--3way", "--index", "-"], input=patch, capture_output=True)
+                  if applied.returncode:
+                      print("MERGE_CONFLICT=" + stage["name"])
+                      print(applied.stderr.decode()[-6000:])
+                      print(git("diff", "--name-only", "--diff-filter=U"))
+                      raise SystemExit(1)
+              print("SOURCE_STAGE=" + stage["name"])
+          
+          paths = []
+          for line in git("diff", "--cached", "--name-status", "--no-renames", "HEAD").splitlines():
+              status, path = line.split("\t")
+              if status == "D":
+                  paths.append({"path": path, "deleted": True})
+                  continue
+              mode = git("ls-files", "--stage", "--", path).split()[0]
+              content = Path(path).read_text()
+              parts = [content[index:index + 12000] for index in range(0, len(content), 12000)] or [""]
+              paths.append({"path": path, "mode": mode, "parts": len(parts)})
+              for index, part in enumerate(parts):
+                  print("SOURCE_UNION_CHUNK=" + json.dumps({"path": path, "index": index, "content": part}, separators=(",", ":")))
+          print("SOURCE_UNION_PATHS=" + json.dumps(paths, separators=(",", ":")))
+          print("SOURCE_UNION_TREE=" + git("write-tree").strip())
+          
+          PY
