@@ -154,8 +154,10 @@ def test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes(
     ]
     assert len(detail_positions) == 1
     assert detail_positions[0].data.get("annotation") == "RunResult"
-    assert detail_positions[0].data.get("path") == "result.declared_rules"
-    assert detail_positions[0].data.get("nested_annotation") == "RuleVerdict"
+    assert detail_positions[0].data.get("position") == "result"
+    # Closing RuleVerdict exposes the unchanged diagnostic leaf of this same API position.
+    assert detail_positions[0].data.get("path") == "result.diagnostics.kind"
+    assert detail_positions[0].data.get("nested_annotation") == "DiagnosticKind"
     assert detail_positions[0].data.get("reason") == "other"
     baseline = json.loads((ROOT / "architecture-baseline.json").read_text())
     assert baseline["budgets"]["unknown_positions"] == 58

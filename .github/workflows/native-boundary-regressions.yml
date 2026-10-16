@@ -36,7 +36,7 @@ jobs:
       - run: uv python install 3.11.12 3.12.10
       - run: uv sync --locked
       - name: Verify real Target, source mutations, guard and complete layer tests
-        run: uv run --locked pytest -n 2 --dist=loadfile --max-worker-restart=0 -q tests/test_dependency_api_target.py tests/test_dependency_typed_control.py tests/test_layers.py --tb=short
+        run: uv run --locked pytest -n 2 --dist=loadfile --max-worker-restart=0 -q tests/test_dependency_api_target.py tests/test_dependency_typed_control.py tests/test_layers.py tests/test_protocol_uml_target.py --tb=short
       - name: Actual CLI stays usable with the bounded fixture
         run: |
           uv run --locked python - <<'PY'

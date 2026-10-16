@@ -517,7 +517,8 @@ def test_own_target_retains_layer_and_report_version_intent():
     entities = {item.qualified_name: item for item in contract.declarations.uml.entities}
     layer = entities["archkeel.ir.architecture_graph.ComponentIntent.layer"]
     assert layer.kind == "attribute" and layer.annotation == "str | None"
-    assert entities[
-        "archkeel.ir.architecture_graph.ArchitectureReport.schema_version"
-    ].annotation == "ReportSchemaVersion"
+    assert (
+        entities["archkeel.ir.architecture_graph.ArchitectureReport.schema_version"].annotation
+        == "ReportSchemaVersion"
+    )
     assert entities["archkeel.ir.architecture_graph.ReportSchemaVersion"].kind == "enum"
