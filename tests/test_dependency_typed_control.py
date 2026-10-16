@@ -87,8 +87,11 @@ def test_own_observation_covers_the_protected_domain_without_string_control(self
     model = self_observation
     assert _guard(model).status == "PASS" and _guard(model).evaluation_proven
     assert not [
-        row for row in model.records("constructs")
+        row
+        for row in model.records("constructs")
         if row.kind == "string_literal_compare"
-        and (row.data.get("owner") == "archkeel.ir.dependency"
-             or row.data.get("owner", "").startswith("archkeel.ir.dependency."))
+        and (
+            row.data.get("owner") == "archkeel.ir.dependency"
+            or row.data.get("owner", "").startswith("archkeel.ir.dependency.")
+        )
     ]

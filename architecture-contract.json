@@ -847,6 +847,19 @@
         "docs/architecture/dart-python-target.md"
       ],
       "decided_by": "agent"
+    },
+    {
+      "id": "DEPENDENCY-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.dependency",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Dependency policy branches on its owned SelectorMatch and DependencyTargetKind enums; raw protocol conversion belongs to the contract codec.",
+      "provenance": [
+        "docs/architecture/typed-control-migration.md"
+      ],
+      "decided_by": "architect"
     }
   ]
 }
