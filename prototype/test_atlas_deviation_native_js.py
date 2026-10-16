@@ -7,10 +7,12 @@ sys.path.insert(0, "tests")
 from pathlib import Path
 
 from test_architecture_demo import _prepare_repo
-from test_uml_evaluation import _model
 
 from archkeel.analyzer.typescript.collect import collect
 from archkeel.check.ports import ScanConfig
+from archkeel.check.report import run_report
+from archkeel.cli.observe import observe
+from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.facts import ConstructSupport, Language
 from archkeel.ir.model import ForbiddenConstructKind
@@ -18,6 +20,12 @@ from archkeel.ir.protocol import CollectionRequest, SnapshotInput, SourceScope, 
 from archkeel.ir.trace import trace_valid_violations
 
 GUARD = "ATLAS-DEVIATION-NATIVE-CONTROL"
+
+
+def _model(root, config):
+    result, encoded = run_report(root, config=config, analyzer=observe)
+    assert result.exit_code == 0 and encoded is not None, result.diagnostics
+    return parse_observation(decode_canonical_model(json.loads(encoded)))
 
 
 def test_actual_deviation_source_mutation_has_trace_valid_failure(tmp_path):
@@ -49,6 +57,8 @@ def test_actual_deviation_source_mutation_has_trace_valid_failure(tmp_path):
     intent = (root / "contract.json").read_bytes()
     facts = collect(CollectionRequest(SnapshotInput(str(root), "a" * 40, False),
         SourceScope(("src",), "browser"), TypeScriptSettings()))
+    from dataclasses import asdict
+    print("ATLAS_JS_FILES=" + json.dumps([asdict(item) for item in facts.files]))
     support = next(item.status for item in facts.capabilities.constructs
                    if item.name is ForbiddenConstructKind.STRING_LITERAL_COMPARE)
     assert support is ConstructSupport.PARTIAL
