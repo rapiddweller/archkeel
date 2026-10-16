@@ -18,6 +18,23 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
+      - name: Prove exact consumer-route regression by reverting only its fix
+        run: |
+          uv run --locked python - <<'PY'
+          import pathlib,subprocess,sys
+          paths=("src/archkeel/check/report.py","src/archkeel/render/html.py","src/archkeel/render/terminal.py")
+          saved={path:pathlib.Path(path).read_bytes() for path in paths}
+          try:
+              for path in paths:
+                  pathlib.Path(path).write_bytes(subprocess.check_output(["git","show","3152affc0158829d66f2f18ccf0a1afac0a05580:"+path]))
+              result=subprocess.run([sys.executable,"-m","pytest","-q","tests/test_typed_diagnostic_owner.py::test_existing_public_diagnostic_reexports_reach_the_canonical_owner","--tb=short"],capture_output=True,text=True)
+              print("ROUTE_REVERSION_EXIT="+str(result.returncode))
+              print(result.stdout)
+              if result.stderr: print(result.stderr)
+              assert result.returncode==1 and "unresolved_reexport_route" in result.stdout, "The exact current route control must fail when only its source fix is reverted"
+          finally:
+              for path,source in saved.items(): pathlib.Path(path).write_bytes(source)
+          PY
       - name: Exercise real diagnostic wire and independent native intent
         run: uv run --locked python -m pytest -q tests/test_typed_diagnostic_owner.py --tb=short
   diagnostic-inventory:
@@ -187,13 +204,13 @@ jobs:
       - run: uv sync --locked
       - name: Check actual source formatting, typing and hygiene
         run: |
-          uv run --locked ruff check --select I --fix tests/test_typed_diagnostic_owner.py src/archkeel/ir/model.py src/archkeel/ir/diagnostics.py tests/test_diagnostics.py tests/test_result_schema.py src/archkeel/check/delta.py src/archkeel/check/observe.py src/archkeel/check/onboarding.py src/archkeel/check/report.py src/archkeel/check/run.py src/archkeel/check/runtime.py src/archkeel/check/uml.py src/archkeel/check/uml_evaluation.py src/archkeel/check/validation/__init__.py src/archkeel/check/validation/closed_world.py src/archkeel/check/validation/diagnostics.py src/archkeel/check/validation/graphs.py src/archkeel/check/validation/inside.py src/archkeel/check/validation/observation.py src/archkeel/check/validation/public_api.py src/archkeel/check/validation/rationale.py src/archkeel/check/validation/references.py src/archkeel/ir/baseline.py src/archkeel/ir/lock.py src/archkeel/ir/report_projection.py tools/github_pr_report.py
-          uv run --locked ruff format tests/test_typed_diagnostic_owner.py src/archkeel/ir/model.py src/archkeel/ir/diagnostics.py tests/test_diagnostics.py tests/test_result_schema.py src/archkeel/check/delta.py src/archkeel/check/observe.py src/archkeel/check/onboarding.py src/archkeel/check/report.py src/archkeel/check/run.py src/archkeel/check/runtime.py src/archkeel/check/uml.py src/archkeel/check/uml_evaluation.py src/archkeel/check/validation/__init__.py src/archkeel/check/validation/closed_world.py src/archkeel/check/validation/diagnostics.py src/archkeel/check/validation/graphs.py src/archkeel/check/validation/inside.py src/archkeel/check/validation/observation.py src/archkeel/check/validation/public_api.py src/archkeel/check/validation/rationale.py src/archkeel/check/validation/references.py src/archkeel/ir/baseline.py src/archkeel/ir/lock.py src/archkeel/ir/report_projection.py tools/github_pr_report.py
+          uv run --locked ruff check --select I --fix tests/test_typed_diagnostic_owner.py src/archkeel/ir/model.py src/archkeel/ir/diagnostics.py tests/test_diagnostics.py tests/test_result_schema.py src/archkeel/check/delta.py src/archkeel/check/observe.py src/archkeel/check/onboarding.py src/archkeel/check/report.py src/archkeel/check/run.py src/archkeel/check/runtime.py src/archkeel/check/uml.py src/archkeel/check/uml_evaluation.py src/archkeel/check/validation/__init__.py src/archkeel/check/validation/closed_world.py src/archkeel/check/validation/diagnostics.py src/archkeel/check/validation/graphs.py src/archkeel/check/validation/inside.py src/archkeel/check/validation/observation.py src/archkeel/check/validation/public_api.py src/archkeel/check/validation/rationale.py src/archkeel/check/validation/references.py src/archkeel/ir/baseline.py src/archkeel/ir/lock.py src/archkeel/ir/report_projection.py tools/github_pr_report.py src/archkeel/render/html.py src/archkeel/render/terminal.py
+          uv run --locked ruff format tests/test_typed_diagnostic_owner.py src/archkeel/ir/model.py src/archkeel/ir/diagnostics.py tests/test_diagnostics.py tests/test_result_schema.py src/archkeel/check/delta.py src/archkeel/check/observe.py src/archkeel/check/onboarding.py src/archkeel/check/report.py src/archkeel/check/run.py src/archkeel/check/runtime.py src/archkeel/check/uml.py src/archkeel/check/uml_evaluation.py src/archkeel/check/validation/__init__.py src/archkeel/check/validation/closed_world.py src/archkeel/check/validation/diagnostics.py src/archkeel/check/validation/graphs.py src/archkeel/check/validation/inside.py src/archkeel/check/validation/observation.py src/archkeel/check/validation/public_api.py src/archkeel/check/validation/rationale.py src/archkeel/check/validation/references.py src/archkeel/ir/baseline.py src/archkeel/ir/lock.py src/archkeel/ir/report_projection.py tools/github_pr_report.py src/archkeel/render/html.py src/archkeel/render/terminal.py
           python - <<'PY'
           import base64,subprocess
-          print("FORMAT_PATCH="+base64.b64encode(subprocess.check_output(["git","diff","--","tests/test_typed_diagnostic_owner.py","src/archkeel/ir/model.py","src/archkeel/ir/diagnostics.py","tests/test_diagnostics.py","tests/test_result_schema.py","src/archkeel/check/delta.py","src/archkeel/check/observe.py","src/archkeel/check/onboarding.py","src/archkeel/check/report.py","src/archkeel/check/run.py","src/archkeel/check/runtime.py","src/archkeel/check/uml.py","src/archkeel/check/uml_evaluation.py","src/archkeel/check/validation/__init__.py","src/archkeel/check/validation/closed_world.py","src/archkeel/check/validation/diagnostics.py","src/archkeel/check/validation/graphs.py","src/archkeel/check/validation/inside.py","src/archkeel/check/validation/observation.py","src/archkeel/check/validation/public_api.py","src/archkeel/check/validation/rationale.py","src/archkeel/check/validation/references.py","src/archkeel/ir/baseline.py","src/archkeel/ir/lock.py","src/archkeel/ir/report_projection.py","tools/github_pr_report.py"])).decode())
+          print("FORMAT_PATCH="+base64.b64encode(subprocess.check_output(["git","diff","--","tests/test_typed_diagnostic_owner.py","src/archkeel/ir/model.py","src/archkeel/ir/diagnostics.py","tests/test_diagnostics.py","tests/test_result_schema.py","src/archkeel/check/delta.py","src/archkeel/check/observe.py","src/archkeel/check/onboarding.py","src/archkeel/check/report.py","src/archkeel/check/run.py","src/archkeel/check/runtime.py","src/archkeel/check/uml.py","src/archkeel/check/uml_evaluation.py","src/archkeel/check/validation/__init__.py","src/archkeel/check/validation/closed_world.py","src/archkeel/check/validation/diagnostics.py","src/archkeel/check/validation/graphs.py","src/archkeel/check/validation/inside.py","src/archkeel/check/validation/observation.py","src/archkeel/check/validation/public_api.py","src/archkeel/check/validation/rationale.py","src/archkeel/check/validation/references.py","src/archkeel/ir/baseline.py","src/archkeel/ir/lock.py","src/archkeel/ir/report_projection.py","tools/github_pr_report.py","src/archkeel/render/html.py","src/archkeel/render/terminal.py"])).decode())
           PY
-          uv run --locked ruff check tests/test_typed_diagnostic_owner.py src/archkeel/ir/model.py src/archkeel/ir/diagnostics.py tests/test_diagnostics.py tests/test_result_schema.py src/archkeel/check/delta.py src/archkeel/check/observe.py src/archkeel/check/onboarding.py src/archkeel/check/report.py src/archkeel/check/run.py src/archkeel/check/runtime.py src/archkeel/check/uml.py src/archkeel/check/uml_evaluation.py src/archkeel/check/validation/__init__.py src/archkeel/check/validation/closed_world.py src/archkeel/check/validation/diagnostics.py src/archkeel/check/validation/graphs.py src/archkeel/check/validation/inside.py src/archkeel/check/validation/observation.py src/archkeel/check/validation/public_api.py src/archkeel/check/validation/rationale.py src/archkeel/check/validation/references.py src/archkeel/ir/baseline.py src/archkeel/ir/lock.py src/archkeel/ir/report_projection.py tools/github_pr_report.py
+          uv run --locked ruff check tests/test_typed_diagnostic_owner.py src/archkeel/ir/model.py src/archkeel/ir/diagnostics.py tests/test_diagnostics.py tests/test_result_schema.py src/archkeel/check/delta.py src/archkeel/check/observe.py src/archkeel/check/onboarding.py src/archkeel/check/report.py src/archkeel/check/run.py src/archkeel/check/runtime.py src/archkeel/check/uml.py src/archkeel/check/uml_evaluation.py src/archkeel/check/validation/__init__.py src/archkeel/check/validation/closed_world.py src/archkeel/check/validation/diagnostics.py src/archkeel/check/validation/graphs.py src/archkeel/check/validation/inside.py src/archkeel/check/validation/observation.py src/archkeel/check/validation/public_api.py src/archkeel/check/validation/rationale.py src/archkeel/check/validation/references.py src/archkeel/ir/baseline.py src/archkeel/ir/lock.py src/archkeel/ir/report_projection.py tools/github_pr_report.py src/archkeel/render/html.py src/archkeel/render/terminal.py
           make typecheck
           uv run --locked python -m pytest -q tests/test_repository_hygiene.py
   diagnostic-regressions:
@@ -243,6 +260,7 @@ jobs:
           uv run --locked python - "$RUNNER_TEMP/diagnostic-before.json" "$RUNNER_TEMP/diagnostic-after.json" <<'PY'
           import json,pathlib,sys
           from dataclasses import asdict
+          import ast,os,re
           from archkeel.ir.codec import decode_canonical_model,parse_observation
           from archkeel.check.ratchets import unknown_positions_by_rule,call_rows
           from archkeel.ir.trace import trace_valid_violations
@@ -255,10 +273,41 @@ jobs:
                   for row in model.records("unknowns") or ()
                   if row.kind in {"boundary_type_position","boundary_type_route"}
               }
+          def stable_caller(caller):
+              return re.sub(r"<(genexpr|listcomp|dictcomp|setcomp):[0-9]+:[0-9]+>",r"<\1>",caller)
           def unresolved(model):
-              return {(row.path,row.caller,row.expression):asdict(row) for row in call_rows(model) if row.status=="unresolved"}
+              result={}
+              for row in call_rows(model):
+                  if row.status=="unresolved":
+                      result.setdefault((row.path,stable_caller(row.caller),row.expression),[]).append(asdict(row))
+              return result
           old,new=types(before),types(after)
           old_calls,new_calls=unresolved(before),unresolved(after)
+          before_root=pathlib.Path(os.environ["RUNNER_TEMP"])/"diagnostic-before"
+          def class_method(path,classname,methodname):
+              tree=ast.parse(path.read_text())
+              cls=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name==classname)
+              return next(node for node in cls.body if isinstance(node,ast.FunctionDef) and node.name==methodname)
+          old_diagnostic=class_method(before_root/"src/archkeel/ir/model.py","Diagnostic","__post_init__")
+          new_diagnostic=class_method(pathlib.Path("src/archkeel/ir/diagnostics.py"),"Diagnostic","__post_init__")
+          old_generators=[ast.dump(node,include_attributes=False) for node in ast.walk(old_diagnostic) if isinstance(node,ast.GeneratorExp)]
+          new_generators=[ast.dump(node,include_attributes=False) for node in ast.walk(new_diagnostic) if isinstance(node,ast.GeneratorExp)]
+          assert old_generators==new_generators,"Existing diagnostic strip generator changed"
+          old_error=class_method(before_root/"src/archkeel/ir/model.py","DiagnosticError","__init__")
+          new_error=class_method(pathlib.Path("src/archkeel/ir/diagnostics.py"),"DiagnosticError","__init__")
+          assert ast.dump(old_error,include_attributes=False)==ast.dump(new_error,include_attributes=False),"Existing diagnostic exception constructor changed"
+          growing_sites=[{"before":old_calls[key],"after":new_calls[key]} for key in old_calls.keys()&new_calls.keys() if len(new_calls[key])>len(old_calls[key])]
+          assert not growing_sites,growing_sites
+          new_sites=new_calls.keys()-old_calls.keys()
+          removed_sites=old_calls.keys()-new_calls.keys()
+          relocation_pairs=[]
+          for key in sorted(new_sites):
+              old_key=(key[0].replace("src/archkeel/ir/diagnostics.py","src/archkeel/ir/model.py"),key[1].replace("archkeel.ir.diagnostics.Diagnostic","archkeel.ir.model.Diagnostic"),key[2])
+              assert old_key in removed_sites,(key,old_key)
+              assert key[2] in {"value.strip","super().__init__"},key
+              assert len(old_calls[old_key])==len(new_calls[key]),(old_calls[old_key],new_calls[key])
+              relocation_pairs.append({"before":old_calls[old_key],"after":new_calls[key]})
+          assert len(relocation_pairs)==len(removed_sites),"Unexplained removed unresolved site"
           summary={
               "before_ref":"5933ffbbfd588ac96e36748de937cb1f6e739655",
               "before_calls":before.coverage.calls_unresolved,
@@ -268,8 +317,11 @@ jobs:
               "new_type_positions":[new[key] for key in sorted(new.keys()-old.keys())],
               "resolved_type_positions":[old[key] for key in sorted(old.keys()-new.keys())],
               "changed_existing_type_positions":[{"before":old[key],"after":new[key]} for key in sorted(old.keys()&new.keys()) if old[key]!=new[key]],
-              "new_unresolved_sites":[new_calls[key] for key in sorted(new_calls.keys()-old_calls.keys())],
-              "removed_unresolved_sites":[old_calls[key] for key in sorted(old_calls.keys()-new_calls.keys())],
+              "new_unresolved_sites":[row for key in sorted(new_calls.keys()-old_calls.keys()) for row in new_calls[key]],
+              "removed_unresolved_sites":[row for key in sorted(old_calls.keys()-new_calls.keys()) for row in old_calls[key]],
+              "proved_call_relocations":relocation_pairs,
+              "growing_existing_unresolved_sites":growing_sites,
+              "unchanged_strip_generator_and_exception_constructor":True,
               "all_after_type_positions":[new[key] for key in sorted(new)],
           }
           comparison=architecture_report(after).comparison
