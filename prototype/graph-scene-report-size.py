@@ -5,6 +5,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path.cwd()))
 sys.path.insert(0, str(Path("tests").resolve()))
 from test_atlas_report import _page, _sample
 

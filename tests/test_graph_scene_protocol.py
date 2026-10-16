@@ -294,7 +294,9 @@ def test_stale_generated_vocabulary_fails_the_actual_check_command(tmp_path, mon
 
     stale = tmp_path / "vocabulary.ts"
     source = browser_graph_protocol.vocabulary_source()
-    stale.write_text(source.replace('OBSERVED = "observed"', 'OBSERVED = "stale"'), encoding="utf-8")
+    stale.write_text(
+        source.replace('OBSERVED = "observed"', 'OBSERVED = "stale"'), encoding="utf-8"
+    )
     monkeypatch.setattr(browser_graph_protocol, "_OUTPUT", stale)
     monkeypatch.setattr(sys, "argv", ["browser_graph_protocol", "--check"])
     with pytest.raises(SystemExit, match="Browser graph vocabulary is stale"):

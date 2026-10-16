@@ -44,7 +44,8 @@ def test_real_scene_source_literal_mutation_has_a_native_fact_and_keeps_partial_
     assert record.evidence_ids
     proof = [evidence[key] for key in record.evidence_ids]
     assert all(entry.file == "src/scene.js" and entry.line > 0 for entry in proof)
-    assert any('graph.origin !== "observed"' in entry.excerpt for entry in proof)
+    expected_line = next(index for index, line in enumerate(production.splitlines(), 1) if before in line)
+    assert any(entry.excerpt == '"observed"' and entry.line == expected_line for entry in proof)
     print("ACTUAL_SCENE_NATIVE_MUTATION=" + json.dumps({
         "original_construct_count": len(clean), "mutated_construct_count": len(found),
         "record": record.id, "file": proof[0].file, "line": proof[0].line,
