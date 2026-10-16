@@ -23,7 +23,7 @@ from archkeel.ir.codec_wire import (
     _strings,
     canonical_json_bytes,
 )
-from archkeel.ir.facts import RuntimeRequirementState
+from archkeel.ir.facts import RuntimeRequirementState, parse_runtime_requirement_state
 from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
@@ -202,19 +202,7 @@ def _parse_runtime(raw: RawJson, *, allow_requirement_state: bool) -> RuntimeInf
     requirement_state_raw = _string(
         item.get("requirement_state", "declared"), "runtime.requirement_state"
     )
-    requirement_state: RuntimeRequirementState
-    if requirement_state_raw == "declared":
-        requirement_state = "declared"
-    elif requirement_state_raw == "metadata_missing":
-        requirement_state = "metadata_missing"
-    elif requirement_state_raw == "metadata_invalid":
-        requirement_state = "metadata_invalid"
-    elif requirement_state_raw == "requirement_missing":
-        requirement_state = "requirement_missing"
-    elif requirement_state_raw == "requirement_invalid":
-        requirement_state = "requirement_invalid"
-    else:
-        raise ValueError("runtime.requirement_state is invalid")
+    requirement_state = parse_runtime_requirement_state(requirement_state_raw)
     return RuntimeInfo(
         _known_identity(item["name"], "runtime.name"),
         _known_identity(item["version"], "runtime.version"),
@@ -330,7 +318,7 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
     if (
         observation.schema_version != SCHEMA_VERSION
         and observation.runtime is not None
-        and observation.runtime.requirement_state != "declared"
+        and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED
     ):
         raise ValueError("runtime.requirement_state requires observation schema 2.0.0")
     result = _raw_object(asdict(observation))
@@ -343,7 +331,7 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
         if isinstance(runtime, dict):
             if observation.runtime.required is None:
                 del runtime["required"]
-            if observation.runtime.requirement_state == "declared":
+            if observation.runtime.requirement_state == RuntimeRequirementState.DECLARED:
                 del runtime["requirement_state"]
     if observation.producer is None:
         del result["producer"]

@@ -14,14 +14,30 @@ from typing import Literal, TypeAlias
 from .state_facts import StateFacts
 from .type_shapes import TypeShape
 
-Language: TypeAlias = Literal["python", "dart", "typescript"]
-RuntimeRequirementState: TypeAlias = Literal[
-    "declared",
-    "metadata_missing",
-    "metadata_invalid",
-    "requirement_missing",
-    "requirement_invalid",
-]
+class Language(StrEnum):
+    PYTHON = "python"
+    DART = "dart"
+    TYPESCRIPT = "typescript"
+
+
+class RuntimeRequirementState(StrEnum):
+    DECLARED = "declared"
+    METADATA_MISSING = "metadata_missing"
+    METADATA_INVALID = "metadata_invalid"
+    REQUIREMENT_MISSING = "requirement_missing"
+    REQUIREMENT_INVALID = "requirement_invalid"
+
+
+def parse_runtime_requirement_state(value: object) -> RuntimeRequirementState:
+    """Validate the shared runtime vocabulary once, at a wire or metadata boundary."""
+    if not isinstance(value, str):
+        raise ValueError("runtime.requirement_state is invalid")
+    try:
+        return RuntimeRequirementState(value)
+    except ValueError as error:
+        raise ValueError("runtime.requirement_state is invalid") from error
+
+
 SOURCE_RESOLUTION_GAP_KIND = "source_resolution_gap"
 
 RECORD_FIELDS = (
@@ -255,7 +271,9 @@ class RuntimeInfo:
     version: str
     required: str | None = None
     # Diagnostic context does not change runtime comparability for saved snapshots.
-    requirement_state: RuntimeRequirementState = field(default="declared", compare=False)
+    requirement_state: RuntimeRequirementState = field(
+        default=RuntimeRequirementState.DECLARED, compare=False
+    )
 
 
 @dataclass(frozen=True, slots=True)

@@ -15,6 +15,7 @@ from archkeel.analyzer.runtime import (
     python_requirement,
 )
 from archkeel.ir.facts import (
+    Language,
     BuiltinTarget,
     Capabilities,
     CollectionCoverage,
@@ -139,8 +140,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         evidence[item.id] = _raw_evidence(item)
 
     required, requirement_state = python_requirement(root)
-    adapter, runtime = collector_provenance(
-        "python", required=required, requirement_state=requirement_state
+    adapter, runtime = collector_provenance(Language.PYTHON, required=required, requirement_state=requirement_state
     )
     return SourceFacts(
         "archkeel-python-analyzer",

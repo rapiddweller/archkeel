@@ -29,6 +29,7 @@ from .facts import (
     ImportTarget,
     JsonValue,
     LocalTarget,
+    Language,
     Record,
     RecordData,
     ResolutionInput,
@@ -39,6 +40,7 @@ from .facts import (
     SourceProfile,
     SourceSectionName,
     UnresolvedTarget,
+    parse_runtime_requirement_state,
 )
 from .facts_validation import validate_source_facts
 from .protocol import (
@@ -47,6 +49,7 @@ from .protocol import (
     CollectionResponse,
     DartSettings,
     PythonSettings,
+    ProtocolVersion,
     SnapshotInput,
     SourceScope,
     TypeScriptSettings,
@@ -139,19 +142,11 @@ def _string(value: RawJson, label: str) -> str:
 
 
 def _runtime_requirement_state(value: RawJson) -> RuntimeRequirementState:
-    if value == "declared":
-        return "declared"
-    if value == "metadata_missing":
-        return "metadata_missing"
-    if value == "metadata_invalid":
-        return "metadata_invalid"
-    if value == "requirement_missing":
-        return "requirement_missing"
-    if value == "requirement_invalid":
-        return "requirement_invalid"
-    if not isinstance(value, str):
-        raise ProtocolError("runtime.requirement_state is invalid")
-    raise ProtocolError("runtime.requirement_state is invalid")
+    try:
+        return parse_runtime_requirement_state(value)
+    except ValueError as error:
+        raise ProtocolError(str(error)) from error
+
 
 
 def _relative(value: RawJson, label: str) -> str:
@@ -162,10 +157,14 @@ def _relative(value: RawJson, label: str) -> str:
     return path
 
 
-def _version(value: RawJson) -> str:
-    if not isinstance(value, str) or value not in ("1.0.0", "2.0.0", PROTOCOL_VERSION):
+def _version(value: RawJson) -> ProtocolVersion:
+    if not isinstance(value, str):
         raise ProtocolError("unsupported collection protocol version")
-    return value
+    try:
+        return ProtocolVersion(value)
+    except ValueError as error:
+        raise ProtocolError("unsupported collection protocol version") from error
+
 
 
 def decode_request(payload: bytes) -> CollectionRequest:
@@ -207,14 +206,17 @@ def decode_request(payload: bytes) -> CollectionRequest:
     resolver_raw = raw["resolver"]
     if not isinstance(resolver_raw, dict):
         raise ProtocolError("resolver fields mismatch")
-    language = resolver_raw.get("language")
-    if language == "python":
+    try:
+        language = Language(_string(resolver_raw.get("language"), "resolver.language"))
+    except ValueError as error:
+        raise ProtocolError("unsupported collection language") from error
+    if language is Language.PYTHON:
         _object(resolver_raw, {"language"}, "resolver")
         resolver: PythonSettings | DartSettings | TypeScriptSettings = PythonSettings()
-    elif language == "dart":
+    elif language is Language.DART:
         _object(resolver_raw, {"language"}, "resolver")
         resolver = DartSettings()
-    elif language == "typescript":
+    elif language is Language.TYPESCRIPT:
         _object(resolver_raw, {"language", "tsconfig"}, "resolver")
         resolver = TypeScriptSettings(_relative(resolver_raw["tsconfig"], "resolver.tsconfig"))
     else:
@@ -530,7 +532,7 @@ def _target_payload(target: ImportTarget) -> dict[str, RawJson]:
     }
 
 
-def _shape(value: RawJson, protocol_version: str) -> TypeShape:
+def _shape(value: RawJson, protocol_version: ProtocolVersion) -> TypeShape:
     if not isinstance(value, dict):
         raise ProtocolError("type shape must be an object")
     kind = value.get("kind")
@@ -561,7 +563,7 @@ def _shape(value: RawJson, protocol_version: str) -> TypeShape:
         return TypeUnion(
             text, _shape(value["left"], protocol_version), _shape(value["right"], protocol_version)
         )
-    if kind == "list" and protocol_version == "3.0.0":
+    if kind == "list" and protocol_version is ProtocolVersion.V3:
         _object(value, {"kind", "text", "elements"}, "type list")
         return TypeList(
             text,
@@ -699,10 +701,10 @@ def _file_payload(entry: FileFact) -> dict[str, RawJson]:
     }
 
 
-def _runtime_info(value: RawJson, protocol_version: str) -> RuntimeInfo:
+def _runtime_info(value: RawJson, protocol_version: ProtocolVersion) -> RuntimeInfo:
     expected = (
         {"name", "version", "required", "requirement_state"}
-        if protocol_version in {"2.0.0", "3.0.0"}
+        if protocol_version in {ProtocolVersion.V2, ProtocolVersion.V3}
         else {"name", "version", "required"}
     )
     if not isinstance(value, dict) or set(value) != expected:
@@ -788,8 +790,8 @@ def decode_response(payload: bytes) -> CollectionResponse:
 
 def encode_response(response: CollectionResponse) -> bytes:
     facts = response.facts
-    _version(response.protocol_version)
-    if response.protocol_version == "1.0.0" and facts.runtime.requirement_state != "declared":
+    version = _version(response.protocol_version)
+    if version is ProtocolVersion.V1 and facts.runtime.requirement_state != RuntimeRequirementState.DECLARED:
         raise ProtocolError("protocol 1.0.0 cannot carry runtime.requirement_state")
     raw: dict[str, RawJson] = {
         "protocol_version": response.protocol_version,
@@ -808,7 +810,7 @@ def encode_response(response: CollectionResponse) -> bytes:
                 "required": facts.runtime.required,
                 **(
                     {"requirement_state": facts.runtime.requirement_state}
-                    if response.protocol_version in {"2.0.0", "3.0.0"}
+                    if version in {ProtocolVersion.V2, ProtocolVersion.V3}
                     else {}
                 ),
             },

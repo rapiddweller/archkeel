@@ -48,7 +48,7 @@ def _path(value: object, *, field: str, allow_dot: bool = True) -> str:
 
 def project_name(root: Path, config: ScanConfig) -> str:
     """Use valid Python project metadata for display, otherwise the configured namespace."""
-    if config.language == "python":
+    if config.language == Language.PYTHON:
         try:
             path = _contained(root, "pyproject.toml", field="project metadata")
             with open(path, "rb") as stream:
@@ -80,23 +80,19 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
             "collector_argv, and collector_output_limit_bytes are optional"
         )
     # AD-97: absent means Python, so an existing archkeel.toml keeps its bytes and its digest.
-    language_value = scan.get("language", "python")
-    if language_value == "python":
-        language: Language = "python"
-    elif language_value == "dart":
-        language = "dart"
-    elif language_value == "typescript":
-        language = "typescript"
-    else:
-        raise ConfigError('scan.language must be "python", "dart", or "typescript"')
+    language_value = scan.get("language", Language.PYTHON)
+    try:
+        language = Language(language_value)
+    except (ValueError, TypeError) as error:
+        raise ConfigError('scan.language must be "python", "dart", or "typescript"') from error
     tsconfig_raw = scan.get("tsconfig")
-    if tsconfig_raw is not None and language != "typescript":
+    if tsconfig_raw is not None and language != Language.TYPESCRIPT:
         raise ConfigError("scan.tsconfig is only valid when scan.language is typescript")
     tsconfig = (
         _path(tsconfig_raw, field="scan.tsconfig", allow_dot=False)
         if tsconfig_raw is not None
         else "tsconfig.json"
-        if language == "typescript"
+        if language == Language.TYPESCRIPT
         else None
     )
     argv_raw = scan.get("collector_argv")
@@ -175,8 +171,8 @@ def load_config(root: Path, path: str = CONFIG_PATH) -> ScanConfig:
     config = parse_config(payload, path)
     for relative in config.roots:
         target = _contained(repository, relative, field="scan.roots")
-        if not target.is_dir() and not (config.language == "typescript" and target.is_file()):
-            expected = "directory or file" if config.language == "typescript" else "directory"
+        if not target.is_dir() and not (config.language == Language.TYPESCRIPT and target.is_file()):
+            expected = "directory or file" if config.language == Language.TYPESCRIPT else "directory"
             raise ConfigError(f"scan root is not a {expected}: {relative}")
     contract = _contained(repository, config.contract, field="scan.contract")
     if not contract.is_file():

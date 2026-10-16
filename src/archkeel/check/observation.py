@@ -39,6 +39,7 @@ from archkeel.ir.model import (
     contract_relative_path,
     stable_id,
 )
+from archkeel.ir.facts import RuntimeRequirementState
 from archkeel.ir.profiles import PROFILES, Language, Profile
 
 from .declarations import (
@@ -461,7 +462,7 @@ def _declaration_records(
         *inside_records,
     ]
     roots, namespace = module_scope
-    dart_names = _dart_target_names(records, scan, roots, namespace) if language == "dart" else {}
+    dart_names = _dart_target_names(records, scan, roots, namespace) if language == Language.DART else {}
     for record in records:
         data = record["data"]
         if record["kind"] != "module_target" or "path" not in data:
@@ -471,7 +472,7 @@ def _declaration_records(
             continue
         qualified_name = (
             dart_names.get(record["id"])
-            if language == "dart"
+            if language == Language.DART
             else _declared_module_name(path, roots, namespace, language)
         )
         if qualified_name is not None:
@@ -481,9 +482,9 @@ def _declaration_records(
 
 
 def _declared_module_name(
-    path: str, roots: tuple[str, ...], namespace: str, language: Language = "python"
+    path: str, roots: tuple[str, ...], namespace: str, language: Language = Language.PYTHON
 ) -> str | None:
-    if language == "dart":
+    if language == Language.DART:
         source_path = PurePosixPath(path)
         if source_path.suffix != ".dart":
             return None
@@ -493,7 +494,7 @@ def _declared_module_name(
             if source_path.is_relative_to(PurePosixPath(root))
         ]
         return f"{namespace}.{names[0]}" if len(names) == 1 and names[0] is not None else None
-    if language == "typescript":
+    if language == Language.TYPESCRIPT:
         source_path = PurePosixPath(path)
         if not any(source_path.is_relative_to(PurePosixPath(root)) for root in roots):
             return None
@@ -733,7 +734,7 @@ def assemble_observation(
     contract_path: Path | None = None,
     roots: tuple[str, ...] = ("src",),
     namespace: str = "src",
-    language: Language = "python",
+    language: Language = Language.PYTHON,
 ) -> tuple[Observation, int]:
     """Analyze explicit source bytes; keep the model open for the canonical codec boundary."""
     git_head, dirty = facts.source.git_head, facts.source.dirty
@@ -806,17 +807,17 @@ def assemble_observation(
         "evidence": scan.evidence,
     }
     requirement_state = facts.runtime.requirement_state
-    if requirement_state == "declared" and has_invalid_python_requirement(facts.runtime):
-        requirement_state = "requirement_invalid"
+    if requirement_state == RuntimeRequirementState.DECLARED and has_invalid_python_requirement(facts.runtime):
+        requirement_state = RuntimeRequirementState.REQUIREMENT_INVALID
     model["runtime"] = {
         "name": facts.runtime.name,
         "version": facts.runtime.version,
         "required": facts.runtime.required,
         "requirement_state": requirement_state,
     }
-    if language == "python" and facts.runtime.name == "python":
+    if language == Language.PYTHON and facts.runtime.name == "python":
         model["python_version"] = facts.runtime.version
-    if language != "python" or facts.adapter.name != profile.analyzer:
+    if language != Language.PYTHON or facts.adapter.name != profile.analyzer:
         model["producer"] = {
             "name": facts.adapter.name,
             "version": facts.adapter.version,
@@ -844,7 +845,7 @@ def analyze_source_snapshot(
     contract_path: Path | None = None,
     roots: tuple[str, ...] = ("src",),
     namespace: str = "src",
-    language: Language = "python",
+    language: Language = Language.PYTHON,
 ) -> tuple[Observation, int]:
     """Collect and assemble one snapshot for demo and audit callers."""
     from archkeel.ir.protocol import (
@@ -862,9 +863,9 @@ def analyze_source_snapshot(
         raise ValueError("dirty must be a boolean or unknown")
     resolver: ResolverSettings = (
         TypeScriptSettings()
-        if language == "typescript"
+        if language == Language.TYPESCRIPT
         else DartSettings()
-        if language == "dart"
+        if language == Language.DART
         else PythonSettings()
     )
     request = CollectionRequest(
