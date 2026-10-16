@@ -171,6 +171,7 @@ _PRIORITY: Final = (
     (".mts", ".d.mts", ".mjs"),
 )
 # A string is captured so that a comment or a comma inside it survives.
+_CONFIG_DIRECTORY: Final = "${configDir}"
 _STRINGS: Final = r'("(?:[^"\\]|\\.)*")|//[^\n]*|/\*[\s\S]*?\*/'
 _TRAILING_COMMA: Final = r'("(?:[^"\\]|\\.)*")|,(?=\s*[}\]])'
 _NOT_EXCLUDED: Final = r"(?!(?:node_modules|bower_components|jspm_packages)(?:/|\Z))"
@@ -344,7 +345,9 @@ class Snapshot:
 
     def installed(self, rel: str) -> bool:
         real: str = self.real(rel) or rel
-        return "node_modules" in real.split("/")
+        return any(
+            PathToken.parse(segment) is PathToken.NODE_MODULES for segment in real.split("/")
+        )
 
 
 def decode(raw: bytes) -> str:
@@ -403,9 +406,8 @@ def _slashes(spec: str) -> str:
 
 def _under(value: str, directory: str, final: str) -> str:
     """A spec of a config in `directory`; `${configDir}` is the directory of the root config."""
-    marker = "${configDir}"
-    if value.startswith(marker):
-        tail: str = value[len(marker) :]
+    if re.match(re.escape(_CONFIG_DIRECTORY), value):
+        tail: str = value[len(_CONFIG_DIRECTORY) :]
         return join(final, tail.lstrip("/") or ".")
     return join(directory, value)
 
@@ -544,7 +546,11 @@ def _options(layer: _Layer, problems: list[str]) -> Options:
     resolution = _RESOLUTION_VALUES.get(_normalized(raw, "moduleResolution"))
     paths = _paths(raw, problems)
     unmodeled = [name for name in _UNMODELED if raw.get(name) not in (None, False, [])]
-    if any("${configDir}" in target for _, targets in paths for target in targets):
+    if any(
+        re.search(re.escape(_CONFIG_DIRECTORY), target)
+        for _, targets in paths
+        for target in targets
+    ):
         unmodeled.append("paths with ${configDir}")
     json_flag = raw.get("resolveJsonModule")
     options = Options(
@@ -641,7 +647,11 @@ def _base_path(spec: str) -> str:
     path: str = "/" + spec if not spec.startswith("/") else spec
     found = re.search(r"[*?]", path)
     if found is None:
-        return path if "." not in posixpath.basename(path) else posixpath.dirname(path) or "/"
+        return (
+            path
+            if re.search(r"\.", posixpath.basename(path)) is None
+            else posixpath.dirname(path) or "/"
+        )
     return path[: path.rindex("/", 0, found.start())] or "/"
 
 
