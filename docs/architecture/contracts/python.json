@@ -45,7 +45,8 @@
         "archkeel.analyzer.python.source",
         "archkeel.analyzer.python.resolve",
         "archkeel.analyzer.python.receiver_types",
-        "archkeel.analyzer.python.scopes"
+        "archkeel.analyzer.python.scopes",
+        "archkeel.analyzer.python.binding_types"
       ],
       "responsibilities": [
         "Own Python AST/local IR and resolution helpers."
@@ -63,7 +64,13 @@
         "archkeel.analyzer.python.source:function_class_owners",
         "archkeel.analyzer.python.resolve",
         "archkeel.analyzer.python.receiver_types",
-        "archkeel.analyzer.python.scopes"
+        "archkeel.analyzer.python.scopes",
+        "archkeel.analyzer.python.binding_types:AliasBinding",
+        "archkeel.analyzer.python.binding_types:ImportKind",
+        "archkeel.analyzer.python.binding_types:BindingKind",
+        "archkeel.analyzer.python.binding_types:CompilerScopeKind",
+        "archkeel.analyzer.python.binding_types:lexical_import_kind",
+        "archkeel.analyzer.python.binding_types:compiler_scope_kind"
       ]
     },
     {
@@ -226,7 +233,152 @@
       {
         "path": "src/archkeel/analyzer/python/typing_signals.py",
         "responsibility": "Collect typing_signals source facts."
+      },
+      {
+        "path": "src/archkeel/analyzer/python/binding_types.py",
+        "responsibility": "Own nominal import and lexical binding kinds and classify external compiler scope types."
       }
-    ]
+    ],
+    "uml": {
+      "schema_version": "1.0.0",
+      "entities": [
+        {
+          "id": "PYTHON-BINDING-MODEL",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.python.binding_types",
+          "language": "python",
+          "parent_id": "TARGET-SOURCE",
+          "presence": "planned",
+          "responsibilities": [
+            "Own binding control types and bounded compiler scope classification."
+          ],
+          "provenance": [
+            "docs/architecture/typed-python-bindings.md"
+          ]
+        },
+        {
+          "id": "PYTHON-BINDING-SCOPES",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.python.scopes",
+          "language": "python",
+          "parent_id": "TARGET-SOURCE",
+          "presence": "planned",
+          "responsibilities": [
+            "Own lexical lookup using compiler scope and binding categories."
+          ],
+          "provenance": [
+            "docs/architecture/typed-python-bindings.md"
+          ]
+        },
+        {
+          "id": "PYTHON-BINDING-ALIAS",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.python.binding_types.AliasBinding",
+          "language": "python",
+          "parent_id": "PYTHON-BINDING-MODEL",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain an immutable imported target and its nominal import category."
+          ],
+          "provenance": [
+            "docs/architecture/typed-python-bindings.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "PYTHON-BINDING-NAME",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.python.scopes.NameBinding",
+          "language": "python",
+          "parent_id": "PYTHON-BINDING-SCOPES",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the lexical owner, targets and nominal binding category."
+          ],
+          "provenance": [
+            "docs/architecture/typed-python-bindings.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "PYTHON-BINDING-IMPORT-KIND",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.python.binding_types.ImportKind",
+          "language": "python",
+          "parent_id": "PYTHON-BINDING-MODEL",
+          "presence": "planned",
+          "responsibilities": [
+            "Distinguish module namespace imports from imported symbols."
+          ],
+          "provenance": [
+            "docs/architecture/typed-python-bindings.md"
+          ]
+        },
+        {
+          "id": "PYTHON-BINDING-LEXICAL-KIND",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.python.binding_types.BindingKind",
+          "language": "python",
+          "parent_id": "PYTHON-BINDING-MODEL",
+          "presence": "planned",
+          "responsibilities": [
+            "Distinguish unknown, local, unbound, declaration and imported lexical bindings."
+          ],
+          "provenance": [
+            "docs/architecture/typed-python-bindings.md"
+          ]
+        },
+        {
+          "id": "PYTHON-BINDING-COMPILER-KIND",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.python.binding_types.CompilerScopeKind",
+          "language": "python",
+          "parent_id": "PYTHON-BINDING-MODEL",
+          "presence": "planned",
+          "responsibilities": [
+            "Name only the supported module, function and class compiler scopes."
+          ],
+          "provenance": [
+            "docs/architecture/typed-python-bindings.md"
+          ]
+        },
+        {
+          "id": "PYTHON-BINDING-ALIAS-KIND",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.python.binding_types.AliasBinding.kind",
+          "language": "python",
+          "parent_id": "PYTHON-BINDING-ALIAS",
+          "presence": "planned",
+          "responsibilities": [
+            "Require the owned import category on every imported binding."
+          ],
+          "provenance": [
+            "docs/architecture/typed-python-bindings.md"
+          ],
+          "annotation": "ImportKind"
+        },
+        {
+          "id": "PYTHON-BINDING-NAME-KIND",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.python.scopes.NameBinding.kind",
+          "language": "python",
+          "parent_id": "PYTHON-BINDING-NAME",
+          "presence": "planned",
+          "responsibilities": [
+            "Require the owned lexical category on every name lookup result."
+          ],
+          "provenance": [
+            "docs/architecture/typed-python-bindings.md"
+          ],
+          "annotation": "BindingKind"
+        }
+      ],
+      "relationships": [],
+      "scopes": []
+    }
   }
 }

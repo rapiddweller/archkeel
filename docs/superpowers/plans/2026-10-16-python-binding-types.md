@@ -45,3 +45,9 @@ Branch: fix/542-python-binding-types.
 Real native records and trace-valid violations supply the RED/GREEN evidence. No fake
 observation, hand-authored comparison result, blanket exception or copied JSON history.
 The temporary hosted workflow stays on a verification branch, outside the product tree.
+
+## RED evidence
+
+- Plan committed before production code: 5fcec26602e6d0667e034ffaf7ea1f290b4fe834.
+- Corrected native setup observes the complete real module before selecting the six binding-only functions; function-only source selectors deliberately receive no module coverage guarantee.
+- RED 38943076148: 11 expected failures, no collection/setup failures. Two public Literal field annotations, two producer/lookup string-kind cases, six trace-backed native string dispatches, and an unknown compiler scope authorizing a module fallback.

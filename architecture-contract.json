@@ -771,9 +771,10 @@
         "archkeel.ir.architecture_graph",
         "archkeel.ir.dependency",
         "archkeel.ir.state_facts",
-        "archkeel.ir.state_codec"
+        "archkeel.ir.state_codec",
+        "archkeel.analyzer.python.binding_types"
       ],
-      "rationale": "Each shared vocabulary belongs to its domain model; state_facts owns state controls and state_codec owns its private wire event tag.",
+      "rationale": "Each shared vocabulary belongs to its domain model; state_facts owns state controls and state_codec owns its private wire event tag. Python binding_types owns the adapter's import, lexical and compiler-scope controls.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],
@@ -887,6 +888,19 @@
       "rationale": "State controls use their owned enums in the domain and parser; JSON conversion does not exempt protocol-string dispatch.",
       "provenance": [
         "docs/architecture/typed-state-protocol.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "PYTHON-BINDINGS-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.python.binding_types",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The Python binding model owns nominal controls and decodes compiler protocol values without raw-string dispatch. Other Python grammar modules remain pending.",
+      "provenance": [
+        "docs/architecture/typed-python-bindings.md"
       ],
       "decided_by": "architect"
     }

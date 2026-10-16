@@ -32,6 +32,10 @@ from archkeel.ir.source_records import FRAMEWORK_BASES as FRAMEWORK_BASES
 from archkeel.ir.source_records import is_public_method_name as is_public_method_name
 
 
+from .binding_types import AliasBinding as AliasBinding
+from .binding_types import ImportKind
+
+
 class _PropertyBinding(TypedDict):
     """One ordered operation on a statically named standard property binding."""
 
@@ -219,13 +223,6 @@ def own_scope(node: DefinitionNode) -> Iterator[ast.AST]:
         if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda):
             continue
         stack.extend(reversed(list(ast.iter_child_nodes(current))))
-
-
-@dataclass(frozen=True)
-class AliasBinding:
-    target: str
-    kind: Literal["module", "symbol"]
-    imported_name: str | None = None
 
 
 class ScannedModule(Protocol):
@@ -1413,7 +1410,7 @@ def _member_binding_roots(
                     changed_origins |= {imported_name if imported_alias.asname else root}
     for name, alias in module.aliases.items():
         imported_target: str = alias.target
-        origin = imported_target if alias.kind == "module" else imported_target.rpartition(".")[0]
+        origin = imported_target if alias.kind is ImportKind.MODULE else imported_target.rpartition(".")[0]
         if origin in changed_origins:
             changed_members |= {name}
     return changed_members
@@ -1815,7 +1812,7 @@ def proven_annotation_carrier_candidates(
                 root = root.value
             if isinstance(root, ast.Name) and root.id in module.aliases and root.id in stable:
                 binding = module.aliases[root.id]
-                if binding.kind != "module" or binding.target != head:
+                if binding.kind is not ImportKind.MODULE or binding.target != head:
                     candidates[node] = frozenset({(module.module, root.id)})
     return candidates
 

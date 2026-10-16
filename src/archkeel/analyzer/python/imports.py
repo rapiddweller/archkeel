@@ -16,11 +16,11 @@ from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 from archkeel.ir.reexports import resolve_reexports as resolve_import_origins
 
+from .binding_types import AliasBinding, ImportKind
 from .source import (
     FRAMEWORK_BASES,
     NATIVE_DATACLASS_DECORATOR,
     NATIVE_TYPED_DICT_BASE,
-    AliasBinding,
     ParsedModule,
     add_evidence,
     class_namespace_static,
@@ -200,7 +200,7 @@ class ImportCollector(ast.NodeVisitor):
             binding = alias.asname or alias.name.split(".")[0]
             # ``import a.b`` binds ``a``; ``import a.b as b`` binds the full module.
             binding_target = alias.name if alias.asname else alias.name.split(".")[0]
-            self._bind(node, binding, AliasBinding(target=binding_target, kind="module"))
+            self._bind(node, binding, AliasBinding(target=binding_target, kind=ImportKind.MODULE))
             self._record(node, target=alias.name, symbol=None, binding=binding, relative_level=0)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
@@ -227,7 +227,7 @@ class ImportCollector(ast.NodeVisitor):
                 binding,
                 AliasBinding(
                     target=binding_target,
-                    kind="module" if symbol is None else "symbol",
+                    kind=ImportKind.MODULE if symbol is None else ImportKind.SYMBOL,
                     imported_name=alias.name,
                 ),
             )
