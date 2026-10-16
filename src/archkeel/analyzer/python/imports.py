@@ -25,6 +25,7 @@ from .source import (
     add_evidence,
     class_namespace_static,
     explicit_provider_escapes,
+    intrinsic_generic_aliases,
     intrinsic_nullable_aliases,
     location,
     member_binding_closure,
@@ -34,6 +35,7 @@ from .source import (
     package_for,
     proven_annotation_carrier_candidates,
     proven_callable_candidates,
+    proven_generic_alias_union_candidates,
     proven_map_union_candidates,
     resolve_static_name,
     setter_local_references,
@@ -498,15 +500,49 @@ def _converge_member_escapes(
     return escaped_bindings
 
 
+def _generic_alias_bindings(
+    imports: Sequence[RawRecord], modules: dict[str, ParsedModule]
+) -> dict[str, dict[str, frozenset[tuple[str, str]]]]:
+    counts = Counter(module.module for module in modules.values())
+    providers = {
+        name: intrinsic_generic_aliases(module)
+        for name, module in modules.items()
+        if counts[name] == 1
+    }
+    bindings = {
+        name: {binding: frozenset({(name, binding)}) for binding in providers.get(name, ())}
+        for name in modules
+    }
+    for item in imports:
+        data = item["data"]
+        source, provider, symbol = data["source_module"], data["target_module"], data["symbol"]
+        origin = f"{provider}.{symbol}"
+        if (
+            source in modules
+            and symbol in providers.get(provider, ())
+            and _callable_provider_binding(data)
+            and data.get("origin_binding_unique") is True
+            and data["origin_definition"] == origin
+            and data["reexport_chain"] == [origin]
+            and modules[source].aliases[data["binding"]].target == origin
+        ):
+            bindings[source][data["binding"]] = frozenset(
+                {(source, data["binding"]), (provider, symbol)}
+            )
+    return bindings
+
+
 def _type_reference_candidates(
     imports: Sequence[RawRecord],
     modules: dict[str, ParsedModule],
     aliases: Mapping[str, dict[str, tuple[str, str]]],
 ) -> dict[str, dict[ast.expr, frozenset[tuple[str, str]]]]:
+    generic_aliases = _generic_alias_bindings(imports, modules)
     callable_providers = _callable_providers(imports, modules)
     candidates = {
         name: {
             **proven_map_union_candidates(module, aliases[name]),
+            **proven_generic_alias_union_candidates(module, generic_aliases[name]),
             **proven_callable_candidates(module, callable_providers[name]),
         }
         for name, module in modules.items()

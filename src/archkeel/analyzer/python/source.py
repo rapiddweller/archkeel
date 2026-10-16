@@ -1718,6 +1718,72 @@ def intrinsic_nullable_aliases(module: ParsedModule) -> frozenset[str]:
     )
 
 
+def _builtin_generic_alias(module: ParsedModule, node: ast.AST) -> bool:
+    """Only actual builtin GenericAlias construction, never a custom subscription."""
+    return (
+        isinstance(node, ast.Subscript)
+        and _bare_builtin(module, node.value, {"tuple", "list", "dict", "set", "frozenset"})
+        and _closed_builtin_type_arguments(module, node.slice)
+    )
+
+
+def _closed_builtin_type_arguments(module: ParsedModule, node: ast.AST) -> bool:
+    if isinstance(node, ast.Tuple):
+        return all(_closed_builtin_type_arguments(module, item) for item in node.elts)
+    if isinstance(node, ast.Constant):
+        return node.value is None or node.value is Ellipsis
+    return _bare_builtin(
+        module, node, {"str", "int", "float", "bool", "bytes", "complex", "object"}
+    ) or _builtin_generic_alias(module, node)
+
+
+def intrinsic_generic_aliases(module: ParsedModule) -> frozenset[str]:
+    """Admit unique native alias values from their RHS, independently of TypeAlias spelling."""
+    stable = stable_direct_module_bindings(module) & unique_direct_module_bindings(module)
+    return frozenset(
+        name
+        for node, name in module_scope_bindings(module)
+        if name in stable
+        and (value := admitted_type_alias_value(module, node)) is not None
+        and _builtin_generic_alias(module, value)
+    )
+
+
+def proven_generic_alias_union_candidates(
+    module: ParsedModule, aliases: Mapping[str, frozenset[tuple[str, str]]]
+) -> dict[ast.expr, frozenset[tuple[str, str]]]:
+    """Native immutable alias operands cannot receive arbitrary class __or__ dispatch."""
+    candidates: dict[ast.expr, frozenset[tuple[str, str]]] = {}
+    expressions = [
+        *_protected_type_expressions(module.all_nodes),
+        *(
+            value
+            for node in module.tree.body
+            if (value := admitted_type_alias_value(module, node)) is not None
+        ),
+    ]
+    for expression in expressions:
+        pending = [expression]
+        arms: list[ast.expr] = []
+        while pending:
+            arm = pending.pop()
+            if isinstance(arm, ast.BinOp) and isinstance(arm.op, ast.BitOr):
+                pending.extend((arm.left, arm.right))
+            else:
+                arms.append(arm)
+        if len(arms) < 2:
+            continue
+        dependencies: set[tuple[str, str]] = set()
+        for arm in arms:
+            if isinstance(arm, ast.Name) and arm.id in aliases:
+                dependencies.update(aliases[arm.id])
+            elif not _builtin_generic_alias(module, arm):
+                break
+        else:
+            candidates[expression] = frozenset(dependencies)
+    return candidates
+
+
 def proven_map_union_candidates(
     module: ParsedModule, aliases: Mapping[str, tuple[str, str]]
 ) -> dict[ast.expr, frozenset[tuple[str, str]]]:

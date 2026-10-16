@@ -22,13 +22,14 @@ jobs:
       - name: Lint and types
         if: always()
         run: |
-          uv run --locked ruff format tests/test_dependency_api_target.py
-          uv run --locked ruff check tests/test_dependency_api_target.py
+          uv run --locked ruff format src/archkeel/analyzer/python/source.py src/archkeel/analyzer/python/imports.py tests/test_dependency_api_target.py tests/test_generic_alias_union_proof.py
+          uv run --locked ruff check --fix src/archkeel/analyzer/python/source.py src/archkeel/analyzer/python/imports.py tests/test_dependency_api_target.py tests/test_generic_alias_union_proof.py
           uv run --locked mypy src
       - name: Formatting evidence
         if: always()
         run: |
           python - <<'PY'
           import base64,pathlib
-          print("TEST_FILE="+base64.b64encode(pathlib.Path("tests/test_dependency_api_target.py").read_bytes()).decode())
+          for path in ("tests/test_dependency_api_target.py","tests/test_generic_alias_union_proof.py","src/archkeel/analyzer/python/source.py","src/archkeel/analyzer/python/imports.py"):
+              print("FILE:"+path+":"+base64.b64encode(pathlib.Path(path).read_bytes()).decode())
           PY
