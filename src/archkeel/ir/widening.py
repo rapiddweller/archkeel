@@ -215,6 +215,11 @@ def _interface_boundary_widenings(
     ]
 
 
+def _field_value_repr(value: object) -> str:
+    """Format a string field by its stable wire value, including nominal string enums."""
+    return repr(str(value) if isinstance(value, str) else value)
+
+
 def _generic_field_widenings(
     subject: str, before: _DataclassInstance, after: _DataclassInstance, *, handled: frozenset[str]
 ) -> list[WideningChange]:
@@ -242,7 +247,8 @@ def _generic_field_widenings(
                 WideningChange(
                     subject,
                     field.name,
-                    f"{subject}.{field.name} changed from {before_value!r} to {after_value!r}",
+                    f"{subject}.{field.name} changed from {_field_value_repr(before_value)} "
+                    f"to {_field_value_repr(after_value)}",
                 )
             )
     return findings

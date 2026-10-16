@@ -14,3 +14,7 @@
 5. Freeze a clean independent product ref on5933 for parent integration and independent Astra review. The Demo owner independently checks Compass/Nest with this narrow overlay.
 
 **Hard gates:** Historical `DEPENDENCY-PROOF-e7455e745c3a5c89` remains exact; pre/post-JSON binding IDs match; changed evidence/runtime/imports still revoke proofs; unaffected nested scopes retain PASS; existing serialized data and widening text remain stable. Diagnostics files never enter this branch.
+
+## Observed RED
+
+Hosted38957724507: the same untouched three regression tests pass on Wire7b2a (3/3), fail on Grapha4a8 (3/3) and fail identically on Graph+Version5933 (3/3). Hosted38957972549/job117165533576 runs the complete scoped/rename tests with new ingress controls:18 failed/62 passed. Open record fields preserve DecisionMaker and ArchitectureRuleKind wrappers. The actual Observer already returns a canonicalized model with historical binding e7455e745c3a5c89, and JSON replay agrees; the earlier Core-issued receipt incorrectly contains d8dff006365e7496. Issuance calls the same parse_record/freezing port before its final JSON boundary. No historical expected value changes.

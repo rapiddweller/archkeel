@@ -759,8 +759,10 @@ def test_dependency_binding_is_identical_before_and_after_the_real_json_boundary
 
     initial = _dependency_model_before_wire(tmp_path / "project")
     replay = parse_observation(json.loads(json.dumps(observation_payload(initial))))
-    initial_id = dependency_binding_id(
-        initial.sections, initial.coverage.failures, initial.evidence
-    )
+    initial_id = dependency_binding_id(initial.sections, initial.coverage.failures, initial.evidence)
     replay_id = dependency_binding_id(replay.sections, replay.coverage.failures, replay.evidence)
-    assert initial_id == replay_id == "DEPENDENCY-PROOF-e7455e745c3a5c89"
+    receipt = next(
+        row for row in initial.records("scope_observations") if row.data.get("dependency_scope_proof")
+    )
+    issued_id = receipt.data.get("dependency_scope_proof").get("binding_id")
+    assert issued_id == initial_id == replay_id == "DEPENDENCY-PROOF-e7455e745c3a5c89"
