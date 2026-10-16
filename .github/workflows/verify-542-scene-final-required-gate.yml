@@ -1,0 +1,30 @@
+name: Frozen corrected Scene required PR report gate
+on:
+  push:
+    branches: [verify/542-scene-final-required-gate]
+permissions:
+  contents: read
+jobs:
+  actual-required-report-entry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - run: uv sync --locked
+      - name: Actual required report Make entry, no overrides or generation
+        run: make ci-pr-report-check
+      - name: Actual CI selection controls, typing, hygiene and unchanged committed assets
+        run: |
+          uv run --locked python -m pytest -q tests/test_make_gate.py tests/test_ci_changes.py tests/test_repository_hygiene.py
+          make lint typecheck
+          git diff --exit-code -- src/archkeel/render/assets/ tests/browser_graph_scene_target.ts tools/browser_graph_protocol.py
