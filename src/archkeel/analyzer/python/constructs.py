@@ -62,10 +62,16 @@ def _is_str(node: ast.expr) -> bool:
 
 
 def _str_value(node: ast.expr | None) -> str | bytes | None:
-    return node.value if isinstance(node, ast.Constant) and isinstance(node.value, str | bytes) else None
+    return (
+        node.value
+        if isinstance(node, ast.Constant) and isinstance(node.value, str | bytes)
+        else None
+    )
 
 
-def _bind_string(bindings: dict[str, str | bytes | None], name: str, value: str | bytes | None) -> None:
+def _bind_string(
+    bindings: dict[str, str | bytes | None], name: str, value: str | bytes | None
+) -> None:
     """Keep only one unambiguous binding; a second binding becomes undecidable."""
     bindings[name] = value if name not in bindings else None
 
@@ -198,7 +204,9 @@ def _literal_collections(module: ParsedModule, scopes: LexicalScopes) -> frozens
             and module.scope_bound_names.count(target.id) == 1
             and target.id not in module.global_names
         )
-    parents = {child: parent for parent in module.all_nodes for child in ast.iter_child_nodes(parent)}
+    parents = {
+        child: parent for parent in module.all_nodes for child in ast.iter_child_nodes(parent)
+    }
     for node in module.all_nodes:
         if not isinstance(node, ast.Name) or not isinstance(node.ctx, ast.Load):
             continue
@@ -221,6 +229,11 @@ class _LiteralComparisons:
         self.scopes = LexicalScopes(module)
         self.module_values, self.class_values, self.enum_classes = _static_string_constants(module)
         self.collections = _literal_collections(module, self.scopes)
+        self.enum_value_classes = frozenset(
+            f"{module.module}.{node.name}"
+            for node in module.tree.body
+            if isinstance(node, ast.ClassDef) and any(self._enum_base(base) for base in node.bases)
+        )
 
     def _module_name(self, node: ast.expr) -> bool:
         root = node
@@ -230,6 +243,17 @@ class _LiteralComparisons:
             return False
         binding = self.scopes.lookup(root, root.id)
         return binding.owner is self.scopes.root and not binding.uncertain
+
+    def _enum_base(self, node: ast.expr) -> bool:
+        name = _dotted_name(node)
+        if name is None or not self._module_name(node):
+            return False
+        parts = name.split(".")
+        binding = self.module.aliases.get(parts[0])
+        if binding is None:
+            return False
+        resolved = ".".join([binding.target, *parts[1:]])
+        return resolved in {"enum.Enum", "enum.IntEnum", "enum.StrEnum"}
 
     def scalar(self, node: ast.expr) -> bool:
         if _is_str(node):
@@ -252,7 +276,7 @@ class _LiteralComparisons:
         enum_class = f"{self.module.module}.{enum_name}"
         values = self.class_values.get(enum_class, {})
         return (
-            enum_class in self.enum_classes
+            enum_class in self.enum_value_classes
             and "value" not in values
             and values.get(member) is not None
         )
@@ -261,9 +285,7 @@ class _LiteralComparisons:
         if isinstance(node, ast.Tuple | ast.List | ast.Set):
             return bool(node.elts) and all(self.scalar(item) for item in node.elts)
         return (
-            isinstance(node, ast.Name)
-            and node.id in self.collections
-            and self._module_name(node)
+            isinstance(node, ast.Name) and node.id in self.collections and self._module_name(node)
         )
 
     def comparison_form(self, node: ast.Compare) -> str | None:

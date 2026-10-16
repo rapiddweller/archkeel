@@ -22,17 +22,49 @@ jobs:
           python-version: "3.11.12"
       - run: uv python install 3.11.12 3.12.10
       - run: uv sync --locked
-      - name: Native source controls
+      - name: Format and export exact patch
+        run: |
+          uv run --locked ruff format src/archkeel/analyzer/python/constructs.py tests/test_string_comparison_observation.py tests/test_analyzer.py
+          python - <<'PY'
+          import base64, subprocess
+          patch = subprocess.check_output(["git", "diff", "--", "src", "tests"])
+          print("FORMAT_PATCH=" + base64.b64encode(patch).decode())
+          PY
+      - name: Source and binding safety regressions
+        run: >-
+          uv run --locked python -m pytest -n 2 --dist=loadfile -q
+          tests/test_string_comparison_observation.py tests/test_analyzer.py
+          tests/test_source_trust_boundary.py tests/test_collection_process.py
+          tests/test_source_types.py tests/test_source_namespace_acceptance.py
+          tests/test_definition_source_owners.py tests/test_binding_proof_reuse.py
+          tests/test_binding_claim_completeness.py tests/test_python_scope_certification.py
+          tests/test_boundary_type_ambiguous_bindings.py tests/test_boundary_type_enum_literals.py
+          tests/test_source_provenance_acceptance.py tests/test_repository_hygiene.py
+      - name: Style and typecheck
+        run: |
+          uv run --locked ruff check src tests
+          uv run --locked mypy src
+      - name: Native unchanged baseline and exact call diagnostics
         run: |
           PYTHONPATH=src uv run --locked python - <<'PY'
+          import json
+          from dataclasses import asdict
           from pathlib import Path
+          from archkeel.cli.config import load_config
           from archkeel.cli.observe import observe
+          from archkeel.check.validation import run_validate
           root = Path.cwd()
-          result = observe(root, roots=("src/archkeel",), namespace="archkeel",
-              contract="architecture-contract.json", git_head="c7a8cdaa4011c0e787f3aa41bf959bd23ef4e3e9",
-              dirty=False, contract_root=root)
-          assert result.observation is not None, result.diagnostics
-          for row in result.observation.records("calls") or ():
-              if row.data.get("module") == "archkeel.analyzer.python.constructs":
-                  print("CALL_DIAGNOSTIC=" + repr(dict(row.data.entries)))
+          def capture(*args, **kwargs):
+              observed = observe(*args, **kwargs)
+              if observed.observation is not None:
+                  for row in observed.observation.records("calls") or ():
+                      if row.data.get("source_module") == "archkeel.analyzer.python.constructs" and row.data.get("status") != "resolved":
+                          print("UNRESOLVED_CONSTRUCT_CALL=" + repr(dict(row.data.entries)))
+              return observed
+          result, _ = run_validate(root, load_config(root), capture, baseline=Path("architecture-baseline.json"))
+          print("NATIVE_RESULT=" + json.dumps({
+              "exit_code": result.exit_code, "diagnostics": [asdict(row) for row in result.diagnostics],
+              "failures": result.failures, "measurements": asdict(result.measurements) if result.measurements else None,
+          }))
+          raise SystemExit(result.exit_code)
           PY
