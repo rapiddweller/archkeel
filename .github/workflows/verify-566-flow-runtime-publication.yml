@@ -30,5 +30,6 @@ jobs:
             git show "ccd28126663a6ed11891d6d512b4f95c263c8ddc:$flow_observer_path" > "$flow_observer_path"
           done
       - run: uv sync --locked
+      - run: uv run --locked mypy --strict prototype/test_flow_native_parity.py
       - name: Native authored-module and witnessed construct parity; no absence claim
         run: uv run --locked python -m pytest -q -s prototype/test_flow_native_parity.py

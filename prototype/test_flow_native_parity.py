@@ -16,7 +16,7 @@ from archkeel.ir.protocol import (
 )
 
 
-def test_authored_flow_and_derivative_preserve_native_construct_multisets(tmp_path):
+def test_authored_flow_and_derivative_preserve_native_construct_multisets(tmp_path: Path) -> None:
     assets = Path("src/archkeel/render/assets")
     source = (assets / "flow.js").read_bytes()
     emitted = (assets / "flow.runtime.js").read_bytes()
@@ -32,7 +32,7 @@ def test_authored_flow_and_derivative_preserve_native_construct_multisets(tmp_pa
         TypeScriptSettings(),
     )
 
-    def observed(data):
+    def observed(data: bytes) -> tuple[Counter[str], int]:
         (tmp_path / "src/flow.js").write_bytes(data)
         facts = decode_response(encode_response(CollectionResponse(collect(request)))).facts
         status = next(item.status for item in facts.capabilities.constructs
@@ -44,9 +44,9 @@ def test_authored_flow_and_derivative_preserve_native_construct_multisets(tmp_pa
         records = [record for section in facts.sections for record in section.records
             if section.name is SourceSectionName.CONSTRUCTS
             and record.kind == ForbiddenConstructKind.STRING_LITERAL_COMPARE]
-        owners = []
+        owners: list[str] = []
         for record in records:
-            owner = record.data["owner"]
+            owner = record.data.get("owner")
             assert isinstance(owner,str)
             owners.append(owner)
         return Counter(owners), len(records)
