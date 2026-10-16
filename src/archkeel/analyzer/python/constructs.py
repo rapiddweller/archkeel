@@ -298,7 +298,7 @@ class ConstructCollector(ast.NodeVisitor):
         self.evidence = evidence
         self.items: list[RawRecord] = []
         self.scope_stack: list[str] = [module.module]
-        self.module_values, self.class_values, self.enum_classes = _static_string_constants(module)
+        self.comparisons = LiteralComparisons(module)
         self.inherits_stack: list[bool] = []
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
