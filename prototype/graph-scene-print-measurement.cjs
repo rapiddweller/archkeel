@@ -25,7 +25,7 @@ function ast(code) {
   for (const file of fs.readdirSync(root).filter(file => file.endsWith(".js") && !file.startsWith("elkjs-"))) {
     const filePath = path.join(root, file);
     const original = fs.readFileSync(filePath, "utf8");
-    const options = {compress: false, mangle: false, keep_fnames: true, keep_classnames: true,
+    const options = {ecma: 2022, compress: false, mangle: false, keep_fnames: true, keep_classnames: true,
       format: {comments: false, beautify: false, semicolons: true, keep_quoted_props: true}};
     const first = await terser.minify({[file]: original}, options);
     const second = await terser.minify({[file]: original}, options);
