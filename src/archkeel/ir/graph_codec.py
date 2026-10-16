@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict
-from typing import Literal, TypeGuard, TypeVar, get_args
+from typing import TypeGuard
 
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
+    ArchitectureRuleKind,
     ArchitectureReport,
     AssessmentAspect,
     AssessmentChange,
@@ -26,6 +27,7 @@ from archkeel.ir.architecture_graph import (
     DefinitionContext,
     DefinitionContextKind,
     DependencyDecisionGap,
+    DecisionMaker,
     Entity,
     EntityCorrespondence,
     EntityKind,
@@ -43,6 +45,7 @@ from archkeel.ir.architecture_graph import (
     Relationship,
     RelationshipKind,
     ReportFinding,
+    ReportSchemaVersion,
     ResolutionKind,
     RootLayoutRule,
     Signature,
@@ -55,7 +58,7 @@ from archkeel.ir.architecture_graph import (
 from archkeel.ir.facts import Evidence
 from archkeel.ir.model import RawJson
 
-_Choice = TypeVar("_Choice", bound=str)
+_MISSING = object()
 
 
 def _object(value: RawJson) -> TypeGuard[dict[str, RawJson]]:
@@ -99,13 +102,6 @@ def _texts(value: RawJson, label: str) -> tuple[str, ...]:
     return entries
 
 
-def _choice(value: RawJson, choices: tuple[_Choice, ...], label: str) -> _Choice:
-    for choice in choices:
-        if value == choice:
-            return choice
-    raise ValueError(f"{label} has an invalid vocabulary value")
-
-
 def _boolean(value: RawJson, label: str) -> bool:
     if not isinstance(value, bool):
         raise ValueError(f"{label} must be boolean")
@@ -121,8 +117,8 @@ def _integer(value: RawJson, label: str) -> int:
 def _visibility(value: RawJson) -> Visibility:
     item = _fields(value, set(), {"kind", "basis", "spelling"}, "visibility")
     return Visibility(
-        _choice(item.get("kind", "unknown"), get_args(VisibilityKind), "visibility.kind"),
-        _choice(item.get("basis", "unknown"), get_args(VisibilityBasis), "visibility.basis"),
+        VisibilityKind(_text(item.get("kind", "unknown"), "visibility.kind")),
+        VisibilityBasis(_text(item.get("basis", "unknown"), "visibility.basis")),
         _nullable(item.get("spelling"), "visibility.spelling"),
     )
 
@@ -135,7 +131,7 @@ def _parameter(value: RawJson) -> Parameter:
     return Parameter(
         _text(item["name"], "parameter.name"),
         _nullable(item.get("annotation"), "parameter.annotation"),
-        _choice(item.get("kind", "unknown"), get_args(ParameterKind), "parameter.kind"),
+        ParameterKind(_text(item.get("kind", "unknown"), "parameter.kind")),
         default,
         _boolean(item.get("default_known", False), "parameter.default_known"),
     )
@@ -170,10 +166,9 @@ def parse_component_intent(value: RawJson) -> ComponentIntent:
         "component_intent",
     )
     public, planned, decider = item.get("public"), item.get("planned"), item.get("decided_by")
-    deciders: tuple[Literal["architect", "agent"], ...] = ("architect", "agent")
     return ComponentIntent(
         component_id=_text(item["component_id"], "component_intent.component_id"),
-        role=_choice(item["role"], tuple(ComponentRole), "component_intent.role"),
+        role=ComponentRole(_text(item["role"], "component_intent.role")),
         packages=_texts(item.get("packages", ()), "component_intent.packages"),
         exact_modules=_texts(item.get("exact_modules", ()), "component_intent.exact_modules"),
         namespace=_nullable(item.get("namespace"), "component_intent.namespace"),
@@ -185,7 +180,7 @@ def parse_component_intent(value: RawJson) -> ComponentIntent:
         ),
         decided_by=None
         if decider is None
-        else _choice(decider, deciders, "component_intent.decided_by"),
+        else DecisionMaker(_text(decider, "component_intent.decided_by")),
         inside=_nullable(item.get("inside"), "component_intent.inside"),
         parent_id=_nullable(item.get("parent_id"), "component_intent.parent_id"),
         label=_nullable(item.get("label"), "component_intent.label"),
@@ -229,15 +224,17 @@ def parse_layout_rule(value: RawJson) -> RootLayoutRule:
         set(),
         "layout rule",
     )
-    deciders: tuple[Literal["architect", "agent"], ...] = ("architect", "agent")
+    kind = ArchitectureRuleKind(_text(item["kind"], "layout rule.kind"))
+    if kind is not ArchitectureRuleKind.ROOT_LAYOUT:
+        raise ValueError("layout rule.kind has an invalid vocabulary value")
     return RootLayoutRule(
         _text(item["id"], "layout rule.id"),
-        _choice(item["kind"], ("root_layout",), "layout rule.kind"),
+        kind,
         _text(item["root"], "layout rule.root"),
         _texts(item["allowed_children"], "layout rule.allowed_children"),
         _text(item["rationale"], "layout rule.rationale"),
         _texts(item["provenance"], "layout rule.provenance"),
-        _choice(item["decided_by"], deciders, "layout rule.decided_by"),
+        DecisionMaker(_text(item["decided_by"], "layout rule.decided_by")),
     )
 
 
@@ -248,15 +245,17 @@ def parse_external_scope(value: RawJson) -> ExternalDependencyScopeRule:
         {"exact_sources"},
         "external scope",
     )
-    deciders: tuple[Literal["architect", "agent"], ...] = ("architect", "agent")
+    kind = ArchitectureRuleKind(_text(item["kind"], "external scope.kind"))
+    if kind is not ArchitectureRuleKind.EXTERNAL_DEPENDENCY_SCOPE:
+        raise ValueError("external scope.kind has an invalid vocabulary value")
     return ExternalDependencyScopeRule(
         _text(item["id"], "external scope.id"),
-        _choice(item["kind"], ("external_dependency_scope",), "external scope.kind"),
+        kind,
         _text(item["dependency"], "external scope.dependency"),
         _texts(item["allowed_sources"], "external scope.allowed_sources"),
         _text(item["rationale"], "external scope.rationale"),
         _texts(item["provenance"], "external scope.provenance"),
-        _choice(item["decided_by"], deciders, "external scope.decided_by"),
+        DecisionMaker(_text(item["decided_by"], "external scope.decided_by")),
         _texts(item.get("exact_sources", ()), "external scope.exact_sources"),
     )
 
@@ -264,8 +263,8 @@ def parse_external_scope(value: RawJson) -> ExternalDependencyScopeRule:
 def _definition_context(value: RawJson) -> DefinitionContext:
     item = _fields(value, {"kind", "branch", "evidence_ids"}, set(), "definition context")
     return DefinitionContext(
-        _choice(item["kind"], get_args(DefinitionContextKind), "definition context.kind"),
-        _choice(item["branch"], get_args(DefinitionBranchKind), "definition context.branch"),
+        DefinitionContextKind(_text(item["kind"], "definition context.kind")),
+        DefinitionBranchKind(_text(item["branch"], "definition context.branch")),
         _texts(item["evidence_ids"], "definition context.evidence_ids"),
     )
 
@@ -294,7 +293,7 @@ def parse_entity(value: RawJson) -> Entity:
     signature = item.get("signature")
     return Entity(
         _text(item["id"], "entity.id"),
-        _choice(item["kind"], get_args(EntityKind), "entity.kind"),
+        EntityKind(_text(item["kind"], "entity.kind")),
         _text(item["qualified_name"], "entity.qualified_name"),
         _text(item["language"], "entity.language"),
         _nullable(item.get("parent_id"), "entity.parent_id"),
@@ -302,10 +301,10 @@ def parse_entity(value: RawJson) -> Entity:
         None if signature is None else _signature(signature),
         _nullable(item.get("annotation"), "entity.annotation"),
         tuple(
-            _choice(entry, get_args(ModifierKind), "modifier")
+            ModifierKind(_text(entry, "modifier"))
             for entry in _texts(item.get("modifiers", ()), "modifiers")
         ),
-        _choice(item.get("presence", "unspecified"), get_args(PresenceKind), "entity.presence"),
+        PresenceKind(_text(item.get("presence", "unspecified"), "entity.presence")),
         _texts(item.get("responsibilities", ()), "entity.responsibilities"),
         _texts(item.get("evidence_ids", ()), "entity.evidence_ids"),
         _texts(item.get("provenance", ()), "entity.provenance"),
@@ -341,17 +340,12 @@ def parse_relationship(value: RawJson) -> Relationship:
     )
     count = item.get("candidate_count")
     decider = item.get("decided_by")
-    deciders: tuple[Literal["architect", "agent"], ...] = ("architect", "agent")
     return Relationship(
         _text(item["id"], "relationship.id"),
-        _choice(item["kind"], get_args(RelationshipKind), "relationship.kind"),
+        RelationshipKind(_text(item["kind"], "relationship.kind")),
         _text(item["source_id"], "relationship.source_id"),
         _nullable(item.get("target_id"), "relationship.target_id"),
-        _choice(
-            item.get("resolution", "not_applicable"),
-            get_args(ResolutionKind),
-            "relationship.resolution",
-        ),
+        ResolutionKind(_text(item.get("resolution", "not_applicable"), "relationship.resolution")),
         _texts(item.get("candidate_ids", ()), "relationship.candidate_ids"),
         _nullable(item.get("expression"), "relationship.expression"),
         _texts(item.get("evidence_ids", ()), "relationship.evidence_ids"),
@@ -361,18 +355,18 @@ def parse_relationship(value: RawJson) -> Relationship:
         _boolean(item.get("candidates_truncated", False), "relationship.candidates_truncated"),
         _nullable(item.get("reason"), "relationship.reason"),
         _texts(item.get("through", ()), "relationship.through"),
-        None if decider is None else _choice(decider, deciders, "relationship.decided_by"),
+        None if decider is None else DecisionMaker(_text(decider, "relationship.decided_by")),
     )
 
 
 def _kinds(item: dict[str, RawJson]) -> tuple[tuple[EntityKind, ...], tuple[RelationshipKind, ...]]:
     return (
         tuple(
-            _choice(entry, get_args(EntityKind), "entity kind")
+            EntityKind(_text(entry, "entity kind"))
             for entry in _texts(item.get("entity_kinds", ()), "entity_kinds")
         ),
         tuple(
-            _choice(entry, get_args(RelationshipKind), "relationship kind")
+            RelationshipKind(_text(entry, "relationship kind"))
             for entry in _texts(item.get("relationship_kinds", ()), "relationship_kinds")
         ),
     )
@@ -387,7 +381,7 @@ def _coverage(value: RawJson) -> Coverage:
         _text(item["scope_id"], "coverage.scope_id"),
         entity_kinds,
         relationship_kinds,
-        _choice(item.get("status", "unavailable"), get_args(CoverageStatus), "coverage.status"),
+        CoverageStatus(_text(item.get("status", "unavailable"), "coverage.status")),
         _nullable(item.get("reason"), "coverage.reason"),
     )
 
@@ -402,7 +396,7 @@ def _target_scope(value: RawJson) -> TargetScope:
     entity_kinds, relationship_kinds = _kinds(item)
     return TargetScope(
         _text(item["scope_id"], "scope_id"),
-        _choice(item["mode"], get_args(CompletenessMode), "mode"),
+        CompletenessMode(_text(item["mode"], "mode")),
         _text(item["rationale"], "rationale"),
         _texts(item["provenance"], "provenance"),
         entity_kinds,
@@ -445,14 +439,14 @@ def parse_graph(value: RawJson) -> ArchitectureGraph:
         },
         "graph",
     )
-    version = _choice(item["schema_version"], get_args(GraphSchemaVersion), "graph.schema_version")
-    if version != "1.2.0" and any(
-        _object(entry) and "layer" in entry
+    version = GraphSchemaVersion(_text(item["schema_version"], "graph.schema_version"))
+    if version != GraphSchemaVersion.V1_2_0 and any(
+        _object(entry) and entry.get("layer", _MISSING) is not _MISSING
         for entry in _array(item.get("component_intents", ()), "component_intents")
     ):
         raise ValueError("layer requires graph schema_version 1.2.0")
     graph = ArchitectureGraph(
-        _choice(item["origin"], get_args(OriginKind), "graph.origin"),
+        OriginKind(_text(item["origin"], "graph.origin")),
         tuple(parse_entity(entry) for entry in _array(item.get("entities", ()), "entities")),
         tuple(
             parse_relationship(entry)
@@ -498,9 +492,7 @@ def parse_target(value: RawJson) -> TargetDefinition:
             for entry in _array(item.get("relationships", ()), "relationships")
         ),
         tuple(_target_scope(entry) for entry in _array(item.get("scopes", ()), "scopes")),
-        schema_version=_choice(
-            item["schema_version"], get_args(GraphSchemaVersion), "uml.schema_version"
-        ),
+        schema_version=GraphSchemaVersion(_text(item["schema_version"], "uml.schema_version")),
     )
 
 
@@ -528,9 +520,9 @@ def _assessment(value: RawJson) -> GraphAssessment:
     return GraphAssessment(
         _text(item["id"], "assessment.id"),
         _text(item["subject_id"], "assessment.subject_id"),
-        _choice(item["aspect"], get_args(AssessmentAspect), "assessment.aspect"),
-        _choice(item["status"], get_args(AssessmentStatus), "assessment.status"),
-        _choice(item["change"], get_args(AssessmentChange), "assessment.change"),
+        AssessmentAspect(_text(item["aspect"], "assessment.aspect")),
+        AssessmentStatus(_text(item["status"], "assessment.status")),
+        AssessmentChange(_text(item["change"], "assessment.change")),
         _text(item["reason"], "assessment.reason"),
         _texts(item.get("observed_ids", ()), "assessment.observed_ids"),
         _texts(item.get("evidence_ids", ()), "assessment.evidence_ids"),
@@ -542,10 +534,14 @@ def parse_comparison(value: RawJson) -> GraphComparison:
     item = _fields(
         value, {"status", "schema_version"}, {"assessments", "correspondences"}, "comparison"
     )
-    if item["schema_version"] != "1.0.0":
+    try:
+        version = GraphSchemaVersion(item["schema_version"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("unsupported comparison schema_version") from exc
+    if version is not GraphSchemaVersion.V1_0_0:
         raise ValueError("unsupported comparison schema_version")
     comparison = GraphComparison(
-        _choice(item["status"], get_args(AssessmentStatus), "comparison.status"),
+        AssessmentStatus(_text(item["status"], "comparison.status")),
         tuple(_assessment(entry) for entry in _array(item.get("assessments", ()), "assessments")),
         correspondences=tuple(
             _correspondence(entry)
@@ -577,13 +573,10 @@ def parse_report(value: RawJson) -> ArchitectureReport:
         {"comparison", "unavailable", "findings", "memberships", "decision_gaps"},
         "report",
     )
-    version: Literal["1.0.0", "1.2.0"]
-    if item["schema_version"] == "1.0.0":
-        version = "1.0.0"
-    elif item["schema_version"] == "1.2.0":
-        version = "1.2.0"
-    else:
-        raise ValueError("unsupported report schema_version")
+    try:
+        version = ReportSchemaVersion(item["schema_version"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("unsupported report schema_version") from exc
     observed, target, comparison = item["observed"], item["target"], item.get("comparison")
     report = ArchitectureReport(
         None if observed is None else parse_graph(observed),
@@ -639,11 +632,14 @@ def _report_finding(value: RawJson) -> ReportFinding:
         set(),
         "finding",
     )
+    status = AssessmentStatus(_text(item["status"], "finding.status"))
+    if status is AssessmentStatus.PASS:
+        raise ValueError("finding.status has an invalid vocabulary value")
     return ReportFinding(
         _text(item["id"], "finding.id"),
         _text(item["kind"], "finding.kind"),
         _text(item["title"], "finding.title"),
-        _choice(item["status"], ("FAIL", "UNKNOWN"), "finding.status"),
+        status,
         _texts(item["rule_ids"], "finding.rule_ids"),
         tuple(
             _text(entry, "finding.subjects")

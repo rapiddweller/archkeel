@@ -717,16 +717,16 @@ def _rule_status(
     *, declared_only: bool, violations: int, complete: bool, receipt: bool, undecided: int
 ) -> tuple[RuleAssessmentStatus, str]:
     if declared_only:
-        return "DECLARATION", "Permission declaration; it does not evaluate conformance."
+        return RuleAssessmentStatus.DECLARATION, "Permission declaration; it does not evaluate conformance."
     if violations:
-        return "FAIL", "The evaluator recorded one or more violations."
+        return RuleAssessmentStatus.FAIL, "The evaluator recorded one or more violations."
     if not complete:
-        return "UNKNOWN", "The observation is incomplete; a complete evaluator scope is not proven."
+        return RuleAssessmentStatus.UNKNOWN, "The observation is incomplete; a complete evaluator scope is not proven."
     if not receipt:
-        return "UNKNOWN", "No complete evaluator receipt exists for this rule and scope."
+        return RuleAssessmentStatus.UNKNOWN, "No complete evaluator receipt exists for this rule and scope."
     if undecided:
-        return "UNKNOWN", "The evaluator left one or more positions undecided."
-    return "PASS", "The evaluator completed this rule's observed scope without violations."
+        return RuleAssessmentStatus.UNKNOWN, "The evaluator left one or more positions undecided."
+    return RuleAssessmentStatus.PASS, "The evaluator completed this rule's observed scope without violations."
 
 
 def _ownership_blocker_reason(observation: Observation, rule_id: str) -> str | None:

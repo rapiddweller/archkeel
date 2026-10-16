@@ -6,7 +6,9 @@
 import json
 from dataclasses import asdict, replace
 
-from archkeel.ir.architecture_graph import ArchitectureGraph, GraphComparison
+from archkeel.ir.architecture_graph import (
+    ArchitectureGraph, AssessmentAspect, AssessmentStatus, CompletenessMode, GraphComparison,
+)
 from archkeel.ir.codec import parse_record
 from archkeel.ir.model import (
     UML_TARGET_KIND,
@@ -85,8 +87,8 @@ def _comparison_receipt(
             "data": {
                 "scope": "root",
                 "assessment_complete": not partial
-                and comparison.status != "UNKNOWN"
-                and not any(item.status == "UNKNOWN" for item in comparison.assessments),
+                and comparison.status != AssessmentStatus.UNKNOWN
+                and not any(item.status == AssessmentStatus.UNKNOWN for item in comparison.assessments),
                 "comparison": json.loads(json.dumps(asdict(comparison))),
                 **(
                     {
@@ -122,16 +124,16 @@ def _records(
     unknowns: list[Record] = []
     additions = {"scope_observations": receipts, "violations": violations, "unknowns": unknowns}
     for assessment in comparison.assessments:
-        if assessment.status == "PASS":
+        if assessment.status == AssessmentStatus.PASS:
             continue
-        section = "violations" if assessment.status == "FAIL" else "unknowns"
+        section = "violations" if assessment.status == AssessmentStatus.FAIL else "unknowns"
         findings: list[Record] = additions[section]
         findings.append(
             parse_record(
                 {
                     **common,
                     "id": stable_id("UML-FINDING", declaration.id, assessment.id),
-                    "evidence_class": "VIOLATION" if assessment.status == "FAIL" else "UNKNOWN",
+                    "evidence_class": "VIOLATION" if assessment.status == AssessmentStatus.FAIL else "UNKNOWN",
                     "kind": "uml_conformance",
                     "title": assessment.reason,
                     "fact_ids": list(assessment.fact_ids),
@@ -227,15 +229,15 @@ def _has_certified_closed_inventory(
     scoped = {
         s.scope_id
         for s in target.target_scopes
-        if s.mode == "closed"
+        if s.mode == CompletenessMode.CLOSED
         and s.entity_kinds
         and not s.relationship_kinds
         and set(s.entity_kinds) <= {"attribute", "method", "enum_literal"}
     }
     return any(
         a.subject_id in scoped
-        and a.aspect == "completeness"
-        and a.status == "PASS"
+        and a.aspect == AssessmentAspect.COMPLETENESS
+        and a.status == AssessmentStatus.PASS
         and a.fact_ids
         and set(a.fact_ids) <= set(proof.fact_ids)
         for a in comparison.assessments
@@ -280,7 +282,7 @@ def evaluate_uml(result: ObservationResult) -> ObservationResult:
             inventory_proof = validated_member_inventory_proof(model)
             if (
                 partial
-                and compared.status == "PASS"
+                and compared.status == AssessmentStatus.PASS
                 and not _has_certified_closed_inventory(compared, target, inventory_proof)
             ):
                 continue

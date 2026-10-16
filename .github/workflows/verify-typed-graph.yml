@@ -1,7 +1,7 @@
 name: Verify typed graph vocabulary
 on:
   push:
-    branches: [fix/issue-542-typed-graph-vocabulary]
+    branches: [verify/graph-future-green]
 permissions:
   contents: read
 jobs:

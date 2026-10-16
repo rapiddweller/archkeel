@@ -12,7 +12,9 @@ from collections.abc import Callable
 from dataclasses import asdict
 from typing import Final, Literal, TypeGuard, get_args
 
-from archkeel.ir.architecture_graph import validate_layout_rule, validate_module_target
+from archkeel.ir.architecture_graph import (
+    ArchitectureRuleKind, DecisionMaker, validate_layout_rule, validate_module_target,
+)
 from archkeel.ir.codec_governance import _measurement_budget_name
 from archkeel.ir.codec_wire import (
     _count,
@@ -942,12 +944,12 @@ def _parse_external_dependency_scope(raw: RawJson, label: str) -> ExternalDepend
         raise ValueError(f"{label} must name allowed_sources or exact_sources")
     return ExternalDependencyScopeRule(
         item_id,
-        "external_dependency_scope",
+        ArchitectureRuleKind.EXTERNAL_DEPENDENCY_SCOPE,
         dependency,
         allowed,
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
-        _decided_by(item["decided_by"], f"{label}.decided_by"),
+        DecisionMaker(_decided_by(item["decided_by"], f"{label}.decided_by")),
         exact,
     )
 
@@ -974,12 +976,12 @@ def _parse_root_layout(raw: RawJson, label: str) -> RootLayoutRule:
     allowed_children = _contract_strings(item["allowed_children"], f"{label}.allowed_children")
     rule = RootLayoutRule(
         item_id,
-        "root_layout",
+        ArchitectureRuleKind.ROOT_LAYOUT,
         root,
         allowed_children,
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
-        _decided_by(item["decided_by"], f"{label}.decided_by"),
+        DecisionMaker(_decided_by(item["decided_by"], f"{label}.decided_by")),
     )
     try:
         validate_layout_rule(rule)
