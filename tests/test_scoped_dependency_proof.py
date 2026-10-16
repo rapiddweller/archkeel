@@ -715,3 +715,35 @@ def test_scoped_receipt_cannot_survive_changed_or_unbound_evidence(tmp_path: Pat
             sections.append(replace(section, records=tuple(records)))
         model = replace(model, sections=tuple(sections))
     assert _rows(model)["a:requires"].status == "UNKNOWN"
+
+
+@pytest.mark.parametrize("wire", ["role", "rule"])
+def test_open_record_strings_are_canonical_primitives_before_json(wire, dependency_binding_inputs):
+    from archkeel.ir.architecture_graph import ArchitectureRuleKind, DecisionMaker
+    from archkeel.ir.facts_codec import parse_record, record_payload
+
+    member = DecisionMaker.AGENT if wire == "role" else ArchitectureRuleKind.COMPLETE_REQUIRES
+    sections, _, _ = dependency_binding_inputs
+    raw = record_payload(sections[0].records[0])
+    raw["kind"] = member
+    raw["data"] = {"value": member, "nested": [{"value": member}]}
+    initial = parse_record(raw)
+    replay = parse_record(json.loads(json.dumps(raw)))
+    assert type(initial.kind) is str
+    assert type(initial.data.get("value")) is str
+    assert type(initial.data.get("nested")[0].get("value")) is str
+    assert type(initial.evidence_class) is EvidenceClass
+    assert repr(initial) == repr(replay)
+
+
+def test_dependency_binding_is_identical_before_and_after_the_real_json_boundary(tmp_path):
+    from archkeel.ir.decisions import dependency_binding_id
+
+    result, _, replay = _report(tmp_path / "project")
+    initial = result.observation
+    assert initial is not None
+    initial_id = dependency_binding_id(
+        initial.sections, initial.coverage.failures, initial.evidence
+    )
+    replay_id = dependency_binding_id(replay.sections, replay.coverage.failures, replay.evidence)
+    assert initial_id == replay_id == "DEPENDENCY-PROOF-e7455e745c3a5c89"
