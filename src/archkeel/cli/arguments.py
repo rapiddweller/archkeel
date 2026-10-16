@@ -36,7 +36,7 @@ class ConfigurationSource(StrEnum):
 
 
 class CLIArguments(argparse.Namespace):
-    """Argparse owns data fields; these closed fields always have their declared types."""
+    """Argparse owns data fields; the CLI returns the closed fields with these types."""
 
     command: Command | None = None
     only: ReportMode | None = None
@@ -49,7 +49,8 @@ def configuration_source(path: str | None, default: str) -> ConfigurationSource:
     """Classify the canonical config filename without changing arbitrary path data."""
     if path is None:
         return ConfigurationSource.DEFAULT
-    return {default: ConfigurationSource.DEFAULT}.get(path, ConfigurationSource.CUSTOM)
+    sources: dict[str, ConfigurationSource] = {default: ConfigurationSource.DEFAULT}
+    return sources.get(path, ConfigurationSource.CUSTOM)
 
 
 def _invalid_choice(value: str, choices: tuple[str, ...]) -> NoReturn:

@@ -62,7 +62,10 @@ def _sha(value: str) -> str:
 
 class _Parser(argparse.ArgumentParser):
     def parse_cli_args(self, args: Sequence[str] | None = None) -> CLIArguments:
-        return argparse.ArgumentParser.parse_args(self, args, CLIArguments())
+        arguments = argparse.ArgumentParser.parse_args(self, args, CLIArguments())
+        if arguments.command is not None:
+            arguments.command = Command(arguments.command)
+        return arguments
 
     def error(self, message: str) -> NoReturn:
         raise ValueError(message)
@@ -152,7 +155,6 @@ def build_parser() -> _Parser:
             f"Rules: {_DOCS}/rules.md"
         ),
     )
-    report.set_defaults(command=Command.REPORT)
     _observing(
         report,
         "Path of architecture.json; the HTML report is written next to it. "
@@ -252,7 +254,6 @@ def build_parser() -> _Parser:
             f"Rules: {_DOCS}/rules.md"
         ),
     )
-    validate.set_defaults(command=Command.VALIDATE)
     _observing(validate, None)
     for option, help_text in (
         (
@@ -320,7 +321,6 @@ def build_parser() -> _Parser:
             f"Protocol: {_DOCS}/reference.md#git-predicate"
         ),
     )
-    check.set_defaults(command=Command.CHECK)
     _observing(check, "Write the check result JSON here and the HTML report next to it.")
     check.add_argument("--baseline", type=_sha, required=True, help="Lock commit B (full SHA).")
     check.add_argument(
@@ -368,7 +368,6 @@ def build_parser() -> _Parser:
             f"Onboarding: {_DOCS}/onboarding.md"
         ),
     )
-    init.set_defaults(command=Command.INIT)
     _observing(init, None)
     init.add_argument(
         "--full",
@@ -426,7 +425,6 @@ def build_parser() -> _Parser:
             f"Onboarding: {_DOCS}/onboarding.md"
         ),
     )
-    skill.set_defaults(command=Command.SKILL)
     skill.add_argument(
         "action",
         choices=list(SkillAction),
