@@ -1,0 +1,19 @@
+name: Verify nominal contract versions
+on:
+  push:
+    branches: [verify/542-contract-version-red]
+permissions:
+  contents: read
+jobs:
+  version-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv run --locked pytest -q tests/test_contract_version_types.py tests/test_contract_model.py
