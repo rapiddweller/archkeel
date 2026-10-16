@@ -253,6 +253,17 @@ def _observation_reason(result: RunResult) -> str:
     return _roots_reason(result.scan_roots)
 
 
+
+def _expectation_reason(outcome: _ExpectationOutcome) -> str:
+    return {
+        _ExpectationOutcome.PASS: "The candidate matches its published expectation.",
+        _ExpectationOutcome.FAIL: "The candidate does not match its published expectation.",
+        _ExpectationOutcome.UNKNOWN: "The expectation could not be evaluated completely.",
+        _ExpectationOutcome.NOT_APPLICABLE: (
+            "Report mode does not evaluate a published expectation."
+        ),
+    }[outcome]
+
 def report_summary(result: RunResult) -> Summary:
     """Summarize a report or validate result, which never evaluates an expectation."""
     sentence = {
@@ -296,14 +307,6 @@ def report_summary(result: RunResult) -> Summary:
         "FAIL": "At least one rule violation was recorded; undecided positions may remain.",
         "UNKNOWN": "Available evidence does not establish the rule outcome.",
     }[result.declared_rules]
-    expectation_reason = {
-        _ExpectationOutcome.PASS: "The candidate matches its published expectation.",
-        _ExpectationOutcome.FAIL: "The candidate does not match its published expectation.",
-        _ExpectationOutcome.UNKNOWN: "The expectation could not be evaluated completely.",
-        _ExpectationOutcome.NOT_APPLICABLE: (
-            "Report mode does not evaluate a published expectation."
-        ),
-    }[result.expectation_fulfilled]
     verdicts = (
         VerdictRow(
             "Scan complete",
@@ -316,7 +319,7 @@ def report_summary(result: RunResult) -> Summary:
             "Change as declared",
             "expectation_fulfilled",
             result.expectation_fulfilled,
-            expectation_reason,
+            _expectation_reason(result.expectation_fulfilled),
         ),
     )
     sentence += (
