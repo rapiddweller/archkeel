@@ -8,6 +8,8 @@ import subprocess
 from pathlib import Path
 
 import pytest
+
+from archkeel.ir.architecture_graph import AssessmentStatus
 from test_analyzer import _component
 from test_boundary_types_nested_dtos import _write_app
 from test_dart_directives import dart_package
@@ -779,7 +781,11 @@ def test_unbound_requires_imports_keep_counts_unavailable(
                 if loss == "cover":
                     continue
                 if loss == "verdict":
-                    result = not result
+                    result = (
+                        AssessmentStatus.FAIL
+                        if result is AssessmentStatus.PASS
+                        else AssessmentStatus.PASS
+                    )
             if function is rule_yield.requires_violations:
                 if loss == "completion":
                     continue
