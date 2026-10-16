@@ -1,0 +1,39 @@
+name: Read-only shape counterexamples
+on:
+  push:
+    branches: [aux/issue-542-shape-counterexamples]
+permissions:
+  contents: read
+jobs:
+  counterexamples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.12.13
+          python-version: 3.11.12
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - name: Keep the existing genuine arithmetic duplicate positive
+        run: uv run --locked pytest -q tests/test_duplication.py::test_a_copy_of_owned_arithmetic_is_named
+      - name: Reproduce erased owner identity without changing the detector
+        run: |
+          uv run --locked python - <<'PY'
+          import ast,json
+          from archkeel.analyzer.python.symbols import _shape
+          from archkeel.ir.contract_version import ContractVersion
+          from archkeel.ir.architecture_graph import ReportSchemaVersion
+          first=ast.parse('def normalize(self):\n builtins.object.__setattr__(self,"schema_version",ContractVersion(self.schema_version))\n').body[0]
+          same=ast.parse('def renamed_normalize(target):\n builtins.object.__setattr__(target,"schema_version",ContractVersion(target.schema_version))\n').body[0]
+          distinct=ast.parse('def normalize(self):\n builtins.object.__setattr__(self,"schema_version",ReportSchemaVersion(self.schema_version))\n').body[0]
+          a,b,c=map(_shape,(first,same,distinct))
+          print("CANONICAL_ENUM_SHAPE_COUNTEREXAMPLES",json.dumps({
+              "same_owner":{"owner":f"{ContractVersion.__module__}.{ContractVersion.__qualname__}","first":a,"renamed_copy":b,"must_match":a==b},
+              "distinct_owners":{"left":f"{ContractVersion.__module__}.{ContractVersion.__qualname__}","right":f"{ReportSchemaVersion.__module__}.{ReportSchemaVersion.__qualname__}","left_shape":a,"right_shape":c,"must_differ":a!=c}
+          }))
+          assert a==b, "the same converter with renamed locals must remain a duplicate"
+          assert a!=c, "the current structural digest erased distinct canonical enum owners"
+          PY
