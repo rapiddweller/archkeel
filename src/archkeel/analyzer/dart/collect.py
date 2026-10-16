@@ -24,7 +24,6 @@ from archkeel.ir.facts import (
     LocalTarget,
     Record,
     RuntimeRequirementState,
-    SOURCE_RESOLUTION_GAP_KIND,
     MemberKind as InventoryMemberKind,
     InventoryStatus,
     InventoryVersion,
@@ -46,6 +45,7 @@ from .syntax import (
 )
 from .resolve import (
     BindingRole,
+    ResolutionProblemKind,
     ConstructionResolution,
     ResolutionStatus,
     ResolvedBinding,
@@ -631,7 +631,7 @@ class _Collection:
                 problem.span or member.span,
                 problem.kind,
                 problem.message,
-                signature_id=identity if problem.kind == SOURCE_RESOLUTION_GAP_KIND else None,
+                signature_id=identity if problem.kind == ResolutionProblemKind.SOURCE_RESOLUTION_GAP else None,
             )
         parameters = self._resolved_parameters(resolution.parameters)
         formals = {item.name: item for item in member.parameters if item.super_formal}

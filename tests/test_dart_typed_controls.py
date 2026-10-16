@@ -13,10 +13,12 @@ from typing import get_type_hints
 
 import pytest
 from test_architecture_demo import _prepare_repo
-from test_uml_evaluation import _model
 
 from archkeel.analyzer.dart import parse, resolve, snapshot
 from archkeel.check.ports import ScanConfig
+from archkeel.check.report import run_report
+from archkeel.cli.observe import observe
+from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
@@ -31,6 +33,7 @@ FIELDS = (
     (parse.Directive, "kind", "DirectiveKind"),
     (parse.Site, "kind", "SiteKind"),
     (parse.Site, "use", "SiteUse"),
+    (resolve.ResolutionProblem, "kind", "ResolutionProblemKind"),
     (resolve.ResolvedSite, "status", "ResolutionStatus"),
     (resolve.ConstructionResolution, "status", "ResolutionStatus"),
     (resolve.ResolvedParameter, "kind", "ParameterKind"),
@@ -47,6 +50,12 @@ def test_dart_control_fields_have_owned_nominal_types(owner, field, expected):
     actual = get_type_hints(owner)[field]
     assert isinstance(actual, type) and issubclass(actual, StrEnum), (owner, field, actual)
     assert actual.__name__ == expected
+
+
+def _model(root, config):
+    result, encoded = run_report(root, config=config, analyzer=observe)
+    assert result.exit_code == 0 and encoded is not None, result.failures
+    return parse_observation(decode_canonical_model(json.loads(encoded)))
 
 
 def _contract():
@@ -120,8 +129,10 @@ def test_native_dart_control_api_matches_independent_nominal_target(tmp_path):
         'def _control_probe(value):\n    return value == "import"\n',
         'def _control_probe(value):\n    return value in ("import", "export")\n',
         'def _control_probe(value):\n    return "import" in value\n',
-        'def _control_probe(value):\n    match value:\n        case "import":\n            return True\n        case _:\n            return False\n',
-        'from typing import Final\nCONTROL: Final[str] = "import"\ndef _control_probe(value):\n    return value == CONTROL\n',
+        ('def _control_probe(value):\n    match value:\n        case "import":\n'
+         "            return True\n        case _:\n            return False\n"),
+        ('from typing import Final\nCONTROL: Final[str] = "import"\n'
+         "def _control_probe(value):\n    return value == CONTROL\n"),
     ],
     ids=["equality", "membership", "needle", "match", "final"],
 )

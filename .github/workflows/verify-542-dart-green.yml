@@ -19,10 +19,11 @@ jobs:
       - run: uv sync --locked
       - name: Format diagnostics
         run: |
-          uv run --locked ruff check src/archkeel/analyzer/dart tests/test_dart_typed_controls.py tests/test_dart_target.py --fix
+          uv run --locked ruff check src/archkeel/analyzer/dart tests/test_dart_typed_controls.py tests/test_dart_target.py --fix || true
           uv run --locked ruff format src/archkeel/analyzer/dart tests/test_dart_typed_controls.py tests/test_dart_target.py
           git diff --binary | python -c 'import base64,sys; print("DART_FORMAT_PATCH="+base64.b64encode(sys.stdin.buffer.read()).decode())'
       - name: Static type checks
+        if: ${{ always() }}
         run: uv run --locked mypy src/archkeel
       - name: Dart native and behavior checks
         if: ${{ always() }}

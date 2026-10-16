@@ -162,7 +162,8 @@
         "archkeel.analyzer.dart.resolve:ResolvedParameter",
         "archkeel.analyzer.dart.resolve:ParameterResolution",
         "archkeel.analyzer.dart.resolve:ResolutionStatus",
-        "archkeel.analyzer.dart.resolve:BindingRole"
+        "archkeel.analyzer.dart.resolve:BindingRole",
+        "archkeel.analyzer.dart.resolve:ResolutionProblemKind"
       ],
       "requires": [
         {
@@ -3608,6 +3609,61 @@
               }
             ],
             "returns": "tuple[ResolvedTarget, ...]"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.resolve.ResolutionProblem",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.dart.resolve.ResolutionProblem",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Own nominal source-resolution diagnostics."
+          ],
+          "provenance": [
+            "docs/architecture/dart-nominal-controls.md"
+          ],
+          "parent_id": "archkeel.analyzer.dart.resolve",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.resolve.ResolutionProblem.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.resolve.ResolutionProblem.kind",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Own nominal source-resolution diagnostics."
+          ],
+          "provenance": [
+            "docs/architecture/dart-nominal-controls.md"
+          ],
+          "parent_id": "archkeel.analyzer.dart.resolve.ResolutionProblem",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "ResolutionProblemKind"
+        },
+        {
+          "id": "archkeel.analyzer.dart.resolve.ResolutionProblemKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.dart.resolve.ResolutionProblemKind",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Own nominal source-resolution diagnostics."
+          ],
+          "provenance": [
+            "docs/architecture/dart-nominal-controls.md"
+          ],
+          "parent_id": "archkeel.analyzer.dart.resolve",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
           }
         }
       ],

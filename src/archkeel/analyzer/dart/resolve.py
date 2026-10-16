@@ -11,13 +11,21 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 from urllib.parse import unquote, urlsplit
 
-from archkeel.ir.facts import dart_module_name
+from archkeel.ir.facts import SOURCE_RESOLUTION_GAP_KIND, dart_module_name
 
 from .syntax import (
     Combinator, Definition, DefinitionKind, Directive, DirectiveKind, Member, MemberKind,
     Modifier, Parameter, ParameterKind, Site, SiteKind, SiteUse, Span, Syntax, Visibility,
 )
 from .snapshot import Snapshot, Source
+
+
+class ResolutionProblemKind(StrEnum):
+    IMPORT_ERROR = "ImportError"
+    PART_ERROR = "PartError"
+    PART_OWNERSHIP_CONFLICT = "PartOwnershipConflict"
+    UNSUPPORTED_PARAMETER = "UnsupportedParameter"
+    SOURCE_RESOLUTION_GAP = SOURCE_RESOLUTION_GAP_KIND
 
 
 class ResolutionStatus(StrEnum):
@@ -93,7 +101,7 @@ def _builtin_member(value: str) -> _BuiltinMember | None:
 @dataclass(frozen=True, slots=True)
 class ResolutionProblem:
     path: str
-    kind: str
+    kind: ResolutionProblemKind
     message: str
     span: Span | None = None
 
@@ -214,13 +222,13 @@ class Resolver:
         """Resolve one literal URI; an internal result always names a selected regular source."""
         parsed = urlsplit(uri)
         if re.search(r"[\x00\\\\]", uri) or parsed.query or parsed.fragment:
-            self._problem(rel_path, "ImportError", f"unsupported URI {uri!r}")
+            self._problem(rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unsupported URI {uri!r}")
             return None
         if _uri_scheme(parsed.scheme) == _UriScheme.DART:
             path = unquote(parsed.path)
             module_name = _module_path(path)
             if module_name is None:
-                self._problem(rel_path, "ImportError", f"unreadable URI {uri!r}")
+                self._problem(rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}")
                 return None
             module = f"dart.{module_name}"
             return ResolvedTarget(module, "dart", None, uri)
@@ -233,11 +241,11 @@ class Resolver:
                 or not target_path
                 or target_path.startswith("/")
             ):
-                self._problem(rel_path, "ImportError", f"unreadable URI {uri!r}")
+                self._problem(rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}")
                 return None
             module_name = _module_path(target_path)
             if module_name is None:
-                self._problem(rel_path, "ImportError", f"unreadable URI {uri!r}")
+                self._problem(rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}")
                 return None
             if package != self.snapshot.package_name:
                 return ResolvedTarget(f"{package}.{module_name}", package, None, uri)
@@ -246,20 +254,20 @@ class Resolver:
                 return None
             return ResolvedTarget(selected.module, package, selected.rel_path, uri)
         if parsed.scheme:
-            self._problem(rel_path, "ImportError", f"unsupported URI scheme in {uri!r}")
+            self._problem(rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unsupported URI scheme in {uri!r}")
             return None
         target_path = unquote(parsed.path)
         if target_path.startswith("/"):
-            self._problem(rel_path, "ImportError", f"absolute URI {uri!r} is unsupported")
+            self._problem(rel_path, ResolutionProblemKind.IMPORT_ERROR, f"absolute URI {uri!r} is unsupported")
             return None
         importer = self.sources.get(rel_path)
         if importer is None:
-            self._problem(rel_path, "ImportError", "importer is not in the selected snapshot")
+            self._problem(rel_path, ResolutionProblemKind.IMPORT_ERROR, "importer is not in the selected snapshot")
             return None
         joined = posixpath.normpath(posixpath.join(posixpath.dirname(rel_path), target_path))
         if not self._in_roots(joined):
             self._problem(
-                rel_path, "ImportError", f"relative URI {uri!r} leaves the selected roots"
+                rel_path, ResolutionProblemKind.IMPORT_ERROR, f"relative URI {uri!r} leaves the selected roots"
             )
             return None
         selected = self._source_at(joined, rel_path, uri)
@@ -275,7 +283,7 @@ class Resolver:
             if uri is None:
                 self._problem(
                     rel_path,
-                    "ImportError",
+                    ResolutionProblemKind.IMPORT_ERROR,
                     "directive URI is not a supported string",
                     directive.span,
                 )
@@ -290,7 +298,7 @@ class Resolver:
                 if target.rel_path in self._owners:
                     self._problem(
                         rel_path,
-                        "ImportError",
+                        ResolutionProblemKind.IMPORT_ERROR,
                         f"URI {uri!r} names a part, not a library",
                         directive.span,
                     )
@@ -487,7 +495,7 @@ class Resolver:
             return self._parameter_failure(
                 rel_path,
                 member.parameters,
-                "source_resolution_gap",
+                ResolutionProblemKind.SOURCE_RESOLUTION_GAP,
                 "constructor owner is unresolved",
             )
         if member.factory and member.redirect:
@@ -515,19 +523,19 @@ class Resolver:
                 return self._parameter_unknown(parameter), self._parameter_problem(
                     rel_path,
                     parameter,
-                    "UnsupportedParameter",
+                    ResolutionProblemKind.UNSUPPORTED_PARAMETER,
                     "super-formal chain contains a cycle",
                 )
             parent = self._parent_declaration(declaration)
             if parent is None:
                 return self._parameter_unknown(parameter), self._parameter_problem(
-                    rel_path, parameter, "source_resolution_gap", "superclass source is unresolved"
+                    rel_path, parameter, ResolutionProblemKind.SOURCE_RESOLUTION_GAP, "superclass source is unresolved"
                 )
             parent_declaration, parent_substitutions = parent
             inherited = self._super_parameter(parent_declaration, parameter.name)
             if inherited is None:
                 return self._parameter_unknown(parameter), self._parameter_problem(
-                    rel_path, parameter, "UnsupportedParameter", "superclass formal is not proven"
+                    rel_path, parameter, ResolutionProblemKind.UNSUPPORTED_PARAMETER, "superclass formal is not proven"
                 )
             _, source_parameter = inherited
             value, issue = self._resolve_formal(
@@ -553,7 +561,7 @@ class Resolver:
                 return self._parameter_unknown(parameter), self._parameter_problem(
                     rel_path,
                     parameter,
-                    "UnsupportedParameter",
+                    ResolutionProblemKind.UNSUPPORTED_PARAMETER,
                     "inherited formal type is unresolved",
                 )
             return self._parameter_value(
@@ -567,7 +575,7 @@ class Resolver:
                 return self._parameter_unknown(parameter), self._parameter_problem(
                     rel_path,
                     parameter,
-                    "UnsupportedParameter",
+                    ResolutionProblemKind.UNSUPPORTED_PARAMETER,
                     "field-formal parameter type is unavailable",
                 )
         return self._parameter_value(
@@ -580,7 +588,7 @@ class Resolver:
         terminal = self._redirect_terminal(rel_path, owner, factory)
         if terminal is None:
             return self._parameter_failure(
-                rel_path, factory.parameters, "UnsupportedParameter", "factory redirect is unproven"
+                rel_path, factory.parameters, ResolutionProblemKind.UNSUPPORTED_PARAMETER, "factory redirect is unproven"
             )
         target_class, target_member, substitutions = terminal
         result: list[ResolvedParameter] = []
@@ -593,7 +601,7 @@ class Resolver:
                     self._parameter_problem(
                         rel_path,
                         parameter,
-                        "UnsupportedParameter",
+                        ResolutionProblemKind.UNSUPPORTED_PARAMETER,
                         "redirected formal does not match",
                     )
                 )
@@ -616,7 +624,7 @@ class Resolver:
                     self._parameter_problem(
                         rel_path,
                         parameter,
-                        "UnsupportedParameter",
+                        ResolutionProblemKind.UNSUPPORTED_PARAMETER,
                         issue.message if issue else "redirected formal type does not match",
                     )
                 )
@@ -836,12 +844,12 @@ class Resolver:
 
     @staticmethod
     def _parameter_problem(
-        path: str, parameter: Parameter, kind: str, message: str
+        path: str, parameter: Parameter, kind: ResolutionProblemKind, message: str
     ) -> ResolutionProblem:
         return ResolutionProblem(path, kind, message, parameter.span)
 
     def _parameter_failure(
-        self, path: str, parameters: tuple[Parameter, ...], kind: str, message: str
+        self, path: str, parameters: tuple[Parameter, ...], kind: ResolutionProblemKind, message: str
     ) -> ParameterResolution:
         return ParameterResolution(
             tuple(self._parameter_unknown(item) for item in parameters),
@@ -1656,7 +1664,7 @@ class Resolver:
                     self._invalid_libraries.add(path)
                     self._problem(
                         path,
-                        "PartError",
+                        ResolutionProblemKind.PART_ERROR,
                         f"part {directive.target!r} is not a selected source file",
                         directive.span,
                     )
@@ -1674,7 +1682,7 @@ class Resolver:
                     self._invalid_libraries.add(path)
                     self._problem(
                         path,
-                        "PartError",
+                        ResolutionProblemKind.PART_ERROR,
                         f"part {directive.target!r} does not name this library",
                         directive.span,
                     )
@@ -1688,14 +1696,14 @@ class Resolver:
                 self._invalid_parts.add(part)
                 self._invalid_libraries.update(libraries)
                 self._problem(
-                    part, "PartOwnershipConflict", "part belongs to more than one selected library"
+                    part, ResolutionProblemKind.PART_OWNERSHIP_CONFLICT, "part belongs to more than one selected library"
                 )
         for path, parsed in self.syntax.items():
             part_of = next((item for item in parsed.directives if item.kind == DirectiveKind.PART_OF), None)
             if part_of is not None and path not in owners and path not in self._invalid_parts:
                 self._problem(
                     path,
-                    "PartError",
+                    ResolutionProblemKind.PART_ERROR,
                     "part is not listed by exactly one selected library",
                     part_of.span,
                 )
@@ -1714,12 +1722,12 @@ class Resolver:
 
     def _source_at(self, rel: str, importer: str, uri: str) -> Source | None:
         if re.fullmatch(r"\.\.", rel) is not None or rel.startswith("../") or not self._in_roots(rel):
-            self._problem(importer, "ImportError", f"URI {uri!r} leaves the selected roots")
+            self._problem(importer, ResolutionProblemKind.IMPORT_ERROR, f"URI {uri!r} leaves the selected roots")
             return None
         source = self.sources.get(rel)
         if source is None or len(self._module_paths.get(source.module, ())) != 1:
             self._problem(
-                importer, "ImportError", f"URI {uri!r} names no unique selected Dart source"
+                importer, ResolutionProblemKind.IMPORT_ERROR, f"URI {uri!r} names no unique selected Dart source"
             )
             return None
         return source
@@ -1731,7 +1739,7 @@ class Resolver:
             for root in self.snapshot.roots
         )
 
-    def _problem(self, path: str, kind: str, message: str, span: Span | None = None) -> None:
+    def _problem(self, path: str, kind: ResolutionProblemKind, message: str, span: Span | None = None) -> None:
         issue = ResolutionProblem(path, kind, message, span)
         if issue not in self.problems:
             self.problems.append(issue)
