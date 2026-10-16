@@ -66,39 +66,6 @@ def test_unknown_receiver_kind_does_not_infer_this_from_its_spelling(monkeypatch
     assert site.receiver_kind is parser.ReceiverKind.OTHER
 
 
-def test_each_raw_node_kind_is_decoded_once_per_parse_identity(monkeypatch):
-    raw = parser.Parser(parser._grammar(parser._Grammar.TYPESCRIPT)).parse(b"class A {}").root_node
-    tree = parser._Tree()
-    first = tree.node(raw.named_children[0])
-    monkeypatch.delitem(parser._NODE_KINDS, "class_declaration")
-    assert tree.node(raw.named_children[0]) is first
-    assert first.kind is parser._NodeKind.CLASS_DECLARATION
-    assert parser._Tree().node(raw.named_children[0]).kind is None
-
-
-@pytest.mark.parametrize("failed", [False, True], ids=["success", "exception"])
-def test_parse_releases_its_node_identity_cache_on_every_exit(monkeypatch, failed):
-    trees = []
-    original_init = parser._Tree.__init__
-
-    def track(tree):
-        original_init(tree)
-        trees.append(tree)
-
-    def stop(source):
-        raise RuntimeError("decoder stopped")
-
-    monkeypatch.setattr(parser._Tree, "__init__", track)
-    if failed:
-        monkeypatch.setattr(parser, "_inner", stop)
-        with pytest.raises(RuntimeError, match="decoder stopped"):
-            parser.parse("sample.ts", b"class A {}")
-    else:
-        parser.parse("sample.ts", b"class A {}")
-    assert len(trees) == 1
-    assert not trees[0].nodes
-
-
 @pytest.mark.parametrize(
     "member",
     [b"run(): void {}", b"constructor(public value: string) {}"],
