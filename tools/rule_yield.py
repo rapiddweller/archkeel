@@ -30,7 +30,7 @@ from archkeel.check.evaluation.rules import (
     _boundary_type_violation_records,
     _forbidden_dependency_verdicts,
     _interface_verdicts,
-    _requires_covers,
+    _requires_import_assessment,
     _rule_evaluation_receipt,
     _uncertain_facade_position_records,
     boundary_type_limits,
@@ -57,7 +57,7 @@ def _captured_analysis(root: Path, arguments: dict[str, Any]) -> tuple[dict, lis
             _uncertain_facade_position_records,
             _forbidden_dependency_verdicts,
             _interface_verdicts,
-            _requires_covers,
+            _requires_import_assessment,
             requires_violations,
             _rule_evaluation_receipt,
         )
@@ -83,13 +83,16 @@ def _captured_analysis(root: Path, arguments: dict[str, Any]) -> tuple[dict, lis
                 arguments["scope"] = declared_scope
                 arguments["producer_scope"] = arguments["assessment_parent"] or "root"
                 arguments["receipt_start"] = len(arguments["assessment_facts"] or ())
-            if function is _requires_covers:
-                evaluator = frame.f_back
-                if evaluator is None or evaluator.f_code is not requires_violations.__code__:
+            if function is _requires_import_assessment:
+                owner = frame.f_back
+                evaluator = owner
+                while evaluator is not None and evaluator.f_code is not requires_violations.__code__:
+                    evaluator = evaluator.f_back
+                if evaluator is None or owner is None:
                     return
                 arguments.update(
-                    rule=evaluator.f_locals["rule"],
-                    item=evaluator.f_locals["item"],
+                    rule=owner.f_locals["rule"],
+                    item=owner.f_locals["item"],
                     scope=declared_scope,
                     producer_scope=evaluator.f_locals["assessment_parent"] or "root",
                 )
@@ -154,7 +157,7 @@ def _import_ledgers(model: dict, calls: list) -> dict[str, dict]:
         if function not in (
             _forbidden_dependency_verdicts,
             _interface_verdicts,
-            _requires_covers,
+            _requires_import_assessment,
             requires_violations,
         ):
             continue
@@ -162,14 +165,14 @@ def _import_ledgers(model: dict, calls: list) -> dict[str, dict]:
             arguments["rules"]
             if function is _forbidden_dependency_verdicts
             else (arguments["rule"],)
-            if function is _requires_covers
+            if function is _requires_import_assessment
             else arguments["contract"].rules
         )
         kind = (
             "forbidden_dependency"
             if function is _forbidden_dependency_verdicts
             else "complete_requires"
-            if function in (_requires_covers, requires_violations)
+            if function in (_requires_import_assessment, requires_violations)
             else "interface_boundary"
         )
         for rule in rules:
@@ -196,12 +199,12 @@ def _import_ledgers(model: dict, calls: list) -> dict[str, dict]:
                 completions.setdefault(rule.id, []).append(
                     len(receipts[0]["fact_ids"]) if len(receipts) == 1 else 0
                 )
-        if function is _requires_covers or (
+        if function is _requires_import_assessment or (
             function is not requires_violations and result is not None
         ):
-            if function is _requires_covers:
+            if function is _requires_import_assessment:
                 rule, item = arguments["rule"], arguments["item"]
-                verdict = "allowed" if result else "violation"
+                verdict = result
             else:
                 rule, item, *_, verdict = result
             ledgers[rule.id]["evaluations"].append(
@@ -209,7 +212,11 @@ def _import_ledgers(model: dict, calls: list) -> dict[str, dict]:
                     "import_id": item["id"],
                     "source_module": item["data"]["source_module"],
                     "target_module": item["data"]["target_module"],
-                    "verdict": verdict,
+                    "verdict": {
+                        _AssessmentStatus.PASS: "allowed",
+                        _AssessmentStatus.FAIL: "violation",
+                        _AssessmentStatus.UNKNOWN: "undecided",
+                    }[verdict],
                 }
             )
     for identifier, ledger in ledgers.items():

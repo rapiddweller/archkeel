@@ -775,7 +775,7 @@ def test_unbound_requires_imports_keep_counts_unavailable(
         model, calls = capture(root, arguments)
         changed = []
         for function, inputs, result in calls:
-            if function is rule_yield._requires_covers:
+            if function is rule_yield._requires_import_assessment:
                 if loss == "cover":
                     continue
                 if loss == "verdict":
