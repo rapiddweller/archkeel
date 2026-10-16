@@ -229,6 +229,10 @@ class _Node:
         self.raw = raw
         self.tree = tree
         self.kind: _NodeKind | None = _NODE_KINDS.get(raw.type)
+        self.start_byte = raw.start_byte
+        self.end_byte = raw.end_byte
+        self.has_error = raw.has_error
+        self.is_error = raw.is_error
 
     @property
     def children(self) -> list[_Node]:
@@ -251,24 +255,8 @@ class _Node:
         return self.tree.optional(self.raw.next_named_sibling)
 
     @property
-    def start_byte(self) -> int:
-        return self.raw.start_byte
-
-    @property
-    def end_byte(self) -> int:
-        return self.raw.end_byte
-
-    @property
     def text(self) -> bytes | None:
         return self.raw.text
-
-    @property
-    def has_error(self) -> bool:
-        return self.raw.has_error
-
-    @property
-    def is_error(self) -> bool:
-        return self.raw.is_error
 
     def child_by_field_name(self, name: str) -> _Node | None:
         return self.tree.optional(self.raw.child_by_field_name(name))
@@ -367,46 +355,49 @@ def parse(rel_path: str, data: bytes) -> Syntax:
     # JSX and JavaScript need the TSX grammar; `<T>x` assertions exist only without it.
     kind = _Grammar.TYPESCRIPT if re.search(r"\.[cm]?ts$", rel_path) else _Grammar.TSX
     tree = _Tree()
-    root = tree.node(Parser(_grammar(kind)).parse(data).root_node)
-    source = _Source(kind, root, data, [0, *(found.end() for found in _LINE_BREAK.finditer(data))])
-    found = source.captures("references")
-    candidates = [
-        *((node, _import(node, source)) for node in found.get("import", [])),
-        *((node, _export(node, source)) for node in found.get("export", [])),
-        *((node, _dynamic(node, source)) for node in found.get("dynamic", [])),
-        *((node, _require(node, source)) for node in found.get("require", [])),
-    ]
-    trusted = [item for node, item in candidates if not (root.has_error and _in_error(node))]
-    concerns: list[Concern] = []
-    # `module[name]` can reach `require` without spelling it.
-    needed = re.search(rb"require|module", data) is not None
-    shadows = _require_concerns(source, concerns) if needed else False
-    loaders = [
-        item.span
-        for item in trusted
-        if item.specifier is not None and _LOADER_MODULES.get(item.specifier) is not None
-    ]
-    if re.search(rb"createRequire", data):
-        loaders.extend(
-            source.span(node) for node in source.captures("create_require").get("name", [])
+    try:
+        root = tree.node(Parser(_grammar(kind)).parse(data).root_node)
+        source = _Source(kind, root, data, [0, *(found.end() for found in _LINE_BREAK.finditer(data))])
+        found = source.captures("references")
+        candidates = [
+            *((node, _import(node, source)) for node in found.get("import", [])),
+            *((node, _export(node, source)) for node in found.get("export", [])),
+            *((node, _dynamic(node, source)) for node in found.get("dynamic", [])),
+            *((node, _require(node, source)) for node in found.get("require", [])),
+        ]
+        trusted = [item for node, item in candidates if not (root.has_error and _in_error(node))]
+        concerns: list[Concern] = []
+        # `module[name]` can reach `require` without spelling it.
+        needed = re.search(rb"require|module", data) is not None
+        shadows = _require_concerns(source, concerns) if needed else False
+        loaders = [
+            item.span
+            for item in trusted
+            if item.specifier is not None and _LOADER_MODULES.get(item.specifier) is not None
+        ]
+        if re.search(rb"createRequire", data):
+            loaders.extend(
+                source.span(node) for node in source.captures("create_require").get("name", [])
+            )
+        # One gap per file: the first use already makes every later `require` unprovable.
+        if loaders:
+            concerns.append(Concern(_LOADER, min(loaders, key=lambda span: (span.line, span.column))))
+        if re.search(rb"/\*\*|///", data):
+            concerns.extend(_comment_concerns(source))
+        errors = sorted(source.captures("errors").get("error", []), key=lambda item: item.start_byte)
+        return Syntax(
+            tuple(
+                sorted(trusted, key=lambda item: (item.span.line, item.span.column, item.form.value))
+            ),
+            tuple(concerns),
+            shadows,
+            source.span(errors[0]) if errors else None,
+            *_inner(source),
+            _import_bindings(source),
+            _rebound_names(source),
         )
-    # One gap per file: the first use already makes every later `require` unprovable.
-    if loaders:
-        concerns.append(Concern(_LOADER, min(loaders, key=lambda span: (span.line, span.column))))
-    if re.search(rb"/\*\*|///", data):
-        concerns.extend(_comment_concerns(source))
-    errors = sorted(source.captures("errors").get("error", []), key=lambda item: item.start_byte)
-    return Syntax(
-        tuple(
-            sorted(trusted, key=lambda item: (item.span.line, item.span.column, item.form.value))
-        ),
-        tuple(concerns),
-        shadows,
-        source.span(errors[0]) if errors else None,
-        *_inner(source),
-        _import_bindings(source),
-        _rebound_names(source),
-    )
+    finally:
+        tree.nodes.clear()
 
 
 def _inner(source: _Source) -> tuple[tuple[Definition, ...], tuple[Site, ...]]:
