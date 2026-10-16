@@ -67,7 +67,7 @@ jobs:
               print("REVIEW_UNKNOWN_DIFF=" + json.dumps({"kind": label, "before": sum(old.values()), "after": sum(new.values()), "added": [json.loads(item) for item in sorted(added)], "removed": [json.loads(item) for item in sorted(removed)]}, sort_keys=True))
           changes = [dataclasses.asdict(item) for item in unresolved_call_changes(before, after)]
           print("REVIEW_UNRESOLVED_CHANGES=" + json.dumps(changes, sort_keys=True))
-          print("REVIEW_UNRESOLVED_CHANGE_COUNTS=" + json.dumps({"added_groups": sum(row["change"]=="added" for row in changes), "removed_groups": sum(row["change"]=="removed" for row in changes), "added_sites": sum(row["after_count"]-row["before_count"] for row in changes if row["change"]=="added"), "removed_sites": sum(row["before_count"]-row["after_count"] for row in changes if row["change"]=="removed")}, sort_keys=True))
+          print("REVIEW_UNRESOLVED_CHANGE_COUNTS=" + json.dumps({"added_groups": sum(row["change"]=="added" for row in changes), "removed_groups": sum(row["change"]=="removed" for row in changes), "added_sites": sum(row["after"]-row["before"] for row in changes if row["change"]=="added"), "removed_sites": sum(row["before"]-row["after"] for row in changes if row["change"]=="removed")}, sort_keys=True))
           
           PY
   parser-cost:
