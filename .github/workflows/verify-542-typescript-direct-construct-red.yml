@@ -1,0 +1,21 @@
+name: Native TS JS written-string direct-kind RED
+on:
+  push:
+    branches: [verify/542-typescript-direct-construct-red]
+permissions:
+  contents: read
+jobs:
+  native-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Real TS JS source and fixed independent contract
+        run: uv run --locked python -m pytest -q tests/test_typescript_string_constructs.py tests/test_nullable_profile_measurements.py --tb=short
