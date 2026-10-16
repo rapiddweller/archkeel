@@ -295,7 +295,7 @@ def _record_object(raw: object, label: str) -> dict[str, RawJson]:
 def _record_string(raw: RawJson, label: str) -> str:
     if not isinstance(raw, str):
         raise ProtocolError(f"{label} must be a string")
-    return str(raw)
+    return _builtins.str.__str__(raw)
 
 
 def _record_strings(raw: RawJson, label: str) -> tuple[str, ...]:
@@ -317,7 +317,7 @@ def freeze_data(raw: object, label: str = "data") -> RecordData:
 
 def freeze_value(raw: RawJson, label: str) -> JsonValue:
     if isinstance(raw, str):
-        return str(raw)
+        return _builtins.str.__str__(raw)
     if raw is None or isinstance(raw, (bool, int, float)):
         return raw
     if isinstance(raw, list):

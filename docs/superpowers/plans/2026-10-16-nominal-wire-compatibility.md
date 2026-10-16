@@ -26,3 +26,5 @@ Hosted38958355251/job117166813306:80 scoped-proof/rename tests pass with every h
 ## Review boundary control
 
 Parent identified that str(raw) can invoke a decorated __str__ on an otherwise valid str subclass, while JSON writes its actual Unicode characters. Add a real subclass fixture to the existing primitive/wire-byte control and actual component-field widening text. Observe those failures before replacing only the same three conversions with explicit base-string character extraction. Do not broaden the wire normalizer or touch hashing policy.
+
+Review RED:38959214039/job117169747162 proves both decorated-string regressions on the unchanged first fix:2 failed/80 passed. Use the explicit base str.__str__ character operation at the existing ports, retaining ordinary values and owned StrEnums. The first native site gate additionally catches52→53 typing positions from the unnecessary object-parameter formatter helper despite no new UNKNOWN/call sites. Remove that new API: map both values through one local formatting expression in the existing field classifier; no cap increase or imprecise annotation.
