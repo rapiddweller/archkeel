@@ -1,0 +1,20 @@
+name: Verify local literal observation RED
+on:
+  push:
+    branches: [verify/542-local-literal-red]
+permissions:
+  contents: read
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Actual native local literal and conservative negative controls
+        run: uv run --locked pytest -q tests/test_local_string_comparisons.py
