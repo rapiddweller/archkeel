@@ -1,0 +1,78 @@
+name: Verify reviewed source and intent union
+on:
+  push:
+    branches: [verify/542-reviewed-union-gates]
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: d08dfaf6a2e6992153a434341465306a88d993a2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Check real combined source
+        run: make lint typecheck
+  feature-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: d08dfaf6a2e6992153a434341465306a88d993a2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Check independent API intent and compatibility at the combined source
+        run: uv run --locked python -m pytest -n 2 --dist=loadfile -q tests/test_cli_input_target.py tests/test_cli_typed_inputs.py tests/test_dart_typed_controls.py tests/test_local_string_comparisons.py tests/test_python_source_evidence_lines.py tests/test_summary_badge_target.py tests/test_summary_badge_types.py tests/test_typed_diagnostic_owner.py tests/test_typed_python_bindings.py tests/test_typed_python_receivers.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_syntax_types.py tests/test_contract_version_types.py tests/test_codec_compatibility.py tests/test_scoped_dependency_proof.py tests/test_repository_hygiene.py
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: d08dfaf6a2e6992153a434341465306a88d993a2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Generate actual tightened baseline and normal intent amendment
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --write-baseline --json > "$RUNNER_TEMP/union-write.json"
+          task_baseline_status=$?
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 70e0a60e0e7c24882ef840586bce823f59f7529e --amendment docs/architecture/decisions/2026-10-16-reviewed-source-union.json --write-amendment --decided-by ake2l --rationale "Combine independently reviewed nominal API owners and preserve all authored component boundaries without increasing accepted debt." > "$RUNNER_TEMP/union-amendment.json"
+          task_amendment_status=$?
+          uv run --locked python - <<'PY'
+          import json, os
+          from pathlib import Path
+          for name in ("union-write", "union-amendment"):
+              data = json.loads((Path(os.environ["RUNNER_TEMP"]) / (name + ".json")).read_text())
+              print("UNION_RESULT=" + json.dumps({"stage": name, **{key: data.get(key) for key in ("exit_code", "amendment_status", "measurements", "diagnostics", "failures", "widenings")}}, separators=(",", ":")))
+          print("UNION_BASELINE=" + Path("architecture-baseline.json").read_text().replace("\n", ""))
+          receipt = Path("docs/architecture/decisions/2026-10-16-reviewed-source-union.json")
+          if receipt.exists():
+              print("UNION_AMENDMENT=" + receipt.read_text().replace("\n", ""))
+          PY
+          test "$task_baseline_status" -eq 0 && test "$task_amendment_status" -eq 0
