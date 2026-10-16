@@ -79,8 +79,8 @@ from .facts import (
     stable_id as stable_id,
 )
 from .host_records import InitialPRHeadEvidence
-from .measurements import Measurements
 from .measurements import MeasurementBudgetName as MeasurementBudgetName
+from .measurements import Measurements
 from .measurements import NameBudgetKind as NameBudgetKind
 
 if TYPE_CHECKING:

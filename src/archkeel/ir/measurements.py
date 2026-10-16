@@ -30,8 +30,11 @@ class MeasurementBudgetName(StrEnum):
     UNTYPED_PRIVATE_ACCESSES = "untyped_private_accesses"
     UNKNOWN_POSITIONS = "unknown_positions"
 
+
 # AD-97: the scalars a profile may not measure at all; each reads `None` then, never 0.
 UNMEASURABLE: Final[frozenset[UnmeasurableScalar]] = frozenset(UnmeasurableScalar)
+
+
 # AD-99: a facade or pair budget accepts a set of names per key rather than one scalar.
 class NameBudgetKind(StrEnum):
     FACADE_NAMES = "facade_names"
@@ -83,7 +86,9 @@ class RatchetError(ValueError):
     """The measurements are missing, inconsistent, or not safely comparable."""
 
 
-def _budget_name(value: MeasurementBudgetName | NameBudgetKind) -> MeasurementBudgetName | NameBudgetKind:
+def _budget_name(
+    value: MeasurementBudgetName | NameBudgetKind,
+) -> MeasurementBudgetName | NameBudgetKind:
     try:
         return MeasurementBudgetName(value)
     except ValueError:
@@ -135,7 +140,9 @@ class Measurements:
         if (self.calls_total is None) != (unresolved is None):
             raise RatchetError("call count availability must agree")
         expected = (
-            MeasurementResolution.MEASURED if self.calls_total else MeasurementResolution.NOT_APPLICABLE
+            MeasurementResolution.MEASURED
+            if self.calls_total
+            else MeasurementResolution.NOT_APPLICABLE
         )
         try:
             resolution = MeasurementResolution(self.resolution)
@@ -266,7 +273,9 @@ def compare_measurements(
         and after_unresolved is not None
     ):
         ratio_status = (
-            MetricComparisonStatus.FAIL if after_unresolved * before_total > before_unresolved * after_total else MetricComparisonStatus.PASS
+            MetricComparisonStatus.FAIL
+            if after_unresolved * before_total > before_unresolved * after_total
+            else MetricComparisonStatus.PASS
         )
     return comparisons + (
         (
@@ -282,11 +291,18 @@ def _shown(value: int | None) -> str:
     return "n/a" if value is None else str(value)
 
 
-def _compare(name: str, before: int | None, after: int | None) -> tuple[str, str, str, MetricComparisonStatus]:
+def _compare(
+    name: str, before: int | None, after: int | None
+) -> tuple[str, str, str, MetricComparisonStatus]:
     """A side the profile never measured is neither a pass nor a failure (AD-97)."""
     if before is None or after is None:
         return name, _shown(before), _shown(after), MetricComparisonStatus.NOT_APPLICABLE
-    return name, str(before), str(after), MetricComparisonStatus.FAIL if after > before else MetricComparisonStatus.PASS
+    return (
+        name,
+        str(before),
+        str(after),
+        MetricComparisonStatus.FAIL if after > before else MetricComparisonStatus.PASS,
+    )
 
 
 def count(raw: object, label: str) -> int:

@@ -94,7 +94,9 @@ def parse_measurements(raw: object, label: str, *, nullable_calls: bool = True) 
     if total == 0 and counts.calls_unresolved is None:
         total = None
     expected = _MeasurementResolution.MEASURED if total else _MeasurementResolution.NOT_APPLICABLE
-    return Measurements(counts, total, _measurement_resolution(value.get("resolution"), label, expected))
+    return Measurements(
+        counts, total, _measurement_resolution(value.get("resolution"), label, expected)
+    )
 
 
 def _measurement_resolution(

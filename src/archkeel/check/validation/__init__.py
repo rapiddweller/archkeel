@@ -409,7 +409,10 @@ def _one_sided_paths(
 
 
 def _calls_unresolved(budgets: tuple[MeasurementBudget, ...]) -> int | None:
-    return next((item.value for item in budgets if item.name is _MeasurementBudgetName.CALLS_UNRESOLVED), None)
+    return next(
+        (item.value for item in budgets if item.name is _MeasurementBudgetName.CALLS_UNRESOLVED),
+        None,
+    )
 
 
 _BASELINE_WRITE = (

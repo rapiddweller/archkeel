@@ -8,8 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final, TypeAlias
 
-from archkeel.ir.measurements import compare_measurements
 from archkeel.ir.measurements import MetricComparisonStatus as _MetricComparisonStatus
+from archkeel.ir.measurements import compare_measurements
 from archkeel.ir.model import (
     AssessmentStatus as _AssessmentStatus,
 )

@@ -27,15 +27,19 @@ ROOT = Path(__file__).parents[1]
 DOC = "docs/architecture/measurement-control-types.md"
 DOMAINS = {
     "MeasurementBudgetName": [
-        ("CYCLE_EDGES", "cycle_edges"), ("PRIVATE_CROSSINGS", "private_crossings"),
-        ("TYPING_POSITIONS", "typing_positions"), ("CALLS_UNRESOLVED", "calls_unresolved"),
+        ("CYCLE_EDGES", "cycle_edges"),
+        ("PRIVATE_CROSSINGS", "private_crossings"),
+        ("TYPING_POSITIONS", "typing_positions"),
+        ("CALLS_UNRESOLVED", "calls_unresolved"),
         ("UNTYPED_PRIVATE_ACCESSES", "untyped_private_accesses"),
         ("UNKNOWN_POSITIONS", "unknown_positions"),
     ],
     "NameBudgetKind": [("FACADE_NAMES", "facade_names"), ("COUPLING_NAMES", "coupling_names")],
     "MeasurementResolution": [("MEASURED", "measured"), ("NOT_APPLICABLE", "n/a")],
     "MetricComparisonStatus": [
-        ("PASS", "PASS"), ("FAIL", "FAIL"), ("NOT_APPLICABLE", "n/a"),
+        ("PASS", "PASS"),
+        ("FAIL", "FAIL"),
+        ("NOT_APPLICABLE", "n/a"),
     ],
 }
 
@@ -60,9 +64,10 @@ def test_real_fields_and_comparison_return_use_precise_owner_types():
     assert get_type_hints(m.Measurements)["resolution"] is m.MeasurementResolution
     assert get_type_hints(model.ContractMeasurementBudget)["name"] is m.MeasurementBudgetName
     assert get_type_hints(model.InterfaceBudgetResult)["budget"] is m.NameBudgetKind
-    assert get_type_hints(m.compare_measurements)["return"] == tuple[
-        tuple[str, str, str, m.MetricComparisonStatus], ...
-    ]
+    assert (
+        get_type_hints(m.compare_measurements)["return"]
+        == tuple[tuple[str, str, str, m.MetricComparisonStatus], ...]
+    )
 
 
 @pytest.mark.parametrize("raw", [value for _, value in DOMAINS["MeasurementBudgetName"]])
@@ -88,8 +93,10 @@ def test_legacy_keyed_budget_and_interface_result_share_owned_kind(raw):
 @pytest.mark.parametrize(
     "arguments",
     [
-        ("calls_unresolved", True), ("calls_unresolved", -1),
-        ("facade_names", 1), ("coupling_names", 2, "pair", ("one",)),
+        ("calls_unresolved", True),
+        ("calls_unresolved", -1),
+        ("facade_names", 1),
+        ("coupling_names", 2, "pair", ("one",)),
         ("facade_names", 2, "component", ("z", "a")),
         ("facade_names", 2, "component", ("same", "same")),
     ],
@@ -109,11 +116,17 @@ def test_valid_legacy_availability_constructor_and_payload_keep_exact_wire(unres
     payload = _measurement_payload(value)
     assert json.loads(json.dumps(payload)) == {
         "scalars": {
-            "violations": 0, "cycle_edges": 0, "private_crossings": 0, "typing_positions": 0,
-            "calls_unresolved": unresolved, "coverage_failures": 0,
-            "untyped_private_accesses": 0, "unknown_positions": 0,
+            "violations": 0,
+            "cycle_edges": 0,
+            "private_crossings": 0,
+            "typing_positions": 0,
+            "calls_unresolved": unresolved,
+            "coverage_failures": 0,
+            "untyped_private_accesses": 0,
+            "unknown_positions": 0,
         },
-        "calls_total": total, "resolution": raw,
+        "calls_total": total,
+        "resolution": raw,
     }
     decoded = parse_measurements(payload, "measurement")
     assert decoded == value
@@ -142,8 +155,12 @@ def test_legacy_zero_unmeasured_wire_is_none_without_widening_nonnullable_format
         parse_measurements(payload, "legacy", nullable_calls=False)
 
 
-@pytest.mark.parametrize(("before", "after", "wire"), [(1, 2, "FAIL"), (2, 1, "PASS"), (None, 1, "n/a")])
-def test_comparison_tuple_shape_and_status_are_precise_without_closing_display_labels(before, after, wire):
+@pytest.mark.parametrize(
+    ("before", "after", "wire"), [(1, 2, "FAIL"), (2, 1, "PASS"), (None, 1, "n/a")]
+)
+def test_comparison_tuple_shape_and_status_are_precise_without_closing_display_labels(
+    before, after, wire
+):
     row = m._compare("arbitrary metric label", before, after)
     assert isinstance(row, tuple) and row[0] == "arbitrary metric label"
     assert str(row[3]) == wire
@@ -156,11 +173,15 @@ def test_comparison_tuple_shape_and_status_are_precise_without_closing_display_l
 
 def test_baseline_budget_names_keep_wire_keys_and_existing_namespace_data():
     raw = {
-        "schema_version": "1.3.0", "violations": [],
+        "schema_version": "1.3.0",
+        "violations": [],
         "budgets": {"calls_unresolved": 2, "facade_names": {"arbitrary/component": ["module:API"]}},
     }
     value = parse_validation_baseline(raw)
-    assert {type(item.name) for item in value.budgets} == {m.MeasurementBudgetName, m.NameBudgetKind}
+    assert {type(item.name) for item in value.budgets} == {
+        m.MeasurementBudgetName,
+        m.NameBudgetKind,
+    }
     assert json.loads(baseline_bytes(value.violations, value.budgets)) == raw
 
 
@@ -168,35 +189,42 @@ def _contract():
     intent = copy.deepcopy(json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text()))
     intent.pop("$schema", None)
     intent["declarations"]["uml"]["entities"] = [
-        row for row in intent["declarations"]["uml"]["entities"]
+        row
+        for row in intent["declarations"]["uml"]["entities"]
         if row["id"].startswith("IR-MEASURE-") or row["id"] == "IR-DEPENDENCY-model"
     ]
     intent["declarations"]["uml"]["relationships"] = []
     intent["declarations"]["uml"]["scopes"] = []
-    intent["rules"] = [{
-        "id": "MEASURE-CONTROL", "kind": "forbidden_construct",
-        "source": "archkeel.ir.measurements", "constructs": ["string_literal_compare"],
-        "rationale": "Measurement control decisions use the real nominal owner.",
-        "provenance": [DOC], "decided_by": "architect",
-    }]
+    intent["rules"] = [
+        {
+            "id": "MEASURE-CONTROL",
+            "kind": "forbidden_construct",
+            "source": "archkeel.ir.measurements",
+            "constructs": ["string_literal_compare"],
+            "rationale": "Measurement control decisions use the real nominal owner.",
+            "provenance": [DOC],
+            "decided_by": "architect",
+        }
+    ]
     return intent
 
 
 def _repository(tmp_path):
     files = {
-        "archkeel/__init__.py": "", "archkeel/ir/__init__.py": "",
+        "archkeel/__init__.py": "",
+        "archkeel/ir/__init__.py": "",
         "archkeel/ir/measurements.py": (ROOT / "src/archkeel/ir/measurements.py").read_text(),
-        "archkeel/ir/profiles.py": "from enum import StrEnum\n" + _source_members(
-            "src/archkeel/ir/profiles.py", {"UnmeasurableScalar"}
-        ),
+        "archkeel/ir/profiles.py": "from enum import StrEnum\n"
+        + _source_members("src/archkeel/ir/profiles.py", {"UnmeasurableScalar"}),
         "archkeel/ir/model.py": (
             "from __future__ import annotations\nimport builtins\nfrom dataclasses import dataclass\n"
-            "from .measurements import MeasurementBudgetName, NameBudgetKind\n" +
-            _source_members(
+            "from .measurements import MeasurementBudgetName, NameBudgetKind\n"
+            + _source_members(
                 "src/archkeel/ir/model.py", {"ContractMeasurementBudget", "InterfaceBudgetResult"}
             )
         ),
-        "contract.json": json.dumps(_contract()), DOC: "Independent measurement API intent.\n",
+        "contract.json": json.dumps(_contract()),
+        DOC: "Independent measurement API intent.\n",
     }
     root = _prepare_repo(tmp_path, files)
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
@@ -204,7 +232,10 @@ def _repository(tmp_path):
 
 def _valid(value):
     comparison = architecture_report(value).comparison
-    assert comparison is not None and comparison.status == "PASS", comparison
+    assert comparison is not None and comparison.status == "PASS", [
+        (row.subject_id, row.aspect, row.status, row.reason) for row in comparison.assessments
+        if row.status != "PASS"
+    ]
     assert not trace_valid_violations(value)
 
 
@@ -221,10 +252,15 @@ def test_native_actual_source_matches_fourteen_independent_targets_and_existing_
         ("measurements.py", "resolution: MeasurementResolution", "resolution: str"),
         ("model.py", "name: MeasurementBudgetName", "name: str"),
         ("model.py", "budget: NameBudgetKind", "budget: str"),
-        ("measurements.py", ") -> tuple[tuple[str, str, str, MetricComparisonStatus], ...]:",
-         ") -> tuple[tuple[str, str, str, str], ...]:"),
-        *[("measurements.py", "class " + name + "(StrEnum):", "class " + name + "(str):")
-          for name in DOMAINS],
+        (
+            "measurements.py",
+            ") -> tuple[tuple[str, str, str, MetricComparisonStatus], ...]:",
+            ") -> tuple[tuple[str, str, str, str], ...]:",
+        ),
+        *[
+            ("measurements.py", "class " + name + "(StrEnum):", "class " + name + "(str):")
+            for name in DOMAINS
+        ],
     ],
 )
 def test_native_type_widening_and_enum_substitution_fail_fixed_intent(tmp_path, path, old, new):
@@ -247,9 +283,9 @@ def test_native_type_widening_and_enum_substitution_fail_fixed_intent(tmp_path, 
         'def _probe(value):\n    return value == "measured"\n',
         'def _probe(value):\n    return value in ("PASS", "FAIL", "n/a")\n',
         'def _probe(value):\n    match value:\n        case "facade_names":\n'
-        '            return True\n        case _:\n            return False\n',
+        "            return True\n        case _:\n            return False\n",
         'from typing import Final\nTAG: Final[str] = "coupling_names"\n'
-        'def _probe(value):\n    return value == TAG\n',
+        "def _probe(value):\n    return value == TAG\n",
     ],
 )
 def test_native_complete_measurement_owner_rejects_raw_dispatch(tmp_path, probe):
