@@ -306,4 +306,7 @@ def test_existing_profile_capability_domain_maps_to_eligible_budget_selectors():
         ("CALLS_UNRESOLVED", "calls_unresolved"),
         ("UNTYPED_PRIVATE_ACCESSES", "untyped_private_accesses"),
     ]
-    assert all(type(m.MeasurementBudgetName(item)) is m.MeasurementBudgetName for item in UnmeasurableScalar)
+    assert all(
+        type(m.MeasurementBudgetName(item)) is m.MeasurementBudgetName
+        for item in UnmeasurableScalar
+    )
