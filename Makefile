@@ -71,7 +71,7 @@ pr-test:
 		tests/test_unknown_positions.py tests/test_inside_rule_coverage.py tests/test_report_159_160.py \
 		tests/test_target_navigation_graph.py \
 		tests/test_absent_import_namespace.py tests/test_string_comparison_observation.py tests/test_shared_runtime_bootstrap.py \
-		tests/test_cli_input_target.py tests/test_cli_typed_inputs.py tests/test_dart_typed_controls.py tests/test_local_string_comparisons.py tests/test_python_source_evidence_lines.py tests/test_summary_badge_target.py tests/test_summary_badge_types.py tests/test_typed_diagnostic_owner.py tests/test_typed_python_bindings.py tests/test_typed_python_receivers.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_syntax_types.py \
+		tests/test_cli_input_target.py tests/test_cli_typed_inputs.py tests/test_dart_input_grammar.py tests/test_dart_typed_controls.py tests/test_local_string_comparisons.py tests/test_python_source_evidence_lines.py tests/test_summary_badge_target.py tests/test_summary_badge_types.py tests/test_typed_diagnostic_owner.py tests/test_typed_python_bindings.py tests/test_typed_python_receivers.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_syntax_types.py \
 		tests/test_string_predicate_observation.py tests/test_python_string_predicate_target.py
 
 pr-report-test:

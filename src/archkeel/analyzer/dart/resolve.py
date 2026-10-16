@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import posixpath
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
+from pathlib import PurePosixPath
 from urllib.parse import unquote, urlsplit
 
 from archkeel.ir.facts import SOURCE_RESOLUTION_GAP_KIND, dart_module_name
@@ -63,6 +64,13 @@ class _TypeToken(StrEnum):
     OPEN = "<"
     CLOSE = ">"
     COMMA = ","
+
+
+def _type_token(value: str) -> _TypeToken | None:
+    try:
+        return _TypeToken(value)
+    except ValueError:
+        return None
 
 
 def _uri_scheme(value: str) -> _UriScheme | None:
@@ -137,6 +145,10 @@ class ResolvedBinding:
     declaration_id: str
     rel_path: str
     span: Span
+    visibility: Visibility = field(init=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "visibility", Visibility.from_name(self.name))
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,6 +203,7 @@ class Resolver:
     def __init__(self, snapshot: Snapshot, syntax: dict[str, Syntax]) -> None:
         self.snapshot = snapshot
         self.syntax = syntax
+        self._path_cache: dict[str, PurePosixPath] = {}
         self.problems: list[ResolutionProblem] = []
         self.sources = snapshot.source_by_path
         self._module_paths: dict[str, list[str]] = {}
@@ -242,7 +255,7 @@ class Resolver:
             return None
         if _uri_scheme(parsed.scheme) == _UriScheme.DART:
             path = unquote(parsed.path)
-            module_name = _module_path(path)
+            module_name = self._module_path(path)
             if module_name is None:
                 self._problem(
                     rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}"
@@ -257,13 +270,13 @@ class Resolver:
                 not separator
                 or not _PACKAGE_NAME.fullmatch(package)
                 or not target_path
-                or target_path.startswith("/")
+                or self._posix_path(target_path).is_absolute()
             ):
                 self._problem(
                     rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}"
                 )
                 return None
-            module_name = _module_path(target_path)
+            module_name = self._module_path(target_path)
             if module_name is None:
                 self._problem(
                     rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}"
@@ -281,7 +294,7 @@ class Resolver:
             )
             return None
         target_path = unquote(parsed.path)
-        if target_path.startswith("/"):
+        if self._posix_path(target_path).is_absolute():
             self._problem(
                 rel_path, ResolutionProblemKind.IMPORT_ERROR, f"absolute URI {uri!r} is unsupported"
             )
@@ -412,7 +425,7 @@ class Resolver:
         result = self._declared_constructor(declaration, binding, class_name, constructor_name)
         if (
             result.binding is not None
-            and result.binding.name.rpartition(".")[2].startswith("_")
+            and result.binding.visibility is Visibility.PRIVATE
             and declaration.module != module
         ):
             return ConstructionResolution(
@@ -1094,7 +1107,7 @@ class Resolver:
         accessible = tuple(
             item
             for item in bindings
-            if not item.name.rpartition(".")[2].startswith("_") or item.module == requester_module
+            if item.visibility is Visibility.PUBLIC or item.module == requester_module
         )
         if len({item.declaration_id for item in accessible}) == 1 and accessible:
             return ResolvedSite(site, ResolutionStatus.RESOLVED, accessible)
@@ -1135,14 +1148,13 @@ class Resolver:
         self, rel_path: str, module: str, site: Site
     ) -> tuple[ResolvedBinding, ...]:
         receiver = site.receiver or ""
-        if site.computed or receiver.endswith("]"):
+        if site.computed:
             return ()
         if receiver.split(".", 1)[0] in site.shadowed_names:
             return ()
-        if receiver.endswith(")"):
-            constructed = self._constructed_receiver_bindings(rel_path, module, site, receiver)
-            if constructed:
-                return constructed
+        constructed = self._constructed_receiver_bindings(rel_path, module, site, receiver)
+        if constructed:
+            return constructed
         if _receiver_keyword(receiver) in {_ReceiverKeyword.THIS, _ReceiverKeyword.SUPER}:
             owner = self._enclosing_class(rel_path, site)
             if owner and _receiver_keyword(receiver) == _ReceiverKeyword.SUPER:
@@ -1467,10 +1479,14 @@ class Resolver:
         if not collection_type:
             return None
         collection_name, _, arguments = collection_type.partition("<")
-        if _builtin_type(collection_name.strip()) not in {
-            _BuiltinType.LIST,
-            _BuiltinType.ITERABLE,
-        } or not arguments.endswith(">"):
+        if (
+            _builtin_type(collection_name.strip())
+            not in {
+                _BuiltinType.LIST,
+                _BuiltinType.ITERABLE,
+            }
+            or _type_token(arguments[-1:]) is not _TypeToken.CLOSE
+        ):
             return None
         if self._local_declarations(self.module_for(rel_path) or "", collection_name.strip()):
             return None
@@ -1881,12 +1897,24 @@ class Resolver:
         )
         return library == target
 
-    def _source_at(self, rel: str, importer: str, uri: str) -> Source | None:
+    def _posix_path(self, spelling: str) -> PurePosixPath:
+        path = self._path_cache.get(spelling)
+        if path is None:
+            path = PurePosixPath(spelling)
+            self._path_cache[spelling] = path
+        return path
+
+    def _module_path(self, path: str) -> str | None:
         if (
-            re.fullmatch(r"\.\.", rel) is not None
-            or rel.startswith("../")
-            or not self._in_roots(rel)
+            not path
+            or self._posix_path(path).is_absolute()
+            or any(re.fullmatch(r"\.\.", part) for part in _path_parts(path))
         ):
+            return None
+        return dart_module_name(path)
+
+    def _source_at(self, rel: str, importer: str, uri: str) -> Source | None:
+        if self._posix_path(rel).is_relative_to(self._posix_path("..")) or not self._in_roots(rel):
             self._problem(
                 importer,
                 ResolutionProblemKind.IMPORT_ERROR,
@@ -1918,16 +1946,6 @@ class Resolver:
             self.problems.append(issue)
 
 
-def _module_path(path: str) -> str | None:
-    if (
-        not path
-        or path.startswith("/")
-        or any(re.fullmatch(r"\.\.", part) for part in _path_parts(path))
-    ):
-        return None
-    return dart_module_name(path)
-
-
 def _path_parts(path: str) -> tuple[str, ...]:
     return tuple(part for part in path.split("/") if re.fullmatch(r"\.?", part) is None)
 
@@ -1946,7 +1964,7 @@ def _nominal_type_reference(value: str) -> tuple[str | None, str] | None:
     value = value.strip()
     generic_start = value.find("<")
     if generic_start >= 0:
-        if not value.endswith(">"):
+        if _type_token(value[-1:]) is not _TypeToken.CLOSE:
             return None
         depth = 0
         for token in re.finditer(r"[<>]", value[generic_start:]):

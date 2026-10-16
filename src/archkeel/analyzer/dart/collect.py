@@ -534,7 +534,17 @@ class _Collection:
                 definition.enum_members, definition.enum_member_spans, strict=True
             ):
                 attributes.append(
-                    self._attribute(rel, span, qualified, literal, None, True, None, True)
+                    self._attribute(
+                        rel,
+                        span,
+                        qualified,
+                        literal,
+                        None,
+                        True,
+                        None,
+                        True,
+                        visibility=Visibility.from_name(literal),
+                    )
                 )
         for member in definition.members:
             if member.kind == MemberKind.FIELD:
@@ -548,6 +558,7 @@ class _Collection:
                         member.static,
                         member.initializer,
                         member.constant,
+                        visibility=member.visibility,
                     )
                 )
             elif member.kind in {
@@ -616,11 +627,7 @@ class _Collection:
             p["default_known"] and (not p.get("field_formal") or p.get("annotation") is not None)
             for p in parameters
         )
-        visibility = (
-            (Visibility.PRIVATE if member_spelling.startswith("_") else Visibility.PUBLIC)
-            if constructor
-            else member.visibility
-        )
+        visibility = member.visibility
         data = self._meta(
             rel, module, name, MemberKind.METHOD, qualified, parent, parent_id, visibility
         )
@@ -706,6 +713,8 @@ class _Collection:
         static: bool,
         constant: str | None,
         is_constant: bool = False,
+        *,
+        visibility: Visibility,
     ) -> RawData:
         identity = stable_id("DARTATTR", rel, span.start_byte, parent, name)
         qualified = f"{parent}.{name}"
@@ -715,7 +724,7 @@ class _Collection:
             "name": name,
             "annotation": annotation,
             "visibility": {
-                "kind": Visibility.PRIVATE if name.startswith("_") else Visibility.PUBLIC,
+                "kind": visibility,
                 "basis": "language",
                 "spelling": name,
             },
@@ -852,7 +861,7 @@ class _Collection:
                                     if symbol is None
                                     else (
                                         Visibility.PRIVATE
-                                        if symbol.startswith("_")
+                                        if Visibility.from_name(symbol) is Visibility.PRIVATE
                                         else "public_name"
                                     ),
                                 },
@@ -1008,7 +1017,7 @@ class _Collection:
                 qualified,
                 scope,
                 scope_id,
-                Visibility.PRIVATE if name.startswith("_") else Visibility.PUBLIC,
+                Visibility.from_name(name),
             )
             data.update(
                 symbol_category="dynamic_binding",

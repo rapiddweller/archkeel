@@ -15,5 +15,5 @@ No new grammar feature, resolver/runtime authority, budget increase, allowance, 
 
 - Root test-only correction: complete at 16ca (68 PASS; Astra approved).
 - Prefix integrated with three-way proof 38978457379; Root local-scalar evidence preserved. TypeScript three-way proof 38978740304 required additive Makefile/root/Target unions; all five NativeTS Target entities/public port retained and source_input added to the explicit owner inventory. Focused bbc→d894 git apply --3way audit 38979108053 proves all five Source blobs and every non-conflict file exactly match the integration, only the three reviewed shared files conflict, and no path outside the fourteen owned stage paths is touched. A historical dependency copy would remove _local_scalar, so the current reviewed observer file is retained unchanged.
-- Dart final profiling/verification and review: pending agent handoff.
-- Combined final native evidence and normal baseline/receipt: pending complete activation.
+- Dart final 124ab1c6 (Source identical to f31): all five gates green in 38978028432; independent Astra approval received. Exact 0e3→124 ten-path git apply --3way in 38979387778 is clean and touches no other path. Independent #570 remains excluded. Source/Target/Test frozen; complete Compass Wire equality and measured +5.01% cost versus original remain explicit.
+- Combined final native evidence, compatibility/quality gates and normal baseline/receipt: pending measurement of the complete isolated activation. No Main or Root-branch activation yet.

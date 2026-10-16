@@ -3764,6 +3764,62 @@
           "qualified_name": "archkeel.analyzer.dart.resolve.ResolvedTarget.builtin",
           "parent_id": "archkeel.analyzer.dart.resolve.ResolvedTarget",
           "annotation": "bool"
+        },
+        {
+          "id": "archkeel.analyzer.dart.syntax.Visibility.from_name",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.dart.syntax.Visibility.from_name",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Decode written name privacy once at the syntax boundary using its final qualified-name segment."
+          ],
+          "provenance": [
+            "docs/architecture/dart-input-grammar.md"
+          ],
+          "parent_id": "archkeel.analyzer.dart.syntax.Visibility",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "cls",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "name",
+                "annotation": "str",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "Visibility"
+          }
+        },
+        {
+          "id": "archkeel.analyzer.dart.resolve.ResolvedBinding.visibility",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.resolve.ResolvedBinding.visibility",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry the nominal privacy decoded once at binding ingress while preserving the public seven-argument constructor."
+          ],
+          "provenance": [
+            "docs/architecture/dart-input-grammar.md"
+          ],
+          "parent_id": "archkeel.analyzer.dart.resolve.ResolvedBinding",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Visibility"
         }
       ],
       "relationships": [

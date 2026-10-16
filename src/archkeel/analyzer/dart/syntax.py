@@ -14,9 +14,22 @@ class ParameterKind(StrEnum):
     NAMED = "named"
 
 
+class _NameStart(StrEnum):
+    PRIVATE = "_"
+
+
 class Visibility(StrEnum):
     PUBLIC = "public"
     PRIVATE = "private"
+
+    @classmethod
+    def from_name(cls, name: str) -> Visibility:
+        """Decode written privacy once, using the final qualified-name segment."""
+        try:
+            _NameStart(name.rpartition(".")[2][:1])
+        except ValueError:
+            return cls.PUBLIC
+        return cls.PRIVATE
 
 
 class MemberKind(StrEnum):

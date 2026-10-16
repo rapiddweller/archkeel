@@ -34,6 +34,7 @@ FIELDS = (
     (parse.Site, "kind", "SiteKind"),
     (parse.Site, "use", "SiteUse"),
     (resolve.ResolutionProblem, "kind", "ResolutionProblemKind"),
+    (resolve.ResolvedBinding, "visibility", "Visibility"),
     (resolve.ResolvedSite, "status", "ResolutionStatus"),
     (resolve.ConstructionResolution, "status", "ResolutionStatus"),
     (resolve.ResolvedParameter, "kind", "ParameterKind"),
@@ -82,6 +83,7 @@ def _contract():
     }
     fields["archkeel.analyzer.dart.resolve.ResolvedTarget.builtin"] = "bool"
     selected = set(fields)
+    selected.add("archkeel.analyzer.dart.syntax.Visibility.from_name")
     for name in fields:
         selected.add(name.rsplit(".", 1)[0])
         selected.add(name.rsplit(".", 2)[0])
@@ -115,6 +117,9 @@ def _repository(tmp_path):
         "archkeel/ir/__init__.py": "",
         "contract.json": json.dumps(_contract()),
         "docs/architecture/dart-nominal-controls.md": "Owned Dart control boundaries.\n",
+        "docs/architecture/dart-input-grammar.md": (
+            ROOT / "docs/architecture/dart-input-grammar.md"
+        ).read_text(),
     }
     for path in paths:
         files[path.relative_to(ROOT / "src").as_posix()] = path.read_text()
@@ -149,8 +154,10 @@ def test_native_dart_control_api_matches_independent_nominal_target(tmp_path):
             'from typing import Final\nCONTROL: Final[str] = "import"\n'
             "def _control_probe(value):\n    return value == CONTROL\n"
         ),
+        'def _control_probe(value):\n    return value.startswith("import")\n',
+        'def _control_probe(value):\n    return value.endswith((".dart", ".g.dart"))\n',
     ],
-    ids=["equality", "membership", "needle", "match", "final"],
+    ids=["equality", "membership", "needle", "match", "final", "prefix", "suffix"],
 )
 def test_native_dart_control_guard_rejects_actual_source_string_dispatch(tmp_path, probe):
     root, config = _repository(tmp_path)
@@ -175,6 +182,11 @@ def test_native_dart_control_guard_rejects_actual_source_string_dispatch(tmp_pat
         ("syntax", "kind: ParameterKind", "kind: str"),
         ("resolve", "status: ResolutionStatus", "status: str"),
         ("resolve", "builtin: bool", "builtin: str"),
+        (
+            "resolve",
+            "visibility: Visibility = field(init=False)",
+            "visibility: str = field(init=False)",
+        ),
     ],
 )
 def test_native_dart_nominal_annotation_widening_fails_without_target_change(
@@ -415,3 +427,29 @@ def test_parser_keywords_do_not_misclassify_identifier_substrings():
     assert members["delayed"].final and members["delayed"].late
     count, required_value = members["method"].parameters
     assert count.required and not required_value.required
+
+
+@pytest.mark.parametrize("widened", [False, True])
+def test_native_visibility_ingress_return_matches_fixed_authored_intent(tmp_path, widened):
+    root, config = _repository(tmp_path)
+    path = root / "archkeel/analyzer/dart/syntax.py"
+    source = path.read_text()
+    narrow = "def from_name(cls, name: str) -> Visibility:"
+    assert narrow in source
+    if widened:
+        source = source.replace(narrow, "def from_name(cls, name: str) -> str:", 1)
+        path.write_text(source)
+    intent = (root / "contract.json").read_bytes()
+    model = _model(root, config)
+    comparison = architecture_report(model).comparison
+    assert comparison is not None
+    selected = [
+        row
+        for row in comparison.assessments
+        if row.subject_id == "archkeel.analyzer.dart.syntax.Visibility.from_name"
+        and row.aspect == "signature"
+    ]
+    assert len(selected) == 1 and selected[0].status == ("FAIL" if widened else "PASS"), selected
+    if widened:
+        assert trace_valid_violations(model)
+    assert (root / "contract.json").read_bytes() == intent

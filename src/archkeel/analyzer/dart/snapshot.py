@@ -33,6 +33,18 @@ class SnapshotProblemKind(StrEnum):
     MODULE_COLLISION = "DartModuleCollision"
 
 
+class _SourceSuffix(StrEnum):
+    DART = ".dart"
+
+
+def _source_suffix(path: Path) -> _SourceSuffix | None:
+    """Decode a filename suffix while retaining the selected .dart dotfile."""
+    try:
+        return _SourceSuffix(path.suffix or path.name)
+    except ValueError:
+        return None
+
+
 class _Platform(StrEnum):
     WINDOWS = "win32"
 
@@ -80,6 +92,7 @@ class Snapshot:
 _PACKAGE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _PUBSPEC_NAME = re.compile(r"^name\s*:\s*(.*?)\s*(?:#.*)?$")
 _PUBSPEC_SDK = re.compile(r"sdk")
+_PUBSPEC_IGNORABLE_LINE = re.compile(r"\s*(?:#.*)?")
 
 
 def _roots(values: tuple[str, ...]) -> tuple[str, ...]:
@@ -118,7 +131,7 @@ def _pubspec_metadata(raw: bytes) -> tuple[str | None, str | None, RuntimeRequir
     sdk_fields = 0
     invalid_sdk = False
     for line in lines:
-        if not line or line.lstrip().startswith("#"):
+        if _PUBSPEC_IGNORABLE_LINE.fullmatch(line) is not None:
             continue
         indent = len(line) - len(line.lstrip())
         if indent == 0:
@@ -288,7 +301,7 @@ def _read_source_root(
         for name in sorted(filenames):
             path = current / name
             rel = path.relative_to(root).as_posix()
-            if name.endswith(".dart") and rel not in seen_paths:
+            if _source_suffix(path) is _SourceSuffix.DART and rel not in seen_paths:
                 seen_paths.add(rel)
                 item = _read_source_file(root, real_root, source_root, namespace, path, problems)
                 if item is not None:
