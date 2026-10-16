@@ -1,0 +1,129 @@
+name: Verify Summary badge boundary
+on:
+  push:
+    branches: [verify/542-summary-badge-green]
+permissions:
+  contents: read
+jobs:
+  typed-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Format and export exact patch
+        run: |
+          uv run --locked ruff check --fix --select I src/archkeel/render tests/test_summary_badge_types.py tests/test_summary_badge_target.py
+          uv run --locked ruff format src/archkeel/render tests/test_summary_badge_types.py tests/test_summary_badge_target.py
+          python - <<'PY'
+          import base64, subprocess
+          patch = subprocess.run(["git", "diff", "--", "src", "tests"], capture_output=True, check=True).stdout
+          print("FORMAT_PATCH=" + base64.b64encode(patch).decode())
+          PY
+      - name: Native source mutations and authored Target
+        run: uv run --locked python -m pytest -q tests/test_summary_badge_target.py -k 'not own_'
+      - name: Runtime and renderer compatibility
+        run: uv run --locked python -m pytest -q tests/test_summary_badge_types.py tests/test_terminal.py tests/test_html_report.py -k 'not chromium'
+      - name: Lint, types and hygiene
+        run: |
+          make lint typecheck
+          uv run --locked python -m pytest -q tests/test_repository_hygiene.py
+      - name: Full output byte parity against exact predecessor
+        run: |
+          uv run --locked python - <<'PY'
+          import subprocess, sys, types
+          from dataclasses import asdict
+          from io import StringIO
+          from rich.console import Console
+          from archkeel.ir.architecture_graph import RuleAssessment, RuleAssessmentStatus
+          from archkeel.ir.model import RunResult
+          from archkeel.render import html, summary, terminal
+          base = "7f99d03afaaea57530c56d688ce84e4b0867152e"
+          def previous(name):
+              source = subprocess.run(["git", "show", base + ":src/archkeel/render/" + name + ".py"], capture_output=True, text=True, check=True).stdout
+              module = types.ModuleType("archkeel.render._before_badges_" + name)
+              module.__package__ = "archkeel.render"
+              sys.modules[module.__name__] = module
+              exec(compile(source, "<before-badges-" + name + ">", "exec"), module.__dict__)
+              return module
+          old_summary, old_html, old_terminal = (previous(name) for name in ("summary", "html", "terminal"))
+          old_html.badge = old_summary.badge
+          old_html.report_summary = old_summary.report_summary
+          old_html.check_summary = old_summary.check_summary
+          old_terminal.badge = old_summary.badge
+          for value in ("PASS", "FAIL", "UNKNOWN", "n/a", "other", ""):
+              assert asdict(old_summary.badge(value)) == asdict(summary.badge(value)), value
+              old_row = old_summary.VerdictRow("Verdict", "key", value, "Evidence")
+              new_row = summary.VerdictRow("Verdict", "key", value, "Evidence")
+              assert old_html._verdict_card(old_row) == html._verdict_card(new_row), value
+          for status in RuleAssessmentStatus:
+              assessment = RuleAssessment("rule", "permission", status, True, 0, 0, "", "", (), "", "", ())
+              assert old_html._rule_assessment_row(assessment) == html._rule_assessment_row(assessment), status
+          def output(module, result, display):
+              sink = StringIO()
+              console = Console(file=sink, width=80, force_terminal=True, color_system="standard")
+              module.print_result(result, display, artifacts=("architecture.json",), console=console)
+              return sink.getvalue()
+          cases = 0
+          for status in ("PASS", "FAIL", "UNKNOWN"):
+              for command in ("report", "validate", "check", "init"):
+                  result = RunResult(command, 0, "PASS", status, "n/a")
+                  name = "init_summary" if command == "init" else "check_summary" if command == "check" else "report_summary"
+                  before, after = getattr(old_summary, name)(result), getattr(summary, name)(result)
+                  assert asdict(before) == asdict(after), (command, status)
+                  assert output(old_terminal, result, before) == output(terminal, result, after), (command, status)
+                  assert old_html.render_html(result, None, repository="sample", architecture_href=None) == html.render_html(result, None, repository="sample", architecture_href=None), (command, status)
+                  cases += 1
+          print("BADGE_WIRE_AND_FULL_HTML_TERMINAL_BYTES_UNCHANGED", cases)
+          
+          PY
+  own-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Actual own Badge proof
+        run: uv run --locked python -m pytest -q tests/test_summary_badge_target.py -k own_
+      - name: Own validation and real failure evidence
+        if: always()
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > "$RUNNER_TEMP/badge-own.json"
+          badge_status=$?
+          uv run --locked python - <<'PY'
+          import json, os
+          from pathlib import Path
+          row = json.loads((Path(os.environ["RUNNER_TEMP"]) / "badge-own.json").read_text())
+          print("BADGE_OWN=" + json.dumps({key: row.get(key) for key in ("exit_code", "diagnostics", "failures", "measurements", "unresolved_call_changes", "unresolved_call_note")}, ensure_ascii=True))
+          PY
+          exit "$badge_status"
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - run: make browser-install
+      - name: Actual Badge HTML and affected report renderer Chromium checks
+        run: uv run --locked --with playwright==1.62.0 python -m pytest -q tests/test_summary_badge_types.py::test_badge_html_states_and_declaration_style_in_chromium tests/test_report_renderer_units.py
