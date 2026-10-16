@@ -20,7 +20,9 @@ CI_CHECK_STEPS = [
     "browser-install",
     *GATE_STEPS,
     "typescript-compiler-check",
+    "browser-graph-check",
     "demo-typescript",
+    "browser-runtime-check",
     "report-timing",
     "report-browser-proof",
 ]
@@ -208,14 +210,13 @@ def test_pr_core_uses_representative_dart_and_flutter_checks() -> None:
     assert "tests/test_flutter_demo.py " not in command
 
 
-@pytest.mark.parametrize("failed", [None, "browser-install", "pr-report-test"])
+@pytest.mark.parametrize("failed", [None, "browser-install", "browser-runtime-check", "pr-report-test"])
 def test_pr_report_gate_runs_its_browser_sample_and_propagates_failure(tmp_path, failed):
     result, steps = _run_gate(tmp_path, "ci-pr-report-check", failed, 2, False)
-    assert steps == (
-        ["browser-install"]
-        if failed == "browser-install"
-        else ["browser-install", "pr-report-test"]
-    )
+    expected = ["browser-install", "browser-runtime-check", "pr-report-test"]
+    if failed is not None:
+        expected = expected[: expected.index(failed) + 1]
+    assert steps == expected
     assert result.returncode == (0 if failed is None else 2)
 
 
@@ -647,7 +648,7 @@ def test_only_full_ci_stops_pytest_after_first_failure(target):
     )
     assert result.returncode == 0, result.stderr
     command = result.stdout
-    assert command.count("python -m pytest") == 1
+    assert command.count("python -m pytest") == (1 if target == "test" else 2)
     assert ("--maxfail=1" in command) == (target != "test")
     assert "--dist=loadfile" in command and "--max-worker-restart=0" in command
     assert "--junitxml=test-artifacts/pytest/results.xml" in command
@@ -677,3 +678,19 @@ def test_self_observation_generates_ignored_output_and_preserves_failure(tmp_pat
         "test-artifacts/self-observation/architecture.json",
     ]
     assert result.returncode == exit_code
+
+
+def test_browser_runtime_gate_installs_before_running_the_actual_publication_tests() -> None:
+    result = subprocess.run(
+        ["make", "-n", "browser-runtime-check"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": ""},
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    command = result.stdout
+    install = command.index("npm ci --prefix tools/browser-runtime")
+    publication = command.index("python -m pytest -q tests/test_flow_runtime_publication.py")
+    assert install < publication
