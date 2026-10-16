@@ -2172,7 +2172,7 @@ def parse_sources(paths: Sequence[Path], *, root: Path, namespace: str) -> Parse
                 package=package_for(module_name),
                 source=source,
                 source_bytes=raw,
-                lines=source.splitlines(),
+                lines=source.replace("\r\n", "\n").replace("\r", "\n").split("\n"),
                 tree=tree,
             )
         )

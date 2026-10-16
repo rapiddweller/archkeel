@@ -86,6 +86,7 @@ def test_native_unicode_literal_preserves_exact_physical_source_trace(tmp_path, 
     assert len(facts) == 1 and facts[0].kind == "string_literal_compare"
     cited = [evidence[key] for key in facts[0].evidence_ids]
     assert len(cited) == 1
+    assert cited[0].column == 11
     assert (cited[0].file, cited[0].line, cited[0].end_line, cited[0].excerpt) == (
         "sample/api.py",
         expected_line,
