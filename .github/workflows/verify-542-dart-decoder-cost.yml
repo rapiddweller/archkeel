@@ -1,0 +1,53 @@
+name: Dart decoder cost comparison
+on:
+  push:
+    branches: [verify/542-dart-decoder-cost]
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Compare equivalent owned enum decoders on every Compass source
+        run: |
+          uv run --locked python - <<'PY'
+          import importlib, json, pathlib, statistics, time
+          from dataclasses import asdict
+          parser = importlib.import_module("archkeel.analyzer.dart.parse")
+          samples = [path.read_bytes() for path in sorted(pathlib.Path("fixtures/J-compass/lib").rglob("*.dart"))]
+          expected = [json.dumps(asdict(parser.parse(data)), sort_keys=True) for data in samples]
+          def median():
+              batches = []
+              for _ in range(5):
+                  start = time.perf_counter()
+                  for data in samples:
+                      parser.parse(data)
+                  batches.append(time.perf_counter() - start)
+              return statistics.median(batches)
+          original = median()
+          kinds = {kind.value: kind for kind in parser._NodeKind}
+          lexemes = {kind.value: kind for kind in parser._Lexeme}
+          def init(self, raw, tree):
+              self._raw = raw
+              self._tree = tree
+              self.start_byte = raw.start_byte
+              self.end_byte = raw.end_byte
+              self.is_error = raw.is_error
+              self.is_missing = raw.is_missing
+              self.kind = kinds.get(raw.type)
+          parser._Node.__init__ = init
+          parser._lexeme = lexemes.get
+          for data, before in zip(samples, expected, strict=True):
+              assert json.dumps(asdict(parser.parse(data)), sort_keys=True) == before
+          lookup = median()
+          print("DART_DECODER_COST=" + json.dumps({"files": len(samples), "enum_constructor": original, "derived_enum_lookup": lookup, "identical": True}))
+          PY
