@@ -1156,8 +1156,7 @@ def profile_failures(
         "facade_budgets": bool(declarations.facade_budgets),
         "coupling_budgets": bool(declarations.coupling_budgets),
     }
-    items = [
-        *_unsupported_module_object_grants(contract, profile),
+    items = _unsupported_module_object_grants(contract, profile) + [
         *(
             (rule.id, [rule.id], f"rule kind {rule.kind}")
             for rule in contract.rules
