@@ -357,7 +357,9 @@ def parse(rel_path: str, data: bytes) -> Syntax:
     tree = _Tree()
     try:
         root = tree.node(Parser(_grammar(kind)).parse(data).root_node)
-        source = _Source(kind, root, data, [0, *(found.end() for found in _LINE_BREAK.finditer(data))])
+        source = _Source(
+            kind, root, data, [0, *(found.end() for found in _LINE_BREAK.finditer(data))]
+        )
         found = source.captures("references")
         candidates = [
             *((node, _import(node, source)) for node in found.get("import", [])),
@@ -381,13 +383,19 @@ def parse(rel_path: str, data: bytes) -> Syntax:
             )
         # One gap per file: the first use already makes every later `require` unprovable.
         if loaders:
-            concerns.append(Concern(_LOADER, min(loaders, key=lambda span: (span.line, span.column))))
+            concerns.append(
+                Concern(_LOADER, min(loaders, key=lambda span: (span.line, span.column)))
+            )
         if re.search(rb"/\*\*|///", data):
             concerns.extend(_comment_concerns(source))
-        errors = sorted(source.captures("errors").get("error", []), key=lambda item: item.start_byte)
+        errors = sorted(
+            source.captures("errors").get("error", []), key=lambda item: item.start_byte
+        )
         return Syntax(
             tuple(
-                sorted(trusted, key=lambda item: (item.span.line, item.span.column, item.form.value))
+                sorted(
+                    trusted, key=lambda item: (item.span.line, item.span.column, item.form.value)
+                )
             ),
             tuple(concerns),
             shadows,
@@ -427,7 +435,7 @@ def _inner(source: _Source) -> tuple[tuple[Definition, ...], tuple[Site, ...]]:
         name = _text(name_node) if name_node else ""
         if _supported_constructor(node):
             name = "constructor"
-        if not name or name_node is None or name_node.kind == _NodeKind.COMPUTED_PROPERTY_NAME:
+        if not name or name_node is None or name_node.kind in {None, _NodeKind.COMPUTED_PROPERTY_NAME}:
             continue
         if node.kind in (
             _NodeKind.METHOD_DEFINITION,
@@ -824,7 +832,7 @@ def _members_complete(body: _Node | None) -> bool:
             name = child.child_by_field_name("name")
             if child.kind in {_NodeKind.PROPERTY_IDENTIFIER, _NodeKind.IDENTIFIER}:
                 continue
-            if name is None or name.kind == _NodeKind.COMPUTED_PROPERTY_NAME:
+            if name is None or name.kind in {None, _NodeKind.COMPUTED_PROPERTY_NAME}:
                 return False
             if child.kind in {_NodeKind.PUBLIC_FIELD_DEFINITION, _NodeKind.PROPERTY_SIGNATURE}:
                 key = _static_member_name(_text(name))
@@ -885,6 +893,8 @@ def _decorated_member(node: _Node) -> _Node | None:
 
 def _valid_unicode_member_name(name: _Node) -> bool:
     """String names allow code points that unvalidated escaped identifiers cannot prove."""
+    if name.kind is None:
+        return False
     if name.kind != _NodeKind.STRING:
         return re.search(r"\\", _text(name)) is None
     for child in name.named_children:
@@ -920,6 +930,7 @@ def _instance_constructor(node: _Node) -> bool:
         or node.parent.kind != _NodeKind.CLASS_BODY
         or _Modifier.STATIC in _modifiers(node)
         or name is None
+        or name.kind is None
     ):
         return False
     spelling = _text(name)
@@ -970,7 +981,7 @@ def _member(node: _Node, source: _Source) -> Member | None:
         or _Node.child_by_field_name(node, "pattern")
         or (node if node.kind in {_NodeKind.PROPERTY_IDENTIFIER, _NodeKind.IDENTIFIER} else None)
     )
-    if name_node is None or name_node.kind == _NodeKind.COMPUTED_PROPERTY_NAME:
+    if name_node is None or name_node.kind in {None, _NodeKind.COMPUTED_PROPERTY_NAME}:
         return None
     value = node.child_by_field_name("value")
     literal = (
@@ -1140,6 +1151,40 @@ def _uncollected_module_binding(node: _Node) -> tuple[str | None, bool]:
     return (name, False) if name and re.search(r"\\", name) is None else (None, True)
 
 
+def _constant_definition(
+    node: _Node,
+    name: str,
+    source: _Source,
+    scopes: list[tuple[_Node, str, int]],
+    *,
+    module_level: bool,
+) -> Definition:
+    owner = next((item for item, _, _ in reversed(scopes) if _contains(item, node)), None)
+    parent_name = next((qualified for item, qualified, _ in scopes if item is owner), None)
+    owner_span = source.span(owner) if owner is not None else None
+    exported = node.parent is not None and _exported(node.parent)
+    return Definition(
+        name,
+        DefinitionKind.CONSTANT,
+        source.span(node),
+        parent_name,
+        None,
+        False,
+        exported,
+        _type(node.child_by_field_name("type")),
+        (),
+        None,
+        (),
+        (),
+        False,
+        False,
+        top_level=module_level,
+        parent_line=owner_span.line if owner_span else None,
+        parent_column=owner_span.column if owner_span else None,
+    )
+
+
+
 def _variables(
     source: _Source, scopes: list[tuple[_Node, str, int]], declarations: dict[_Node, DefinitionKind]
 ) -> list[Definition]:
@@ -1192,33 +1237,7 @@ def _variables(
             if module_level:
                 omitted_module_names |= {name}
             continue
-        owner = next((item for item, _, _ in reversed(scopes) if _contains(item, node)), None)
-        parent_name = next((qualified for item, qualified, _ in scopes if item is owner), None)
-        owner_span = source.span(owner) if owner is not None else None
-        exported = (
-            declaration_parent is not None and declaration_parent.kind == _NodeKind.EXPORT_STATEMENT
-        )
-        result.append(
-            Definition(
-                name,
-                DefinitionKind.CONSTANT,
-                source.span(node),
-                parent_name,
-                None,
-                False,
-                exported,
-                _type(node.child_by_field_name("type")),
-                (),
-                None,
-                (),
-                (),
-                False,
-                False,
-                top_level=module_level,
-                parent_line=owner_span.line if owner_span else None,
-                parent_column=owner_span.column if owner_span else None,
-            )
-        )
+        result.append(_constant_definition(node, name, source, scopes, module_level=module_level))
         if is_array:
             array_spans |= {result[-1].span}
         declarations[name_node] = DefinitionKind.CONSTANT
@@ -1230,6 +1249,39 @@ def _variables(
     ]
 
 
+def _call_site(
+    node: _Node, source: _Source, scopes: list[tuple[_Node, str, int]]
+) -> Site | None:
+    target = node.child_by_field_name("function") or node.child_by_field_name("constructor")
+    if target is None:
+        return None
+    scope = next((item for item, _, _ in reversed(scopes) if _contains(item, node)), None)
+    scope_name = next((name for item, name, _ in scopes if item is scope), None)
+    scope_line = next((line for item, _, line in scopes if item is scope), None)
+    assigned = _assigned_name(node)
+    target_name = _target_name(target)
+    shadowed, ambiguous_scope = _active_scope_names(node, scope)
+    return Site(
+        SiteKind.NEW if node.kind is _NodeKind.NEW_EXPRESSION else SiteKind.CALL,
+        _text(target),
+        source.span(node),
+        scope_name,
+        scope_line,
+        assigned,
+        target_name.name,
+        target_name.receiver,
+        target_name.computed,
+        shadowed,
+        _assignment_span(node, source),
+        _assignment_annotation(node),
+        _text(node) if node.kind == _NodeKind.NEW_EXPRESSION else None,
+        receiver_kind=target_name.receiver_kind,
+        scope_ambiguous=ambiguous_scope,
+        scope_column=source.span(scope).column if scope is not None else None,
+    )
+
+
+
 def _sites(
     source: _Source, scopes: list[tuple[_Node, str, int]], declarations: dict[_Node, DefinitionKind]
 ) -> list[Site]:
@@ -1238,35 +1290,9 @@ def _sites(
         if source.root.has_error and _in_error(node):
             continue
         if node.kind in (_NodeKind.CALL_EXPRESSION, _NodeKind.NEW_EXPRESSION):
-            target = node.child_by_field_name("function") or node.child_by_field_name("constructor")
-            if target is None:
-                continue
-            scope = next((item for item, _, _ in reversed(scopes) if _contains(item, node)), None)
-            scope_name = next((name for item, name, _ in scopes if item is scope), None)
-            scope_line = next((line for item, _, line in scopes if item is scope), None)
-            assigned = _assigned_name(node)
-            target_name = _target_name(target)
-            shadowed, ambiguous_scope = _active_scope_names(node, scope)
-            sites.append(
-                Site(
-                    SiteKind.NEW if node.kind is _NodeKind.NEW_EXPRESSION else SiteKind.CALL,
-                    _text(target),
-                    source.span(node),
-                    scope_name,
-                    scope_line,
-                    assigned,
-                    target_name.name,
-                    target_name.receiver,
-                    target_name.computed,
-                    shadowed,
-                    _assignment_span(node, source),
-                    _assignment_annotation(node),
-                    _text(node) if node.kind == _NodeKind.NEW_EXPRESSION else None,
-                    receiver_kind=target_name.receiver_kind,
-                    scope_ambiguous=ambiguous_scope,
-                    scope_column=source.span(scope).column if scope is not None else None,
-                )
-            )
+            site = _call_site(node, source, scopes)
+            if site is not None:
+                sites.append(site)
         if node.kind not in (
             _NodeKind.IDENTIFIER,
             _NodeKind.TYPE_IDENTIFIER,

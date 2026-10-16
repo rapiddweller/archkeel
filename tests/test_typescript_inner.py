@@ -421,7 +421,11 @@ def test_overloads_and_computed_construction_remain_separate_syntax_sites() -> N
         ("make", 2),
         ("make", 3),
     ]
-    assert [(site.kind.value, site.expression) for site in syntax.sites if site.kind is not SiteKind.REFERENCE] == [
+    assert [
+        (site.kind.value, site.expression)
+        for site in syntax.sites
+        if site.kind is not SiteKind.REFERENCE
+    ] == [
         ("new", "(pick())"),
         ("call", "pick"),
     ]
@@ -489,7 +493,9 @@ def test_anonymous_callbacks_and_object_methods_are_not_named_scopes() -> None:
         b"function work() { const callback = (helper: () => void) => helper(); "
         b"const object = { run(helper: () => void) { helper(); } }; }",
     )
-    assert not any(item.name == "run" and item.kind is DefinitionKind.METHOD for item in syntax.definitions)
+    assert not any(
+        item.name == "run" and item.kind is DefinitionKind.METHOD for item in syntax.definitions
+    )
     calls = [item for item in syntax.sites if item.kind is SiteKind.CALL and item.name == "helper"]
     assert len(calls) == 2
     assert all(item.scope_ambiguous for item in calls)
@@ -506,9 +512,11 @@ def test_parser_error_regions_do_not_create_inner_declarations_or_sites() -> Non
         ("class", "Good"),
         ("function", "bad"),
     ]
-    assert [(site.kind.value, site.expression) for site in syntax.sites if site.kind is not SiteKind.REFERENCE] == [
-        ("new", "Missing")
-    ]
+    assert [
+        (site.kind.value, site.expression)
+        for site in syntax.sites
+        if site.kind is not SiteKind.REFERENCE
+    ] == [("new", "Missing")]
 
 
 def test_interface_heritage_private_names_bare_enum_members_and_partial_signatures() -> None:
@@ -527,7 +535,9 @@ def test_interface_heritage_private_names_bare_enum_members_and_partial_signatur
     ]
     assert method.signature_complete is False
     assert [member.name for member in state.members] == ["READY", "STOPPED"]
-    assert [(member.name, member.visibility.value) for member in token.members] == [("#token", "private")]
+    assert [(member.name, member.visibility.value) for member in token.members] == [
+        ("#token", "private")
+    ]
 
 
 def test_namespace_and_class_expression_members_are_not_assigned_false_owners() -> None:

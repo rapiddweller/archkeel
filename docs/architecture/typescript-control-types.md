@@ -26,20 +26,20 @@ The own inner contract now separates syntax, configuration, resolution and colle
 Crossings use named APIs. An independently authored Target pins option fields, derived
 return types and the resolver's format parameter/return. Native source mutations are
 evaluated against unchanged contract bytes. Whole-module native construct rules protect
-configuration and resolution for the native equality/membership/match/alias observation
-scope, without allowances. This is a bounded measured guard, not proof that every grammar
+configuration, resolution, syntax parsing and collection for the native
+equality/membership/match/alias observation scope, without allowances. This is a bounded measured guard, not proof that every grammar
 entry point has already been converted into a nominal domain.
 
 Remaining migration under #542 is explicit:
 
-- `parse.py` and `collect.py`: Tree-sitter node kinds, semantic syntax DTO fields and
-  collector resolution/inventory states; move the existing DTOs into one named syntax port.
 - `config.py`: relative-parent detection in `is_outside`, relative `extends` input in
   `_extended`, root-prefix parsing in `_base_path`, terminal deep-glob parsing in `_discover`,
   and source/extension classifiers in `_supported` and `_shadowed`.
 - `resolve.py`: reserved `node:` in `is_builtin`, scoped `@` names in `package_name` and
   `_typed_name`, `#` package imports in `resolve`, trailing directory syntax and source/format
   extension parsing in `_strip_extension`, `_file_paths`, `format_of`, `_mapped` and `_worker`.
+- `collect.py`: reserved `node:` and `#` module prefixes, relative source specifiers, and
+  known runtime/declaration suffix parsing in `_target` and `_local`.
 
 Reserved grammar and protocol prefixes need an owned entry decoder followed by nominal
 consumption. Open user-supplied prefix/suffix matching (for example `_best_pattern`) remains

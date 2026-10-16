@@ -1,20 +1,40 @@
-name: TypeScript unknown-name syntax RED
+name: TypeScript final syntax hygiene and compiler GREEN
 on:
   push:
     branches: [fix/issue-542-typescript-syntax-domains]
 permissions:
   contents: read
 jobs:
-  unknown-name:
+  typed-api:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          fetch-depth: 0
           persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - run: uv run --locked python -m pytest -q tests/test_typescript_syntax_types.py::test_unknown_member_name_kind_cannot_certify_named_inventory
+      - name: Test typed compiler and resolver behavior
+        run: uv run --locked python -m pytest -q tests/test_typescript_syntax_types.py tests/test_typescript_parse.py tests/test_typescript_inner.py tests/test_typescript_parameter_properties.py tests/test_typescript_decorated_inventory.py tests/test_typescript_array_constants.py tests/test_repository_hygiene.py
+      - name: Export formatting
+        if: always()
+        run: |
+          uv run --locked ruff check --select I --fix src/archkeel/analyzer/typescript tests/test_typescript_syntax_types.py tests/test_typescript_control_target.py tests/test_typescript_parse.py tests/test_typescript_inner.py tests/test_typescript_parameter_properties.py tests/test_typescript_decorated_inventory.py
+          uv run --locked ruff format src/archkeel/analyzer/typescript tests/test_typescript_syntax_types.py tests/test_typescript_control_target.py tests/test_typescript_parse.py tests/test_typescript_inner.py tests/test_typescript_parameter_properties.py tests/test_typescript_decorated_inventory.py
+          python - <<'PY'
+          import base64, subprocess
+          print("FORMAT_PATCH=" + base64.b64encode(subprocess.check_output(["git", "diff"])).decode())
+          PY
+      - name: Lint and typecheck
+        if: always()
+        run: make lint typecheck
+      - name: Existing compiler differential corpus
+        if: always()
+        run: make typescript-compiler-check typescript-differential

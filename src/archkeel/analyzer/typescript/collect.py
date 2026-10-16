@@ -22,11 +22,14 @@ from archkeel.ir.facts import (
     FactSection,
     FileFact,
     ImportTarget,
+    Language,
     LocalTarget,
     Record,
     ResolutionInput,
+    ResolutionRole,
     SourceFacts,
     SourceInfo,
+    SourceProfile,
     SourceSectionName,
     UnresolvedTarget,
     stable_id,
@@ -50,6 +53,7 @@ from .syntax import (
     Base,
     Definition,
     DefinitionKind,
+    Member,
     ReceiverKind,
     Reference,
     ReferenceForm,
@@ -79,12 +83,12 @@ class _GapKind(Enum):
 
 
 _SECTIONS: tuple[SourceSectionName, ...] = (
-    "imports",
-    "unknowns",
-    "symbols",
-    "calls",
-    "references",
-    "bindings",
+    SourceSectionName.IMPORTS,
+    SourceSectionName.UNKNOWNS,
+    SourceSectionName.SYMBOLS,
+    SourceSectionName.CALLS,
+    SourceSectionName.REFERENCES,
+    SourceSectionName.BINDINGS,
 )
 _SOURCE: Final = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
 _DECLARATION: Final = (".d.ts", ".d.mts", ".d.cts")
@@ -140,29 +144,29 @@ class _Collection:
         for problem in sorted(self.snapshot.problems):
             self._gap(problem)
         inputs = tuple(
-            ResolutionInput(path, digest, role)
+            ResolutionInput(path, digest, ResolutionRole(role))
             for path, (digest, role) in sorted(self.snapshot.inputs.items())
         )
         unknowns = tuple(parse_record(item) for _, item in sorted(self.gaps.items()))
         imports = tuple(
             parse_record(item) for item in sorted(self.imports, key=lambda item: item["id"])
         )
-        adapter, runtime = collector_provenance("typescript")
+        adapter, runtime = collector_provenance(Language.TYPESCRIPT)
         listing: str = json.dumps(
             [{"path": item.path, "digest": item.digest, "role": item.role} for item in inputs],
             separators=(",", ":"),
             ensure_ascii=False,
         )
         records: dict[SourceSectionName, tuple[Record, ...]] = {
-            "imports": imports,
-            "unknowns": unknowns,
-            "symbols": tuple(parse_record(item) for item in symbols),
-            "calls": tuple(parse_record(item) for item in calls),
-            "references": tuple(parse_record(item) for item in references),
-            "bindings": tuple(parse_record(item) for item in bindings),
+            SourceSectionName.IMPORTS: imports,
+            SourceSectionName.UNKNOWNS: unknowns,
+            SourceSectionName.SYMBOLS: tuple(parse_record(item) for item in symbols),
+            SourceSectionName.CALLS: tuple(parse_record(item) for item in calls),
+            SourceSectionName.REFERENCES: tuple(parse_record(item) for item in references),
+            SourceSectionName.BINDINGS: tuple(parse_record(item) for item in bindings),
         }
         return SourceFacts(
-            "archkeel-typescript-imports",
+            SourceProfile.TYPESCRIPT,
             adapter,
             runtime,
             SourceInfo(
@@ -367,33 +371,8 @@ class _Collection:
             data["class_kind"] = (
                 "protocol" if definition.kind is DefinitionKind.INTERFACE else "enum"
             )
-        attribute_declarations: list[dict[str, object]] = [
-            {
-                "name": member.name,
-                "annotation": member.annotation,
-                "visibility": {
-                    "kind": member.visibility.value
-                    if member.visibility
-                    else Visibility.PUBLIC.value,
-                    "basis": "language",
-                    "spelling": member.name,
-                },
-                "definition_id": stable_id(
-                    "TSATTR",
-                    rel,
-                    member.span.line,
-                    member.span.column,
-                    qualified,
-                    member.name,
-                ),
-                "evidence_ids": [self._cite(rel, member.span)],
-                "decorators": [spelling for spelling, _ in member.decorator_sources],
-                "decorator_evidence_ids": [
-                    self._cite(rel, span) for _, span in member.decorator_sources
-                ],
-                "static": member.static,
-            }
-            for member in definition.members
+        attribute_declarations = [
+            self._attribute_declaration(rel, qualified, member) for member in definition.members
         ]
         data["attribute_declarations"] = attribute_declarations
         if definition.kind is DefinitionKind.ENUM:
@@ -789,6 +768,34 @@ class _Collection:
                 "definition_contexts": [],
             }
         ]
+
+    def _attribute_declaration(self, rel: str, qualified: str, member: Member) -> dict[str, object]:
+        return {
+            "name": member.name,
+            "annotation": member.annotation,
+            "visibility": {
+                "kind": member.visibility.value
+                if member.visibility
+                else Visibility.PUBLIC.value,
+                "basis": "language",
+                "spelling": member.name,
+            },
+            "definition_id": stable_id(
+                "TSATTR",
+                rel,
+                member.span.line,
+                member.span.column,
+                qualified,
+                member.name,
+            ),
+            "evidence_ids": [self._cite(rel, member.span)],
+            "decorators": [spelling for spelling, _ in member.decorator_sources],
+            "decorator_evidence_ids": [
+                self._cite(rel, span) for _, span in member.decorator_sources
+            ],
+            "static": member.static,
+        }
+
 
     def _base_record(
         self,
