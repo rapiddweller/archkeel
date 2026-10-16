@@ -20,9 +20,12 @@ remain data. The observer classifies written member-call syntax; it does not pro
 the receiver is a runtime string, validate argument types or infer computed values.
 No additional AST traversal, parser wrapper or runtime type authority is added.
 
-The small independent Python Target names the actual enum and decoder signature.
-Native source mutations must fail that fixed Target when its enum or return type
-widens. The new predicate constructs use the existing module-scoped policy, proven
+The small independent Python Target names the actual enum, decoder and private
+`_predicate_matches(_LiteralComparisons, ast.expr) -> bool` query. This query shares
+the same lexical context with `_comparison_form` and `_matches_literal`; its module
+call boundary adds no vocabulary or runtime authority. Native source mutations
+must fail the fixed Target when its enum, context type or return type widens.
+The new predicate constructs use the existing module-scoped policy, proven
 by actual-source failure controls. Function-only construct selectors are not
 supported; no whole-module typed-control claim is made for this Python owner.
 Other existing Python construct vocabularies remain outside this increment.

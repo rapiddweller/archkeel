@@ -97,3 +97,27 @@ def test_actual_decoder_type_widening_fails_fixed_native_target(tmp_path, old, n
     assert target.status == "FAIL"
     assert any(target.id in row.rule_ids for row in trace_valid_violations(model))
     assert (root / "contract.json").read_bytes() == intent
+
+
+def test_actual_query_raw_token_is_observed_without_claiming_a_function_guard(tmp_path):
+    source = (ROOT / SOURCE).read_text()
+    signature = "def _predicate_matches(literals: _LiteralComparisons, node: ast.expr) -> bool:\n"
+    assert source.count(signature) == 1
+    changed = source.replace(signature, signature + '    if node == "raw_protocol":\n        return False\n', 1)
+    root, config = _repository(tmp_path, changed)
+    intent = (root / "contract.json").read_bytes()
+    model = _model(root, config)
+    records = [
+        row
+        for row in model.records("constructs")
+        if row.kind == "string_literal_compare"
+        and row.data.get("owner") == "archkeel.analyzer.python.constructs._predicate_matches"
+    ]
+    assert len(records) == 1 and records[0].data.get("form") == "compare"
+    evidence = {row.id: row for row in model.evidence}
+    [site] = [evidence[identity] for identity in records[0].evidence_ids]
+    assert (site.line, site.excerpt) == (
+        source[: source.index(signature)].count("\n") + 2,
+        '    if node == "raw_protocol":',
+    )
+    assert (root / "contract.json").read_bytes() == intent

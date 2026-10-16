@@ -477,7 +477,11 @@ class ConstructCollector(ast.NodeVisitor):
         if name is not None and name in _REFLECTION_CALLS:
             self._record(node, kind=_REFLECTION_CALLS[name], construct=name, handled=None)
         predicate = _string_predicate(node)
-        if predicate is not None and node.args and _predicate_matches(self.comparisons, node.args[0]):
+        if (
+            predicate is not None
+            and node.args
+            and _predicate_matches(self.comparisons, node.args[0])
+        ):
             self._record(
                 node,
                 kind="string_literal_compare",
