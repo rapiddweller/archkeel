@@ -36,7 +36,7 @@ def runtime_bytes() -> bytes:
         f"// Generated from flow.js; source-sha256={sha256(source).hexdigest()}\n"
         "// Owner: tools/browser_runtime.py. Edit flow.js; make browser-runtime-generate.\n"
     )
-    return provenance.encode("utf-8") + result.stdout
+    return result.stdout + b"\n" + provenance.encode("utf-8")
 
 
 def check() -> None:
