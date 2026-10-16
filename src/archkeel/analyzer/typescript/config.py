@@ -17,7 +17,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Final, Literal, TypeVar
+from typing import Final, Literal
 
 
 class ModuleKind(Enum):
@@ -48,11 +48,6 @@ class ModuleResolution(Enum):
     NODE16 = "node16"
     NODENEXT = "nodenext"
     BUNDLER = "bundler"
-
-    @classmethod
-    def _missing_(cls, value: object) -> ModuleResolution | None:
-        """The compiler's legacy spelling has one canonical nominal value."""
-        return {"node": cls.NODE10}.get(value) if isinstance(value, str) else None
 
 
 class ScriptTarget(Enum):
@@ -106,8 +101,6 @@ class _ShadowKind(Enum):
     JSX = ".jsx"
 
 
-_Option = TypeVar("_Option", bound=Enum)
-
 Role = Literal["selected", "resolution"]
 Json = dict[str, object]
 
@@ -124,10 +117,17 @@ _UNMODELED: Final = (
     "allowArbitraryExtensions",
     "noDtsResolution",
 )
-_ENUMS: Final[dict[str, type[Enum]]] = {
-    "module": ModuleKind,
-    "moduleResolution": ModuleResolution,
-    "target": ScriptTarget,
+_MODULE_VALUES: Final = {member.value: member for member in ModuleKind}
+_RESOLUTION_VALUES: Final = {
+    **{member.value: member for member in ModuleResolution},
+    "node": ModuleResolution.NODE10,
+}
+_TARGET_VALUES: Final = {member.value: member for member in ScriptTarget}
+_SHADOW_KINDS: Final = {member.value: member for member in _ShadowKind}
+_ENUMS: Final[dict[str, dict[str, Enum]]] = {
+    "module": dict(_MODULE_VALUES),
+    "moduleResolution": dict(_RESOLUTION_VALUES),
+    "target": dict(_TARGET_VALUES),
 }
 _BOOLEAN_OPTIONS: Final = frozenset("allowJs checkJs resolveJsonModule".split())
 _STRING_OPTIONS: Final = frozenset("baseUrl declarationDir outDir".split())
@@ -498,8 +498,8 @@ def _invalid(options: dict[str, object]) -> list[str]:
     ]
     refused = [
         f"Compiler option 6046: argument for '{name}' is not valid."
-        for name, kind in _ENUMS.items()
-        if options.get(name) is not None and _enum_value(options.get(name), kind) is None
+        for name, choices in _ENUMS.items()
+        if options.get(name) is not None and choices.get(_normalized(options.get(name))) is None
     ]
     malformed: list[str] = []
     booleans = _BOOLEAN_OPTIONS | (frozenset(_UNMODELED) - _STRING_LIST_OPTIONS)
@@ -517,14 +517,9 @@ def _invalid(options: dict[str, object]) -> list[str]:
     return [*unknown, *refused, *malformed]
 
 
-def _enum_value(value: object, kind: type[_Option]) -> _Option | None:
-    """Convert one case-insensitive wire option; unknown values stay unobserved."""
-    if not isinstance(value, str):
-        return None
-    try:
-        return kind(value.lower())
-    except ValueError:
-        return None
+def _normalized(value: object) -> str:
+    """Normalize raw input text only; the owned lookup decides whether it is accepted."""
+    return value.lower() if isinstance(value, str) else ""
 
 
 def _paths(raw: dict[str, object], problems: list[str]) -> tuple[tuple[str, tuple[str, ...]], ...]:
@@ -547,16 +542,16 @@ def _paths(raw: dict[str, object], problems: list[str]) -> tuple[tuple[str, tupl
 
 def _options(layer: _Layer, problems: list[str]) -> Options:
     raw = layer.compiler
-    resolution = _enum_value(raw.get("moduleResolution"), ModuleResolution)
+    resolution = _RESOLUTION_VALUES.get(_normalized(raw.get("moduleResolution")))
     paths = _paths(raw, problems)
     unmodeled = [name for name in _UNMODELED if raw.get(name) not in (None, False, [])]
     if any("${configDir}" in target for _, targets in paths for target in targets):
         unmodeled.append("paths with ${configDir}")
     json_flag = raw.get("resolveJsonModule")
     options = Options(
-        _enum_value(raw.get("module"), ModuleKind),
+        _MODULE_VALUES.get(_normalized(raw.get("module"))),
         resolution,
-        _enum_value(raw.get("target"), ScriptTarget),
+        _TARGET_VALUES.get(_normalized(raw.get("target"))),
         (raw.get("allowJs") if raw.get("allowJs") is not None else raw.get("checkJs")) is True,
         layer.base_url,
         paths,
@@ -720,8 +715,8 @@ def _shadowed(rel: str, known: set[str]) -> bool:
         return any(
             f"{stem}{ext}" in known
             and not (
-                _enum_value(ext, _ShadowKind) is _ShadowKind.DECLARATION
-                and _enum_value(own, _ShadowKind) in (_ShadowKind.JAVASCRIPT, _ShadowKind.JSX)
+                _SHADOW_KINDS.get(ext) is _ShadowKind.DECLARATION
+                and _SHADOW_KINDS.get(own) in (_ShadowKind.JAVASCRIPT, _ShadowKind.JSX)
             )
             for ext in group[: group.index(own)]
         )

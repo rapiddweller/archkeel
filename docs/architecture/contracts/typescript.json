@@ -233,11 +233,7 @@
           "parent_id": "TARGET-CONFIGURATION",
           "responsibilities": [
             "Own the declared typed compiler/resolver API without widening it to protocol strings."
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          }
+          ]
         },
         {
           "language": "python",
@@ -251,11 +247,7 @@
           "parent_id": "TARGET-RESOLUTION",
           "responsibilities": [
             "Own the declared typed compiler/resolver API without widening it to protocol strings."
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          }
+          ]
         },
         {
           "language": "python",

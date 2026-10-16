@@ -72,7 +72,10 @@ def test_native_typescript_api_matches_the_independent_target(tmp_path):
     model = _model(root, config)
     comparison = architecture_report(model).comparison
     assert comparison is not None and comparison.assessments
-    assert comparison.status == "PASS", comparison
+    assert comparison.status == "PASS", [
+        (row.subject_id, row.aspect, row.reason)
+        for row in comparison.assessments if row.status != "PASS"
+    ]
     target = next(
         row for row in rule_assessments(model, undecided_by_rule={}) if row.kind == "uml_target"
     )
@@ -147,6 +150,12 @@ def test_native_parser_and_protocol_strings_fail_without_exceptions(tmp_path, mo
 
 
 def test_own_observation_proves_both_migrated_module_guards(self_observation):
+    print("TS_OWN_UNKNOWNS=" + json.dumps([
+        {"kind": row.kind, "subjects": row.subjects, "data": dict(row.data)}
+        for row in self_observation.records("unknowns")
+        if any(str(subject).startswith(MODULE) for subject in row.subjects)
+        or str(row.data.get("qualified_name", "")).startswith(MODULE)
+    ]))
     for name in GUARDS:
         rule = _rule(self_observation, name)
         assert rule.status == "PASS" and rule.evaluation_proven, rule
@@ -174,7 +183,7 @@ def test_native_configuration_crossing_must_use_its_named_public_api(tmp_path):
     root, config = _repository(
         tmp_path,
         changed={
-            "archkeel/analyzer/typescript/collect.py": "from .config import _enum_value\n"
+            "archkeel/analyzer/typescript/collect.py": "from .config import _normalized\n"
         },
     )
     model = _model(root, config)
