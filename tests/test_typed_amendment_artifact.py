@@ -257,3 +257,28 @@ def test_native_artifact_and_codec_reject_raw_protocol_dispatch(tmp_path, module
     )
     assert any(expected in row.rule_ids for row in trace_valid_violations(value))
     assert (root / "contract.json").read_bytes() == intent
+
+
+@pytest.mark.parametrize("name", ["AmendmentVersion", "AmendmentStatus"])
+def test_native_enum_ownership_cannot_be_replaced_by_a_plain_string_class(tmp_path, name):
+    root, config = _repository(tmp_path)
+    _valid(_observe(root, config))
+    source = root / "archkeel/ir/amendment.py"
+    content = source.read_text()
+    old = f"class {name}(StrEnum):"
+    assert old in content
+    intent = (root / "contract.json").read_bytes()
+    source.write_text(content.replace(old, f"class {name}(str):", 1))
+    value = _observe(root, config)
+    assert any(
+        row.status == "FAIL" and row.aspect == "kind"
+        for row in _comparison(value).assessments
+    )
+    assert trace_valid_violations(value)
+    assert (root / "contract.json").read_bytes() == intent
+
+
+def test_governance_legacy_value_and_version_names_keep_owned_identity():
+    owner = _owner()
+    assert codec_governance.Amendment is owner.Amendment
+    assert codec_governance.AMENDMENT_SCHEMA_VERSION is owner.AMENDMENT_SCHEMA_VERSION

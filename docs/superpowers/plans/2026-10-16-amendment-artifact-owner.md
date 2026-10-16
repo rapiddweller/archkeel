@@ -28,3 +28,5 @@ The public command schema remains four-valued, CLI dispatch remains six-valued, 
 
 - Ruling: remove visibility requirements only from the three module Target declarations. Module visibility is unavailable by design; actual public class/enum/function visibility and all fields/signatures remain required. The positive native result must not be made UNKNOWN by an inapplicable module property.
 - Strict Mypy required narrowing the wire value to str before enum construction; malformed values retain the original unsupported-schema ValueError text. No cast or TypeGuard substitutes for conversion.
+
+- d5fd4f9 hosted GREEN: native34 (18 authored entities, six widening and ten dispatch controls), strict Mypy141, Ruff and hygiene11. Existing approval/widening/schema/CLI/codec regressions358 PASS. Added direct string-class substitution controls for both real enum owners and governance value/version facade identity before final freeze.
