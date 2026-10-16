@@ -16,7 +16,7 @@ from archkeel.ir.model import (
     ComponentOwnership,
     EvidenceClass,
     ForbiddenDependencyRule,
-    declared_package_pair,
+    forbidden_dependency_scopes,
     module_in_ownership,
     stable_id,
 )
@@ -85,7 +85,6 @@ def _forbidden_dependency_verdicts(
     naming that symbol, lets one naming another pass, and cannot decide one whose names the
     scan does not know.
     """
-    by_label = {label: (packages, exact) for label, packages, exact in components}
     for rule in rules:
         if not isinstance(rule, ForbiddenDependencyRule):
             continue
@@ -93,13 +92,7 @@ def _forbidden_dependency_verdicts(
         # with no target_symbol, decides (ir.decisions) and so enforces the whole ordered
         # component pair: every package of the source component against every package of
         # the target. A rule scoped to a submodule or a target_symbol keeps module matching.
-        pair = declared_package_pair(rule.source, rule.target, rule.target_symbol, components)
-        if pair is not None:
-            sources = by_label[pair[0]]
-            targets = by_label[pair[1]]
-        else:
-            sources = ((rule.source,), ())
-            targets = ((rule.target,), ())
+        sources, targets = forbidden_dependency_scopes(rule, components)
         allowed_sources = frozenset(rule.allowed_sources)
         for item in imports:
             if source_modules is not None and item["data"]["source_module"] not in source_modules:

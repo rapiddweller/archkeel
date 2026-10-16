@@ -2340,7 +2340,7 @@ def _mapping_union_verdict(
     aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position:
     arms = _mapping_union_arms(annotation, module, imports, classes, type_shapes)
-    if contract is not None and contract.schema_version in {"3.1.0", "3.2.0", "3.3.0"}:
+    if contract is not None and contract.schema_version in {"3.1.0", "3.2.0", "3.3.0", "3.4.0"}:
         ordinary_compatible = (
             annotation in _OPAQUE_NATIVE_REASONS
             or _native_iterable_shape(annotation, module, imports, classes, type_shapes)

@@ -48,6 +48,7 @@ from .model import (
     in_scope,
     module_in_ownership,
     stable_id,
+    text_value,
 )
 from .model import (
     RuleUncertaintyCause as RuleUncertaintyCause,
@@ -402,6 +403,8 @@ def _decided_component_pairs(
             target_module,
             target_symbol,
             components,
+            source_match=text_value(record.data.get("source_match")) or "prefix",
+            target_match=text_value(record.data.get("target_match")) or "prefix",
         )
         if pair is not None:
             decided.add(pair)

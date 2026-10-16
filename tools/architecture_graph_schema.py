@@ -347,6 +347,7 @@ def _update_contract_schema(path: Path) -> None:
         {"const": "3.1.0"},
         {"const": "3.2.0"},
         {"const": "3.3.0"},
+        {"const": "3.4.0"},
     ):
         selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
         selector["properties"]["key_alias_body"] = {
@@ -362,7 +363,7 @@ def _update_contract_schema(path: Path) -> None:
             "properties": {"field_path": {"const": ""}},
             "not": {"anyOf": [{"required": ["container_depth"]}, {"required": ["mapping_depth"]}]},
         }
-    if schema["properties"]["schema_version"] in ({"const": "3.2.0"}, {"const": "3.3.0"}):
+    if schema["properties"]["schema_version"] in ({"const": "3.2.0"}, {"const": "3.3.0"}, {"const": "3.4.0"}):
         selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
         selector["properties"]["literal_mapping_arm"] = {"$ref": "#/$defs/nonEmpty"}
         selector["dependentSchemas"]["literal_mapping_arm"] = {
@@ -374,7 +375,7 @@ def _update_contract_schema(path: Path) -> None:
                 ]
             },
         }
-    if schema["properties"]["schema_version"] == {"const": "3.3.0"}:
+    if schema["properties"]["schema_version"] in ({"const": "3.3.0"}, {"const": "3.4.0"}):
         selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
         selector["properties"]["native_mapping"] = {"const": True}
         selector["properties"]["annotation"] = {"$ref": "#/$defs/nonEmpty"}
@@ -405,6 +406,11 @@ def _update_contract_schema(path: Path) -> None:
                 for name in ("mapping_depth", "alias_body", "key_alias_body", "native_mapping")
             ]
         }
+    if schema["properties"]["schema_version"] == {"const": "3.4.0"}:
+        for name in ("source_match", "target_match"):
+            schema["$defs"]["forbiddenDependency"]["properties"][name] = {
+                "enum": ["prefix", "exact"]
+            }
     schema["$defs"]["component"]["properties"]["layer"] = {
         "type": "string",
         "pattern": "\\S",

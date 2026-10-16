@@ -56,6 +56,7 @@ def _forbidden_targets(
         (rule.id, rule.target)
         for rule in contract.rules
         if isinstance(rule, ForbiddenDependencyRule)
+        and rule.source_match == rule.target_match == "prefix"
         and module_in_ownership(rule.source, component.packages, component.exact_modules or ())
     ]
 

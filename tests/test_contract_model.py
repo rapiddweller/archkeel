@@ -454,6 +454,9 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
                 "native_mapping": True,
             }
         )
+    if version == "3.4.0":
+        dependency = next(rule for rule in raw["rules"] if rule["kind"] == "forbidden_dependency")
+        dependency.update(source_match="exact", target_match="exact")
     return raw
 
 
@@ -668,7 +671,7 @@ def test_the_maximal_contract_fills_every_field() -> None:
     """The completeness test below only sees a field this contract fills."""
     documents = [
         json.loads(contract_bytes(parse_contract(_maximal_contract(version))))
-        for version in ("3.0.0", "3.1.0", "3.2.0", "3.3.0")
+        for version in ("3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0")
     ]
 
     assert _unfilled(ArchitectureContract, documents, "contract") == []

@@ -56,7 +56,11 @@ def _decided_pairs(
         if not isinstance(rule, rule_type):
             continue
         target_symbol = rule.target_symbol if isinstance(rule, ForbiddenDependencyRule) else None
-        pair = declared_package_pair(rule.source, rule.target, target_symbol, components)
+        pair = declared_package_pair(
+            rule.source, rule.target, target_symbol, components,
+            source_match=rule.source_match if isinstance(rule, ForbiddenDependencyRule) else "prefix",
+            target_match=rule.target_match if isinstance(rule, ForbiddenDependencyRule) else "prefix",
+        )
         if pair is not None:
             pairs.append(pair)
     return pairs

@@ -442,7 +442,7 @@ def assemble_uml(result: ObservationResult, contract_root: Path, path: str) -> O
         record for record in known.values() if record.kind in TARGET_GRAPH_RECORD_KINDS
     )
     if (
-        model.contract.schema_version not in {"2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0"}
+        model.contract.schema_version not in {"2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0"}
         and not recorded_targets
         and not any(
             record.kind

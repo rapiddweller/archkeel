@@ -324,6 +324,8 @@ class ForbiddenDependencyRule:
     decided_by: Literal["architect", "agent"]
     target_symbol: str | None = None
     allowed_sources: tuple[str, ...] = ()
+    source_match: Literal["prefix", "exact"] = "prefix"
+    target_match: Literal["prefix", "exact"] = "prefix"
 
 
 @dataclass(frozen=True, slots=True)
@@ -631,15 +633,37 @@ def declared_package_pair(
     target: str,
     target_symbol: str | None,
     components: tuple[ComponentOwnership, ...],
+    *,
+    source_match: str = "prefix",
+    target_match: str = "prefix",
 ) -> tuple[str, str] | None:
     """Resolve an unqualified rule naming two uniquely declared package selectors."""
-    if target_symbol is not None:
+    if target_symbol is not None or source_match != "prefix" or target_match != "prefix":
         return None
     source_owners = {label for label, packages, _ in components if source in packages}
     target_owners = {label for label, packages, _ in components if target in packages}
     if len(source_owners) != 1 or len(target_owners) != 1:
         return None
     return next(iter(source_owners)), next(iter(target_owners))
+
+
+def forbidden_dependency_scopes(
+    rule: ForbiddenDependencyRule, components: tuple[ComponentOwnership, ...]
+) -> tuple[
+    tuple[tuple[str, ...], tuple[str, ...]], tuple[tuple[str, ...], tuple[str, ...]]
+]:
+    """Use component ownership only for whole-pair bans; otherwise select modules."""
+    pair = declared_package_pair(
+        rule.source, rule.target, rule.target_symbol, components,
+        source_match=rule.source_match, target_match=rule.target_match,
+    )
+    if pair is not None:
+        owners = {label: (packages, exact) for label, packages, exact in components}
+        return owners[pair[0]], owners[pair[1]]
+    return (
+        ((), (rule.source,)) if rule.source_match == "exact" else ((rule.source,), ()),
+        ((), (rule.target,)) if rule.target_match == "exact" else ((rule.target,), ()),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -666,7 +690,7 @@ class ContractDeclarations:
 
 @dataclass(frozen=True, slots=True)
 class ArchitectureContract:
-    schema_version: Literal["2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0"]
+    schema_version: Literal["2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0"]
     components: tuple[ContractComponent, ...]
     rules: tuple[ArchitectureRule, ...]
     schema: str | None = None

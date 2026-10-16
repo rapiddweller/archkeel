@@ -38,6 +38,7 @@ from archkeel.ir.model import (
     SiblingIsolationRule,
     SymbolPlacementRule,
     component_owns_module,
+    forbidden_dependency_scopes,
     in_scope,
     interface_covers_import,
     module_in_ownership,
@@ -1058,6 +1059,20 @@ def rule_subject_failures(
             )
             for side, side_scopes in scopes.items()
         }
+        if isinstance(rule, ForbiddenDependencyRule):
+            ownership = tuple(
+                (component.label, component.packages, component.exact_modules or ())
+                for component in contract.components
+            ) if contract is not None else ()
+            source_selection, target_selection = forbidden_dependency_scopes(rule, ownership)
+            matches = {
+                side: sum(module_in_ownership(module, *selection) for module in subjects)
+                for side, selection, subjects in (
+                    ("source", source_selection, source_subjects),
+                    ("target", target_selection, target_subjects),
+                )
+                if side in scopes
+            }
         missing = [side for side, count in matches.items() if count == 0]
         if missing:
             reason = "no declared facade function" if facade_scoped else "no scanned modules"
@@ -1906,7 +1921,15 @@ def rule_evaluation_facts(
                     )
                 )
         elif isinstance(rule, ForbiddenDependencyRule):
-            selected = _modules_for_rule_source(rule.source, observed, contract)
+            ownership = tuple(
+                (component.label, component.packages, component.exact_modules or ())
+                for component in contract.components
+            )
+            sources, _ = forbidden_dependency_scopes(rule, ownership)
+            selected = tuple(
+                item for item in observed
+                if module_in_ownership(item["data"]["qualified_name"], *sources)
+            )
         elif isinstance(rule, SiblingIsolationRule):
             selected = tuple(
                 item

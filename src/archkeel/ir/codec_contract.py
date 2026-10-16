@@ -136,7 +136,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
         "contract",
     )
     if root["schema_version"] == "2.1.0":
-        version: Literal["2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0"] = "2.1.0"
+        version: Literal["2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0"] = "2.1.0"
     elif root["schema_version"] == "2.2.0":
         version = "2.2.0"
     elif root["schema_version"] == "2.3.0":
@@ -149,6 +149,8 @@ def parse_contract(raw: object) -> ArchitectureContract:
         version = "3.2.0"
     elif root["schema_version"] == "3.3.0":
         version = "3.3.0"
+    elif root["schema_version"] == "3.4.0":
+        version = "3.4.0"
     else:
         raise ContractVersionError(str(root["schema_version"]))
     components_raw = root["components"]
@@ -262,31 +264,36 @@ def parse_contract(raw: object) -> ArchitectureContract:
     if "uml" in declarations and version == "2.1.0":
         raise ValueError("UML declarations require contract schema_version 2.2.0")
     uml = parse_target(declarations["uml"]) if "uml" in declarations else None
-    if version not in {"2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0"}:
+    if version not in {"2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0"}:
         for raw in rules_raw:
             rule_data: dict[str, RawJson] = _object(raw, "rule")
             if rule_data.get("kind") == "layer_order":
                 raise ValueError("layer_order requires contract schema_version 2.3.0")
+    if version != "3.4.0" and any(
+        "source_match" in _object(value, "rule") or "target_match" in _object(value, "rule")
+        for value in rules_raw
+    ):
+        raise ValueError("dependency module selectors require contract schema_version 3.4.0")
     rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
-    if version not in {"3.0.0", "3.1.0", "3.2.0", "3.3.0"} and any(
+    if version not in {"3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0"} and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.alias_body is not None for item in rule.allowed_positions)
         for rule in rules
     ):
         raise ValueError("alias_body requires contract schema_version 3.0.0")
-    if version not in {"3.1.0", "3.2.0", "3.3.0"} and any(
+    if version not in {"3.1.0", "3.2.0", "3.3.0", "3.4.0"} and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.key_alias_body is not None for item in rule.allowed_positions)
         for rule in rules
     ):
         raise ValueError("key_alias_body requires contract schema_version 3.1.0")
-    if version not in {"3.2.0", "3.3.0"} and any(
+    if version not in {"3.2.0", "3.3.0", "3.4.0"} and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.literal_mapping_arm is not None for item in rule.allowed_positions)
         for rule in rules
     ):
         raise ValueError("literal_mapping_arm requires contract schema_version 3.2.0")
-    if version != "3.3.0" and any(
+    if version not in {"3.3.0", "3.4.0"} and any(
         isinstance(rule, BoundaryTypesRule)
         and any(
             item.native_mapping
@@ -376,30 +383,30 @@ def parse_contract(raw: object) -> ArchitectureContract:
 
 def contract_bytes(contract: ArchitectureContract) -> bytes:
     """Encode a contract in Contract 2.0 key order so parse_contract returns the same value."""
-    if contract.schema_version not in {"2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0"} and (
+    if contract.schema_version not in {"2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0"} and (
         any(component.layer is not None for component in contract.components)
         or any(isinstance(rule, LayerOrderRule) for rule in contract.rules)
     ):
         raise ValueError("layer and layer_order require contract schema_version 2.3.0")
-    if contract.schema_version not in {"3.0.0", "3.1.0", "3.2.0", "3.3.0"} and any(
+    if contract.schema_version not in {"3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0"} and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.alias_body is not None for item in rule.allowed_positions)
         for rule in contract.rules
     ):
         raise ValueError("alias_body requires contract schema_version 3.0.0")
-    if contract.schema_version not in {"3.1.0", "3.2.0", "3.3.0"} and any(
+    if contract.schema_version not in {"3.1.0", "3.2.0", "3.3.0", "3.4.0"} and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.key_alias_body is not None for item in rule.allowed_positions)
         for rule in contract.rules
     ):
         raise ValueError("key_alias_body requires contract schema_version 3.1.0")
-    if contract.schema_version not in {"3.2.0", "3.3.0"} and any(
+    if contract.schema_version not in {"3.2.0", "3.3.0", "3.4.0"} and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.literal_mapping_arm is not None for item in rule.allowed_positions)
         for rule in contract.rules
     ):
         raise ValueError("literal_mapping_arm requires contract schema_version 3.2.0")
-    if contract.schema_version != "3.3.0" and any(
+    if contract.schema_version not in {"3.3.0", "3.4.0"} and any(
         isinstance(rule, BoundaryTypesRule)
         and any(
             item.native_mapping
@@ -411,9 +418,19 @@ def contract_bytes(contract: ArchitectureContract) -> bytes:
         raise ValueError(
             "native_mapping and literal-arm object values require contract schema_version 3.3.0"
         )
+    if contract.schema_version != "3.4.0" and any(
+        isinstance(rule, ForbiddenDependencyRule)
+        and (rule.source_match != "prefix" or rule.target_match != "prefix")
+        for rule in contract.rules
+    ):
+        raise ValueError("dependency module selectors require contract schema_version 3.4.0")
     fields = asdict(contract)
     # An absent permission must preserve existing amendment digests.
     for rule, encoded in zip(contract.rules, fields["rules"], strict=True):
+        if isinstance(rule, ForbiddenDependencyRule):
+            for name in ("source_match", "target_match"):
+                if encoded[name] == "prefix":
+                    del encoded[name]
         if isinstance(rule, BoundaryTypesRule):
             for item, selector in zip(
                 rule.allowed_positions, encoded["allowed_positions"], strict=True
@@ -555,6 +572,7 @@ def _parse_component(raw: RawJson, label: str, *, version: str) -> ContractCompo
         "3.1.0",
         "3.2.0",
         "3.3.0",
+        "3.4.0",
     }:
         raise ValueError(f"{label}.layer requires contract schema_version 2.3.0")
     item, item_id, provenance = _contract_record(
@@ -740,7 +758,7 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
     item, item_id, provenance = _contract_record(
         raw,
         {"kind", "source", "target", "include_type_checking", "rationale", "decided_by"},
-        {"target_symbol", "allowed_sources"},
+        {"target_symbol", "allowed_sources", "source_match", "target_match"},
         label,
     )
     if item["kind"] != "forbidden_dependency":
@@ -756,6 +774,14 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
     rationale = _nonempty(item["rationale"], f"{label}.rationale")
     decided_by = _decided_by(item["decided_by"], f"{label}.decided_by")
     allowed = _contract_strings(item.get("allowed_sources", []), f"{label}.allowed_sources")
+    def selector(name: str) -> Literal["prefix", "exact"]:
+        value = item.get(name, "prefix")
+        if value == "prefix":
+            return "prefix"
+        if value == "exact":
+            return "exact"
+        raise ValueError(f"{label}.{name} must be prefix or exact")
+
     return ForbiddenDependencyRule(
         item_id,
         "forbidden_dependency",
@@ -767,6 +793,8 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
         decided_by,
         symbol,
         allowed,
+        selector("source_match"),
+        selector("target_match"),
     )
 
 
@@ -1226,6 +1254,10 @@ def _parse_rule(raw: RawJson, label: str) -> ArchitectureRule:
 
 def _rule_payload(rule: ArchitectureRule) -> dict[str, RawJson]:
     fields = asdict(rule)
+    if isinstance(rule, ForbiddenDependencyRule):
+        for name in ("source_match", "target_match"):
+            if fields[name] == "prefix":
+                del fields[name]
     if isinstance(rule, BoundaryTypesRule):
         for item, encoded in zip(rule.allowed_positions, fields["allowed_positions"], strict=True):
             if item.alias_body is None:

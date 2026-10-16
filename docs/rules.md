@@ -44,6 +44,22 @@ Without this rule, pairs remain explicitly allowed/forbidden decisions; missing
 pairs are open. Narrow symbol/submodule rules do not decide a whole pair.
 `allowed_dependency` records permission even without an observed import.
 
+Contract **3.4.0** adds optional `source_match` and `target_match` on
+`forbidden_dependency`, each `"prefix"` (the unchanged default) or `"exact"`.
+An exact selector names only that module, excluding descendants and sibling names.
+For example, source `sample.caller` and target `sample.errors`, both exact, reject
+only the aggregate import; `sample.errors.base` and callers below
+`sample.caller` are outside this rule. Ownership does not change.
+
+Only prefix/prefix rules without `target_symbol` can decide a whole component
+pair when both selectors name its declared packages. Any exact endpoint keeps
+module selection, including in nested contracts, receipts and saved reports.
+Missing exact source or target subjects remain UNKNOWN. Switching prefix to exact
+removes restrictions and requires a widening amendment; the reverse narrows policy.
+Earlier contract versions reject the new fields; omitted defaults retain canonical
+bytes and digests. `target_symbol`, type-checking filters and allowances keep their
+existing meanings.
+
 `forbidden_dependency.allowed_sources` is exact. Other scoped allowances use
 prefix `allowed_sources` and exact `exact_sources`. Type-checking filters affect
 rule evaluation, not cycle graph collection. Component and module cycles differ;
