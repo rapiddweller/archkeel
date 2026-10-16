@@ -292,6 +292,8 @@ def test_exact_parent_ban_does_not_prohibit_an_entire_child_component_pair():
 @pytest.mark.parametrize(
     "source_match,target_match,source,target,expected",
     [
+        ("prefix", "prefix", "sample.caller", "sample.errors_extra.child", True),
+        ("prefix", "prefix", "sample.caller_extra.child", "sample.errors_extra", True),
         ("exact", "prefix", "sample.caller", "sample.errors_extra", False),
         ("prefix", "exact", "sample.caller_extra", "sample.errors", False),
         ("exact", "prefix", "sample.caller", "sample.errors.child", True),
@@ -326,7 +328,7 @@ def test_module_cells_obey_both_module_selectors(
 
     intents = {
         identity: ComponentIntent(
-            identity, component.role, packages=component.packages, label=component.packages[0]
+            identity, component.role, packages=component.packages, label=component.label
         )
         for identity, component in zip(("source", "target"), contract.components, strict=True)
     }
