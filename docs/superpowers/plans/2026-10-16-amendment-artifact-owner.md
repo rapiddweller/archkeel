@@ -20,3 +20,8 @@ Goal: one owner for the existing immutable Amendment value, its supported versio
 6. Commit the normal receipt; rerun exact NoWrite validation. Freeze a clean product ref/file list with evidence for parent/Astra. Do not start another Core stage.
 
 The public command schema remains four-valued, CLI dispatch remains six-valued, and future Delta dimensions/change labels remain open wire data; none belong to this increment.
+
+## Execution ledger
+- Plan committed before code: 3fa4e24.
+- Hosted RED 38964695412 / 117188142018: 26 failed, 8 passed on unchanged production; nominal owner/codec absent and native guards have no subjects. Original wire errors/binding cases remain passing.
+- Ruling: split the existing artifact codec from the model-free value owner because codec_wire imports model; combining them creates model→amendment→codec_wire→model. Reuse shared validators and keep old facade function identity instead of duplicating validators.

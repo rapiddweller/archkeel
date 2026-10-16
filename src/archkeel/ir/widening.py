@@ -24,6 +24,9 @@ from dataclasses import asdict, dataclass, replace
 from dataclasses import fields as dataclass_fields
 from typing import Any, ClassVar, Final, Protocol
 
+from .amendment import AMENDMENT_SCHEMA_VERSION as AMENDMENT_SCHEMA_VERSION
+from .amendment import Amendment as Amendment
+from .amendment import verify_amendment as verify_amendment
 from .baseline import KnownViolation, cycle_contractions, violation_name
 from .measurements import MeasurementBudget, name_drift
 from .model import (
@@ -69,9 +72,6 @@ class _DataclassInstance(Protocol):
     __dataclass_fields__: ClassVar[dict[str, Any]]
 
 
-AMENDMENT_SCHEMA_VERSION = "2.0.0"
-
-
 @dataclass(frozen=True, slots=True)
 class WideningChange:
     subject: str
@@ -103,42 +103,6 @@ _RESTRICTION_RULE_KINDS: Final = frozenset(
     }
 )
 
-
-@dataclass(frozen=True, slots=True)
-class Amendment:
-    """A recorded decision to widen the contract from one exact revision to another (#11).
-
-    Binding both digests, rather than only `after`, is what AD-52's baseline does not do for
-    itself: an amendment written for one change must not silently authorise a different one.
-    `decided_by` and `rationale` are free text, checked for non-emptiness only, the way a
-    rule's own `rationale` is: this module has no way to judge whether a reason is a good one.
-    """
-
-    before_digest: str
-    after_digest: str
-    decided_by: str
-    rationale: str
-    before_baseline_digest: str | None = None
-    after_baseline_digest: str | None = None
-    schema_version: str = AMENDMENT_SCHEMA_VERSION
-
-
-def verify_amendment(
-    amendment: Amendment,
-    *,
-    before_digest: str,
-    after_digest: str,
-    before_baseline_digest: str | None = None,
-    after_baseline_digest: str | None = None,
-) -> bool:
-    """Bind the original contract tree and baseline policies on both sides."""
-    return (
-        amendment.before_digest == before_digest
-        and amendment.after_digest == after_digest
-        and amendment.before_baseline_digest == before_baseline_digest
-        and amendment.after_baseline_digest == after_baseline_digest
-        and (amendment.schema_version != "1.0.0" or before_baseline_digest is None)
-    )
 
 
 def _set_widenings(

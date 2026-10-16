@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, TypeAlias, get_args, get_type_hints
 
+from .amendment import AmendmentStatus as AmendmentStatus
 from .architecture_graph import AssessmentStatus as AssessmentStatus
 from .architecture_graph import ComponentRole as ComponentRole
 from .architecture_graph import ContractModuleTarget as ContractModuleTarget
@@ -1470,7 +1471,7 @@ class RunResult:
     failures: tuple[str, ...] = ()
     # Present as null without --against; otherwise only unamended/rejected changes.
     widenings: tuple[WideningFinding, ...] | None = None
-    amendment_status: Literal["valid", "stale"] | None = None
+    amendment_status: AmendmentStatus | None = None
     # AD-77: baseline drift is reported as deterministic fingerprint counts.
     baseline_new: int | None = None
     baseline_resolved: int | None = None
@@ -1517,6 +1518,10 @@ class RunResult:
     renames: tuple[tuple[str, str], ...] | None = None
 
     def __post_init__(self) -> None:
+        if self.amendment_status is not None:
+            builtins.object.__setattr__(
+                self, "amendment_status", AmendmentStatus(self.amendment_status)
+            )
         if self.exit_code == 2 and not self.diagnostics:
             raise ValueError("exit 2 requires at least one Diagnostic")
         if self.diagnostics and self.exit_code != 2:
