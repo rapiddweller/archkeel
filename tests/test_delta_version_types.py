@@ -12,7 +12,8 @@ from typing import get_type_hints
 
 import pytest
 from test_architecture_demo import _prepare_repo
-from test_delta import _delta, _model as _observation
+from test_delta import _delta
+from test_delta import _model as _observation
 from test_dependency_api_target import _source_members
 from test_uml_evaluation import _model
 
@@ -39,7 +40,8 @@ def test_existing_model_owns_exact_delta_version_domain_and_actual_ports():
     assert type(model.DELTA_SCHEMA_VERSION) is str and model.DELTA_SCHEMA_VERSION == "2.0.0"
     assert get_type_hints(model.ArchitectureDelta)["schema_version"] is model.DeltaVersion
     assert get_type_hints(model.supports_nullable_delta_counts) == {
-        "version": model.DeltaVersion, "return": bool
+        "version": model.DeltaVersion,
+        "return": bool,
     }
 
 
@@ -60,7 +62,9 @@ def test_valid_legacy_dataclass_version_replacement_uses_the_canonical_type(name
     assert value.schema_version is model.DeltaVersion[name]
 
 
-@pytest.mark.parametrize(("name", "expected"), [("V1_2", False), ("V1_3", False), ("V1_4", True), ("V2_0", True)])
+@pytest.mark.parametrize(
+    ("name", "expected"), [("V1_2", False), ("V1_3", False), ("V1_4", True), ("V2_0", True)]
+)
 def test_single_owned_nullable_count_policy_has_exact_historical_truth_table(name, expected):
     assert hasattr(model, "DeltaVersion")
     assert model.supports_nullable_delta_counts(model.DeltaVersion[name]) is expected
@@ -90,14 +94,25 @@ def test_direct_invalid_version_constructor_cannot_export_an_unsupported_format(
 def test_public_future_dimension_and_semantic_change_values_remain_open_wire_data():
     raw = _payload()
     raw["dimensions"]["vendor.future"] = copy.deepcopy(raw["dimensions"]["coverage"])
-    raw["semantic_changes"].append({
-        "dimension": "vendor.future", "change": "vendor-experiment", "fingerprint": "f" * 64,
-        "before_count": 0, "after_count": 0, "before": None, "after": None,
-    })
-    raw["unknowns"].append({
-        "id": "vendor-unknown", "dimension": "vendor.future", "reason": "vendor opaque reason",
-        "evidence_class": "UNKNOWN",
-    })
+    raw["semantic_changes"].append(
+        {
+            "dimension": "vendor.future",
+            "change": "vendor-experiment",
+            "fingerprint": "f" * 64,
+            "before_count": 0,
+            "after_count": 0,
+            "before": None,
+            "after": None,
+        }
+    )
+    raw["unknowns"].append(
+        {
+            "id": "vendor-unknown",
+            "dimension": "vendor.future",
+            "reason": "vendor opaque reason",
+            "evidence_class": "UNKNOWN",
+        }
+    )
     assert canonical_json_bytes(delta_payload(parse_delta(raw))) == canonical_json_bytes(raw)
 
 
@@ -105,16 +120,23 @@ def _contract():
     intent = copy.deepcopy(json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text()))
     intent.pop("$schema", None)
     intent["declarations"]["uml"]["entities"] = [
-        row for row in intent["declarations"]["uml"]["entities"]
+        row
+        for row in intent["declarations"]["uml"]["entities"]
         if row["id"].startswith("IR-DELTA-VERSION-") or row["id"] == "IR-DEPENDENCY-model"
     ]
     intent["declarations"]["uml"]["relationships"] = []
     intent["declarations"]["uml"]["scopes"] = []
     # Both files below are honest source projections of the migrated version ports only.
     intent["rules"] = [
-        {"id": "DELTA-VERSION-" + name, "kind": "forbidden_construct", "source": source,
-         "constructs": ["string_literal_compare"], "rationale": "Version decisions use owned tags.",
-         "provenance": [DOC], "decided_by": "architect"}
+        {
+            "id": "DELTA-VERSION-" + name,
+            "kind": "forbidden_construct",
+            "source": source,
+            "constructs": ["string_literal_compare"],
+            "rationale": "Version decisions use owned tags.",
+            "provenance": [DOC],
+            "decided_by": "architect",
+        }
         for name, source in [("OWNER", "archkeel.ir.model"), ("CODEC", "archkeel.ir.codec_delta")]
     ]
     return intent
@@ -122,25 +144,37 @@ def _contract():
 
 def _repository(tmp_path):
     actual = (ROOT / "src/archkeel/ir/model.py").read_text()
-    version_label = next(line for line in actual.splitlines() if line.startswith("DELTA_SCHEMA_VERSION ="))
+    version_label = next(
+        line for line in actual.splitlines() if line.startswith("DELTA_SCHEMA_VERSION =")
+    )
     owner = (
         "from __future__ import annotations\nimport builtins\n"
         "from collections.abc import Mapping, Sequence\n"
         "from dataclasses import dataclass\nfrom enum import StrEnum\n"
-        "from typing import Final, TypeAlias\n" + version_label + "\n"
-        + _source_members("src/archkeel/ir/model.py",
-                          {"RawJson", "DeltaVersion", "ArchitectureDelta", "supports_nullable_delta_counts"})
+        "from typing import Final, TypeAlias\n"
+        + version_label
+        + "\n"
+        + _source_members(
+            "src/archkeel/ir/model.py",
+            {"RawJson", "DeltaVersion", "ArchitectureDelta", "supports_nullable_delta_counts"},
+        )
     )
     codec = (
         "from __future__ import annotations\n"
         "from .model import DeltaVersion, RawJson\nfrom .codec_wire import _string\n"
         + _source_members("src/archkeel/ir/codec_delta.py", {"_parse_delta_version"})
     )
-    root = _prepare_repo(tmp_path, {
-        "archkeel/__init__.py": "", "archkeel/ir/__init__.py": "",
-        "archkeel/ir/model.py": owner, "archkeel/ir/codec_delta.py": codec,
-        "contract.json": json.dumps(_contract()), DOC: "Independent Delta version intent.\n",
-    })
+    root = _prepare_repo(
+        tmp_path,
+        {
+            "archkeel/__init__.py": "",
+            "archkeel/ir/__init__.py": "",
+            "archkeel/ir/model.py": owner,
+            "archkeel/ir/codec_delta.py": codec,
+            "contract.json": json.dumps(_contract()),
+            DOC: "Independent Delta version intent.\n",
+        },
+    )
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
 
 
@@ -148,7 +182,8 @@ def _valid(value):
     comparison = architecture_report(value).comparison
     assert comparison is not None and comparison.status == "PASS", [
         (row.subject_id, row.aspect, row.status, row.reason)
-        for row in comparison.assessments if row.status != "PASS"
+        for row in comparison.assessments
+        if row.status != "PASS"
     ]
     assert not trace_valid_violations(value)
 
@@ -159,14 +194,19 @@ def test_native_actual_delta_version_ports_match_independent_target(tmp_path):
     _valid(_model(root, config))
 
 
-@pytest.mark.parametrize(("path", "old", "new"), [
-    ("model.py", "class DeltaVersion(StrEnum):", "class DeltaVersion(str):"),
-    ("model.py", "schema_version: DeltaVersion", "schema_version: str"),
-    ("model.py", "version: DeltaVersion", "version: str"),
-    ("model.py", ") -> bool:", ") -> str:"),
-    ("codec_delta.py", ") -> DeltaVersion:", ") -> str:"),
-])
-def test_native_enum_field_parameter_and_return_widening_fail_fixed_intent(tmp_path, path, old, new):
+@pytest.mark.parametrize(
+    ("path", "old", "new"),
+    [
+        ("model.py", "class DeltaVersion(StrEnum):", "class DeltaVersion(str):"),
+        ("model.py", "schema_version: DeltaVersion", "schema_version: str"),
+        ("model.py", "version: DeltaVersion", "version: str"),
+        ("model.py", ") -> bool:", ") -> str:"),
+        ("codec_delta.py", ") -> DeltaVersion:", ") -> str:"),
+    ],
+)
+def test_native_enum_field_parameter_and_return_widening_fail_fixed_intent(
+    tmp_path, path, old, new
+):
     root, config = _repository(tmp_path)
     _valid(_model(root, config))
     source = root / "archkeel/ir" / path
@@ -180,12 +220,22 @@ def test_native_enum_field_parameter_and_return_widening_fail_fixed_intent(tmp_p
     assert (root / "contract.json").read_bytes() == intent
 
 
-@pytest.mark.parametrize(("path", "old", "new"), [
-    ("model.py", "return version in {DeltaVersion.V1_4, DeltaVersion.V2_0}",
-     'return version in {"1.4.0", "2.0.0"}'),
-    ("codec_delta.py", "return DeltaVersion(value)",
-     'if value == "2.0.0":\n            return DeltaVersion.V2_0\n        return DeltaVersion(value)'),
-])
+@pytest.mark.parametrize(
+    ("path", "old", "new"),
+    [
+        (
+            "model.py",
+            "return version in {DeltaVersion.V1_4, DeltaVersion.V2_0}",
+            'return version in {"1.4.0", "2.0.0"}',
+        ),
+        (
+            "codec_delta.py",
+            "return DeltaVersion(value)",
+            'if value == "2.0.0":\n            return DeltaVersion.V2_0\n'
+            "        return DeltaVersion(value)",
+        ),
+    ],
+)
 def test_native_actual_version_decision_reversion_fails_fixed_guard(tmp_path, path, old, new):
     root, config = _repository(tmp_path)
     _valid(_model(root, config))
@@ -199,14 +249,17 @@ def test_native_actual_version_decision_reversion_fails_fixed_guard(tmp_path, pa
 
 
 @pytest.mark.parametrize("path", ["model.py", "codec_delta.py"])
-@pytest.mark.parametrize("probe", [
-    'def _probe(value):\n    return value == "2.0.0"\n',
-    'def _probe(value):\n    return value in {"1.4.0", "2.0.0"}\n',
-    'def _probe(value):\n    match value:\n        case "2.0.0":\n            return True\n'
-    '        case _:\n            return False\n',
-    'from typing import Final\nCURRENT: Final[str] = "2.0.0"\n'
-    'def _probe(value):\n    return value == CURRENT\n',
-])
+@pytest.mark.parametrize(
+    "probe",
+    [
+        'def _probe(value):\n    return value == "2.0.0"\n',
+        'def _probe(value):\n    return value in {"1.4.0", "2.0.0"}\n',
+        'def _probe(value):\n    match value:\n        case "2.0.0":\n            return True\n'
+        "        case _:\n            return False\n",
+        'from typing import Final\nCURRENT: Final[str] = "2.0.0"\n'
+        "def _probe(value):\n    return value == CURRENT\n",
+    ],
+)
 def test_native_bounded_version_owner_and_codec_ports_reject_raw_dispatch(tmp_path, path, probe):
     root, config = _repository(tmp_path)
     _valid(_model(root, config))

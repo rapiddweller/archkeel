@@ -25,6 +25,7 @@ from archkeel.ir.codec_wire import (
     _strings,
 )
 from archkeel.ir.facts import RuntimeRequirementState
+from archkeel.ir.model import DELTA_SCHEMA_VERSION as DELTA_SCHEMA_VERSION
 from archkeel.ir.model import (
     AnalyzerInfo,
     ArchitectureDelta,
@@ -40,7 +41,6 @@ from archkeel.ir.model import (
     SemanticChange,
     SnapshotSummary,
 )
-from archkeel.ir.model import DELTA_SCHEMA_VERSION as DELTA_SCHEMA_VERSION
 from archkeel.ir.model import RawJson as RawJson
 from archkeel.ir.model import supports_nullable_delta_counts as _supports_nullable_delta_counts
 from archkeel.ir.profiles import profile_for
