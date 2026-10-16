@@ -1,0 +1,229 @@
+name: Verify complete isolated string predicate activation
+on:
+  push:
+    branches: [verify/542-complete-predicate-activation]
+permissions:
+  contents: read
+jobs:
+  actual-native-union:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 15f1fa127c37399541e09b16ccf23ebe246f3709
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Measure both actual snapshots with the final complete observer
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/ts-input-before" ad7be0ec26ff4ac0b41db6d4bb8e2b118ecf9596
+          uv run --locked archkeel report --root "$RUNNER_TEMP/ts-input-before" --output "$RUNNER_TEMP/ts-input-before.json" > "$RUNNER_TEMP/ts-input-before.stdout" || { task_status=$?; cat "$RUNNER_TEMP/ts-input-before.stdout"; exit "$task_status"; }
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/ts-input-after.json" > "$RUNNER_TEMP/ts-input-after.stdout" || { task_status=$?; cat "$RUNNER_TEMP/ts-input-after.stdout"; exit "$task_status"; }
+          uv run --locked python - <<'PY'
+          import ast,collections,dataclasses,gzip,hashlib,json,os,re,subprocess
+          from pathlib import Path
+          from archkeel.check.ratchets import call_rows,measure_python_ratchets,unresolved_call_changes
+          from archkeel.ir.codec import decode_canonical_model,parse_observation,value_bytes
+          from archkeel.ir.decisions import rule_uncertainty_evidence,rule_assessments
+          from archkeel.ir.trace import trace_valid_violations
+          
+          temporary=Path(os.environ["RUNNER_TEMP"])
+          directory=temporary/"ts-input-native-proof"
+          directory.mkdir(exist_ok=True)
+          basis="ad7be0ec26ff4ac0b41db6d4bb8e2b118ecf9596"
+          models={label:parse_observation(decode_canonical_model(json.loads((temporary/("ts-input-"+label+".json")).read_bytes()))) for label in ("before","after")}
+          def emit(marker,value): print(marker+"="+json.dumps(value,sort_keys=True),flush=True)
+          def fingerprint(model):
+              values={kind:collections.Counter() for kind in ("positions","routes","other")}
+              for rule,uncertainty in rule_uncertainty_evidence(model).items():
+                  for record in uncertainty.evidence:
+                      row={"rule":rule,"id":record.id,"kind":record.kind,"data":json.loads(value_bytes(record.data))}
+                      kind=None
+                      if record.kind=="boundary_type_position":
+                          if record.data.get("reason")!="external_type": kind="positions"
+                      elif record.kind=="boundary_type_route": kind="routes"
+                      elif record.kind!="boundary_type_limit": kind="other"
+                      if kind: values[kind][json.dumps(row,sort_keys=True)]+=1
+              return values
+          fp={label:fingerprint(model) for label,model in models.items()}
+          after_rules=rule_assessments(models["after"],undecided_by_rule={})
+          guards=[row for row in after_rules if row.kind=="forbidden_construct" and ("TARGET-TYPESCRIPT-" in row.id or row.id.startswith("DART-"))]
+          emit("ACTUAL_ACTIVATION_GUARDS",{"count":len(guards),"rows":[dataclasses.asdict(row) for row in guards]})
+          assert len(guards)==11,guards
+          assert all(row.status=="PASS" and row.evaluation_proven for row in guards),guards
+          for label,model in models.items():
+              measured=measure_python_ratchets(model)
+              call_rows(model)
+              emit("NATIVE_SNAPSHOT",{"label":label,"head":model.source.git_head,"digest":model.source.source_digest,"scalars":dict(measured.scalars.items()),"calls_total":measured.calls_total,"partial":model.coverage.calls_partially_resolved})
+          for kind in ("positions","routes","other"):
+              old,new=fp["before"][kind],fp["after"][kind]
+              emit("UNKNOWN_DIFF",{"kind":kind,"before":sum(old.values()),"after":sum(new.values()),"added":[json.loads(row) for row in sorted((new-old).elements())],"removed":[json.loads(row) for row in sorted((old-new).elements())]})
+          paths=["src/archkeel/analyzer/typescript/"+name+".py" for name in ("config","resolve","collect","parse","source_input")]+["src/archkeel/analyzer/dart/"+name+".py" for name in ("syntax","parse","resolve","snapshot","collect")]+["src/archkeel/analyzer/python/constructs.py"]
+          indexes={}
+          source_hashes={}
+          for label in models:
+              for path in paths:
+                  if label=="before":
+                      raw=subprocess.run(["git","show",basis+":"+path],capture_output=True)
+                      if raw.returncode: continue
+                      source=raw.stdout.decode()
+                  else: source=Path(path).read_text()
+                  source_hashes[label+":"+path]=hashlib.sha256(source.encode()).hexdigest()
+                  tree=ast.parse(source)
+                  parents={child:parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+                  calls=collections.defaultdict(list)
+                  for node in ast.walk(tree):
+                      if isinstance(node,ast.Call): calls[node.lineno,node.col_offset].append(node)
+                  indexes[label,path]=(parents,calls)
+          proofs=[]
+          unmatched=[]
+          def normalize(label,data,site):
+              caller=data["source_scope"]
+              if site.file not in paths: return caller
+              parents,calls=indexes[label,site.file]
+              candidates=[node for node in calls[site.line,site.column] if ast.unparse(node.func)==data["expression"]]
+              if len(candidates)!=1:
+                  unmatched.append({"label":label,"caller":caller,"line":site.line,"column":site.column,"expression":data["expression"]})
+                  return caller
+              named=re.sub(r"\.<(?:genexpr|listcomp|setcomp|dictcomp|lambda):\d+:\d+>","",caller)
+              if named==caller: return caller
+              call=candidates[0]
+              bindings=[]
+              parent=parents.get(call)
+              while parent is not None:
+                  if isinstance(parent,(ast.ClassDef,ast.FunctionDef,ast.AsyncFunctionDef)): break
+                  if isinstance(parent,(ast.GeneratorExp,ast.ListComp,ast.SetComp,ast.DictComp)):
+                      bindings.append({"kind":type(parent).__name__,"generators":[{"target":ast.dump(g.target,include_attributes=False),"iter":ast.dump(g.iter,include_attributes=False),"ifs":[ast.dump(test,include_attributes=False) for test in g.ifs],"is_async":g.is_async} for g in parent.generators]})
+                  elif isinstance(parent,ast.Lambda):
+                      bindings.append({"kind":"Lambda","arguments":ast.dump(parent.args,include_attributes=False)})
+                  parent=parents.get(parent)
+              body=ast.dump(call,include_attributes=False)
+              anchor=json.dumps({"call":body,"bindings":bindings},sort_keys=True)
+              normalized=named+".<operation:"+hashlib.sha256(anchor.encode()).hexdigest()[:24]+">"
+              proofs.append({"label":label,"path":site.file,"raw_caller":caller,"normalized_caller":normalized,"line":site.line,"column":site.column,"call_ast":body,"closure_bindings":bindings})
+              return normalized
+          counters={label:collections.Counter() for label in models}
+          full=[]
+          focused=[]
+          selected={}
+          other={}
+          for label,model in models.items():
+              evidence={item.id:item for item in model.evidence}
+              constructs={row.id:row for row in model.records("constructs")}
+              selected[label]=[]
+              other[label]=[]
+              for violation in trace_valid_violations(model):
+                  records=[constructs[i] for i in violation.fact_ids if i in constructs]
+                  matches=[record for record in records if record.data.get("form") in {"startswith","endswith"}]
+                  if matches:
+                      for record in matches:
+                          selected[label].append({"owner":record.data.get("owner"),"form":record.data.get("form"),"rules":list(violation.rule_ids),"evidence":[dataclasses.asdict(evidence[i]) for i in record.evidence_ids]})
+                  else: other[label].append(dataclasses.asdict(violation))
+              for record in model.records("calls"):
+                  data=json.loads(value_bytes(record.data))
+                  [site]=[evidence[identity] for identity in record.evidence_ids]
+                  if site.file in paths:
+                      focused.append({"label":label,"id":record.id,"line":site.line,"column":site.column,"excerpt":site.excerpt,"path":site.file,"data":data})
+                  if data["status"] not in {"unresolved","partially_resolved"}: continue
+                  row={"path":site.file,"caller":normalize(label,data,site),"status":data["status"],"expression":data["expression"],"reason":data["reason"],"targets":sorted(data["targets"])}
+                  counters[label][json.dumps(row,sort_keys=True)]+=1
+                  full.append({"label":label,"id":record.id,"line":site.line,"column":site.column,"raw_caller":data["source_scope"],"normalized":row})
+          emit("AST_JOIN",{"unmatched":unmatched,"scope":"exact changed-module AST calls/arguments and closure binders including filters; caller line tags normalized only for identical call and enclosing bindings"})
+          assert not unmatched,unmatched
+          deltas=[]
+          for key in sorted(counters["before"].keys()|counters["after"].keys()):
+              old,new=counters["before"][key],counters["after"][key]
+              if old!=new:
+                  item={**json.loads(key),"before":old,"after":new}
+                  deltas.append(item)
+                  emit("CALL_MULTISET_DIFF",item)
+          for status in ("unresolved","partially_resolved"):
+              chosen=[item for item in deltas if item["status"]==status]
+              emit("CALL_MULTISET_COUNTS",{"status":status,"before":sum(count for key,count in counters["before"].items() if json.loads(key)["status"]==status),"after":sum(count for key,count in counters["after"].items() if json.loads(key)["status"]==status),"added":sum(max(item["after"]-item["before"],0) for item in chosen),"removed":sum(max(item["before"]-item["after"],0) for item in chosen)})
+          emit("RAW_UNRESOLVED_CHANGES",[dataclasses.asdict(item) for item in unresolved_call_changes(models["before"],models["after"])])
+          for label in models:
+              counts=collections.Counter(row["owner"].rsplit(".",1)[0] for row in selected[label])
+              emit("SELECTED_GRAMMAR",{"label":label,"count":len(selected[label]),"owners":dict(sorted(counts.items()))})
+              emit("OTHER_VIOLATIONS",{"label":label,"records":other[label]})
+          archive={"calls":full,"focused_source_calls":focused,"counters":{label:[{"row":json.loads(key),"multiplicity":count} for key,count in sorted(counter.items())] for label,counter in counters.items()},"deltas":deltas,"normalization_proofs":proofs,"unknown_fingerprints":{label:{kind:[{"row":json.loads(key),"multiplicity":count} for key,count in sorted(counter.items())] for kind,counter in values.items()} for label,values in fp.items()},"source_hashes":source_hashes,"selected_grammar":selected,"other_violations":other}
+          payload=json.dumps(archive,sort_keys=True,separators=(",",":")).encode()
+          (directory/"complete-native-input-proof.json.gz").write_bytes(gzip.compress(payload,mtime=0))
+          emit("COMPLETE_PROOF",{"json_bytes":len(payload),"sha256":hashlib.sha256(payload).hexdigest(),"gzip_bytes":(directory/"complete-native-input-proof.json.gz").stat().st_size})
+          emit("EXACT_HEAD",{"head":subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip(),"dirty":subprocess.check_output(["git","status","--porcelain"]).decode()})
+          
+          for kind in fp["before"]:
+              assert fp["before"][kind]==fp["after"][kind],kind
+          assert not trace_valid_violations(models["after"]),trace_valid_violations(models["after"])
+          assert models["after"].coverage.calls_unresolved<=models["before"].coverage.calls_unresolved
+          print("FULL_ACTIVATION_NATIVE=PASS",flush=True)
+          
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: complete-activation-native-site-proof
+          path: ${{ runner.temp }}/ts-input-native-proof
+          retention-days: 10
+  focused-quality-and-self:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 15f1fa127c37399541e09b16ccf23ebe246f3709
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: make lint
+      - run: make typecheck
+      - name: Check native observer, unchanged local scalar evidence and independent migrated APIs
+        run: |
+          uv run --locked python -m pytest -n 4 -q tests/test_string_predicate_observation.py tests/test_python_string_predicate_target.py tests/test_local_string_comparisons.py tests/test_string_comparison_observation.py tests/test_typescript_source_input.py tests/test_typescript_control_target.py tests/test_typescript_string_constructs.py tests/test_dart_input_grammar.py tests/test_dart_typed_controls.py tests/test_self.py tests/test_references.py tests/test_levels.py tests/test_protocol_uml_target.py tests/test_repository_hygiene.py
+      - name: Confirm the exact clean product snapshot
+        if: always()
+        run: |
+          python - <<'PY'
+          import json,subprocess
+          print("EXACT_ACTIVATION_SOURCE="+json.dumps({"head":subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),"dirty":subprocess.check_output(["git","status","--porcelain"],text=True).strip()}))
+          PY
+  complete-typescript-and-compiler:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 15f1fa127c37399541e09b16ccf23ebe246f3709
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -n 4 -q tests/test_typescript_*.py
+      - run: make typescript-compiler-check
+      - run: make demo-typescript OUTPUT="$RUNNER_TEMP/activation-typescript-demo"
+  complete-dart-and-compass:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 15f1fa127c37399541e09b16ccf23ebe246f3709
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -n 4 -q tests/test_dart_*.py tests/test_uml_source_facts.py tests/test_language_collectors.py tests/test_flutter_demo.py::test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct
