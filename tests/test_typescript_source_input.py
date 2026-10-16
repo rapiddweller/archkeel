@@ -331,5 +331,5 @@ def test_declaration_cts_keeps_written_commonjs_loader_semantics(tmp_path):
     assert any(isinstance(target, BuiltinTarget) for target in facts.imports)
     assert not any(
         "Unproven or shadowed require" in row.data.get("reason", "")
-        for row in facts.coverage.unknowns
+        for row in facts.coverage.gaps
     )

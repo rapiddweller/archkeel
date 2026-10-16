@@ -928,7 +928,7 @@ class _Collection:
         form = resolver.format_of(rel)
         suffix = classify_file(rel)
         cjs = (
-            suffix in (FileSuffix.CJS, FileSuffix.CTS)
+            (suffix is not None and suffix.format_hint is ModuleFormat.CJS)
             or options.module is ModuleKind.COMMONJS
             or (
                 form is ModuleFormat.CJS
