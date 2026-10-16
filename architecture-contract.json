@@ -817,9 +817,10 @@
         "archkeel.ir.diagnostics",
         "archkeel.render.summary_badges",
         "archkeel.analyzer.bootstrap",
-        "archkeel.ir.amendment"
+        "archkeel.ir.amendment",
+        "archkeel.analyzer.python.constructs"
       ],
-      "rationale": "Closed vocabularies belong to their domain and wire boundaries. State and source facts own shared controls; codecs own private tags; contract_version owns versions and feature availability. Python binding and receiver models own lexical controls. TypeScript and Dart syntax ports own parser DTO controls, while collectors own private states. Consumers use the published nominal types. Amendment artifacts own their versions and verification outcomes.",
+      "rationale": "Closed vocabularies belong to their domain and wire boundaries. State and source facts own shared controls; codecs own private tags; contract_version owns versions and feature availability. Python binding and receiver models own lexical controls. TypeScript and Dart syntax ports own parser DTO controls, while collectors own private states. Consumers use the published nominal types. Amendment artifacts own their versions and verification outcomes. The Python construct owner holds its private written predicate syntax vocabulary.",
       "provenance": [
         "docs/architecture/archkeel.md",
         "docs/architecture/typed-amendment-artifact.md"
