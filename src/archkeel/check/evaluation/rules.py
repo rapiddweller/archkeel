@@ -26,6 +26,7 @@ from archkeel.ir.model import (
     CompleteRequiresRule,
     ContractComponent,
     ContractDeclarations,
+    CycleLevel,
     DependencyTargetKind,
     EvidenceClass,
     ExternalDependencyScopeRule,
@@ -535,7 +536,7 @@ def _module_placement_violations(
 
 
 def _cycle_rules(
-    contract: ArchitectureContract, level: _Literal["module"] | None
+    contract: ArchitectureContract, level: _Literal[CycleLevel.MODULE] | None
 ) -> list[NoComponentCyclesRule]:
     return [
         rule
@@ -637,7 +638,7 @@ def _module_cycle_violations(
 ) -> list[RawRecord]:
     """Report measured module SCCs that touch the rule's scope (AD-98)."""
     violations: list[RawRecord] = []
-    for rule in _cycle_rules(contract, "module"):
+    for rule in _cycle_rules(contract, CycleLevel.MODULE):
         scope = (
             None
             if rule.components is None

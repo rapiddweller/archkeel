@@ -10,9 +10,11 @@ import hashlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING, Final, Literal, TypeAlias, get_args, get_type_hints
+from typing import TYPE_CHECKING, Final, Literal, TypeAlias
 
 from .amendment import AmendmentStatus as AmendmentStatus
+from .architecture_graph import ArchitectureRuleGrammar
+from .architecture_graph import ArchitectureRuleKind as ArchitectureRuleKind
 from .architecture_graph import AssessmentStatus as AssessmentStatus
 from .architecture_graph import ComponentRole as ComponentRole
 from .architecture_graph import ContractModuleTarget as ContractModuleTarget
@@ -182,6 +184,10 @@ class ContractComponent:
     exact_modules: tuple[str, ...] | None = None
     layer: str | None = None
 
+    def __post_init__(self) -> None:
+        if self.decided_by is not None:
+            builtins.object.__setattr__(self, "decided_by", DecisionMaker(self.decided_by))
+
 
 def facade_covers(
     module: str,
@@ -234,6 +240,10 @@ class RequiredComponent:
     rationale: str
     through: tuple[str, ...] = ()
     decided_by: DecisionMaker | None = None
+
+    def __post_init__(self) -> None:
+        if self.decided_by is not None:
+            builtins.object.__setattr__(self, "decided_by", DecisionMaker(self.decided_by))
 
 
 def requires_covers(
@@ -289,7 +299,9 @@ class ContractOwner:
     provenance: tuple[str, ...]
 
 
-CompatibilityLifetime: TypeAlias = Literal["permanent", "migration"]
+class CompatibilityLifetime(StrEnum):
+    PERMANENT = "permanent"
+    MIGRATION = "migration"
 
 
 @dataclass(frozen=True, slots=True)
@@ -299,6 +311,9 @@ class CompatibilityShim:
     module: str
     target: str
     lifetime: CompatibilityLifetime
+
+    def __post_init__(self) -> None:
+        builtins.object.__setattr__(self, "lifetime", CompatibilityLifetime(self.lifetime))
 
 
 @dataclass(frozen=True, slots=True)
@@ -335,15 +350,15 @@ class CouplingBudget:
 
 
 @dataclass(frozen=True, slots=True)
-class ForbiddenDependencyRule:
+class ForbiddenDependencyRule(ArchitectureRuleGrammar):
     id: str
-    kind: Literal["forbidden_dependency"]
+    kind: Literal[ArchitectureRuleKind.FORBIDDEN_DEPENDENCY]
     source: str
     target: str
     include_type_checking: bool
     rationale: str
     provenance: tuple[str, ...]
-    decided_by: Literal["architect", "agent"]
+    decided_by: DecisionMaker
     target_symbol: str | None = None
     allowed_sources: tuple[str, ...] = ()
     source_match: SelectorMatch = SelectorMatch.PREFIX
@@ -363,16 +378,16 @@ class ForbiddenDependencyRule:
 
 
 @dataclass(frozen=True, slots=True)
-class AllowedDependencyRule:
+class AllowedDependencyRule(ArchitectureRuleGrammar):
     """AD-15: a decision that a component pair may depend; it adds no report violation."""
 
     id: str
-    kind: Literal["allowed_dependency"]
+    kind: Literal[ArchitectureRuleKind.ALLOWED_DEPENDENCY]
     source: str
     target: str
     rationale: str
     provenance: tuple[str, ...]
-    decided_by: Literal["architect", "agent"]
+    decided_by: DecisionMaker
 
 
 class SymbolClassKind(StrEnum):
@@ -404,68 +419,73 @@ class TypeIgnoreAllowance:
 
 
 @dataclass(frozen=True, slots=True)
-class ForbiddenConstructRule:
+class ForbiddenConstructRule(ArchitectureRuleGrammar):
     """`allowed_sources` match an owner scope by prefix, `exact_sources` only the scope named."""
 
     id: str
-    kind: Literal["forbidden_construct"]
+    kind: Literal[ArchitectureRuleKind.FORBIDDEN_CONSTRUCT]
     source: str
     constructs: tuple[ForbiddenConstructKind, ...]
     rationale: str
     provenance: tuple[str, ...]
-    decided_by: Literal["architect", "agent"]
+    decided_by: DecisionMaker
     allowed_sources: tuple[str, ...] = ()
     exact_sources: tuple[str, ...] = ()
     allowed_type_ignores: tuple[TypeIgnoreAllowance, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
-class CompleteAssignmentRule:
+class CompleteAssignmentRule(ArchitectureRuleGrammar):
     id: str
-    kind: Literal["complete_assignment"]
+    kind: Literal[ArchitectureRuleKind.COMPLETE_ASSIGNMENT]
     source: str
     rationale: str
     provenance: tuple[str, ...]
-    decided_by: Literal["architect", "agent"]
+    decided_by: DecisionMaker
 
 
 @dataclass(frozen=True, slots=True)
-class CompleteRequiresRule:
+class CompleteRequiresRule(ArchitectureRuleGrammar):
     """AD-32: a cross-component import no `requires` entry covers is a violation."""
 
     id: str
-    kind: Literal["complete_requires"]
+    kind: Literal[ArchitectureRuleKind.COMPLETE_REQUIRES]
     rationale: str
     provenance: tuple[str, ...]
-    decided_by: Literal["architect", "agent"]
+    decided_by: DecisionMaker
     include_type_checking: bool = True
 
 
 @dataclass(frozen=True, slots=True)
-class LayerOrderRule:
+class LayerOrderRule(ArchitectureRuleGrammar):
     """Declared requires permissions run from outer to inner layers, or stay in one layer."""
 
     id: str
-    kind: Literal["layer_order"]
+    kind: Literal[ArchitectureRuleKind.LAYER_ORDER]
     layers: tuple[str, ...]
     rationale: str
     provenance: tuple[str, ...]
-    decided_by: Literal["architect", "agent"]
+    decided_by: DecisionMaker
     components: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
-class CompleteExternalScopeRule:
+class CompleteExternalScopeRule(ArchitectureRuleGrammar):
     id: str
-    kind: Literal["complete_external_scope"]
+    kind: Literal[ArchitectureRuleKind.COMPLETE_EXTERNAL_SCOPE]
     source: str
     rationale: str
     provenance: tuple[str, ...]
-    decided_by: Literal["architect", "agent"]
+    decided_by: DecisionMaker
+
+
+class CycleLevel(StrEnum):
+    COMPONENT = "component"
+    MODULE = "module"
 
 
 @dataclass(frozen=True, slots=True)
-class NoComponentCyclesRule:
+class NoComponentCyclesRule(ArchitectureRuleGrammar):
     """No import cycle at the declared level, among cycles touching `components` (AD-98).
 
     `level` None is the component level every contract before AD-98 declares, and
@@ -474,12 +494,18 @@ class NoComponentCyclesRule:
     """
 
     id: str
-    kind: Literal["no_component_cycles"]
+    kind: Literal[ArchitectureRuleKind.NO_COMPONENT_CYCLES]
     rationale: str
     provenance: tuple[str, ...]
-    decided_by: Literal["architect", "agent"]
-    level: Literal["module"] | None = None
+    decided_by: DecisionMaker
+    level: Literal[CycleLevel.MODULE] | None = None
     components: tuple[str, ...] | None = None
+
+    def __post_init__(self) -> None:
+        ArchitectureRuleGrammar.__post_init__(self)
+        if self.level is not None:
+            level = CycleLevel(self.level)
+            builtins.object.__setattr__(self, "level", None if level is CycleLevel.COMPONENT else level)
 
 
 @dataclass(frozen=True, slots=True)
@@ -491,29 +517,29 @@ class ModuleObjectGrant:
 
 
 @dataclass(frozen=True, slots=True)
-class InterfaceBoundaryRule:
+class InterfaceBoundaryRule(ArchitectureRuleGrammar):
     id: str
-    kind: Literal["interface_boundary"]
+    kind: Literal[ArchitectureRuleKind.INTERFACE_BOUNDARY]
     rationale: str
     provenance: tuple[str, ...]
-    decided_by: Literal["architect", "agent"]
+    decided_by: DecisionMaker
     include_type_checking: bool = True
     module_object_grants: tuple[ModuleObjectGrant, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
-class SiblingIsolationRule:
+class SiblingIsolationRule(ArchitectureRuleGrammar):
     id: str
-    kind: Literal["sibling_isolation"]
+    kind: Literal[ArchitectureRuleKind.SIBLING_ISOLATION]
     members: tuple[str, ...]
     rationale: str
     provenance: tuple[str, ...]
-    decided_by: Literal["architect", "agent"]
+    decided_by: DecisionMaker
     include_type_checking: bool = True
 
 
 @dataclass(frozen=True, slots=True)
-class SymbolPlacementRule:
+class SymbolPlacementRule(ArchitectureRuleGrammar):
     """A class of a named kind below `source` must be defined in an allowed module.
 
     `allowed_sources` match a defining module by prefix, `exact_sources` only the module
@@ -522,12 +548,12 @@ class SymbolPlacementRule:
     """
 
     id: str
-    kind: Literal["symbol_placement"]
+    kind: Literal[ArchitectureRuleKind.SYMBOL_PLACEMENT]
     source: str
     class_kinds: tuple[SymbolClassKind, ...]
     rationale: str
     provenance: tuple[str, ...]
-    decided_by: Literal["architect", "agent"]
+    decided_by: DecisionMaker
     allowed_sources: tuple[str, ...] = ()
     exact_sources: tuple[str, ...] = ()
 
@@ -574,7 +600,7 @@ class BoundaryTypeAllowance:
 
 
 @dataclass(frozen=True, slots=True)
-class BoundaryTypesRule:
+class BoundaryTypesRule(ArchitectureRuleGrammar):
     """A component's declared facade function below `source` takes and returns no bare
     `dict`/`object`, and no named type outside a builtin, an enum, a Pydantic model, or a type
     some component's own `public` list already declares (AD-58, amended by AD-63).
@@ -586,11 +612,11 @@ class BoundaryTypesRule:
     """
 
     id: str
-    kind: Literal["boundary_types"]
+    kind: Literal[ArchitectureRuleKind.BOUNDARY_TYPES]
     source: str
     rationale: str
     provenance: tuple[str, ...]
-    decided_by: Literal["architect", "agent"]
+    decided_by: DecisionMaker
     allowed_sources: tuple[str, ...] = ()
     exact_sources: tuple[str, ...] = ()
     allowed_positions: tuple[BoundaryTypeAllowance, ...] = ()
@@ -617,11 +643,7 @@ ArchitectureRule: TypeAlias = (
 UML_TARGET_KIND: Final = "uml_target"
 ARCHITECTURE_TARGET_KIND: Final = "architecture_target"
 TARGET_GRAPH_RECORD_KINDS: Final = frozenset({UML_TARGET_KIND, ARCHITECTURE_TARGET_KIND})
-RULE_KINDS: Final[frozenset[str]] = frozenset(
-    kind
-    for rule_type in get_args(ArchitectureRule)
-    for kind in get_args(get_type_hints(rule_type)["kind"])
-)
+RULE_KINDS: Final[frozenset[ArchitectureRuleKind]] = frozenset(ArchitectureRuleKind)
 RULE_RECORD_KINDS: Final = RULE_KINDS | {UML_TARGET_KIND}
 
 

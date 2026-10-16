@@ -23,7 +23,7 @@ Spec: issue #542 and the accepted constructor/API design. Tech stack: Python dat
 
 ## Tasks and ledger
 
-- [ ] 1. Commit plan and inventory before implementation. Build tests plus independent authored intent, then watch actual constructor/native RED.
+- [x] 1. Commit plan and inventory before implementation. Build tests plus independent authored intent, then watch actual constructor/native RED.
 - [ ] 2. Three-way merge only the original grammar delta, resolve current-owner overlaps, add the approved fieldless mixin and direct legacy constructor normalization.
 - [ ] 3. Run contract, selector, boundary and native API/guard tests; Ruff, strict mypy and hygiene. Compare complete UNRES/PARTIAL sites and UNKNOWN IDs; preserve/tighten only measured ratchets.
 - [ ] 4. Union onto the final parent supplied by Root; generate a fresh normal amendment against that exact commit, then no-write verify unchanged source.
@@ -31,3 +31,7 @@ Spec: issue #542 and the accepted constructor/API design. Tech stack: Python dat
 
 Pre-flight: model consumes the graph grammar owner; codec consumes those nominal DTOs; native fixtures must copy the real mixin owner. The current model has no separate ContractRuleKind, and reflective RULE_KINDS is the sole remaining get_args/get_type_hints use.
 Ruling: use one explicit fieldless owner instead of fourteen repeated normalizers; the existing graph module publication already covers this named API, so do not broaden a module boundary.
+
+Task 1: complete — plan2626c158, tests9741c00a. Hosted RED38971885025/job117211971106:39failed/21passed; twelve model direct positional constructors retain raw kind, optional component decision retains raw string, nominal parser/lifetime/cycle tests fail and independent native positive fails. Existing two graph constructor conversions already pass. Raw-control mutations run against real codec and fixed contract. Three annotation-mutation setups correctly refuse absent nominal declarations rather than pretending to test them.
+
+Actual Git merge-file evidence: job117211970887 performed nine source merges; seven clean, codec has two version-port overlaps, model one import overlap. Resolve narrowly retaining current supports_feature and amendment/diagnostic imports.

@@ -20,6 +20,11 @@ def _object(raw: object, label: str) -> dict[str, RawJson]:
     return raw
 
 
+def _has_field(item: Mapping[str, RawJson], name: str) -> bool:
+    """Apply open field grammar while distinguishing absence from explicit null."""
+    return name in item
+
+
 def _string(raw: object, label: str) -> str:
     if not isinstance(raw, str):
         raise ValueError(f"{label} must be a string")

@@ -3,7 +3,9 @@
 ArchitectureRuleKind and DecisionMaker are shared architecture-graph values. Contract rule
 variants refer to fixed members of that vocabulary, so a forbidden-dependency rule cannot
 be typed as a different rule variant. The contract codec validates JSON and constructs
-these nominal values before dispatch; evaluators consume the typed model.
+these nominal values before dispatch; evaluators consume the typed model. Direct legacy
+constructors share the fieldless ArchitectureRuleGrammar owner; frozen/slotted DTO fields
+and positional constructor order remain unchanged. Existing enum inputs retain identity.
 
 CompatibilityLifetime belongs to the compatibility-shim model. CycleLevel describes the
 cycle grammar: an explicit component level normalizes to the existing absent default;

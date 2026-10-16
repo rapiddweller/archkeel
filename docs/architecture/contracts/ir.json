@@ -9181,6 +9181,74 @@
           "responsibilities": [
             "Attribute contract decisions through the shared nominal decision-maker type."
           ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "id": "IR-RULE-OWNER-ArchitectureRuleGrammar",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureRuleGrammar",
+          "parent_id": "IR-UML-architecture_graph",
+          "responsibilities": [
+            "Normalize shared rule kind and decision-maker values once at the public legacy constructor boundary."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "id": "IR-RULE-OWNER-ArchitectureRuleGrammar.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureRuleGrammar.kind",
+          "parent_id": "IR-RULE-OWNER-ArchitectureRuleGrammar",
+          "annotation": "ArchitectureRuleKind",
+          "responsibilities": [
+            "Expose the canonical shared rule grammar type to immutable rule variants."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "id": "IR-RULE-OWNER-ArchitectureRuleGrammar.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureRuleGrammar.decided_by",
+          "parent_id": "IR-RULE-OWNER-ArchitectureRuleGrammar",
+          "annotation": "DecisionMaker",
+          "responsibilities": [
+            "Expose the canonical shared rule grammar type to immutable rule variants."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "id": "IR-RULE-OWNER-ArchitectureRuleGrammar.__post_init__",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureRuleGrammar.__post_init__",
+          "parent_id": "IR-RULE-OWNER-ArchitectureRuleGrammar",
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "responsibilities": [
+            "Normalize the two canonical rule tags idempotently without defining dataclass fields."
+          ]
         }
       ],
       "relationships": [

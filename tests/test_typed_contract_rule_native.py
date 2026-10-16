@@ -32,10 +32,11 @@ def _contract():
     entities = [
         entity
         for entity in authored["declarations"]["uml"]["entities"]
-        if entity["id"].startswith("IR-RULE-GRAMMAR-")
+        if entity["id"].startswith(("IR-RULE-GRAMMAR-", "IR-RULE-OWNER-"))
         or entity["id"]
         in {
             "IR-DEPENDENCY-model",
+            "IR-UML-architecture_graph",
             "IR-DEPENDENCY-model.ForbiddenDependencyRule",
             "IR-MODULE-OBJECT-InterfaceBoundaryRule",
         }
@@ -85,7 +86,7 @@ def _repository(tmp_path, *, weakened=None, probe=None):
                 "from __future__ import annotations\nimport builtins\n"
                 "from typing import Literal, TypeAlias\n"
                 "from dataclasses import dataclass\nfrom enum import StrEnum\n"
-                "from .architecture_graph import ArchitectureRuleKind, DecisionMaker\n"
+                "from .architecture_graph import ArchitectureRuleGrammar, ArchitectureRuleKind, DecisionMaker\n"
                 "from .dependency import DependencySelector, SelectorMatch\n"
                 "from .dependency import DependencyTargetKind\n\n"
                 + _source_members(
