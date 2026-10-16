@@ -247,6 +247,15 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
+      - name: Verify committed diagnostic amendment without rewriting it
+        run: |
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 5933ffbbfd588ac96e36748de937cb1f6e739655 --amendment docs/architecture/decisions/issue-542-diagnostic-owner-amendment.json > "$RUNNER_TEMP/diagnostic-no-write.json"
+          uv run --locked python - <<'PY'
+          import json,os,pathlib
+          result=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"diagnostic-no-write.json").read_text())
+          print("DIAGNOSTIC_NO_WRITE="+json.dumps({key:result.get(key) for key in ("exit_code","amendment_status","failures","diagnostics","measurements")},separators=(",",":")))
+          assert result["exit_code"]==0 and result["amendment_status"]=="PASS"
+          PY
       - name: Verify native authority and actual position/call deltas
         run: |
           set +e
@@ -287,6 +296,15 @@ jobs:
                   if row.status=="unresolved":
                       result.setdefault((row.path,stable_caller(row.caller),row.expression),[]).append(asdict(row))
               return result
+          def partial(model):
+              result={}
+              for row in call_rows(model):
+                  if row.status=="partially_resolved":
+                      result.setdefault((row.path,stable_caller(row.caller),row.expression),[]).append(asdict(row))
+              return result
+          old_partial,new_partial=partial(before),partial(after)
+          partial_added=[{"before":old_partial.get(key,[]),"after":new_partial[key]} for key in new_partial if len(new_partial[key])>len(old_partial.get(key,[]))]
+          partial_removed=[{"before":old_partial[key],"after":new_partial.get(key,[])} for key in old_partial if len(old_partial[key])>len(new_partial.get(key,[]))]
           old,new=types(before),types(after)
           old_calls,new_calls=unresolved(before),unresolved(after)
           before_root=pathlib.Path(os.environ["RUNNER_TEMP"])/"diagnostic-before"
@@ -294,6 +312,16 @@ jobs:
               tree=ast.parse(path.read_text())
               cls=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name==classname)
               return next(node for node in cls.body if isinstance(node,ast.FunctionDef) and node.name==methodname)
+          def owned_nodes(path,names):
+              tree=ast.parse(path.read_text())
+              return {node.name if isinstance(node,ast.ClassDef) else node.target.id:ast.dump(node,include_attributes=False) for node in tree.body if isinstance(node,ast.ClassDef) and node.name in names or isinstance(node,ast.AnnAssign) and isinstance(node.target,ast.Name) and node.target.id in names}
+          for path,names in (
+              ("src/archkeel/ir/model.py",{"Coverage","RunResult"}),
+              ("src/archkeel/ir/facts.py",{"Record","RecordData","JsonValue"}),
+          ):
+              previous=owned_nodes(before_root/path,names)
+              current=owned_nodes(pathlib.Path(path),names)
+              assert previous.keys()==names and previous==current,(path,previous.keys())
           old_diagnostic=class_method(before_root/"src/archkeel/ir/model.py","Diagnostic","__post_init__")
           new_diagnostic=class_method(pathlib.Path("src/archkeel/ir/diagnostics.py"),"Diagnostic","__post_init__")
           old_generators=[ast.dump(node,include_attributes=False) for node in ast.walk(old_diagnostic) if isinstance(node,ast.GeneratorExp)]
@@ -316,6 +344,11 @@ jobs:
           assert len(relocation_pairs)==len(removed_sites),"Unexplained removed unresolved site"
           summary={
               "before_ref":"5933ffbbfd588ac96e36748de937cb1f6e739655",
+              "before_partial_calls":before.coverage.calls_partially_resolved,
+              "after_partial_calls":after.coverage.calls_partially_resolved,
+              "new_partial_sites":partial_added,
+              "removed_partial_sites":partial_removed,
+              "unchanged_legacy_coverage_record_data_nodes":True,
               "before_calls":before.coverage.calls_unresolved,
               "after_calls":after.coverage.calls_unresolved,
               "before_unknown":unknown_positions_by_rule(before),
@@ -334,6 +367,7 @@ jobs:
           summary["graph_failures"]=[asdict(row) for row in comparison.assessments if row.status=="FAIL"] if comparison else None
           summary["violations"]=repr(trace_valid_violations(after))
           print("DIAGNOSTIC_POSITION_EVIDENCE="+json.dumps(summary,separators=(",",":")))
+          assert not summary["new_partial_sites"],summary
           assert not summary["new_type_positions"],summary
           assert summary["after_calls"]<=summary["before_calls"],summary
           assert not trace_valid_violations(after),summary

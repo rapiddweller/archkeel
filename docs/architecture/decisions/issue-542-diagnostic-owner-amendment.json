@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "02279ca79283191bc1137034db4191abc1850cf3f290e974ec1caed594f95600",
+  "after_digest": "f3e204de8878a71c64671f624736bc90f39666dadb82c55b87d7e13ecd23557d",
+  "before_baseline_digest": "02279ca79283191bc1137034db4191abc1850cf3f290e974ec1caed594f95600",
+  "before_digest": "d1aee80c1e2d237db77dbbdb981c22eef471bdc4f6de9dd9b87b7ef9b7e54bb0",
+  "decided_by": "ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge",
+  "rationale": "Extract one nominal diagnostic owner with identical model facades, existing wire vocabulary, actual typed producers and independent API Target. Whole diagnostic module has no string-control exception. No baseline/cap/allowance increase. See docs/architecture/typed-diagnostic-owner.md.",
+  "schema_version": "2.0.0"
+}
