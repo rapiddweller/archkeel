@@ -1214,11 +1214,13 @@ class Resolver:
             return None
         imported = self._imported_bindings(module, receiver_parts[1], prefix=receiver_parts[0])
         if len(imported) == 1 and imported[0].kind in {
-            DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM, DefinitionKind.MIXIN
+            DefinitionKind.CLASS,
+            DefinitionKind.INTERFACE,
+            DefinitionKind.ENUM,
+            DefinitionKind.MIXIN,
         }:
             return imported[0]
         return None
-
 
     def _constructor_namespace_closed(self, module: str, name: str, prefix: str) -> bool:
         imports = self._imports[module] if module in self._imports else ()

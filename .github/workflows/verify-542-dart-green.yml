@@ -45,12 +45,27 @@ jobs:
       - name: Native self-observation and exact measurements
         run: |
           set +e
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > "$RUNNER_TEMP/task-dart-native.json"
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --write-baseline --json > "$RUNNER_TEMP/task-dart-native.json"
           task_status=$?
           python - <<'PY'
           import json, os, pathlib
           value = json.loads((pathlib.Path(os.environ["RUNNER_TEMP"]) / "task-dart-native.json").read_text())
           print("DART_NATIVE_RESULT=" + json.dumps({key: value.get(key) for key in ("exit_code", "failures", "diagnostics", "measurements")}))
+          PY
+          test "$task_status" -eq 0
+          python -c 'import pathlib; print("DART_BASELINE_JSON="+pathlib.Path("architecture-baseline.json").read_text().replace("\\n",""))'
+      - name: Bind the Dart contract and tighter baseline to the actual predecessor
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 1f9cd588c21d2e485e8d7cf75b4c7a7e41ba793d --amendment docs/architecture/decisions/issue-542-dart-vocabulary-amendment.json --write-amendment --decided-by 'ake2l (explicit parser and protocol typing request); Codex implementation, independent Astra review required before merge' --rationale 'Move existing immutable Dart syntax DTOs to their real owner, declare nominal control fields and resolver results, publish used named APIs, protect five implementation modules, reuse runtime state and resolver builtin classification, and tighten measured debt without exceptions.' > "$RUNNER_TEMP/task-dart-amendment-result.json"
+          task_status=$?
+          python - <<'PY'
+          import json, os, pathlib
+          result = json.loads((pathlib.Path(os.environ["RUNNER_TEMP"]) / "task-dart-amendment-result.json").read_text())
+          print("DART_AMENDMENT_RESULT=" + json.dumps({key: result.get(key) for key in ("exit_code", "failures", "diagnostics", "measurements")}))
+          path = pathlib.Path("docs/architecture/decisions/issue-542-dart-vocabulary-amendment.json")
+          if path.exists():
+              print("DART_AMENDMENT_JSON=" + path.read_text().replace("\\n", ""))
           PY
           exit "$task_status"
       - name: Repository hygiene

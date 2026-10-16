@@ -9,7 +9,14 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.analyzer.typescript.config import Config, Snapshot, load_config
+from archkeel.analyzer.typescript.config import (
+    Config,
+    ModuleKind,
+    ModuleResolution,
+    ScriptTarget,
+    Snapshot,
+    load_config,
+)
 
 
 def _config(
@@ -201,7 +208,10 @@ def test_option_defaults_follow_the_compiler(
     tmp_path: Path, text: str, module: str | None, resolution: str
 ) -> None:
     config, _ = _config(tmp_path, {"src/a.ts": ""}, text)
-    assert (config.options.module, config.options.resolution) == (module, resolution)
+    assert (config.options.module, config.options.resolution) == (
+        ModuleKind(module) if module is not None else None,
+        ModuleResolution(resolution),
+    )
     assert config.partial is False
 
 
@@ -234,7 +244,7 @@ def test_option_values_are_matched_without_regard_to_case_but_names_are_not(tmp_
         {"src/a.ts": ""},
         json.dumps({"compilerOptions": {"module": "nodenext", "moduleResolution": "NODENEXT"}}),
     )
-    assert config.options.resolution == "nodenext"
+    assert config.options.resolution is ModuleResolution.NODENEXT
     assert snapshot.problems == set()
 
 
@@ -252,7 +262,7 @@ def test_a_relative_extends_chain_merges_options_and_inherits_file_specs(tmp_pat
     config, snapshot = _config(tmp_path, files, '{"extends": "./configs/base"}')
     # `include` is relative to the config that wrote it; the `.json` suffix may be omitted.
     assert config.files == ("src/a.ts",)
-    assert config.options.resolution == "node10"
+    assert config.options.resolution is ModuleResolution.NODE10
     assert snapshot.problems == set()
     assert config.partial is False
 
@@ -271,7 +281,7 @@ def test_own_settings_win_and_a_later_extends_entry_wins_over_an_earlier(tmp_pat
         '{"extends": ["./a.json", "./b.json"], "compilerOptions": {"target": "ES5"}, '
         '"include": ["src"]}',
     )
-    assert (config.options.module, config.options.target) == ("nodenext", "es5")
+    assert (config.options.module, config.options.target) == (ModuleKind.NODENEXT, ScriptTarget.ES5)
     assert config.files == ("src/a.ts",)
 
 

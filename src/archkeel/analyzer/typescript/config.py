@@ -16,7 +16,87 @@ import posixpath
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from enum import Enum
 from typing import Final, Literal
+
+
+class ModuleKind(Enum):
+    """TypeScript's accepted emit modes, owned by configuration."""
+
+    NONE = "none"
+    COMMONJS = "commonjs"
+    AMD = "amd"
+    SYSTEM = "system"
+    UMD = "umd"
+    ES6 = "es6"
+    ES2015 = "es2015"
+    ES2020 = "es2020"
+    ES2022 = "es2022"
+    ESNEXT = "esnext"
+    NODE16 = "node16"
+    NODE18 = "node18"
+    NODE20 = "node20"
+    NODENEXT = "nodenext"
+    PRESERVE = "preserve"
+
+
+class ModuleResolution(Enum):
+    """Accepted resolver modes; NODE is normalized to NODE10 at the input boundary."""
+
+    NODE10 = "node10"
+    CLASSIC = "classic"
+    NODE16 = "node16"
+    NODENEXT = "nodenext"
+    BUNDLER = "bundler"
+
+
+class ScriptTarget(Enum):
+    """Accepted compilation targets; defaults retain the explicit original value."""
+
+    ES3 = "es3"
+    ES5 = "es5"
+    ES6 = "es6"
+    ES2015 = "es2015"
+    ES2016 = "es2016"
+    ES2017 = "es2017"
+    ES2018 = "es2018"
+    ES2019 = "es2019"
+    ES2020 = "es2020"
+    ES2021 = "es2021"
+    ES2022 = "es2022"
+    ES2023 = "es2023"
+    ES2024 = "es2024"
+    ESNEXT = "esnext"
+
+
+class PathToken(Enum):
+    """Closed path/glob grammar, distinct from user-supplied path names."""
+
+    CURRENT = "."
+    PARENT = ".."
+    ROOT = "/"
+    RELATIVE = "./"
+    STAR = "*"
+    DEEP_STAR = "**"
+    QUESTION = "?"
+    NODE_MODULES = "node_modules"
+
+    @staticmethod
+    def parse(value: str) -> PathToken | None:
+        return _PATH_TOKENS.get(value)
+
+
+class _WildcardUsage(Enum):
+    FILES = "files"
+    DIRECTORIES = "directories"
+    EXCLUDE = "exclude"
+
+
+class _ShadowKind(Enum):
+    DECLARATION = ".d.ts"
+    JAVASCRIPT = ".js"
+    JSX = ".jsx"
+
 
 Role = Literal["selected", "resolution"]
 Json = dict[str, object]
@@ -34,12 +114,18 @@ _UNMODELED: Final = (
     "allowArbitraryExtensions",
     "noDtsResolution",
 )
-_ENUMS: Final = {
-    "module": "none commonjs amd system umd es6 es2015 es2020 es2022 esnext node16 node18 "
-    "node20 nodenext preserve".split(),
-    "moduleResolution": "node10 node classic node16 nodenext bundler".split(),
-    "target": "es3 es5 es6 es2015 es2016 es2017 es2018 es2019 es2020 es2021 es2022 es2023 "
-    "es2024 esnext".split(),
+_PATH_TOKENS: Final[dict[str, PathToken]] = {member.value: member for member in PathToken}
+_MODULE_VALUES: Final[dict[str, ModuleKind]] = {member.value: member for member in ModuleKind}
+_RESOLUTION_VALUES: Final[dict[str, ModuleResolution]] = {
+    **{member.value: member for member in ModuleResolution},
+    "node": ModuleResolution.NODE10,
+}
+_TARGET_VALUES: Final[dict[str, ScriptTarget]] = {member.value: member for member in ScriptTarget}
+_SHADOW_KINDS: Final[dict[str, _ShadowKind]] = {member.value: member for member in _ShadowKind}
+_ENUMS: Final[dict[str, dict[str, Enum]]] = {
+    "module": dict(_MODULE_VALUES),
+    "moduleResolution": dict(_RESOLUTION_VALUES),
+    "target": dict(_TARGET_VALUES),
 }
 _BOOLEAN_OPTIONS: Final = frozenset("allowJs checkJs resolveJsonModule".split())
 _STRING_OPTIONS: Final = frozenset("baseUrl declarationDir outDir".split())
@@ -72,9 +158,10 @@ _KNOWN_OPTIONS: Final = frozenset(
     "tsBuildInfoFile typeRoots types useDefineForClassFields useUnknownInCatchVariables "
     "verbatimModuleSyntax version".split()
 )
-_ESM_MODULES: Final = frozenset({"es6", "es2015", "es2020", "es2022", "esnext"})
-_NODE16_MODULES: Final = frozenset({"node16", "node18", "node20"})
-_RESOLUTIONS: Final = {"node": "node10", "node10": "node10", "node16": "node16"}
+_ESM_MODULES: Final = frozenset(
+    {ModuleKind.ES6, ModuleKind.ES2015, ModuleKind.ES2020, ModuleKind.ES2022, ModuleKind.ESNEXT}
+)
+_NODE16_MODULES: Final = frozenset({ModuleKind.NODE16, ModuleKind.NODE18, ModuleKind.NODE20})
 _SUPPORTED: Final = (".ts", ".tsx", ".d.ts", ".cts", ".d.cts", ".mts", ".d.mts")
 _SUPPORTED_JS: Final = (".js", ".jsx", ".cjs", ".mjs")
 # Files of one group shadow each other: `a.ts` wins over `a.tsx`, `a.d.ts`, `a.js` and `a.jsx`.
@@ -84,15 +171,16 @@ _PRIORITY: Final = (
     (".mts", ".d.mts", ".mjs"),
 )
 # A string is captured so that a comment or a comma inside it survives.
+_CONFIG_DIRECTORY: Final = "${configDir}"
 _STRINGS: Final = r'("(?:[^"\\]|\\.)*")|//[^\n]*|/\*[\s\S]*?\*/'
 _TRAILING_COMMA: Final = r'("(?:[^"\\]|\\.)*")|,(?=\s*[}\]])'
 _NOT_EXCLUDED: Final = r"(?!(?:node_modules|bower_components|jspm_packages)(?:/|\Z))"
 _DEEP: Final = rf"(?:/{_NOT_EXCLUDED}[^/.][^/]*)*?"
 # Per usage: the text a lone `*` stands for and the text `**` stands for.
 _WILDCARDS: Final = {
-    "files": (r"(?:[^./]|(?:\.(?!min\.js\Z))?)*", _DEEP),
-    "directories": (r"[^/]*", _DEEP),
-    "exclude": (r"[^/]*", r"(?:/.+?)?"),
+    _WildcardUsage.FILES: (r"(?:[^./]|(?:\.(?!min\.js\Z))?)*", _DEEP),
+    _WildcardUsage.DIRECTORIES: (r"[^/]*", _DEEP),
+    _WildcardUsage.EXCLUDE: (r"[^/]*", r"(?:/.+?)?"),
 }
 
 
@@ -100,9 +188,9 @@ _WILDCARDS: Final = {
 class Options:
     """The compiler settings a resolver reads; explicit values only, as the compiler keeps them."""
 
-    module: str | None = None
-    module_resolution: str | None = None
-    target: str | None = None
+    module: ModuleKind | None = None
+    module_resolution: ModuleResolution | None = None
+    target: ScriptTarget | None = None
     allow_js: bool = False
     # Snapshot-relative directory of `baseUrl`, the `paths` patterns with their targets, and the
     # directory those targets are relative to: `baseUrl`, else the TSConfig that sets them.
@@ -112,30 +200,49 @@ class Options:
     unmodeled: tuple[str, ...] = ()
     json_modules: bool | None = None
 
+    def __post_init__(self) -> None:
+        for name, value, kind in (
+            ("module", self.module, ModuleKind),
+            ("module_resolution", self.module_resolution, ModuleResolution),
+            ("target", self.target, ScriptTarget),
+        ):
+            if value is not None and not isinstance(value, kind):
+                raise TypeError(f"{name} must be {kind.__name__} or None")
+
     @property
     def resolve_json(self) -> bool:
-        """Whether `.json` files resolve: set explicitly, else on for NodeNext and Bundler."""
+        """Whether JSON resolves: explicit setting, else Node20/Next or Bundler."""
         if self.json_modules is not None:
             return self.json_modules
-        return self.emit_module in ("node20", "nodenext") or self.resolution == "bundler"
+        return self.emit_module in (ModuleKind.NODE20, ModuleKind.NODENEXT) or (
+            self.resolution is ModuleResolution.BUNDLER
+        )
 
     @property
-    def emit_module(self) -> str:
-        """`module` after the compiler's default, which follows `target`."""
+    def emit_module(self) -> ModuleKind:
+        """The emit mode after applying the compiler's target-dependent default."""
         if self.module is not None:
             return self.module
-        return "commonjs" if self.target in (None, "es3", "es5") else "es2015"
+        return (
+            ModuleKind.COMMONJS
+            if self.target in (None, ScriptTarget.ES3, ScriptTarget.ES5)
+            else ModuleKind.ES2015
+        )
 
     @property
-    def resolution(self) -> str:
-        """The resolution kind in force: the explicit one, else the one `module` implies."""
+    def resolution(self) -> ModuleResolution:
+        """The effective resolution mode, normalized once before resolver dispatch."""
         if self.module_resolution is not None:
             return self.module_resolution
-        implied = {"commonjs": "node10", "nodenext": "nodenext", "preserve": "bundler"}
+        implied = {
+            ModuleKind.COMMONJS: ModuleResolution.NODE10,
+            ModuleKind.NODENEXT: ModuleResolution.NODENEXT,
+            ModuleKind.PRESERVE: ModuleResolution.BUNDLER,
+        }
         return (
-            "node16"
+            ModuleResolution.NODE16
             if self.emit_module in _NODE16_MODULES
-            else implied.get(self.emit_module, "classic")
+            else implied.get(self.emit_module, ModuleResolution.CLASSIC)
         )
 
 
@@ -153,11 +260,13 @@ def join(base: str, path: str) -> str:
 
 
 def is_outside(rel: str) -> bool:
-    return rel == ".." or rel.startswith("../")
+    return PathToken.parse(rel) is PathToken.PARENT or rel.startswith("../")
 
 
 def within(scope: str, path: str) -> bool:
-    return scope == "." or path == scope or path.startswith(f"{scope}/")
+    return (
+        PathToken.parse(scope) is PathToken.CURRENT or path == scope or path.startswith(f"{scope}/")
+    )
 
 
 class Snapshot:
@@ -236,7 +345,14 @@ class Snapshot:
 
     def installed(self, rel: str) -> bool:
         real: str = self.real(rel) or rel
-        return "node_modules" in real.split("/")
+        return any(
+            PathToken.parse(segment) is PathToken.NODE_MODULES for segment in real.split("/")
+        )
+
+
+def has_field(record: Json, name: str) -> bool:
+    """Test an open JSON field identity; present null and falsy values remain present."""
+    return name in record
 
 
 def decode(raw: bytes) -> str:
@@ -280,8 +396,8 @@ def _overlay(low: _Layer, high: _Layer) -> _Layer:
     """`high` wins key by key; `paths` carries the directory of the config that set it."""
     return _Layer(
         {**low.compiler, **high.compiler},
-        high.base_url if "baseUrl" in high.compiler else low.base_url,
-        high.paths_directory if "paths" in high.compiler else low.paths_directory,
+        high.base_url if has_field(high.compiler, "baseUrl") else low.base_url,
+        high.paths_directory if has_field(high.compiler, "paths") else low.paths_directory,
         {**low.specs, **high.specs},
         {**low.outputs, **high.outputs},
         low.partial or high.partial,
@@ -295,9 +411,8 @@ def _slashes(spec: str) -> str:
 
 def _under(value: str, directory: str, final: str) -> str:
     """A spec of a config in `directory`; `${configDir}` is the directory of the root config."""
-    marker = "${configDir}"
-    if value.startswith(marker):
-        tail: str = value[len(marker) :]
+    if re.match(re.escape(_CONFIG_DIRECTORY), value):
+        tail: str = value[len(_CONFIG_DIRECTORY) :]
         return join(final, tail.lstrip("/") or ".")
     return join(directory, value)
 
@@ -388,8 +503,8 @@ def _invalid(options: dict[str, object]) -> list[str]:
     ]
     refused = [
         f"Compiler option 6046: argument for '{name}' is not valid."
-        for name in _ENUMS
-        if options.get(name) is not None and _lowered(options, name) is None
+        for name, choices in _ENUMS.items()
+        if options.get(name) is not None and choices.get(_normalized(options, name)) is None
     ]
     malformed: list[str] = []
     booleans = _BOOLEAN_OPTIONS | (frozenset(_UNMODELED) - _STRING_LIST_OPTIONS)
@@ -407,10 +522,10 @@ def _invalid(options: dict[str, object]) -> list[str]:
     return [*unknown, *refused, *malformed]
 
 
-def _lowered(options: dict[str, object], key: str) -> str | None:
-    """An enum option's value, which the compiler matches without regard to case."""
+def _normalized(options: Json, key: str) -> str:
+    """Normalize one raw option; the owned lookup decides whether it is accepted."""
     value = options.get(key)
-    return value.lower() if isinstance(value, str) and value.lower() in _ENUMS[key] else None
+    return value.lower() if isinstance(value, str) else ""
 
 
 def _paths(raw: dict[str, object], problems: list[str]) -> tuple[tuple[str, tuple[str, ...]], ...]:
@@ -433,16 +548,20 @@ def _paths(raw: dict[str, object], problems: list[str]) -> tuple[tuple[str, tupl
 
 def _options(layer: _Layer, problems: list[str]) -> Options:
     raw = layer.compiler
-    resolution = _lowered(raw, "moduleResolution")
+    resolution = _RESOLUTION_VALUES.get(_normalized(raw, "moduleResolution"))
     paths = _paths(raw, problems)
     unmodeled = [name for name in _UNMODELED if raw.get(name) not in (None, False, [])]
-    if any("${configDir}" in target for _, targets in paths for target in targets):
+    if any(
+        re.search(re.escape(_CONFIG_DIRECTORY), target)
+        for _, targets in paths
+        for target in targets
+    ):
         unmodeled.append("paths with ${configDir}")
     json_flag = raw.get("resolveJsonModule")
     options = Options(
-        _lowered(raw, "module"),
-        _RESOLUTIONS.get(resolution, resolution) if resolution is not None else None,
-        _lowered(raw, "target"),
+        _MODULE_VALUES.get(_normalized(raw, "module")),
+        resolution,
+        _TARGET_VALUES.get(_normalized(raw, "target")),
         (raw.get("allowJs") if raw.get("allowJs") is not None else raw.get("checkJs")) is True,
         layer.base_url,
         paths,
@@ -452,61 +571,75 @@ def _options(layer: _Layer, problems: list[str]) -> Options:
     )
     emit, kind = options.emit_module, options.resolution
     # TS5110 and TS5095: the compiler refuses these pairs, so it observes no resolution.
-    if kind == "node16" and emit not in _NODE16_MODULES:
+    if kind is ModuleResolution.NODE16 and emit not in _NODE16_MODULES:
         problems.append("Compiler option 5110: 'module' must be node16 with this moduleResolution.")
-    elif kind == "nodenext" and emit != "nodenext":
+    elif kind is ModuleResolution.NODENEXT and emit is not ModuleKind.NODENEXT:
         problems.append(
             "Compiler option 5110: 'module' must be nodenext with this moduleResolution."
         )
-    elif kind == "bundler" and emit not in _ESM_MODULES | {"preserve"}:
+    elif kind is ModuleResolution.BUNDLER and emit not in _ESM_MODULES | {ModuleKind.PRESERVE}:
         problems.append(
             "Compiler option 5095: 'bundler' needs 'module' preserve or es2015 or later."
         )
-    elif emit in _NODE16_MODULES | {"nodenext"} and kind != (
-        "nodenext" if emit == "nodenext" else "node16"
+    elif emit in _NODE16_MODULES | {ModuleKind.NODENEXT} and kind != (
+        ModuleResolution.NODENEXT if emit is ModuleKind.NODENEXT else ModuleResolution.NODE16
     ):
-        problems.append(f"Compiler option 5110: 'moduleResolution' must follow 'module' {emit}.")
+        problems.append(
+            f"Compiler option 5110: 'moduleResolution' must follow 'module' {emit.value}."
+        )
     return options
 
 
 def _wildcard_text(single: str) -> Callable[[re.Match[str]], str]:
     def replace(found: re.Match[str]) -> str:
-        if found[0] == "*":
+        token = PathToken.parse(found[0])
+        if token is PathToken.STAR:
             return single
-        return "[^/]" if found[0] == "?" else re.escape(found[0])
+        return "[^/]" if token is PathToken.QUESTION else re.escape(found[0])
 
     return replace
 
 
-def _wildcard(spec: str, base: str, usage: str) -> str | None:
+def _wildcard(spec: str, base: str, usage: _WildcardUsage) -> str | None:
     """The compiler's regular expression for one file spec, over absolute-looking paths."""
     single, deep = _WILDCARDS[usage]
     path: str = posixpath.normpath(posixpath.join("/", base, spec))
-    components = [""] if path == "/" else path.split("/")
-    if usage != "exclude" and components[-1] == "**":
+    components = [""] if PathToken.parse(path) is PathToken.ROOT else path.split("/")
+    if (
+        usage is not _WildcardUsage.EXCLUDE
+        and PathToken.parse(components[-1]) is PathToken.DEEP_STAR
+    ):
         return None
-    if usage != "exclude" and not re.search(r"[.*?]", components[-1]):
+    if usage is not _WildcardUsage.EXCLUDE and not re.search(r"[.*?]", components[-1]):
         components += ["**", "*"]
     out, written, optional = "", False, 0
     for component in components:
-        if component == "**":
+        if PathToken.parse(component) is PathToken.DEEP_STAR:
             out += deep
         else:
-            if usage == "directories":
+            if usage is _WildcardUsage.DIRECTORIES:
                 out, optional = out + "(?:", optional + 1
             out += "/" if written else ""
             part = ""
-            if usage != "exclude" and component[:1] == "*":
+            if (
+                usage is not _WildcardUsage.EXCLUDE
+                and PathToken.parse(component[:1]) is PathToken.STAR
+            ):
                 part, component = f"(?:[^./]{single})?", component[1:]
-            elif usage != "exclude" and component[:1] == "?":
+            elif (
+                usage is not _WildcardUsage.EXCLUDE
+                and PathToken.parse(component[:1]) is PathToken.QUESTION
+            ):
                 part, component = "[^./]", component[1:]
             part += re.sub(r"[^\w\s/]", _wildcard_text(single), component, flags=re.ASCII)
-            out += (_NOT_EXCLUDED if usage != "exclude" and part != component else "") + part
+            out += (
+                _NOT_EXCLUDED if usage is not _WildcardUsage.EXCLUDE and part != component else ""
+            ) + part
         written = True
     return out + ")?" * optional
 
 
-def _matching(specs: list[str], base: str, usage: str) -> list[str]:
+def _matching(specs: list[str], base: str, usage: _WildcardUsage) -> list[str]:
     return [item for spec in specs if (item := _wildcard(spec, base, usage)) is not None]
 
 
@@ -519,7 +652,11 @@ def _base_path(spec: str) -> str:
     path: str = "/" + spec if not spec.startswith("/") else spec
     found = re.search(r"[*?]", path)
     if found is None:
-        return path if "." not in posixpath.basename(path) else posixpath.dirname(path) or "/"
+        return (
+            path
+            if re.search(r"\.", posixpath.basename(path)) is None
+            else posixpath.dirname(path) or "/"
+        )
     return path[: path.rindex("/", 0, found.start())] or "/"
 
 
@@ -544,9 +681,9 @@ def _discover(
             problems.append(f"Compiler option 5010: '{spec}' cannot end in a recursive wildcard.")
     # A pattern that climbs out of the snapshot can select nothing the collector may read.
     inside = [spec for spec in include or [] if not is_outside(spec)]
-    files = _matching(inside, ".", "files")
-    directories = _matching(inside, ".", "directories")
-    excluded = _matching(exclude, ".", "exclude")
+    files = _matching(inside, ".", _WildcardUsage.FILES)
+    directories = _matching(inside, ".", _WildcardUsage.DIRECTORIES)
+    excluded = _matching(exclude, ".", _WildcardUsage.EXCLUDE)
     # The config's own directory is walked first; a spec elsewhere adds its own start.
     starts = [join("/", own)]
     for start in sorted(_base_path(spec) for spec in inside):
@@ -590,7 +727,11 @@ def _shadowed(rel: str, known: set[str]) -> bool:
         stem = rel[: -len(own)]
         # A JavaScript file is kept next to its declaration file.
         return any(
-            f"{stem}{ext}" in known and not (ext == ".d.ts" and own in (".js", ".jsx"))
+            f"{stem}{ext}" in known
+            and not (
+                _SHADOW_KINDS.get(ext) is _ShadowKind.DECLARATION
+                and _SHADOW_KINDS.get(own) in (_ShadowKind.JAVASCRIPT, _ShadowKind.JSX)
+            )
             for ext in group[: group.index(own)]
         )
     return False
@@ -601,7 +742,7 @@ def load_config(snapshot: Snapshot, tsconfig: str, roots: tuple[str, ...]) -> Co
     own = posixpath.dirname(tsconfig) or "."
     layer = _layer(snapshot, tsconfig, own, problems, [])
     raw, _ = _read_json(snapshot, tsconfig)
-    references = raw is not None and "references" in raw
+    references = raw is not None and has_field(raw, "references")
     if references:
         problems.append("Project references require separately observed projects")
     options_before = len(problems)

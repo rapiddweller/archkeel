@@ -247,31 +247,19 @@ class _Tree:
 class _Node:
     """Decode a concrete grammar kind once and delegate only operations we consume."""
 
-    __slots__ = ("_raw", "_tree", "kind")
+    __slots__ = ("_raw", "_tree", "kind", "start_byte", "end_byte", "is_error", "is_missing")
 
     def __init__(self, raw: RawNode, tree: _Tree) -> None:
         self._raw = raw
         self._tree = tree
+        self.start_byte: int = raw.start_byte
+        self.end_byte: int = raw.end_byte
+        self.is_error: bool = raw.is_error
+        self.is_missing: bool = raw.is_missing
         try:
             self.kind: _NodeKind | None = _NodeKind(raw.type)
         except ValueError:
             self.kind = None
-
-    @property
-    def start_byte(self) -> int:
-        return self._raw.start_byte
-
-    @property
-    def end_byte(self) -> int:
-        return self._raw.end_byte
-
-    @property
-    def is_error(self) -> bool:
-        return self._raw.is_error
-
-    @property
-    def is_missing(self) -> bool:
-        return self._raw.is_missing
 
     @property
     def children(self) -> list[_Node]:
@@ -1819,9 +1807,7 @@ def _canonical_range(root: _Node, source: _Source, start: int, end: int) -> str:
     for token in tokens:
         value = source.text(token)
         lexeme = _lexeme(value)
-        closes_group = lexeme in {
-            _Lexeme.CLOSE_PAREN, _Lexeme.CLOSE_BRACKET, _Lexeme.CLOSE_BRACE
-        }
+        closes_group = lexeme in {_Lexeme.CLOSE_PAREN, _Lexeme.CLOSE_BRACKET, _Lexeme.CLOSE_BRACE}
         if lexeme == _Lexeme.COMMA:
             output = output.rstrip() + ", "
             previous_word = False

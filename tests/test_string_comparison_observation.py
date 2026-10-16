@@ -279,3 +279,84 @@ def test_native_typed_or_unproven_membership_needles_have_no_literal_claim(tmp_p
         if row.kind == "string_literal_compare"
     ]
     assert trace_valid_violations(result.observation) == ()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from enum import Enum\n"
+        "class Mixin:\n    @property\n    def value(self):\n        return 7\n"
+        'class Token(Mixin, Enum):\n    IMPORT = "import"\n',
+        "from enum import Enum\nclass Token(Enum):\n"
+        "    def __new__(cls, written):\n"
+        "        obj = object.__new__(cls)\n        obj._value_ = len(written)\n"
+        '        return obj\n    IMPORT = "import"\n',
+        "from enum import Enum\nclass Token(Enum):\n"
+        "    def __init__(self, written):\n        self._value_ = len(written)\n"
+        '    IMPORT = "import"\n',
+        "from enum import Enum\nclass Token(Enum):\n"
+        "    def __getattribute__(self, name):\n"
+        '        return {"value": 7}.get(name, object.__getattribute__(self, name))\n'
+        '    IMPORT = "import"\n',
+        "from enum import Enum\nclass Token(Enum):\n"
+        "    def __setattr__(self, name, value):\n"
+        '        object.__setattr__(self, name, {"_value_": 7}.get(name, value))\n'
+        '    IMPORT = "import"\n',
+        "from enum import Enum, EnumType\nclass ChangingEnumType(EnumType):\n"
+        "    def __new__(cls, name, bases, namespace):\n"
+        '        dict.__setitem__(namespace, "IMPORT", 7)\n'
+        "        return super().__new__(cls, name, bases, namespace)\n"
+        'class Token(Enum, metaclass=ChangingEnumType):\n    IMPORT = "import"\n',
+        "from enum import Enum\ndef change(cls):\n"
+        "    cls.IMPORT._value_ = 7\n    return cls\n"
+        '@change\nclass Token(Enum):\n    IMPORT = "import"\n',
+        'from enum import IntEnum\nclass Token(IntEnum):\n    IMPORT = "1"\n',
+        "from enum import Enum\nclass Token(Enum):\n"
+        "    @property\n    def value(self):\n        return 7\n"
+        '    IMPORT = "import"\n',
+        "from enum import Enum\nclass Token(Enum):\n"
+        '    _ignore_ = "IMPORT"\n    IMPORT = "import"\n',
+    ],
+    ids=[
+        "mixin-value",
+        "custom-new",
+        "custom-init",
+        "custom-getattribute",
+        "custom-setattr",
+        "metaclass-keyword",
+        "class-decorator",
+        "intenum-conversion",
+        "own-value",
+        "namespace-ignore",
+    ],
+)
+def test_native_custom_enum_does_not_establish_string_value(tmp_path, source):
+    source += "def parse(values):\n    return Token.IMPORT.value in values\n"
+    result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
+    assert result.diagnostics == () and result.observation is not None
+    assert not [
+        row
+        for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
+    assert trace_valid_violations(result.observation) == ()
+
+
+@pytest.mark.parametrize("base", ["Enum", "StrEnum"])
+def test_native_simple_enum_retains_literal_value_evidence(tmp_path, base):
+    source = (
+        f"from enum import {base}\nclass Token({base}):\n"
+        '    """Ordinary literal enum members."""\n    IMPORT = "import"\n'
+        '    EXPORT = "export"\n'
+        "def parse(values):\n    return Token.IMPORT.value in values\n"
+    )
+    result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
+    assert result.diagnostics == () and result.observation is not None
+    assert [
+        row.data.get("form")
+        for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ] == ["membership"]
+    assert [(row.kind, row.rule_ids) for row in trace_valid_violations(result.observation)] == [
+        ("forbidden_construct", ("RULE",))
+    ]

@@ -55,7 +55,9 @@ from .rule_support import (
 )
 
 _BROAD_BOUNDARY_TYPES: Final = ("object",)
-_TYPED_MAPPING_UNION_VERSIONS: Final = frozenset({"3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"})
+_TYPED_MAPPING_UNION_VERSIONS: Final = frozenset(
+    {"3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0"}
+)
 
 
 def _is_broad_boundary_type(

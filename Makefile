@@ -33,9 +33,10 @@ pr-test:
 		-q --durations=10 --junitxml=test-artifacts/pytest/pr-core.xml \
 		tests/test_ci_changes.py tests/test_make_gate.py tests/test_repository_hygiene.py \
 		tests/test_responsibility_validation.py \
-		tests/test_contract_model.py tests/test_dependency_selectors.py tests/test_typed_dependency_api.py tests/test_dependency_api_target.py tests/test_dependency_typed_control.py tests/test_typed_state_protocol.py tests/test_state_facts.py tests/test_boundary_type_nested_mapping.py tests/test_decisions.py \
+		tests/test_contract_model.py tests/test_dependency_selectors.py tests/test_typed_dependency_api.py tests/test_dependency_api_target.py tests/test_module_object_grants.py tests/test_dependency_typed_control.py tests/test_typed_state_protocol.py tests/test_state_facts.py tests/test_boundary_type_nested_mapping.py tests/test_decisions.py \
 		tests/test_target_graph.py::test_contract_corpus_preserves_version_and_uml_presence \
 		tests/test_collection_protocol.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py tests/test_source_trust_boundary.py \
+		tests/test_typescript_owned_types.py tests/test_typescript_json_fields.py tests/test_typescript_control_target.py \
 		tests/test_analyzer.py tests/test_typescript_config.py tests/test_typescript_resolve.py \
 		tests/test_typescript_array_constants.py \
 		tests/test_typescript_decorated_inventory.py \
@@ -162,7 +163,8 @@ typescript-native:
 	$(UV) run --locked python -m pytest -q tests/test_typescript_parse.py \
 		tests/test_typescript_inner.py tests/test_typescript_uml_acceptance.py \
 		tests/test_typescript_namespace_identities.py \
-		tests/test_typescript_collect.py tests/test_typescript_config.py \
+		tests/test_typescript_collect.py tests/test_typescript_owned_types.py \
+		tests/test_typescript_json_fields.py tests/test_typescript_control_target.py tests/test_typescript_config.py \
 		tests/test_typescript_config_reference.py \
 		tests/test_typescript_resolve.py tests/test_typescript_provenance.py \
 		tests/test_typescript_init_acceptance.py tests/test_typescript_demo.py
@@ -196,7 +198,7 @@ report-pages:
 	$(UV) run --locked python -m tools.report_pages
 
 architecture-graph-schema:
-	$(UV) run --locked python -m tools.architecture_graph_schema schema/architecture-graph.schema.json --contract schema/architecture-contract.schema.json --contract schema/architecture-contract-3.0.schema.json --contract schema/architecture-contract-3.1.schema.json --contract schema/architecture-contract-3.2.schema.json --contract schema/architecture-contract-3.3.schema.json --contract schema/architecture-contract-3.4.schema.json --contract schema/architecture-contract-3.5.schema.json --comparison schema/architecture-comparison.schema.json --report schema/architecture-report.schema.json --source-inventory schema/source-member-inventory.schema.json --source-profile schema/architecture-ir-python-decoded.schema.json --projection schema/architecture-projection.schema.json --command schema/architecture-command-2.0.schema.json
+	$(UV) run --locked python -m tools.architecture_graph_schema schema/architecture-graph.schema.json --contract schema/architecture-contract.schema.json --contract schema/architecture-contract-3.0.schema.json --contract schema/architecture-contract-3.1.schema.json --contract schema/architecture-contract-3.2.schema.json --contract schema/architecture-contract-3.3.schema.json --contract schema/architecture-contract-3.4.schema.json --contract schema/architecture-contract-3.5.schema.json --contract schema/architecture-contract-3.6.schema.json --comparison schema/architecture-comparison.schema.json --report schema/architecture-report.schema.json --source-inventory schema/source-member-inventory.schema.json --source-profile schema/architecture-ir-python-decoded.schema.json --projection schema/architecture-projection.schema.json --command schema/architecture-command-2.0.schema.json
 
 lint:
 	$(UV) run --locked ruff format --check $(LINT_PATHS)

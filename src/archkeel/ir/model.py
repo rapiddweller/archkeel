@@ -474,6 +474,14 @@ class NoComponentCyclesRule:
 
 
 @dataclass(frozen=True, slots=True)
+class ModuleObjectGrant:
+    """One exact caller may import one exact module object, without publishing its names."""
+
+    source_module: str
+    target_module: str
+
+
+@dataclass(frozen=True, slots=True)
 class InterfaceBoundaryRule:
     id: str
     kind: Literal["interface_boundary"]
@@ -481,6 +489,7 @@ class InterfaceBoundaryRule:
     provenance: tuple[str, ...]
     decided_by: Literal["architect", "agent"]
     include_type_checking: bool = True
+    module_object_grants: tuple[ModuleObjectGrant, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -705,7 +714,7 @@ class ContractDeclarations:
 @dataclass(frozen=True, slots=True)
 class ArchitectureContract:
     schema_version: Literal[
-        "2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"
+        "2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0"
     ]
     components: tuple[ContractComponent, ...]
     rules: tuple[ArchitectureRule, ...]
@@ -892,6 +901,19 @@ def _rule_references(
             ("allowed_children", rule.allowed_children, False),
         ]
     references = _references(f"/rules/{index}", named)
+    if isinstance(rule, InterfaceBoundaryRule):
+        references += [
+            ModuleReference(
+                f"/rules/{index}/module_object_grants/{item}/{field}",
+                value,
+                True,
+            )
+            for item, grant in enumerate(rule.module_object_grants or ())
+            for field, value in (
+                ("source_module", grant.source_module),
+                ("target_module", grant.target_module),
+            )
+        ]
     if isinstance(rule, BoundaryTypesRule):
         references += _boundary_allowance_references(index, rule.allowed_positions)
     if isinstance(rule, ForbiddenConstructRule):

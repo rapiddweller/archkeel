@@ -86,8 +86,15 @@ def _contract():
         selected.add(name.rsplit(".", 1)[0])
         selected.add(name.rsplit(".", 2)[0])
     uml = contract["declarations"]["uml"]
-    uml["entities"] = [entity for entity in uml["entities"] if entity["qualified_name"] in selected
-        or (entity["kind"] == "enum" and entity["qualified_name"].startswith("archkeel.analyzer.dart."))]
+    uml["entities"] = [
+        entity
+        for entity in uml["entities"]
+        if entity["qualified_name"] in selected
+        or (
+            entity["kind"] == "enum"
+            and entity["qualified_name"].startswith("archkeel.analyzer.dart.")
+        )
+    ]
     for entity in uml["entities"]:
         if entity["qualified_name"] in fields:
             entity["annotation"] = fields[entity["qualified_name"]]
@@ -280,6 +287,7 @@ def test_own_dart_module_guards_are_proven_from_actual_source(self_observation):
         )
     ]
 
+
 def test_native_dart_enum_identity_cannot_be_replaced_by_a_string_alias(tmp_path):
     root, config = _repository(tmp_path)
     path = root / "archkeel/analyzer/dart/syntax.py"
@@ -291,8 +299,7 @@ def test_native_dart_enum_identity_cannot_be_replaced_by_a_string_alias(tmp_path
     comparison = architecture_report(_model(root, config)).comparison
     assert comparison is not None and comparison.status == "FAIL"
     assert any(
-        row.status == "FAIL"
-        and row.subject_id == "archkeel.analyzer.dart.syntax.ParameterKind"
+        row.status == "FAIL" and row.subject_id == "archkeel.analyzer.dart.syntax.ParameterKind"
         for row in comparison.assessments
     ), comparison
     assert (root / "contract.json").read_bytes() == before
@@ -307,7 +314,8 @@ def test_dart_parser_produces_nominal_values_at_the_syntax_boundary():
     assert all(isinstance(item.kind, parse.DirectiveKind) for item in result.directives)
     assert all(
         isinstance(mode, parse.Combinator)
-        for directive in result.directives for mode, _ in directive.combinators
+        for directive in result.directives
+        for mode, _ in directive.combinators
     )
     for definition in result.definitions:
         assert isinstance(definition.kind, parse.DefinitionKind)
