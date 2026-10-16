@@ -12,6 +12,9 @@ A scoped `forbidden_construct` rule selecting `string_literal_compare` rejects:
   of `in`/`not in`, including parser tokens such as `"node_modules" in path.split("/")`;
 - literal value patterns in `match`, including nested sequence patterns;
 - direct, unambiguous module/class literal bindings, including `Final` annotations;
+- a single preceding text/bytes assignment at the top level of the same function;
+  parameter values, conditional writes, rebinding, closures and global/nonlocal writes
+  do not establish this local evidence;
 - direct named module literal collections whose visible loads are only membership;
 - explicit `LocalEnum.MEMBER.value` extraction when the local enum member has a
   written text/bytes value, exactly one directly proven stdlib `Enum` or `StrEnum`
@@ -25,8 +28,8 @@ An enum member comparison or identity check remains legitimate. Its explicit
 typed value for an external API or wire payload remains a boundary operation;
 this detector concerns comparisons, not ordinary serialization.
 
-The existing lexical-scope owner distinguishes a module literal from a parameter,
-local variable or shadowed class. A named collection with a second assignment,
+The existing lexical-scope owner distinguishes a supported literal binding from a
+parameter, ambiguous local variable or shadowed class. A named collection with a second assignment,
 global rebinding declaration, visible mutation or alias escape is not classified.
 Its initializer must have a single assignment target; chained assignments can
 publish the same mutable container through another name or attribute. Each named

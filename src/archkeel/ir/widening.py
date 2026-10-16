@@ -30,6 +30,7 @@ from .model import (
     ArchitectureContract,
     ArchitectureRule,
     BoundaryTypesRule,
+    CompatibilityLifetime,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
@@ -742,7 +743,7 @@ def contract_widening_changes(
                     f"compat module {module!r} changed from {old.target!r} to {new.target!r}",
                 )
             )
-        if old.lifetime == "migration" and new.lifetime == "permanent":
+        if old.lifetime != new.lifetime and new.lifetime == CompatibilityLifetime.PERMANENT:
             findings.append(
                 WideningChange(
                     f"compat module {module!r}",

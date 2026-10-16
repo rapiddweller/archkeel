@@ -1063,6 +1063,19 @@
         "docs/architecture/contract-version-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "IR-CONTRACT-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.codec_contract",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Decode closed contract grammar into owned nominal values; open JSON field grammar and arbitrary identities remain data.",
+      "provenance": [
+        "docs/architecture/contract-rule-grammar.md"
+      ],
+      "decided_by": "architect"
     }
   ]
 }

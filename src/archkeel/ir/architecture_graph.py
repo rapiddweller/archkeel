@@ -310,8 +310,7 @@ def contract_relative_path(value: str) -> PurePosixPath | None:
     return relative
 
 
-def validate_module_target(target: ContractModuleTarget) -> None:
-    path: str = target.path
+def _validate_module_target_path(path: str) -> None:
     relative = contract_relative_path(path)
     if (
         not path
@@ -322,6 +321,10 @@ def validate_module_target(target: ContractModuleTarget) -> None:
         or re.fullmatch(r"\.(?:py|dart|tsx?|mts|cts|jsx?|mjs|cjs)", relative.suffix) is None
     ):
         raise ValueError("path must be a repository-relative source path")
+
+
+def validate_module_target(target: ContractModuleTarget) -> None:
+    _validate_module_target_path(target.path)
     responsibility: str = target.responsibility
     if not responsibility.strip() or re.search(r"[\r\n]", responsibility):
         raise ValueError("responsibility must be one sentence on one line")

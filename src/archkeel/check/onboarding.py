@@ -25,6 +25,7 @@ from archkeel.ir.identity import module_identity
 from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
+    ArchitectureRuleKind,
     CompleteAssignmentRule,
     ComponentOwnership,
     ComponentRole,
@@ -289,31 +290,31 @@ def draft_contract(
     rules: list[ArchitectureRule] = [
         CompleteAssignmentRule(
             "ASSIGNMENT-COMPLETE",
-            "complete_assignment",
+            ArchitectureRuleKind.COMPLETE_ASSIGNMENT,
             namespace,
             "TODO: explain why every module needs exactly one owning component.",
             (DOCUMENT_PATH,),
-            "agent",
+            DecisionMaker.AGENT,
         )
     ]
     if not _has_cycle(labels, edges):
         rules.append(
             NoComponentCyclesRule(
                 "COMPONENT-NO-CYCLES",
-                "no_component_cycles",
+                ArchitectureRuleKind.NO_COMPONENT_CYCLES,
                 "TODO: explain why components must stay acyclic.",
                 (DOCUMENT_PATH,),
-                "agent",
+                DecisionMaker.AGENT,
             )
         )
     if public:
         rules.append(
             InterfaceBoundaryRule(
                 "INTERFACE-BOUNDARY",
-                "interface_boundary",
+                ArchitectureRuleKind.INTERFACE_BOUNDARY,
                 "TODO: explain why cross-component imports must use declared interfaces.",
                 (DOCUMENT_PATH,),
-                "agent",
+                DecisionMaker.AGENT,
             )
         )
     return ArchitectureContract(ContractVersion.V2_1, components, tuple(rules)), edges, sizes

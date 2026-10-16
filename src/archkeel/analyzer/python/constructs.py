@@ -288,8 +288,31 @@ class _LiteralComparisons:
             return False
         return resolved in {"enum.Enum", "enum.StrEnum"}
 
+    def _local_scalar(self, node: ast.Name) -> bool:
+        """One preceding literal write in the same function is written syntax evidence."""
+        binding = self.scopes.lookup(node, node.id)
+        owner = binding.owner
+        if (
+            binding.uncertain
+            or owner is None
+            or owner is not self.scopes.by_node[node]
+            or not isinstance(owner.node, ast.FunctionDef | ast.AsyncFunctionDef)
+        ):
+            return False
+        sites = owner.bindings.get(node.id, [])
+        if len(sites) != 1:
+            return False
+        assignment = self.scopes.parents.get(sites[0])
+        return (
+            isinstance(assignment, ast.Assign | ast.AnnAssign)
+            and self.scopes.parents.get(assignment) is owner.node
+            and (assignment.lineno, assignment.col_offset) < (node.lineno, node.col_offset)
+            and assignment.value is not None
+            and _is_str(assignment.value)
+        )
+
     def scalar(self, node: ast.expr) -> bool:
-        if _is_str(node):
+        if _is_str(node) or (isinstance(node, ast.Name) and self._local_scalar(node)):
             return True
         if not self._module_name(node):
             return False
