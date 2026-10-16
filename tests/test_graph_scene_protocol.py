@@ -56,3 +56,201 @@ def test_scene_create_rejects_unknown_graph_protocol_values(field):
     finally:
         browser.close()
         playwright.stop()
+
+def test_scene_vocabulary_is_generated_from_canonical_owners():
+    from tools.browser_graph_protocol import _OUTPUT, vocabulary_source
+
+    assert _OUTPUT.read_text(encoding="utf-8") == vocabulary_source()
+
+
+@pytest.mark.parametrize(
+    ("path", "before", "after"),
+    [
+        (
+            "report-graph-scene.js",
+            "return { id, kind: entity.kind, entity, sourceGraph, assessments,",
+            'return { id, kind: "component", entity, sourceGraph, assessments,',
+        ),
+        (
+            "report-graph-scene.js",
+            "return { id, kind: entity.kind, entity, sourceGraph, assessments,",
+            "return { id, kind: G.ComponentRole.COMPONENT, entity, sourceGraph, assessments,",
+        ),
+        (
+            "report-graph-protocol.ts",
+            "id: string; kind: G.EntityKind; entity: Entity;",
+            "id: string; kind: string; entity: Entity;",
+        ),
+        (
+            "report-graph-scene.js",
+            "@param {Context} context @param {Options} options @returns {Scene}",
+            "@param {Context} context @param {Options} options @returns {object}",
+        ),
+    ],
+    ids=["raw-field", "same-spelling-wrong-domain", "field-widening", "return-widening"],
+)
+def test_actual_scene_consumer_rejects_type_mutations(tmp_path, path, before, after):
+    from pathlib import Path
+    import shutil
+    import subprocess
+
+    if shutil.which("npx") is None:
+        pytest.skip("The browser development compiler requires Node/npx")
+    root = Path(__file__).parents[1]
+    assets = root / "src/archkeel/render/assets"
+    sources = (
+        "report-graph-vocabulary.ts",
+        "report-graph-protocol.ts",
+        "report-graph-scene.js",
+    )
+    for name in sources:
+        shutil.copyfile(assets / name, tmp_path / name)
+    target = tmp_path / "browser_graph_scene_target.ts"
+    shutil.copyfile(root / "tests/browser_graph_scene_target.ts", target)
+    command = [
+        "npx", "--yes", "--package", "typescript@5.9.3", "tsc",
+        "--strict", "--allowJs", "--checkJs", "--noEmit", "--target", "ES2022",
+        "--module", "none", *(str(tmp_path / name) for name in sources), str(target),
+    ]
+    valid = subprocess.run(command, text=True, capture_output=True, check=False)
+    assert valid.returncode == 0, valid.stdout + valid.stderr
+    candidate = tmp_path / path
+    source = candidate.read_text(encoding="utf-8")
+    assert source.count(before) == 1, "Mutation must hit exactly one actual consumer declaration"
+    candidate.write_text(source.replace(before, after), encoding="utf-8")
+    mutated = subprocess.run(command, text=True, capture_output=True, check=False)
+    assert mutated.returncode != 0, "Compiler accepted actual source widening/domain corruption"
+    assert "error TS" in mutated.stdout, mutated.stdout + mutated.stderr
+
+
+def test_graph_scene_keeps_wire_identity_json_and_primitive_tokens():
+    api = pytest.importorskip("playwright.sync_api")
+    playwright, browser, page = _asset_page(api, ["report-scene.js"])
+    try:
+        result = page.evaluate(
+            """() => {
+              const G = ArchkeelGraphProtocol;
+              const P = ArchkeelGraphSceneProtocol;
+              const first = {id: "a", kind: "module", qualified_name: "free.any.a",
+                parent_id: null, presence: "defined", responsibilities: [],
+                modifiers: [], file_path: "free/any/a.py"};
+              const second = {...first, id: "b", qualified_name: "free.any.b"};
+              const site = {id: "import", kind: "imports", source_id: "a", target_id: "b",
+                candidate_ids: [], resolution: "resolved"};
+              const graph = {origin: "observed", entities: [first, second],
+                relationships: [site], component_intents: []};
+              const data = {observed: graph, target: null};
+              const before = JSON.stringify(data);
+              const model = ArchkeelReportScene.create(data);
+              const context = {graph, scope: null, comparison: null};
+              const options = {viewMode: P.ViewMode.DIAGRAM};
+              const scene = model.projectArchitectureScene(context, options);
+              const again = model.projectArchitectureScene(context, options);
+              const clone = structuredClone(scene);
+              const node = scene.nodes.find(node => node.id === first.id);
+              const decoded = P.decodeGraph(graph);
+              let zeroRejected = false;
+              try { G.decodeAssessmentStatus(0); } catch { zeroRejected = true; }
+              const mermaid = ArchkeelReportScene.sceneToMermaid({
+                nodes: [{id:"a", label:"A", assessments:[{status:G.AssessmentStatus.PASS}]}],
+                edges: [],
+              });
+              return {
+                graphIdentity: decoded === graph && node.sourceGraph === graph,
+                entityIdentity: node.entity === first,
+                siteIdentity: scene.edges[0].sites[0] === site,
+                unchanged: JSON.stringify(data) === before,
+                stable: JSON.stringify(scene) === JSON.stringify(again),
+                clone: clone.nodes[0].kind === G.EntityKind.MODULE,
+                origin: G.encodeOriginKind(decoded.origin),
+                status: G.encodeAssessmentStatus(G.AssessmentStatus.PASS),
+                zeroRejected,
+                passVisible: mermaid.includes("A · PASS"),
+                tokensAreStrings: Object.values(G.AssessmentStatus).every(token => typeof token === "string"),
+              };
+            }"""
+        )
+        assert result == {
+            "graphIdentity": True,
+            "entityIdentity": True,
+            "siteIdentity": True,
+            "unchanged": True,
+            "stable": True,
+            "clone": True,
+            "origin": "observed",
+            "status": "PASS",
+            "zeroRejected": True,
+            "passVisible": True,
+            "tokensAreStrings": True,
+        }
+    finally:
+        browser.close()
+        playwright.stop()
+
+def test_native_scene_validates_each_graph_once_at_its_index_lifetime():
+    api = pytest.importorskip("playwright.sync_api")
+    playwright, browser, page = _asset_page(api, ["report-scene.js"])
+    try:
+        result = page.evaluate(
+            """() => {
+              let reads = 0;
+              const entity = {id:"sample", kind:"module", qualified_name:"free.name",
+                parent_id:null, presence:"defined", responsibilities:[], modifiers:[],
+                visibility:{get kind() { reads += 1; return "public"; }}};
+              const graph = {origin:"observed", entities:[entity], relationships:[],
+                component_intents:[]};
+              const model = ArchkeelReportScene.create({observed:graph});
+              const initial = reads;
+              for (let i = 0; i < 3; i += 1) {
+                model.projectArchitectureScene({graph,scope:null}, {viewMode:"diagram"});
+              }
+              const afterOwn = reads;
+              const external = {...graph, entities:[{...entity, id:"external"}]};
+              model.projectArchitectureScene({graph:external,scope:null}, {viewMode:"diagram"});
+              const afterExternal = reads;
+              model.projectArchitectureScene({graph:external,scope:null}, {viewMode:"diagram"});
+              return {initial, afterOwn, afterExternal, afterAgain:reads};
+            }"""
+        )
+        assert result == {"initial": 1, "afterOwn": 1, "afterExternal": 2, "afterAgain": 2}
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_actual_own_graph_scene_preserves_full_wire_json(self_observation):
+    import json
+    from archkeel.ir.graph_codec import report_bytes
+    from archkeel.ir.report_graph import architecture_report
+
+    data = json.loads(report_bytes(architecture_report(self_observation)))
+    api = pytest.importorskip("playwright.sync_api")
+    playwright, browser, page = _asset_page(api, ["report-scene.js"])
+    try:
+        result = page.evaluate(
+            """data => {
+              const before = JSON.stringify(data);
+              const model = ArchkeelReportScene.create(data);
+              const graph = data.observed;
+              const module = graph.entities.find(entity =>
+                entity.qualified_name === "archkeel.ir.architecture_graph"
+                && entity.kind === "module");
+              const scene = model.projectArchitectureScene(
+                {graph, scope:module.id}, {viewMode:"diagram"});
+              const again = model.projectArchitectureScene(
+                {graph, scope:module.id}, {viewMode:"diagram"});
+              return {
+                unchanged: before === JSON.stringify(data),
+                stable: JSON.stringify(scene) === JSON.stringify(again),
+                identities: scene.nodes.every(node => node.sourceGraph === graph
+                  && graph.entities.includes(node.entity)),
+                cards: scene.nodes.length,
+              };
+            }""",
+            data,
+        )
+        assert result["unchanged"] and result["stable"] and result["identities"]
+        assert result["cards"] > 0
+    finally:
+        browser.close()
+        playwright.stop()

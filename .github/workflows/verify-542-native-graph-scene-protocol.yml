@@ -5,9 +5,9 @@ on:
 permissions:
   contents: read
 jobs:
-  graph-scene-compiler:
+  strict-actual-source-and-runtime:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -21,23 +21,63 @@ jobs:
         with:
           node-version: "22"
       - run: uv sync --locked
-      - name: Generate real canonical vocabulary and compile the protocol
-        run: |
-          uv run --locked python -m tools.browser_graph_protocol
-          npx --yes --package typescript@5.9.3 tsc --strict --target ES2022 --module none --outFile src/archkeel/render/assets/report-graph-protocol.js src/archkeel/render/assets/report-graph-vocabulary.ts src/archkeel/render/assets/report-graph-protocol.ts
-      - name: Check the actual native graph scene consumer
-        run: npx --yes --package typescript@5.9.3 tsc --strict --allowJs --checkJs --noEmit --target ES2022 --module none src/archkeel/render/assets/report-graph-vocabulary.ts src/archkeel/render/assets/report-graph-protocol.ts src/archkeel/render/assets/report-graph-scene.js
+      - name: Deterministic generated and compiled artifact check
+        run: make browser-graph-check
       - run: make browser-install
-      - name: Actual ingress and existing scene/layout runtime
+      - name: Actual compiler mutations, ingress, original graph and existing scene/layout
         run: uv run --locked --with playwright==1.62.0 python -m pytest -q tests/test_graph_scene_protocol.py tests/test_report_renderer_units.py
-      - name: Export deterministic artifacts and source formatting
+      - name: Native Python checks and hygiene
+        run: |
+          make lint typecheck
+          uv run --locked python -m pytest -q tests/test_repo_hygiene.py
+      - name: Export final formatting
         if: always()
         run: |
-          uv run --locked ruff check --fix tools/browser_graph_protocol.py tests/test_graph_scene_protocol.py
-          uv run --locked ruff format tools/browser_graph_protocol.py tests/test_graph_scene_protocol.py tests/test_report_renderer_units.py
+          uv run --locked ruff check --fix tools/browser_graph_protocol.py tests/test_graph_scene_protocol.py tests/smoke_test.py
+          uv run --locked ruff format tools/browser_graph_protocol.py tests/test_graph_scene_protocol.py tests/test_report_renderer_units.py tests/smoke_test.py
           python - <<'PY'
           import json
           from pathlib import Path
-          paths = ["tools/browser_graph_protocol.py", "src/archkeel/render/assets/report-graph-vocabulary.ts", "src/archkeel/render/assets/report-graph-protocol.js", "tests/test_graph_scene_protocol.py", "tests/test_report_renderer_units.py"]
-          print("SCENE_ARTIFACTS=" + json.dumps({path: Path(path).read_text() for path in paths if Path(path).is_file()}))
+          paths = ["tools/browser_graph_protocol.py", "tests/test_graph_scene_protocol.py", "tests/test_report_renderer_units.py", "tests/smoke_test.py"]
+          print("SCENE_ARTIFACTS=" + json.dumps({path: Path(path).read_text() for path in paths}))
           PY
+  browser-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - run: make browser-install
+      - name: Actual native graph, routes, filters and Mermaid consumers
+        run: |
+          uv run --locked --with playwright==1.62.0 python -m pytest -q \
+            tests/test_own_uml_target.py::test_own_type_dependencies_have_visible_endpoints_and_connected_focus \
+            tests/test_own_uml_target.py::test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence \
+            tests/test_own_uml_target.py::test_own_class_overview_keeps_distinct_routes_and_type_cues \
+            tests/test_uml_rendering.py::test_keyboard_drilldown_and_view_roundtrip_keep_the_source_scope \
+            tests/test_uml_rendering.py::test_source_scope_retains_unresolved_calls_and_parameter_kinds \
+            tests/test_uml_rendering.py::test_static_members_are_underlined_in_previews_and_drilldown \
+            tests/test_atlas_report.py::test_offline_module_drilldown_reaches_native_classifiers_and_returns \
+            tests/test_atlas_report.py::test_offline_scope_url_history_matches_direct_classifier_and_members \
+            tests/test_atlas_report.py::test_atlas_browser_keeps_positions_and_unknown_cells_across_lenses
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - run: uv build --no-sources --clear
+      - run: make smoke

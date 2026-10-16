@@ -20,7 +20,7 @@ ci-check: ci-artifacts-clean ci-core-check ci-report-check
 
 ci-core-check: PYTEST_EXTRA = --with playwright==$(PLAYWRIGHT_VERSION)
 ci-core-check: PYTEST_STOP := --maxfail=1
-ci-core-check: browser-install gate typescript-compiler-check ci-typescript
+ci-core-check: browser-install gate typescript-compiler-check browser-graph-check ci-typescript
 
 ci-report-check: report-timing report-browser-proof
 
@@ -315,3 +315,19 @@ build:
 smoke:
 	$(UV) run --isolated --no-project --with dist/*.whl tests/smoke_test.py
 	$(UV) run --isolated --no-project --with dist/*.tar.gz tests/smoke_test.py
+
+.PHONY: browser-graph-generate browser-graph-check
+BROWSER_GRAPH_PROTOCOL := src/archkeel/render/assets/report-graph-vocabulary.ts src/archkeel/render/assets/report-graph-protocol.ts
+BROWSER_GRAPH_COMPILER := npx --yes --package typescript@5.9.3 tsc --strict --target ES2022 --module none
+
+browser-graph-generate:
+	$(UV) run --locked python -m tools.browser_graph_protocol
+	$(BROWSER_GRAPH_COMPILER) --outFile src/archkeel/render/assets/report-graph-protocol.js $(BROWSER_GRAPH_PROTOCOL)
+
+browser-graph-check:
+	$(UV) run --locked python -m tools.browser_graph_protocol --check
+	@set -e; browser_graph_stage=$$(mktemp -d); \
+		trap 'rm -rf "$$browser_graph_stage"' EXIT; \
+		$(BROWSER_GRAPH_COMPILER) --outFile "$$browser_graph_stage/protocol.js" $(BROWSER_GRAPH_PROTOCOL); \
+		cmp src/archkeel/render/assets/report-graph-protocol.js "$$browser_graph_stage/protocol.js"
+	$(BROWSER_GRAPH_COMPILER) --allowJs --checkJs --noEmit $(BROWSER_GRAPH_PROTOCOL) src/archkeel/render/assets/report-graph-scene.js tests/browser_graph_scene_target.ts
