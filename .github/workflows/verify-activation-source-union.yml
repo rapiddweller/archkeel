@@ -1,0 +1,53 @@
+name: Prepare coherent typed input and predicate source union
+on:
+  push:
+    branches: [verify/542-activation-source-union]
+permissions:
+  contents: read
+jobs:
+  source-union:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f63840b5c912ae40eff42fa7b12fd41240566d46
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Calculate exact Git source union without remote writes
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          
+          def git(*args):
+              return subprocess.run(["git", *args], check=True, capture_output=True).stdout.decode()
+          
+          stages = [{"name":"coherent-reviewed-string-predicate-activation","base":"ad7be0ec26ff4ac0b41db6d4bb8e2b118ecf9596","head":"15f1fa127c37399541e09b16ccf23ebe246f3709","paths":["docs/architecture/dart-input-grammar.md","docs/architecture/python-string-predicates.md","docs/architecture/typescript-control-types.md","docs/architecture/typescript-source-input.md","docs/architecture/typescript-syntax-types.md","docs/superpowers/plans/2026-10-16-dart-input-grammar.md","docs/superpowers/plans/2026-10-16-string-predicate-activation-union.md","docs/superpowers/plans/2026-10-16-typescript-source-input-grammar.md","src/archkeel/analyzer/dart/collect.py","src/archkeel/analyzer/dart/parse.py","src/archkeel/analyzer/dart/resolve.py","src/archkeel/analyzer/dart/snapshot.py","src/archkeel/analyzer/dart/syntax.py","src/archkeel/analyzer/python/constructs.py","src/archkeel/analyzer/typescript/collect.py","src/archkeel/analyzer/typescript/config.py","src/archkeel/analyzer/typescript/parse.py","src/archkeel/analyzer/typescript/resolve.py","src/archkeel/analyzer/typescript/source_input.py","tests/test_analyzer.py","tests/test_dart_input_grammar.py","tests/test_dart_typed_controls.py","tests/test_levels.py","tests/test_protocol_uml_target.py","tests/test_python_string_predicate_target.py","tests/test_references.py","tests/test_self.py","tests/test_string_predicate_observation.py","tests/test_typescript_control_target.py","tests/test_typescript_source_input.py"]}]
+          for stage in stages:
+              patch = subprocess.run(["git", "diff", "--binary", stage["base"], stage["head"], "--", *stage["paths"]], check=True, capture_output=True).stdout
+              if patch:
+                  applied = subprocess.run(["git", "apply", "--3way", "--index", "-"], input=patch, capture_output=True)
+                  if applied.returncode:
+                      print("MERGE_CONFLICT=" + stage["name"])
+                      print(applied.stderr.decode()[-6000:])
+                      print(git("diff", "--name-only", "--diff-filter=U"))
+                      raise SystemExit(1)
+              print("SOURCE_STAGE=" + stage["name"])
+          
+          paths = []
+          for line in git("diff", "--cached", "--name-status", "--no-renames", "HEAD").splitlines():
+              status, path = line.split("\t")
+              if status == "D":
+                  paths.append({"path": path, "deleted": True})
+                  continue
+              mode = git("ls-files", "--stage", "--", path).split()[0]
+              content = Path(path).read_text()
+              parts = [content[index:index + 12000] for index in range(0, len(content), 12000)] or [""]
+              paths.append({"path": path, "mode": mode, "parts": len(parts), "index_sha": git("ls-files", "--stage", "--", path).split()[1], "text_sha": subprocess.run(["git", "hash-object", "--stdin"], input=content.encode(), capture_output=True, check=True).stdout.decode().strip()})
+              for index, part in enumerate(parts):
+                  print("SOURCE_UNION_CHUNK=" + json.dumps({"path": path, "index": index, "content": part}, separators=(",", ":")))
+          print("SOURCE_UNION_PATHS=" + json.dumps(paths, separators=(",", ":")))
+          print("SOURCE_UNION_TREE=" + git("write-tree").strip())
+          
+          PY
