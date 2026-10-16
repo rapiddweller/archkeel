@@ -5,6 +5,7 @@
 
 import json
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 from test_architecture_demo import CONFIG, _prepare_repo
@@ -275,3 +276,42 @@ def test_bilateral_missing_caller_metadata_preserves_the_original_candidate(
     incomplete = _with_calls(converter_observation, tuple(records))
     assert incomplete.coverage.calls_analyzed == len(records)
     assert _pairs(incomplete)[f"{_OUTSIDE}.different"] == f"{_OWNER}.a_first"
+
+
+@pytest.mark.parametrize(
+    "nested_body",
+    [
+        'return [unknown(item) for item in ["value"]]',
+        "return lambda item: unknown(item)",
+        "def child():\n        return unknown(value)\n    return child()",
+    ],
+    ids=["comprehension", "lambda", "nested-function"],
+)
+def test_calls_in_nested_scopes_preserve_the_structural_candidate(
+    tmp_path: Path, nested_body: str
+) -> None:
+    model = _MODEL.replace(
+        "converted = First(str(value))\n    return converted",
+        f"converted = First(value)\n    {nested_body}",
+    ).replace("def a_first(value: str) -> First:", "def a_first(value: str):")
+    app = _APP.replace(
+        "converted = Third(str(value))\n    return converted",
+        f"converted = Third(value)\n    {nested_body}",
+    ).replace("def different(value: str) -> Third:", "def different(value: str):")
+    root = _prepare_repo(
+        tmp_path, {"shop/model/converters.py": model, "shop/app/converters.py": app}
+    )
+    _, architecture = run_report(root, config=CONFIG, analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    for caller in (f"{_OWNER}.a_first", f"{_OUTSIDE}.different"):
+        nested = [
+            row
+            for row in observation.records("calls") or ()
+            if isinstance(scope := row.data.get("source_scope"), str)
+            and scope.startswith(f"{caller}.")
+            and row.data.get("expression") == "unknown"
+        ]
+        assert len(nested) == 1
+        assert nested[0].data.get("status") == "unresolved"
+    assert _pairs(observation)[f"{_OUTSIDE}.different"] == f"{_OWNER}.a_first"
