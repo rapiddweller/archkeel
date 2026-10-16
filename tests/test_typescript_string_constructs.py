@@ -109,7 +109,7 @@ def test_written_literal_comparisons_have_actual_native_trace_valid_failures(
 def test_capability_and_empty_source_never_claim_complete_construct_absence(tmp_path):
     facts, model = _model(tmp_path, "export function same(left, right) { return left === right; }")
     capabilities = {item.name: item.status for item in facts.capabilities.constructs}
-    assert capabilities[ForbiddenConstructKind.STRING_LITERAL_COMPARE] is ConstructSupport.PARTIAL
+    assert capabilities.get(ForbiddenConstructKind.STRING_LITERAL_COMPARE) is ConstructSupport.PARTIAL
     assert not _constructs(facts)
     assert not trace_valid_violations(model)
     assert _assessment(model).status == "UNKNOWN"
