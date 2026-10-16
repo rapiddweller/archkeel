@@ -128,7 +128,7 @@ def test_unknown_future_wire_reason_keeps_exact_text_and_conservative_verdict():
     )
     assert inspect_observation(observation)[1] == "UNKNOWN"
     encoded = canonical_report_bytes(observation)
-    replay = parse_observation(json.loads(encoded))
+    replay = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert canonical_report_bytes(replay) == encoded
     actual = {record.id: record for record in replay.records("unknowns")}
     assert actual["POSITION"].data.get("reason") == "future:reason"
@@ -181,7 +181,8 @@ def test_native_real_private_ports_match_the_independent_target(tmp_path):
     comparison = _comparison(_model(root, config))
     assert comparison.status == "PASS", [
         (row.subject_id, row.aspect, row.status, row.evidence_ids)
-        for row in comparison.assessments if row.status != "PASS"
+        for row in comparison.assessments
+        if row.status != "PASS"
     ]
 
 

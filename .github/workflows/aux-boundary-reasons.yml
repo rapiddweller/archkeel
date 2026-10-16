@@ -31,3 +31,23 @@ jobs:
           from pathlib import Path
           print("HOSTED_FORMATTED_TEST=" + json.dumps(Path("tests/test_boundary_reason_types.py").read_text()))
           PY
+      - name: Genuine independent field and return RED evidence
+        if: ${{ always() }}
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+          sys.path.insert(0, "tests")
+          from test_boundary_reason_types import _repository, _model, _comparison
+          from archkeel.ir.trace import trace_valid_violations
+          with TemporaryDirectory() as temporary:
+              root, config = _repository(Path(temporary))
+              observed = _model(root, config)
+              comparison = _comparison(observed)
+              rows = [dict(subject=row.subject_id, aspect=row.aspect, status=row.status, evidence=list(row.evidence_ids)) for row in comparison.assessments if row.subject_id in {"BOUNDARY-POSITION-REASON", "BOUNDARY-REASON-CLASSIFIER"}]
+              print("GENUINE_NATIVE_REASON_PORT_RED=" + json.dumps(rows, sort_keys=True))
+              assert sum(row["status"] == "FAIL" for row in rows) >= 2
+              print("GENUINE_TRACE_VALID_VIOLATIONS", [row.id for row in trace_valid_violations(observed)])
+          PY
