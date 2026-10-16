@@ -95,7 +95,7 @@ jobs:
           version: "0.12.13"
       - run: uv python install 3.11.12 3.12.10
       - run: uv sync --locked
-      - name: Strict actual own baseline and normal amendment
+      - name: Strict actual own baseline
         run: |
           set +e
           uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > "$RUNNER_TEMP/grammar-own.json"
@@ -105,6 +105,20 @@ jobs:
           import json,os
           from pathlib import Path
           result=json.loads((Path(os.environ["RUNNER_TEMP"])/"grammar-own.json").read_text())
-          print("GRAMMAR_OWN",json.dumps(result))
+          print("GRAMMAR_OWN",json.dumps({key: result[key] for key in ("exit_code","failures","diagnostics","measurements")}))
+          PY
+          exit "$status"
+      - name: Identify exact unresolved call changes against version predecessor
+        if: always()
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 5933ffbbfd588ac96e36748de937cb1f6e739655 --json > "$RUNNER_TEMP/grammar-against.json"
+          status=$?
+          set -e
+          uv run --locked python - <<'PY'
+          import json,os
+          from pathlib import Path
+          result=json.loads((Path(os.environ["RUNNER_TEMP"])/"grammar-against.json").read_text())
+          print("GRAMMAR_AGAINST",json.dumps({key: result[key] for key in ("exit_code","failures","diagnostics","measurements","unresolved_call_changes")}))
           PY
           exit "$status"
