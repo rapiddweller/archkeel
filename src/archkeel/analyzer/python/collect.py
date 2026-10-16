@@ -8,7 +8,6 @@ from __future__ import annotations
 import hashlib
 import sys
 from pathlib import Path
-from typing import Literal
 
 from archkeel.analyzer.runtime import (
     collector_provenance,

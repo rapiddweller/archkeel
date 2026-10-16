@@ -145,7 +145,8 @@
         "archkeel.ir.dependency:DependencySelector",
         "archkeel.ir.dependency:DependencyTargetKind",
         "archkeel.ir.dependency:ModuleSelection",
-        "archkeel.ir.dependency:SelectorMatch"
+        "archkeel.ir.dependency:SelectorMatch",
+        "archkeel.ir.profiles:ObservedSection"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
@@ -769,9 +770,15 @@
         "archkeel.ir.facts",
         "archkeel.ir.type_shapes",
         "archkeel.ir.architecture_graph",
-        "archkeel.ir.dependency"
+        "archkeel.ir.dependency",
+        "archkeel.ir.protocol",
+        "archkeel.ir.facts_codec",
+        "archkeel.ir.codec_observation",
+        "archkeel.ir.profiles",
+        "archkeel.analyzer.runtime",
+        "archkeel.cli.config"
       ],
-      "rationale": "Governance enums stay in ir.model; source facts, type shapes, the shared UML graph and pure dependency policy own their respective vocabularies.",
+      "rationale": "Each domain and wire boundary owns its closed control vocabulary; codecs keep private wire tags while consumers share published nominal types.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],

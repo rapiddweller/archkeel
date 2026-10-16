@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from enum import StrEnum
 from math import isfinite
-from typing import Any, Literal, TypeGuard, get_args
+from typing import Any, TypeGuard, get_args
 
 from archkeel.ir.codec_wire import (
     _count,
@@ -29,7 +29,6 @@ from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
-    SCHEMA_VERSION,
     AnalyzerInfo,
     ContractInfo,
     Coverage,
@@ -58,7 +57,7 @@ class _EncodingKind(StrEnum):
 
 class _StringSentinel(StrEnum):
     MISSING = "$m"
-    ESCAPED_MISSING = "$m"
+    ESCAPED_MISSING = "$$m"
 
 
 def _string_sentinel(value: str) -> _StringSentinel | None:
@@ -75,7 +74,7 @@ def _observation_version(value: RawJson) -> _ObservationVersion:
         raise ValueError("unsupported observation schema_version") from error
 
 
-def _is_columnar(value: RawJson) -> bool:
+def _is_columnar(value: RawJson) -> TypeGuard[dict[str, RawJson]]:
     if not isinstance(value, dict):
         return False
     kind = value.get("kind")
@@ -198,7 +197,9 @@ def parse_observation(raw: object) -> Observation:
         )
         if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE
         else None,
-        producer=_parse_analyzer(item["producer"], "producer") if item.get("producer", _MISSING_VALUE) is not _MISSING_VALUE else None,
+        producer=_parse_analyzer(item["producer"], "producer")
+        if item.get("producer", _MISSING_VALUE) is not _MISSING_VALUE
+        else None,
     )
 
 
@@ -221,7 +222,10 @@ def _known_identity(raw: RawJson, label: str) -> str:
 
 def _parse_runtime(raw: RawJson, *, allow_requirement_state: bool) -> RuntimeInfo:
     item = _object(raw, "runtime")
-    if not allow_requirement_state and item.get("requirement_state", _MISSING_VALUE) is not _MISSING_VALUE:
+    if (
+        not allow_requirement_state
+        and item.get("requirement_state", _MISSING_VALUE) is not _MISSING_VALUE
+    ):
         raise ValueError("runtime.requirement_state requires observation/Delta schema 2.0.0")
     if set(item) - {"name", "version", "required", "requirement_state"} or not {
         "name",
@@ -477,7 +481,6 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
     if not _is_columnar(encoding):
         _validate_profile_sections(encoded, _observation_profile(encoded))
         return encoded
-    assert isinstance(encoding, dict)
     profile = _observation_profile(encoded)
     _validate_profile_sections(encoded, profile)
     string_table = _strings(encoded["string_table"], "string_table")

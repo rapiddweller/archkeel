@@ -10,7 +10,7 @@ import re
 from enum import StrEnum
 from math import isfinite
 from pathlib import PurePosixPath, PureWindowsPath
-from typing import Literal, TypeAlias, TypeGuard, get_args
+from typing import TypeAlias, TypeGuard, get_args
 
 from .facts import (
     EVIDENCE_FIELDS,
@@ -179,7 +179,12 @@ def _runtime_requirement_state(value: RawJson) -> RuntimeRequirementState:
 def _relative(value: RawJson, label: str) -> str:
     path = _string(value, label)
     parsed = PurePosixPath(path)
-    if parsed.is_absolute() or _PathToken.PARENT in parsed.parts or _PathToken.BACKSLASH in path or _PathToken.COLON in path:
+    if (
+        parsed.is_absolute()
+        or _PathToken.PARENT in parsed.parts
+        or _PathToken.BACKSLASH in path
+        or _PathToken.COLON in path
+    ):
         raise ProtocolError(f"{label} must stay inside the snapshot")
     return path
 
@@ -551,9 +556,17 @@ def _target_payload(target: ImportTarget) -> dict[str, RawJson]:
             "declaration_file": target.declaration_file,
         }
     if isinstance(target, ExternalPackageTarget):
-        return {"kind": _TargetKind.EXTERNAL.value, "import_id": target.import_id, "package": target.package}
+        return {
+            "kind": _TargetKind.EXTERNAL.value,
+            "import_id": target.import_id,
+            "package": target.package,
+        }
     if isinstance(target, BuiltinTarget):
-        return {"kind": _TargetKind.BUILTIN.value, "import_id": target.import_id, "name": target.name}
+        return {
+            "kind": _TargetKind.BUILTIN.value,
+            "import_id": target.import_id,
+            "name": target.name,
+        }
     return {
         "kind": _TargetKind.UNRESOLVED.value,
         "import_id": target.import_id,

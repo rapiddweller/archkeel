@@ -145,7 +145,9 @@ _SOURCE_NAME: Final[dict[Language, str]] = {
 _SOURCE_REMEDY: Final[dict[Language, str]] = {
     Language.PYTHON: "Inspect the reported failure using the declared target runtime; "
     "rerun after resolving its cause.",
-    Language.TYPESCRIPT: "Correct the reported TypeScript configuration or import resolution and retry.",
+    Language.TYPESCRIPT: (
+        "Correct the reported TypeScript configuration or import resolution and retry."
+    ),
     Language.DART: "Correct the reported Dart source syntax, directive, URI, part declaration or "
     "pubspec name; rerun after resolving its cause.",
 }

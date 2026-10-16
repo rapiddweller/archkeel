@@ -15,9 +15,9 @@ from archkeel.ir.target_graph import declared_graph
 
 ROOT = Path(__file__).parents[1]
 SETTINGS = {
-    "PythonSettings": {"language": "Literal['python']"},
-    "DartSettings": {"language": "Literal['dart']"},
-    "TypeScriptSettings": {"language": "Literal['typescript']", "tsconfig": "str"},
+    "PythonSettings": {"language": "Literal[Language.PYTHON]"},
+    "DartSettings": {"language": "Literal[Language.DART]"},
+    "TypeScriptSettings": {"language": "Literal[Language.TYPESCRIPT]", "tsconfig": "str"},
 }
 PROTOCOL_REFERENCES = {
     ("archkeel.ir.protocol", f"archkeel.ir.protocol.{name}") for name in SETTINGS

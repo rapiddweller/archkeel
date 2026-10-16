@@ -14,6 +14,7 @@ from pathlib import Path
 from archkeel.ir.facts import AnalyzerInfo, RuntimeInfo, RuntimeRequirementState
 from archkeel.ir.facts import Language as Language
 
+
 class _MetadataField(StrEnum):
     REQUIRES_PYTHON = "requires-python"
     PYTHON = "python"

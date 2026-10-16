@@ -295,7 +295,9 @@ def _read_pubspec(
         package_name, sdk_constraint, parsed_state = _pubspec_metadata(raw)
         if package_name is None:
             raise SnapshotError("pubspec.yaml must declare a valid package name")
-        item = ResolutionInput("pubspec.yaml", hashlib.sha256(raw).hexdigest(), ResolutionRole.RESOLUTION)
+        item = ResolutionInput(
+            "pubspec.yaml", hashlib.sha256(raw).hexdigest(), ResolutionRole.RESOLUTION
+        )
         return package_name, sdk_constraint, parsed_state, item
     except OSError as error:
         raise SnapshotError(f"cannot read regular pubspec.yaml: {error}") from error
