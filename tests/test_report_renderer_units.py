@@ -475,3 +475,29 @@ def test_nested_layout_routes_use_the_elk_container_coordinate_system():
     finally:
         browser.close()
         playwright.stop()
+
+
+def test_uml_layout_request_has_an_explicit_edge_clearance_without_changing_input():
+    api = pytest.importorskip("playwright.sync_api")
+    playwright, browser, page = _asset_page(api, ["report-layout.js"])
+    try:
+        result = page.evaluate("""async () => {
+          const requests = [];
+          window.ELK = class {
+            async layout(graph) {
+              requests.push(structuredClone(graph.layoutOptions));
+              return {...graph, children: graph.children.map(node => ({...node, x: 0, y: 0}))};
+            }
+          };
+          const input = {nodes: [{id: 'a'}], edges: [], cardWidth: 200, cardHeights: {a: 92}};
+          const before = JSON.stringify(input);
+          await window.ArchkeelReportLayout.layoutUml(input);
+          await window.ArchkeelReportLayout.layoutUml({...input, edgeSpacing: 16});
+          return {spacing: requests.map(options => [
+            options['elk.spacing.edgeEdge'], options['elk.layered.spacing.edgeEdgeBetweenLayers']
+          ]), unchanged: before === JSON.stringify(input)};
+        }""")
+        assert result == {"spacing": [["10", "10"], ["16", "16"]], "unchanged": True}
+    finally:
+        browser.close()
+        playwright.stop()
