@@ -878,7 +878,7 @@ class _Collection:
         form = resolver.format_of(rel)
         cjs = (
             rel.endswith((".cjs", ".cts"))
-            or options.module == "commonjs"
+            or options.module is ModuleKind.COMMONJS
             or (form is ModuleFormat.CJS and options.module in (ModuleKind.NODENEXT, ModuleKind.NODE16))
         )
         for reference in syntax.references:

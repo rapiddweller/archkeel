@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Final, TypeAlias
 
-from .config import Config, Json, ModuleResolution, Options, Snapshot, decode, join
+from .config import Config, Json, ModuleResolution, Options, PathToken, Snapshot, decode, join
 
 class ModuleFormat(Enum):
     """The loading format passed between resolution and collection."""
@@ -33,6 +33,14 @@ class SourceKind(Enum):
     DECLARATION = "dts"
     JAVASCRIPT = "js"
     JSON = "json"
+
+
+class _ExtensionFamily(Enum):
+    ESM = "esm"
+    CJS = "cjs"
+    JSX = "jsx"
+    JSON = "json"
+    PLAIN = "plain"
 
 
 class _PackageType(Enum):
@@ -107,6 +115,23 @@ _KIND_OF: Final = {
 }
 
 
+_FAMILY_OF: Final = {
+    ".mjs": _ExtensionFamily.ESM,
+    ".mts": _ExtensionFamily.ESM,
+    ".d.mts": _ExtensionFamily.ESM,
+    ".cjs": _ExtensionFamily.CJS,
+    ".cts": _ExtensionFamily.CJS,
+    ".d.cts": _ExtensionFamily.CJS,
+    ".tsx": _ExtensionFamily.JSX,
+    ".jsx": _ExtensionFamily.JSX,
+    ".json": _ExtensionFamily.JSON,
+    ".ts": _ExtensionFamily.PLAIN,
+    ".d.ts": _ExtensionFamily.PLAIN,
+    ".js": _ExtensionFamily.PLAIN,
+    "": _ExtensionFamily.PLAIN,
+}
+
+
 @dataclass(frozen=True, slots=True)
 class Unknown:
     reason: str
@@ -139,7 +164,8 @@ def package_name(specifier: str) -> str:
 
 def _declares_exports(manifest: Json) -> bool:
     """Whether `exports` is truthy in JavaScript, where an empty object still counts."""
-    return manifest.get("exports") not in (None, False, 0, "")
+    value = manifest.get("exports")
+    return isinstance(value, (dict, list)) or bool(value)
 
 
 def _best_pattern(
@@ -181,15 +207,16 @@ def _extensions(original: str, kinds: Kinds) -> list[str]:
         SourceKind.DECLARATION in kinds,
         SourceKind.JAVASCRIPT in kinds,
     )
-    if original in (".mjs", ".mts", ".d.mts"):
+    family = _FAMILY_OF.get(original)
+    if family is _ExtensionFamily.ESM:
         groups = [(ts, ".mts"), (dts, ".d.mts"), (js, ".mjs")]
-    elif original in (".cjs", ".cts", ".d.cts"):
+    elif family is _ExtensionFamily.CJS:
         groups = [(ts, ".cts"), (dts, ".d.cts"), (js, ".cjs")]
-    elif original in (".tsx", ".jsx"):
+    elif family is _ExtensionFamily.JSX:
         groups = [(ts, ".tsx"), (ts, ".ts"), (dts, ".d.ts"), (js, ".jsx"), (js, ".js")]
-    elif original == ".json":
+    elif family is _ExtensionFamily.JSON:
         groups = [(dts, ".d.json.ts"), (SourceKind.JSON in kinds, ".json")]
-    elif original in (".ts", ".d.ts", ".js", ""):
+    elif family is _ExtensionFamily.PLAIN:
         groups = [(ts, ".ts"), (ts, ".tsx"), (dts, ".d.ts"), (js, ".js"), (js, ".jsx")]
     else:
         groups = []
@@ -211,7 +238,7 @@ def _file_paths(candidate: str, esm: bool, kinds: Kinds) -> list[str]:
 def _ancestors(rel: str) -> list[str]:
     """Directories from the one holding `rel` up to the snapshot root."""
     chain = [posixpath.dirname(rel) or "."]
-    while chain[-1] != ".":
+    while PathToken.parse(chain[-1]) is not PathToken.CURRENT:
         chain.append(posixpath.dirname(chain[-1]) or ".")
     return chain
 
@@ -268,7 +295,7 @@ class Resolver:
             *("/".join([".."] * level) for level in range(1, self.snapshot.depth + 1)),
         ]
         for current in chain:
-            if posixpath.basename(current) != "node_modules":
+            if PathToken.parse(posixpath.basename(current)) is not PathToken.NODE_MODULES:
                 manifest = self._manifest(current)
                 if manifest is not None:
                     return manifest
@@ -430,9 +457,9 @@ class Resolver:
         exports = manifest.get("exports")
         key = "." if not rest else f"./{rest}"
         if isinstance(exports, str):
-            selected: Json | str | None = exports if key == "." else None
+            selected: Json | str | None = exports if not rest else None
         elif isinstance(exports, dict):
-            subpaths = [isinstance(item, str) and item[:1] == "." for item in exports]
+            subpaths = [isinstance(item, str) and PathToken.parse(item[:1]) is PathToken.CURRENT for item in exports]
             if any(subpaths) and not all(subpaths):
                 return Unknown(f"Package exports map shape is not observed: {name}")
             if exports and all(subpaths):
@@ -440,7 +467,7 @@ class Resolver:
                 if selected is None and rest and any("*" in item for item in exports):
                     return Unknown(f"Package exports patterns are not observed: {name}/{rest}")
             else:
-                selected = exports if key == "." else None
+                selected = exports if not rest else None
         else:
             return Unknown(f"Package exports shape is not observed: {name}")
         if selected is None:
@@ -453,11 +480,10 @@ class Resolver:
             return target
         if target is None:
             return Unknown(f"Package exports conditions are not observed: {name}{key[1:]}")
-        if target[:2] != "./":
+        if PathToken.parse(target[:2]) is not PathToken.RELATIVE:
             return Unknown(f"Package exports target is not package-relative: {name}{key[1:]}")
-        if re.fullmatch(r"\./[^/]+(?:/[^/]+)*\Z", target) is None or any(
-            segment in {".", "..", "node_modules"}
-            or any(char in segment for char in ("%", "?", "#", "\\"))
+        if re.fullmatch(r"\./[^/%?#\\]+(?:/[^/%?#\\]+)*\Z", target) is None or any(
+            PathToken.parse(segment) in {PathToken.CURRENT, PathToken.PARENT, PathToken.NODE_MODULES}
             for segment in re.split("/", target[2:])
         ):
             return Unknown(f"Package exports target path is not observed: {name}{key[1:]}")

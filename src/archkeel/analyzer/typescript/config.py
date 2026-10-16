@@ -69,6 +69,38 @@ class ScriptTarget(Enum):
     ESNEXT = "esnext"
 
 
+class PathToken(Enum):
+    """Closed path/glob grammar, distinct from user-supplied path names."""
+
+    CURRENT = "."
+    PARENT = ".."
+    ROOT = "/"
+    RELATIVE = "./"
+    STAR = "*"
+    DEEP_STAR = "**"
+    QUESTION = "?"
+    NODE_MODULES = "node_modules"
+
+    @classmethod
+    def parse(cls, value: str) -> PathToken | None:
+        try:
+            return cls(value)
+        except ValueError:
+            return None
+
+
+class _WildcardUsage(Enum):
+    FILES = "files"
+    DIRECTORIES = "directories"
+    EXCLUDE = "exclude"
+
+
+class _ShadowKind(Enum):
+    DECLARATION = ".d.ts"
+    JAVASCRIPT = ".js"
+    JSX = ".jsx"
+
+
 _Option = TypeVar("_Option", bound=Enum)
 
 Role = Literal["selected", "resolution"]
@@ -140,9 +172,9 @@ _NOT_EXCLUDED: Final = r"(?!(?:node_modules|bower_components|jspm_packages)(?:/|
 _DEEP: Final = rf"(?:/{_NOT_EXCLUDED}[^/.][^/]*)*?"
 # Per usage: the text a lone `*` stands for and the text `**` stands for.
 _WILDCARDS: Final = {
-    "files": (r"(?:[^./]|(?:\.(?!min\.js\Z))?)*", _DEEP),
-    "directories": (r"[^/]*", _DEEP),
-    "exclude": (r"[^/]*", r"(?:/.+?)?"),
+    _WildcardUsage.FILES: (r"(?:[^./]|(?:\.(?!min\.js\Z))?)*", _DEEP),
+    _WildcardUsage.DIRECTORIES: (r"[^/]*", _DEEP),
+    _WildcardUsage.EXCLUDE: (r"[^/]*", r"(?:/.+?)?"),
 }
 
 
@@ -224,11 +256,11 @@ def join(base: str, path: str) -> str:
 
 
 def is_outside(rel: str) -> bool:
-    return rel == ".." or rel.startswith("../")
+    return PathToken.parse(rel) is PathToken.PARENT or rel.startswith("../")
 
 
 def within(scope: str, path: str) -> bool:
-    return scope == "." or path == scope or path.startswith(f"{scope}/")
+    return PathToken.parse(scope) is PathToken.CURRENT or path == scope or path.startswith(f"{scope}/")
 
 
 class Snapshot:
@@ -548,42 +580,43 @@ def _options(layer: _Layer, problems: list[str]) -> Options:
 
 def _wildcard_text(single: str) -> Callable[[re.Match[str]], str]:
     def replace(found: re.Match[str]) -> str:
-        if found[0] == "*":
+        token = PathToken.parse(found[0])
+        if token is PathToken.STAR:
             return single
-        return "[^/]" if found[0] == "?" else re.escape(found[0])
+        return "[^/]" if token is PathToken.QUESTION else re.escape(found[0])
 
     return replace
 
 
-def _wildcard(spec: str, base: str, usage: str) -> str | None:
+def _wildcard(spec: str, base: str, usage: _WildcardUsage) -> str | None:
     """The compiler's regular expression for one file spec, over absolute-looking paths."""
     single, deep = _WILDCARDS[usage]
     path: str = posixpath.normpath(posixpath.join("/", base, spec))
-    components = [""] if path == "/" else path.split("/")
-    if usage != "exclude" and components[-1] == "**":
+    components = [""] if PathToken.parse(path) is PathToken.ROOT else path.split("/")
+    if usage is not _WildcardUsage.EXCLUDE and PathToken.parse(components[-1]) is PathToken.DEEP_STAR:
         return None
-    if usage != "exclude" and not re.search(r"[.*?]", components[-1]):
+    if usage is not _WildcardUsage.EXCLUDE and not re.search(r"[.*?]", components[-1]):
         components += ["**", "*"]
     out, written, optional = "", False, 0
     for component in components:
-        if component == "**":
+        if PathToken.parse(component) is PathToken.DEEP_STAR:
             out += deep
         else:
-            if usage == "directories":
+            if usage is _WildcardUsage.DIRECTORIES:
                 out, optional = out + "(?:", optional + 1
             out += "/" if written else ""
             part = ""
-            if usage != "exclude" and component[:1] == "*":
+            if usage is not _WildcardUsage.EXCLUDE and PathToken.parse(component[:1]) is PathToken.STAR:
                 part, component = f"(?:[^./]{single})?", component[1:]
-            elif usage != "exclude" and component[:1] == "?":
+            elif usage is not _WildcardUsage.EXCLUDE and PathToken.parse(component[:1]) is PathToken.QUESTION:
                 part, component = "[^./]", component[1:]
             part += re.sub(r"[^\w\s/]", _wildcard_text(single), component, flags=re.ASCII)
-            out += (_NOT_EXCLUDED if usage != "exclude" and part != component else "") + part
+            out += (_NOT_EXCLUDED if usage is not _WildcardUsage.EXCLUDE and part != component else "") + part
         written = True
     return out + ")?" * optional
 
 
-def _matching(specs: list[str], base: str, usage: str) -> list[str]:
+def _matching(specs: list[str], base: str, usage: _WildcardUsage) -> list[str]:
     return [item for spec in specs if (item := _wildcard(spec, base, usage)) is not None]
 
 
@@ -621,9 +654,9 @@ def _discover(
             problems.append(f"Compiler option 5010: '{spec}' cannot end in a recursive wildcard.")
     # A pattern that climbs out of the snapshot can select nothing the collector may read.
     inside = [spec for spec in include or [] if not is_outside(spec)]
-    files = _matching(inside, ".", "files")
-    directories = _matching(inside, ".", "directories")
-    excluded = _matching(exclude, ".", "exclude")
+    files = _matching(inside, ".", _WildcardUsage.FILES)
+    directories = _matching(inside, ".", _WildcardUsage.DIRECTORIES)
+    excluded = _matching(exclude, ".", _WildcardUsage.EXCLUDE)
     # The config's own directory is walked first; a spec elsewhere adds its own start.
     starts = [join("/", own)]
     for start in sorted(_base_path(spec) for spec in inside):
@@ -667,7 +700,10 @@ def _shadowed(rel: str, known: set[str]) -> bool:
         stem = rel[: -len(own)]
         # A JavaScript file is kept next to its declaration file.
         return any(
-            f"{stem}{ext}" in known and not (ext == ".d.ts" and own in (".js", ".jsx"))
+            f"{stem}{ext}" in known and not (
+                _enum_value(ext, _ShadowKind) is _ShadowKind.DECLARATION
+                and _enum_value(own, _ShadowKind) in (_ShadowKind.JAVASCRIPT, _ShadowKind.JSX)
+            )
             for ext in group[: group.index(own)]
         )
     return False

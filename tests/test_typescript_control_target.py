@@ -1,0 +1,167 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""Independent own Target and native mutation controls for TypeScript's typed API."""
+
+import copy
+import json
+from pathlib import Path
+
+import pytest
+from test_architecture_demo import _prepare_repo
+from test_uml_evaluation import _model
+
+from archkeel.check.ports import ScanConfig
+from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.report_graph import architecture_report
+from archkeel.ir.trace import trace_valid_violations
+
+ROOT = Path(__file__).parents[1]
+MODULE = "archkeel.analyzer.typescript"
+GUARDS = (
+    "TARGET-TYPESCRIPT-CONFIG-TYPED-CONTROL",
+    "TARGET-TYPESCRIPT-RESOLVE-TYPED-CONTROL",
+)
+
+
+def _contract():
+    contract = copy.deepcopy(
+        json.loads((ROOT / "docs/architecture/contracts/typescript.json").read_text())
+    )
+    contract.pop("$schema", None)
+    return contract
+
+
+def _repository(tmp_path, *, changed=None):
+    sources = {
+        f"archkeel/analyzer/typescript/{name}.py": (
+            ROOT / f"src/archkeel/analyzer/typescript/{name}.py"
+        ).read_text()
+        for name in ("config", "resolve")
+    }
+    sources.update(changed or {})
+    root = _prepare_repo(
+        tmp_path,
+        {
+            "archkeel/__init__.py": "",
+            "archkeel/analyzer/__init__.py": "",
+            "archkeel/analyzer/typescript/__init__.py": "",
+            **sources,
+            "contract.json": json.dumps(_contract()),
+            "docs/architecture/typescript-control-types.md": (
+                ROOT / "docs/architecture/typescript-control-types.md"
+            ).read_text(),
+            "docs/architecture/language-adapter-target.md": (
+                ROOT / "docs/architecture/language-adapter-target.md"
+            ).read_text(),
+        },
+    )
+    return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
+
+
+def _rule(model, identity):
+    return next(
+        row for row in rule_assessments(model, undecided_by_rule={})
+        if row.id == identity or row.id.endswith(":" + identity)
+    )
+
+
+def test_native_typescript_api_matches_the_independent_target(tmp_path):
+    root, config = _repository(tmp_path)
+    model = _model(root, config)
+    comparison = architecture_report(model).comparison
+    assert comparison is not None and comparison.assessments
+    assert comparison.status == "PASS", comparison
+    target = next(
+        row for row in rule_assessments(model, undecided_by_rule={}) if row.kind == "uml_target"
+    )
+    assert target.status == "PASS" and target.evaluation_proven
+    for name in GUARDS:
+        rule = _rule(model, name)
+        assert rule.status == "PASS" and rule.evaluation_proven, rule
+    assert not trace_valid_violations(model)
+
+
+@pytest.mark.parametrize(
+    ("module", "old", "new"),
+    [
+        ("config", "module: ModuleKind | None", "module: str | None"),
+        ("config", "module_resolution: ModuleResolution | None", "module_resolution: str | None"),
+        ("config", "target: ScriptTarget | None", "target: str | None"),
+        ("config", "def emit_module(self) -> ModuleKind:", "def emit_module(self) -> str:"),
+        ("config", "def resolution(self) -> ModuleResolution:", "def resolution(self) -> str:"),
+        ("resolve", "mode: ModuleFormat | None,", "mode: str | None,"),
+        (
+            "resolve", "def format_of(self, rel: str) -> ModuleFormat | Unknown | None:",
+            "def format_of(self, rel: str) -> str | Unknown | None:",
+        ),
+    ],
+    ids=["module", "resolution", "target", "derived-emit", "derived-resolution", "mode", "format"],
+)
+def test_native_source_type_widening_fails_with_fixed_intent(tmp_path, module, old, new):
+    source = (ROOT / f"src/archkeel/analyzer/typescript/{module}.py").read_text()
+    assert old in source
+    root, config = _repository(
+        tmp_path,
+        changed={f"archkeel/analyzer/typescript/{module}.py": source.replace(old, new, 1)},
+    )
+    before = (root / "contract.json").read_bytes()
+    model = _model(root, config)
+    comparison = architecture_report(model).comparison
+    assert comparison is not None and comparison.status == "FAIL", comparison
+    target = next(
+        row for row in rule_assessments(model, undecided_by_rule={}) if row.kind == "uml_target"
+    )
+    assert target.status == "FAIL"
+    assert any(target.id in row.rule_ids for row in trace_valid_violations(model))
+    assert (root / "contract.json").read_bytes() == before
+
+
+@pytest.mark.parametrize("module", ["config", "resolve"])
+@pytest.mark.parametrize(
+    "probe",
+    [
+        'def _probe(value):\n    return value == "node16"\n',
+        'def _probe(value):\n    return value in ("node16", "nodenext")\n',
+        'def _probe(value):\n    match value:\n        case "node16":\n            return True\n',
+        (
+            'from typing import Final\nTOKEN: Final[str] = "node16"\n'
+            'def _probe(value):\n    return value == TOKEN\n'
+        ),
+    ],
+    ids=["equality", "membership", "match", "final-alias"],
+)
+def test_native_parser_and_protocol_strings_fail_without_exceptions(tmp_path, module, probe):
+    source = (ROOT / f"src/archkeel/analyzer/typescript/{module}.py").read_text()
+    root, config = _repository(
+        tmp_path, changed={f"archkeel/analyzer/typescript/{module}.py": source + "\n" + probe}
+    )
+    before = (root / "contract.json").read_bytes()
+    model = _model(root, config)
+    guard = _rule(model, GUARDS[0 if module == "config" else 1])
+    assert guard.status == "FAIL"
+    assert any(guard.id in row.rule_ids for row in trace_valid_violations(model))
+    assert (root / "contract.json").read_bytes() == before
+
+
+def test_own_observation_proves_both_migrated_module_guards(self_observation):
+    for name in GUARDS:
+        rule = _rule(self_observation, name)
+        assert rule.status == "PASS" and rule.evaluation_proven, rule
+    assert not [
+        row for row in self_observation.records("constructs")
+        if row.kind == "string_literal_compare"
+        and any(
+            row.data.get("owner") == f"{MODULE}.{module}"
+            or row.data.get("owner", "").startswith(f"{MODULE}.{module}.")
+            for module in ("config", "resolve")
+        )
+    ]
+
+
+def test_guards_cover_whole_migrated_modules_without_allowances():
+    for identity in GUARDS:
+        rule = next(row for row in _contract()["rules"] if row["id"] == identity)
+        assert rule["source"] in {f"{MODULE}.config", f"{MODULE}.resolve"}
+        assert rule["constructs"] == ["string_literal_compare"]
+        assert not rule.get("allowed_sources") and not rule.get("exact_sources")
