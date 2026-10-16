@@ -249,7 +249,9 @@ def requires_covers(
         and (
             target_module is None
             or not entry.through
-            or any(_required_port_covers(port, target_module, target_symbol) for port in entry.through)
+            or any(
+                _required_port_covers(port, target_module, target_symbol) for port in entry.through
+            )
         )
         for entry in entries
     )
@@ -272,7 +274,7 @@ def requires_import_assessment(
 ) -> AssessmentStatus:
     """Judge actual import names once; a wildcard cannot prove an exact symbol port."""
     try:
-        marker = _ImportSymbolMarker(symbol)
+        marker = _ImportSymbolMarker(symbol) if symbol is not None else None
     except ValueError:
         marker = None
     named = symbols_known and marker is None

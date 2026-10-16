@@ -15,6 +15,7 @@ from archkeel.check.declarations import project_rule_declaration
 from archkeel.check.evaluation.rule_support import _forbidden_dependency_verdicts
 from archkeel.check.evaluation.rules import rule_evaluation_facts, rule_subject_failures
 from archkeel.check.validation.closed_world import _decided_pairs
+from archkeel.ir.architecture_graph import AssessmentStatus
 from archkeel.ir.codec import contract_bytes, contract_digest, parse_contract
 from archkeel.ir.facts_codec import classified
 from archkeel.ir.model import EvidenceClass, ForbiddenDependencyRule
@@ -104,7 +105,7 @@ def test_selector_matrix(source_match, target_match):
         for _, item, verdict in _forbidden_dependency_verdicts(
             imports, contract.rules, _ownership(contract)
         )
-        if verdict == "violation"
+        if verdict is AssessmentStatus.FAIL
     }
     if source_match == target_match == "prefix":
         # Existing package-pair semantics cover every package owned by each component.
@@ -141,7 +142,7 @@ def test_exact_selection_preserves_symbol_typing_and_exact_source_allowances():
         for _, _, verdict in _forbidden_dependency_verdicts(
             imports, contract.rules, _ownership(contract)
         )
-    ] == ["violation", "allowed", "undecided"]
+    ] == [AssessmentStatus.FAIL, AssessmentStatus.PASS, AssessmentStatus.UNKNOWN]
     rule = replace(contract.rules[0], allowed_sources=("sample.caller",))
     assert not list(_forbidden_dependency_verdicts(imports, (rule,), _ownership(contract)))
 

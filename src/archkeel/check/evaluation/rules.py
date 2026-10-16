@@ -12,6 +12,7 @@ from pathlib import PurePosixPath
 from typing import Final, TypeAlias, assert_never
 from typing import Literal as _Literal
 
+from archkeel.ir.architecture_graph import AssessmentStatus as _Verdict
 from archkeel.ir.facts import ConstructCapability, ConstructSupport
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawRecord, classified
@@ -166,7 +167,6 @@ from .rule_support import _forbidden_dependency_matches as _forbidden_dependency
 from .rule_support import _forbidden_dependency_verdicts as _forbidden_dependency_verdicts
 from .rule_support import _reexport_index as _reexport_index
 from .rule_support import _rule_evaluation_receipt as _rule_evaluation_receipt
-from .rule_support import _Verdict as _Verdict
 from .rule_support import exports_by_module as exports_by_module
 
 

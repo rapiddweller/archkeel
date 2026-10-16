@@ -39,6 +39,7 @@ from archkeel.check.evaluation.rules import (
 )
 from archkeel.check.ratchets import unknown_positions_by_rule
 from archkeel.cli.observe import analyze_snapshot
+from archkeel.ir.architecture_graph import AssessmentStatus as _AssessmentStatus
 from archkeel.ir.codec import canonical_json_bytes, decode_json, parse_observation
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import RULE_RECORD_KINDS, stable_id
