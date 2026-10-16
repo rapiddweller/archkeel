@@ -84,7 +84,7 @@ jobs:
       - name: Verify own graph policy and unchanged budgets
         run: |
           set +e
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against b18add59de890e41e86a5e78098d2d78865de8d0 --amendment docs/architecture/decisions/issue-542-graph-vocabulary-amendment.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'Graph and UML control vocabulary has one domain owner, a shared assessment type through the model facade, independently authored API Target and whole migrated module guards. Graph parser has no string-control exception. Historical schemas and valid wire/default behavior remain. No baseline, cap or allowance changes. See docs/architecture/typed-graph-vocabulary.md.' > "$RUNNER_TEMP/graph-native.json"
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 1f9cd588c21d2e485e8d7cf75b4c7a7e41ba793d --amendment docs/architecture/decisions/issue-542-graph-vocabulary-amendment.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'Graph and UML control vocabulary has one domain owner, a shared assessment type through the model facade, independently authored API Target and whole migrated module guards. Graph parser has no string-control exception. Historical schemas and valid wire/default behavior remain. No baseline, cap or allowance changes. See docs/architecture/typed-graph-vocabulary.md.' > "$RUNNER_TEMP/graph-native.json"
           graph_status=$?
           set -e
           python - "$RUNNER_TEMP/graph-native.json" <<'PY'
@@ -111,7 +111,7 @@ jobs:
           print("OWN_UNKNOWN_BY_RULE=" + json.dumps(unknown_positions_by_rule(model), separators=(",", ":")))
           print("OWN_UNKNOWN_EVIDENCE=" + repr(tuple(row for row in model.records("unknowns") or ())))
           PY
-          git worktree add --detach "$RUNNER_TEMP/graph-before" b18add59de890e41e86a5e78098d2d78865de8d0
+          git worktree add --detach "$RUNNER_TEMP/graph-before" 1f9cd588c21d2e485e8d7cf75b4c7a7e41ba793d
           uv run --locked archkeel report --root "$RUNNER_TEMP/graph-before" --output "$RUNNER_TEMP/graph-before.json" > "$RUNNER_TEMP/graph-before-result.json"
           uv run --locked python - "$RUNNER_TEMP/graph-before.json" "$RUNNER_TEMP/graph-own.json" <<'PY'
           import json, pathlib, sys
@@ -124,7 +124,7 @@ jobs:
               return {
                   (row.kind, str(row.data.get("qualified_name")), str(row.data.get("position")), str(row.data.get("path")), str(row.data.get("reason"))): row
                   for row in model.records("unknowns") or ()
-                  if row.kind == "boundary_type_position"
+                  if row.kind in {"boundary_type_position", "boundary_type_route"}
               }
           old, new = positions(before), positions(after)
           summary = {
@@ -134,9 +134,11 @@ jobs:
               "after_unknown": unknown_positions_by_rule(after),
               "new_type_unknowns": [repr(new[key]) for key in new.keys() - old.keys()],
               "resolved_type_unknowns": [repr(old[key]) for key in old.keys() - new.keys()],
+              "implementation_routes_after": [repr(row) for row in new.values() if row.data.get("qualified_name") in {"archkeel.check.report.RuleAssessmentStatus", "archkeel.check.report.RuleVerdict"}],
           }
           print("EXACT_PREDECESSOR_EVIDENCE=" + json.dumps(summary, separators=(",", ":")))
           assert summary["after_calls"] <= summary["before_calls"], summary
           assert not summary["new_type_unknowns"], summary
+          assert not summary["implementation_routes_after"], summary
           PY
           exit "$graph_status"

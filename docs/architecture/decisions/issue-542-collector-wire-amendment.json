@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "02279ca79283191bc1137034db4191abc1850cf3f290e974ec1caed594f95600",
+  "after_digest": "8aea00dcba2312ec6aadf842ec9a50ad252af4f2dab9cc3684dcdcc909c888e8",
+  "before_baseline_digest": "20fbda3c02a345942fa751b9aaa529f3f8cf27a64d87594a9c8a832e96680b0b",
+  "before_digest": "6776cbb0e8692316449952d7816242909dca1f61042d4c98b2471b24ba42844e",
+  "decided_by": "ake2l",
+  "rationale": "Give closed collector and observation vocabulary one nominal owner, preserve wire compatibility and strengthen exact authored type intent without additional allowances.",
+  "schema_version": "2.0.0"
+}

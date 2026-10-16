@@ -49,3 +49,23 @@ Ruling: require a named collection load to be the final comparator under a final
 Ruling: membership can have a literal vocabulary on either side — a literal or already supported module/class scalar needle is sufficient syntax evidence — reusing scalar(left) adds no runtime type or namespace inference and preserves collection-side alias/role exclusions.
 
 Ruling: enum members and arbitrary data variables stay unclassified as literal needles; explicit enum value extraction uses the existing scalar proof, while imported arbitrary values remain unsupported — native controls distinguish these boundaries — this does not claim a universal semantic string ban.
+
+## Frozen Enum value evidence review scope
+
+- Base 61404f1cf9e8579929119be093c3676075754661.
+- [x] Native RED for extra bases, construction/access hooks, class metaclass/decorator transformation, IntEnum conversion and namespace ignore; preserve plain Enum and StrEnum positives.
+- [x] Admit only a single directly proven Enum/StrEnum base, no class keywords/decorators, and ordinary literal member declarations. Check only a local ordinary-declaration body shape; do not infer MRO/runtime behavior or duplicate the compiler member inventory.
+- [x] Preserve nominal enum-member controls and all alias/collection restrictions; run native source/binding/State safety, Ruff/Mypy/hygiene and 65/919 baseline.
+
+- Enum review RED 38938809344: exactly 9 failed / 51 passed. Ordinary Enum/StrEnum positives and the existing own-value-property exclusion passed; each newly reported transformation produced the expected false observation before the fix.
+
+- Intermediate review run 38939305130: the 60 comparison controls and 507 focused tests passed, but the native self-report correctly rejected a private collector-to-collector inventory import (COLLECTORS-ISOLATED). The import is removed; this observer checks only its smaller ordinary-literal body shape. Existing scalar binding evidence still handles duplicate assignments. No contract exception or shared compiler API is added.
+
+- Intermediate run 38939942683: 508 focused tests, Ruff and Mypy passed; native measurement had no diagnostics or violations but exposed one new unresolved AST-field method call (919 to 920). The ordinary member identifier now has its explicit local str boundary type; no resolver or measurement allowance is changed.
+
+- Final Enum GREEN 38940688435, candidate 1e10b77cf0aa4b07da6be99dfafebcd605d31ef7: 508 collector, State, source/binding and hygiene tests passed; Ruff passed; Mypy passed for 132 source files. The canonical formatter exported no remaining changes.
+- Native validation exit 0, no diagnostics/failures: 65 unknown positions / 919 unresolved calls / 0 violations. No baseline, allowance, compiler proof, member inventory or State API changed.
+
+Ruling: the literal observer accepts only a single directly imported Enum/StrEnum base, a header without class keywords/decorators and a non-private literal-only body (docstrings/pass permitted). Mixins, IntEnum coercion, namespace directives and custom construction/access hooks therefore supply no literal-value evidence. Their runtime behavior is not inferred.
+
+Ruling: compiler member certification and this smaller literal-body observation keep separate responsibilities. The existing scalar binding owner still rejects duplicate/rebound values; the construct owner does not import another collector's private inventory or build a general enum/namespace evaluator. External dynamic mutation remains an explicit observation limit.
