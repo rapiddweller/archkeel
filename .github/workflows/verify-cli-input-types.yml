@@ -1,16 +1,13 @@
-name: Verify CLI baseline and amendment
-
+name: Diagnose CLI native call changes
 on:
   push:
     branches: [verify/542-cli-final-wire]
-
 permissions:
   contents: read
-
 jobs:
   cli-inputs:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -21,42 +18,17 @@ jobs:
           version: "0.12.13"
           python-version: "3.11.12"
       - run: uv sync --locked
-      - name: Native own baseline
-        run: |
-          set +e
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > "$RUNNER_TEMP/cli-own-baseline.json"
-          native_status=$?
-          uv run --locked python - <<'PY'
-          import json, os
-          from pathlib import Path
-          result = json.loads((Path(os.environ["RUNNER_TEMP"]) / "cli-own-baseline.json").read_text())
-          print("CLI_NATIVE_RESULT=" + json.dumps({k: result.get(k) for k in ("exit_code", "observation_complete", "declared_rules", "diagnostics", "failures", "measurements")}, ensure_ascii=True))
-          PY
-          exit "$native_status"
-      - name: Generate and verify exact-parent normal amendment
-        if: ${{ !cancelled() }}
+      - name: Inspect exact-parent native call evidence
         env:
           CLI_BASE: 1852a1b49a740861c7b5229a79011e6457aedc67
         run: |
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against "$CLI_BASE" --amendment docs/architecture/decisions/issue-542-cli-inputs-amendment.json --write-amendment --decided-by ake2l --rationale "Give CLI argument and installer protocols nominal owners, pin the bounded input API and forbid literal control dispatch without extra allowances." > "$RUNNER_TEMP/cli-amendment-write.json"
-          cat docs/architecture/decisions/issue-542-cli-inputs-amendment.json
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against "$CLI_BASE" --amendment docs/architecture/decisions/issue-542-cli-inputs-amendment.json > "$RUNNER_TEMP/cli-amendment-verify.json"
-          cat "$RUNNER_TEMP/cli-amendment-verify.json"
-      - name: Own observation diagnostics
-        if: always()
-        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against "$CLI_BASE" > "$RUNNER_TEMP/cli-against.json"
+          cli_status=$?
           uv run --locked python - <<'PY'
-          import json, tempfile
+          import json, os
           from pathlib import Path
-          from archkeel.ir.codec import decode_canonical_model, parse_observation
-          from archkeel.ir.decisions import rule_assessments
-          from archkeel.ir.report_graph import architecture_report
-          from archkeel.ir.trace import trace_valid_violations
-          for path in Path(tempfile.gettempdir()).glob("pytest-of-*/pytest-*/self-report/architecture.json"):
-              model = parse_observation(decode_canonical_model(json.loads(path.read_text())))
-              print("OWN_TRACE_VIOLATIONS=" + json.dumps([{"kind": v.kind, "rules": v.rule_ids, "data": dict(v.data.entries)} for v in trace_valid_violations(model)], default=str))
-              print("CLI_GUARD_RECEIPT=" + repr([(v.id, v.status, v.evaluation_proven) for v in rule_assessments(model, undecided_by_rule={}) if v.id == "cli:CLI-TYPED-CONTROL"]))
-              comparison = architecture_report(model).comparison
-              print("CLI_TARGET_ASSESSMENTS=" + repr([(r.subject_id, r.aspect, r.status) for r in comparison.assessments if r.subject_id.startswith("cli:CLI-INPUT-")]))
-              break
+          result = json.loads((Path(os.environ["RUNNER_TEMP"]) / "cli-against.json").read_text())
+          print("CLI_EXACT_NATIVE=" + json.dumps({k: result.get(k) for k in ("exit_code", "diagnostics", "failures", "measurements", "unresolved_call_changes", "unresolved_call_note")}))
           PY
+          exit "$cli_status"

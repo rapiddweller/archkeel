@@ -69,9 +69,7 @@
       "id": "CLI-COMPOSITION",
       "label": "composition",
       "role": "component",
-      "public": [
-        "archkeel.cli:main"
-      ],
+      "public": [],
       "responsibilities": [
         "Compose typed argument input, configuration, observation, Core workflows and rendered output."
       ],
