@@ -17,14 +17,19 @@ jobs:
         with:
           python-version: "3.11.12"
           version: "0.12.13"
-      - name: Full permission and lifecycle RED
-        run: uv run --locked python -m pytest -q tests/test_module_object_grants.py --maxfail=12
-      - name: Capture formatter output
+      - name: Native and lifecycle GREEN
+        run: uv run --locked python -m pytest -q tests/test_module_object_grants.py --maxfail=8
+      - name: Format and lint
         if: always()
         run: |
-          uv run --locked ruff format src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py src/archkeel/check/declarations.py tests/test_module_object_grants.py
+          uv run --locked ruff format src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py src/archkeel/check/declarations.py src/archkeel/check/evaluation/rules.py src/archkeel/ir/widening.py tools/architecture_graph_schema.py tests/test_contract_model.py tests/test_module_object_grants.py
+          uv run --locked ruff check src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py src/archkeel/check/declarations.py src/archkeel/check/evaluation/rules.py src/archkeel/ir/widening.py tools/architecture_graph_schema.py tests/test_contract_model.py tests/test_module_object_grants.py
+      - name: Capture formatted files and version maps
+        if: always()
+        run: |
+          rg -n '3\\.5\\.0|architecture-contract-3\\.5' src tools tests docs README.md Makefile
           python - <<'PY'
           import json,pathlib,base64
-          paths=["src/archkeel/ir/model.py","src/archkeel/ir/codec_contract.py","src/archkeel/check/declarations.py","tests/test_module_object_grants.py"]
+          paths=["src/archkeel/ir/model.py","src/archkeel/ir/codec_contract.py","src/archkeel/check/declarations.py","src/archkeel/check/evaluation/rules.py","src/archkeel/ir/widening.py","tools/architecture_graph_schema.py","tests/test_contract_model.py","tests/test_module_object_grants.py"]
           print("FILES="+base64.b64encode(json.dumps({p:pathlib.Path(p).read_text() for p in paths}).encode()).decode())
           PY

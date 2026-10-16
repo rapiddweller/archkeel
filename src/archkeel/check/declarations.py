@@ -207,11 +207,14 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "include_type_checking": rule.include_type_checking,
             "rationale": rule.rationale,
             **(
-                {"module_object_grants": [
-                    {"source_module": item.source_module, "target_module": item.target_module}
-                    for item in rule.module_object_grants
-                ]}
-                if rule.module_object_grants is not None else {}
+                {
+                    "module_object_grants": [
+                        {"source_module": item.source_module, "target_module": item.target_module}
+                        for item in rule.module_object_grants
+                    ]
+                }
+                if rule.module_object_grants is not None
+                else {}
             ),
         }
     elif isinstance(rule, SiblingIsolationRule):

@@ -47,7 +47,7 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.model import requires_covers as _requires_covers
-from archkeel.ir.profiles import DeclarationField, Profile
+from archkeel.ir.profiles import PYTHON_ANALYZER, DeclarationField, Profile
 from archkeel.ir.type_shapes import TypeShapeIndex
 
 from .boundary_types import _AMBIGUOUS as _AMBIGUOUS
@@ -778,7 +778,20 @@ def _interface_verdicts(
                 or item["id"] in forbidden_rejected_ids
             ):
                 continue
-            verdict = _interface_verdict(data, target, exports_by_module, exporting)
+            module_object_granted = (
+                data["symbols_known"] is True
+                and data["symbol"] is None
+                and any(
+                    grant.source_module == data["source_module"]
+                    and grant.target_module == data["target_module"]
+                    for grant in rule.module_object_grants or ()
+                )
+            )
+            verdict = (
+                "allowed"
+                if module_object_granted
+                else _interface_verdict(data, target, exports_by_module, exporting)
+            )
             yield rule, item, source, target, verdict
 
 
@@ -1131,6 +1144,13 @@ def profile_failures(
         "coupling_budgets": bool(declarations.coupling_budgets),
     }
     items = [
+        *(
+            (rule.id, [rule.id], "exact module-object grants")
+            for rule in contract.rules
+            if isinstance(rule, InterfaceBoundaryRule)
+            and rule.module_object_grants
+            and profile.analyzer != PYTHON_ANALYZER
+        ),
         *(
             (rule.id, [rule.id], f"rule kind {rule.kind}")
             for rule in contract.rules

@@ -6199,6 +6199,91 @@
             ],
             "returns": "tuple[DependencyOwner, ...]"
           }
+        },
+        {
+          "id": "IR-MODULE-OBJECT-ModuleObjectGrant",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.ModuleObjectGrant",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-model",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the typed module-object permission contract."
+          ],
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ]
+        },
+        {
+          "id": "IR-MODULE-OBJECT-ModuleObjectGrant.source_module",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ModuleObjectGrant.source_module",
+          "language": "python",
+          "parent_id": "IR-MODULE-OBJECT-ModuleObjectGrant",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the exact typed caller-scoped permission."
+          ],
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ],
+          "annotation": "str",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-MODULE-OBJECT-ModuleObjectGrant.target_module",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ModuleObjectGrant.target_module",
+          "language": "python",
+          "parent_id": "IR-MODULE-OBJECT-ModuleObjectGrant",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the exact typed caller-scoped permission."
+          ],
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ],
+          "annotation": "str",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-MODULE-OBJECT-InterfaceBoundaryRule",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.InterfaceBoundaryRule",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-model",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the typed module-object permission contract."
+          ],
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ]
+        },
+        {
+          "id": "IR-MODULE-OBJECT-InterfaceBoundaryRule.module_object_grants",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.InterfaceBoundaryRule.module_object_grants",
+          "language": "python",
+          "parent_id": "IR-MODULE-OBJECT-InterfaceBoundaryRule",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the exact typed caller-scoped permission."
+          ],
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ],
+          "annotation": "tuple[ModuleObjectGrant, ...] | None",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
         }
       ],
       "relationships": [

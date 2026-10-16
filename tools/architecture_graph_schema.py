@@ -349,6 +349,7 @@ def _update_contract_schema(path: Path) -> None:
         {"const": "3.3.0"},
         {"const": "3.4.0"},
         {"const": "3.5.0"},
+        {"const": "3.6.0"},
     ):
         selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
         selector["properties"]["key_alias_body"] = {
@@ -369,6 +370,7 @@ def _update_contract_schema(path: Path) -> None:
         {"const": "3.3.0"},
         {"const": "3.4.0"},
         {"const": "3.5.0"},
+        {"const": "3.6.0"},
     ):
         selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
         selector["properties"]["literal_mapping_arm"] = {"$ref": "#/$defs/nonEmpty"}
@@ -385,6 +387,7 @@ def _update_contract_schema(path: Path) -> None:
         {"const": "3.3.0"},
         {"const": "3.4.0"},
         {"const": "3.5.0"},
+        {"const": "3.6.0"},
     ):
         selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
         selector["properties"]["native_mapping"] = {"const": True}
@@ -416,14 +419,32 @@ def _update_contract_schema(path: Path) -> None:
                 for name in ("mapping_depth", "alias_body", "key_alias_body", "native_mapping")
             ]
         }
-    if schema["properties"]["schema_version"] in ({"const": "3.4.0"}, {"const": "3.5.0"}):
+    if schema["properties"]["schema_version"] in ({"const": "3.4.0"}, {"const": "3.5.0"}, {"const": "3.6.0"}):
         for name in ("source_match", "target_match"):
             schema["$defs"]["forbiddenDependency"]["properties"][name] = {
                 "enum": ["prefix", "exact"]
             }
-    if schema["properties"]["schema_version"] == {"const": "3.5.0"}:
+    if schema["properties"]["schema_version"] in ({"const": "3.5.0"}, {"const": "3.6.0"}):
         schema["$defs"]["forbiddenDependency"]["properties"]["target_kind"] = {
             "enum": ["module", "import_namespace"]
+        }
+    if schema["properties"]["schema_version"] == {"const": "3.6.0"}:
+        schema["$defs"]["moduleObjectGrant"] = {
+            "type": "object",
+            "required": ["source_module", "target_module"],
+            "additionalProperties": False,
+            "properties": {
+                name: {
+                    "type": "string",
+                    "pattern": r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$",
+                }
+                for name in ("source_module", "target_module")
+            },
+        }
+        schema["$defs"]["interfaceBoundary"]["properties"]["module_object_grants"] = {
+            "type": "array",
+            "uniqueItems": True,
+            "items": {"$ref": "#/$defs/moduleObjectGrant"},
         }
     schema["$defs"]["component"]["properties"]["layer"] = {
         "type": "string",

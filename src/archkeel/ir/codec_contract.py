@@ -286,7 +286,9 @@ def parse_contract(raw: object) -> ArchitectureContract:
         for value in rules_raw
     ):
         raise ValueError("dependency module selectors require contract schema_version 3.4.0")
-    if version not in {"3.5.0", "3.6.0"} and any("target_kind" in _object(value, "rule") for value in rules_raw):
+    if version not in {"3.5.0", "3.6.0"} and any(
+        "target_kind" in _object(value, "rule") for value in rules_raw
+    ):
         raise ValueError("import namespace targets require contract schema_version 3.5.0")
     if version != "3.6.0" and any(
         "module_object_grants" in _object(value, "rule") for value in rules_raw
@@ -433,7 +435,14 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         for rule in contract.rules
     ):
         raise ValueError("alias_body requires contract schema_version 3.0.0")
-    if contract.schema_version not in {"3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0"} and any(
+    if contract.schema_version not in {
+        "3.1.0",
+        "3.2.0",
+        "3.3.0",
+        "3.4.0",
+        "3.5.0",
+        "3.6.0",
+    } and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.key_alias_body is not None for item in rule.allowed_positions)
         for rule in contract.rules
@@ -1101,14 +1110,18 @@ def _parse_module_object_grants(raw: RawJson, label: str) -> tuple[ModuleObjectG
 
 def _parse_interface_boundary(raw: RawJson, label: str) -> InterfaceBoundaryRule:
     item, item_id, provenance = _contract_record(
-        raw, {"kind", "rationale", "decided_by"}, {"include_type_checking", "module_object_grants"}, label
+        raw,
+        {"kind", "rationale", "decided_by"},
+        {"include_type_checking", "module_object_grants"},
+        label,
     )
     include = item.get("include_type_checking", True)
     if not isinstance(include, bool):
         raise ValueError(f"{label}.include_type_checking must be a boolean")
     grants = (
         _parse_module_object_grants(item["module_object_grants"], f"{label}.module_object_grants")
-        if "module_object_grants" in item else None
+        if "module_object_grants" in item
+        else None
     )
     return InterfaceBoundaryRule(
         item_id,
@@ -1119,6 +1132,7 @@ def _parse_interface_boundary(raw: RawJson, label: str) -> InterfaceBoundaryRule
         include,
         grants,
     )
+
 
 def _parse_sibling_isolation(raw: RawJson, label: str) -> SiblingIsolationRule:
     item, item_id, provenance = _contract_record(
