@@ -68,6 +68,7 @@ def _request(tmp_path, language):
     project = tmp_path / "source"
     project.mkdir()
     (project / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    (project / "pubspec.yaml").write_text("name: sample\n")
     (project / "tsconfig.json").write_text('{"include": ["src/**/*.ts"]}\n')
     (project / "src").mkdir()
     suffix = {"python": "py", "dart": "dart", "typescript": "ts"}[language]
@@ -154,27 +155,40 @@ def _repository(tmp_path, *, module=BOOTSTRAP, probe="", weaken=False, marker=Fa
     rules = json.loads((ROOT / "architecture-contract.json").read_text())["rules"]
     contract = {
         "schema_version": "2.2.0",
-        "components": [{
-            "id": "TARGET-PROCESS", "label": "process", "role": "component",
-            "packages": ["archkeel"], "responsibilities": ["Own shared collector startup."],
-            "forbidden_responsibilities": [], "provenance": [DOC],
-        }],
+        "components": [
+            {
+                "id": "TARGET-PROCESS",
+                "label": "process",
+                "role": "component",
+                "packages": ["archkeel"],
+                "responsibilities": ["Own shared collector startup."],
+                "forbidden_responsibilities": [],
+                "provenance": [DOC],
+            }
+        ],
         "rules": [
-            rule for rule in rules
+            rule
+            for rule in rules
             if rule["id"].startswith("BOOTSTRAP-TYPED-") and rule["source"] == module
         ],
-        "declarations": {"uml": {
-            "schema_version": "1.0.0",
-            "entities": [
-                item for item in authored["declarations"]["uml"]["entities"]
-                if item["id"].startswith("BOOTSTRAP-")
-            ],
-            "relationships": [], "scopes": [],
-        }},
+        "declarations": {
+            "uml": {
+                "schema_version": "1.0.0",
+                "entities": [
+                    item
+                    for item in authored["declarations"]["uml"]["entities"]
+                    if item["id"].startswith("BOOTSTRAP-")
+                ],
+                "relationships": [],
+                "scopes": [],
+            }
+        },
     }
     files = {
-        "archkeel/__init__.py": "", "archkeel/analyzer/__init__.py": "",
-        "contract.json": json.dumps(contract), DOC: "Owned direct collector start.\n",
+        "archkeel/__init__.py": "",
+        "archkeel/analyzer/__init__.py": "",
+        "contract.json": json.dumps(contract),
+        DOC: "Owned direct collector start.\n",
     }
     for name in (BOOTSTRAP, *(f"archkeel.analyzer.{item}.entry" for item in LANGUAGES)):
         path = "src/" + name.replace(".", "/") + ".py"
@@ -192,12 +206,16 @@ def _repository(tmp_path, *, module=BOOTSTRAP, probe="", weaken=False, marker=Fa
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
 
 
-@pytest.mark.parametrize("module", (BOOTSTRAP, *(f"archkeel.analyzer.{item}.entry" for item in LANGUAGES)))
+@pytest.mark.parametrize(
+    "module", (BOOTSTRAP, *(f"archkeel.analyzer.{item}.entry" for item in LANGUAGES))
+)
 def test_actual_bootstrap_and_entries_fulfil_owned_target_and_guard(tmp_path, module):
     root, config = _repository(tmp_path, module=module)
     model = _model(root, config)
     assessments = rule_assessments(model, undecided_by_rule={})
-    assert assessments and all(row.status == "PASS" and row.evaluation_proven for row in assessments)
+    assert assessments and all(
+        row.status == "PASS" and row.evaluation_proven for row in assessments
+    )
     assert not trace_valid_violations(model)
 
 
@@ -210,14 +228,17 @@ def test_actual_bootstrap_api_weakening_fails_unchanged_authored_target(tmp_path
     assert (root / "contract.json").read_bytes() == before
 
 
-@pytest.mark.parametrize("probe", [
-    'def _probe(value):\n    return value == "__main__"\n',
-    'def _probe(value):\n    return value in ("__main__", "module")\n',
-    'def _probe(value):\n    match value:\n        case "__main__":\n            return True\n',
-    'from typing import Final\nMAIN: Final[str] = "__main__"\n'
-    'def _probe(value):\n    return value == MAIN\n',
-    'def _probe(value):\n    return value == _EntryMode.MAIN.value\n',
-])
+@pytest.mark.parametrize(
+    "probe",
+    [
+        'def _probe(value):\n    return value == "__main__"\n',
+        'def _probe(value):\n    return value in ("__main__", "module")\n',
+        'def _probe(value):\n    match value:\n        case "__main__":\n            return True\n',
+        'from typing import Final\nMAIN: Final[str] = "__main__"\n'
+        "def _probe(value):\n    return value == MAIN\n",
+        "def _probe(value):\n    return value == _EntryMode.MAIN.value\n",
+    ],
+)
 def test_actual_bootstrap_rejects_raw_protocol_dispatch_mutations(tmp_path, probe):
     root, config = _repository(tmp_path, probe=probe)
     before = (root / "contract.json").read_bytes()
