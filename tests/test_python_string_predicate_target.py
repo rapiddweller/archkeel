@@ -25,6 +25,15 @@ def _repository(tmp_path, changed=None):
         json.loads((ROOT / "docs/architecture/contracts/python.json").read_text())
     )
     contract.pop("$schema", None)
+    # This fixture copies only constructs.py; the complete self target retains every owner.
+    predicate_ids = {
+        "PYTHON-PREDICATE-MODULE",
+        "PYTHON-PREDICATE-KIND",
+        "PYTHON-PREDICATE-DECODE",
+    }
+    uml = contract["declarations"]["uml"]
+    uml["entities"] = [entity for entity in uml["entities"] if entity["id"] in predicate_ids]
+    assert {entity["id"] for entity in uml["entities"]} == predicate_ids
     source = (ROOT / SOURCE).read_text() if changed is None else changed
     root = _prepare_repo(
         tmp_path,
