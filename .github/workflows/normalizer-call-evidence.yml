@@ -1,0 +1,51 @@
+name: Read existing normalizer call evidence
+on:
+  push:
+    branches: [aux/issue-542-normalizer-call-evidence]
+permissions:
+  contents: read
+jobs:
+  existing-call-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.12.13
+          python-version: 3.11.12
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - name: Collect actual source and inspect existing call evidence without changing its producer
+        run: |
+          uv run --locked python - <<'PY'
+          import json,tempfile
+          from pathlib import Path
+          from archkeel.cli import main
+          from archkeel.ir.codec import decode_canonical_model,parse_observation
+          from archkeel.ir.facts_codec import thaw_data,evidence_payload
+          output=Path(tempfile.gettempdir())/"normalizer-call-evidence.json"
+          code=main(["report","--root",".","--output",str(output),"--json"])
+          print("NORMALIZER_REPORT_EXIT",code)
+          model=parse_observation(decode_canonical_model(json.loads(output.read_text())))
+          callers={
+              "archkeel.ir.model.ArchitectureContract.__post_init__",
+              "archkeel.ir.architecture_graph.Parameter.__post_init__",
+              "archkeel.ir.architecture_graph.ReportFinding.__post_init__",
+              "archkeel.ir.architecture_graph.RuleAssessment.__post_init__",
+              "archkeel.ir.architecture_graph.ArchitectureReport.__post_init__",
+          }
+          evidence={item.id:item for item in model.evidence}
+          rows=[]
+          for row in model.records("calls") or ():
+              if row.data.get("source_scope") in callers:
+                  rows.append({"id":row.id,"kind":row.kind,"subjects":row.subjects,"data":thaw_data(row.data),"evidence":[evidence_payload(evidence[item]) for item in row.evidence_ids],"target_evidence":[evidence_payload(evidence[item]) for item in row.data.get("target_evidence_ids",()) if item in evidence]})
+          print("NORMALIZER_EXISTING_CALL_FACTS",json.dumps(rows,sort_keys=True))
+          print("NORMALIZER_EXISTING_CALL_COUNTS",json.dumps({caller:sum(row["data"]["source_scope"]==caller for row in rows) for caller in sorted(callers)}))
+          for row in model.records("symbols") or ():
+              if row.data.get("qualified_name") in callers:
+                  print("NORMALIZER_EXISTING_SYMBOL_FACT",json.dumps({"id":row.id,"data":thaw_data(row.data),"evidence":[evidence_payload(evidence[item]) for item in row.evidence_ids]},sort_keys=True))
+          PY
