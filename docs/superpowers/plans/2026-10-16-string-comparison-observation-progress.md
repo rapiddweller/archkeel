@@ -49,3 +49,10 @@ Ruling: require a named collection load to be the final comparator under a final
 Ruling: membership can have a literal vocabulary on either side — a literal or already supported module/class scalar needle is sufficient syntax evidence — reusing scalar(left) adds no runtime type or namespace inference and preserves collection-side alias/role exclusions.
 
 Ruling: enum members and arbitrary data variables stay unclassified as literal needles; explicit enum value extraction uses the existing scalar proof, while imported arbitrary values remain unsupported — native controls distinguish these boundaries — this does not claim a universal semantic string ban.
+
+## Frozen Enum value evidence review scope
+
+- Base 61404f1cf9e8579929119be093c3676075754661.
+- [ ] Native RED for extra bases, construction/access hooks, class metaclass/decorator transformation, IntEnum conversion and namespace ignore; preserve plain Enum and StrEnum positives.
+- [ ] Admit only a single directly proven Enum/StrEnum base, no class keywords/decorators, and ordinary literal member declarations. Reuse existing static member inventory rather than MRO/runtime inference.
+- [ ] Preserve nominal enum-member controls and all alias/collection restrictions; run native source/binding/State safety, Ruff/Mypy/hygiene and 65/919 baseline.

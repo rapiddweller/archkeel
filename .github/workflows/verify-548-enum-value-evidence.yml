@@ -1,0 +1,26 @@
+name: Verify PR548 bounded Enum value evidence
+
+on:
+  push:
+    branches: [verify/548-enum-value-evidence]
+
+permissions:
+  contents: read
+
+jobs:
+  enum-values:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - name: Native RED custom enum value controls
+        run: uv run --locked python -m pytest -q tests/test_string_comparison_observation.py
