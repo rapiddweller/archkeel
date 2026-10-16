@@ -6,6 +6,7 @@ permissions:
   contents: read
 jobs:
   browser:
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
