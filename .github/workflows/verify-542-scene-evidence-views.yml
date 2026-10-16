@@ -1,13 +1,49 @@
-name: Actual visible Evidence button regression
+name: Exact Evidence view compatibility correction
 on:
   push:
     branches: [verify/542-scene-evidence-view-fix]
 permissions:
   contents: read
 jobs:
-  actual-visible-evidence-buttons:
+  actual-source-runtime-and-api:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - run: uv sync --locked
+      - name: Official existing artifact generation and strict actual consumer checks
+        run: make browser-graph-generate browser-graph-check
+      - run: make browser-install
+      - name: Actual legacy Scene programs include all existing public views
+        run: |
+          git show d08dfaf6a2e6992153a434341465306a88d993a2:src/archkeel/render/assets/report-scene.js > "$RUNNER_TEMP/previous-scene.js"
+          node prototype/evidence-views-scene-compatibility.cjs "$RUNNER_TEMP/previous-scene.js"
+      - name: Actual visible buttons, ingress and widened mode/return/source controls
+        run: uv run --locked --with playwright==1.62.0 python -m pytest -q tests/test_graph_scene_protocol.py tests/test_report_renderer_units.py
+      - run: make lint typecheck
+      - name: Export official compiled artifact and formatted tests
+        if: always()
+        run: |
+          uv run --locked ruff format tests/test_graph_scene_protocol.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          paths=["src/archkeel/render/assets/report-graph-protocol.js","tests/test_graph_scene_protocol.py"]
+          print("SCENE_EVIDENCE_ARTIFACTS="+json.dumps({path:Path(path).read_text() for path in paths}))
+          PY
+  actual-chromium-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -16,7 +52,11 @@ jobs:
         with:
           version: "0.12.13"
           python-version: "3.11.12"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
       - run: uv sync --locked
-      - run: make browser-install
-      - name: Existing visible report buttons exercise real Flow and Scene
-        run: uv run --locked --with playwright==1.62.0 python -m pytest -q tests/test_graph_scene_protocol.py::test_visible_evidence_views_keep_the_observed_scene
+      - run: make browser-graph-generate browser-graph-check browser-install
+      - name: Actual native graph, routes, filters and Mermaid consumers
+        run: |
+          uv run --locked --with playwright==1.62.0 python -m pytest -q             tests/test_own_uml_target.py::test_own_type_dependencies_have_visible_endpoints_and_connected_focus             tests/test_own_uml_target.py::test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence             tests/test_own_uml_target.py::test_own_class_overview_keeps_distinct_routes_and_type_cues             tests/test_uml_rendering.py::test_keyboard_drilldown_and_view_roundtrip_keep_the_source_scope             tests/test_uml_rendering.py::test_source_scope_retains_unresolved_calls_and_parameter_kinds             tests/test_uml_rendering.py::test_static_members_are_underlined_in_previews_and_drilldown             tests/test_atlas_report.py::test_offline_module_drilldown_reaches_native_classifiers_and_returns             tests/test_atlas_report.py::test_offline_scope_url_history_matches_direct_classifier_and_members             tests/test_atlas_report.py::test_atlas_browser_keeps_positions_and_unknown_cells_across_lenses

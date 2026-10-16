@@ -1,7 +1,19 @@
 // Native graph scene values. Wire vocabularies are generated from Python owners.
 namespace ArchkeelGraphSceneProtocol {
   import G = ArchkeelGraphProtocol;
-  export enum ViewMode { DIAGRAM = "diagram", TARGET = "target", DIFF = "diff" }
+  export enum ViewMode {
+    DIAGRAM = "diagram", TARGET = "target", DIFF = "diff",
+    ACTUAL = "actual", STRUCTURE = "structure", REVIEW = "review"
+  }
+  export type ProjectionMode = ViewMode.DIAGRAM | ViewMode.TARGET | ViewMode.DIFF;
+  export function projectViewMode(value: ViewMode): ProjectionMode {
+    switch (value) {
+      case ViewMode.ACTUAL:
+      case ViewMode.STRUCTURE:
+      case ViewMode.REVIEW: return ViewMode.DIAGRAM;
+      default: return value;
+    }
+  }
   export enum EdgeState {
     OBSERVED = "observed", DECLARED = "declared", VIOLATION = "violation", UNDECIDED = "undecided"
   }

@@ -14,5 +14,10 @@ namespace GraphSceneTarget {
   }) => RequiredScene = api.projectArchitectureScene;
   const members: (entity: P.Entity, includeName?: boolean) => string = api.member;
   const entities: (graph: P.Graph) => P.Entity[] = api.entities;
-  void projection; void members; void entities;
+  const projectionMode: (view: P.ViewMode) =>
+    P.ViewMode.DIAGRAM | P.ViewMode.TARGET | P.ViewMode.DIFF = P.projectViewMode;
+  const evidenceViews: P.Options[] = [
+    {viewMode:P.ViewMode.ACTUAL}, {viewMode:P.ViewMode.STRUCTURE}, {viewMode:P.ViewMode.REVIEW},
+  ];
+  void projection; void members; void entities; void projectionMode; void evidenceViews;
 }

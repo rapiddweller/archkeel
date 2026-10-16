@@ -182,8 +182,9 @@ var ArchkeelGraphScene = (function () {
 
     /** @param {Context} context @param {Options} [options] @returns {Scene} */
     function projectArchitectureScene(context, options = {}) {
-      const viewMode = P.decodeViewMode(options.viewMode === undefined
-        ? P.ViewMode.DIAGRAM : options.viewMode);
+      /** @type {P.ProjectionMode} */
+      const viewMode = P.projectViewMode(P.decodeViewMode(options.viewMode === undefined
+        ? P.ViewMode.DIAGRAM : options.viewMode));
       const directChildren = options.directChildren ?? false;
       const comparison = comparisonFor(context);
       const { graph, scope } = context;

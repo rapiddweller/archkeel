@@ -90,8 +90,25 @@ def test_scene_vocabulary_is_generated_from_canonical_owners():
             "@param {Context} context @param {Options} [options] @returns {Scene}",
             "@param {Context} context @param {Options} [options] @returns {object}",
         ),
+        (
+            "report-graph-protocol.ts",
+            "case ViewMode.REVIEW: return ViewMode.DIAGRAM;",
+            "case ViewMode.REVIEW: return ViewMode.REVIEW;",
+        ),
+        (
+            "report-graph-protocol.ts",
+            "export function projectViewMode(value: ViewMode): ProjectionMode {",
+            "export function projectViewMode(value: ViewMode): ViewMode {",
+        ),
     ],
-    ids=["raw-field", "same-spelling-wrong-domain", "field-widening", "return-widening"],
+    ids=[
+        "raw-field",
+        "same-spelling-wrong-domain",
+        "field-widening",
+        "return-widening",
+        "evidence-mode-leaked-into-projection",
+        "projection-mode-return-widening",
+    ],
 )
 def test_actual_scene_consumer_rejects_type_mutations(tmp_path, path, before, after):
     import shutil
@@ -347,7 +364,7 @@ def test_native_projection_preserves_legacy_default_options_and_rejects_invalid_
         )
         assert result == {
             "defaults": [True] * 4,
-            "modes": [True] * 3,
+            "modes": [True] * 6,
             "invalid": [True] * 4,
         }
     finally:
