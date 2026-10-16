@@ -30,6 +30,7 @@ from .model import (
     JsonValue,
     Observation,
     Record,
+    dependency_owners,
     in_scope,
     text_value,
 )
@@ -184,10 +185,12 @@ def _dependency_selections(
         if parent_scope is not None and parent_scope not in scope_ids:
             continue
         parent = scope_ids[parent_scope] if parent_scope is not None else None
-        ownership = tuple(
-            (intent.component_id, intent.packages, intent.exact_modules)
-            for intent in intents.values()
-            if intent.parent_id == parent
+        ownership = dependency_owners(
+            tuple(
+                (intent.component_id, intent.packages, intent.exact_modules)
+                for intent in intents.values()
+                if intent.parent_id == parent
+            )
         )
         selector = parse_dependency_selector(item)
         selections[item.id] = selector.select(ownership)

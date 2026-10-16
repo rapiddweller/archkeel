@@ -23,9 +23,8 @@ The independent UML declarations pin the enum members, selector mode/kind
 fields, selection fields and method signatures. They also govern the model's
 compatibility wrappers, the typed adapter signature and
 `ForbiddenDependencyRule.selector` property.
-Module names, package names and symbols remain string data. Ownership tuples
-and generic iterable inputs remain typed containers; they do not require
-artificial DTOs.
+Module names, package names and symbols remain string data. The legacy ownership
+tuples and generic iterable inputs remain typed containers.
 
 `codec_contract.parse_dependency_selector(Record) -> DependencySelector`
 is the named record-to-domain conversion seam. Its raw record inspection and
@@ -35,7 +34,8 @@ authority; projections consume the shared typed selection. The new
 `boundary_types` rule covers exactly the dependency module's declared public
 surface, including both `DependencyOwner` parameters. The legacy model's generic
 ownership aliases and adapter input retain their typed compatibility signatures;
-their deep alias proof remains outside this bounded policy boundary. This change adds no raw-input allowance or wildcard IR exemption.
+their deep alias proof remains outside this bounded policy boundary. This change
+adds no raw-input allowance or wildcard IR exemption.
 
 The native tests copy the actual dependency source and selected model/codec
 declarations into a disposable repository retaining `archkeel.ir` identities.

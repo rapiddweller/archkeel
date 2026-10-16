@@ -45,6 +45,14 @@ class ModuleSelection:
 
 
 @dataclass(frozen=True, slots=True)
+class DependencyOwner:
+    """A caller's component identity and its immutable owned module selection."""
+
+    identity: str
+    modules: ModuleSelection
+
+
+@dataclass(frozen=True, slots=True)
 class DependencySelection:
     source: ModuleSelection
     target: ModuleSelection
@@ -72,7 +80,7 @@ class DependencySelector:
         if not isinstance(self.target_kind, DependencyTargetKind):
             raise ValueError("Dependency target kind must use DependencyTargetKind")
 
-    def component_pair(self, components: tuple[ComponentOwnership, ...]) -> tuple[str, str] | None:
+    def component_pair(self, components: tuple[DependencyOwner, ...]) -> tuple[str, str] | None:
         """Only a legacy whole-package module ban decides an entire component pair."""
         if (
             self.target_symbol is not None
@@ -81,19 +89,20 @@ class DependencySelector:
             or self.target_kind is not DependencyTargetKind.MODULE
         ):
             return None
-        sources = {identity for identity, packages, _ in components if self.source in packages}
-        targets = {identity for identity, packages, _ in components if self.target in packages}
+        sources = {
+            owner.identity for owner in components if self.source in owner.modules.packages
+        }
+        targets = {
+            owner.identity for owner in components if self.target in owner.modules.packages
+        }
         if len(sources) != 1 or len(targets) != 1:
             return None
         return next(iter(sources)), next(iter(targets))
 
-    def select(self, components: tuple[ComponentOwnership, ...]) -> DependencySelection:
+    def select(self, components: tuple[DependencyOwner, ...]) -> DependencySelection:
         pair = self.component_pair(components)
         if pair is not None:
-            owners = {
-                identity: ModuleSelection(packages, exact)
-                for identity, packages, exact in components
-            }
+            owners = {owner.identity: owner.modules for owner in components}
             return DependencySelection(owners[pair[0]], owners[pair[1]])
         return DependencySelection(
             ModuleSelection(exact_modules=(self.source,))
@@ -107,6 +116,7 @@ class DependencySelector:
 
 __all__ = (
     "ComponentOwnership",
+    "DependencyOwner",
     "DependencySelection",
     "DependencySelector",
     "DependencyTargetKind",

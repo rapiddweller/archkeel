@@ -89,7 +89,7 @@ def _dependency_repository(
     model = (
         "from dataclasses import dataclass\nfrom typing import Literal, TypeAlias\n"
         "from .dependency import (ComponentOwnership, DependencyOwner, DependencySelection, DependencySelector, "
-        "DependencyTargetKind, SelectorMatch)\n\n"
+        "DependencyTargetKind, ModuleSelection, SelectorMatch)\n\n"
         + _source_members(
             "src/archkeel/ir/model.py",
             {

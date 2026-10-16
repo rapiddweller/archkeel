@@ -11,7 +11,7 @@ from test_dependency_selectors import _contract, _ownership
 
 from archkeel.check.declarations import project_rule_declaration
 from archkeel.ir import codec
-from archkeel.ir.model import EvidenceClass, Record, RecordData, forbidden_dependency_scopes
+from archkeel.ir.model import EvidenceClass, Record, RecordData, dependency_owners, forbidden_dependency_scopes
 
 
 def _record(raw):
@@ -77,10 +77,10 @@ def test_record_boundary_decodes_selector_once_without_fake_metadata():
     assert hasattr(codec, "parse_dependency_selector")
     selector = codec.parse_dependency_selector(record)
     assert selector == contract.rules[0].selector
-    assert selector.select(_ownership(contract)) == forbidden_dependency_scopes(
+    assert selector.select(dependency_owners(_ownership(contract))) == forbidden_dependency_scopes(
         contract.rules[0], _ownership(contract)
     )
-    assert selector.component_pair(_ownership(contract)) is None
+    assert selector.component_pair(dependency_owners(_ownership(contract))) is None
 
 
 @pytest.mark.parametrize(
@@ -120,8 +120,8 @@ def test_ambiguous_ownership_does_not_expand_selection():
     [rule] = contract.rules
     assert hasattr(rule, "selector")
     ownership = (*_ownership(contract), ("ambiguous", ("sample.caller",), ()))
-    assert rule.selector.component_pair(ownership) is None
-    selection = rule.selector.select(ownership)
+    assert rule.selector.component_pair(dependency_owners(ownership)) is None
+    selection = rule.selector.select(dependency_owners(ownership))
     assert selection.source.matches("sample.caller.child")
     assert not selection.source.matches("sample.caller_extra.child")
 
@@ -133,10 +133,44 @@ def test_exact_owned_modules_expand_only_legacy_component_pairs():
     contract = codec.parse_contract(raw)
     [rule] = contract.rules
     assert hasattr(rule, "selector")
-    selection = rule.selector.select(_ownership(contract))
+    selection = rule.selector.select(dependency_owners(_ownership(contract)))
     assert selection.source.matches("sample.runner")
     assert selection.target.matches("sample.failure")
     assert not selection.target.matches("sample.failure.child")
     namespace = replace(rule.selector, target_kind=type(rule.target_kind).IMPORT_NAMESPACE)
-    assert not namespace.select(_ownership(contract)).source.matches("sample.runner")
-    assert not namespace.select(_ownership(contract)).target.matches("sample.failure")
+    assert not namespace.select(dependency_owners(_ownership(contract))).source.matches("sample.runner")
+    assert not namespace.select(dependency_owners(_ownership(contract))).target.matches("sample.failure")
+
+
+def test_named_ownership_adapter_preserves_legacy_shapes_order_and_duplicates():
+    from archkeel.ir import dependency, model
+    from archkeel.ir.model import dependency_owners
+
+    legacy = (
+        ("label", ("sample.primary",), ("sample.entry",)),
+        ("label", ("sample.extra",), ()),
+    )
+    owners = dependency_owners(legacy)
+    assert tuple(owner.identity for owner in owners) == ("label", "label")
+    assert tuple(owner.modules.packages for owner in owners) == (
+        ("sample.primary",), ("sample.extra",),
+    )
+    assert owners[0].modules.exact_modules == ("sample.entry",)
+    assert isinstance(owners[0], dependency.DependencyOwner)
+    assert model.ComponentOwnership is dependency.ComponentOwnership
+    assert model.ComponentOwnership == tuple[str, tuple[str, ...], tuple[str, ...]]
+    assert model.PackageComponentOwnership == tuple[str, tuple[str, ...]]
+    assert model.ComponentOwnershipInput == model.ComponentOwnership | model.PackageComponentOwnership
+    with pytest.raises(FrozenInstanceError):
+        owners[0].identity = "changed"
+
+
+def test_typed_policy_consumes_named_ownership_and_reuses_immutable_modules():
+    from archkeel.ir.model import dependency_owners
+
+    contract = codec.parse_contract(_contract())
+    owners = dependency_owners(_ownership(contract))
+    selection = contract.rules[0].selector.select(owners)
+    assert selection.source is owners[0].modules
+    assert selection.target is owners[1].modules
+    assert contract.rules[0].selector.component_pair(owners) == ("caller", "errors")

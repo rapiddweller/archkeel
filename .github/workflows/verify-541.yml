@@ -18,7 +18,7 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - name: Focused native source controls
-        run: uv run --locked python -m pytest -q tests/test_dependency_api_target.py -k 'not own_native' --maxfail=8
+        run: uv run --locked python -m pytest -q tests/test_dependency_api_target.py --maxfail=8
       - name: Lint and types
         if: always()
         run: |
