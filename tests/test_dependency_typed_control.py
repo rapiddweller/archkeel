@@ -22,8 +22,14 @@ def _guard(model):
     [
         'def _probe(value):\n    return value == "prefix"\n',
         'def _probe(value):\n    return value in ("prefix", "exact")\n',
-        'def _probe(value):\n    match value:\n        case "prefix":\n            return True\n        case _:\n            return False\n',
-        'from typing import Final\nPREFIX: Final[str] = "prefix"\n\ndef _probe(value):\n    return value == PREFIX\n',
+        (
+            'def _probe(value):\n    match value:\n        case "prefix":\n'
+            "            return True\n        case _:\n            return False\n"
+        ),
+        (
+            'from typing import Final\nPREFIX: Final[str] = "prefix"\n'
+            "\ndef _probe(value):\n    return value == PREFIX\n"
+        ),
     ],
     ids=["equality", "membership", "match", "final-string"],
 )
@@ -56,7 +62,10 @@ def test_native_dependency_policy_accepts_owned_enums_and_name_data(tmp_path):
 def test_native_wire_comparison_remains_at_the_codec_boundary(tmp_path):
     root, config = _dependency_repository(tmp_path)
     codec = root / "archkeel/ir/codec_contract.py"
-    codec.write_text(codec.read_text() + '\n\ndef _wire_probe(kind: str) -> bool:\n    return kind == "forbidden_dependency"\n')
+    codec.write_text(
+        codec.read_text()
+        + '\n\ndef _wire_probe(kind: str) -> bool:\n    return kind == "forbidden_dependency"\n'
+    )
     model = _model(root, config)
     assert _guard(model).status == "PASS" and _guard(model).evaluation_proven
     assert any(
@@ -72,3 +81,14 @@ def test_the_native_guard_comes_from_the_own_contract_without_exemptions():
     assert rule["source"] == "archkeel.ir.dependency"
     assert rule["constructs"] == ["string_literal_compare"]
     assert not rule.get("allowed_sources") and not rule.get("exact_sources")
+
+
+def test_own_observation_covers_the_protected_domain_without_string_control(self_observation):
+    model = self_observation
+    assert _guard(model).status == "PASS" and _guard(model).evaluation_proven
+    assert not [
+        row for row in model.records("constructs")
+        if row.kind == "string_literal_compare"
+        and (row.data.get("owner") == "archkeel.ir.dependency"
+             or row.data.get("owner", "").startswith("archkeel.ir.dependency."))
+    ]
