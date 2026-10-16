@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 # Auxiliary actual-report size diagnosis; does not alter the guard or product.
 import json
 import re

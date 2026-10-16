@@ -64,3 +64,7 @@ Files: tests/test_graph_scene_protocol.py; tests/test_report_renderer_units.py (
 - Task2 produces the precise ports consumed by Task3; Task3 mutations target actual source, not a handwritten substitute.
 - The existing Flow/API consumes the same primitive string spellings, so no graph copy or output adapter is needed.
 - Pending evidence is explicitly unchecked; no completion claim until actual hosted checks are read.
+
+## Size-budget refinement (accepted by Root)
+
+The measured frozen first candidate was 2,029,535 bytes, above both unchanged 2MB/400KB report budgets. Remove the24 unused generated per-enum decode/encode wrappers; canonical nominal Enums and concrete membership predicates remain. Test invalid numeric status at the real comparison ingress and primitive wire text at actual JSON serialization. Independently measure an auxiliary AST-only publication print with optimization and mangling disabled; do not introduce a production build artifact or packaging change before separate review. Layout deduplication is an independent Root change and is not included here.

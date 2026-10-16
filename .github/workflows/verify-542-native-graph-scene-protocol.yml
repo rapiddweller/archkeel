@@ -1,17 +1,18 @@
-name: Verify native graph scene final checks
+name: Verify native graph scene protocol
 on:
   push:
     branches: [verify/542-native-graph-scene-protocol]
 permissions:
   contents: read
 jobs:
-  final-frozen-source-checks:
+  strict-actual-source-and-runtime:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
           version: "0.12.13"
@@ -20,12 +21,97 @@ jobs:
         with:
           node-version: "22"
       - run: uv sync --locked
-      - name: Exact committed artifacts, actual checkJs and authored Target
-        run: make browser-graph-check
-      - name: Whole existing lint, mypy and repository hygiene
+      - name: Check committed canonical artifacts and actual consumer types
+        run: |
+          make browser-graph-generate
+          make browser-graph-check
+      - run: make browser-install
+      - name: Actual compiler mutations, ingress, original graph and existing scene/layout
+        run: uv run --locked --with playwright==1.62.0 python -m pytest -q --basetemp "$RUNNER_TEMP/scene-tests" tests/test_graph_scene_protocol.py tests/test_report_renderer_units.py
+      - name: Same actual own graph before and after performance and wire parity
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from archkeel.ir.codec import decode_canonical_model, parse_observation
+          from archkeel.ir.graph_codec import report_bytes
+          from archkeel.ir.report_graph import architecture_report
+          root = Path(os.environ["RUNNER_TEMP"])
+          artifact = root / "scene-tests/self-report/architecture.json"
+          observation = parse_observation(decode_canonical_model(json.loads(artifact.read_bytes())))
+          (root / "scene-perf.json").write_bytes(report_bytes(architecture_report(observation)))
+          PY
+          git show d08dfaf6a2e6992153a434341465306a88d993a2:src/archkeel/render/assets/report-scene.js > "$RUNNER_TEMP/previous-scene.js"
+          node prototype/graph-scene-timing.cjs "$RUNNER_TEMP/scene-perf.json" "$RUNNER_TEMP/previous-scene.js"
+      - name: Native Python checks and hygiene
         run: |
           make lint typecheck
           uv run --locked python -m pytest -q tests/test_repository_hygiene.py
+      - name: Export final formatting
+        if: always()
+        run: |
+          uv run --locked ruff format tools/browser_graph_protocol.py tests/test_graph_scene_protocol.py tests/test_report_renderer_units.py tests/smoke_test.py
+          uv run --locked ruff check --fix tools/browser_graph_protocol.py tests/test_graph_scene_protocol.py tests/smoke_test.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          paths = ["tools/browser_graph_protocol.py", "tests/test_graph_scene_protocol.py", "tests/test_report_renderer_units.py", "tests/smoke_test.py", "src/archkeel/render/assets/report-graph-protocol.js", "src/archkeel/render/assets/report-graph-vocabulary.ts"]
+          print("SCENE_ARTIFACTS=" + json.dumps({path: Path(path).read_text() for path in paths}))
+          PY
+  browser-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - run: make browser-install
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - run: |
+          make browser-graph-generate
+          make browser-graph-check
+      - name: Actual native graph, routes, filters and Mermaid consumers
+        run: |
+          uv run --locked --with playwright==1.62.0 python -m pytest -q \
+            tests/test_own_uml_target.py::test_own_type_dependencies_have_visible_endpoints_and_connected_focus \
+            tests/test_own_uml_target.py::test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence \
+            tests/test_own_uml_target.py::test_own_class_overview_keeps_distinct_routes_and_type_cues \
+            tests/test_uml_rendering.py::test_keyboard_drilldown_and_view_roundtrip_keep_the_source_scope \
+            tests/test_uml_rendering.py::test_source_scope_retains_unresolved_calls_and_parameter_kinds \
+            tests/test_uml_rendering.py::test_static_members_are_underlined_in_previews_and_drilldown \
+            tests/test_atlas_report.py::test_offline_module_drilldown_reaches_native_classifiers_and_returns \
+            tests/test_atlas_report.py::test_offline_scope_url_history_matches_direct_classifier_and_members \
+            tests/test_atlas_report.py::test_atlas_browser_keeps_positions_and_unknown_cells_across_lenses
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - run: |
+          make browser-graph-generate
+          make browser-graph-check
+      - run: uv build --no-sources --clear
+      - run: make smoke
+
   actual-native-source-mutation:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -53,7 +139,6 @@ jobs:
       - run: uv sync --locked
       - name: Actual scene source mutation is observed; capability stays PARTIAL
         run: uv run --locked python -m pytest -q -s prototype/test_graph_scene_native_observer.py
-
   actual-report-size:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -67,7 +152,49 @@ jobs:
           version: "0.12.13"
           python-version: "3.11.12"
       - run: uv sync --locked
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - run: make browser-graph-generate
       - name: Decompose actual sample HTML without changing product
         run: uv run --locked python prototype/graph-scene-report-size.py
       - name: Existing report size guard, unchanged
         run: uv run --locked python -m pytest -q tests/test_atlas_report.py::test_default_report_is_one_authentic_repository_with_sparse_native_cells
+
+  auxiliary-ast-print-measurement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - run: uv sync --locked
+      - run: make browser-graph-generate
+      - name: Pinned auxiliary standard AST printer, no optimization or name changes
+        run: |
+          npm install --prefix "$RUNNER_TEMP/scene-printer" --no-save --ignore-scripts --no-audit --no-fund terser@5.44.0 acorn@8.15.0
+          node prototype/graph-scene-print-measurement.cjs "$RUNNER_TEMP/scene-printer/node_modules"
+      - name: Actual emitted sample HTML and unchanged budgets
+        run: |
+          uv run --locked python prototype/graph-scene-report-size.py
+          uv run --locked python -m pytest -q tests/test_atlas_report.py::test_default_report_is_one_authentic_repository_with_sparse_native_cells
+      - run: make browser-install
+      - name: Actual native graph, routes, filters and Mermaid consumers
+        run: |
+          uv run --locked --with playwright==1.62.0 python -m pytest -q \
+            tests/test_own_uml_target.py::test_own_type_dependencies_have_visible_endpoints_and_connected_focus \
+            tests/test_own_uml_target.py::test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence \
+            tests/test_own_uml_target.py::test_own_class_overview_keeps_distinct_routes_and_type_cues \
+            tests/test_uml_rendering.py::test_keyboard_drilldown_and_view_roundtrip_keep_the_source_scope \
+            tests/test_uml_rendering.py::test_source_scope_retains_unresolved_calls_and_parameter_kinds \
+            tests/test_uml_rendering.py::test_static_members_are_underlined_in_previews_and_drilldown \
+            tests/test_atlas_report.py::test_offline_module_drilldown_reaches_native_classifiers_and_returns \
+            tests/test_atlas_report.py::test_offline_scope_url_history_matches_direct_classifier_and_members \
+            tests/test_atlas_report.py::test_atlas_browser_keeps_positions_and_unknown_cells_across_lenses

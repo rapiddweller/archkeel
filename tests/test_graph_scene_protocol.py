@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """The actual browser scene boundary rejects invalid closed protocol values."""
 
 from __future__ import annotations
@@ -164,7 +167,9 @@ def test_graph_scene_keeps_wire_identity_json_and_primitive_tokens():
               const node = scene.nodes.find(node => node.id === first.id);
               const decoded = P.decodeGraph(graph);
               let zeroRejected = false;
-              try { G.decodeAssessmentStatus(0); } catch { zeroRejected = true; }
+              try {
+                P.decodeComparison({assessments:[{id:"a", subject_id:"a", observed_ids:[], status:0}]});
+              } catch { zeroRejected = true; }
               const mermaid = ArchkeelReportScene.sceneToMermaid({
                 nodes: [{id:"a", label:"A", assessments:[{status:G.AssessmentStatus.PASS}]}],
                 edges: [],
@@ -176,8 +181,8 @@ def test_graph_scene_keeps_wire_identity_json_and_primitive_tokens():
                 unchanged: JSON.stringify(data) === before,
                 stable: JSON.stringify(scene) === JSON.stringify(again),
                 clone: clone.nodes[0].kind === G.EntityKind.MODULE,
-                origin: G.encodeOriginKind(decoded.origin),
-                status: G.encodeAssessmentStatus(G.AssessmentStatus.PASS),
+                origin: decoded.origin,
+                status: G.AssessmentStatus.PASS,
                 zeroRejected,
                 passVisible: mermaid.includes("A · PASS"),
                 tokensAreStrings: Object.values(G.AssessmentStatus)

@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Generate only the canonical graph vocabularies consumed by browser scenes."""
 
 from __future__ import annotations
@@ -59,14 +62,6 @@ def vocabulary_source() -> str:
                 "  );",
                 f"  export function is{name}(value: unknown): value is {name} {{",
                 f"    return {mapping}.has(value);",
-                "  }",
-                f"  export function decode{name}(value: unknown): {name} {{",
-                f"    const token = {mapping}.get(value);",
-                f'    if (token === undefined) throw new TypeError("Unsupported {name}");',
-                "    return token;",
-                "  }",
-                f"  export function encode{name}(value: {name}): string {{",
-                f"    return decode{name}(value);",
                 "  }",
             ]
         )

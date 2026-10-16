@@ -8,7 +8,7 @@ The real native graph projection becomes a precisely typed consumer while keepin
 
 ## Ownership and data flow
 
-Canonical graph vocabularies stay in archkeel.ir.architecture_graph. A small generator imports only the Enum classes actually consumed by native graph scenes and emits nominal TypeScript string enums plus concrete Map-based validation/encode ports. It never repeats member spellings by hand. TypeScript5.9.3 is already the compiler pin in Makefile. Compilation produces an ordinary classic script shipped with the Python package; no runtime Node or bundler is required.
+Canonical graph vocabularies stay in archkeel.ir.architecture_graph. A small generator imports only the Enum classes actually consumed by native graph scenes and emits nominal TypeScript string enums plus concrete Map-based membership predicates. It never repeats member spellings by hand. TypeScript5.9.3 is already the compiler pin in Makefile. Compilation produces an ordinary classic script shipped with the Python package; no runtime Node or bundler is required. The actual report/graph ingress owns decoding; existing JSON serialization owns output. Per-enum decode/encode wrappers have no product consumer and are deliberately omitted.
 
 The concrete graph protocol defines only fields consumed by this scene boundary. Structural predicates inspect unknown input and validate closed fields through generated Maps. Successful decoding returns the original object, not a cast or copy. Genuine JavaScript typeof grammar is a private protocol-owned enum; it is not a renamed raw constant. IDs, names, paths, labels and actor data remain text.
 
