@@ -13,9 +13,11 @@ from pathlib import Path
 import pytest
 from test_architecture_demo import _prepare_repo
 from test_dependency_api_target import _source_members
-from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
+from archkeel.check.report import run_report
+from archkeel.cli.observe import observe
+from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir import model
 from archkeel.ir.codec_result import result_bytes, result_payload
 from archkeel.ir.report_graph import architecture_report
@@ -109,6 +111,12 @@ def _repository(tmp_path):
         )
     root = _prepare_repo(tmp_path, files)
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
+
+
+def _model(root, config):
+    result, encoded = run_report(root, config=config, analyzer=observe)
+    assert result.exit_code == 0 and encoded is not None, result.diagnostics
+    return parse_observation(decode_canonical_model(json.loads(encoded)))
 
 
 def _comparison(value):
