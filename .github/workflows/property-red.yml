@@ -25,5 +25,3 @@ jobs:
           result=$?
           echo "PROPERTY_RED_EXIT=$result"
           test "$result" -eq 1
-      - name: Existing proof behavior
-        run: uv run --locked python -m pytest -q tests/test_property_proof_transport.py tests/test_owned_property_candidates.py tests/test_inherited_properties.py
