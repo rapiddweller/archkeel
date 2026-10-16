@@ -1,0 +1,36 @@
+name: Native TypeScript written-string RED
+on:
+  push:
+    branches: [verify/542-typescript-construct-red]
+permissions:
+  contents: read
+jobs:
+  native-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual TS and JS inputs against unchanged collector and fixed contract
+        run: uv run --locked python -m pytest -q tests/test_typescript_string_constructs.py --tb=short
+      - name: Record pinned grammar shape for the planned narrow observer
+        if: ${{ always() }}
+        run: |
+          uv run --locked python - <<'PY'
+          import tree_sitter_typescript
+          from tree_sitter import Language, Parser
+          source = b'export function decide(value) { switch(value) { case "active": return value === ("ready"); default: return value !== `busy`; } }'
+          root = Parser(Language(tree_sitter_typescript.language_typescript())).parse(source).root_node
+          def walk(node):
+              if node.type in {"binary_expression", "switch_case", "parenthesized_expression", "string", "template_string"}:
+                  print("TS_ACTUAL_GRAMMAR", node.type, [(node.field_name_for_child(i), child.type) for i, child in enumerate(node.children)])
+              for child in node.children:
+                  walk(child)
+          walk(root)
+          PY
