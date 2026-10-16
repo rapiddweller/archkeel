@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """Actual measurement tags preserve wire data and independent nominal API intent."""
 
-import ast
 import copy
 import json
 from enum import StrEnum
@@ -217,7 +216,8 @@ def _repository(tmp_path):
         "archkeel/ir/profiles.py": "from enum import StrEnum\n"
         + _source_members("src/archkeel/ir/profiles.py", {"UnmeasurableScalar"}),
         "archkeel/ir/model.py": (
-            "from __future__ import annotations\nimport builtins\nfrom dataclasses import dataclass\n"
+            "from __future__ import annotations\nimport builtins\n"
+            "from dataclasses import dataclass\n"
             "from .measurements import MeasurementBudgetName, NameBudgetKind\n"
             + _source_members(
                 "src/archkeel/ir/model.py", {"ContractMeasurementBudget", "InterfaceBudgetResult"}
