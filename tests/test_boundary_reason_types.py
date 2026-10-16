@@ -211,3 +211,39 @@ def test_native_real_port_widening_fails_the_unchanged_target(tmp_path, old, new
     ), comparison
     assert trace_valid_violations(observed)
     assert (root / "contract.json").read_bytes() == target
+
+def _placement_model(tmp_path, *, unrelated):
+    root, config = _repository(tmp_path)
+    target_path = root / "contract.json"
+    target = json.loads(target_path.read_text())
+    root_policy = json.loads((ROOT / "architecture-contract.json").read_text())
+    target["rules"] = [
+        row for row in root_policy["rules"] if row["id"] == "TYPES-ENUM-IN-MODEL"
+    ]
+    assert len(target["rules"]) == 1
+    target_path.write_text(json.dumps(target))
+    if unrelated:
+        (root / "archkeel/check/evaluation/unrelated.py").write_text(
+            "from enum import StrEnum\nclass Unrelated(StrEnum):\n    VALUE = 'value'\n"
+        )
+    return _model(root, config)
+
+
+def test_native_placement_policy_accepts_the_actual_private_reason_owner(tmp_path):
+    model = _placement_model(tmp_path, unrelated=False)
+    assert not trace_valid_violations(model)
+
+
+def test_native_placement_policy_still_rejects_an_unrelated_check_owner(tmp_path):
+    model = _placement_model(tmp_path, unrelated=True)
+    found = [
+        row
+        for row in trace_valid_violations(model)
+        if row.data.get("qualified_name") == "archkeel.check.evaluation.unrelated.Unrelated"
+    ]
+    assert len(found) == 1
+    assert found[0].rule_ids == ("TYPES-ENUM-IN-MODEL",)
+    cited = {e.id: e for e in model.evidence}
+    assert any(
+        cited[e].file == "archkeel/check/evaluation/unrelated.py" for e in found[0].evidence_ids
+    )
