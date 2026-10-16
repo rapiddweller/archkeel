@@ -1,0 +1,94 @@
+name: Verify bootstrap native contract
+on:
+  push:
+    branches: [verify/542-bootstrap-native]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Normal native amendment generation and replay
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 6e3913738d95a22cb9b1572f51822892548f2270 --amendment docs/architecture/decisions/issue-542-bootstrap-amendment.json --write-amendment --decided-by ake2l --rationale "Own direct collector-start classification once while preserving statically known language main and exit sites, wire behavior and all budgets." --json > "$RUNNER_TEMP/bootstrap-native.json"
+          generation=$?
+          python - "$RUNNER_TEMP/bootstrap-native.json" <<'PY'
+          import json, pathlib, sys
+          result = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          print("BOOTSTRAP_NATIVE_RESULT=" + json.dumps(result, separators=(",", ":")))
+          path = pathlib.Path("docs/architecture/decisions/issue-542-bootstrap-amendment.json")
+          if path.exists():
+              print("BOOTSTRAP_AMENDMENT_JSON=" + json.dumps(json.loads(path.read_text()), separators=(",", ":")))
+          PY
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 6e3913738d95a22cb9b1572f51822892548f2270 --amendment docs/architecture/decisions/issue-542-bootstrap-amendment.json --json > "$RUNNER_TEMP/bootstrap-replay.json"
+          replay=$?
+          python - "$RUNNER_TEMP/bootstrap-replay.json" <<'PY'
+          import json, pathlib, sys
+          print("BOOTSTRAP_REPLAY_RESULT=" + json.dumps(json.loads(pathlib.Path(sys.argv[1]).read_text()), separators=(",", ":")))
+          PY
+          test "$generation" -eq 0
+          test "$replay" -eq 0
+  sites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Exact native unresolved partial and unknown sites
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/bootstrap-before" 6e3913738d95a22cb9b1572f51822892548f2270
+          uv run --locked python - "$RUNNER_TEMP/bootstrap-before" <<'PY'
+          import json, sys
+          from collections import Counter
+          from dataclasses import asdict
+          from pathlib import Path
+          from archkeel.cli.observe import observe
+          from archkeel.check.ratchets import call_rows, unknown_positions_by_rule, unresolved_call_changes
+
+          current = Path.cwd()
+          roots = [Path(sys.argv[1]), current]
+          models = []
+          for root in roots:
+              result = observe(root, roots=("src/archkeel",), namespace="archkeel", contract="architecture-contract.json", git_head="0" * 40, dirty=False, contract_root=root)
+              assert result.diagnostics == (), result.diagnostics
+              assert result.observation is not None
+              models.append(result.observation)
+          before, after = models
+          changes = unresolved_call_changes(before, after)
+          print("BOOTSTRAP_UNRESOLVED_CHANGES=" + json.dumps([asdict(row) for row in changes], separators=(",", ":")))
+          selected = ("src/archkeel/analyzer/bootstrap.py", "src/archkeel/analyzer/runtime.py", "src/archkeel/analyzer/python/entry.py", "src/archkeel/analyzer/dart/entry.py", "src/archkeel/analyzer/typescript/entry.py")
+          for label, model in zip(("before", "after"), models, strict=True):
+              rows = call_rows(model)
+              print("BOOTSTRAP_CALL_SITES_" + label.upper() + "=" + json.dumps([asdict(row) for row in rows if row.path in selected], separators=(",", ":")))
+              print("BOOTSTRAP_COUNTS_" + label.upper() + "=" + json.dumps({"calls": dict(Counter(row.status for row in rows)), "unknown_positions": unknown_positions_by_rule(model)}, separators=(",", ":")))
+          def partial(model):
+              return Counter((row.path, row.caller, row.expression, row.reason) for row in call_rows(model) if row.status == "partially_resolved")
+          old, new = partial(before), partial(after)
+          print("BOOTSTRAP_PARTIAL_ADDED=" + json.dumps([list(item) + [count] for item, count in (new - old).items()], separators=(",", ":")))
+          print("BOOTSTRAP_PARTIAL_REMOVED=" + json.dumps([list(item) + [count] for item, count in (old - new).items()], separators=(",", ":")))
+          assert not changes, changes
+          assert old == new
+          assert unknown_positions_by_rule(before) == unknown_positions_by_rule(after)
+          PY
