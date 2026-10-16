@@ -6,19 +6,31 @@ const modules = process.argv[2];
 const terser = require(path.join(modules, "terser"));
 const acorn = require(path.join(modules, "acorn"));
 const root = "src/archkeel/render/assets";
-function canonical(value) {
-  if (Array.isArray(value)) return value.map(canonical);
+function canonical(value, taggedTemplate = false) {
+  if (Array.isArray(value)) return value.map(item => canonical(item, taggedTemplate));
   if (typeof value === "bigint") return {bigint: value.toString()};
   if (value === null || typeof value !== "object") return value;
   const result = {};
   for (const [key, item] of Object.entries(value)) {
     if (key === "start" || key === "end" || key === "raw" && value.type === "Literal") continue;
-    result[key] = canonical(item);
+    if (value.type === "TemplateElement" && key === "value" && !taggedTemplate) {
+      result[key] = {cooked: item.cooked};
+      continue;
+    }
+    const taggedChild = value.type === "TaggedTemplateExpression" && key === "quasi"
+      || taggedTemplate && value.type === "TemplateLiteral" && key === "quasis";
+    result[key] = canonical(item, taggedChild);
   }
   return result;
 }
 function ast(code) {
   return JSON.stringify(canonical(acorn.parse(code, {ecmaVersion: 2022, sourceType: "script"})));
+}
+const assert = require("node:assert/strict");
+assert.equal(ast("\\u0060a\\nb\\u0060"), ast("\\u0060a\\\\nb\\u0060"));
+assert.notEqual(ast("tag\\u0060a\\nb\\u0060"), ast("tag\\u0060a\\\\nb\\u0060"));
+for (const [before, after] of [[\'"object"\', \'"string"\'], ["/a/", "/b/"], ["value", "other"], ["({a:1})", "({b:1})"]]) {
+  assert.notEqual(ast(before), ast(after));
 }
 (async () => {
   const sizes = [];
