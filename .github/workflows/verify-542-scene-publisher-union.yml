@@ -1,0 +1,43 @@
+name: Exact graph Scene and Publisher source union
+on:
+  push:
+    branches: [verify/542-scene-publisher-root-union]
+permissions:
+  contents: read
+jobs:
+  actual-git-three-way:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Actual scoped Git 3-way, both possible orders
+        run: python prototype/scene-publisher-union.py
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - name: Official generators and actual strict checks on the union
+        run: |
+          cd "$RUNNER_TEMP/scene-then-publisher"
+          uv sync --locked
+          make browser-graph-generate browser-runtime-generate
+          make browser-graph-check browser-runtime-check
+          uv run --locked python -m pytest -q tests/test_graph_scene_protocol.py tests/test_flow_runtime_publication.py tests/test_report_renderer_units.py tests/test_atlas_report.py::test_default_report_is_one_authentic_repository_with_sparse_native_cells
+          make lint typecheck
+      - name: Export canonical generated union and proof
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/scene-then-publisher"
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          changed = subprocess.check_output(["git","diff","--name-only","HEAD"]).decode().splitlines()
+          print("INTEGRATION_REGENERATED=" + json.dumps({path:Path(path).read_text() for path in changed if Path(path).is_file()}))
+          print("INTEGRATION_FINAL_DIFF=" + subprocess.check_output(["git","diff","--stat","HEAD"]).decode())
+          PY
