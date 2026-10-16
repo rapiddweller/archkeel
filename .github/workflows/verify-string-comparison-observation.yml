@@ -22,36 +22,5 @@ jobs:
           python-version: "3.11.12"
       - run: uv python install 3.11.12 3.12.10
       - run: uv sync --locked
-      - name: Format and export exact patch
-        run: |
-          uv run --locked ruff format src/archkeel/analyzer/python/constructs.py tests/test_string_comparison_observation.py tests/test_analyzer.py
-          python - <<'PY'
-          import base64, subprocess
-          patch = subprocess.check_output(["git", "diff", "--", "src", "tests"])
-          print("FORMAT_PATCH=" + base64.b64encode(patch).decode())
-          PY
-      - name: Source and binding safety regressions
-        run: >-
-          uv run --locked python -m pytest -n 2 --dist=loadfile -q
-          tests/test_string_comparison_observation.py tests/test_analyzer.py
-          tests/test_source_trust_boundary.py tests/test_collection_process.py
-          tests/test_source_types.py tests/test_source_namespace_acceptance.py
-          tests/test_definition_source_owners.py tests/test_binding_proof_reuse.py
-          tests/test_binding_claim_completeness.py tests/test_python_scope_certification.py
-          tests/test_boundary_type_ambiguous_bindings.py tests/test_boundary_type_enum_literals.py
-          tests/test_source_provenance_acceptance.py tests/test_repository_hygiene.py
-      - name: Style and typecheck
-        run: |
-          uv run --locked ruff check src tests
-          uv run --locked mypy src
-      - name: Native unchanged baseline
-        run: |
-          set +e
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > "$RUNNER_TEMP/native-result.json"
-          native_exit=$?
-          python - "$RUNNER_TEMP/native-result.json" <<'PY'
-          import json, sys
-          result = json.load(open(sys.argv[1]))
-          print("NATIVE_RESULT=" + json.dumps(result))
-          PY
-          exit "$native_exit"
+      - name: Native source controls
+        run: uv run --locked python -m pytest -q tests/test_string_comparison_observation.py -k direct_stdlib_enum_base

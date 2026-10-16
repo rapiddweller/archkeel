@@ -137,3 +137,23 @@ def test_record_ids_are_distinct_and_collection_order_does_not_change_evidence()
     assert sorted(row["data"]["form"] for row in records) == ["compare", "membership"]
     assert len({row["id"] for row in records}) == 2
     assert first == second
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "class ProtocolEnum:\n    pass\n",
+        "from enum import Enum as ProtocolEnum\nProtocolEnum = other_base\n",
+    ],
+    ids=["unrelated-base", "rebound-import"],
+)
+def test_enum_value_requires_a_direct_stdlib_enum_base_import(tmp_path, prefix):
+    source = (
+        prefix + 'class Token(ProtocolEnum):\n    IMPORT = "import"\n'
+        "def parse(value):\n    return value == Token.IMPORT.value\n"
+    )
+    result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
+    assert result.diagnostics == () and result.observation is not None
+    assert not [
+        row for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
