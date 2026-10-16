@@ -42,3 +42,11 @@ Files: tools/browser_runtime.py; tools/browser-runtime/package.json, package-loc
 - Original Scene source's actual unmodified size guard: run38971736988/job117211476207,2,024,087 total bytes and414,380 without ELK (RED).
 - All-assets auxiliary proof only: run38972002969/job117212358162, AST/determinism/negative controls, actual budgets and18 Chromium checks pass. It is feasibility evidence; it does not certify this final Flow-only artifact.
 - Source API compatibility has its own RED/GREEN and independent review; this publication does not change Scene options or protocol types.
+
+## Actual evidence ledger
+
+- Baseline publication RED: run38974050046/job117219098539,2 real assertion failures (missing current-source provenance and2,024,156>2,000,000 actual HTML bytes), before publisher implementation.
+- Actual locked Flow-only derivative: run38974955428/job117222044298,8 publication/AST-negative/stale-source/current-source/CSP-order/size tests pass; strict publisher+graph checks, Ruff and mypy145 pass. The only remaining failure was the auxiliary size script writing a stray HTML file in the repository root; that diagnostic is corrected without a hygiene exception.
+- Actual output155,413 bytes, original Flow186,390 bytes; HTML1,993,179 bytes,383,472 without unchanged ELK. Fixed2MB/400KB assertions pass; seven other programs and authored Flow remain byte-identical.
+- Provenance is a footer comment so the existing use-strict script prefix remains unchanged. Program AST hashff6cc150cc430df303aac21b5dd907020d4e6ec6f3c3b9564d7e0758cf6803e2 matches the original, including tagged-template raw semantics. Compression and mangling are disabled in locked JSON configuration.
+- Pending: check-only reproduction of committed bytes, final Flow-only Chromium/package/offline/actual native-source proof and independent Astra review. No final completion claim yet.
