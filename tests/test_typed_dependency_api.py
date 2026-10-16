@@ -11,7 +11,7 @@ from test_dependency_selectors import _contract, _ownership
 
 from archkeel.check.declarations import project_rule_declaration
 from archkeel.ir import codec
-from archkeel.ir.model import EvidenceClass, Record, RecordData, forbidden_dependency_scopes
+from archkeel.ir.model import EvidenceClass, Record, RecordData, dependency_owners, forbidden_dependency_scopes
 
 
 def _record(raw):
@@ -77,10 +77,10 @@ def test_record_boundary_decodes_selector_once_without_fake_metadata():
     assert hasattr(codec, "parse_dependency_selector")
     selector = codec.parse_dependency_selector(record)
     assert selector == contract.rules[0].selector
-    assert selector.select(_ownership(contract)) == forbidden_dependency_scopes(
+    assert selector.select(dependency_owners(_ownership(contract))) == forbidden_dependency_scopes(
         contract.rules[0], _ownership(contract)
     )
-    assert selector.component_pair(_ownership(contract)) is None
+    assert selector.component_pair(dependency_owners(_ownership(contract))) is None
 
 
 @pytest.mark.parametrize(
@@ -120,8 +120,8 @@ def test_ambiguous_ownership_does_not_expand_selection():
     [rule] = contract.rules
     assert hasattr(rule, "selector")
     ownership = (*_ownership(contract), ("ambiguous", ("sample.caller",), ()))
-    assert rule.selector.component_pair(ownership) is None
-    selection = rule.selector.select(ownership)
+    assert rule.selector.component_pair(dependency_owners(ownership)) is None
+    selection = rule.selector.select(dependency_owners(ownership))
     assert selection.source.matches("sample.caller.child")
     assert not selection.source.matches("sample.caller_extra.child")
 
@@ -133,13 +133,13 @@ def test_exact_owned_modules_expand_only_legacy_component_pairs():
     contract = codec.parse_contract(raw)
     [rule] = contract.rules
     assert hasattr(rule, "selector")
-    selection = rule.selector.select(_ownership(contract))
+    selection = rule.selector.select(dependency_owners(_ownership(contract)))
     assert selection.source.matches("sample.runner")
     assert selection.target.matches("sample.failure")
     assert not selection.target.matches("sample.failure.child")
     namespace = replace(rule.selector, target_kind=type(rule.target_kind).IMPORT_NAMESPACE)
-    assert not namespace.select(_ownership(contract)).source.matches("sample.runner")
-    assert not namespace.select(_ownership(contract)).target.matches("sample.failure")
+    assert not namespace.select(dependency_owners(_ownership(contract))).source.matches("sample.runner")
+    assert not namespace.select(dependency_owners(_ownership(contract))).target.matches("sample.failure")
 
 
 def test_named_ownership_adapter_preserves_legacy_shapes_order_and_duplicates():

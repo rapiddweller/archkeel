@@ -20,6 +20,7 @@ from .architecture_graph import RuleAssessment as RuleAssessment
 from .architecture_graph import RuleAssessmentStatus as RuleAssessmentStatus
 from .architecture_graph import contract_relative_path as contract_relative_path
 from .dependency import ComponentOwnership as ComponentOwnership
+from .dependency import DependencyOwner as DependencyOwner
 from .dependency import DependencySelection as DependencySelection
 from .dependency import DependencySelector as DependencySelector
 from .dependency import DependencyTargetKind as DependencyTargetKind
@@ -641,6 +642,14 @@ def package_owners(components: Iterable[tuple[str, tuple[str, ...]]]) -> dict[st
     return {package: label for label, packages in components for package in packages}
 
 
+def dependency_owners(components: tuple[ComponentOwnership, ...]) -> tuple[DependencyOwner, ...]:
+    """Adapt legacy ownership triples once at the model-to-policy boundary."""
+    return tuple(
+        DependencyOwner(identity, ModuleSelection(packages, exact_modules))
+        for identity, packages, exact_modules in components
+    )
+
+
 def declared_package_pair(
     source: str,
     target: str,
@@ -655,14 +664,14 @@ def declared_package_pair(
     selector = DependencySelector(
         source, target, target_symbol, source_match, target_match, target_kind
     )
-    return selector.component_pair(components)
+    return selector.component_pair(dependency_owners(components))
 
 
 def forbidden_dependency_scopes(
     rule: ForbiddenDependencyRule, components: tuple[ComponentOwnership, ...]
 ) -> DependencySelection:
     """Use the shared selector for Core subjects, receipts and import matching."""
-    return rule.selector.select(components)
+    return rule.selector.select(dependency_owners(components))
 
 
 @dataclass(frozen=True, slots=True)

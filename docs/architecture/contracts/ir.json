@@ -266,6 +266,7 @@
       ],
       "public": [
         "archkeel.ir.dependency:ComponentOwnership",
+        "archkeel.ir.dependency:DependencyOwner",
         "archkeel.ir.dependency:DependencySelection",
         "archkeel.ir.dependency:DependencySelector",
         "archkeel.ir.dependency:DependencyTargetKind",

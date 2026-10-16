@@ -140,6 +140,7 @@
         "archkeel.ir.source_records:file_evidence",
         "archkeel.ir.source_records:record_evidence",
         "archkeel.ir.dependency:ComponentOwnership",
+        "archkeel.ir.dependency:DependencyOwner",
         "archkeel.ir.dependency:DependencySelection",
         "archkeel.ir.dependency:DependencySelector",
         "archkeel.ir.dependency:DependencyTargetKind",
