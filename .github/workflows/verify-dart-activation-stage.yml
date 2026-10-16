@@ -1,0 +1,47 @@
+name: Apply exact reviewed Dart grammar stage
+on:
+  push:
+    branches: [verify/542-dart-focused-activation-stage]
+permissions:
+  contents: read
+jobs:
+  dart-stage-patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: c76dacaf04adf61e952ac81e8a84352160d0ec3d
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Apply only the ten reviewed Dart stage paths with Git three-way
+        run: |
+          python - <<'PY'
+          import json,pathlib,subprocess
+          stage_base="0e3b8a7f62b9b13417cda78e11b52d0de82986cd"
+          feature="124ab1c6ded4d7f7359a5265bc1434b96c0f9507"
+          start="c76dacaf04adf61e952ac81e8a84352160d0ec3d"
+          owned=["docs/architecture/contracts/dart.json","docs/architecture/dart-input-grammar.md","docs/superpowers/plans/2026-10-16-dart-input-grammar.md","src/archkeel/analyzer/dart/collect.py","src/archkeel/analyzer/dart/parse.py","src/archkeel/analyzer/dart/resolve.py","src/archkeel/analyzer/dart/snapshot.py","src/archkeel/analyzer/dart/syntax.py","tests/test_dart_input_grammar.py","tests/test_dart_typed_controls.py"]
+          def git(*args):
+              return subprocess.check_output(["git",*args])
+          actual=git("diff","--name-only",stage_base,feature).decode().splitlines()
+          assert set(actual)==set(owned),(actual,owned)
+          patch=git("diff","--binary",stage_base,feature,"--",*owned)
+          result=subprocess.run(["git","apply","--3way","--index","-"],input=patch,capture_output=True)
+          conflicts=git("diff","--name-only","--diff-filter=U").decode().splitlines()
+          print("DART_FOCUSED_APPLY="+json.dumps({"base":stage_base,"feature":feature,"onto":start,"owned":owned,"status":result.returncode,"conflicts":conflicts,"stderr":result.stderr.decode()},separators=(",",":")),flush=True)
+          changed=git("diff","--name-only",start).decode().splitlines()
+          assert set(changed)<=set(owned),(changed,owned)
+          detail={}
+          for name in conflicts:
+              detail[name]={"merged":pathlib.Path(name).read_text(),"stages":{}}
+              for stage in (1,2,3):
+                  item=subprocess.run(["git","show",f":{stage}:{name}"],text=True,capture_output=True)
+                  detail[name]["stages"][str(stage)]=item.stdout if item.returncode==0 else None
+          print("DART_CONFLICT_FILES="+json.dumps(detail,separators=(",",":")),flush=True)
+          files={name:pathlib.Path(name).read_text() if pathlib.Path(name).is_file() else None for name in changed}
+          print("DART_MERGE_FILES="+json.dumps(files,separators=(",",":")),flush=True)
+          print("DART_FOCUSED_SCOPE_EXACT=PASS",flush=True)
+          assert result.returncode==0 or conflicts,result.stderr.decode()
+          
+          PY
