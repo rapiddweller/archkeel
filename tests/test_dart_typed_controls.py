@@ -361,3 +361,26 @@ def test_collector_decodes_only_its_owned_class_fact_vocabulary(value):
         assert str(result) == value
     else:
         assert result is None
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_parse_releases_its_node_cache_on_success_and_failure(monkeypatch, fails):
+    cleared = []
+    clear = parse._Tree.clear
+
+    def remember_clear(tree):
+        assert tree._nodes
+        clear(tree)
+        cleared.append(tree)
+
+    def fail_parse(*_args):
+        raise RuntimeError("injected extraction failure")
+
+    monkeypatch.setattr(parse._Tree, "clear", remember_clear)
+    if fails:
+        monkeypatch.setattr(parse, "_parse_tree", fail_parse)
+        with pytest.raises(RuntimeError, match="injected extraction failure"):
+            parse.parse(b"class Example {}")
+    else:
+        assert parse.parse(b"class Example {}").definitions
+    assert len(cleared) == 1 and not cleared[0]._nodes
