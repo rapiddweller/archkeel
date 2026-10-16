@@ -210,6 +210,8 @@
           "elk.separateConnectedComponents": "true", "elk.spacing.nodeNode": "24",
           "elk.layered.spacing.nodeNodeBetweenLayers": "68",
           "elk.layered.spacing.edgeNodeBetweenLayers": "16",
+          "elk.spacing.edgeEdge": "16",
+          "elk.layered.spacing.edgeEdgeBetweenLayers": "16",
           "elk.padding": "[top=28,left=28,bottom=28,right=28]",
         },
       },
