@@ -1,0 +1,137 @@
+name: Boundary reason actual AST site correspondence
+on:
+  push:
+    branches: [verify/542-boundary-reasons-site-proof]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  ast-sites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: boundary-reason-native-sites
+          run-id: 38982078572
+          github-token: ${{ github.token }}
+          path: reason-evidence
+      - run: |
+          uv run --locked python - <<'PY'
+          import ast
+          from collections import Counter, defaultdict
+          from dataclasses import asdict
+          import gzip,json,subprocess
+          from pathlib import Path
+          from archkeel.analyzer.python.source import ParsedModule
+          from archkeel.analyzer.python.scopes import LexicalScopes
+          ROOT=Path.cwd()
+          DIR=ROOT/"reason-evidence"
+          BASE="f264c77eb55b1761a37a8083e479c3f1bc45f5cc"
+          HEAD="ff6704a9a82745a8bd757ee47397643d231322fc"
+          OWNER="src/archkeel/check/evaluation/boundary_types.py"
+          def encode(v):return json.dumps(v,sort_keys=True,separators=(",",":"))
+          def source(rev):return subprocess.check_output(["git","show",f"{rev}:{OWNER}"],text=True)
+          def index(rev):
+              text=source(rev);tree=ast.parse(text)
+              module=ParsedModule(ROOT/OWNER,OWNER,"archkeel.check.evaluation.boundary_types","archkeel.check.evaluation",text,text.encode(),text.splitlines(),tree)
+              lexical=LexicalScopes(module)
+              scopes={id(s):s for s in lexical.by_node.values()}
+              scopes[id(lexical.root)]=lexical.root
+              groups=defaultdict(list)
+              for scope in scopes.values():
+                  if scope.parent:
+                      token=("named",type(scope.node).__name__,getattr(scope.node,"name",None)) if isinstance(scope.node,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)) else ("anonymous",type(scope.node).__name__,ast.dump(scope.node,include_attributes=False))
+                      groups[(id(scope.parent),token)].append(scope)
+              keys={id(lexical.root):("module",module.module)}
+              def sk(scope):
+                  if id(scope) in keys:return keys[id(scope)]
+                  token=("named",type(scope.node).__name__,getattr(scope.node,"name",None)) if isinstance(scope.node,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)) else ("anonymous",type(scope.node).__name__,ast.dump(scope.node,include_attributes=False))
+                  peers=sorted(groups[(id(scope.parent),token)],key=lambda s:(s.node.lineno,s.node.col_offset))
+                  key=(*sk(scope.parent),token,peers.index(scope))
+                  keys[id(scope)]=key
+                  return key
+              scope_names={s.qualified_name:encode(sk(s)) for s in scopes.values()}
+              named_nodes={id(s.node):sk(s) for s in scopes.values() if s is not lexical.root and isinstance(s.node,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef))}
+              count=Counter();positions=defaultdict(list);call_positions={}
+              for node in ast.walk(tree):
+                  if not hasattr(node,"lineno"):continue
+                  scope=lexical.by_node.get(node,lexical.root)
+                  group=(encode(sk(scope)),type(node).__name__)
+                  key=("definition",named_nodes[id(node)]) if id(node) in named_nodes else ("node",sk(scope),type(node).__name__,count[group])
+                  count[group]+=1
+                  location=(node.lineno,node.end_lineno,node.col_offset)
+                  positions[location].append(key)
+                  if isinstance(node,ast.Call):
+                      assert location not in call_positions,location
+                      call_positions[location]=(key,scope.qualified_name,ast.unparse(node.func))
+              return positions,call_positions,scope_names
+          def canonical(label,rev):
+              model=json.loads(gzip.decompress((DIR/f"{label}.json.gz").read_bytes()))
+              positions,call_positions,scope_names=index(rev)
+              references={}
+              citations={e["id"]:e for e in model["evidence"]}
+              def evidence_key(e):
+                  if e["file"]!=OWNER:return e["id"]
+                  pos=(e["line"],e["end_line"],e["column"])
+                  assert positions.get(pos),("missing_ast",label,e)
+                  return encode(("source-evidence",OWNER,sorted(positions[pos],key=encode)))
+              references.update({e["id"]:evidence_key(e) for e in model["evidence"]})
+              for row in model["symbols"]:
+                  name=row["data"].get("qualified_name")
+                  if row["data"].get("module")== "archkeel.check.evaluation.boundary_types" and name:
+                      references[row["id"]]=encode(("symbol",name,row["kind"],[references[e] for e in row["evidence_ids"]]))
+              rows=[];proof=[]
+              for row in model["calls"]:
+                  d=row["data"]
+                  if d.get("status") not in {"unresolved","partially_resolved"}:continue
+                  if d["source_module"]=="archkeel.check.evaluation.boundary_types":
+                      assert len(row["evidence_ids"])==1
+                      e=citations[row["evidence_ids"][0]]
+                      key,scope,expression=call_positions[(e["line"],e["end_line"],e["column"])]
+                      assert scope==d["source_scope"],(scope,d["source_scope"])
+                      assert expression==d["expression"],(expression,d["expression"])
+                      references[row["id"]]=encode(("call",OWNER,key))
+                      for n,binding in enumerate(d["result_bindings"]):
+                          references[binding["id"]]=encode(("value-binding",OWNER,key,n))
+                      proof.append(dict(record=row,source_citation=e,actual_scope=scope,ast_identity=key))
+                  rows.append(row)
+              def normalize(v,key=None):
+                  if isinstance(v,str):
+                      return references.get(v,scope_names.get(v,v))
+                  if isinstance(v,list):
+                      out=[normalize(x) for x in v]
+                      return sorted(out,key=encode) if key and (key.endswith("evidence_ids") or key=="fact_ids") else out
+                  if isinstance(v,dict):return {k:normalize(x,k) for k,x in v.items()}
+                  return v
+              normalized=[normalize(row) for row in rows]
+              (DIR/f"{label}-call-ast-proof.json").write_text(json.dumps(proof,sort_keys=True,indent=2))
+              return normalized,proof
+          old,op=canonical("before",BASE)
+          new,np=canonical("after",HEAD)
+          a,b=Counter(map(encode,old)),Counter(map(encode,new))
+          delta=dict(removed=list((a-b).elements()),added=list((b-a).elements()))
+          (DIR/"call-full-data-ast-delta.json").write_text(json.dumps(delta,sort_keys=True,indent=2))
+          print("CALL_AST_PROOF="+json.dumps(dict(before_sites=len(old),after_sites=len(new),before_owner_sites=len(op),after_owner_sites=len(np),removed=len(delta["removed"]),added=len(delta["added"]))))
+          for side in ("removed","added"):
+              for row in delta[side][:8]:print("UNPAIRED_AST_CALL="+json.dumps(dict(side=side,record=json.loads(row))))
+          assert not delta["removed"] and not delta["added"],"real call data changed after actual AST/provenance correspondence"
+          print("ALL_CALL_DATA_AST_PARITY=PASS")
+          
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: boundary-reason-actual-ast-sites
+          path: |
+            reason-evidence/*call*proof.json
+            reason-evidence/call-full-data-ast-delta.json
