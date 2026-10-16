@@ -17,8 +17,11 @@ from archkeel.ir.facts import (
     ConstructSupport,
     ForbiddenConstructKind,
     Language,
+    SourceProfile,
     SourceSectionName,
 )
+from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+from archkeel.ir.protocol import CollectionResponse
 from archkeel.ir.trace import trace_valid_violations
 
 RULE = "WRITTEN-STRING-CONTROL"
@@ -42,6 +45,10 @@ OPTIONS = {"module": "CommonJS", "moduleResolution": "Node", "allowJs": True}
 
 def _model(tmp_path, source, extension="ts", options=None):
     facts = _facts(tmp_path, {f"src/main.{extension}": source}, options=options or OPTIONS)
+    return facts, _assemble(tmp_path, facts)
+
+
+def _assemble(tmp_path, facts):
     path = tmp_path / "contract.json"
     path.write_text(json.dumps(CONTRACT))
     (tmp_path / "architecture.md").write_text("Protocol values have explicit typed owners.\n")
@@ -54,8 +61,10 @@ def _model(tmp_path, source, extension="ts", options=None):
         namespace="app",
         language=Language.TYPESCRIPT,
     )
+    assert observed.analyzer.name == SourceProfile.TYPESCRIPT
+    assert facts.profile is SourceProfile.TYPESCRIPT
     assert path.read_bytes() == fixed_intent
-    return facts, observed
+    return observed
 
 
 def _constructs(facts):
@@ -233,3 +242,42 @@ def test_native_js_entry_respects_real_allow_js_and_check_js_selection(
     else:
         assert not _constructs(facts)
         assert _assessment(model).status != "PASS"
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        [{"name": "string_literal_compare", "status": "decided"}],
+        [{"name": "assert", "status": "partial"}],
+        [],
+    ],
+)
+def test_native_construct_registry_rejects_unimplemented_authority(tmp_path, claim):
+    facts = _facts(
+        tmp_path, {"src/main.ts": "export function same(left, right) { return left === right; }"}
+    )
+    wire = json.loads(encode_response(CollectionResponse(facts)))
+    if "constructs" not in wire["facts"]["capabilities"]["sections"]:
+        wire["facts"]["capabilities"]["sections"].append("constructs")
+        wire["facts"]["sections"].append({"name": "constructs", "records": []})
+    wire["facts"]["capabilities"]["constructs"] = claim
+    restored = decode_response(json.dumps(wire).encode()).facts
+    with pytest.raises(ProtocolError, match="registered"):
+        _assemble(tmp_path, restored)
+
+
+def test_legacy_native_receipt_cannot_claim_construct_authority(tmp_path):
+    facts = _facts(tmp_path, {"src/main.ts": "export const value = 1;"})
+    wire = json.loads(encode_response(CollectionResponse(facts)))
+    wire["facts"]["sections"] = [
+        row for row in wire["facts"]["sections"] if row["name"] != "constructs"
+    ]
+    wire["facts"]["capabilities"]["sections"] = [
+        name for name in wire["facts"]["capabilities"]["sections"] if name != "constructs"
+    ]
+    wire["facts"]["capabilities"]["constructs"] = [
+        {"name": "string_literal_compare", "status": "decided"}
+    ]
+    restored = decode_response(json.dumps(wire).encode()).facts
+    with pytest.raises(ProtocolError, match="registered"):
+        _assemble(tmp_path, restored)
