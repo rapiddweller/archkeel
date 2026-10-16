@@ -15,7 +15,10 @@ shadowing, member escape and GenericAlias proof limits are unchanged.
 These internal kinds use Enum rather than string-compatible values. The binding
 model owns their definitions; module/target names remain string data.
 The existing source.AliasBinding and scopes.BindingKind import ports remain
-explicit re-exports. Human call-resolution reasons render a kind's value only at
+explicit re-exports. Their frozen dataclass constructors normalize valid legacy kind
+strings once into the nominal Enum; invalid values raise ValueError. Field types
+remain nominal, and already nominal inputs retain their exact Enum identity.
+Human call-resolution reasons render a kind's value only at
 the output boundary; control branches use enum identity or typed membership.
 
 The root contract declares this model as an enum owner and guards its complete

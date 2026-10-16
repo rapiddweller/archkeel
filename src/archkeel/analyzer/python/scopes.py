@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import ast
+import builtins
 import symtable
 import sys
 from dataclasses import dataclass, field
@@ -33,6 +34,9 @@ class NameBinding:
     targets: tuple[str, ...] = ()
     kind: BindingKind = BindingKind.UNKNOWN
     uncertain: bool = False
+
+    def __post_init__(self) -> None:
+        builtins.object.__setattr__(self, "kind", BindingKind(self.kind))
 
 
 class LexicalScopes(ast.NodeVisitor):

@@ -79,3 +79,5 @@ The temporary hosted workflow stays on a verification branch, outside the produc
 - Verify legacy and nominal inputs, defaults, invalid values and the real lexical consumer;
   then existing binding/native Target controls, Ruff, Mypy, and normal amendment replay
   against the actual #551 base with no additional unresolved calls or budget changes.
+
+- Constructor RED: hosted run38951445020 produced19 expected failures and one passing default control. Both valid legacy kind vocabularies and the real lexical consumer reproduce the compatibility regression; invalid-value controls reproduce missing validation.

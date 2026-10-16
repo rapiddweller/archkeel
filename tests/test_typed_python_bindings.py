@@ -252,7 +252,7 @@ def test_name_binding_normalizes_valid_legacy_constructor_kind(kind):
 def test_legacy_alias_constructor_preserves_real_lexical_lookup(kind):
     module = _parsed_module("import sample.engine as engine\nengine\n")
     collect_imports([module], {"sample.engine"}, {}, namespace="sample")
-    __site, aliases = next(iter(module.import_aliases.items()))
+    _site, aliases = next(iter(module.import_aliases.items()))
     aliases["engine"] = AliasBinding("sample.engine", kind.value)
     use = next(
         node

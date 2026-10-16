@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import builtins
 from dataclasses import dataclass
 from enum import Enum
 
@@ -19,6 +20,9 @@ class AliasBinding:
     target: str
     kind: ImportKind
     imported_name: str | None = None
+
+    def __post_init__(self) -> None:
+        builtins.object.__setattr__(self, "kind", ImportKind(self.kind))
 
 
 class BindingKind(Enum):
