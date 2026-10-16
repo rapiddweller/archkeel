@@ -49,11 +49,13 @@ def test_single_local_literal_produces_trace_valid_failure(tmp_path, statement, 
     [
         'def parse(value, flag="--json"):\n    return flag in value\n',
         'def parse(value):\n    flag = "--json"\n    flag = value\n    return flag in value\n',
-        'def parse(value, ready):\n    if ready:\n        flag = "--json"\n    return flag in value\n',
+        'def parse(value, ready):\n    if ready:\n        flag = "--json"\n'
+        "    return flag in value\n",
         'def parse(value):\n    return flag in value\n    flag = "--json"\n',
         'def outer(value):\n    flag = "--json"\n    def parse():\n        return flag in value\n',
         'def parse(value):\n    global flag\n    flag = "--json"\n    return flag in value\n',
-        'def outer(value):\n    flag = "--json"\n    def parse():\n        nonlocal flag\n        return flag in value\n',
+        'def outer(value):\n    flag = "--json"\n    def parse():\n'
+        "        nonlocal flag\n        return flag in value\n",
         'def parse(value):\n    if (flag := "--json"):\n        return flag in value\n',
         'def parse(value):\n    flag = "--json"\n    del flag\n    return flag in value\n',
         'def parse(value):\n    flag, other = ("--json", "--yaml")\n    return flag in value\n',
