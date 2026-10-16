@@ -1,0 +1,214 @@
+name: TypeScript frozen actual partial call-site evidence
+on:
+  push:
+    branches: [verify/issue-542-ts-partial-evidence]
+permissions:
+  contents: read
+jobs:
+  exact-partial-site-comparison:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fa37f59600cfae64ba0528cb56e609c6bbd756e4
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Observe both exact sources with the fixed final engine
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/ts-review-before" 8ebc1da53b3ac7290f78978d5e69e4f3c59185c3
+          uv run --locked archkeel report --root "$RUNNER_TEMP/ts-review-before" --output "$RUNNER_TEMP/ts-review-before.json" > "$RUNNER_TEMP/ts-review-before.stdout"
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/ts-review-after.json" > "$RUNNER_TEMP/ts-review-after.stdout"
+      - name: Output complete PARTIAL and UNRESOLVED records and multiset proof
+        run: |
+          uv run --locked python - <<'PY'
+          import ast, collections, dataclasses, hashlib, json, os, re, subprocess
+          from pathlib import Path
+          from archkeel.check.ratchets import call_rows, measure_python_ratchets, unresolved_call_changes
+          from archkeel.ir.codec import decode_canonical_model, parse_observation
+          from archkeel.ir.codec_wire import value_bytes
+          from archkeel.ir.decisions import rule_uncertainty_evidence, unknown_positions_by_rule
+          
+          BEFORE="8ebc1da53b3ac7290f78978d5e69e4f3c59185c3"
+          AFTER="fa37f59600cfae64ba0528cb56e609c6bbd756e4"
+          temporary=Path(os.environ["RUNNER_TEMP"])
+          output=temporary/"ts-call-evidence"
+          output.mkdir()
+          roots={"before":temporary/"ts-review-before","after":Path(".")}
+          changed={"src/archkeel/analyzer/typescript/parse.py","src/archkeel/analyzer/typescript/collect.py","src/archkeel/analyzer/typescript/syntax.py"}
+          moves={
+              "archkeel.analyzer.typescript.parse._constant_definition":"archkeel.analyzer.typescript.parse._variables",
+              "archkeel.analyzer.typescript.parse._call_site":"archkeel.analyzer.typescript.parse._sites",
+              "archkeel.analyzer.typescript.collect._Collection._attribute_declaration":"archkeel.analyzer.typescript.collect._Collection._classifier_data",
+          }
+          def emit(marker,value):
+              print(marker+"="+json.dumps(value,sort_keys=True),flush=True)
+          def dump(node):
+              return ast.dump(node,include_attributes=False)
+          def digest(value):
+              return hashlib.sha256(value.encode()).hexdigest()
+          def parse_report(label):
+              path=temporary/("ts-review-"+label+".json")
+              return parse_observation(decode_canonical_model(json.loads(path.read_bytes())))
+          models={label:parse_report(label) for label in roots}
+          for label,model in models.items():
+              measured=measure_python_ratchets(model)
+              checked=call_rows(model)
+              emit("SNAPSHOT",{"label":label,"git_head":model.source.git_head,"digest":model.source.source_digest,"calls_total":measured.calls_total,"scalars":dict(measured.scalars.items()),"partial_calls":model.coverage.calls_partially_resolved,"validated_rows":len(checked),"unknown_by_rule":unknown_positions_by_rule(model)})
+          def unknown_fingerprints(model):
+              result={key:collections.Counter() for key in ("positions","routes","other")}
+              for rule,uncertainty in rule_uncertainty_evidence(model).items():
+                  for record in uncertainty.evidence:
+                      row={"rule":rule,"id":record.id,"kind":record.kind,"data":json.loads(value_bytes(record.data))}
+                      kind=None
+                      if record.kind=="boundary_type_position":
+                          if record.data.get("reason")!="external_type":
+                              kind="positions"
+                      elif record.kind=="boundary_type_route":
+                          kind="routes"
+                      elif record.kind!="boundary_type_limit":
+                          kind="other"
+                      if kind:
+                          result[kind][json.dumps(row,sort_keys=True)]+=1
+              return result
+          fingerprints={label:unknown_fingerprints(model) for label,model in models.items()}
+          for kind in ("positions","routes","other"):
+              old,new=fingerprints["before"][kind],fingerprints["after"][kind]
+              emit("UNKNOWN_DIFF",{"kind":kind,"before":sum(old.values()),"after":sum(new.values()),"added":[json.loads(row) for row in sorted((new-old).elements())],"removed":[json.loads(row) for row in sorted((old-new).elements())]})
+              for label in models:
+                  for key,count in sorted(fingerprints[label][kind].items()):
+                      emit("UNKNOWN_FULL",{"label":label,"kind":kind,"row":json.loads(key),"multiplicity":count})
+          
+          class SourceIndex:
+              def __init__(self,root,path):
+                  self.path=path
+                  self.calls={}
+                  self.scopes={}
+                  self.generators={}
+                  self.tree=ast.parse((root/path).read_bytes())
+                  self.parents={child:parent for parent in ast.walk(self.tree) for child in ast.iter_child_nodes(parent)}
+                  for node in ast.walk(self.tree):
+                      if isinstance(node,ast.Call):
+                          self.calls[(node.lineno,node.col_offset+1)]=node
+                          enclosing=[]
+                          parent=self.parents.get(node)
+                          while parent is not None:
+                              if isinstance(parent,(ast.ClassDef,ast.FunctionDef,ast.AsyncFunctionDef)):
+                                  enclosing.append(parent.name)
+                              parent=self.parents.get(parent)
+                          module=path.removeprefix("src/").removesuffix(".py").replace("/",".")
+                          scope=".".join((module,*reversed(enclosing)))
+                          self.scopes.setdefault(scope,set()).add(dump(node))
+              def locate(self,evidence):
+                  return self.calls.get((evidence.line,evidence.column))
+              def closure_signature(self,node):
+                  enclosing=[]
+                  parent=self.parents.get(node)
+                  while parent is not None:
+                      if isinstance(parent,(ast.ClassDef,ast.FunctionDef,ast.AsyncFunctionDef)):
+                          break
+                      if isinstance(parent,(ast.GeneratorExp,ast.ListComp,ast.SetComp,ast.DictComp)):
+                          enclosing.append({"kind":type(parent).__name__,"bindings":[{"target":dump(item.target),"iter":dump(item.iter),"is_async":item.is_async} for item in parent.generators]})
+                      elif isinstance(parent,ast.Lambda):
+                          enclosing.append({"kind":"Lambda","arguments":dump(parent.args)})
+                      parent=self.parents.get(parent)
+                  return enclosing
+          
+          indexes={}
+          for label,root in roots.items():
+              for path in changed:
+                  if (root/path).exists():
+                      indexes[label,path]=SourceIndex(root,path)
+          normalization_proofs={}
+          unmatched=[]
+          def normalized(label,path,caller,evidence):
+              index=indexes.get((label,path))
+              if index is None:
+                  return caller
+              call=index.locate(evidence)
+              if call is None:
+                  unmatched.append({"label":label,"path":path,"caller":caller,"line":evidence.line,"column":evidence.column})
+                  return caller
+              body=dump(call)
+              named=re.sub(r"\.<(?:genexpr|listcomp|setcomp|dictcomp|lambda):\d+:\d+>","",caller)
+              canonical=moves.get(named,named) if label=="after" else named
+              moved=canonical!=named
+              if moved:
+                  previous=indexes.get(("before",path))
+                  if previous is None or body not in previous.scopes.get(canonical,set()):
+                      canonical=named
+                      moved=False
+              closures=index.closure_signature(call)
+              if closures:
+                  # This is an operation-level identity: exact AST call (including arguments)
+                  # plus lexical comprehension targets/iterables, never a claim that all filters
+                  # or the complete surrounding closure body are unchanged.
+                  anchor=json.dumps({"call":body,"bindings":closures},sort_keys=True)
+                  normalized_caller=canonical+".<operation:"+digest(anchor)[:24]+">"
+              else:
+                  normalized_caller=canonical
+              if moved or closures:
+                  proof={"label":label,"path":path,"raw_caller":caller,"normalized_caller":normalized_caller,"line":evidence.line,"column":evidence.column,"call_ast":body,"closure_bindings":closures,"moved_only_after_exact_old_call_match":moved}
+                  normalization_proofs[json.dumps(proof,sort_keys=True)]=proof
+              return normalized_caller
+          
+          rows={}
+          raw_rows={}
+          focus=[]
+          for label,model in models.items():
+              evidence={item.id:item for item in model.evidence}
+              rows[label]=collections.Counter()
+              raw_rows[label]=[]
+              for record in model.records("calls"):
+                  data=json.loads(value_bytes(record.data))
+                  sites=[evidence[item] for item in record.evidence_ids]
+                  assert len(sites)==1,(label,record.id)
+                  site=sites[0]
+                  if data["expression"] in {"_NODE_KINDS.get","_SPECIAL_NAMES.get","_MODIFIER_WORDS.get","_LOADER_MODULES.get","legacy_receivers.get"}:
+                      focus.append({"label":label,"id":record.id,"kind":record.kind,"path":site.file,"line":site.line,"column":site.column,"excerpt":site.excerpt,"data":data})
+                  if data["status"] not in {"unresolved","partially_resolved"}:
+                      continue
+                  row={"status":data["status"],"path":site.file,"caller":normalized(label,site.file,data["source_scope"],site),"expression":data["expression"],"reason":data["reason"],"targets":sorted(data["targets"])}
+                  rows[label][json.dumps(row,sort_keys=True)]+=1
+                  raw_rows[label].append({"id":record.id,"raw_caller":data["source_scope"],"line":site.line,"column":site.column,"excerpt":site.excerpt,"normalized":row,"data":data})
+              counts=collections.Counter(item["normalized"]["status"] for item in raw_rows[label])
+              assert counts["unresolved"]==model.coverage.calls_unresolved
+              assert counts["partially_resolved"]==model.coverage.calls_partially_resolved
+              for item in raw_rows[label]:
+                  emit("CALL_FULL",{"label":label,**item})
+              for key,count in sorted(rows[label].items()):
+                  emit("MULTISET_FULL",{"label":label,**json.loads(key),"multiplicity":count})
+          deltas=[]
+          for key in sorted(rows["before"].keys()|rows["after"].keys()):
+              old,new=rows["before"][key],rows["after"][key]
+              if old!=new:
+                  delta={**json.loads(key),"before":old,"after":new,"change":"added" if new>old else "removed"}
+                  deltas.append(delta)
+                  emit("MULTISET_DIFF",delta)
+          for status in ("unresolved","partially_resolved"):
+              chosen=[item for item in deltas if item["status"]==status]
+              emit("MULTISET_COUNTS",{"status":status,"before":sum(count for key,count in rows["before"].items() if json.loads(key)["status"]==status),"after":sum(count for key,count in rows["after"].items() if json.loads(key)["status"]==status),"added_groups":sum(item["change"]=="added" for item in chosen),"removed_groups":sum(item["change"]=="removed" for item in chosen),"added_sites":sum(item["after"]-item["before"] for item in chosen if item["change"]=="added"),"removed_sites":sum(item["before"]-item["after"] for item in chosen if item["change"]=="removed")})
+          for item in focus:
+              emit("DECODER_MAP_CALL",item)
+          for proof in normalization_proofs.values():
+              emit("NORMALIZATION_PROOF",proof)
+          emit("NORMALIZATION_UNMATCHED",unmatched)
+          # Preserve the original public AD-100 raw-scope evidence, without normalization.
+          changes=[dataclasses.asdict(item) for item in unresolved_call_changes(models["before"],models["after"])]
+          emit("RAW_UNRESOLVED_CHANGES",changes)
+          emit("RAW_UNRESOLVED_CHANGE_COUNTS",{"added_groups":sum(item["change"]=="added" for item in changes),"removed_groups":sum(item["change"]=="removed" for item in changes),"added_sites":sum(item["after"]-item["before"] for item in changes if item["change"]=="added"),"removed_sites":sum(item["before"]-item["after"] for item in changes if item["change"]=="removed")})
+          for label in models:
+              (output/(label+"-calls.json")).write_text(json.dumps(raw_rows[label],sort_keys=True))
+              (output/(label+"-multiset.json")).write_text(json.dumps([{"row":json.loads(key),"multiplicity":count} for key,count in sorted(rows[label].items())],sort_keys=True))
+          (output/"delta.json").write_text(json.dumps(deltas,sort_keys=True))
+          (output/"decoder-maps.json").write_text(json.dumps(focus,sort_keys=True))
+          (output/"normalization-proofs.json").write_text(json.dumps(list(normalization_proofs.values()),sort_keys=True))
+          for path in sorted(output.iterdir()):
+              emit("EVIDENCE_FILE",{"name":path.name,"bytes":path.stat().st_size,"sha256":hashlib.sha256(path.read_bytes()).hexdigest()})
+          emit("EXACT_DIRTY",subprocess.check_output(["git","status","--porcelain"]).decode())
+          PY
