@@ -1,4 +1,4 @@
-name: Diagnose bounded API proof
+name: Inspect alias source proof
 on:
   push:
     branches: [verify/541-native-api-tests]
@@ -17,19 +17,35 @@ jobs:
         with:
           python-version: "3.11.12"
           version: "0.12.13"
-      - run: uv run --locked archkeel report --root . --output .541-observation.json --json
-      - name: Inspect native proof limits
+      - name: Small fixture with actual compatibility alias use
+        run: |
+          uv run --locked python - <<'PY'
+          import sys,tempfile,pathlib
+          sys.path.insert(0,"tests")
+          from test_dependency_api_target import _dependency_repository,_source_members
+          from test_uml_evaluation import _model
+          from archkeel.ir.decisions import rule_assessments
+          with tempfile.TemporaryDirectory() as directory:
+              root,config=_dependency_repository(pathlib.Path(directory))
+              path=root/"archkeel/ir/model.py"
+              path.write_text("from typing import TypeAlias\n"+path.read_text()+"\nPackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]\nComponentOwnershipInput: TypeAlias = ComponentOwnership | PackageComponentOwnership\n")
+              model=_model(root,config)
+              for row in rule_assessments(model,undecided_by_rule={}):
+                  if "BOUNDARY" in row.id:
+                      print("SMALL_RULE",row)
+              for row in model.records("symbols"):
+                  if row.data.get("qualified_name") == "archkeel.ir.dependency.ComponentOwnership":
+                      print("SMALL_ALIAS",row)
+          PY
+      - run: uv run --locked archkeel report --root . --output .541-observation.json --json > .541-summary.json
+      - name: Inspect alias bindings
         run: |
           uv run --locked python - <<'PY'
           import json,pathlib
           from archkeel.ir.codec import decode_canonical_model,parse_observation
-          from archkeel.ir.report_graph import architecture_report
           model=parse_observation(decode_canonical_model(json.loads(pathlib.Path(".541-observation.json").read_text())))
-          for row in model.records("unknowns"):
-              if any("DEPENDENCY" in key for key in row.rule_ids):
-                  print("BOUNDARY_UNKNOWN", row)
-          comparison=architecture_report(model).comparison
-          for row in comparison.assessments:
-              if row.status == "UNKNOWN" and "IR-DEPENDENCY-" in row.subject_id:
-                  print("TARGET_UNKNOWN",row)
+          for section in ("symbols","imports","bindings","references"):
+              for row in model.records(section):
+                  if "ComponentOwnership" in str(row.data):
+                      print(section,row)
           PY
