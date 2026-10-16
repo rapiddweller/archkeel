@@ -9,16 +9,22 @@ from typing import Literal, get_type_hints
 
 import pytest
 
+from archkeel.ir import model
 from archkeel.ir.architecture_graph import ArchitectureRuleKind, DecisionMaker
 from archkeel.ir.codec import contract_bytes, parse_contract
-from archkeel.ir import model
 
 ROOT = Path(__file__).parents[1]
 RULES = {
-    "forbidden_dependency": ("ForbiddenDependencyRule", {"source": "sample.core", "target": "json", "include_type_checking": True}),
+    "forbidden_dependency": (
+        "ForbiddenDependencyRule",
+        {"source": "sample.core", "target": "json", "include_type_checking": True},
+    ),
     "allowed_dependency": ("AllowedDependencyRule", {"source": "core", "target": "core"}),
     "forbidden_construct": ("ForbiddenConstructRule", {"source": "sample", "constructs": ["eval"]}),
-    "external_dependency_scope": ("ExternalDependencyScopeRule", {"dependency": "json", "allowed_sources": ["sample"]}),
+    "external_dependency_scope": (
+        "ExternalDependencyScopeRule",
+        {"dependency": "json", "allowed_sources": ["sample"]},
+    ),
     "complete_assignment": ("CompleteAssignmentRule", {"source": "sample"}),
     "root_layout": ("RootLayoutRule", {"root": "sample", "allowed_children": ["sample.core"]}),
     "complete_external_scope": ("CompleteExternalScopeRule", {"source": "sample"}),
@@ -27,7 +33,10 @@ RULES = {
     "no_component_cycles": ("NoComponentCyclesRule", {}),
     "interface_boundary": ("InterfaceBoundaryRule", {}),
     "sibling_isolation": ("SiblingIsolationRule", {"members": ["sample.core", "sample.other"]}),
-    "symbol_placement": ("SymbolPlacementRule", {"source": "sample", "class_kinds": ["enum"], "allowed_sources": ["sample"]}),
+    "symbol_placement": (
+        "SymbolPlacementRule",
+        {"source": "sample", "class_kinds": ["enum"], "allowed_sources": ["sample"]},
+    ),
     "boundary_types": ("BoundaryTypesRule", {"source": "sample"}),
 }
 
@@ -43,7 +52,16 @@ def _raw():
 def test_every_rule_variant_decodes_the_shared_kind_and_attribution(kind):
     name, fields = RULES[kind]
     raw = _raw()
-    raw["rules"] = [{"id": "rule", "kind": kind, "rationale": "One owner.", "provenance": ["docs/architecture/sample.md"], "decided_by": "architect", **fields}]
+    raw["rules"] = [
+        {
+            "id": "rule",
+            "kind": kind,
+            "rationale": "One owner.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+            **fields,
+        }
+    ]
     contract = parse_contract(raw)
     rule = contract.rules[0]
     assert rule.kind is ArchitectureRuleKind(kind)
@@ -59,7 +77,9 @@ def test_every_rule_variant_decodes_the_shared_kind_and_attribution(kind):
 @pytest.mark.parametrize("value", ["permanent", "migration"])
 def test_compatibility_lifetime_is_a_real_nominal_value_with_identical_wire(value):
     raw = _raw()
-    raw["declarations"] = {"compat": [{"module": "old.module", "target": "new.module", "lifetime": value}]}
+    raw["declarations"] = {
+        "compat": [{"module": "old.module", "target": "new.module", "lifetime": value}]
+    }
     contract = parse_contract(raw)
     assert contract.declarations.compat[0].lifetime is model.CompatibilityLifetime(value)
     assert json.loads(contract_bytes(contract))["declarations"]["compat"][0]["lifetime"] == value
@@ -68,7 +88,16 @@ def test_compatibility_lifetime_is_a_real_nominal_value_with_identical_wire(valu
 @pytest.mark.parametrize("level", ["component", "module"])
 def test_cycle_level_preserves_default_omission_and_returns_nominal_module(level):
     raw = _raw()
-    raw["rules"] = [{"id": "cycles", "kind": "no_component_cycles", "rationale": "One owner.", "provenance": ["docs/architecture/sample.md"], "decided_by": "agent", "level": level}]
+    raw["rules"] = [
+        {
+            "id": "cycles",
+            "kind": "no_component_cycles",
+            "rationale": "One owner.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "agent",
+            "level": level,
+        }
+    ]
     contract = parse_contract(raw)
     expected = None if level == "component" else model.CycleLevel.MODULE
     assert contract.rules[0].level is expected
@@ -89,12 +118,17 @@ def test_invalid_compatibility_lifetime_keeps_the_public_diagnostic(value):
     from archkeel.ir.codec_contract import _parse_compat
 
     with pytest.raises(ValueError, match=r"^compat\[0\]\.lifetime must be permanent or migration$"):
-        _parse_compat({"module": "old.module", "target": "new.module", "lifetime": value}, "compat[0]")
+        _parse_compat(
+            {"module": "old.module", "target": "new.module", "lifetime": value}, "compat[0]"
+        )
+
 
 def test_component_and_requires_decisions_use_the_same_owner():
     raw = _raw()
     raw["components"][0]["decided_by"] = "architect"
-    raw["components"][0]["requires"] = [{"component": "core", "rationale": "Explicit permission.", "decided_by": "agent"}]
+    raw["components"][0]["requires"] = [
+        {"component": "core", "rationale": "Explicit permission.", "decided_by": "agent"}
+    ]
     contract = parse_contract(raw)
     component = contract.components[0]
     assert component.decided_by is DecisionMaker.ARCHITECT
@@ -108,8 +142,11 @@ def test_rule_dispatch_covers_the_single_owned_kind_vocabulary():
     assert set(_RULE_PARSERS) == set(ArchitectureRuleKind)
     assert set(RULES) == set(ArchitectureRuleKind)
 
+
 def test_module_path_error_precedes_other_invalid_fields():
     from archkeel.ir.codec_contract import _parse_module_target
 
-    with pytest.raises(ValueError, match=r"^modules\[0\]\.path must be a repository-relative source path$"):
+    with pytest.raises(
+        ValueError, match=r"^modules\[0\]\.path must be a repository-relative source path$"
+    ):
         _parse_module_target({"path": "../outside.py", "responsibility": ""}, "modules[0]")

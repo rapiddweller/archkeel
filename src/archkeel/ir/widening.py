@@ -743,7 +743,7 @@ def contract_widening_changes(
                     f"compat module {module!r} changed from {old.target!r} to {new.target!r}",
                 )
             )
-        if old.lifetime == CompatibilityLifetime.MIGRATION and new.lifetime == CompatibilityLifetime.PERMANENT:
+        if old.lifetime != new.lifetime and new.lifetime == CompatibilityLifetime.PERMANENT:
             findings.append(
                 WideningChange(
                     f"compat module {module!r}",

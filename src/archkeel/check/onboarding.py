@@ -24,8 +24,8 @@ from archkeel.ir.decisions import (
 from archkeel.ir.identity import module_identity
 from archkeel.ir.model import (
     ArchitectureContract,
-    ArchitectureRuleKind,
     ArchitectureRule,
+    ArchitectureRuleKind,
     CompleteAssignmentRule,
     ComponentOwnership,
     ComponentRole,

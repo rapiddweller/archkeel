@@ -659,7 +659,11 @@ def project_declarations(
             )
         )
     migration = tuple(
-        sorted(shim.module for shim in declarations.compat if shim.lifetime == CompatibilityLifetime.MIGRATION)
+        sorted(
+            shim.module
+            for shim in declarations.compat
+            if shim.lifetime == CompatibilityLifetime.MIGRATION
+        )
     )
     if migration:
         items.append(

@@ -15,6 +15,7 @@ from typing import Final, Literal
 from archkeel.ir.architecture_graph import (
     ArchitectureRuleKind,
     DecisionMaker,
+    _validate_module_target_path,
     validate_layout_rule,
     validate_module_target,
 )
@@ -259,7 +260,8 @@ def parse_contract(raw: object) -> ArchitectureContract:
     if not version.supports(ContractFeature.LAYERS) and ArchitectureRuleKind.LAYER_ORDER in kinds:
         raise ValueError("layer_order requires contract schema_version 2.3.0")
     if not version.supports(ContractFeature.MODULE_SELECTORS) and any(
-        _has_field(_object(value, "rule"), "source_match") or _has_field(_object(value, "rule"), "target_match")
+        _has_field(_object(value, "rule"), "source_match")
+        or _has_field(_object(value, "rule"), "target_match")
         for value in rules_raw
     ):
         raise ValueError("dependency module selectors require contract schema_version 3.4.0")
@@ -530,6 +532,10 @@ def _parse_compat(raw: RawJson, label: str) -> CompatibilityShim:
 def _parse_module_target(raw: RawJson, label: str) -> ContractModuleTarget:
     item = _contract_fields(raw, {"path", "responsibility"}, set(), label)
     path = _nonempty(item["path"], f"{label}.path")
+    try:
+        _validate_module_target_path(path)
+    except ValueError as error:
+        raise ValueError(f"{label}.{error}") from error
     responsibility = _nonempty(item["responsibility"], f"{label}.responsibility")
     target = ContractModuleTarget(path, responsibility)
     try:
@@ -561,9 +567,7 @@ def parse_required_component(raw: RawJson, label: str = "requires") -> RequiredC
         _nonempty(item["component"], f"{label}.component"),
         _nonempty(item["rationale"], f"{label}.rationale"),
         _contract_strings(item.get("through", []), f"{label}.through"),
-        _decided_by(decided_by, f"{label}.decided_by")
-        if decided_by is not None
-        else None,
+        _decided_by(decided_by, f"{label}.decided_by") if decided_by is not None else None,
     )
 
 
@@ -646,9 +650,7 @@ def _parse_component(raw: RawJson, label: str, *, version: ContractVersion) -> C
         _nonempty(inside, f"{label}.inside") if inside is not None else None,
         public,
         planned,
-        _decided_by(decided_by, f"{label}.decided_by")
-        if decided_by is not None
-        else None,
+        _decided_by(decided_by, f"{label}.decided_by") if decided_by is not None else None,
         namespace,
         exact_modules or None,
         _nonempty(item["layer"], f"{label}.layer") if _has_field(item, "layer") else None,
@@ -1148,7 +1150,8 @@ def _parse_boundary_type_allowance(value: RawJson, label: str) -> BoundaryTypeAl
     position = _nonempty(entry["position"], f"{label}.position")
     raw_field_path = entry.get("field_path", "")
     field_path = (
-        "" if isinstance(raw_field_path, str) and not raw_field_path
+        ""
+        if isinstance(raw_field_path, str) and not raw_field_path
         else _nonempty(raw_field_path, f"{label}.field_path")
     )
     annotation = _nonempty(entry["annotation"], f"{label}.annotation")
@@ -1191,7 +1194,7 @@ def _parse_boundary_type_allowance(value: RawJson, label: str) -> BoundaryTypeAl
                 f"{body_label} requires empty field_path and absent container_depth/mapping_depth"
             )
     literal_mapping_arm = _parse_literal_mapping_arm(entry, field_path, label)
-    native_mapping = _parse_native_mapping(entry, label)
+    native_mapping = _parse_native_mapping(entry, annotation, label)
     if re.fullmatch(r"dict", annotation) is not None and not native_mapping:
         raise ValueError(f"{label}.annotation cannot allow bare dict")
     if not field_path and _BARE_BROAD_ANNOTATION.fullmatch(annotation) is not None:
@@ -1210,12 +1213,12 @@ def _parse_boundary_type_allowance(value: RawJson, label: str) -> BoundaryTypeAl
     )
 
 
-def _parse_native_mapping(entry: dict[str, RawJson], label: str) -> bool:
+def _parse_native_mapping(entry: dict[str, RawJson], annotation: str, label: str) -> bool:
     if not _has_field(entry, "native_mapping"):
         return False
     if entry["native_mapping"] is not True:
         raise ValueError(f"{label}.native_mapping must be true")
-    if _NATIVE_MAPPING_ANNOTATION.fullmatch(_nonempty(entry["annotation"], f"{label}.annotation")) is None or any(
+    if _NATIVE_MAPPING_ANNOTATION.fullmatch(annotation) is None or any(
         name in entry
         for name in (
             "container_depth",
