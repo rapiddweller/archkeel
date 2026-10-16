@@ -145,9 +145,7 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
             unknown_positions=unknown_positions(observation),
         ),
         calls_total=total,
-        resolution=_Resolution.MEASURED
-        if total
-        else _Resolution.NOT_APPLICABLE,
+        resolution=_Resolution.MEASURED if total else _Resolution.NOT_APPLICABLE,
     )
 
 

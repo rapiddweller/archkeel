@@ -233,7 +233,8 @@ def _repository(tmp_path):
 def _valid(value):
     comparison = architecture_report(value).comparison
     assert comparison is not None and comparison.status == "PASS", [
-        (row.subject_id, row.aspect, row.status, row.reason) for row in comparison.assessments
+        (row.subject_id, row.aspect, row.status, row.reason)
+        for row in comparison.assessments
         if row.status != "PASS"
     ]
     assert not trace_valid_violations(value)

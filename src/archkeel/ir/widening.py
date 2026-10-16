@@ -117,11 +117,11 @@ def _set_widenings(
     label = f"{subject}.{field}"
     if grows_widens:
         return [
-            WideningChange(subject, field, f"{label} gained {item!r}")
+            WideningChange(subject, field, f"{label} gained {_builtins.str.__str__(item)!r}")
             for item in sorted(after - before)
         ]
     return [
-        WideningChange(subject, field, f"{label} lost {item!r}") for item in sorted(before - after)
+        WideningChange(subject, field, f"{label} lost {_builtins.str.__str__(item)!r}") for item in sorted(before - after)
     ]
 
 
