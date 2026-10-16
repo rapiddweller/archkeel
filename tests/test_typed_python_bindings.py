@@ -232,3 +232,53 @@ def test_actual_complete_binding_model_has_positive_native_guard(self_observatio
         if row.id == "PYTHON-BINDINGS-TYPED-CONTROL"
     )
     assert assessment.status == "PASS" and assessment.evaluation_proven
+
+
+@pytest.mark.parametrize("kind", list(ImportKind))
+def test_alias_binding_normalizes_valid_legacy_constructor_kind(kind):
+    binding = AliasBinding("sample.engine", kind.value, "Engine")
+    assert binding.kind is kind
+    assert binding.target == "sample.engine" and binding.imported_name == "Engine"
+
+
+@pytest.mark.parametrize("kind", list(BindingKind))
+def test_name_binding_normalizes_valid_legacy_constructor_kind(kind):
+    binding = NameBinding(None, ("sample.engine",), kind.value, True)
+    assert binding.kind is kind
+    assert binding.owner is None and binding.targets == ("sample.engine",) and binding.uncertain
+
+
+@pytest.mark.parametrize("kind", list(ImportKind))
+def test_legacy_alias_constructor_preserves_real_lexical_lookup(kind):
+    module = _parsed_module("import sample.engine as engine\nengine\n")
+    collect_imports([module], {"sample.engine"}, {}, namespace="sample")
+    __site, aliases = next(iter(module.import_aliases.items()))
+    aliases["engine"] = AliasBinding("sample.engine", kind.value)
+    use = next(
+        node
+        for node in ast.walk(module.tree)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id == "engine"
+    )
+    expected = BindingKind.MODULE if kind is ImportKind.MODULE else BindingKind.SYMBOL
+    assert LexicalScopes(module).lookup(use, "engine").kind is expected
+
+
+@pytest.mark.parametrize("kind", list(ImportKind))
+def test_alias_binding_preserves_nominal_constructor_identity(kind):
+    assert AliasBinding("sample.engine", kind).kind is kind
+
+
+@pytest.mark.parametrize("kind", list(BindingKind))
+def test_name_binding_preserves_nominal_constructor_identity(kind):
+    assert NameBinding(None, kind=kind).kind is kind
+
+
+def test_name_binding_default_remains_nominal_unknown():
+    assert NameBinding(None).kind is BindingKind.UNKNOWN
+
+
+@pytest.mark.parametrize("raw", ["", "future kind", None, 7])
+@pytest.mark.parametrize("api,args", [(AliasBinding, ("sample.engine",)), (NameBinding, (None,))])
+def test_binding_constructor_rejects_invalid_kind(api, args, raw):
+    with pytest.raises(ValueError):
+        api(*args, kind=raw)
