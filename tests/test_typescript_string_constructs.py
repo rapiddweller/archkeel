@@ -318,7 +318,7 @@ def test_construct_evidence_keeps_the_real_utf16_literal_location(tmp_path, exte
     records = _constructs(facts)
     assert len(records) == 1
     evidence = next(row for row in facts.evidence if row.id == records[0].evidence_ids[0])
-    prefix = source[:source.index('"active"')]
+    prefix = source[: source.index('"active"')]
     assert evidence.file == f"src/main.{extension}"
     assert (evidence.line, evidence.end_line) == (1, 1)
     assert evidence.column == len(prefix.encode("utf-16-le")) // 2 + 1

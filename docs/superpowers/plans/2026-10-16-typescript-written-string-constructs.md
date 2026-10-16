@@ -35,7 +35,7 @@ Produces: syntax.StringComparison(span: Span, scope: str | None); Syntax.string_
 
 - [x] Preserve the independently authored fixed HRC contract and original 38956449624 RED (25 expected failures, 44 controls).
 - [x] Extend native JS callback/IIFE, comment-unwrapping and UTF-16 probes; run on untouched fa37 and inspect expected missing-feature/registry failures.
-- [ ] Implement the smallest producer/DTO/profile/registry change; keep enum vocabulary private and derived from consumed AST kinds.
+- [x] Implement the smallest producer/DTO/profile/registry change; keep enum vocabulary private and derived from consumed AST kinds.
 - [ ] Run focused native tests, legacy/profile replay, Ruff and strict mypy; correct implementation failures, then commit.
 
 ## Task 2: Authored API intent and native type mutations
@@ -44,7 +44,7 @@ Files: docs/architecture/contracts/typescript.json; docs/architecture/contracts/
 Consumes: the actual new syntax port and independent typed Profile receipt grouping.
 Produces: named public lexical port plus authored Span/sequence/receipt-group annotations and genuine source-widening rejection.
 
-- [ ] Add actual source-widening probes against unchanged current Target; observe the missing new field guard.
+- [x] Add actual source-widening probes against unchanged current Target; observe the missing new field guard.
 - [ ] Author the smallest independent Target intent and include tests in normal TypeScript/PR commands.
 - [ ] Prove normal real source PASS and changed Span/sequence/group types trace-valid FAIL without changing intent during each mutation.
 
@@ -60,3 +60,6 @@ Produces: named public lexical port plus authored Span/sequence/receipt-group an
 Ruling: Root explicitly authorized implementation of this previously reviewed bounded design; no new confirmation pause is needed. Remote GitHub branches and hosted Actions replace local worktree/scripts because the task explicitly forbids local execution.
 Pre-flight: parser -> syntax DTO -> collector uses one lexical port; collector -> registry shares the canonical construct identity; profile -> codec shares atomic receipt groups. No independent competing vocabulary or AST layer is introduced.
 Task 1: refreshed native RED 38964339186/job117186950096: 36 expected failures, 47 controls passed. The existing legacy source registry accepted an unimplemented DECIDED construct claim; that exact boundary is now covered. Minimal product implementation is next; no success claim yet.
+
+Task 1: focused native 38964957065: 83 tests passed, 405 lexical/protocol regressions passed, strict mypy 133 files passed; two formatter issues were corrected in the candidate.
+Task 2: native Target RED 38965409045/job117190542715: all three real Span/scope/sequence source widenings incorrectly remained PASS under the prior Target. Independently authored port intent is now added; GREEN is pending.

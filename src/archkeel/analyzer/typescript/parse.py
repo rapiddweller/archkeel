@@ -1298,7 +1298,9 @@ def _comparison_literal(node: _RawNode) -> _RawNode | None:
 def _written_string(node: _RawNode | None) -> _RawNode | None:
     """Keep original literal evidence; unknown template children are never static proof."""
     while node is not None and _node_kind(node) is _NodeKind.PARENTHESIZED_EXPRESSION:
-        children = [item for item in node.named_children if _node_kind(item) is not _NodeKind.COMMENT]
+        children = [
+            item for item in node.named_children if _node_kind(item) is not _NodeKind.COMMENT
+        ]
         node = children[0] if len(children) == 1 else None
     if node is None:
         return None

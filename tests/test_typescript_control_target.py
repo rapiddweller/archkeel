@@ -54,6 +54,9 @@ def _repository(tmp_path, *, changed=None):
             "docs/architecture/typescript-control-types.md": (
                 ROOT / "docs/architecture/typescript-control-types.md"
             ).read_text(),
+            "docs/architecture/typescript-written-string-controls.md": (
+                ROOT / "docs/architecture/typescript-written-string-controls.md"
+            ).read_text(),
             "docs/architecture/typescript-syntax-types.md": (
                 ROOT / "docs/architecture/typescript-syntax-types.md"
             ).read_text(),
@@ -218,22 +221,27 @@ def test_native_parser_and_collector_guards_are_proven_without_exceptions(tmp_pa
 
 
 @pytest.mark.parametrize(
-    ("old", "new"),
+    ("owner", "old", "new"),
     [
-        ("form: ReferenceForm", "form: str"),
-        ("kind: DefinitionKind", "kind: str"),
-        ("visibility: Visibility | None", "visibility: str | None"),
-        ("relationship: BaseRelationship", "relationship: str"),
-        ("kind: SiteKind", "kind: str"),
-        ("use: SiteUse", "use: str"),
-        ("receiver_kind: ReceiverKind", "receiver_kind: str"),
+        ("Reference", "form: ReferenceForm", "form: str"),
+        ("Definition", "kind: DefinitionKind", "kind: str"),
+        ("Definition", "visibility: Visibility | None", "visibility: str | None"),
+        ("Base", "relationship: BaseRelationship", "relationship: str"),
+        ("Site", "kind: SiteKind", "kind: str"),
+        ("Site", "use: SiteUse", "use: str"),
+        ("Site", "receiver_kind: ReceiverKind", "receiver_kind: str"),
+        ("StringComparison", "span: Span", "span: object"),
+        ("StringComparison", "scope: str | None", "scope: object | None"),
+        ("Syntax", "tuple[StringComparison, ...]", "tuple[object, ...]"),
     ],
 )
-def test_native_syntax_field_widening_fails_against_fixed_port_intent(tmp_path, old, new):
+def test_native_syntax_field_widening_fails_against_fixed_port_intent(tmp_path, owner, old, new):
     source = (ROOT / "src/archkeel/analyzer/typescript/syntax.py").read_text()
-    assert old in source
+    prefix, body = source.split(f"class {owner}:", 1)
+    assert old in body
+    changed = prefix + f"class {owner}:" + body.replace(old, new, 1)
     root, config = _repository(
-        tmp_path, changed={"archkeel/analyzer/typescript/syntax.py": source.replace(old, new, 1)}
+        tmp_path, changed={"archkeel/analyzer/typescript/syntax.py": changed}
     )
     before = (root / "contract.json").read_bytes()
     model = _model(root, config)
