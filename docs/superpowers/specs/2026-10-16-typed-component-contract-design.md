@@ -1,6 +1,6 @@
 # Typisierte Steuerungslogik und überprüfbare Komponenten-APIs
 
-Status: Designentwurf zur Prüfung. Produktänderungen stehen noch aus.
+Status: Autorisierter Entwurf; Umsetzung in PR #543, #545 und #546. Das Ausführungsprotokoll dokumentiert die endgültigen API-Entscheidungen und Prüfnachweise.
 
 ## Ziel und Abgrenzung
 

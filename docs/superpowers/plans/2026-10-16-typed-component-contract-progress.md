@@ -1,61 +1,33 @@
-# Execution ledger — plan: docs/superpowers/plans/2026-10-16-typed-component-contract.md
+# Execution ledger — typed component contract
 
-User instruction: implement #540–#542, independent final Astra review, then merge.
+User instruction: address #540–#542, independent final Astra review, then merge.
 
-## Dependency and consistency check
+## Responsibilities and choices
 
-| Task/interface | Produces / consumes | Decision |
+- Pure `ir.dependency` owns selector vocabulary and matching. Codecs convert raw protocol values; Core owns verdicts; reports prepare and consume shared selection.
+- Frozen named selections retain typed compatibility iteration. Legacy model ownership aliases and helper signatures remain compatible.
+- Nominal `DependencyOwner(identity, modules)` uses the shared `ModuleSelection`, rather than another package/exact representation. One model adapter preserves legacy tuple order and duplicates. Identity is an opaque caller key.
+- Native observation could not prove the former generic alias at two new API positions. A broader compiler alias-proof experiment was rejected after independent Astra found an unproven namespace-rebinding assumption. No analyzer experiment is included. The actual API now uses nominal composition, and both positions are proven in fresh repository observation. Baseline and budgets are unchanged.
+- Remote isolated branches and hosted tests replace local worktrees because the execution environment cannot fork. Product PRs contain no temporary verification workflows.
+- The independent Target fixes intent, never copies observation. Missing method evidence remains UNKNOWN. The string policy guards the complete migrated module without claiming all 1,662 repository syntax observations are defects or migrated.
+
+## Separate changes and evidence
+
+| Issue | PR / exact reviewed head | Verification |
 | --- | --- | --- |
-| 1 → 2 | Shared selector enums, fields and signatures / authored Target | Stable API; Target is written independently, never copied from observed records. |
-| 1 → 3 | Migrated dependency policy / source-scoped native construct guard | Guard the complete new policy module, without broad legacy exemptions. |
-| 2 → 3 | Native source fixture and typed boundary / guard mutations | Reuse one fixture; keep production types, contract intent and syntax controls distinct. |
-| Task 1 | Compatibility versus named immutable results | Preserve unpacking through typed iteration. |
-| Task 2 | Native proof versus incomplete member inventory | Keep Target member scopes open; missing proof stays UNKNOWN. |
-| Task 3 | Protected scope versus repository syntax count | Document the exact guarantee and remaining vocabularies; do not call 1,662 observations defects. |
+| #540 | #543 / 1202e35361e68dea6bf01d6a3d94875c648a9899 | RED selector regression; nominal RED 38926327471; 299 focused tests, mypy, lint, hygiene and native baseline GREEN 38926585338. Independent Astra approved. |
+| #541 | #545 / f2c81208518c7c18b295bd617258b800c26714be | 38 independent declarations preserve 244 earlier declarations. Eight native tests, fixed-contract source mutations and fresh self-observation, format, mypy and actual baseline GREEN 38927490279. Independent Astra approved. |
+| #542 | #546 / a82fe0ee484e0b84f28159eed5b8cf5272767ea9 | Existing native analyzer/evaluator guard. Equality, membership, match and Final-string negative controls; enums, name data and observed codec wire controls. Earlier native RED/GREEN 38920544087/38920907662. Independent Astra approved. |
 
-## Implementation decisions
+Both exact v2 amendments pass native validation in run 38927057989.
+Unchanged own measurements: 65 unknown positions, 919 unresolved calls, zero violations.
 
-Ruling: `ir.dependency` owns pure dependency vocabulary and selection rather than
-adding more behavior to `ir.model`. The existing model remains a compatibility
-facade. This makes a real component API boundary enforceable; the cost is one
-small module and explicit named ports.
+## Remaining gates
 
-Ruling: use frozen dataclasses with named fields and typed compatibility iteration.
-This preserves existing tuple unpacking while keeping the returned source/target
-selection clear. The cost is compatibility iteration methods; no parallel matcher
-or runtime conversion layer is introduced.
+Required PR CI 38927682241 / 38927795971 / 38927921444 and combined clean-tree
+full suite/native validation 38928014179 are running. Fresh independent holistic
+Astra review is running. Merge in dependency order only after green gates,
+refresh later branch ancestry against Main with unchanged trees, and verify issue closure.
 
-Ruling: isolated remote GitHub branches and hosted tests replace local worktrees.
-The execution environment cannot fork reliably. Product PRs exclude temporary
-verification workflows; hosted exact-head required checks remain merge gates.
-
-## Task 1: shared dependency selection (#540)
-
-- PR https://github.com/rapiddweller/archkeel/pull/543
-- Head 0e8299ebcfe84e3b40db3471f49f9a7998aa6c1d, base 63437df6734275850838ba1026b276c2f930bf2f.
-- RED https://github.com/rapiddweller/archkeel/actions/runs/38916663618: 15 failed / 34 passed, including the real-label discrepancy.
-- GREEN https://github.com/rapiddweller/archkeel/actions/runs/38919941195: 271 focused tests, mypy, lint, hygiene and native baseline.
-- Standard digest-bound policy amendment https://github.com/rapiddweller/archkeel/actions/runs/38920080238 passed, unchanged baseline.
-- Fresh independent Astra review approved all 21 files at the exact PR head; required CI pending.
-
-## Task 2: intended API contract (#541)
-
-- Independent 34-entity Target, narrow boundary_types and real source mutation controls implemented.
-- Native controls reject field/parameter widening, untyped selection and property results, and undeclared helper import; missing method proof stays UNKNOWN.
-- Expanded regressions passed; two full-repository alias proof UNKNOWN positions under investigation. No budget increase or suppression.
-- Individual final Astra review not dispatched until that finding is resolved.
-
-## Task 3: typed control policy (#542)
-
-- RED https://github.com/rapiddweller/archkeel/actions/runs/38920544087 confirms all eight missing-policy controls fail.
-- GREEN https://github.com/rapiddweller/archkeel/actions/runs/38920907662: 15 native guard/API controls pass.
-- Literal equality, membership, match and Final-string disguises each produce trace-valid violations.
-- Enums and module-name data pass; codec wire comparisons remain observed outside protected policy.
-- Full own observation proves guard PASS and no string control in the protected module.
-- Native guard reuses the existing analyzer/evaluator; no new lint engine or blanket exemption.
-
-## Outstanding gates
-
-Resolve the two alias proof UNKNOWN positions, create separate final #541/#542 PRs,
-run required CI and a combined full suite, obtain fresh individual and holistic
-Astra review, then merge in dependency order and verify issue closure.
+A separately created issue #544 appeared during execution. Read-only current-Main
+analysis is in progress; it is not part of the already scoped three-PR review.
