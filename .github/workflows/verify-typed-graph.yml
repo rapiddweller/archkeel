@@ -45,9 +45,11 @@ jobs:
           sys.path.insert(0, "tests")
           from test_typed_graph_vocabulary import _repository, _model
           from archkeel.check.ratchets import call_rows
+          from archkeel.ir.trace import trace_valid_violations
           with TemporaryDirectory() as directory:
               root, config = _repository(Path(directory))
               model = _model(root, config)
+              print("FIXTURE_VIOLATIONS=" + repr(trace_valid_violations(model)))
               print("FIXTURE_UNRESOLVED_GRAPH_CALLS=" + json.dumps([asdict(row) for row in call_rows(model) if row.status == "unresolved" and "architecture_graph" in row.path], separators=(",", ":")))
           PY
   graph-tests:

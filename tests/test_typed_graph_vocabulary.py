@@ -16,8 +16,8 @@ from test_uml_evaluation import _model
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import architecture_graph as graph
 from archkeel.ir.decisions import rule_assessments
-from archkeel.ir.graph_codec import graph_bytes, parse_comparison, parse_graph, parse_report
-from archkeel.ir.model import RuleVerdict
+from archkeel.ir.graph_codec import graph_bytes, parse_comparison, parse_component_intent, parse_graph, parse_report
+from archkeel.ir.model import RuleVerdict, Verdict
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
 from tools.architecture_graph_schema import comparison_schema, graph_schema, report_schema
@@ -63,6 +63,10 @@ def test_graph_control_vocabulary_is_nominal_and_owned(name):
 def test_shared_rule_verdict_has_one_owner_and_declared_status_stays_distinct():
     assert RuleVerdict is graph.AssessmentStatus
     assert graph.RuleAssessmentStatus is not graph.AssessmentStatus
+    assert Verdict is not graph.AssessmentStatus
+    assert tuple(Verdict) == (Verdict.PASS, Verdict.FAIL)
+    with pytest.raises(ValueError):
+        Verdict("UNKNOWN")
     assert isinstance(graph.AssessmentStatus.PASS, StrEnum)
     assert graph.RuleAssessmentStatus.DECLARATION.value == "DECLARATION"
 
@@ -106,6 +110,14 @@ def test_legacy_direct_construction_normalizes_to_nominal_graph_controls():
     comparison = graph.GraphComparison.from_assessments((item,))
     assert isinstance(item.status, StrEnum)
     assert comparison.status is graph.AssessmentStatus.UNKNOWN
+
+
+
+def test_component_layer_presence_preserves_missing_and_explicit_null_distinction():
+    raw = {"component_id": "root", "role": "component"}
+    assert parse_component_intent(raw).layer is None
+    with pytest.raises(ValueError, match="component_intent.layer"):
+        parse_component_intent({**raw, "layer": None})
 
 
 def test_graph_codecs_keep_comparison_and_report_version_boundaries():
@@ -217,7 +229,7 @@ def test_native_graph_api_matches_independent_intent_and_all_migrated_module_gua
     assessments = {row.id: row for row in rule_assessments(value, undecided_by_rule={})}
     for module in MODULES:
         guard = next(item for item in _contract()["rules"] if item["source"] == module)
-        assert assessments[guard["id"]].status == "PASS"
+        assert assessments[guard["id"]].status == "PASS", (guard, trace_valid_violations(value))
         assert assessments[guard["id"]].evaluation_proven
     assert not trace_valid_violations(value)
 
@@ -250,6 +262,7 @@ def test_native_graph_enum_field_and_return_widening_fail_with_fixed_target(tmp_
     [
         'def _probe(value):\n    return value == "declared"\n',
         'def _probe(value):\n    return value in ("declared", "observed")\n',
+        'def _probe(value):\n    return "status" in value\n',
         (
             'def _probe(value):\n    match value:\n        case "declared":\n'
             "            return True\n        case _:\n            return False\n"
@@ -259,7 +272,7 @@ def test_native_graph_enum_field_and_return_widening_fail_with_fixed_target(tmp_
             "\ndef _probe(value):\n    return value == DECLARED\n"
         ),
     ],
-    ids=["equality", "membership", "match", "final-string"],
+    ids=["equality", "membership", "protocol-key-membership", "match", "final-string"],
 )
 def test_native_graph_parser_has_no_string_control_exception(tmp_path, probe):
     root, config = _repository(tmp_path)

@@ -185,7 +185,9 @@ def parse_component_intent(value: RawJson) -> ComponentIntent:
         parent_id=_nullable(item.get("parent_id"), "component_intent.parent_id"),
         label=_nullable(item.get("label"), "component_intent.label"),
         layout_rule_ids=_texts(item.get("layout_rule_ids", ()), "component_intent.layout_rule_ids"),
-        layer=_text(item["layer"], "component_intent.layer") if "layer" in item else None,
+        layer=_text(item["layer"], "component_intent.layer")
+        if item.get("layer", _MISSING) is not _MISSING
+        else None,
     )
 
 

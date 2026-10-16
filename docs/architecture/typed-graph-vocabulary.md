@@ -26,5 +26,5 @@ retain existing public field/return intent. Native widening mutations and parser
 equality/membership/match/string-alias probes demonstrate enforcement.
 
 Source graph and UML evidence adapters consume these graph values. Their unrelated
-profile-record grammar remains part of the open #542 migration; these guards do not
+evidence-record grammar remains part of the open #542 migration; these guards do not
 claim complete protection of those adapters or of presentation-only vocabularies.
