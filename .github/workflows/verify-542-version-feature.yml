@@ -50,8 +50,16 @@ jobs:
       - name: Observe both actual source trees
         run: |
           git worktree add --detach "$RUNNER_TEMP/site-before" 6c0083535d34ba84c8bd648474e87b7142ab0653
-          uv run --locked archkeel report --root "$RUNNER_TEMP/site-before" --output "$RUNNER_TEMP/site-before.json" > "$RUNNER_TEMP/before-result.json"
-          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/site-after.json" > "$RUNNER_TEMP/after-result.json"
+          uv run --locked python - <<'PY'
+          import json, os, subprocess, sys
+          from pathlib import Path
+          temp = Path(os.environ["RUNNER_TEMP"])
+          for label, source in (("before", str(temp / "site-before")), ("after", ".")):
+              result = subprocess.run([sys.executable, "-m", "archkeel.cli", "report", "--root", source, "--output", str(temp / ("site-" + label + ".json")), "--json"], capture_output=True, text=True)
+              data = json.loads(result.stdout)
+              print("SITE_REPORT_RESULT=" + json.dumps({"label": label, "exit": result.returncode, "diagnostics": data.get("diagnostics"), "failures": data.get("failures")}))
+              assert result.returncode == 0, result.stderr
+          PY
       - name: Compare semantic call and UNKNOWN sites
         run: |
           uv run --locked python - <<'PY'
@@ -80,7 +88,7 @@ jobs:
               }
           old, new = positions(before), positions(after)
           evidence = {
-              "before_ref": "6c0083535d34ba84c8bd648474e87b7142ab0653", "after_ref": "7d22c1a5e5adf857b828618dac76b8fe14a7708b",
+              "before_ref": "6c0083535d34ba84c8bd648474e87b7142ab0653", "after_ref": "38bd2f734f326d94a3533d81d5ab25d886386519",
               "before_calls": before.coverage.calls_unresolved,
               "after_calls": after.coverage.calls_unresolved,
               "new_unresolved_calls": [{"site": key, "count": count} for key, count in sorted((new_calls-old_calls).items())],

@@ -315,7 +315,8 @@
       "public": [
         "archkeel.ir.contract_version:ContractFeature",
         "archkeel.ir.contract_version:ContractVersion",
-        "archkeel.ir.contract_version:CONTRACT_SCHEMA_VERSION"
+        "archkeel.ir.contract_version:CONTRACT_SCHEMA_VERSION",
+        "archkeel.ir.contract_version:supports_feature"
       ],
       "responsibilities": [
         "Own supported contract schema identities and the single feature-introduction policy shared by reading and writing."
