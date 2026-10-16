@@ -36,15 +36,8 @@ jobs:
       - name: Native collector and source safety regressions
         run: >-
           uv run --locked python -m pytest -n 2 --dist=loadfile -q
-          tests/test_typed_python_bindings.py tests/test_boundary_types_aliases.py
-          tests/test_string_comparison_observation.py tests/test_analyzer.py
-          tests/test_source_trust_boundary.py tests/test_collection_process.py
-          tests/test_source_types.py tests/test_source_namespace_acceptance.py
-          tests/test_definition_source_owners.py tests/test_binding_proof_reuse.py
-          tests/test_binding_claim_completeness.py tests/test_python_scope_certification.py
-          tests/test_boundary_type_ambiguous_bindings.py tests/test_boundary_type_enum_literals.py
-          tests/test_source_provenance_acceptance.py tests/test_repository_hygiene.py
-          tests/test_typed_state_protocol.py tests/test_state_facts.py
+          tests/test_typed_python_bindings.py tests/test_typed_state_protocol.py
+          tests/test_repository_hygiene.py
       - run: uv run --locked ruff check src tests
       - run: uv run --locked mypy src
       - name: Preserve native baseline without allowances

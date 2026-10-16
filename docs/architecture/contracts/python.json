@@ -67,10 +67,7 @@
         "archkeel.analyzer.python.scopes",
         "archkeel.analyzer.python.binding_types:AliasBinding",
         "archkeel.analyzer.python.binding_types:ImportKind",
-        "archkeel.analyzer.python.binding_types:BindingKind",
-        "archkeel.analyzer.python.binding_types:CompilerScopeKind",
-        "archkeel.analyzer.python.binding_types:lexical_import_kind",
-        "archkeel.analyzer.python.binding_types:compiler_scope_kind"
+        "archkeel.analyzer.python.binding_types:BindingKind"
       ]
     },
     {
