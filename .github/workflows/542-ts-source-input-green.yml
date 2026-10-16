@@ -1,0 +1,32 @@
+name: TypeScript source input focused GREEN
+on:
+  push:
+    branches: [verify/542-typescript-source-input-format]
+permissions:
+  contents: read
+jobs:
+  input-grammar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: d3011455465e139f45de7c543f544aec1d39593d
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Format and export bounded product patch
+        run: |
+          uv run --locked ruff check --fix --ignore E501 src/archkeel/analyzer/typescript/config.py src/archkeel/analyzer/typescript/resolve.py src/archkeel/analyzer/typescript/collect.py src/archkeel/analyzer/typescript/parse.py src/archkeel/analyzer/typescript/source_input.py tests/test_typescript_source_input.py tests/test_typescript_control_target.py
+          uv run --locked ruff format src/archkeel/analyzer/typescript/config.py src/archkeel/analyzer/typescript/resolve.py src/archkeel/analyzer/typescript/collect.py src/archkeel/analyzer/typescript/parse.py src/archkeel/analyzer/typescript/source_input.py tests/test_typescript_source_input.py tests/test_typescript_control_target.py
+          uv run --locked python - <<'PY'
+          import base64,subprocess
+          print("FORMAT_PATCH="+base64.b64encode(subprocess.check_output(["git","diff","--","src/archkeel/analyzer/typescript/config.py","src/archkeel/analyzer/typescript/resolve.py","src/archkeel/analyzer/typescript/collect.py","src/archkeel/analyzer/typescript/parse.py","src/archkeel/analyzer/typescript/source_input.py","tests/test_typescript_source_input.py","tests/test_typescript_control_target.py"])).decode(),flush=True)
+          PY
+      - run: uv run --locked ruff check src/archkeel/analyzer/typescript tests/test_typescript_source_input.py tests/test_typescript_control_target.py
+      - run: make typecheck
+      - run: make lint
