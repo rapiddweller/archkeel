@@ -146,7 +146,6 @@ def test_actual_producer_kind_widening_fails_the_unchanged_authored_target(tmp_p
     comparison = architecture_report(_model(root, config)).comparison
     assert comparison is not None
     assert any(
-        item.status == "FAIL" and item.aspect == "signature"
-        for item in comparison.assessments
+        item.status == "FAIL" and item.aspect == "signature" for item in comparison.assessments
     ), comparison
     assert (root / "contract.json").read_bytes() == before
