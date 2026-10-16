@@ -208,8 +208,10 @@ _LOADER_MODULES: Final[dict[str, _LoaderModule]] = {item.value: item for item in
 class _Tree:
     """One parse's bounded node identity map; no parser objects escape the syntax boundary."""
 
+    nodes: dict[int, _Node]
+
     def __init__(self) -> None:
-        self.nodes: dict[int, _Node] = {}
+        self.nodes = {}
 
     def node(self, raw: _RawNode) -> _Node:
         found = self.nodes.get(raw.id)
@@ -220,6 +222,10 @@ class _Tree:
 
     def optional(self, raw: _RawNode | None) -> _Node | None:
         return self.node(raw) if raw is not None else None
+
+    def clear(self) -> None:
+        nodes: dict[int, _Node] = self.nodes
+        nodes.clear()
 
 
 class _Node:
@@ -405,7 +411,7 @@ def parse(rel_path: str, data: bytes) -> Syntax:
             _rebound_names(source),
         )
     finally:
-        tree.nodes.clear()
+        tree.clear()
 
 
 def _inner(source: _Source) -> tuple[tuple[Definition, ...], tuple[Site, ...]]:

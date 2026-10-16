@@ -238,6 +238,19 @@
         "docs/architecture/typescript-syntax-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "TARGET-TYPESCRIPT-SYNTAX-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.typescript.syntax",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The syntax DTO owner normalizes its closed legacy inputs once; native comparison guards cover this whole module without parser/protocol exceptions.",
+      "provenance": [
+        "docs/architecture/typescript-syntax-types.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {

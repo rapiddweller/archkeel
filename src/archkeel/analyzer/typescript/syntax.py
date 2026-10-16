@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import builtins
 from dataclasses import dataclass
 from enum import Enum
 
@@ -78,6 +79,10 @@ class Reference:
     mode_override: bool
     span: Span
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.form, ReferenceForm):
+            builtins.object.__setattr__(self, "form", ReferenceForm(self.form))
+
 
 @dataclass(frozen=True, slots=True)
 class Concern:
@@ -104,12 +109,20 @@ class Member:
     literal: str | None = None
     decorator_sources: tuple[tuple[str, Span], ...] = ()
 
+    def __post_init__(self) -> None:
+        if self.visibility is not None and not isinstance(self.visibility, Visibility):
+            builtins.object.__setattr__(self, "visibility", Visibility(self.visibility))
+
 
 @dataclass(frozen=True, slots=True)
 class Base:
     name: str
     relationship: BaseRelationship
     span: Span
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.relationship, BaseRelationship):
+            builtins.object.__setattr__(self, "relationship", BaseRelationship(self.relationship))
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +150,12 @@ class Definition:
     is_async: bool = False
     decorator_sources: tuple[tuple[str, Span], ...] = ()
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.kind, DefinitionKind):
+            builtins.object.__setattr__(self, "kind", DefinitionKind(self.kind))
+        if self.visibility is not None and not isinstance(self.visibility, Visibility):
+            builtins.object.__setattr__(self, "visibility", Visibility(self.visibility))
+
 
 @dataclass(frozen=True, slots=True)
 class Site:
@@ -157,6 +176,18 @@ class Site:
     scope_ambiguous: bool = False
     scope_column: int | None = None
     receiver_kind: ReceiverKind = ReceiverKind.NONE
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.kind, SiteKind):
+            builtins.object.__setattr__(self, "kind", SiteKind(self.kind))
+        if not isinstance(self.use, SiteUse):
+            builtins.object.__setattr__(self, "use", SiteUse(self.use))
+        if not isinstance(self.receiver_kind, ReceiverKind):
+            builtins.object.__setattr__(self, "receiver_kind", ReceiverKind(self.receiver_kind))
+        if self.receiver_kind is ReceiverKind.NONE and self.receiver is not None:
+            legacy_receivers: dict[str, ReceiverKind] = {"this": ReceiverKind.THIS}
+            legacy_kind = legacy_receivers.get(self.receiver, ReceiverKind.OTHER)
+            builtins.object.__setattr__(self, "receiver_kind", legacy_kind)
 
 
 @dataclass(frozen=True, slots=True)
