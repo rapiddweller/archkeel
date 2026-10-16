@@ -1,0 +1,26 @@
+name: Native prefix boundaries RED
+on:
+  push:
+    branches: [verify/542-native-string-predicates-boundaries-red]
+permissions:
+  contents: read
+jobs:
+  bounded-native-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: c66dafed59557ced7adb539cb54e42f9207456d2
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Demonstrate assertion-only missing native prefix capability
+        run: |
+          set +e
+          uv run --locked python -m pytest -q tests/test_string_predicate_observation.py
+          probe_status=$?
+          test "$probe_status" -eq 1
