@@ -108,3 +108,107 @@ def test_real_deviation_producer_preserves_sorted_wire_order_and_stable_ids():
     nested = owner.level_deviations("nested", declared, used)
     assert all(row.level_id == "nested" for row in nested)
     assert {row.id for row in rows}.isdisjoint(row.id for row in nested)
+
+
+def test_actual_deviation_decoder_and_index_keep_rows_and_level_identity():
+    api = pytest.importorskip("playwright.sync_api")
+    playwright, browser, page = _asset_page(api, ["report-scene.js"])
+    try:
+        result = page.evaluate("""() => {
+          const P = ArchkeelGraphSceneProtocol;
+          const rows = [
+            {id:"root",kind:"undeclared",source_id:"PASS",target_id:"observed",level_id:null},
+            {id:"nested",kind:"allowed_unused",source_id:"PASS",target_id:"observed",level_id:"child"},
+          ];
+          const before = JSON.stringify(rows);
+          const decoded = P.decodeAtlasDeviations(rows);
+          const index = ArchkeelAtlasDeviations.create(rows);
+          let rejectsZero = false;
+          try { P.decodeAtlasDeviations([{...rows[0],kind:0}]); }
+          catch (error) { rejectsZero = error instanceof TypeError; }
+          return {list:decoded===rows,row:decoded[0]===rows[0],
+            root:index.isUndeclared(null,"PASS","observed"),
+            nested:index.isUndeclared("child","PASS","observed"),
+            unused:index.unused("child")[0]===rows[1],
+            rootUnused:index.unused(null).length,
+            unchanged:JSON.stringify(rows)===before,rejectsZero};
+        }""")
+        assert result == {
+            "list": True,
+            "row": True,
+            "root": True,
+            "nested": False,
+            "unused": True,
+            "rootUnused": 0,
+            "unchanged": True,
+            "rejectsZero": True,
+        }
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        (
+            ".filter((row) => row.kind === G.AtlasDeviationKind.ALLOWED_UNUSED);",
+            ".filter((row) => row.kind === G.AtlasDeviationKind.ALLOWED_UNUSED)"
+            '.map((row) => ({...row,kind:"undeclared"}));',
+        ),
+        (
+            "?.kind === G.AtlasDeviationKind.UNDECLARED",
+            "?.kind === G.AssessmentStatus.UNKNOWN",
+        ),
+        (
+            "@returns {readonly ArchkeelGraphSceneProtocol.AtlasDeviation[]}",
+            "@returns {readonly object[]}",
+        ),
+    ],
+    ids=["actual-raw-row-return", "actual-foreign-domain-control", "actual-return-widening"],
+)
+def test_actual_deviation_consumer_rejects_type_corruption(tmp_path, before, after):
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    compiler = shutil.which("npx")
+    if compiler is None:
+        pytest.skip("The browser development compiler requires Node/npx")
+    root = Path(__file__).parents[1]
+    assets = root / "src/archkeel/render/assets"
+    sources = (
+        "report-graph-vocabulary.ts",
+        "report-graph-protocol.ts",
+        "report-graph-scene.js",
+        "report-atlas-deviations.js",
+    )
+    for name in sources:
+        shutil.copyfile(assets / name, tmp_path / name)
+    target = tmp_path / "browser_graph_scene_target.ts"
+    shutil.copyfile(root / "tests/browser_graph_scene_target.ts", target)
+    command = [
+        compiler,
+        "--yes",
+        "--package",
+        "typescript@5.9.3",
+        "tsc",
+        "--strict",
+        "--allowJs",
+        "--checkJs",
+        "--noEmit",
+        "--target",
+        "ES2022",
+        "--module",
+        "none",
+        *(str(tmp_path / name) for name in sources),
+        str(target),
+    ]
+    valid = subprocess.run(command, text=True, capture_output=True, check=False)
+    assert valid.returncode == 0, valid.stdout + valid.stderr
+    candidate = tmp_path / "report-atlas-deviations.js"
+    source = candidate.read_text()
+    assert source.count(before) == 1
+    candidate.write_text(source.replace(before, after, 1))
+    mutated = subprocess.run(command, text=True, capture_output=True, check=False)
+    assert mutated.returncode != 0 and "error TS" in mutated.stdout, mutated.stdout + mutated.stderr

@@ -1,0 +1,41 @@
+name: Actual Atlas native site comparison
+on:
+  push:
+    branches: [verify/542-atlas-native-sites]
+permissions:
+  contents: read
+jobs:
+  actual-native-sites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Observe exact predecessor and actual source, then compare native identities
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/atlas-before" 0aee692c767150847089dbcfdcf1765464837ab6
+          uv run --locked archkeel report --root "$RUNNER_TEMP/atlas-before" --output "$RUNNER_TEMP/atlas-before.json" > "$RUNNER_TEMP/atlas-before-result.json"
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/atlas-after.json" > "$RUNNER_TEMP/atlas-after-result.json"
+          uv run --locked python prototype/atlas_native_sites.py
+      - name: Current native diagnostics
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          root = Path(os.environ["RUNNER_TEMP"])
+          for name in ("atlas-before-result.json","atlas-after-result.json"):
+              path = root / name
+              if path.is_file():
+                  data = json.loads(path.read_bytes())
+                  print("ATLAS_REPORT_RESULT=" + json.dumps({key:data.get(key) for key in
+                      ("diagnostics","coverage","declared_rules","violations_by_rule")}))
+          PY

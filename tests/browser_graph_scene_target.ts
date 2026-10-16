@@ -21,3 +21,14 @@ namespace GraphSceneTarget {
   ];
   void projection; void members; void entities; void projectionMode; void evidenceViews;
 }
+
+namespace AtlasDeviationTarget {
+  import G = ArchkeelGraphProtocol;
+  const api = ArchkeelAtlasDeviations.create([]);
+  const unused: (levelId: string | null) => readonly {
+    id: string; kind: G.AtlasDeviationKind; source_id: string; target_id: string;
+    level_id: string | null;
+  }[] = api.unused;
+  const undeclared: (levelId: string | null, source: string, target: string) => boolean = api.isUndeclared;
+  void unused; void undeclared;
+}

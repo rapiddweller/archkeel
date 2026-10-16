@@ -24,8 +24,10 @@ from archkeel.ir.architecture_graph import (
     ResolutionKind,
     VisibilityKind,
 )
+from archkeel.render.atlas_deviations import AtlasDeviationKind
 
 _DOMAINS: tuple[type[StrEnum], ...] = (
+    AtlasDeviationKind,
     OriginKind,
     EntityKind,
     RelationshipKind,

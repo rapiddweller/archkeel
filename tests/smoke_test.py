@@ -14,8 +14,8 @@ from tempfile import TemporaryDirectory
 
 def main() -> None:
     assets = files("archkeel.render").joinpath("assets")
-    for name in ("report-graph-protocol.js", "report-graph-scene.js"):
-        assert "ArchkeelGraph" in assets.joinpath(name).read_text(encoding="utf-8")
+    for name in ("report-graph-protocol.js", "report-graph-scene.js", "report-atlas-deviations.js"):
+        assert "Archkeel" in assets.joinpath(name).read_text(encoding="utf-8")
     schemas = files("archkeel").joinpath("schema")
     result_schema = json.loads(
         schemas.joinpath("command-result.schema.json").read_text(encoding="utf-8")

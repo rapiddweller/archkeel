@@ -811,11 +811,13 @@
         "archkeel.analyzer.dart.snapshot",
         "archkeel.analyzer.dart.collect",
         "archkeel.ir.diagnostics",
-        "archkeel.render.summary_badges"
+        "archkeel.render.summary_badges",
+        "archkeel.render.atlas_deviations"
       ],
-      "rationale": "Closed vocabularies belong to their domain and wire boundaries. State and source facts own shared controls; codecs own private tags; contract_version owns versions and feature availability. Python binding and receiver models own lexical controls. TypeScript and Dart syntax ports own parser DTO controls, while collectors own private states. Consumers use the published nominal types.",
+      "rationale": "Closed vocabularies belong to their domain and wire boundaries. State and source facts own shared controls; codecs own private tags; contract_version owns versions and feature availability. Python binding and receiver models own lexical controls. TypeScript and Dart syntax ports own parser DTO controls, while collectors own private states. Consumers use the published nominal types. Atlas deviation values, deterministic pair derivation and wire emission belong to render.atlas_deviations.",
       "provenance": [
-        "docs/architecture/archkeel.md"
+        "docs/architecture/archkeel.md",
+        "docs/superpowers/specs/2026-10-16-atlas-deviation-boundary.md"
       ],
       "decided_by": "architect"
     },

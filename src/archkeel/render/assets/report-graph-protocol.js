@@ -3,6 +3,17 @@
 // Do not maintain wire spellings here.
 var ArchkeelGraphProtocol;
 (function (ArchkeelGraphProtocol) {
+    // archkeel.render.atlas_deviations.AtlasDeviationKind
+    let AtlasDeviationKind;
+    (function (AtlasDeviationKind) {
+        AtlasDeviationKind["ALLOWED_UNUSED"] = "allowed_unused";
+        AtlasDeviationKind["UNDECLARED"] = "undeclared";
+    })(AtlasDeviationKind = ArchkeelGraphProtocol.AtlasDeviationKind || (ArchkeelGraphProtocol.AtlasDeviationKind = {}));
+    const atlasDeviationKindValues = new Map(Object.values(AtlasDeviationKind).map((value) => [value, value]));
+    function isAtlasDeviationKind(value) {
+        return atlasDeviationKindValues.has(value);
+    }
+    ArchkeelGraphProtocol.isAtlasDeviationKind = isAtlasDeviationKind;
     // archkeel.ir.architecture_graph.OriginKind
     let OriginKind;
     (function (OriginKind) {
@@ -327,6 +338,16 @@ var ArchkeelGraphSceneProtocol;
             && (value.decision_gaps === undefined || isList(value.decision_gaps) && value.decision_gaps.every(isGap))
             && (value.comparison === undefined || value.comparison === null || isComparison(value.comparison));
     }
+    function isAtlasDeviation(value) {
+        return isRecord(value) && isText(value.id) && G.isAtlasDeviationKind(value.kind)
+            && isText(value.source_id) && isText(value.target_id) && isNullableText(value.level_id);
+    }
+    function decodeAtlasDeviations(value) {
+        if (!isList(value) || !value.every(isAtlasDeviation))
+            throw new TypeError("Unsupported Atlas deviations");
+        return value;
+    }
+    ArchkeelGraphSceneProtocol.decodeAtlasDeviations = decodeAtlasDeviations;
     function decodeReport(value) {
         if (!isReport(value))
             throw new TypeError("Unsupported native graph scene report");
