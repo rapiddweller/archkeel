@@ -21,6 +21,7 @@ class ChangeClassificationTests(unittest.TestCase):
             ("src/archkeel/check/report.py", Areas(core=True, report=True)),
             ("src/archkeel/render/html.py", Areas(core=True, report=True)),
             ("tools/browser_graph_protocol.py", Areas(core=True, report=True)),
+            ("src/archkeel/ir/architecture_graph.py", Areas(core=True, report=True)),
             ("tests/test_graph_scene_protocol.py", Areas(core=True, report=True)),
             ("tests/browser_graph_scene_target.ts", Areas(core=True, report=True)),
             ("fixtures/J-compass/lib/domain/use_cases/booking.dart", Areas(core=True, report=True)),

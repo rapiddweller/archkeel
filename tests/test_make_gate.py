@@ -209,7 +209,9 @@ def test_pr_core_uses_representative_dart_and_flutter_checks() -> None:
     assert "tests/test_flutter_demo.py " not in command
 
 
-@pytest.mark.parametrize("failed", [None, "browser-install", "browser-graph-check", "pr-report-test"])
+@pytest.mark.parametrize(
+    "failed", [None, "browser-install", "browser-graph-check", "pr-report-test"]
+)
 def test_pr_report_gate_runs_its_browser_sample_and_propagates_failure(tmp_path, failed):
     result, steps = _run_gate(tmp_path, "ci-pr-report-check", failed, 2, False)
     expected = ["browser-install", "browser-graph-check", "pr-report-test"]
