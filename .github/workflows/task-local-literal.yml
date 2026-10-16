@@ -1,0 +1,34 @@
+name: Verify local literal observation
+on:
+  push:
+    branches: [verify/542-local-literal-green]
+permissions:
+  contents: read
+jobs:
+  green:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Exact source formatting and typing
+        run: make lint typecheck
+      - name: Native controls and observer regressions
+        run: uv run --locked pytest -q tests/test_local_string_comparisons.py tests/test_string_comparison_observation.py tests/test_analyzer.py tests/test_compiler_binding_resolution.py tests/test_dependency_typed_control.py tests/test_typed_state_protocol.py tests/test_collector_wire_types.py tests/test_repository_hygiene.py
+      - name: Exact predecessor and unchanged own native limits
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against ff4cae52451f43550639959b6f87a77f96375597 > "$RUNNER_TEMP/local-literal-native.json"
+          task_status=$?
+          python - <<'PY'
+          import json,os,pathlib
+          data=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"local-literal-native.json").read_text())
+          print("NATIVE_RESULT="+json.dumps({key:data.get(key) for key in ("exit_code","failures","diagnostics","measurements")}))
+          PY
+          exit "$task_status"
