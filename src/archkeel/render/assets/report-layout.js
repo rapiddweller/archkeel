@@ -186,7 +186,7 @@
       edgeIds: graphEdges.map((edge) => edge.id), labelIds: labels,
     } };
   }
-  function buildUmlGraph({ nodes, edges, cardWidth, cardHeights }) {
+  function buildUmlGraph({ nodes, edges, cardWidth, cardHeights, edgeSpacing = 10 }) {
     const nodeIds = nodes.map((node) => `node:${node.id}`);
     const edgeIds = edges.map((edge) => `edge:${edge.id}`);
     const knownNodes = new Set(nodes.map((node) => node.id));
@@ -210,8 +210,8 @@
           "elk.separateConnectedComponents": "true", "elk.spacing.nodeNode": "24",
           "elk.layered.spacing.nodeNodeBetweenLayers": "68",
           "elk.layered.spacing.edgeNodeBetweenLayers": "16",
-          "elk.spacing.edgeEdge": "16",
-          "elk.layered.spacing.edgeEdgeBetweenLayers": "16",
+          "elk.spacing.edgeEdge": String(edgeSpacing),
+          "elk.layered.spacing.edgeEdgeBetweenLayers": String(edgeSpacing),
           "elk.padding": "[top=28,left=28,bottom=28,right=28]",
         },
       },

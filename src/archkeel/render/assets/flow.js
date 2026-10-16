@@ -1431,7 +1431,7 @@
       });
     }
     const neighbors = new Set([focusLabel, ...edges.flatMap((edge) => [edge.source, edge.target])]);
-    const scene = { ...complete, edges,
+    const scene = { ...complete, edges, edgeSpacing: directScope ? 16 : 10,
       nodes: elements.filter((node) => focusLabel ? neighbors.has(node.id)
         : !node.outside || edges.some((edge) => edge.source === node.id || edge.target === node.id)) };
     if (umlSelection && !(umlSelection.type === "node" ? scene.nodes : edges)
@@ -2211,7 +2211,7 @@
 
   function umlLayoutKey(scene) {
     return `uml:${JSON.stringify([
-      viewMode,
+      viewMode, scene.edgeSpacing,
       scene.nodes.map((node) => [node.id, node.sourceGraph?.origin, CARD.w, cardHeight(node.id)]),
       scene.edges.map((edge) => [edge.id, edge.source, edge.target]),
     ])}`;
@@ -2219,6 +2219,7 @@
 
   async function layoutUmlSceneWithElk(scene) {
     const decoded = await REPORT_LAYOUT.layoutUml({
+      edgeSpacing: scene.edgeSpacing,
       nodes: scene.nodes.map((node) => ({ id: node.id })),
       edges: scene.edges.map((edge) => ({
         id: edge.id, source: edge.source, target: edge.target,
