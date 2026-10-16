@@ -14,6 +14,7 @@ from importlib.resources import files
 from pathlib import PurePosixPath as _PurePosixPath
 from typing import TypeAlias
 
+from archkeel.ir.diagnostics import Diagnostic as Diagnostic
 from archkeel.ir.architecture_graph import ArchitectureReport, RuleAssessment
 from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.bindings import BindingReads, unread_bindings
@@ -33,7 +34,6 @@ from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import (
     BaselineViolationComparison,
     CallRow,
-    Diagnostic,
     EvidenceClass,
     Observation,
     Record,

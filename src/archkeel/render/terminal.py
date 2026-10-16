@@ -16,7 +16,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from archkeel.ir.model import Diagnostic, RunResult
+from archkeel.ir.diagnostics import Diagnostic as Diagnostic
+from archkeel.ir.model import RunResult
 
 from .summary import Badge, State, Summary, badge
 

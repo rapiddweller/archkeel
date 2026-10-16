@@ -9,6 +9,9 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Literal as _Literal
 
+from archkeel.ir.diagnostics import Diagnostic as Diagnostic
+from archkeel.ir.diagnostics import DiagnosticError as DiagnosticError
+from archkeel.ir.diagnostics import ReportLocation as ReportLocation
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
@@ -49,14 +52,11 @@ from archkeel.ir.model import (
 from archkeel.ir.model import (
     BaselineViolationComparison,
     CallRow,
-    Diagnostic,
-    DiagnosticError,
     EvidenceClass,
     FilteredViolation,
     Observation,
     ObservationResult,
     ReportFilter,
-    ReportLocation,
     RunResult,
 )
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind

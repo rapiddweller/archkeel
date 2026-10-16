@@ -244,21 +244,22 @@ def test_existing_public_diagnostic_reexports_reach_the_canonical_owner(tmp_path
             "provenance": ["docs/architecture/typed-diagnostic-owner.md"],
         }
     )
-    contract["rules"].append(
-        {
-            "id": "DIAGNOSTIC-PUBLIC-TYPES",
-            "kind": "boundary_types",
-            "source": "archkeel",
-            "rationale": "Existing public diagnostic names must resolve to their canonical owner.",
-            "provenance": ["docs/architecture/typed-diagnostic-owner.md"],
-            "decided_by": "architect",
-        }
-    )
+    for source in ("archkeel.check", "archkeel.render"):
+        contract["rules"].append(
+            {
+                "id": "DIAGNOSTIC-PUBLIC-" + source.rsplit(".", 1)[-1],
+                "kind": "boundary_types",
+                "source": source,
+                "rationale": "Existing public diagnostic names must resolve to their canonical owner.",
+                "provenance": ["docs/architecture/typed-diagnostic-owner.md"],
+                "decided_by": "architect",
+            }
+        )
     (root / "contract.json").write_text(json.dumps(contract))
     value = _model(root, config)
     unknown = tuple(
         row for row in value.records("unknowns") or ()
-        if "DIAGNOSTIC-PUBLIC-TYPES" in row.rule_ids
+        if any(identity.startswith("DIAGNOSTIC-PUBLIC-") for identity in row.rule_ids)
     )
     assert not unknown, unknown
     assert not trace_valid_violations(value)
