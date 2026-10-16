@@ -1,0 +1,39 @@
+name: Property exact UNKNOWN diagnosis
+on:
+  push:
+    branches: [verify/542-property-unknowns]
+permissions:
+  contents: read
+jobs:
+  unknowns:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Decode exact UNKNOWN payloads and preserve native sites
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/property-unknown-before" 0e3b8a7f62b9b13417cda78e11b52d0de82986cd
+          uv run --locked python .github/verify/property-deep.py "$RUNNER_TEMP/property-unknown-before" "$RUNNER_TEMP/property-deep-before.json"
+          uv run --locked python .github/verify/property-deep.py "$PWD" "$RUNNER_TEMP/property-deep-after.json"
+          uv run --locked python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from collections import Counter
+          root = Path(os.environ["RUNNER_TEMP"])
+          before = json.loads((root/"property-deep-before.json").read_text())
+          after = json.loads((root/"property-deep-after.json").read_text())
+          for key in before:
+              old = Counter(json.dumps(item,sort_keys=True) for item in before[key])
+              new = Counter(json.dumps(item,sort_keys=True) for item in after[key])
+              print("PROPERTY_DEEP_DIFF",key,json.dumps({"before":sum(old.values()),"after":sum(new.values()),"removed":[[json.loads(k),v] for k,v in (old-new).items()],"added":[[json.loads(k),v] for k,v in (new-old).items()]}))
+          PY
