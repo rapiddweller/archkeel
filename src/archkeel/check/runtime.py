@@ -3,11 +3,26 @@
 # SPDX-License-Identifier: MIT
 """Compare the actual collector runtime with its declared requirement."""
 
+from enum import StrEnum
+
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion, Version
 
 from archkeel.ir.facts import Language, RuntimeRequirementState
 from archkeel.ir.model import Diagnostic, RuntimeInfo
+
+class _LowerBoundOperator(StrEnum):
+    MINIMUM = ">="
+    COMPATIBLE = "~="
+
+
+def _is_lower_bound(operator: str) -> bool:
+    try:
+        _LowerBoundOperator(operator)
+    except ValueError:
+        return False
+    return True
+
 
 _PYTHON_REQUIREMENT_REMEDY = (
     "Use a valid PEP 440 range in [project].requires-python or a supported positive-major "
@@ -91,7 +106,7 @@ def _declared_runtime_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
                     Version(item.version)
                     for required in ranges
                     for item in required
-                    if item.operator in {">=", "~="}
+                    if _is_lower_bound(item.operator)
                 ),
                 default=None,
             )
