@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 3ca0c0a2bbaa22dd66afe0b39523671845dfcd24
+          ref: da2c7c53044a70b6657d1c799e3f79b008cfcbe1
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -19,6 +19,23 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
+      - name: Verify authored Target RED against unchanged actual predecessor source
+        run: |
+          uv run --locked python - <<'PY'
+          import tempfile,subprocess,sys
+          from pathlib import Path
+          sys.path.insert(0,"tests")
+          from test_python_string_predicate_target import _repository
+          from test_uml_evaluation import _model
+          from archkeel.ir.report_graph import architecture_report
+          before_source=subprocess.check_output(["git","show","de6f57f4f49b368373d40e8584e48761ab4b19b1:src/archkeel/analyzer/python/constructs.py"]).decode()
+          with tempfile.TemporaryDirectory() as folder:
+              root,config=_repository(Path(folder),before_source)
+              model=_model(root,config)
+              comparison=architecture_report(model).comparison
+              assert comparison is not None and comparison.status=="FAIL",comparison
+              print("ACTUAL_OWNED_API_RED="+repr(comparison),flush=True)
+          PY
       - name: Inspect fixed intent diagnostics and format actual candidate
         run: |
           uv run --locked python - <<'PY'
