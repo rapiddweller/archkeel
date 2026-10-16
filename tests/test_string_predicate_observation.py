@@ -64,12 +64,12 @@ def test_predicate_observation_does_not_infer_runtime_or_unrelated_calls(tmp_pat
         ),
         (
             'PREFIXES = ("import", "export")\n'
-            'def parse(value):\n    return value.startswith(PREFIXES)\n',
+            "def parse(value):\n    return value.startswith(PREFIXES)\n",
             "startswith",
         ),
         (
             'PREFIXES = (b"import", b"export")\n'
-            'def parse(value):\n    return value.endswith(PREFIXES)\n',
+            "def parse(value):\n    return value.endswith(PREFIXES)\n",
             "endswith",
         ),
         ('def parse(value, stop):\n    return value.startswith("import", 1, stop)\n', "startswith"),
@@ -94,11 +94,11 @@ def test_literal_prefix_vocabulary_cannot_hide_inside_a_tuple_or_range_call(tmp_
     [
         ENUM + "def parse(value):\n    return value.startswith((Token.IMPORT,))\n",
         'PREFIXES = ("import",)\n'
-        'def parse(value, PREFIXES):\n    return value.startswith(PREFIXES)\n',
+        "def parse(value, PREFIXES):\n    return value.startswith(PREFIXES)\n",
         'PREFIXES = ("import",)\nPREFIXES = read_prefixes()\n'
-        'def parse(value):\n    return value.startswith(PREFIXES)\n',
+        "def parse(value):\n    return value.startswith(PREFIXES)\n",
         'PREFIXES = ("import",)\nother = PREFIXES\n'
-        'def parse(value):\n    return value.startswith(PREFIXES)\n',
+        "def parse(value):\n    return value.startswith(PREFIXES)\n",
         'PREFIXES = ["import"]\ndef parse(value):\n    return value.startswith(PREFIXES)\n',
         'PREFIXES = {"import"}\ndef parse(value):\n    return value.startswith(PREFIXES)\n',
         'PREFIXES = tuple("import")\ndef parse(value):\n    return value.startswith(PREFIXES)\n',

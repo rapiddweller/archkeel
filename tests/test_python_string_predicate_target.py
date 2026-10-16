@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The actual predicate decoder satisfies fixed native type and dispatch intent."""
+"""The actual predicate decoder satisfies fixed native nominal type intent."""
 
 import copy
 import json
@@ -79,4 +79,3 @@ def test_actual_decoder_type_widening_fails_fixed_native_target(tmp_path, old, n
     assert target.status == "FAIL"
     assert any(target.id in row.rule_ids for row in trace_valid_violations(model))
     assert (root / "contract.json").read_bytes() == intent
-

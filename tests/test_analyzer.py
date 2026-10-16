@@ -1233,7 +1233,7 @@ def test_collect_constructs_detects_reflection_as_written(
         ('ok = mode in {"a": 1}\n', []),
         ("ok = mode in names\n", []),
         ('ok = "a" in text\n', [("sample.mod", "membership")]),
-        ('ok = mode.startswith("a")\n', []),
+        ('ok = mode.startswith("a")\n', [("sample.mod", "startswith")]),
         (
             "match point:\n    case Point():\n        pass\n"
             '    case {"kind": _}:\n        pass\n    case Color.RED:\n        pass\n',
@@ -1244,7 +1244,7 @@ def test_collect_constructs_detects_reflection_as_written(
 def test_collect_constructs_detects_string_literal_compare_and_its_exclusions(
     source: str, expected: list[tuple[str, str]]
 ) -> None:
-    """AD-48: one record per comparison or match statement, with the form it takes."""
+    """AD-48 and #542: record each observed written comparison, predicate or match form."""
     records = collect_constructs([_parsed_module(source)], {})
     found = [
         (item["data"]["owner"], item["data"]["form"])
