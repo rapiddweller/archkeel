@@ -87,7 +87,8 @@
         "archkeel.analyzer.typescript.config:decode",
         "archkeel.analyzer.typescript.config:join",
         "archkeel.analyzer.typescript.config:load_config",
-        "archkeel.analyzer.typescript.config:within"
+        "archkeel.analyzer.typescript.config:within",
+        "archkeel.analyzer.typescript.config:Json"
       ],
       "provenance": [
         "docs/architecture/typescript-control-types.md"

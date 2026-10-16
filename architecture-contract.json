@@ -769,9 +769,11 @@
         "archkeel.ir.facts",
         "archkeel.ir.type_shapes",
         "archkeel.ir.architecture_graph",
-        "archkeel.ir.dependency"
+        "archkeel.ir.dependency",
+        "archkeel.analyzer.typescript.config",
+        "archkeel.analyzer.typescript.resolve"
       ],
-      "rationale": "Governance enums stay in ir.model; source facts, type shapes, the shared UML graph and pure dependency policy own their respective vocabularies.",
+      "rationale": "Each source, graph, dependency-policy and TypeScript compiler/resolver API owns its closed vocabulary; governance vocabularies remain in the IR.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],
