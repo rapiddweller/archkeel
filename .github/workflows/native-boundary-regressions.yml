@@ -1,0 +1,56 @@
+name: Native boundary regression evidence
+on:
+  push:
+    branches: [aux/issue-542-native-boundary-regressions]
+permissions:
+  contents: read
+jobs:
+  causal-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        revision:
+          - 7b2a14de58eb18be716c8eadef5c43928ec464a5
+          - 5933ffbbfd588ac96e36748de937cb1f6e739655
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.12.13
+          python-version: 3.11.12
+      - run: |
+          uv python install 3.11.12 3.12.10
+          git worktree add "$RUNNER_TEMP/native-source" "${{ matrix.revision }}"
+          uv sync --locked --project "$RUNNER_TEMP/native-source"
+      - name: Print actual core and CLI refusal before assertions
+        working-directory: ${{ runner.temp }}/native-source
+        run: |
+          uv run --locked python - <<'PY'
+          import contextlib,io,json,runpy,sys,tempfile
+          from dataclasses import asdict
+          from pathlib import Path
+          sys.path.insert(0,str(Path("tests").resolve()))
+          from test_dependency_api_target import _dependency_repository,_dependency_contract
+          from archkeel.check.report import run_report
+          from archkeel.cli import main
+          from archkeel.cli.observe import observe
+          with tempfile.TemporaryDirectory() as directory:
+              root,config=_dependency_repository(Path(directory))
+              result,encoded=run_report(root,config=config,analyzer=observe)
+              print("NATIVE_DEPENDENCY_CORE",json.dumps({"exit_code":result.exit_code,"encoded":encoded is not None,"diagnostics":[asdict(item) for item in result.diagnostics],"rules":[{"id":rule["id"],"source":rule.get("source")} for rule in _dependency_contract()["rules"]]}))
+              (root/"archkeel.toml").write_text('[scan]\nroots = ["archkeel"]\nnamespace = "archkeel"\ncontract = "contract.json"\n')
+              stream=io.StringIO()
+              with contextlib.redirect_stdout(stream):
+                  code=main(["report","--root",str(root),"--output",str(Path(directory)/"cli-report.json"),"--json"])
+              payload=json.loads(stream.getvalue())
+              print("NATIVE_DEPENDENCY_CLI",json.dumps({"exit_code":code,"diagnostics":payload["diagnostics"]}))
+          PY
+      - name: Reproduce dependency and remaining named controls
+        working-directory: ${{ runner.temp }}/native-source
+        run: |
+          uv run --locked pytest -n 2 --dist=loadfile --max-worker-restart=0 -q tests/test_dependency_api_target.py tests/test_dependency_typed_control.py tests/test_layers.py::test_own_target_retains_layer_and_report_version_intent tests/test_protocol_uml_target.py::test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes tests/test_duplication.py::test_archkeel_repeats_nothing_its_declared_owner_holds --tb=short
