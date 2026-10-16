@@ -1,0 +1,136 @@
+name: Final additive Profile and TS constructs
+on:
+  push:
+    branches: [verify/542-typescript-construct-final]
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Real legacy API, codec and native type ports
+        run: uv run --locked python -m pytest -q tests/test_nullable_profile_measurements.py tests/test_typescript_string_constructs.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_control_target.py -k 'not native_source_type_widening and not native_parser_and_protocol_strings and not native_syntax_field_widening and not native_typescript_api and not native_configuration_crossing and not native_parser_and_collector_guards and not own_observation' --tb=short
+      - name: Ruff
+        if: ${{ always() }}
+        run: uv run --locked ruff check src/archkeel tests/test_nullable_profile_measurements.py tests/test_typescript_control_target.py tests/test_typescript_string_constructs.py tests/test_typescript_demo.py tests/test_schema_drift.py
+      - name: Format
+        if: ${{ always() }}
+        run: uv run --locked ruff format --diff src/archkeel/analyzer/typescript/parse.py src/archkeel/analyzer/typescript/syntax.py src/archkeel/analyzer/typescript/collect.py src/archkeel/ir/profiles.py src/archkeel/ir/codec_observation.py src/archkeel/check/evaluation/evaluate.py tests/test_nullable_profile_measurements.py tests/test_typescript_control_target.py tests/test_typescript_string_constructs.py tests/test_typescript_demo.py tests/test_schema_drift.py
+      - name: Strict mypy
+        if: ${{ always() }}
+        run: uv run --locked mypy src/archkeel
+      - name: Canonical optional-section readers
+        if: ${{ always() }}
+        run: rg -n 'optional_sections' src tests
+  affected:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Affected profiles, protocol, schema and real demo receipts
+        run: uv run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q tests/test_dart_profile.py tests/test_interface_profile.py tests/test_profile_comparison.py tests/test_collection_capabilities.py tests/test_collection_boundary_regressions.py tests/test_source_trust_boundary.py tests/test_typescript_demo.py tests/test_result_schema.py tests/test_schema_drift.py --tb=short
+  full-project:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Complete corrected project suite
+        run: uv run --locked python -m pytest -n 4 --dist=loadfile --max-worker-restart=0 -q --tb=short --junitxml="$RUNNER_TEMP/ts-construct-corrected-full.xml"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: typescript-construct-corrected-full-junit
+          path: ${{ runner.temp }}/ts-construct-corrected-full.xml
+  receipt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Exact current semantic UNKNOWN projection
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+          from archkeel.cli.config import parse_config
+          from archkeel.cli.observe import observer_for
+          from archkeel.check.run import observe_revision, inspect_observation
+          from archkeel.ir.facts_codec import raw_record
+          root = Path.cwd()
+          config = parse_config((root / "archkeel.toml").read_bytes())
+          observer = observer_for(config.language)
+          selected = []
+          for revision in ("fa37f59600cfae64ba0528cb56e609c6bbd756e4", "886e771036b4288f2a25552e108c8e4c85754243"):
+              result = observe_revision(observer, root, revision, config, declared_at=revision)
+              assert result.observation is not None, result.diagnostics
+              model = result.observation
+              measurements, verdict = inspect_observation(model)
+              print("CORRECTED_ACTUAL_MEASUREMENT", revision, measurements, verdict, flush=True)
+              assert measurements.scalars.calls_unresolved == 913
+              assert measurements.scalars.typing_positions == 52
+              assert measurements.scalars.unknown_positions == 58
+              assert measurements.scalars.violations == 0
+              rows = []
+              for row in model.records("unknowns"):
+                  if row.kind not in {"boundary_type_position", "boundary_type_route", "uml_conformance"} or (row.kind == "boundary_type_position" and row.data.get("reason") == "external_type"):
+                      continue
+                  raw = raw_record(row)
+                  rows.append({key: raw[key] for key in ("kind", "subjects", "rule_ids", "data")})
+              rows.sort(key=lambda row: json.dumps(row, sort_keys=True))
+              selected.append(rows)
+              print("CORRECTED_UNKNOWN_KINDS", revision, dict(Counter(row["kind"] for row in rows)), flush=True)
+          assert selected[0] == selected[1]
+          print("CORRECTED_EXACT_UNKNOWN_SEMANTICS_UNCHANGED", len(selected[0]), flush=True)
+          PY
+      - name: Regenerate ordinary amendment without accepting debt
+        run: |
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --write-baseline --json --against fa37f59600cfae64ba0528cb56e609c6bbd756e4 --amendment docs/architecture/decisions/issue-542-typescript-written-controls-amendment.json --write-amendment --decided-by "ake2l (explicit parser/protocol control request); Codex implementation, independent Astra review before merge" --rationale "Observe actual written TypeScript/JavaScript equality and switch literals through the existing lexical port and honest PARTIAL capability. Preserve legacy Profile constructor keywords, positional order, dataclasses.replace and its atomic UML receipt; add only keyword-only independent groups with derived read views. Author native field/return guards. Retain 913 unresolved calls, 52 typing and all 58 semantic UNKNOWN positions/routes without extra analysis authority, accepted debt, allowance or cast." > "$RUNNER_TEMP/profile-receipt.json"
+      - name: Actual generated files
+        if: ${{ always() }}
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          result_path = Path(os.environ["RUNNER_TEMP"]) / "profile-receipt.json"
+          if result_path.is_file():
+              result = json.loads(result_path.read_text())
+              print("CORRECTED_RECEIPT_RESULT=" + json.dumps({key: result.get(key) for key in ("exit_code", "amendment_status", "failures", "diagnostics", "measurements")}), flush=True)
+              for rel in ("architecture-baseline.json", "docs/architecture/decisions/issue-542-typescript-written-controls-amendment.json"):
+                  print("GENERATED_FILE=" + json.dumps({"path": rel, "content": Path(rel).read_text()}), flush=True)
+              assert result["exit_code"] == 0
+          else:
+              raise AssertionError("native semantic gate stopped before receipt generation")
+          PY
