@@ -878,7 +878,8 @@ def test_own_dense_scenes_remain_actionable_at_reduced_cpu(view, self_observatio
 def test_own_graph_observes_the_normalizer_and_classifier_relationship_validator(self_observation):
     graph = observed_graph(self_observation)
     classifier = next(
-        entity for entity in graph.entities
+        entity
+        for entity in graph.entities
         if entity.qualified_name == "archkeel.ir.architecture_graph.ArchitectureGraph"
     )
     methods = {
