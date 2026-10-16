@@ -22,3 +22,5 @@ Approved by the coordinating agent after Command draft PR575 and its final seven
 6. Clean freeze, measured source cost and final independent Astra review. Stop before Delta.
 
 Estimated production scope: measurements.py, codec_governance.py, model.py, check/ratchets.py, check/validation/__init__.py, ir/interfaces.py, render/summary.py. Existing passthrough baseline/renames/widening need no speculative edits. Expected30–80 net source lines; actual costs will be reported. Necessary extra consumers require evidence, not widening.
+
+Native RED38979373233/job117236357495 observed35 failures/10passes on unchanged production: missing/loose nominal domains, actual Target mismatches and legacy outputs not yet normalized. The baseline byte-control test was corrected to call the existing baseline_bytes(violations,budgets) API; its RED assertion already failed before that call, so this changes no production expectation.

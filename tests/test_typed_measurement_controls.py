@@ -161,7 +161,7 @@ def test_baseline_budget_names_keep_wire_keys_and_existing_namespace_data():
     }
     value = parse_validation_baseline(raw)
     assert {type(item.name) for item in value.budgets} == {m.MeasurementBudgetName, m.NameBudgetKind}
-    assert json.loads(baseline_bytes(value)) == raw
+    assert json.loads(baseline_bytes(value.violations, value.budgets)) == raw
 
 
 def _contract():

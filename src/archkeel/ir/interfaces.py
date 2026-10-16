@@ -446,7 +446,7 @@ def interface_budgets(
         rows = [item for item in profile.facades if item.component == facade.component]
         results.append(
             _budget_result(
-                "facade_names",
+                NameBudgetKind.FACADE_NAMES,
                 facade.subject,
                 f"/declarations/facade_budgets/{index}",
                 facade.max_names,
@@ -460,7 +460,7 @@ def interface_budgets(
         width = pairs.get((pair.source, pair.target))
         results.append(
             _budget_result(
-                "coupling_names",
+                NameBudgetKind.COUPLING_NAMES,
                 pair.subject,
                 f"/declarations/coupling_budgets/{index}",
                 pair.max_names,

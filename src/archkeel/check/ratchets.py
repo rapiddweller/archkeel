@@ -13,6 +13,8 @@ from archkeel.ir.measurements import (
     UnmeasurableScalar,
     compare_measurements,
 )
+from archkeel.ir.measurements import MeasurementResolution as _MeasurementResolution
+from archkeel.ir.measurements import MetricComparisonStatus as _MetricComparisonStatus
 from archkeel.ir.model import (
     CallRow,
     CallStatus,
@@ -143,7 +145,7 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
             unknown_positions=unknown_positions(observation),
         ),
         calls_total=total,
-        resolution="measured" if total else "n/a",
+        resolution=_MeasurementResolution.MEASURED if total else _MeasurementResolution.NOT_APPLICABLE,
     )
 
 
@@ -155,7 +157,7 @@ def compare_ratchets(accepted: Measurements, candidate: Measurements) -> tuple[s
             for name, accepted_value, candidate_value, status in compare_measurements(
                 accepted, candidate
             )
-            if status == "FAIL"
+            if status is _MetricComparisonStatus.FAIL
         )
     )
 

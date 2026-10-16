@@ -52,6 +52,7 @@ from archkeel.ir.measurements import (
     name_drift,
     selected_budgets,
 )
+from archkeel.ir.measurements import MeasurementBudgetName as _MeasurementBudgetName
 from archkeel.ir.model import (
     ArchitectureContract,
     ContractDeclarations,
@@ -408,7 +409,7 @@ def _one_sided_paths(
 
 
 def _calls_unresolved(budgets: tuple[MeasurementBudget, ...]) -> int | None:
-    return next((item.value for item in budgets if item.name == "calls_unresolved"), None)
+    return next((item.value for item in budgets if item.name is _MeasurementBudgetName.CALLS_UNRESOLVED), None)
 
 
 _BASELINE_WRITE = (

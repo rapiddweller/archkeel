@@ -79,7 +79,9 @@ from .facts import (
     stable_id as stable_id,
 )
 from .host_records import InitialPRHeadEvidence
-from .measurements import MeasurementBudgetName, Measurements, NameBudgetKind
+from .measurements import Measurements
+from .measurements import MeasurementBudgetName as MeasurementBudgetName
+from .measurements import NameBudgetKind as NameBudgetKind
 
 if TYPE_CHECKING:
     from .architecture_projection import ArchitectureProjection
@@ -384,6 +386,9 @@ class CompatibilityShim:
 class ContractMeasurementBudget:
     name: MeasurementBudgetName
     provenance: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        builtins.object.__setattr__(self, "name", MeasurementBudgetName(self.name))
 
 
 @dataclass(frozen=True, slots=True)
@@ -1367,6 +1372,9 @@ class InterfaceBudgetResult:
     uncounted: tuple[str, ...]
     new_names: tuple[str, ...] | None = None
     removed_names: tuple[str, ...] | None = None
+
+    def __post_init__(self) -> None:
+        builtins.object.__setattr__(self, "budget", NameBudgetKind(self.budget))
 
 
 @dataclass(frozen=True, slots=True)

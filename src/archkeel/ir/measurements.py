@@ -3,8 +3,10 @@
 # SPDX-License-Identifier: MIT
 """Validate architecture measurement payloads independent of check policy."""
 
+import builtins as _builtins
 from dataclasses import dataclass
-from typing import Final, Literal, TypeAlias, get_args
+from enum import StrEnum
+from typing import Final
 
 from .profiles import UnmeasurableScalar as UnmeasurableScalar
 
@@ -20,18 +22,31 @@ SCALARS = (
 )
 
 
-MeasurementBudgetName: TypeAlias = Literal[
-    "cycle_edges",
-    "private_crossings",
-    "typing_positions",
-    "calls_unresolved",
-    "untyped_private_accesses",
-    "unknown_positions",
-]
+class MeasurementBudgetName(StrEnum):
+    CYCLE_EDGES = "cycle_edges"
+    PRIVATE_CROSSINGS = "private_crossings"
+    TYPING_POSITIONS = "typing_positions"
+    CALLS_UNRESOLVED = "calls_unresolved"
+    UNTYPED_PRIVATE_ACCESSES = "untyped_private_accesses"
+    UNKNOWN_POSITIONS = "unknown_positions"
+
 # AD-97: the scalars a profile may not measure at all; each reads `None` then, never 0.
 UNMEASURABLE: Final[frozenset[UnmeasurableScalar]] = frozenset(UnmeasurableScalar)
 # AD-99: a facade or pair budget accepts a set of names per key rather than one scalar.
-NameBudgetKind: TypeAlias = Literal["facade_names", "coupling_names"]
+class NameBudgetKind(StrEnum):
+    FACADE_NAMES = "facade_names"
+    COUPLING_NAMES = "coupling_names"
+
+
+class MeasurementResolution(StrEnum):
+    MEASURED = "measured"
+    NOT_APPLICABLE = "n/a"
+
+
+class MetricComparisonStatus(StrEnum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+    NOT_APPLICABLE = "n/a"
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,7 +60,8 @@ class MeasurementBudget:
 
     def __post_init__(self) -> None:
         count(self.value, f"budget {self.label}")
-        keyed = self.name in get_args(NameBudgetKind)
+        _builtins.object.__setattr__(self, "name", _budget_name(self.name))
+        keyed = isinstance(self.name, NameBudgetKind)
         if keyed != bool(self.key) or (not keyed and self.names):
             raise RatchetError(f"budget {self.label} mixes a scalar with a keyed name set")
         if keyed and (
@@ -65,6 +81,16 @@ def budget_label(name: str, key: str = "") -> str:
 
 class RatchetError(ValueError):
     """The measurements are missing, inconsistent, or not safely comparable."""
+
+
+def _budget_name(value: MeasurementBudgetName | NameBudgetKind) -> MeasurementBudgetName | NameBudgetKind:
+    try:
+        return MeasurementBudgetName(value)
+    except ValueError:
+        try:
+            return NameBudgetKind(value)
+        except ValueError as error:
+            raise RatchetError(f"budget {value} is not a supported measurement budget") from error
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,7 +126,7 @@ class RatchetScalars:
 class Measurements:
     scalars: RatchetScalars
     calls_total: int | None
-    resolution: Literal["measured", "n/a"]
+    resolution: MeasurementResolution
 
     def __post_init__(self) -> None:
         if self.calls_total is not None:
@@ -108,9 +134,16 @@ class Measurements:
         unresolved = self.scalars.calls_unresolved
         if (self.calls_total is None) != (unresolved is None):
             raise RatchetError("call count availability must agree")
-        expected = "measured" if self.calls_total else "n/a"
-        if self.resolution != expected:
+        expected = (
+            MeasurementResolution.MEASURED if self.calls_total else MeasurementResolution.NOT_APPLICABLE
+        )
+        try:
+            resolution = MeasurementResolution(self.resolution)
+        except ValueError as error:
+            raise RatchetError(f"resolution must be {expected}") from error
+        if resolution is not expected:
             raise RatchetError(f"resolution must be {expected}")
+        _builtins.object.__setattr__(self, "resolution", resolution)
         if (
             unresolved is not None
             and self.calls_total is not None
@@ -176,7 +209,7 @@ def compare_budgets(
         observed_value = after[label].value
         if observed_value > accepted_value:
             finding = f"measurement budget exceeded in {label}: {accepted_value}->{observed_value}"
-            if label == "calls_unresolved" and not against:
+            if after[label].name is MeasurementBudgetName.CALLS_UNRESOLVED and not against:
                 # AD-100: the baseline holds the value alone; a second revision names the sites.
                 finding += "; validate --against <ref> names the call sites"
             findings.append(finding)
@@ -212,8 +245,8 @@ def budget_regressions(
 
 def compare_measurements(
     accepted: Measurements, candidate: Measurements
-) -> tuple[tuple[str, str, str, str], ...]:
-    comparisons: tuple[tuple[str, str, str, str], ...] = tuple(
+) -> tuple[tuple[str, str, str, MetricComparisonStatus], ...]:
+    comparisons: tuple[tuple[str, str, str, MetricComparisonStatus], ...] = tuple(
         _compare(name, before, after)
         for (name, before), (_, after) in zip(
             accepted.scalars.items(), candidate.scalars.items(), strict=True
@@ -223,7 +256,7 @@ def compare_measurements(
     after_unresolved = candidate.scalars.calls_unresolved
     before_total = accepted.calls_total
     after_total = candidate.calls_total
-    ratio_status = "n/a"
+    ratio_status = MetricComparisonStatus.NOT_APPLICABLE
     if (
         before_total is not None
         and after_total is not None
@@ -233,7 +266,7 @@ def compare_measurements(
         and after_unresolved is not None
     ):
         ratio_status = (
-            "FAIL" if after_unresolved * before_total > before_unresolved * after_total else "PASS"
+            MetricComparisonStatus.FAIL if after_unresolved * before_total > before_unresolved * after_total else MetricComparisonStatus.PASS
         )
     return comparisons + (
         (
@@ -249,11 +282,11 @@ def _shown(value: int | None) -> str:
     return "n/a" if value is None else str(value)
 
 
-def _compare(name: str, before: int | None, after: int | None) -> tuple[str, str, str, str]:
+def _compare(name: str, before: int | None, after: int | None) -> tuple[str, str, str, MetricComparisonStatus]:
     """A side the profile never measured is neither a pass nor a failure (AD-97)."""
     if before is None or after is None:
-        return name, _shown(before), _shown(after), "n/a"
-    return name, str(before), str(after), "FAIL" if after > before else "PASS"
+        return name, _shown(before), _shown(after), MetricComparisonStatus.NOT_APPLICABLE
+    return name, str(before), str(after), MetricComparisonStatus.FAIL if after > before else MetricComparisonStatus.PASS
 
 
 def count(raw: object, label: str) -> int:

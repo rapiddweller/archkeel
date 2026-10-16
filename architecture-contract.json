@@ -818,12 +818,14 @@
         "archkeel.ir.diagnostics",
         "archkeel.render.summary_badges",
         "archkeel.analyzer.bootstrap",
-        "archkeel.ir.amendment"
+        "archkeel.ir.amendment",
+        "archkeel.ir.measurements"
       ],
-      "rationale": "Closed vocabularies belong to their domain and wire boundaries. State and source facts own shared controls; codecs own private tags; contract_version owns versions and feature availability. Python binding and receiver models own lexical controls. TypeScript and Dart syntax ports own parser DTO controls, while collectors own private states. Consumers use the published nominal types. Amendment artifacts own their versions and verification outcomes.",
+      "rationale": "Closed vocabularies belong to their domain and wire boundaries. State and source facts own shared controls; codecs own private tags; contract_version owns versions and feature availability. Python binding and receiver models own lexical controls. TypeScript and Dart syntax ports own parser DTO controls, while collectors own private states. Consumers use the published nominal types. Amendment artifacts own their versions and verification outcomes. Measurement budgets, availability and metric comparisons stay with their existing measurement DTO owner.",
       "provenance": [
         "docs/architecture/archkeel.md",
-        "docs/architecture/typed-amendment-artifact.md"
+        "docs/architecture/typed-amendment-artifact.md",
+        "docs/architecture/measurement-control-types.md"
       ],
       "decided_by": "architect"
     },
@@ -1286,6 +1288,19 @@
       "rationale": "Decode closed contract grammar through canonical nominal types. JSON field names and arbitrary identities remain data.",
       "provenance": [
         "docs/architecture/contract-rule-grammar.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "MEASUREMENT-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.measurements",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Owned measurement tags and metric outcomes drive decisions nominally.",
+      "provenance": [
+        "docs/architecture/measurement-control-types.md"
       ],
       "decided_by": "architect"
     }

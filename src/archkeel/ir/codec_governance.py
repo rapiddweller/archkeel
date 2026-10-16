@@ -45,6 +45,7 @@ from archkeel.ir.measurements import (
     RatchetScalars,
     count,
 )
+from archkeel.ir.measurements import MeasurementResolution as _MeasurementResolution
 from archkeel.ir.model import RawJson as RawJson
 
 
@@ -92,13 +93,20 @@ def parse_measurements(raw: object, label: str, *, nullable_calls: bool = True) 
     # Older unmeasured payloads used zero; measured zero remains a count.
     if total == 0 and counts.calls_unresolved is None:
         total = None
-    if total:
-        if value.get("resolution") != "measured":
-            raise RatchetError(f"{label}.resolution must be measured")
-        return Measurements(counts, total, "measured")
-    if value.get("resolution") != "n/a":
-        raise RatchetError(f"{label}.resolution must be n/a")
-    return Measurements(counts, total, "n/a")
+    expected = _MeasurementResolution.MEASURED if total else _MeasurementResolution.NOT_APPLICABLE
+    return Measurements(counts, total, _measurement_resolution(value.get("resolution"), label, expected))
+
+
+def _measurement_resolution(
+    raw: RawJson, label: str, expected: _MeasurementResolution
+) -> _MeasurementResolution:
+    try:
+        resolution = _MeasurementResolution(raw)
+    except ValueError as error:
+        raise RatchetError(f"{label}.resolution must be {expected}") from error
+    if resolution is not expected:
+        raise RatchetError(f"{label}.resolution must be {expected}")
+    return resolution
 
 
 def parse_lock(payload: bytes) -> AcceptedLock:
@@ -187,27 +195,17 @@ def _known_violation(raw: RawJson, label: str, *, with_roles: bool) -> KnownViol
 
 def _measurement_budget_name(raw: object, label: str) -> MeasurementBudgetName:
     value = _string(raw, label)
-    if value == "cycle_edges":
-        return "cycle_edges"
-    if value == "private_crossings":
-        return "private_crossings"
-    if value == "typing_positions":
-        return "typing_positions"
-    if value == "calls_unresolved":
-        return "calls_unresolved"
-    if value == "untyped_private_accesses":
-        return "untyped_private_accesses"
-    if value == "unknown_positions":
-        return "unknown_positions"
-    raise ValueError(f"{label} is not a supported measurement budget")
+    try:
+        return MeasurementBudgetName(value)
+    except ValueError as error:
+        raise ValueError(f"{label} is not a supported measurement budget") from error
 
 
 def _name_budget_kind(raw: str) -> NameBudgetKind | None:
-    if raw == "facade_names":
-        return "facade_names"
-    if raw == "coupling_names":
-        return "coupling_names"
-    return None
+    try:
+        return NameBudgetKind(raw)
+    except ValueError:
+        return None
 
 
 def _name_budgets(kind: NameBudgetKind, raw: RawJson, label: str) -> list[MeasurementBudget]:
