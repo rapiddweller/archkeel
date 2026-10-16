@@ -1,0 +1,21 @@
+name: Typed collector wire boundaries
+on:
+  push:
+    branches: [verify/542-collector-wire-types]
+permissions:
+  contents: read
+jobs:
+  collector-types:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: 0.12.13
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - name: Typed collector controls
+        run: uv run --locked python -m pytest -q tests/test_typed_collector_protocol.py
