@@ -25,7 +25,7 @@ jobs:
       - name: Whole existing lint, mypy and repository hygiene
         run: |
           make lint typecheck
-          uv run --locked python -m pytest -q tests/test_repo_hygiene.py
+          uv run --locked python -m pytest -q tests/test_repository_hygiene.py
   actual-native-source-mutation:
     runs-on: ubuntu-latest
     timeout-minutes: 20
