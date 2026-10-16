@@ -57,7 +57,7 @@ def _contract():
             "id": identifier,
             "kind": "forbidden_construct",
             "source": module,
-            "construct": "string_literal_compare",
+            "constructs": ["string_literal_compare"],
             "rationale": "Closed Dart implementation controls have nominal owners.",
             "decided_by": "agent",
             "provenance": ["docs/architecture/dart-nominal-controls.md"],
