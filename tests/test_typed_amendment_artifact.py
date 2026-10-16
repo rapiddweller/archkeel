@@ -48,17 +48,16 @@ def test_existing_codec_ports_keep_exact_owned_identity(name):
 @pytest.mark.parametrize("version", ["1.0.0", "2.0.0"])
 def test_nominal_version_keeps_valid_legacy_construction_frozen_value_and_exact_bytes(version):
     before, after = "a" * 64, "b" * 64
-    value = widening.Amendment(before, after, "ake2l; agent or anyone", "理由", schema_version=version)
+    value = widening.Amendment(
+        before, after, "ake2l; agent or anyone", "理由", schema_version=version
+    )
     assert type(value.schema_version) is _owner().AmendmentVersion
     assert isinstance(value.schema_version, StrEnum)
-    baseline = (
-        '  "after_baseline_digest": null,\n' if version == "2.0.0" else ""
-    )
-    baseline_before = (
-        '  "before_baseline_digest": null,\n' if version == "2.0.0" else ""
-    )
+    baseline = '  "after_baseline_digest": null,\n' if version == "2.0.0" else ""
+    baseline_before = '  "before_baseline_digest": null,\n' if version == "2.0.0" else ""
     expected = (
-        "{\n" + baseline
+        "{\n"
+        + baseline
         + f'  "after_digest": "{after}",\n'
         + baseline_before
         + f'  "before_digest": "{before}",\n'
@@ -117,14 +116,16 @@ def _contract():
     contract = copy.deepcopy(json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text()))
     contract.pop("$schema", None)
     contract["declarations"]["uml"]["entities"] = [
-        row for row in contract["declarations"]["uml"]["entities"]
+        row
+        for row in contract["declarations"]["uml"]["entities"]
         if row["id"].startswith("IR-AMENDMENT-")
     ]
     contract["declarations"]["uml"]["relationships"] = []
     contract["declarations"]["uml"]["scopes"] = []
     root = json.loads((ROOT / "architecture-contract.json").read_text())
     contract["rules"] = [
-        row for row in root["rules"]
+        row
+        for row in root["rules"]
         if row["id"] in {"AMENDMENT-ARTIFACT-TYPED-CONTROL", "AMENDMENT-CODEC-TYPED-CONTROL"}
     ]
     return contract
@@ -139,8 +140,11 @@ def _repository(tmp_path):
         "archkeel/ir/model.py": (
             "from __future__ import annotations\nfrom dataclasses import dataclass\n"
             "from typing import Literal\n"
-            + ("from .amendment import AmendmentStatus as AmendmentStatus\n"
-               if (ROOT / "src/archkeel/ir/amendment.py").exists() else "")
+            + (
+                "from .amendment import AmendmentStatus as AmendmentStatus\n"
+                if (ROOT / "src/archkeel/ir/amendment.py").exists()
+                else ""
+            )
             + _source_members("src/archkeel/ir/model.py", {"RunResult"})
         ),
         "archkeel/ir/codec_wire.py": (ROOT / "src/archkeel/ir/codec_wire.py").read_text(),
@@ -187,15 +191,26 @@ def test_native_artifact_api_matches_eighteen_independent_target_entities(tmp_pa
         ("amendment", "schema_version: AmendmentVersion", "schema_version: str"),
         ("amendment", "amendment: Amendment,", "amendment: str,"),
         ("amendment", ") -> bool:", ") -> str:"),
-        ("amendment_codec", "def parse_amendment(raw: object) -> Amendment:",
-         "def parse_amendment(raw: object) -> str:"),
-        ("amendment_codec", "def amendment_bytes(amendment: Amendment) -> bytes:",
-         "def amendment_bytes(amendment: str) -> bytes:"),
-        ("model", "amendment_status: AmendmentStatus | None",
-         "amendment_status: str | None"),
+        (
+            "amendment_codec",
+            "def parse_amendment(raw: object) -> Amendment:",
+            "def parse_amendment(raw: object) -> str:",
+        ),
+        (
+            "amendment_codec",
+            "def amendment_bytes(amendment: Amendment) -> bytes:",
+            "def amendment_bytes(amendment: str) -> bytes:",
+        ),
+        ("model", "amendment_status: AmendmentStatus | None", "amendment_status: str | None"),
     ],
-    ids=["version-field", "verify-input", "verify-return", "parse-return", "bytes-input",
-         "result-status"],
+    ids=[
+        "version-field",
+        "verify-input",
+        "verify-return",
+        "parse-return",
+        "bytes-input",
+        "result-status",
+    ],
 )
 def test_native_actual_source_widening_fails_at_fixed_target(tmp_path, path, old, new):
     root, config = _repository(tmp_path)
@@ -222,9 +237,9 @@ def test_native_actual_source_widening_fails_at_fixed_target(tmp_path, path, old
         'def _probe(value):\n    return value in ("valid", "stale")\n',
         'def _probe(value):\n    return "schema_version" in value\n',
         'def _probe(value):\n    match value:\n        case "valid":\n'
-        '            return True\n        case _:\n            return False\n',
+        "            return True\n        case _:\n            return False\n",
         'from typing import Final\nTAG: Final[str] = "1.0.0"\n'
-        'def _probe(value):\n    return value == TAG\n',
+        "def _probe(value):\n    return value == TAG\n",
     ],
     ids=["equality", "membership", "protocol-key", "match", "final-alias"],
 )
@@ -236,7 +251,8 @@ def test_native_artifact_and_codec_reject_raw_protocol_dispatch(tmp_path, module
     source.write_text(source.read_text() + "\n" + probe)
     value = _observe(root, config)
     expected = (
-        "AMENDMENT-ARTIFACT-TYPED-CONTROL" if module == "amendment"
+        "AMENDMENT-ARTIFACT-TYPED-CONTROL"
+        if module == "amendment"
         else "AMENDMENT-CODEC-TYPED-CONTROL"
     )
     assert any(expected in row.rule_ids for row in trace_valid_violations(value))

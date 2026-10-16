@@ -104,7 +104,6 @@ _RESTRICTION_RULE_KINDS: Final = frozenset(
 )
 
 
-
 def _set_widenings(
     subject: str,
     field: str,

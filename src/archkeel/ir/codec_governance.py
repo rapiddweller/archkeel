@@ -10,6 +10,10 @@ import json
 import re
 from dataclasses import asdict
 
+from archkeel.ir.amendment import AMENDMENT_SCHEMA_VERSION as AMENDMENT_SCHEMA_VERSION
+from archkeel.ir.amendment import Amendment as Amendment
+from archkeel.ir.amendment_codec import amendment_bytes as amendment_bytes
+from archkeel.ir.amendment_codec import parse_amendment as parse_amendment
 from archkeel.ir.baseline import (
     BASELINE_SCHEMA_VERSION,
     LEGACY_BASELINE_SCHEMA_VERSION,
@@ -42,10 +46,6 @@ from archkeel.ir.measurements import (
     count,
 )
 from archkeel.ir.model import RawJson as RawJson
-from archkeel.ir.amendment import AMENDMENT_SCHEMA_VERSION as AMENDMENT_SCHEMA_VERSION
-from archkeel.ir.amendment import Amendment as Amendment
-from archkeel.ir.amendment_codec import amendment_bytes as amendment_bytes
-from archkeel.ir.amendment_codec import parse_amendment as parse_amendment
 
 
 def _measurement_payload(value: Measurements, *, legacy_calls: bool = False) -> dict[str, RawJson]:
@@ -331,7 +331,6 @@ def baseline_bytes(
     return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
         "utf-8"
     )
-
 
 
 def baseline_digest(

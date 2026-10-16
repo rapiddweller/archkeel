@@ -59,4 +59,3 @@ def verify_amendment(
         and amendment.after_baseline_digest == after_baseline_digest
         and (amendment.schema_version != AmendmentVersion.V1 or before_baseline_digest is None)
     )
-

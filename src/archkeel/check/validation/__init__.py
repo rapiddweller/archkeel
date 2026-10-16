@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Literal
 
+from archkeel.ir.amendment import Amendment, AmendmentStatus, verify_amendment
 from archkeel.ir.baseline import (
     KnownViolation,
     ValidationBaseline,
@@ -66,7 +66,6 @@ from archkeel.ir.model import (
     text_value,
 )
 from archkeel.ir.renames import Renamed, module_layouts, observed_names, renames_since
-from archkeel.ir.amendment import Amendment, AmendmentStatus, verify_amendment
 from archkeel.ir.widening import (
     WideningChange,
     baseline_widening_changes,
