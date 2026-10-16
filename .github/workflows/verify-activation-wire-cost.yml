@@ -1,0 +1,98 @@
+name: Verify full activation Wire compatibility and measured cost
+on:
+  push:
+    branches: [verify/542-activation-wire-cost]
+permissions:
+  contents: read
+jobs:
+  actual-full-wire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 15f1fa127c37399541e09b16ccf23ebe246f3709
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Run both actual source versions with unchanged Core and complete Wire equality
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/activation-wire-before" ad7be0ec26ff4ac0b41db6d4bb8e2b118ecf9596
+          uv run --locked python - <<'PY'
+          import base64,dataclasses,hashlib,json,os,shutil,statistics,subprocess,sys
+          from pathlib import Path
+          from archkeel.cli.config import parse_config
+          from archkeel.ir.facts_codec import decode_response,encode_request,encode_response
+          from archkeel.ir.protocol import CollectionRequest,CollectionResponse,DartSettings,SnapshotInput,SourceScope
+          from fixtures.typescript_differential import request_for
+          
+          temporary=Path(os.environ["RUNNER_TEMP"])
+          directory=temporary/"activation-wire-proof"
+          directory.mkdir(exist_ok=True)
+          before_src=temporary/"activation-wire-before"/"src"
+          program=r"""
+          import base64,importlib,json,statistics,sys,time,tracemalloc
+          sys.path.insert(0,sys.argv[1])
+          collect=importlib.import_module("archkeel.analyzer."+sys.argv[2]+".collect").collect
+          from archkeel.ir.facts_codec import decode_request,encode_response
+          from archkeel.ir.protocol import CollectionResponse
+          request=decode_request(sys.stdin.buffer.read())
+          facts=collect(request)
+          wire=encode_response(CollectionResponse(facts))
+          durations=[]
+          for _ in range(5):
+              started=time.perf_counter()
+              repeated=collect(request)
+              durations.append(time.perf_counter()-started)
+              assert encode_response(CollectionResponse(repeated))==wire
+          tracemalloc.start()
+          collect(request)
+          _,peak=tracemalloc.get_traced_memory()
+          tracemalloc.stop()
+          print(json.dumps({"wire":base64.b64encode(wire).decode(),"repeated_wire_identical":True,"seconds":durations,"median":statistics.median(durations),"peak_bytes":peak}),flush=True)
+          """
+          def emit(marker,value): print(marker+"="+json.dumps(value,sort_keys=True),flush=True)
+          assert not subprocess.check_output(["git","diff","ad7be0ec26ff4ac0b41db6d4bb8e2b118ecf9596","HEAD","--","src/archkeel/ir"]).strip(),"Core source must be identical in this isolated carrier"
+          results={}
+          for language,fixture,namespace in (("typescript","H-uml-typescript","demo"),("typescript","L-nest-realworld","nest"),("dart","H-uml-dart",None),("dart","J-compass",None)):
+              if language=="typescript":
+                  root=temporary/("activation-wire-"+fixture)
+                  shutil.copytree(Path("fixtures")/fixture,root)
+                  if (root/"resolver-inputs").is_dir(): shutil.copytree(root/"resolver-inputs",root/"node_modules")
+                  request=encode_request(request_for(root,("src",),namespace))
+              else:
+                  root=Path("fixtures",fixture).resolve()
+                  config=parse_config((root/"archkeel.toml").read_bytes())
+                  request=encode_request(CollectionRequest(SnapshotInput(str(root),"a"*40,False),SourceScope(config.roots,config.namespace),DartSettings()))
+              values={}
+              facts={}
+              for label,source in (("before",before_src),("after",Path("src").resolve())):
+                  result=subprocess.run([sys.executable,"-I","-B","-c",program,str(source),language],input=request,capture_output=True,check=True)
+                  item=json.loads(result.stdout)
+                  raw=base64.b64decode(item.pop("wire"))
+                  facts[label]=decode_response(raw).facts
+                  item.update({"wire_bytes":len(raw),"wire_sha256":hashlib.sha256(raw).hexdigest(),"adapter":dataclasses.asdict(facts[label].adapter),"files":len(facts[label].files),"inputs":len(facts[label].inputs),"records":{section.name:len(section.records) for section in facts[label].sections}})
+                  values[label]=item
+                  (directory/(fixture+"-"+label+"-response.json")).write_bytes(raw)
+              normalized_before=dataclasses.replace(facts["before"],adapter=facts["after"].adapter)
+              assert normalized_before==facts["after"],fixture
+              normalized=encode_response(CollectionResponse(normalized_before))
+              actual=encode_response(CollectionResponse(facts["after"]))
+              assert normalized==actual,fixture
+              emit("ACTIVATION_WIRE_AND_COST",{"language":language,"fixture":fixture,"all_semantic_fields_identical":True,"only_expected_adapter_code_digest_changes":True,"normalized_wire_bytes":len(actual),"normalized_wire_sha256":hashlib.sha256(actual).hexdigest(),"before":values["before"],"after":values["after"]})
+              results[fixture]=values
+          (directory/"wire-cost-proof.json").write_text(json.dumps(results,sort_keys=True,indent=2)+"\n")
+          assert json.loads((directory/"wire-cost-proof.json").read_text())==json.loads(json.dumps(results))
+          emit("EXACT_WIRE_SOURCE",{"head":subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip(),"dirty":subprocess.check_output(["git","status","--porcelain"]).decode().strip()})
+          
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: activation-full-wire-and-cost
+          path: ${{ runner.temp }}/activation-wire-proof
+          retention-days: 10
