@@ -1,0 +1,74 @@
+name: TypeScript completed PARTIAL evidence log extract
+on:
+  push:
+    branches: [verify/issue-542-ts-partial-log-extract]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  bounded-completed-log-extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download completed exact-source proof log
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl --fail --location --silent --show-error --retry 2 -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/repos/rapiddweller/archkeel/actions/jobs/117179516968/logs" --output "$RUNNER_TEMP/prior-partial-job.log"
+      - name: Validate and extract the completed proof without observing source again
+        run: |
+          python3 - <<'PY'
+          import base64,collections,gzip,hashlib,json,os,pathlib,re
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])/"ts-partial-log-extract"
+          root.mkdir()
+          raw=(pathlib.Path(os.environ["RUNNER_TEMP"])/"prior-partial-job.log").read_bytes()
+          text=raw.decode()
+          markers=collections.defaultdict(list)
+          known={"SNAPSHOT","UNKNOWN_DIFF","UNKNOWN_FULL","CALL_FULL","MULTISET_FULL","MULTISET_DIFF","MULTISET_COUNTS","DECODER_MAP_CALL","NORMALIZATION_PROOF","NORMALIZATION_UNMATCHED","RAW_UNRESOLVED_CHANGES","RAW_UNRESOLVED_CHANGE_COUNTS","EVIDENCE_FILE","EXACT_DIRTY"}
+          for line in text.splitlines():
+              match=re.search(r"\b([A-Z][A-Z_]+)=(.*)$",line)
+              if match and match[1] in known:
+                  try:
+                      value=json.loads(match[2])
+                  except json.JSONDecodeError:
+                      continue
+                  markers[match[1]].append(value)
+          def emit(marker,value):
+              print(marker+"="+json.dumps(value,sort_keys=True),flush=True)
+          assert len(markers["SNAPSHOT"])==2
+          assert len(markers["MULTISET_COUNTS"])==2
+          assert len(markers["DECODER_MAP_CALL"])==5, len(markers["DECODER_MAP_CALL"])
+          assert len(markers["UNKNOWN_DIFF"])==3
+          assert all(not item["added"] and not item["removed"] for item in markers["UNKNOWN_DIFF"])
+          assert markers["EXACT_DIRTY"]==[""],markers["EXACT_DIRTY"]
+          for label in ("before","after"):
+              actual=collections.Counter(item["status"] for item in markers["MULTISET_FULL"] if item["label"]==label for _ in range(item["multiplicity"]))
+              raw_counts=collections.Counter(item["normalized"]["status"] for item in markers["CALL_FULL"] if item["label"]==label)
+              expected={item["status"]:item[label] for item in markers["MULTISET_COUNTS"]}
+              assert dict(actual)==dict(raw_counts)==expected,(actual,raw_counts,expected)
+          for marker in ("SNAPSHOT","UNKNOWN_DIFF","MULTISET_COUNTS","DECODER_MAP_CALL","NORMALIZATION_UNMATCHED","RAW_UNRESOLVED_CHANGE_COUNTS","RAW_UNRESOLVED_CHANGES","EVIDENCE_FILE","EXACT_DIRTY"):
+              for item in markers[marker]:
+                  emit(marker,item)
+          for item in markers["MULTISET_DIFF"]:
+              emit("MULTISET_DIFF",item)
+          # Complete multiset / operation-body mapping / counted-UNKNOWN data, bounded in the
+          # log by compression. Full raw source CallRecords remain in the artifact too.
+          archive={key:values for key,values in markers.items() if key!="CALL_FULL"}
+          payload=json.dumps(archive,sort_keys=True,separators=(",",":")).encode()
+          compressed=gzip.compress(payload,mtime=0)
+          encoded=base64.b64encode(compressed).decode()
+          emit("COMPLETE_ARCHIVE",{"format":"base64(gzip(canonical-json))","bytes":len(payload),"gzip_bytes":len(compressed),"sha256":hashlib.sha256(payload).hexdigest(),"gzip_sha256":hashlib.sha256(compressed).hexdigest(),"marker_counts":{key:len(values) for key,values in markers.items()}})
+          chunks=[encoded[start:start+24000] for start in range(0,len(encoded),24000)]
+          for index,chunk in enumerate(chunks):
+              emit("COMPLETE_ARCHIVE_CHUNK",{"index":index,"chunks":len(chunks),"base64":chunk})
+          (root/"complete-counter-proof.json").write_bytes(payload)
+          (root/"complete-counter-proof.json.gz").write_bytes(compressed)
+          (root/"complete-call-records.json.gz").write_bytes(gzip.compress(json.dumps(markers["CALL_FULL"],sort_keys=True).encode(),mtime=0))
+          (root/"original-job.log.gz").write_bytes(gzip.compress(raw,mtime=0))
+          emit("ORIGINAL_LOG",{"source_job":117179516968,"bytes":len(raw),"sha256":hashlib.sha256(raw).hexdigest()})
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: exact-fa37-8eb-partial-call-records
+          path: ${{ runner.temp }}/ts-partial-log-extract
+          retention-days: 14
