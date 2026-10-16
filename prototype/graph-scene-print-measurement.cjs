@@ -27,9 +27,12 @@ function ast(code) {
   return JSON.stringify(canonical(acorn.parse(code, {ecmaVersion: 2022, sourceType: "script"})));
 }
 const assert = require("node:assert/strict");
-assert.equal(ast("\\u0060a\\nb\\u0060"), ast("\\u0060a\\\\nb\\u0060"));
-assert.notEqual(ast("tag\\u0060a\\nb\\u0060"), ast("tag\\u0060a\\\\nb\\u0060"));
-for (const [before, after] of [[\'"object"\', \'"string"\'], ["/a/", "/b/"], ["value", "other"], ["({a:1})", "({b:1})"]]) {
+const tick = String.fromCharCode(96);
+const actualLineBreak = tick + "a" + String.fromCharCode(10) + "b" + tick;
+const escapedLineBreak = tick + "a\\nb" + tick;
+assert.equal(ast(actualLineBreak), ast(escapedLineBreak));
+assert.notEqual(ast("tag" + actualLineBreak), ast("tag" + escapedLineBreak));
+for (const [before, after] of [['"object"', '"string"'], ["/a/", "/b/"], ["value", "other"], ["({a:1})", "({b:1})"]]) {
   assert.notEqual(ast(before), ast(after));
 }
 (async () => {
