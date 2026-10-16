@@ -24,7 +24,6 @@ GUARDS = (
     "TARGET-TYPESCRIPT-PARSER-TYPED-CONTROL",
     "TARGET-TYPESCRIPT-COLLECTOR-TYPED-CONTROL",
     "TARGET-TYPESCRIPT-SYNTAX-TYPED-CONTROL",
-    "TARGET-TYPESCRIPT-INPUT-TYPED-CONTROL",
 )
 
 
@@ -154,6 +153,8 @@ def test_native_source_type_widening_fails_with_fixed_intent(tmp_path, module, o
     "probe",
     [
         'def _probe(value):\n    return value == "node16"\n',
+        'def _probe(value):\n    return value.startswith("node:")\n',
+        'def _probe(value):\n    return value.endswith(".ts")\n',
         'def _probe(value):\n    return value in ("node16", "nodenext")\n',
         'def _probe(value):\n    return "node16" in value\n',
         'def _probe(value):\n    match value:\n        case "node16":\n            return True\n',
@@ -162,7 +163,7 @@ def test_native_source_type_widening_fails_with_fixed_intent(tmp_path, module, o
             "def _probe(value):\n    return value == TOKEN\n"
         ),
     ],
-    ids=["equality", "membership", "literal-left-membership", "match", "final-alias"],
+    ids=["equality", "prefix", "suffix", "membership", "literal-left-membership", "match", "final-alias"],
 )
 def test_native_parser_and_protocol_strings_fail_without_exceptions(tmp_path, module, probe):
     source = (ROOT / f"src/archkeel/analyzer/typescript/{module}.py").read_text()

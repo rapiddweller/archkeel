@@ -307,19 +307,6 @@
         "docs/architecture/typescript-syntax-types.md"
       ],
       "decided_by": "architect"
-    },
-    {
-      "id": "TARGET-TYPESCRIPT-INPUT-TYPED-CONTROL",
-      "kind": "forbidden_construct",
-      "source": "archkeel.analyzer.typescript.source_input",
-      "constructs": [
-        "string_literal_compare"
-      ],
-      "rationale": "The input decoder owns the grammar; native whole-module comparison and written prefix/suffix observation has no parser, form or source exceptions.",
-      "provenance": [
-        "docs/architecture/typescript-source-input.md"
-      ],
-      "decided_by": "architect"
     }
   ],
   "declarations": {
