@@ -505,7 +505,9 @@ class NoComponentCyclesRule(ArchitectureRuleGrammar):
         ArchitectureRuleGrammar.__post_init__(self)
         if self.level is not None:
             level = CycleLevel(self.level)
-            builtins.object.__setattr__(self, "level", None if level is CycleLevel.COMPONENT else level)
+            builtins.object.__setattr__(
+                self, "level", None if level is CycleLevel.COMPONENT else level
+            )
 
 
 @dataclass(frozen=True, slots=True)

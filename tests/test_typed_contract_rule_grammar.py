@@ -157,19 +157,96 @@ def _legacy_rules():
     """Use the public positional constructors directly, independently of JSON decoding."""
     provenance = ("docs/architecture/sample.md",)
     return [
-        model.ForbiddenDependencyRule("r", "forbidden_dependency", "sample", "json", True, "Why.", provenance, "architect"),
-        model.AllowedDependencyRule("r", "allowed_dependency", "core", "core", "Why.", provenance, "architect"),
-        model.ForbiddenConstructRule("r", "forbidden_construct", "sample", (model.ForbiddenConstructKind.EVAL,), "Why.", provenance, "architect"),
-        model.ExternalDependencyScopeRule("r", "external_dependency_scope", "json", ("sample",), "Why.", provenance, "architect"),
-        model.CompleteAssignmentRule("r", "complete_assignment", "sample", "Why.", provenance, "architect"),
-        model.RootLayoutRule("r", "root_layout", "sample", ("sample.core",), "Why.", provenance, "architect"),
-        model.CompleteExternalScopeRule("r", "complete_external_scope", "sample", "Why.", provenance, "architect"),
+        model.ForbiddenDependencyRule(
+            "r",
+            "forbidden_dependency",
+            "sample",
+            "json",
+            True,
+            "Why.",
+            provenance,
+            "architect",
+        ),
+        model.AllowedDependencyRule(
+            "r",
+            "allowed_dependency",
+            "core",
+            "core",
+            "Why.",
+            provenance,
+            "architect",
+        ),
+        model.ForbiddenConstructRule(
+            "r",
+            "forbidden_construct",
+            "sample",
+            (model.ForbiddenConstructKind.EVAL,),
+            "Why.",
+            provenance,
+            "architect",
+        ),
+        model.ExternalDependencyScopeRule(
+            "r",
+            "external_dependency_scope",
+            "json",
+            ("sample",),
+            "Why.",
+            provenance,
+            "architect",
+        ),
+        model.CompleteAssignmentRule(
+            "r",
+            "complete_assignment",
+            "sample",
+            "Why.",
+            provenance,
+            "architect",
+        ),
+        model.RootLayoutRule(
+            "r",
+            "root_layout",
+            "sample",
+            ("sample.core",),
+            "Why.",
+            provenance,
+            "architect",
+        ),
+        model.CompleteExternalScopeRule(
+            "r",
+            "complete_external_scope",
+            "sample",
+            "Why.",
+            provenance,
+            "architect",
+        ),
         model.CompleteRequiresRule("r", "complete_requires", "Why.", provenance, "architect"),
-        model.LayerOrderRule("r", "layer_order", ("outer", "inner"), "Why.", provenance, "architect"),
+        model.LayerOrderRule(
+            "r",
+            "layer_order",
+            ("outer", "inner"),
+            "Why.",
+            provenance,
+            "architect",
+        ),
         model.NoComponentCyclesRule("r", "no_component_cycles", "Why.", provenance, "architect"),
         model.InterfaceBoundaryRule("r", "interface_boundary", "Why.", provenance, "architect"),
-        model.SiblingIsolationRule("r", "sibling_isolation", ("sample.core", "sample.other"), "Why.", provenance, "architect"),
-        model.SymbolPlacementRule("r", "symbol_placement", "sample", (model.SymbolClassKind.ENUM,), "Why.", provenance, "architect"),
+        model.SiblingIsolationRule(
+            "r",
+            "sibling_isolation",
+            ("sample.core", "sample.other"),
+            "Why.",
+            provenance,
+            "architect",
+        ),
+        model.SymbolPlacementRule(
+            "r",
+            "symbol_placement",
+            "sample",
+            (model.SymbolClassKind.ENUM,),
+            "Why.",
+            provenance,
+            "architect",
+        ),
         model.BoundaryTypesRule("r", "boundary_types", "sample", "Why.", provenance, "architect"),
     ]
 
@@ -191,7 +268,9 @@ def test_every_legacy_positional_constructor_has_nominal_frozen_slotted_identity
 
 
 def test_direct_legacy_component_shim_and_cycle_values_are_normalized():
-    component = model.ContractComponent("c", "core", "component", ("sample",), ("Own.",), (), (), decided_by="architect")
+    component = model.ContractComponent(
+        "c", "core", "component", ("sample",), ("Own.",), (), (), decided_by="architect"
+    )
     required = model.RequiredComponent("core", "Why.", decided_by="agent")
     assert component.decided_by is DecisionMaker.ARCHITECT
     assert required.decided_by is DecisionMaker.AGENT
@@ -199,7 +278,10 @@ def test_direct_legacy_component_shim_and_cycle_values_are_normalized():
     assert replace(required, decided_by=None).decided_by is None
     shim = model.CompatibilityShim("old.module", "new.module", "migration")
     assert shim.lifetime is model.CompatibilityLifetime.MIGRATION
-    assert replace(shim, lifetime=model.CompatibilityLifetime.PERMANENT).lifetime is model.CompatibilityLifetime.PERMANENT
+    assert (
+        replace(shim, lifetime=model.CompatibilityLifetime.PERMANENT).lifetime
+        is model.CompatibilityLifetime.PERMANENT
+    )
     cycles = _legacy_rules()[9]
     assert replace(cycles, level="module").level is model.CycleLevel.MODULE
     assert replace(cycles, level=model.CycleLevel.COMPONENT).level is None

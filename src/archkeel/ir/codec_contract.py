@@ -257,7 +257,10 @@ def parse_contract(raw: object) -> ArchitectureContract:
         raise ValueError("UML declarations require contract schema_version 2.2.0")
     uml = parse_target(declarations["uml"]) if _has_field(declarations, "uml") else None
     kinds = tuple(_rule_kind(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
-    if not supports_feature(version, ContractFeature.LAYERS) and ArchitectureRuleKind.LAYER_ORDER in kinds:
+    if (
+        not supports_feature(version, ContractFeature.LAYERS)
+        and ArchitectureRuleKind.LAYER_ORDER in kinds
+    ):
         raise ValueError("layer_order requires contract schema_version 2.3.0")
     if not supports_feature(version, ContractFeature.MODULE_SELECTORS) and any(
         _has_field(_object(value, "rule"), "source_match")
@@ -588,7 +591,9 @@ def _component_names(
 
 
 def _parse_component(raw: RawJson, label: str, *, version: ContractVersion) -> ContractComponent:
-    if _has_field(_object(raw, label), "layer") and not supports_feature(version, ContractFeature.LAYERS):
+    if _has_field(_object(raw, label), "layer") and not supports_feature(
+        version, ContractFeature.LAYERS
+    ):
         raise ValueError(f"{label}.layer requires contract schema_version 2.3.0")
     item, item_id, provenance = _contract_record(
         raw,
