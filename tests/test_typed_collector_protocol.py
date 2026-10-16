@@ -142,3 +142,17 @@ def test_registered_profiles_keep_imports_and_unknowns_mandatory(language, secti
     model[section] = None
     with pytest.raises(ValueError, match=section):
         _validate_profile_sections(model, profile)
+
+
+def test_collection_error_kind_has_one_nominal_owner_and_keeps_its_wire_text():
+    from dataclasses import asdict
+    from typing import get_type_hints
+
+    from archkeel.ir.protocol import CollectionError, CollectionErrorKind
+
+    assert get_type_hints(CollectionError)["kind"] is CollectionErrorKind
+    error = CollectionError(CollectionErrorKind.TIMEOUT, "collector", "timed out")
+    assert error.kind is CollectionErrorKind.TIMEOUT
+    assert json.dumps(asdict(error), sort_keys=True, separators=(",", ":")) == (
+        '{"kind":"timeout","message":"timed out","subject":"collector"}'
+    )
