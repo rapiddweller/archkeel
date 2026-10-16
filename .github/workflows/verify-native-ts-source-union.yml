@@ -1,0 +1,53 @@
+name: Prepare reviewed TypeScript native control source union
+on:
+  push:
+    branches: [verify/542-native-typescript-source-union]
+permissions:
+  contents: read
+jobs:
+  source-union:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: c7444205d4fe87eaae0de5e2dc98b70909fd1cc7
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Calculate exact Git source union without remote writes
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          
+          def git(*args):
+              return subprocess.run(["git", *args], check=True, capture_output=True).stdout.decode()
+          
+          stages = [{"name":"typescript-native-written-controls","base":"fa37f59600cfae64ba0528cb56e609c6bbd756e4","head":"97615e831e15b2fceb5a6b09743601042b9552c4","paths":["docs/architecture/typescript-written-string-controls.md","docs/rules.md","docs/superpowers/plans/2026-10-16-typescript-written-string-constructs.md","src/archkeel/analyzer/typescript/collect.py","src/archkeel/analyzer/typescript/parse.py","src/archkeel/analyzer/typescript/syntax.py","src/archkeel/check/evaluation/evaluate.py","src/archkeel/ir/codec_observation.py","src/archkeel/ir/profiles.py","tests/test_nullable_profile_measurements.py","tests/test_saved_report.py","tests/test_schema_drift.py","tests/test_typescript_control_target.py","tests/test_typescript_demo.py","tests/test_typescript_string_constructs.py"]}]
+          for stage in stages:
+              patch = subprocess.run(["git", "diff", "--binary", stage["base"], stage["head"], "--", *stage["paths"]], check=True, capture_output=True).stdout
+              if patch:
+                  applied = subprocess.run(["git", "apply", "--3way", "--index", "-"], input=patch, capture_output=True)
+                  if applied.returncode:
+                      print("MERGE_CONFLICT=" + stage["name"])
+                      print(applied.stderr.decode()[-6000:])
+                      print(git("diff", "--name-only", "--diff-filter=U"))
+                      raise SystemExit(1)
+              print("SOURCE_STAGE=" + stage["name"])
+          
+          paths = []
+          for line in git("diff", "--cached", "--name-status", "--no-renames", "HEAD").splitlines():
+              status, path = line.split("\t")
+              if status == "D":
+                  paths.append({"path": path, "deleted": True})
+                  continue
+              mode = git("ls-files", "--stage", "--", path).split()[0]
+              content = Path(path).read_text()
+              parts = [content[index:index + 12000] for index in range(0, len(content), 12000)] or [""]
+              paths.append({"path": path, "mode": mode, "parts": len(parts), "index_sha": git("ls-files", "--stage", "--", path).split()[1], "text_sha": subprocess.run(["git", "hash-object", "--stdin"], input=content.encode(), capture_output=True, check=True).stdout.decode().strip()})
+              for index, part in enumerate(parts):
+                  print("SOURCE_UNION_CHUNK=" + json.dumps({"path": path, "index": index, "content": part}, separators=(",", ":")))
+          print("SOURCE_UNION_PATHS=" + json.dumps(paths, separators=(",", ":")))
+          print("SOURCE_UNION_TREE=" + git("write-tree").strip())
+          
+          PY
