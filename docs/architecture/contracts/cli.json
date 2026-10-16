@@ -150,20 +150,6 @@
           ]
         },
         {
-          "id": "CLI-INPUT-Command",
-          "kind": "enum",
-          "qualified_name": "archkeel.cli.arguments.Command",
-          "language": "python",
-          "parent_id": "CLI-INPUT-arguments",
-          "presence": "planned",
-          "responsibilities": [
-            "Name supported CLI commands and the pre-parse failure context."
-          ],
-          "provenance": [
-            "docs/architecture/cli-input-types.md"
-          ]
-        },
-        {
           "id": "CLI-INPUT-ReportMode",
           "kind": "enum",
           "qualified_name": "archkeel.cli.arguments.ReportMode",
