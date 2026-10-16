@@ -1,0 +1,57 @@
+name: Verify legacy State import static API
+on:
+  push:
+    branches: [verify/542-state-reexport-static-api]
+permissions:
+  contents: read
+jobs:
+  actual-legacy-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f58903bfefff91a26d512e765abcbaa6631a25b3
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Typecheck and execute the real public legacy import
+        run: |
+          uv run --locked python - <<'PY'
+          import os,pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])
+          source='''from archkeel.render.summary import State
+          from archkeel.render.summary_badges import BadgeState
+
+          def preserve(value: State) -> BadgeState:
+              return value
+
+          legacy: State = BadgeState.PASS
+          canonical: BadgeState = State.UNKNOWN
+          assert State is BadgeState
+          assert preserve(legacy) is BadgeState.PASS
+          assert canonical is BadgeState.UNKNOWN
+          print("LEGACY_IMPORT_RUNTIME_IDENTITY=PASS")
+          '''
+          (root/"legacy_state_api.py").write_text(source)
+          (root/"legacy_state_invalid.py").write_text(
+              "from archkeel.render.summary import State\ninvalid: State = 'pass'\n"
+          )
+          PY
+          uv run --locked mypy --strict "$RUNNER_TEMP/legacy_state_api.py"
+          uv run --locked python "$RUNNER_TEMP/legacy_state_api.py"
+          set +e
+          uv run --locked mypy --strict "$RUNNER_TEMP/legacy_state_invalid.py" > "$RUNNER_TEMP/legacy_state_invalid.log"
+          task_status=$?
+          set -e
+          test "$task_status" -eq 1
+          uv run --locked python - <<'PY'
+          import os,pathlib
+          output=(pathlib.Path(os.environ["RUNNER_TEMP"])/"legacy_state_invalid.log").read_text()
+          print(output)
+          assert "[assignment]" in output and "Incompatible types" in output, output
+          print("LEGACY_IMPORT_INVALID_ASSIGNMENT=REJECTED")
+          PY
+          test -z "$(git status --porcelain)"
