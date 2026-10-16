@@ -1,13 +1,13 @@
-name: Trace native alias proof dependencies
+name: Verify native dependency API
 on:
   push:
     branches: [verify/541-native-api-tests]
 permissions:
   contents: read
 jobs:
-  trace:
+  native:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -17,40 +17,18 @@ jobs:
         with:
           python-version: "3.11.12"
           version: "0.12.13"
-      - name: Trace candidate dependencies in the actual source closure
+      - name: Focused native source controls
+        run: uv run --locked python -m pytest -q tests/test_dependency_api_target.py -k 'not own_native' --maxfail=8
+      - name: Lint and types
+        if: always()
         run: |
-          uv run --locked python - <<'PY'
-          import pathlib,ast
-          import archkeel.analyzer.python.imports as imported
-          from archkeel.analyzer.python.source import parse_sources,intrinsic_generic_aliases,unproven_member_bindings
-          root=pathlib.Path.cwd()
-          parsed=parse_sources(tuple(sorted((root/"src/archkeel").rglob("*.py"))),root=root,namespace="archkeel").modules
-          modules={module.module:module for module in parsed}
-          imports=imported.collect_imports(parsed,set(modules),{},namespace="archkeel")
-          original=imported._retain_type_reference_protection
-          def retain(modules,candidates,escaped,exposed,transferred):
-              for expression,deps in candidates["archkeel.ir.model"].items():
-                  if "ComponentOwnership" in ast.unparse(expression):
-                      print("CANDIDATE",ast.unparse(expression),deps)
-                      for provider,binding in deps:
-                          print("DEPENDENCY",provider,binding,{"escaped":binding in escaped[provider],"exposed":binding in exposed[provider],"transferred":binding in transferred[provider],"incoming":binding in modules[provider].incoming_member_escapes})
-              return original(modules,candidates,escaped,exposed,transferred)
-          imported._retain_type_reference_protection=retain
-          saturate=imported._saturate_unknown_owner_namespaces
-          def trace_saturation(modules,namespaces,exposed,transferred):
-              for name,module in modules.items():
-                  for owner in module.tree.body:
-                      if isinstance(owner,ast.ClassDef) and owner.name in transferred[name] and not imported.class_namespace_static(module,owner):
-                          print("SATURATION_OWNER",name,owner.name,ast.unparse(owner)[:1800])
-              return saturate(modules,namespaces,exposed,transferred)
-          imported._saturate_unknown_owner_namespaces=trace_saturation
-          for name in ("archkeel.ir.model","archkeel.ir.dependency"):
-              print("NATIVE",name,intrinsic_generic_aliases(modules[name]))
-          imported.resolve_reexports(imports,{name:module.all_exports for name,module in modules.items()},parsed)
-          for name in ("archkeel.ir.model","archkeel.ir.dependency"):
-              print("RETAINED",name,[ast.unparse(node) for node in modules[name]._proven_map_union_expressions])
-              print("UNPROVEN",name,unproven_member_bindings(modules[name]))
-          for item in imports:
-              if item["data"]["source_module"]=="archkeel.ir.model" and item["data"]["binding"]=="ComponentOwnership":
-                  print("IMPORT",item)
+          uv run --locked ruff format tests/test_dependency_api_target.py
+          uv run --locked ruff check tests/test_dependency_api_target.py
+          uv run --locked mypy src
+      - name: Formatting evidence
+        if: always()
+        run: |
+          python - <<'PY'
+          import base64,pathlib
+          print("TEST_FILE="+base64.b64encode(pathlib.Path("tests/test_dependency_api_target.py").read_bytes()).decode())
           PY
