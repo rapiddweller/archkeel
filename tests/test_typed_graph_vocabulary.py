@@ -169,7 +169,7 @@ def _contract():
         item
         for item in contract["declarations"]["uml"]["entities"]
         if item["id"].startswith(("IR-GRAPH-", "IR-UML-architecture_graph"))
-        or item["id"] == "IR-DEPENDENCY-model"
+        or item["id"] in {"IR-DEPENDENCY-model", "archkeel.ir.facts"}
     ]
     contract["declarations"]["uml"]["relationships"] = []
     contract["declarations"]["uml"]["scopes"] = []
@@ -198,7 +198,9 @@ def _repository(tmp_path):
     facts = (
         "from __future__ import annotations\nimport hashlib\nfrom dataclasses import dataclass\n"
         "from enum import StrEnum\nfrom typing import Literal, TypeAlias\n\n"
-        + _source_members("src/archkeel/ir/facts.py", {"Evidence", "Language", "stable_id"})
+        + _source_members(
+            "src/archkeel/ir/facts.py", {"Evidence", "Language", "ParameterKind", "stable_id"}
+        )
     )
     model = (
         "from __future__ import annotations\nfrom collections.abc import Mapping, Sequence\n"
@@ -214,6 +216,8 @@ def _repository(tmp_path):
         "archkeel/ir/model.py": model,
         "contract.json": json.dumps(_contract()),
         "docs/architecture/typed-graph-vocabulary.md": "Owned graph intent.\n",
+        "docs/architecture/shared-parameter-kind.md": "Shared calling convention.\n",
+        "docs/architecture/language-adapter-target.md": "Source-only facts.\n",
     }
     for module in MODULES:
         path = module.replace(".", "/") + ".py"
