@@ -45,11 +45,22 @@ from archkeel.ir.protocol import CollectionRequest, TypeScriptSettings
 
 from .config import ModuleKind, PathToken, Snapshot, join, load_config, within
 from .parse import parse
-from .syntax import (
-    Base, Definition, DefinitionKind, Reference, ReferenceForm, ReceiverKind,
-    Site, SiteKind, SiteUse, Span, Syntax, Visibility,
-)
 from .resolve import Found, ModuleFormat, Resolver, Unknown, is_builtin, is_relative, package_name
+from .syntax import (
+    Base,
+    Definition,
+    DefinitionKind,
+    ReceiverKind,
+    Reference,
+    ReferenceForm,
+    Site,
+    SiteKind,
+    SiteUse,
+    Span,
+    Syntax,
+    Visibility,
+)
+
 
 class _ResolutionStatus(Enum):
     RESOLVED = "resolved"
@@ -248,7 +259,11 @@ class _Collection:
                 definition,
                 len(by_qualified[qualified]) == 1,
             )
-            if definition.kind in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM}:
+            if definition.kind in {
+                DefinitionKind.CLASS,
+                DefinitionKind.INTERFACE,
+                DefinitionKind.ENUM,
+            }:
                 data.update(
                     self._classifier_data(
                         rel, module, definition, qualified, definitions, ids, by_qualified
@@ -278,7 +293,8 @@ class _Collection:
                     area="source",
                     kind=(
                         "class"
-                        if definition.kind in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM}
+                        if definition.kind
+                        in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM}
                         else definition.kind.value
                     ),
                     title=f"{qualified} declaration",
@@ -300,7 +316,12 @@ class _Collection:
         definition: Definition,
         binding_unique: bool,
     ) -> dict[str, object]:
-        category = "class" if definition.kind in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM} else definition.kind.value
+        category = (
+            "class"
+            if definition.kind
+            in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM}
+            else definition.kind.value
+        )
         return {
             "qualified_name": qualified,
             "module": module,
@@ -309,7 +330,9 @@ class _Collection:
             "parent": parent_name,
             "lexical_parent_id": parent_id,
             "visibility_detail": {
-                "kind": definition.visibility.value if definition.visibility else ("unknown" if definition.top_level else "public"),
+                "kind": definition.visibility.value
+                if definition.visibility
+                else ("unknown" if definition.top_level else "public"),
                 "basis": (
                     "unknown"
                     if definition.top_level and definition.visibility is None
@@ -341,13 +364,17 @@ class _Collection:
     ) -> dict[str, object]:
         data: dict[str, object] = {}
         if definition.kind in {DefinitionKind.INTERFACE, DefinitionKind.ENUM}:
-            data["class_kind"] = "protocol" if definition.kind is DefinitionKind.INTERFACE else "enum"
+            data["class_kind"] = (
+                "protocol" if definition.kind is DefinitionKind.INTERFACE else "enum"
+            )
         attribute_declarations: list[dict[str, object]] = [
             {
                 "name": member.name,
                 "annotation": member.annotation,
                 "visibility": {
-                    "kind": member.visibility.value if member.visibility else Visibility.PUBLIC.value,
+                    "kind": member.visibility.value
+                    if member.visibility
+                    else Visibility.PUBLIC.value,
                     "basis": "language",
                     "spelling": member.name,
                 },
@@ -386,7 +413,9 @@ class _Collection:
             if definition.members_complete and len(by_qualified[qualified]) == 1
             else _InventoryStatus.PARTIAL
         )
-        member_reason = None if status is _InventoryStatus.COMPLETE else "computed or unsupported member syntax"
+        member_reason = (
+            None if status is _InventoryStatus.COMPLETE else "computed or unsupported member syntax"
+        )
         data["member_inventories"] = [
             {
                 "schema_version": "1.0.0",
@@ -671,7 +700,9 @@ class _Collection:
             targets = sorted(
                 target
                 for target in candidates
-                if any(item.kind is DefinitionKind.CLASS for _, item in by_qualified.get(target, []))
+                if any(
+                    item.kind is DefinitionKind.CLASS for _, item in by_qualified.get(target, [])
+                )
             )
             create_status = (
                 _ResolutionStatus.RESOLVED
@@ -821,11 +852,7 @@ class _Collection:
                 data={
                     "reason": reason,
                     "module": module,
-                    **(
-                        {"resolution_dimension": "imports"}
-                        if kind is _GapKind.RESOLUTION
-                        else {}
-                    ),
+                    **({"resolution_dimension": "imports"} if kind is _GapKind.RESOLUTION else {}),
                 },
             ),
         )
@@ -1024,7 +1051,9 @@ class _Collection:
             return self._unresolved(
                 module, identity, specifier, f"Unavailable local target: {specifier}"
             )
-        if any(PathToken.parse(segment) is PathToken.NODE_MODULES for segment in path.split("/")) or (not self._selected(path) and found.external):
+        if any(
+            PathToken.parse(segment) is PathToken.NODE_MODULES for segment in path.split("/")
+        ) or (not self._selected(path) and found.external):
             if specifier.startswith("#"):
                 reason = f"External package alias identity is not observed: {specifier}"
             elif is_relative(specifier):

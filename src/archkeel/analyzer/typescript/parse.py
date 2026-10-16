@@ -15,30 +15,63 @@ from bisect import bisect_right
 from collections import Counter as _Counter
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
-from functools import cache
 from enum import Enum
+from functools import cache
 from typing import Final
 
 import tree_sitter_typescript
-from tree_sitter import Language, Node as _RawNode, Parser, Query, QueryCursor
+from tree_sitter import Language, Parser, Query, QueryCursor
+from tree_sitter import Node as _RawNode
 
 from .syntax import (
     Base as Base,
+)
+from .syntax import (
     BaseRelationship as BaseRelationship,
+)
+from .syntax import (
     Concern as Concern,
+)
+from .syntax import (
     Definition as Definition,
+)
+from .syntax import (
     DefinitionKind as DefinitionKind,
+)
+from .syntax import (
     ImportBinding as ImportBinding,
+)
+from .syntax import (
     Member as Member,
+)
+from .syntax import (
     Parameter as Parameter,
+)
+from .syntax import (
     ReceiverKind as ReceiverKind,
+)
+from .syntax import (
     Reference as Reference,
+)
+from .syntax import (
     ReferenceForm as ReferenceForm,
+)
+from .syntax import (
     Site as Site,
+)
+from .syntax import (
     SiteKind as SiteKind,
+)
+from .syntax import (
     SiteUse as SiteUse,
+)
+from .syntax import (
     Span as Span,
+)
+from .syntax import (
     Syntax as Syntax,
+)
+from .syntax import (
     Visibility as Visibility,
 )
 
@@ -195,7 +228,7 @@ class _Node:
     def __init__(self, raw: _RawNode, tree: _Tree) -> None:
         self.raw = raw
         self.tree = tree
-        self.kind = _NODE_KINDS.get(raw.type)
+        self.kind: _NodeKind | None = _NODE_KINDS.get(raw.type)
 
     @property
     def children(self) -> list[_Node]:
@@ -245,7 +278,7 @@ def _special_name(value: str | None) -> _SpecialName | None:
     return _SPECIAL_NAMES.get(value) if value is not None else None
 
 
-_LOADER: Final = "_Node module loader is not observed"
+_LOADER: Final = "Node module loader is not observed"
 # A comment opens a JSDoc block unless it is `/**/`; only those can carry typed imports.
 _JSDOC_IMPORT: Final = re.compile(r"^/\*\*(?!/)[\s\S]*(?:@import\b|\bimport\s*\()")
 _TRIPLE_SLASH: Final = re.compile(r"^///\s*<reference\s+(?:path|types|lib)\s*=\s*(['\"])(.*?)\1")
@@ -300,7 +333,9 @@ class _Source:
 
     def captures(self, query: str, scope: _Node | None = None) -> dict[str, list[_Node]]:
         captures = QueryCursor(_query(self.kind, query)).captures((scope or self.root).raw)
-        return {name: [self.root.tree.node(node) for node in nodes] for name, nodes in captures.items()}
+        return {
+            name: [self.root.tree.node(node) for node in nodes] for name, nodes in captures.items()
+        }
 
     def span(self, node: _Node, start: _Node | None = None) -> Span:
         first = (start or node).start_byte
@@ -346,7 +381,11 @@ def parse(rel_path: str, data: bytes) -> Syntax:
     # `module[name]` can reach `require` without spelling it.
     needed = re.search(rb"require|module", data) is not None
     shadows = _require_concerns(source, concerns) if needed else False
-    loaders = [item.span for item in trusted if item.specifier is not None and _LOADER_MODULES.get(item.specifier) is not None]
+    loaders = [
+        item.span
+        for item in trusted
+        if item.specifier is not None and _LOADER_MODULES.get(item.specifier) is not None
+    ]
     if re.search(rb"createRequire", data):
         loaders.extend(
             source.span(node) for node in source.captures("create_require").get("name", [])
@@ -358,7 +397,9 @@ def parse(rel_path: str, data: bytes) -> Syntax:
         concerns.extend(_comment_concerns(source))
     errors = sorted(source.captures("errors").get("error", []), key=lambda item: item.start_byte)
     return Syntax(
-        tuple(sorted(trusted, key=lambda item: (item.span.line, item.span.column, item.form.value))),
+        tuple(
+            sorted(trusted, key=lambda item: (item.span.line, item.span.column, item.form.value))
+        ),
         tuple(concerns),
         shadows,
         source.span(errors[0]) if errors else None,
@@ -380,7 +421,7 @@ def _inner(source: _Source) -> tuple[tuple[Definition, ...], tuple[Site, ...]]:
             continue
         if _in_unmodeled_block(node):
             continue
-        if node.kind not in {
+        if node.kind is None or node.kind not in {
             _NodeKind.CLASS_DECLARATION,
             _NodeKind.INTERFACE_DECLARATION,
             _NodeKind.ENUM_DECLARATION,
@@ -397,7 +438,10 @@ def _inner(source: _Source) -> tuple[tuple[Definition, ...], tuple[Site, ...]]:
             name = "constructor"
         if not name or name_node is None or name_node.kind == _NodeKind.COMPUTED_PROPERTY_NAME:
             continue
-        if node.kind in (_NodeKind.METHOD_DEFINITION, _NodeKind.METHOD_SIGNATURE) and not _class_member(node):
+        if node.kind in (
+            _NodeKind.METHOD_DEFINITION,
+            _NodeKind.METHOD_SIGNATURE,
+        ) and not _class_member(node):
             continue
         parent_scope = next((item for item in reversed(scopes) if _contains(item[0], node)), None)
         parent_name = parent_scope[1] if parent_scope else None
@@ -467,7 +511,8 @@ def _module_exports(root: _Node) -> tuple[bool, set[str], set[str], bool]:
         if any(item.kind in declarations for item in statement.named_children):
             continue
         clause = next(
-            (item for item in statement.named_children if item.kind == _NodeKind.EXPORT_CLAUSE), None
+            (item for item in statement.named_children if item.kind == _NodeKind.EXPORT_CLAUSE),
+            None,
         )
         if clause is None:
             if any(item.kind == _NodeKind.STRING for item in statement.named_children):
@@ -530,7 +575,8 @@ def _modifiers(node: _Node) -> set[_Modifier]:
     return {
         modifier
         for child in node.children
-        if child.kind in {
+        if child.kind
+        in {
             _NodeKind.ACCESSIBILITY_MODIFIER,
             _NodeKind.STATIC,
             _NodeKind.ABSTRACT,
@@ -583,9 +629,8 @@ def _parameters(node: _Node | None) -> tuple[Parameter, ...]:
             Parameter(
                 name,
                 _type(item.child_by_field_name("type")),
-                item.kind is _NodeKind.OPTIONAL_PARAMETER or any(
-                    child.kind is _NodeKind.QUESTION for child in item.children
-                ),
+                item.kind is _NodeKind.OPTIONAL_PARAMETER
+                or any(child.kind is _NodeKind.QUESTION for child in item.children),
                 rest,
                 _text(value) if value is not None else None,
             )
@@ -604,7 +649,10 @@ def _definition(
     members: list[Member] = []
     bases: list[Base] = []
     body = node.child_by_field_name("body")
-    if kind in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM} and body is not None:
+    if (
+        kind in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM}
+        and body is not None
+    ):
         members = _declared_members(body, kind, source)
         for heritage in node.named_children:
             clauses = (
@@ -673,7 +721,15 @@ def _supported_constructor(node: _Node) -> bool:
         and name is not None
         and _special_name(_static_member_name(_text(name))) is _SpecialName.CONSTRUCTOR
         and not any(
-            child.kind in {_NodeKind.GET, _NodeKind.SET, _NodeKind.ASYNC, _NodeKind.ASTERISK, _NodeKind.DECORATOR} for child in node.children
+            child.kind
+            in {
+                _NodeKind.GET,
+                _NodeKind.SET,
+                _NodeKind.ASYNC,
+                _NodeKind.ASTERISK,
+                _NodeKind.DECORATOR,
+            }
+            for child in node.children
         )
         and (previous is None or previous.kind != _NodeKind.DECORATOR)
     )
@@ -693,7 +749,8 @@ def _parameter_properties(node: _Node) -> tuple[_Node, ...] | None:
         tuple(
             item
             for item in parameters.named_children
-            if _modifiers(item) & {_Modifier.PUBLIC, _Modifier.PRIVATE, _Modifier.PROTECTED, _Modifier.READONLY}
+            if _modifiers(item)
+            & {_Modifier.PUBLIC, _Modifier.PRIVATE, _Modifier.PROTECTED, _Modifier.READONLY}
         )
         if parameters is not None
         else ()
@@ -712,7 +769,8 @@ def _parameter_properties(node: _Node) -> tuple[_Node, ...] | None:
             or pattern is None
             or pattern.kind != _NodeKind.IDENTIFIER
             or _static_member_name(_text(pattern)) is None
-            or len(_modifiers(item) & {_Modifier.PUBLIC, _Modifier.PRIVATE, _Modifier.PROTECTED}) > 1
+            or len(_modifiers(item) & {_Modifier.PUBLIC, _Modifier.PRIVATE, _Modifier.PROTECTED})
+            > 1
         ):
             return None
     return properties
@@ -722,8 +780,13 @@ def _declared_members(body: _Node, kind: DefinitionKind, source: _Source) -> lis
     members: list[Member] = []
     properties: list[Member] = []
     for item in body.named_children:
-        if item.kind in {_NodeKind.PUBLIC_FIELD_DEFINITION, _NodeKind.PROPERTY_SIGNATURE, _NodeKind.ENUM_ASSIGNMENT} or (
-            kind is DefinitionKind.ENUM and item.kind in {_NodeKind.PROPERTY_IDENTIFIER, _NodeKind.IDENTIFIER}
+        if item.kind in {
+            _NodeKind.PUBLIC_FIELD_DEFINITION,
+            _NodeKind.PROPERTY_SIGNATURE,
+            _NodeKind.ENUM_ASSIGNMENT,
+        } or (
+            kind is DefinitionKind.ENUM
+            and item.kind in {_NodeKind.PROPERTY_IDENTIFIER, _NodeKind.IDENTIFIER}
         ):
             member = _member(item, source)
             if member is not None:
@@ -885,7 +948,8 @@ def _decorators(node: _Node) -> tuple[_Node, ...]:
     parent = node.parent
     if parent is not None and parent.kind == _NodeKind.EXPORT_STATEMENT:
         attached = (
-            tuple(child for child in parent.named_children if child.kind == _NodeKind.DECORATOR) + attached
+            tuple(child for child in parent.named_children if child.kind == _NodeKind.DECORATOR)
+            + attached
         )
     if not _class_member(node):
         return attached
@@ -920,7 +984,9 @@ def _member(node: _Node, source: _Source) -> Member | None:
     value = node.child_by_field_name("value")
     literal = (
         _text(value)
-        if value is not None and value.kind in {_NodeKind.STRING, _NodeKind.NUMBER, _NodeKind.TRUE, _NodeKind.FALSE, _NodeKind.NULL}
+        if value is not None
+        and value.kind
+        in {_NodeKind.STRING, _NodeKind.NUMBER, _NodeKind.TRUE, _NodeKind.FALSE, _NodeKind.NULL}
         else None
     )
     return Member(
@@ -929,7 +995,8 @@ def _member(node: _Node, source: _Source) -> Member | None:
         _type(node.child_by_field_name("type")),
         _visibility(node),
         _Modifier.STATIC in _modifiers(node)
-        or node.kind in {_NodeKind.ENUM_ASSIGNMENT, _NodeKind.PROPERTY_IDENTIFIER, _NodeKind.IDENTIFIER},
+        or node.kind
+        in {_NodeKind.ENUM_ASSIGNMENT, _NodeKind.PROPERTY_IDENTIFIER, _NodeKind.IDENTIFIER},
         literal,
         tuple((_text(item), source.span(item)) for item in _decorators(node)),
     )
@@ -976,7 +1043,16 @@ def _module_array_constant(node: _Node, value: _Node) -> bool:
             return False
         value = parts[0]
     return value.kind == _NodeKind.ARRAY and all(
-        item.kind in {_NodeKind.IDENTIFIER, _NodeKind.STRING, _NodeKind.NUMBER, _NodeKind.TRUE, _NodeKind.FALSE, _NodeKind.NULL, _NodeKind.COMMENT}
+        item.kind
+        in {
+            _NodeKind.IDENTIFIER,
+            _NodeKind.STRING,
+            _NodeKind.NUMBER,
+            _NodeKind.TRUE,
+            _NodeKind.FALSE,
+            _NodeKind.NULL,
+            _NodeKind.COMMENT,
+        }
         for item in value.named_children
     )
 
@@ -989,7 +1065,9 @@ def _module_var_array_peer(node: _Node) -> tuple[str | None, bool]:
         and parent is not None
         and parent.kind == _NodeKind.VARIABLE_DECLARATION
     )
-    loop = node.kind == _NodeKind.FOR_IN_STATEMENT and any(child.kind == _NodeKind.VAR for child in node.children)
+    loop = node.kind == _NodeKind.FOR_IN_STATEMENT and any(
+        child.kind == _NodeKind.VAR for child in node.children
+    )
     if not (variable or loop) or any(
         ancestor.kind
         in {
@@ -1060,7 +1138,8 @@ def _uncollected_module_binding(node: _Node) -> tuple[str | None, bool]:
         return None, False
     if defined:
         return None, any(
-            child.kind in {_NodeKind.IDENTIFIER, _NodeKind.TYPE_IDENTIFIER} and re.search(r"\\", _text(child)) is not None
+            child.kind in {_NodeKind.IDENTIFIER, _NodeKind.TYPE_IDENTIFIER}
+            and re.search(r"\\", _text(child)) is not None
             for child in node.named_children
         )
     binding = next(iter(node.named_children), None)
@@ -1108,7 +1187,15 @@ def _variables(
         kind_node = declaration.child_by_field_name("kind") if declaration else None
         is_array = value is not None and _module_array_constant(node, value)
         plain = value is not None and (
-            value.kind in {_NodeKind.IDENTIFIER, _NodeKind.STRING, _NodeKind.NUMBER, _NodeKind.TRUE, _NodeKind.FALSE, _NodeKind.NULL}
+            value.kind
+            in {
+                _NodeKind.IDENTIFIER,
+                _NodeKind.STRING,
+                _NodeKind.NUMBER,
+                _NodeKind.TRUE,
+                _NodeKind.FALSE,
+                _NodeKind.NULL,
+            }
         )
         if kind_node is None or kind_node.kind is not _NodeKind.CONST or not (plain or is_array):
             if module_level:
@@ -1117,7 +1204,9 @@ def _variables(
         owner = next((item for item, _, _ in reversed(scopes) if _contains(item, node)), None)
         parent_name = next((qualified for item, qualified, _ in scopes if item is owner), None)
         owner_span = source.span(owner) if owner is not None else None
-        exported = declaration_parent is not None and declaration_parent.kind == _NodeKind.EXPORT_STATEMENT
+        exported = (
+            declaration_parent is not None and declaration_parent.kind == _NodeKind.EXPORT_STATEMENT
+        )
         result.append(
             Definition(
                 name,
@@ -1187,7 +1276,11 @@ def _sites(
                     scope_column=source.span(scope).column if scope is not None else None,
                 )
             )
-        if node.kind not in (_NodeKind.IDENTIFIER, _NodeKind.TYPE_IDENTIFIER, _NodeKind.PROPERTY_IDENTIFIER):
+        if node.kind not in (
+            _NodeKind.IDENTIFIER,
+            _NodeKind.TYPE_IDENTIFIER,
+            _NodeKind.PROPERTY_IDENTIFIER,
+        ):
             continue
         if node in declarations or _declaration_name(node) or _is_member_name(node):
             continue
@@ -1207,7 +1300,9 @@ def _sites(
         sites.append(
             Site(
                 SiteKind.REFERENCE,
-                f"{target_name.receiver}.{target_name.name}" if target_name.receiver and target_name.name else _text(node),
+                f"{target_name.receiver}.{target_name.name}"
+                if target_name.receiver and target_name.name
+                else _text(node),
                 source.span(node),
                 scope_name,
                 scope_line,
@@ -1216,7 +1311,11 @@ def _sites(
                 computed=target_name.computed,
                 receiver_kind=target_name.receiver_kind,
                 shadowed_names=shadowed,
-                use=SiteUse.TYPE if node.kind is _NodeKind.TYPE_IDENTIFIER else SiteUse.MEMBER if target_name.receiver else SiteUse.VALUE,
+                use=SiteUse.TYPE
+                if node.kind is _NodeKind.TYPE_IDENTIFIER
+                else SiteUse.MEMBER
+                if target_name.receiver
+                else SiteUse.VALUE,
                 scope_ambiguous=ambiguous_scope,
                 scope_column=source.span(scope).column if scope is not None else None,
             )
@@ -1246,12 +1345,16 @@ def _target_name(node: _Node) -> _TargetName:
         receiver = node.child_by_field_name("object")
         name = node.child_by_field_name("property")
         return _TargetName(
-            _text(name) if name is not None and name.kind is _NodeKind.PROPERTY_IDENTIFIER else None,
+            _text(name)
+            if name is not None and name.kind is _NodeKind.PROPERTY_IDENTIFIER
+            else None,
             _text(receiver) if receiver is not None else None,
             name is None or name.kind is not _NodeKind.PROPERTY_IDENTIFIER,
             ReceiverKind.THIS
             if receiver is not None and receiver.kind is _NodeKind.THIS
-            else ReceiverKind.OTHER if receiver is not None else ReceiverKind.NONE,
+            else ReceiverKind.OTHER
+            if receiver is not None
+            else ReceiverKind.NONE,
         )
     return _TargetName(None, None, True)
 
@@ -1290,7 +1393,11 @@ def _active_scope_names(node: _Node, scope: _Node | None) -> tuple[tuple[str, ..
             owner = parent.parent
             if owner is None or owner.child_by_field_name("body") != parent:
                 ambiguous = True
-        if parent.kind in {_NodeKind.ARROW_FUNCTION, _NodeKind.FUNCTION_EXPRESSION, _NodeKind.GENERATOR_FUNCTION}:
+        if parent.kind in {
+            _NodeKind.ARROW_FUNCTION,
+            _NodeKind.FUNCTION_EXPRESSION,
+            _NodeKind.GENERATOR_FUNCTION,
+        }:
             names.update(_scope_names(parent))
             ambiguous = True
         elif parent.kind == _NodeKind.METHOD_DEFINITION and not _class_member(parent):
@@ -1320,7 +1427,10 @@ def _is_member_name(node: _Node) -> bool:
 
 def _inside_site_callee(node: _Node) -> bool:
     child, parent = node, node.parent
-    while parent is not None and parent.kind in (_NodeKind.MEMBER_EXPRESSION, _NodeKind.SUBSCRIPT_EXPRESSION):
+    while parent is not None and parent.kind in (
+        _NodeKind.MEMBER_EXPRESSION,
+        _NodeKind.SUBSCRIPT_EXPRESSION,
+    ):
         child, parent = parent, parent.parent
     return (
         parent is not None
@@ -1421,7 +1531,12 @@ def _rebound_names(source: _Source) -> tuple[str, ...]:
         if node.kind != _NodeKind.ASSIGNMENT_EXPRESSION:
             continue
         if any(
-            parent.kind in (_NodeKind.FUNCTION_DECLARATION, _NodeKind.METHOD_DEFINITION, _NodeKind.ARROW_FUNCTION)
+            parent.kind
+            in (
+                _NodeKind.FUNCTION_DECLARATION,
+                _NodeKind.METHOD_DEFINITION,
+                _NodeKind.ARROW_FUNCTION,
+            )
             for parent in _ancestors(node)
         ):
             continue
@@ -1464,7 +1579,11 @@ def _in_error(node: _Node) -> bool:
 
 def _literal(node: _Node | None) -> str | None:
     """The module text of a string without escapes or substitutions; None means computed."""
-    if node is None or node.kind not in (_NodeKind.STRING, _NodeKind.TEMPLATE_STRING) or re.search(r"\\", _text(node)) is not None:
+    if (
+        node is None
+        or node.kind not in (_NodeKind.STRING, _NodeKind.TEMPLATE_STRING)
+        or re.search(r"\\", _text(node)) is not None
+    ):
         return None
     if any(child.kind == _NodeKind.TEMPLATE_SUBSTITUTION for child in node.children):
         return None
@@ -1476,7 +1595,9 @@ def _type_only(statement: _Node, specifiers: list[_Node], default: bool) -> bool
     marked = bool(specifiers) and all(
         any(child.kind == _NodeKind.TYPE for child in item.children) for item in specifiers
     )
-    return any(child.kind == _NodeKind.TYPE for child in statement.children) or (marked and not default)
+    return any(child.kind == _NodeKind.TYPE for child in statement.children) or (
+        marked and not default
+    )
 
 
 def _children(node: _Node | None, kind: _NodeKind) -> list[_Node]:
@@ -1486,10 +1607,14 @@ def _children(node: _Node | None, kind: _NodeKind) -> list[_Node]:
 def _import(node: _Node, source: _Source) -> Reference:
     clause = next(iter(_children(node, _NodeKind.IMPORT_CLAUSE)), None)
     required = next(iter(_children(node, _NodeKind.IMPORT_REQUIRE_CLAUSE)), None)
-    named = _children(next(iter(_children(clause, _NodeKind.NAMED_IMPORTS)), None), _NodeKind.IMPORT_SPECIFIER)
+    named = _children(
+        next(iter(_children(clause, _NodeKind.NAMED_IMPORTS)), None), _NodeKind.IMPORT_SPECIFIER
+    )
     return Reference(
         ReferenceForm.IMPORT if required is None else ReferenceForm.IMPORT_EQUALS,
-        _literal(next(iter(_children(node if required is None else required, _NodeKind.STRING)), None)),
+        _literal(
+            next(iter(_children(node if required is None else required, _NodeKind.STRING)), None)
+        ),
         _type_only(node, named, bool(_children(clause, _NodeKind.IDENTIFIER))),
         _top_level(node),
         re.search(r"resolution-mode", _text(node)) is not None,
@@ -1537,7 +1662,8 @@ def _query_start(node: _Node) -> _Node | None:
     parent = node.parent
     while (
         parent is not None
-        and parent.kind in (_NodeKind.MEMBER_EXPRESSION, _NodeKind.CALL_EXPRESSION, _NodeKind.SUBSCRIPT_EXPRESSION)
+        and parent.kind
+        in (_NodeKind.MEMBER_EXPRESSION, _NodeKind.CALL_EXPRESSION, _NodeKind.SUBSCRIPT_EXPRESSION)
         and parent.start_byte == node.start_byte
     ):
         parent = parent.parent
@@ -1557,7 +1683,9 @@ def _dynamic(node: _Node, source: _Source) -> Reference:
 
 
 def _require(node: _Node, source: _Source) -> Reference:
-    return Reference(ReferenceForm.REQUIRE, _literal(_argument(node)), False, False, False, source.span(node))
+    return Reference(
+        ReferenceForm.REQUIRE, _literal(_argument(node)), False, False, False, source.span(node)
+    )
 
 
 def _starts_with(parent: _Node | None, node: _Node, *kinds: _NodeKind) -> bool:
@@ -1573,7 +1701,9 @@ def _require_concerns(source: _Source, concerns: list[Concern]) -> bool:
             continue
         concerns.append(Concern("Indirect require use is not resolved", source.span(node)))
         # Reading `require.main` or `typeof require` does not rebind it; anything else might.
-        reads = _starts_with(parent, node, _NodeKind.MEMBER_EXPRESSION, _NodeKind.SUBSCRIPT_EXPRESSION)
+        reads = _starts_with(
+            parent, node, _NodeKind.MEMBER_EXPRESSION, _NodeKind.SUBSCRIPT_EXPRESSION
+        )
         typeof = (
             parent is not None
             and parent.kind == _NodeKind.UNARY_EXPRESSION

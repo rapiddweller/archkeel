@@ -12,6 +12,7 @@ from test_typescript_inner import _collected, _collected_files
 from test_typescript_partial_uml import _live, _project
 
 from archkeel.analyzer.typescript.parse import parse
+from archkeel.analyzer.typescript.syntax import DefinitionKind
 from archkeel.check.report import run_saved_report
 from archkeel.check.uml_compare import compare_graphs
 from archkeel.ir.architecture_graph import ArchitectureGraph, Entity, TargetScope
@@ -135,7 +136,7 @@ def test_supported_decorated_lexical_members_are_complete(member: str) -> None:
 )
 def test_uncertain_or_unsupported_decorated_bodies_are_not_closed(member: str) -> None:
     syntax = parse("main.ts", f"class Endpoint {{ {member} }}".encode())
-    owners = [item for item in syntax.definitions if item.kind == "class"]
+    owners = [item for item in syntax.definitions if item.kind is DefinitionKind.CLASS]
     assert not owners or all(item.members_complete is False for item in owners)
 
 

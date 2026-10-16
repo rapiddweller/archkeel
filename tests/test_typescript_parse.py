@@ -10,7 +10,7 @@ from archkeel.analyzer.typescript.parse import Syntax, parse
 
 def _forms(syntax: Syntax) -> list[tuple[str, str | None, bool, bool]]:
     return [
-        (item.form, item.specifier, item.type_only, item.module_level) for item in syntax.references
+        (item.form.value, item.specifier, item.type_only, item.module_level) for item in syntax.references
     ]
 
 

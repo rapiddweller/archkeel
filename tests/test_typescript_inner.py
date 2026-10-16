@@ -11,6 +11,7 @@ from test_source_graph import _graph_from_source_facts
 
 from archkeel.analyzer.typescript.collect import collect
 from archkeel.analyzer.typescript.parse import parse
+from archkeel.analyzer.typescript.syntax import DefinitionKind, SiteKind
 from archkeel.check.uml_compare import compare_graphs
 from archkeel.ir.architecture_graph import ArchitectureGraph, Entity
 from archkeel.ir.facts_validation import validate_source_facts
@@ -62,7 +63,7 @@ export const VERSION = 1;
 export function build(): Client { const client = new Client(); return client; }
 """,
     )
-    assert [(item.kind, item.name, item.parent) for item in syntax.definitions] == [
+    assert [(item.kind.value, item.name, item.parent) for item in syntax.definitions] == [
         ("interface", "Port", None),
         ("method", "run", "Port"),
         ("class", "Client", None),
@@ -74,7 +75,7 @@ export function build(): Client { const client = new Client(); return client; }
         ("function", "build", None),
     ]
     client = next(item for item in syntax.definitions if item.name == "Client")
-    assert [(base.name, base.relationship) for base in client.bases] == [
+    assert [(base.name, base.relationship.value) for base in client.bases] == [
         ("Base", "inherits"),
         ("Port", "realizes"),
     ]
@@ -85,9 +86,9 @@ export function build(): Client { const client = new Client(); return client; }
     state = next(item for item in syntax.definitions if item.name == "State")
     assert [(field.name, field.literal) for field in state.members] == [("READY", "'ready'")]
     assert [
-        (site.kind, site.expression, site.scope, site.assigned_name)
+        (site.kind.value, site.expression, site.scope, site.assigned_name)
         for site in syntax.sites
-        if site.kind != "reference"
+        if site.kind is not SiteKind.REFERENCE
     ] == [
         ("call", "helper", "Client.run", None),
         ("new", "Client", "build", "client"),
@@ -297,7 +298,7 @@ def test_parser_type_only_export_clauses_do_not_prove_runtime_exports() -> None:
     assert definitions["InterfaceType"].exported is False
     assert definitions["AliasType"].exported is False
     assert {
-        definitions[name].visibility for name in ("ClassType", "InterfaceType", "AliasType")
+        definitions[name].visibility.value for name in ("ClassType", "InterfaceType", "AliasType")
     } == {"public"}
 
 
@@ -420,7 +421,7 @@ def test_overloads_and_computed_construction_remain_separate_syntax_sites() -> N
         ("make", 2),
         ("make", 3),
     ]
-    assert [(site.kind, site.expression) for site in syntax.sites if site.kind != "reference"] == [
+    assert [(site.kind.value, site.expression) for site in syntax.sites if site.kind is not SiteKind.REFERENCE] == [
         ("new", "(pick())"),
         ("call", "pick"),
     ]
@@ -438,13 +439,13 @@ def test_import_binding_and_local_shadow_names_are_separate_from_module_edges() 
         ("helper", "run", False),
         ("*", "model", True),
     ]
-    calls = [site for site in syntax.sites if site.kind == "call"]
+    calls = [site for site in syntax.sites if site.kind is SiteKind.CALL]
     assert [(site.name, site.shadowed_names) for site in calls] == [
         ("run", ("helper",)),
         ("helper", ("helper",)),
     ]
     assert any(
-        site.kind == "reference" and site.name == "Unit" and site.receiver == "model"
+        site.kind is SiteKind.REFERENCE and site.name == "Unit" and site.receiver == "model"
         for site in syntax.sites
     )
 
@@ -479,7 +480,7 @@ def test_nested_class_bases_are_not_attributed_to_the_outer_class() -> None:
     outer = next(item for item in syntax.definitions if item.name == "Outer")
     inner = next(item for item in syntax.definitions if item.name == "Inner")
     assert outer.bases == ()
-    assert [(item.name, item.relationship) for item in inner.bases] == [("Base", "inherits")]
+    assert [(item.name, item.relationship.value) for item in inner.bases] == [("Base", "inherits")]
 
 
 def test_anonymous_callbacks_and_object_methods_are_not_named_scopes() -> None:
@@ -488,8 +489,8 @@ def test_anonymous_callbacks_and_object_methods_are_not_named_scopes() -> None:
         b"function work() { const callback = (helper: () => void) => helper(); "
         b"const object = { run(helper: () => void) { helper(); } }; }",
     )
-    assert not any(item.name == "run" and item.kind == "method" for item in syntax.definitions)
-    calls = [item for item in syntax.sites if item.kind == "call" and item.name == "helper"]
+    assert not any(item.name == "run" and item.kind is DefinitionKind.METHOD for item in syntax.definitions)
+    calls = [item for item in syntax.sites if item.kind is SiteKind.CALL and item.name == "helper"]
     assert len(calls) == 2
     assert all(item.scope_ambiguous for item in calls)
     assert all("helper" in item.shadowed_names for item in calls)
@@ -501,11 +502,11 @@ def test_parser_error_regions_do_not_create_inner_declarations_or_sites() -> Non
         b"export class Good {}\nexport class = ;\nfunction bad() { return new Missing(); }\n",
     )
     assert syntax.first_error is not None
-    assert [(item.kind, item.name) for item in syntax.definitions] == [
+    assert [(item.kind.value, item.name) for item in syntax.definitions] == [
         ("class", "Good"),
         ("function", "bad"),
     ]
-    assert [(site.kind, site.expression) for site in syntax.sites if site.kind != "reference"] == [
+    assert [(site.kind.value, site.expression) for site in syntax.sites if site.kind is not SiteKind.REFERENCE] == [
         ("new", "Missing")
     ]
 
@@ -520,13 +521,13 @@ def test_interface_heritage_private_names_bare_enum_members_and_partial_signatur
     method = next(item for item in syntax.definitions if item.name == "run")
     state = next(item for item in syntax.definitions if item.name == "State")
     token = next(item for item in syntax.definitions if item.name == "Token")
-    assert [(base.name, base.relationship) for base in child.bases] == [
+    assert [(base.name, base.relationship.value) for base in child.bases] == [
         ("First", "inherits"),
         ("Second", "inherits"),
     ]
     assert method.signature_complete is False
     assert [member.name for member in state.members] == ["READY", "STOPPED"]
-    assert [(member.name, member.visibility) for member in token.members] == [("#token", "private")]
+    assert [(member.name, member.visibility.value) for member in token.members] == [("#token", "private")]
 
 
 def test_namespace_and_class_expression_members_are_not_assigned_false_owners() -> None:
