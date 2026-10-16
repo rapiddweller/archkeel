@@ -27,13 +27,8 @@ jobs:
           uv sync --locked
       - name: Install report browser
         run: make browser-install
-      - name: Normalize exact formatting for review
-        run: uv run --locked ruff format src tests
-      - name: Export exact formatting patch
-        if: always()
-        run: |
-          git diff --no-ext-diff > .task-full-format.patch
-          python -c "import base64,pathlib; print('FORMAT_PATCH='+base64.b64encode(pathlib.Path('.task-full-format.patch').read_bytes()).decode())"
+      - name: Check committed source formatting
+        run: uv run --locked ruff format --check src tests
       - name: Run all source and browser tests with lint and type checks
         run: make check PYTEST_EXTRA="--with playwright==1.62.0"
       - name: Upload full-suite evidence
@@ -59,11 +54,11 @@ jobs:
       - name: Validate complete own contract without budget changes
         run: |
           set +e
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > .task-full-native.json
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > "$RUNNER_TEMP/task-full-native.json"
           task_native_status=$?
           python - <<'PY'
-          import json,pathlib
-          data=json.loads(pathlib.Path(".task-full-native.json").read_text())
+          import json,os,pathlib
+          data=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"task-full-native.json").read_text())
           print(json.dumps({key:data.get(key) for key in ("exit_code","failures","diagnostics","measurements")},indent=2))
           PY
           exit "$task_native_status"

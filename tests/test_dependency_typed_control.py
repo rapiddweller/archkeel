@@ -59,7 +59,9 @@ def test_native_dependency_policy_accepts_owned_enums_and_name_data(tmp_path):
     assert not [row for row in trace_valid_violations(model) if GUARD in row.rule_ids]
 
 
-def test_native_wire_comparison_remains_at_the_codec_boundary(tmp_path):
+def test_dependency_guard_does_not_claim_unmigrated_codec_protection(tmp_path):
+    # This fixture selects only the dependency guard. Expanded #542 also requires
+    # codec migration; this assertion grants no permanent parser exemption.
     root, config = _dependency_repository(tmp_path)
     codec = root / "archkeel/ir/codec_contract.py"
     codec.write_text(

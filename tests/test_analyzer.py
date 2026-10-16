@@ -1148,7 +1148,7 @@ def test_collect_constructs_detects_reflection_as_written(
             'match command:\n    case ["go", where]:\n        pass\n',
             [("sample.mod", "match")],
         ),
-        ('if __name__ == "__main__":\n    pass\n', []),
+        ('if __name__ == "__main__":\n    pass\n', [("sample.mod", "compare")]),
         (
             'EMPTY = ""\n\ndef f(value: str) -> bool:\n    return value == EMPTY\n',
             [("sample.mod.f", "compare")],
@@ -1226,7 +1226,7 @@ def test_collect_constructs_detects_reflection_as_written(
         ),
         ("ok = mode == 5\n", []),
         ('ok = mode == f"{x}"\n', []),
-        ('ok = mode == b"a"\n', []),
+        ('ok = mode == b"a"\n', [("sample.mod", "compare")]),
         ('ok = mode < "b"\n', []),
         ('ok = mode in ("a", 1)\n', []),
         ("ok = mode in ()\n", []),

@@ -769,9 +769,11 @@
         "archkeel.ir.facts",
         "archkeel.ir.type_shapes",
         "archkeel.ir.architecture_graph",
-        "archkeel.ir.dependency"
+        "archkeel.ir.dependency",
+        "archkeel.ir.state_facts",
+        "archkeel.ir.state_codec"
       ],
-      "rationale": "Governance enums stay in ir.model; source facts, type shapes, the shared UML graph and pure dependency policy own their respective vocabularies.",
+      "rationale": "Each shared vocabulary belongs to its domain model; state_facts owns state controls and state_codec owns its private wire event tag.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],
@@ -859,6 +861,32 @@
       "rationale": "Dependency policy branches on its owned SelectorMatch and DependencyTargetKind enums; raw protocol conversion belongs to the contract codec.",
       "provenance": [
         "docs/architecture/typed-control-migration.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "STATE-FACTS-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.state_facts",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "State controls use their owned enums in the domain and parser; JSON conversion does not exempt protocol-string dispatch.",
+      "provenance": [
+        "docs/architecture/typed-state-protocol.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "STATE-CODEC-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.state_codec",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "State controls use their owned enums in the domain and parser; JSON conversion does not exempt protocol-string dispatch.",
+      "provenance": [
+        "docs/architecture/typed-state-protocol.md"
       ],
       "decided_by": "architect"
     }

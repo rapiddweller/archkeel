@@ -8,7 +8,6 @@ from __future__ import annotations
 import ast
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
-from typing import Literal
 
 from archkeel.ir.facts import Evidence, Record
 from archkeel.ir.facts_codec import RawEvidence, parse_evidence
@@ -16,9 +15,14 @@ from archkeel.ir.state_facts import (
     ArgumentPass,
     Assignment,
     AttributeAccess,
+    BindingState,
     ClassStateFacts,
     FieldState,
     FunctionStateTrace,
+    ObjectMutability,
+    PropertyAssignment,
+    ReferentMutability,
+    StateAccess,
     StateEvent,
     StateFacts,
     StateParameter,
@@ -52,7 +56,12 @@ _MUTATING_METHODS = {
 
 def _field(name: str, frozen: bool, evidence_ids: tuple[str, ...] = ()) -> FieldState:
     return FieldState(
-        name, None, "UNKNOWN", "UNKNOWN", "object_immutable" if frozen else "UNKNOWN", evidence_ids
+        name,
+        None,
+        BindingState.UNKNOWN,
+        ReferentMutability.UNKNOWN,
+        ObjectMutability.OBJECT_IMMUTABLE if frozen else ObjectMutability.UNKNOWN,
+        evidence_ids,
     )
 
 
@@ -67,8 +76,10 @@ def _annotated_field(field: FieldState, annotation: str | None, evidence_id: str
     return replace(
         field,
         annotation=annotation,
-        binding="non_reassignable" if is_final else field.binding,
-        referent_mutability="mutable_container" if is_container else field.referent_mutability,
+        binding=BindingState.NON_REASSIGNABLE if is_final else field.binding,
+        referent_mutability=(
+            ReferentMutability.MUTABLE_CONTAINER if is_container else field.referent_mutability
+        ),
         evidence_ids=(evidence_id,),
     )
 
@@ -137,12 +148,11 @@ def _class_state(
                 ):
                     mutable.add(receiver.attr)
     for name, has_setter in properties.items():
-        fields[name] = replace(
-            fields.get(name, _field(name, False)),
-            property_assignment="available" if has_setter else "unavailable",
-        )
+        field = fields.get(name, _field(name, False))
+        assignment = PropertyAssignment.AVAILABLE if has_setter else PropertyAssignment.UNAVAILABLE
+        fields[name] = replace(field, property_assignment=assignment)
     for name in mutable:
-        fields[name] = replace(fields[name], mutability="mutable")
+        fields[name] = replace(fields[name], mutability=ObjectMutability.MUTABLE)
     evidence.update(local_evidence)
     return ClassStateFacts(
         qualified,
@@ -183,8 +193,10 @@ def _function_events(
             if rooted is None:
                 continue
             binding, path = rooted
-            access: Literal["read", "write", "mutation"] = (
-                "write" if isinstance(node.ctx, (ast.Store, ast.Del)) else "read"
+            access = (
+                StateAccess.WRITE
+                if isinstance(node.ctx, (ast.Store, ast.Del))
+                else StateAccess.READ
             )
             evidence_node: ast.AST = node
             if (
@@ -193,7 +205,7 @@ def _function_events(
                 and path[-1] in _MUTATING_METHODS
                 and len(path) > 1
             ):
-                access = "mutation"
+                access = StateAccess.MUTATION
                 evidence_node = parent
             events.append(
                 AttributeAccess(

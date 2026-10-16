@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "c7345d5fbcfd8083fe3a618d23a806dea1eee1c1083aa3e163d59b5e260fa2ed",
+  "after_digest": "c15e68a4c5519591dc9e0af4d5c38495ac3f57397ead5a7bc61021af875a04a7",
+  "before_baseline_digest": "c7345d5fbcfd8083fe3a618d23a806dea1eee1c1083aa3e163d59b5e260fa2ed",
+  "before_digest": "b56f35345d71344674517d21bbc238172dfea8936252f37df9861827351c5c50",
+  "decided_by": "ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge",
+  "rationale": "State facts own five nominal control enums and their codec owns the private event grammar. Twenty-five independently authored Target entities and domain plus parser guards enforce the intended boundary. Enum placement names those owners. No baseline, cap or allowance changes. See docs/architecture/typed-state-protocol.md.",
+  "schema_version": "2.0.0"
+}

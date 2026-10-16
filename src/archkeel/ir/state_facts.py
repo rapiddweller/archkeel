@@ -6,18 +6,46 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, TypeAlias
+from enum import StrEnum
+from typing import TypeAlias
+
+
+class BindingState(StrEnum):
+    UNKNOWN = "UNKNOWN"
+    NON_REASSIGNABLE = "non_reassignable"
+
+
+class ReferentMutability(StrEnum):
+    UNKNOWN = "UNKNOWN"
+    MUTABLE_CONTAINER = "mutable_container"
+
+
+class ObjectMutability(StrEnum):
+    UNKNOWN = "UNKNOWN"
+    OBJECT_IMMUTABLE = "object_immutable"
+    MUTABLE = "mutable"
+
+
+class PropertyAssignment(StrEnum):
+    AVAILABLE = "available"
+    UNAVAILABLE = "unavailable"
+
+
+class StateAccess(StrEnum):
+    READ = "read"
+    WRITE = "write"
+    MUTATION = "mutation"
 
 
 @dataclass(frozen=True)
 class FieldState:
     name: str
     annotation: str | None
-    binding: Literal["UNKNOWN", "non_reassignable"]
-    referent_mutability: Literal["UNKNOWN", "mutable_container"]
-    mutability: Literal["UNKNOWN", "object_immutable", "mutable"]
+    binding: BindingState
+    referent_mutability: ReferentMutability
+    mutability: ObjectMutability
     evidence_ids: tuple[str, ...]
-    property_assignment: Literal["available", "unavailable"] | None = None
+    property_assignment: PropertyAssignment | None = None
 
 
 @dataclass(frozen=True)
@@ -49,7 +77,7 @@ class Assignment:
 class AttributeAccess:
     binding: str
     path: tuple[str, ...]
-    access: Literal["read", "write", "mutation"]
+    access: StateAccess
     evidence_id: str
 
 

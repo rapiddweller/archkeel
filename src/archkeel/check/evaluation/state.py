@@ -16,6 +16,7 @@ from archkeel.ir.state_facts import (
     Assignment,
     AttributeAccess,
     FieldState,
+    StateAccess,
     StateFacts,
 )
 
@@ -241,13 +242,13 @@ def _field_data(field: FieldState) -> RecordData:
     data: RecordData = {
         "name": field.name,
         "annotation": field.annotation,
-        "binding": field.binding,
-        "referent_mutability": field.referent_mutability,
-        "mutability": field.mutability,
+        "binding": field.binding.value,
+        "referent_mutability": field.referent_mutability.value,
+        "mutability": field.mutability.value,
         "evidence_ids": list(field.evidence_ids),
     }
     if field.property_assignment is not None:
-        data["property_assignment"] = field.property_assignment
+        data["property_assignment"] = field.property_assignment.value
     return data
 
 
@@ -293,14 +294,18 @@ def _access_observations(
                 bound = bindings.get(event.binding)
                 if bound is None:
                     continue
-                field_path = event.path[:-1] if event.access == "mutation" else event.path
-                kind = "writes" if event.access in {"write", "mutation"} else "reads"
+                field_path = event.path[:-1] if event.access is StateAccess.MUTATION else event.path
+                kind = (
+                    "writes"
+                    if event.access in {StateAccess.WRITE, StateAccess.MUTATION}
+                    else "reads"
+                )
                 observations[bound][kind].append(
                     {
                         "source": trace.scope,
                         "field": field_path[0],
                         "path": ".".join(field_path),
-                        "access": event.access,
+                        "access": event.access.value,
                         "evidence_ids": [event.evidence_id],
                     }
                 )

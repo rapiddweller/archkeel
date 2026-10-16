@@ -5,31 +5,33 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeVar, assert_never
+import re
+from enum import StrEnum
+from typing import assert_never
 
 from .facts import JsonValue, RecordData
 from .state_facts import (
     ArgumentPass,
     Assignment,
     AttributeAccess,
+    BindingState,
     ClassStateFacts,
     FieldState,
     FunctionStateTrace,
+    ObjectMutability,
+    PropertyAssignment,
+    ReferentMutability,
+    StateAccess,
     StateEvent,
     StateFacts,
     StateParameter,
 )
 
-_Choice = TypeVar("_Choice", bound=str)
-_BINDINGS: tuple[Literal["UNKNOWN", "non_reassignable"], ...] = ("UNKNOWN", "non_reassignable")
-_REFERENTS: tuple[Literal["UNKNOWN", "mutable_container"], ...] = ("UNKNOWN", "mutable_container")
-_MUTABILITY: tuple[Literal["UNKNOWN", "object_immutable", "mutable"], ...] = (
-    "UNKNOWN",
-    "object_immutable",
-    "mutable",
-)
-_PROPERTIES: tuple[Literal["available", "unavailable"], ...] = ("available", "unavailable")
-_ACCESSES: tuple[Literal["read", "write", "mutation"], ...] = ("read", "write", "mutation")
+
+class _EventKind(StrEnum):
+    ASSIGNMENT = "assignment"
+    ATTRIBUTE = "attribute"
+    PASS = "pass"
 
 
 def _data(**values: JsonValue) -> RecordData:
@@ -39,7 +41,7 @@ def _data(**values: JsonValue) -> RecordData:
 def _event_data(event: StateEvent) -> RecordData:
     if isinstance(event, Assignment):
         return _data(
-            kind="assignment",
+            kind=_EventKind.ASSIGNMENT.value,
             targets=event.targets,
             constructor=event.constructor,
             annotation=event.annotation,
@@ -47,15 +49,18 @@ def _event_data(event: StateEvent) -> RecordData:
         )
     if isinstance(event, AttributeAccess):
         return _data(
-            kind="attribute",
+            kind=_EventKind.ATTRIBUTE.value,
             binding=event.binding,
             path=event.path,
-            access=event.access,
+            access=event.access.value,
             evidence_id=event.evidence_id,
         )
     if isinstance(event, ArgumentPass):
         return _data(
-            kind="pass", binding=event.binding, target=event.target, evidence_id=event.evidence_id
+            kind=_EventKind.PASS.value,
+            binding=event.binding,
+            target=event.target,
+            evidence_id=event.evidence_id,
         )
     assert_never(event)
 
@@ -74,11 +79,15 @@ def state_data(facts: StateFacts) -> RecordData:
                     _data(
                         name=field.name,
                         annotation=field.annotation,
-                        binding=field.binding,
-                        referent_mutability=field.referent_mutability,
-                        mutability=field.mutability,
+                        binding=field.binding.value,
+                        referent_mutability=field.referent_mutability.value,
+                        mutability=field.mutability.value,
                         evidence_ids=field.evidence_ids,
-                        property_assignment=field.property_assignment,
+                        property_assignment=(
+                            field.property_assignment.value
+                            if field.property_assignment is not None
+                            else None
+                        ),
                     )
                     for field in item.fields
                 ),
@@ -109,7 +118,7 @@ def _fields(value: JsonValue, names: set[str], label: str) -> dict[str, JsonValu
 
 
 def _text(value: JsonValue, label: str) -> str:
-    if not isinstance(value, str) or not value or "\x00" in value:
+    if not isinstance(value, str) or not value or re.search(r"\x00", value):
         raise ValueError(f"{label} must be nonempty text")
     return value
 
@@ -134,13 +143,6 @@ def _bool(value: JsonValue, label: str) -> bool:
     return value
 
 
-def _choice(value: JsonValue, choices: tuple[_Choice, ...], label: str) -> _Choice:
-    for choice in choices:
-        if value == choice:
-            return choice
-    raise ValueError(f"invalid {label}")
-
-
 def _parse_field(value: JsonValue) -> FieldState:
     raw = _fields(
         value,
@@ -158,13 +160,13 @@ def _parse_field(value: JsonValue) -> FieldState:
     return FieldState(
         _text(raw["name"], "field.name"),
         _optional_text(raw["annotation"], "field.annotation"),
-        _choice(raw["binding"], _BINDINGS, "field.binding"),
-        _choice(raw["referent_mutability"], _REFERENTS, "field.referent_mutability"),
-        _choice(raw["mutability"], _MUTABILITY, "field.mutability"),
+        BindingState(_text(raw["binding"], "field.binding")),
+        ReferentMutability(_text(raw["referent_mutability"], "field.referent_mutability")),
+        ObjectMutability(_text(raw["mutability"], "field.mutability")),
         _names(raw["evidence_ids"], "field.evidence_ids"),
         None
         if raw["property_assignment"] is None
-        else _choice(raw["property_assignment"], _PROPERTIES, "field.property_assignment"),
+        else PropertyAssignment(_text(raw["property_assignment"], "field.property_assignment")),
     )
 
 
@@ -199,8 +201,11 @@ def _parse_parameter(value: JsonValue) -> StateParameter:
 def _parse_event(value: JsonValue) -> StateEvent:
     if not isinstance(value, RecordData):
         raise ValueError("state event must be an object")
-    kind = value.get("kind")
-    if kind == "assignment":
+    try:
+        kind = _EventKind(_text(value.get("kind"), "state event kind"))
+    except ValueError as exc:
+        raise ValueError("unknown state event kind") from exc
+    if kind is _EventKind.ASSIGNMENT:
         raw = _fields(
             value, {"kind", "targets", "constructor", "annotation", "alias"}, "assignment event"
         )
@@ -210,13 +215,13 @@ def _parse_event(value: JsonValue) -> StateEvent:
             _optional_text(raw["annotation"], "assignment.annotation"),
             _optional_text(raw["alias"], "assignment.alias"),
         )
-    if kind == "attribute":
+    if kind is _EventKind.ATTRIBUTE:
         raw = _fields(
             value, {"kind", "binding", "path", "access", "evidence_id"}, "attribute event"
         )
         path = _names(raw["path"], "attribute.path")
-        access = _choice(raw["access"], _ACCESSES, "attribute.access")
-        if not path or (access == "mutation" and len(path) < 2):
+        access = StateAccess(_text(raw["access"], "attribute.access"))
+        if not path or (access is StateAccess.MUTATION and len(path) < 2):
             raise ValueError("attribute event path is empty or has no mutation receiver")
         return AttributeAccess(
             _text(raw["binding"], "attribute.binding"),
@@ -224,14 +229,14 @@ def _parse_event(value: JsonValue) -> StateEvent:
             access,
             _text(raw["evidence_id"], "attribute.evidence_id"),
         )
-    if kind == "pass":
+    if kind is _EventKind.PASS:
         raw = _fields(value, {"kind", "binding", "target", "evidence_id"}, "pass event")
         return ArgumentPass(
             _text(raw["binding"], "pass.binding"),
             _text(raw["target"], "pass.target"),
             _text(raw["evidence_id"], "pass.evidence_id"),
         )
-    raise ValueError("unknown state event kind")
+    assert_never(kind)
 
 
 def _parse_function(value: JsonValue) -> FunctionStateTrace:

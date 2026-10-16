@@ -6199,6 +6199,462 @@
             ],
             "returns": "tuple[DependencyOwner, ...]"
           }
+        },
+        {
+          "id": "IR-STATE-state_facts",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.state_facts",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Own immutable state facts and their nominal control vocabulary."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ]
+        },
+        {
+          "id": "IR-STATE-state_facts.BindingState",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.state_facts.BindingState",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Name the owned BindingState vocabulary."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.BindingState.UNKNOWN",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.state_facts.BindingState.UNKNOWN",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.BindingState",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the existing UNKNOWN state value."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.BindingState.NON_REASSIGNABLE",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.state_facts.BindingState.NON_REASSIGNABLE",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.BindingState",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the existing NON_REASSIGNABLE state value."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.ReferentMutability",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.state_facts.ReferentMutability",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Name the owned ReferentMutability vocabulary."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.ReferentMutability.UNKNOWN",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.state_facts.ReferentMutability.UNKNOWN",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.ReferentMutability",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the existing UNKNOWN state value."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.ReferentMutability.MUTABLE_CONTAINER",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.state_facts.ReferentMutability.MUTABLE_CONTAINER",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.ReferentMutability",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the existing MUTABLE_CONTAINER state value."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.ObjectMutability",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.state_facts.ObjectMutability",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Name the owned ObjectMutability vocabulary."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.ObjectMutability.UNKNOWN",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.state_facts.ObjectMutability.UNKNOWN",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.ObjectMutability",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the existing UNKNOWN state value."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.ObjectMutability.OBJECT_IMMUTABLE",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.state_facts.ObjectMutability.OBJECT_IMMUTABLE",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.ObjectMutability",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the existing OBJECT_IMMUTABLE state value."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.ObjectMutability.MUTABLE",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.state_facts.ObjectMutability.MUTABLE",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.ObjectMutability",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the existing MUTABLE state value."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.PropertyAssignment",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.state_facts.PropertyAssignment",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Name the owned PropertyAssignment vocabulary."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.PropertyAssignment.AVAILABLE",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.state_facts.PropertyAssignment.AVAILABLE",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.PropertyAssignment",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the existing AVAILABLE state value."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.PropertyAssignment.UNAVAILABLE",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.state_facts.PropertyAssignment.UNAVAILABLE",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.PropertyAssignment",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the existing UNAVAILABLE state value."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.StateAccess",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.state_facts.StateAccess",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Name the owned StateAccess vocabulary."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.StateAccess.READ",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.state_facts.StateAccess.READ",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.StateAccess",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the existing READ state value."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.StateAccess.WRITE",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.state_facts.StateAccess.WRITE",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.StateAccess",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the existing WRITE state value."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.StateAccess.MUTATION",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.state_facts.StateAccess.MUTATION",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.StateAccess",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the existing MUTATION state value."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.FieldState",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.state_facts.FieldState",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain immutable typed FieldState facts."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.FieldState.binding",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.state_facts.FieldState.binding",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.FieldState",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep the public state control nominal."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "annotation": "BindingState",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.FieldState.referent_mutability",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.state_facts.FieldState.referent_mutability",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.FieldState",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep the public state control nominal."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "annotation": "ReferentMutability",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.FieldState.mutability",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.state_facts.FieldState.mutability",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.FieldState",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep the public state control nominal."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "annotation": "ObjectMutability",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.FieldState.property_assignment",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.state_facts.FieldState.property_assignment",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.FieldState",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep the public state control nominal."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "annotation": "PropertyAssignment | None",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.AttributeAccess",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.state_facts.AttributeAccess",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain immutable typed AttributeAccess facts."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-STATE-state_facts.AttributeAccess.access",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.state_facts.AttributeAccess.access",
+          "language": "python",
+          "parent_id": "IR-STATE-state_facts.AttributeAccess",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep the public state control nominal."
+          ],
+          "provenance": [
+            "docs/architecture/typed-state-protocol.md"
+          ],
+          "annotation": "StateAccess",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
         }
       ],
       "relationships": [

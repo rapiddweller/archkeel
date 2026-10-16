@@ -28,6 +28,7 @@ OWNERS = {
         "CONTRACT_SCHEMA_VERSION",
         "ContractVersionError",
         "parse_contract",
+        "parse_dependency_selector",
         "contract_bytes",
         "contract_digest",
         "absent_contract_digest",
