@@ -1,0 +1,27 @@
+name: Diagnose actual root expectation regressions
+on:
+  push:
+    branches: [verify/542-root-expectation-inventory]
+permissions:
+  contents: read
+jobs:
+  existing-source-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: c7444205d4fe87eaae0de5e2dc98b70909fd1cc7
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Run unchanged cases and dump same actual observation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          Path("tests/_root_expectation_inventory.py").write_text("import json\nfrom pathlib import Path\nfrom archkeel.ir.facts_codec import raw_value\nfrom archkeel.ir.levels import inside_levels\n\ndef test_dump_actual_root_expectations(self_observation):\n    levels={level.parent:level for level in inside_levels(self_observation)}\n    check=levels[\"check\"]\n    print(\"CHECK_LEVEL_INVENTORY=\"+json.dumps({\n        \"levels\":sorted(levels),\n        \"components\":[[item.label,len(item.modules)] for item in check.components],\n        \"edges\":[[edge.source,edge.target,edge.import_sites] for edge in check.edges],\n    },separators=(\",\",\":\")))\n    records=[\n        {\"id\":record.id,\"data\":raw_value(record.data)}\n        for record in self_observation.records(\"unknowns\") or ()\n        if record.kind==\"boundary_type_position\"\n        and record.data.get(\"qualified_name\")==\"archkeel.render.html.render_architecture_details\"\n    ]\n    print(\"DETAIL_UNKNOWN=\"+json.dumps(records,separators=(\",\",\":\")))\n    root=json.loads((Path(__file__).parents[1]/\"architecture-contract.json\").read_bytes())\n    print(\"RENDER_PUBLIC=\"+json.dumps(next(c for c in root[\"components\"] if c[\"label\"]==\"render\")[\"public\"]))\n")
+          PY
+          uv run --locked python -m pytest -q -s tests/_root_expectation_inventory.py tests/test_self.py::test_self_facades_record_the_declared_types_they_expose tests/test_levels.py::test_the_inside_of_check_carries_its_sub_components_and_their_edges tests/test_protocol_uml_target.py::test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes
