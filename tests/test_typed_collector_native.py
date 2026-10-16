@@ -63,6 +63,32 @@ def _collector_contract(module):
                     },
                     {
                         **intent,
+                        "id": "protocol-version",
+                        "kind": "enum",
+                        "qualified_name": "archkeel.ir.protocol.ProtocolVersion",
+                        "parent_id": "module",
+                        "responsibilities": ["Own supported collector wire versions."],
+                    },
+                    {
+                        **intent,
+                        "id": "python-settings",
+                        "kind": "class",
+                        "qualified_name": "archkeel.ir.protocol.PythonSettings",
+                        "parent_id": "module",
+                        "responsibilities": ["Carry a fixed typed Python resolver discriminator."],
+                    },
+                    {
+                        **intent,
+                        "id": "python-language",
+                        "kind": "attribute",
+                        "qualified_name": "archkeel.ir.protocol.PythonSettings.language",
+                        "parent_id": "python-settings",
+                        "annotation": "Literal[Language.PYTHON]",
+                        "responsibilities": ["Keep the resolver variant tied to its language enum."],
+                        "visibility": {"kind": "public", "basis": "declared"},
+                    },
+                    {
+                        **intent,
                         "id": "request",
                         "kind": "class",
                         "qualified_name": "archkeel.ir.protocol.CollectionRequest",
@@ -89,7 +115,7 @@ def _collector_contract(module):
     }
 
 
-def _collector_repository(tmp_path, module="facts_codec", probe="", *, weaken_version=False):
+def _collector_repository(tmp_path, module="facts_codec", probe="", *, weaken_version=False, weaken_language=False):
     files = {"archkeel/__init__.py": "", "archkeel/ir/__init__.py": ""}
     for name in (*MODULES, "state_facts"):
         text = (ROOT / f"src/archkeel/ir/{name}.py").read_text()
@@ -97,6 +123,8 @@ def _collector_repository(tmp_path, module="facts_codec", probe="", *, weaken_ve
             text += "\n" + probe
         if name == "protocol" and weaken_version:
             text = text.replace("protocol_version: ProtocolVersion", "protocol_version: str")
+        if name == "protocol" and weaken_language:
+            text = text.replace("language: Literal[Language.PYTHON]", "language: str")
         files[f"archkeel/ir/{name}.py"] = text
     parse_contract(_collector_contract(module))
     for runtime in RUNTIMES:
@@ -118,6 +146,12 @@ def test_native_collector_codec_uses_no_raw_string_control(tmp_path, module):
     root, config = _collector_repository(tmp_path, module)
     model = _model(root, config)
     assert _guard(model).status == "PASS" and _guard(model).evaluation_proven
+    if module == "protocol":
+        target = next(
+            row for row in rule_assessments(model, undecided_by_rule={})
+            if row.kind == "uml_target"
+        )
+        assert target.status == "PASS" and target.evaluation_proven
     assert not [row for row in trace_valid_violations(model) if GUARD in row.rule_ids]
 
 
@@ -143,6 +177,17 @@ def test_native_collector_guard_rejects_actual_source_mutations(tmp_path, probe)
 
 def test_native_protocol_version_type_weakening_fails_fixed_authored_target(tmp_path):
     root, config = _collector_repository(tmp_path, module="protocol", weaken_version=True)
+    before = (root / "contract.json").read_bytes()
+    model = _model(root, config)
+    assert any(
+        row.kind == "uml_conformance" and row.data.get("aspect") == "annotation"
+        for row in trace_valid_violations(model)
+    )
+    assert (root / "contract.json").read_bytes() == before
+
+
+def test_native_resolver_language_type_weakening_fails_fixed_authored_target(tmp_path):
+    root, config = _collector_repository(tmp_path, module="protocol", weaken_language=True)
     before = (root / "contract.json").read_bytes()
     model = _model(root, config)
     assert any(

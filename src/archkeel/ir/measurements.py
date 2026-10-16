@@ -29,9 +29,7 @@ MeasurementBudgetName: TypeAlias = Literal[
     "unknown_positions",
 ]
 # AD-97: the scalars a profile may not measure at all; each reads `None` then, never 0.
-UNMEASURABLE: Final[frozenset[UnmeasurableScalar]] = frozenset(
-    {"private_crossings", "typing_positions", "calls_unresolved", "untyped_private_accesses"}
-)
+UNMEASURABLE: Final[frozenset[UnmeasurableScalar]] = frozenset(UnmeasurableScalar)
 # AD-99: a facade or pair budget accepts a set of names per key rather than one scalar.
 NameBudgetKind: TypeAlias = Literal["facade_names", "coupling_names"]
 

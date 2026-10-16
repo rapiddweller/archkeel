@@ -15,13 +15,17 @@ from typing import Final, Literal, TypeAlias
 
 from .facts import Language as Language
 
+
 class UnmeasurableScalar(StrEnum):
     PRIVATE_CROSSINGS = "private_crossings"
     TYPING_POSITIONS = "typing_positions"
     CALLS_UNRESOLVED = "calls_unresolved"
     UNTYPED_PRIVATE_ACCESSES = "untyped_private_accesses"
 
+
 DeclarationField: TypeAlias = Literal["context_roots", "facade_budgets", "coupling_budgets"]
+
+
 class ObservedSection(StrEnum):
     SYMBOLS = "symbols"
     REFERENCES = "references"
@@ -78,7 +82,12 @@ DART: Final = Profile(
     # AD-99: Dart has no `__all__` and its public names are UNKNOWN, so no facade count exists.
     unsupported_declarations=frozenset({"context_roots", "facade_budgets", "coupling_budgets"}),
     unmeasured=frozenset(
-        {UnmeasurableScalar.TYPING_POSITIONS, UnmeasurableScalar.CALLS_UNRESOLVED, UnmeasurableScalar.PRIVATE_CROSSINGS, UnmeasurableScalar.UNTYPED_PRIVATE_ACCESSES}
+        {
+            UnmeasurableScalar.TYPING_POSITIONS,
+            UnmeasurableScalar.CALLS_UNRESOLVED,
+            UnmeasurableScalar.PRIVATE_CROSSINGS,
+            UnmeasurableScalar.UNTYPED_PRIVATE_ACCESSES,
+        }
     ),
     absent_sections=frozenset({ObservedSection.TYPING_SIGNALS, ObservedSection.CONSTRUCTS}),
     # Only `dart:` URIs are the SDK; reusing Python's set would exempt `package:http` (A2).
@@ -126,10 +135,22 @@ TYPESCRIPT: Final = Profile(
     ),
     unsupported_declarations=frozenset({"context_roots", "facade_budgets", "coupling_budgets"}),
     unmeasured=frozenset(
-        {UnmeasurableScalar.TYPING_POSITIONS, UnmeasurableScalar.CALLS_UNRESOLVED, UnmeasurableScalar.PRIVATE_CROSSINGS, UnmeasurableScalar.UNTYPED_PRIVATE_ACCESSES}
+        {
+            UnmeasurableScalar.TYPING_POSITIONS,
+            UnmeasurableScalar.CALLS_UNRESOLVED,
+            UnmeasurableScalar.PRIVATE_CROSSINGS,
+            UnmeasurableScalar.UNTYPED_PRIVATE_ACCESSES,
+        }
     ),
     absent_sections=frozenset({ObservedSection.TYPING_SIGNALS, ObservedSection.CONSTRUCTS}),
-    optional_sections=frozenset({ObservedSection.SYMBOLS, ObservedSection.REFERENCES, ObservedSection.BINDINGS, ObservedSection.CALLS}),
+    optional_sections=frozenset(
+        {
+            ObservedSection.SYMBOLS,
+            ObservedSection.REFERENCES,
+            ObservedSection.BINDINGS,
+            ObservedSection.CALLS,
+        }
+    ),
 )
 
 PROFILES: Final[dict[Language, Profile]] = {

@@ -157,7 +157,7 @@ def test_own_native_cli_target_pins_actual_closed_fields_and_parser(self_observa
         ("CLIArguments.only", "annotation"),
         ("CLIArguments.agent", "annotation"),
         ("CLIArguments.language", "annotation"),
-        ("Parser.parse_args", "signature"),
+        ("Parser.parse_cli_args", "signature"),
     ):
         target_id = "cli:CLI-INPUT-" + name
         assert any(

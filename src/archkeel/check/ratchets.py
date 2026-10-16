@@ -76,7 +76,7 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
         or len({coverage.files_discovered, coverage.files_read, coverage.files_parsed}) != 1
     ):
         raise RatchetError("scan must be complete: discovered = read = parsed, without failures")
-    calls_measured = "calls_unresolved" not in profile.unmeasured
+    calls_measured = UnmeasurableScalar.CALLS_UNRESOLVED not in profile.unmeasured
     total = coverage.calls_analyzed if calls_measured else None
     if calls_measured and (
         total is None
@@ -92,7 +92,7 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
         for cycle in _records(observation, "cycles")
     )
     typing_positions: int | None = None
-    if "typing_positions" not in profile.unmeasured:
+    if UnmeasurableScalar.TYPING_POSITIONS not in profile.unmeasured:
         typing_positions = 0
         for signal in _records(observation, "typing_signals"):
             if (
@@ -123,14 +123,14 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
             violations=len(_records(observation, "violations")),
             cycle_edges=cycle_edges,
             private_crossings=_measured(
-                unmeasured, "private_crossings", len(crossing_imports(imports, private=True))
+                unmeasured, UnmeasurableScalar.PRIVATE_CROSSINGS, len(crossing_imports(imports, private=True))
             ),
-            typing_positions=_measured(unmeasured, "typing_positions", typing_positions),
-            calls_unresolved=_measured(unmeasured, "calls_unresolved", coverage.calls_unresolved),
+            typing_positions=_measured(unmeasured, UnmeasurableScalar.TYPING_POSITIONS, typing_positions),
+            calls_unresolved=_measured(unmeasured, UnmeasurableScalar.CALLS_UNRESOLVED, coverage.calls_unresolved),
             coverage_failures=len(coverage.failures),
             untyped_private_accesses=_measured(
                 unmeasured,
-                "untyped_private_accesses",
+                UnmeasurableScalar.UNTYPED_PRIVATE_ACCESSES,
                 sum(1 for item in unknowns if item.kind == "private_attribute_access_limit"),
             ),
             unknown_positions=unknown_positions(observation),

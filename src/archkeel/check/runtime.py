@@ -11,6 +11,7 @@ from packaging.version import InvalidVersion, Version
 from archkeel.ir.facts import Language, RuntimeRequirementState
 from archkeel.ir.model import Diagnostic, RuntimeInfo
 
+
 class _LowerBoundOperator(StrEnum):
     MINIMUM = ">="
     COMPATIBLE = "~="

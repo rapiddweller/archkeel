@@ -34,7 +34,7 @@ from archkeel.cli.skill import InstallationAgent, install_skill
     ],
 )
 def test_parser_returns_typed_closed_inputs(argv, field, wire):
-    arguments = build_parser().parse_args(argv)
+    arguments = build_parser().parse_cli_args(argv)
     assert isinstance(arguments, CLIArguments)
     expected = {
         "command": Command,
@@ -74,7 +74,7 @@ def test_parser_returns_typed_closed_inputs(argv, field, wire):
 )
 def test_invalid_choice_text_remains_compatible(argv, message):
     with pytest.raises(ValueError) as failure:
-        build_parser().parse_args(argv)
+        build_parser().parse_cli_args(argv)
     assert str(failure.value) == message
 
 
@@ -86,11 +86,11 @@ def test_installer_rejects_an_invalid_agent_before_writing(tmp_path: Path, agent
 
 
 def test_no_subcommand_remains_an_overview_request():
-    assert build_parser().parse_args([]).command is None
+    assert build_parser().parse_cli_args([]).command is None
 
 
 def test_check_subcommand_is_typed_after_required_inputs_are_validated():
-    arguments = build_parser().parse_args(
+    arguments = build_parser().parse_cli_args(
         [
             "check",
             "--baseline",

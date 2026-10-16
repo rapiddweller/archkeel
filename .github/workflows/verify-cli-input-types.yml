@@ -83,7 +83,7 @@ jobs:
           from archkeel.ir.trace import trace_valid_violations
           for path in Path("/tmp").glob("pytest-of-*/pytest-*/self-report/architecture.json"):
               model = parse_observation(decode_canonical_model(json.loads(path.read_text())))
-              print("OWN_TRACE_VIOLATIONS=" + json.dumps([{"kind": v.kind, "rules": v.rule_ids, "data": dict(v.data.items())} for v in trace_valid_violations(model)], default=str))
+              print("OWN_TRACE_VIOLATIONS=" + json.dumps([{"kind": v.kind, "rules": v.rule_ids, "data": dict(v.data.entries)} for v in trace_valid_violations(model)], default=str))
               print("CLI_GUARD_RECEIPT=" + repr([(v.id, v.status, v.evaluation_proven) for v in rule_assessments(model, undecided_by_rule={}) if v.id == "cli:CLI-TYPED-CONTROL"]))
               comparison = architecture_report(model).comparison
               print("CLI_TARGET_ASSESSMENTS=" + repr([(r.subject_id, r.aspect, r.status) for r in comparison.assessments if r.subject_id.startswith("cli:CLI-INPUT-")]))

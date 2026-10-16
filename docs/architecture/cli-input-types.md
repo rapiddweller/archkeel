@@ -1,6 +1,6 @@
 # Typed CLI input boundaries
 
-The CLI decodes its closed protocols before workflow dispatch. `cli.arguments` owns commands, report modes and installation actions. Its `CLIArguments` Namespace declares the actual command, mode, action, agent and language fields; parsing returns that type. Supplied values and defaults are enum members.
+The CLI decodes its closed protocols before workflow dispatch. `cli.arguments` owns commands, report modes and installation actions. Its `CLIArguments` Namespace declares the actual command, mode, action, agent and language fields; the owned parse_cli_args entry point returns that type while argparse's ordinary parse_args API remains intact. Supplied values and defaults are enum members.
 
 `cli.skill` owns the supported installation agents and legacy managed-section markers. Its public installer accepts existing known text at ingress and converts it immediately to `InstallationAgent`. Invalid agents fail before any file is written. The shared `Language` enum remains owned by source facts and reaches the CLI through the existing Core port.
 

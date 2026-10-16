@@ -61,15 +61,8 @@ def _sha(value: str) -> str:
 
 
 class _Parser(argparse.ArgumentParser):
-    def parse_args(
-        self,
-        args: Sequence[str] | None = None,
-        namespace: argparse.Namespace | None = None,
-    ) -> CLIArguments:
-        parsed = super().parse_args(args, CLIArguments() if namespace is None else namespace)
-        if not isinstance(parsed, CLIArguments):
-            raise TypeError("CLI parsing requires CLIArguments")
-        return parsed
+    def parse_cli_args(self, args: Sequence[str] | None = None) -> CLIArguments:
+        return argparse.ArgumentParser.parse_args(self, args, CLIArguments())
 
     def error(self, message: str) -> NoReturn:
         raise ValueError(message)
@@ -459,7 +452,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     artifacts: list[Path] = []
     files: Mapping[str, bytes] = {}
     try:
-        args = parser.parse_args(argv)
+        args = parser.parse_cli_args(argv)
         if args.command is None:
             parser.print_help()
             return 0

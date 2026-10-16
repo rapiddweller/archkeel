@@ -318,21 +318,21 @@
           "parent_id": "CLI-INPUT-composition",
           "presence": "planned",
           "responsibilities": [
-            "Return the bounded CLI argument Namespace and reject incompatible supplied Namespace types."
+            "Own the typed CLI parsing entry point and preserve argparse's ordinary Namespace API."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
           ]
         },
         {
-          "id": "CLI-INPUT-Parser.parse_args",
+          "id": "CLI-INPUT-Parser.parse_cli_args",
           "kind": "method",
-          "qualified_name": "archkeel.cli._Parser.parse_args",
+          "qualified_name": "archkeel.cli._Parser.parse_cli_args",
           "language": "python",
           "parent_id": "CLI-INPUT-Parser",
           "presence": "planned",
           "responsibilities": [
-            "Parse actual arguments into CLIArguments while preserving argparse validation behavior."
+            "Parse actual CLI input into the declared Namespace without narrowing argparse's generic API."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -349,13 +349,6 @@
                 "kind": "positional",
                 "default_known": true,
                 "annotation": "Sequence[str] | None",
-                "default": "None"
-              },
-              {
-                "name": "namespace",
-                "kind": "positional",
-                "default_known": true,
-                "annotation": "argparse.Namespace | None",
                 "default": "None"
               }
             ],
