@@ -14,8 +14,6 @@ from typing import Final, Literal, TypeGuard, get_args
 
 from archkeel.ir.architecture_graph import validate_layout_rule, validate_module_target
 from archkeel.ir.codec_governance import _measurement_budget_name
-from archkeel.ir.contract_version import ContractFeature, ContractVersion
-from archkeel.ir.contract_version import CONTRACT_SCHEMA_VERSION as CONTRACT_SCHEMA_VERSION
 from archkeel.ir.codec_wire import (
     _count,
     _exact,
@@ -25,6 +23,8 @@ from archkeel.ir.codec_wire import (
     _string,
     _strings,
 )
+from archkeel.ir.contract_version import CONTRACT_SCHEMA_VERSION as CONTRACT_SCHEMA_VERSION
+from archkeel.ir.contract_version import ContractFeature, ContractVersion
 from archkeel.ir.facts_codec import record_payload
 from archkeel.ir.graph_codec import parse_target
 from archkeel.ir.model import (
@@ -82,7 +82,6 @@ _PUBLIC_ENTRY = re.compile(
 
 
 _PACKAGE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$")
-
 
 
 class ContractVersionError(ValueError):
