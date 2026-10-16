@@ -28,7 +28,7 @@ jobs:
           uv sync --locked
           make browser-graph-generate browser-runtime-generate
           make browser-graph-check browser-runtime-check
-          uv run --locked python -m pytest -q tests/test_graph_scene_protocol.py tests/test_flow_runtime_publication.py tests/test_report_renderer_units.py tests/test_atlas_report.py::test_default_report_is_one_authentic_repository_with_sparse_native_cells
+          uv run --locked python -m pytest -q tests/test_make_gate.py tests/test_ci_changes.py tests/test_flow_runtime_publication.py
           make lint typecheck
       - name: Export canonical generated union and proof
         if: always()

@@ -9,19 +9,21 @@ BASE = "c7444205d4fe87eaae0de5e2dc98b70909fd1cc7"
 SCENE_BASE = "d08dfaf6a2e6992153a434341465306a88d993a2"
 SCENE = "851b77a431e75ab8473e8a1bd71d2de8a728a75e"
 PUBLISHER = "7f6979c0ddbee2a47318bf3e4291a0f17a0b865f"
+FINAL_PUBLISHER = "841e1ed5e488b541858f96800ebcc95a7c4d14fc"
+CI_PATHS = ["Makefile","tests/test_make_gate.py","tools/ci_changes.py","tests/test_ci_changes.py"]
 SCENE_PATHS = ["docs/superpowers/specs/2026-10-16-native-graph-scene-protocol.md","docs/superpowers/plans/2026-10-16-native-graph-scene-protocol.md","tests/test_graph_scene_protocol.py","tools/browser_graph_protocol.py","src/archkeel/render/assets/report-graph-protocol.ts","src/archkeel/render/assets/report-graph-scene.js","src/archkeel/render/assets/report-scene.js","src/archkeel/render/html.py","tests/test_report_renderer_units.py","src/archkeel/render/assets/report-graph-vocabulary.ts","src/archkeel/render/assets/report-graph-protocol.js","tests/browser_graph_scene_target.ts","Makefile","tests/smoke_test.py"]
 PUBLISHER_PATHS = ["docs/superpowers/plans/2026-10-16-flow-runtime-publication.md","tests/test_flow_runtime_publication.py","tests/browser_runtime_ast.cjs","tools/browser-runtime/package.json","tools/browser-runtime/options.json","tools/browser-runtime/package-lock.json","tools/browser_runtime.py","src/archkeel/render/html.py",".gitignore","Makefile","tests/smoke_test.py","src/archkeel/render/assets/flow.runtime.js"]
 
 def run(*args: str, cwd: Path = ROOT, input: bytes | None = None) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(args, cwd=cwd, input=input, capture_output=True)
 
-for ref in (BASE, SCENE_BASE, SCENE, PUBLISHER):
+for ref in (BASE, SCENE_BASE, SCENE, PUBLISHER, FINAL_PUBLISHER):
     result = run("git", "fetch", "--no-tags", "origin", ref)
     if result.returncode:
         raise SystemExit(result.stderr.decode())
 
 for name, stages in (
-    ("scene-then-publisher", ((SCENE_BASE, SCENE, SCENE_PATHS), (SCENE, PUBLISHER, PUBLISHER_PATHS))),
+    ("scene-then-publisher", ((SCENE_BASE, SCENE, SCENE_PATHS), (SCENE, PUBLISHER, PUBLISHER_PATHS), (PUBLISHER, FINAL_PUBLISHER, CI_PATHS))),
     ("publisher-first", ((SCENE, PUBLISHER, PUBLISHER_PATHS),)),
 ):
     checkout = Path(os.environ["RUNNER_TEMP"]) / name
