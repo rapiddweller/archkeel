@@ -1032,7 +1032,9 @@ def rule_subject_failures(
         if isinstance(rule, LayerOrderRule) and contract is not None:
             rule_failures.extend(_layer_metadata_failures(contract, rule))
         scopes = rule_scopes(rule)
-        if isinstance(rule, ForbiddenDependencyRule) and rule.target in sdk_libraries:
+        if isinstance(rule, ForbiddenDependencyRule) and (
+            rule.target in sdk_libraries or rule.target_kind == "import_namespace"
+        ):
             scopes = {"source": scopes["source"]}
         source_subjects: AbstractSet[str] = module_names | planned_subjects
         target_subjects: AbstractSet[str] = (target_module_names or module_names) | planned_subjects

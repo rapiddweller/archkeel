@@ -201,6 +201,7 @@ def _permissions(
                     owners,
                     source_match=text_value(rule.data.get("source_match")) or "prefix",
                     target_match=text_value(rule.data.get("target_match")) or "prefix",
+                    target_kind=text_value(rule.data.get("target_kind")) or "module",
                 )
                 == pair
             )

@@ -67,6 +67,7 @@ def _decided_pairs(
             target_match=rule.target_match
             if isinstance(rule, ForbiddenDependencyRule)
             else "prefix",
+            target_kind=rule.target_kind if isinstance(rule, ForbiddenDependencyRule) else "module",
         )
         if pair is not None:
             pairs.append(pair)

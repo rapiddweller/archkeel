@@ -405,6 +405,7 @@ def _decided_component_pairs(
             components,
             source_match=text_value(record.data.get("source_match")) or "prefix",
             target_match=text_value(record.data.get("target_match")) or "prefix",
+            target_kind=text_value(record.data.get("target_kind")) or "module",
         )
         if pair is not None:
             decided.add(pair)

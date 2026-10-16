@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:architecture-contract:3.4.0",
   "title": "Archkeel architecture contract",
-  "description": "Contract 3.3.0 structure. Rule semantics are cataloged in docs/rules.md.",
+  "description": "Contract 3.4.0 structure. Rule semantics are cataloged in docs/rules.md.",
   "type": "object",
   "required": [
     "schema_version",

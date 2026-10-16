@@ -253,15 +253,23 @@ def _forbidden_dependency_widenings(
         ),
         *[
             WideningChange(subject, name, f"{subject}.{name} narrowed from prefix to exact")
-            for name in ("source_match", "target_match")
-            if getattr(before, name) == "prefix" and getattr(after, name) == "exact"
+            for name, old, new in (
+                ("source_match", before.source_match, after.source_match),
+                ("target_match", before.target_match, after.target_match),
+            )
+            if old == "prefix" and new == "exact"
         ],
+        *(
+            [WideningChange(subject, "target_kind", f"{subject} now permits an absent import namespace")]
+            if before.target_kind == "module" and after.target_kind == "import_namespace"
+            else []
+        ),
         *_generic_field_widenings(
             subject,
             before,
             after,
             handled=frozenset(
-                {"allowed_sources", "include_type_checking", "source_match", "target_match"}
+                {"allowed_sources", "include_type_checking", "source_match", "target_match", "target_kind"}
             ),
         ),
     ]

@@ -86,6 +86,7 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
             **({"target_symbol": rule.target_symbol} if rule.target_symbol else {}),
             **({"source_match": rule.source_match} if rule.source_match != "prefix" else {}),
             **({"target_match": rule.target_match} if rule.target_match != "prefix" else {}),
+            **({"target_kind": rule.target_kind} if rule.target_kind != "module" else {}),
         }
     elif isinstance(rule, AllowedDependencyRule):
         area, title, subjects = (

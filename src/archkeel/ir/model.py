@@ -326,6 +326,7 @@ class ForbiddenDependencyRule:
     allowed_sources: tuple[str, ...] = ()
     source_match: Literal["prefix", "exact"] = "prefix"
     target_match: Literal["prefix", "exact"] = "prefix"
+    target_kind: Literal["module", "import_namespace"] = "module"
 
 
 @dataclass(frozen=True, slots=True)
@@ -636,9 +637,15 @@ def declared_package_pair(
     *,
     source_match: str = "prefix",
     target_match: str = "prefix",
+    target_kind: str = "module",
 ) -> tuple[str, str] | None:
     """Resolve an unqualified rule naming two uniquely declared package selectors."""
-    if target_symbol is not None or source_match != "prefix" or target_match != "prefix":
+    if (
+        target_symbol is not None
+        or source_match != "prefix"
+        or target_match != "prefix"
+        or target_kind != "module"
+    ):
         return None
     source_owners = {label for label, packages, _ in components if source in packages}
     target_owners = {label for label, packages, _ in components if target in packages}
@@ -658,6 +665,7 @@ def forbidden_dependency_scopes(
         components,
         source_match=rule.source_match,
         target_match=rule.target_match,
+        target_kind=rule.target_kind,
     )
     if pair is not None:
         owners = {label: (packages, exact) for label, packages, exact in components}
@@ -692,7 +700,7 @@ class ContractDeclarations:
 
 @dataclass(frozen=True, slots=True)
 class ArchitectureContract:
-    schema_version: Literal["2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0"]
+    schema_version: Literal["2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"]
     components: tuple[ContractComponent, ...]
     rules: tuple[ArchitectureRule, ...]
     schema: str | None = None
@@ -848,7 +856,7 @@ def _rule_references(
         named += [("target", (rule.target,), True)]
     if isinstance(rule, ForbiddenDependencyRule):
         # AD-97: a forbidden SDK library (`dart.io`) is a real target outside the namespace.
-        named += [("target", (rule.target,), rule.target not in external)]
+        named += [("target", (rule.target,), rule.target not in external and rule.target_kind == "module")]
     if isinstance(
         rule,
         ForbiddenDependencyRule

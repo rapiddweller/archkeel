@@ -60,6 +60,22 @@ Earlier contract versions reject the new fields; omitted defaults retain canonic
 bytes and digests. `target_symbol`, type-checking filters and allowances keep their
 existing meanings.
 
+Contract **3.5.0** adds `target_kind: "import_namespace"` on
+`forbidden_dependency`. This explicitly prohibits an import name even when no
+target module exists, for example source `sample.caller` and target
+`sample.retired`. Complete scanned source can prove PASS when no matching import
+exists; observed absolute and resolved relative imports prove FAIL. Missing or
+incomplete source evidence stays UNKNOWN. This declaration does not create a
+module, infer ownership or certify runtime loading.
+
+The default `target_kind: "module"` retains target-subject and namespace checks,
+including diagnostics for misspelled or unscanned targets. Import-name intent
+uses the same exact/prefix matching, symbol filters, type-checking scope and
+exact allowed-source exceptions, without expanding either endpoint to other
+packages owned by a component. The intent is recorded in declarations and
+canonical contracts. Switching module intent to import-name intent is widening;
+earlier contract versions reject the field. Omitted defaults keep legacy bytes.
+
 `forbidden_dependency.allowed_sources` is exact. Other scoped allowances use
 prefix `allowed_sources` and exact `exact_sources`. Type-checking filters affect
 rule evaluation, not cycle graph collection. Component and module cycles differ;
