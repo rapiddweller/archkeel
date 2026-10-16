@@ -717,12 +717,20 @@ def test_scoped_receipt_cannot_survive_changed_or_unbound_evidence(tmp_path: Pat
     assert _rows(model)["a:requires"].status == "UNKNOWN"
 
 
-@pytest.mark.parametrize("wire", ["role", "rule"])
+@pytest.mark.parametrize("wire", ["role", "rule", "decorated-string"])
 def test_open_record_strings_are_canonical_primitives_before_json(wire, dependency_binding_inputs):
     from archkeel.ir.architecture_graph import ArchitectureRuleKind, DecisionMaker
     from archkeel.ir.facts_codec import parse_record, record_payload
 
-    member = DecisionMaker.AGENT if wire == "role" else ArchitectureRuleKind.COMPLETE_REQUIRES
+    class DecoratedString(str):
+        def __str__(self):
+            return "presentation-only"
+
+    member = {
+        "role": DecisionMaker.AGENT,
+        "rule": ArchitectureRuleKind.COMPLETE_REQUIRES,
+        "decorated-string": DecoratedString("actual wire text"),
+    }[wire]
     sections, _, _ = dependency_binding_inputs
     raw = record_payload(sections[0].records[0])
     raw["kind"] = member

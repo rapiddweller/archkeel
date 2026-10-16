@@ -959,3 +959,16 @@ def test_boundary_type_allowance_removal_is_narrowing(tmp_path: Path) -> None:
     result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
 
     assert (result.exit_code, result.failures) == (0, ())
+
+
+
+def test_string_field_text_preserves_characters_when_str_is_decorated() -> None:
+    class DecoratedString(str):
+        def __str__(self) -> str:
+            return "presentation-only"
+
+    before = _component(inside=DecoratedString("before.json"))
+    after = _component(inside=DecoratedString("after.json"))
+    assert _component_diff(before, after) == (
+        "component 'comp'.inside changed from 'before.json' to 'after.json'",
+    )

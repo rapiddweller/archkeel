@@ -36,7 +36,7 @@ jobs:
               print("REAL_WIRE_PROOF="+json.dumps({"initial":binding(initial),"replay":binding(replay),"issued":receipt.data.get("dependency_scope_proof").get("binding_id"),"record_repr_differences":diffs},separators=(",",":")))
           PY
       - name: Preserve native scoped proof, untouched PASS and rename behavior
-        run: uv run --locked python -m pytest -q tests/test_scoped_dependency_proof.py tests/test_renames.py --tb=short
+        run: uv run --locked python -m pytest -q tests/test_scoped_dependency_proof.py tests/test_renames.py tests/test_widening.py::test_string_field_text_preserves_characters_when_str_is_decorated --tb=short
   causal-legacy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -83,13 +83,13 @@ jobs:
       - run: uv sync --locked
       - name: Verify formatting, type contracts and hygiene
         run: |
-          uv run --locked ruff check --select I --fix src/archkeel/ir/facts_codec.py src/archkeel/ir/widening.py tests/test_scoped_dependency_proof.py
-          uv run --locked ruff format src/archkeel/ir/facts_codec.py src/archkeel/ir/widening.py tests/test_scoped_dependency_proof.py
+          uv run --locked ruff check --select I --fix src/archkeel/ir/facts_codec.py src/archkeel/ir/widening.py tests/test_scoped_dependency_proof.py tests/test_widening.py
+          uv run --locked ruff format src/archkeel/ir/facts_codec.py src/archkeel/ir/widening.py tests/test_scoped_dependency_proof.py tests/test_widening.py
           python - <<'PY'
           import base64,subprocess
-          print("FORMAT_PATCH="+base64.b64encode(subprocess.check_output(["git","diff","--","src/archkeel/ir/facts_codec.py","src/archkeel/ir/widening.py","tests/test_scoped_dependency_proof.py"])).decode())
+          print("FORMAT_PATCH="+base64.b64encode(subprocess.check_output(["git","diff","--","src/archkeel/ir/facts_codec.py","src/archkeel/ir/widening.py","tests/test_scoped_dependency_proof.py","tests/test_widening.py"])).decode())
           PY
-          uv run --locked ruff check src/archkeel/ir/facts_codec.py src/archkeel/ir/widening.py tests/test_scoped_dependency_proof.py
+          uv run --locked ruff check src/archkeel/ir/facts_codec.py src/archkeel/ir/widening.py tests/test_scoped_dependency_proof.py tests/test_widening.py
           make typecheck
           uv run --locked python -m pytest -q tests/test_repository_hygiene.py
   wire-regressions:
