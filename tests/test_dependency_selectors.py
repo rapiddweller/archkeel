@@ -306,7 +306,7 @@ def test_module_cells_obey_both_module_selectors(
     from archkeel.ir.architecture_graph import ComponentIntent, RuleAssessment
     from archkeel.ir.codec import parse_dependency_selector
     from archkeel.ir.model import Record, RecordData
-    from archkeel.ir.module_explore import _rule_applies
+    from archkeel.ir.module_explore import _dependency_selections, _rule_applies
 
     contract = parse_contract(_contract(source_match=source_match, target_match=target_match))
     raw_declaration = project_rule_declaration(contract.rules[0])
@@ -359,7 +359,7 @@ def test_module_cells_obey_both_module_selectors(
             {"target"},
             intents,
             {},
-            {contract.rules[0].id: parse_dependency_selector(record(raw_declaration))},
+            _dependency_selections({contract.rules[0].id: record(raw_declaration)}, intents, {}),
         )
         is expected
     )

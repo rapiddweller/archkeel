@@ -11,9 +11,9 @@ from typing import TypeVar
 
 from archkeel.ir.decisions import open_decision_summary
 from archkeel.ir.model import (
-    DependencyTargetKind,
     AllowedDependencyRule,
     ArchitectureContract,
+    DependencyTargetKind,
     Diagnostic,
     DiagnosticCode,
     ForbiddenDependencyRule,
