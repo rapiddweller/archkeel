@@ -573,12 +573,8 @@ class _Collection:
                 )
             else:
                 self.incomplete_inventory_ids.add(symbol_id)
-                self._gap(
-                    rel,
-                    member.span,
-                    "UnsupportedMember",
-                    f"member kind {str(member.kind)!r} is not represented",
-                )
+                message = f"member kind {str(member.kind)!r} is not represented"
+                self._gap(rel, member.span, "UnsupportedMember", message)
         data.update(
             class_kind=class_kind,
             enum_members=list(definition.enum_members),
