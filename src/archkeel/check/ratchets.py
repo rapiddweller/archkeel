@@ -6,7 +6,7 @@
 from archkeel.ir.decisions import unknown_positions as _ir_unknown_positions
 from archkeel.ir.decisions import unknown_positions_by_rule as _ir_unknown_positions_by_rule
 from archkeel.ir.interfaces import component_owners, owner_of
-from archkeel.ir.measurements import MeasurementResolution as _MeasurementResolution
+from archkeel.ir.measurements import MeasurementResolution as _Resolution
 from archkeel.ir.measurements import (
     Measurements,
     RatchetError,
@@ -145,9 +145,9 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
             unknown_positions=unknown_positions(observation),
         ),
         calls_total=total,
-        resolution=_MeasurementResolution.MEASURED
+        resolution=_Resolution.MEASURED
         if total
-        else _MeasurementResolution.NOT_APPLICABLE,
+        else _Resolution.NOT_APPLICABLE,
     )
 
 
