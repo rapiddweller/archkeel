@@ -325,25 +325,26 @@ class _LiteralComparisons:
             isinstance(node, ast.Name) and node.id in self.collections and self._module_name(node)
         )
 
-    def comparison_form(self, node: ast.Compare) -> str | None:
-        operands = [node.left, *node.comparators]
-        for operator, left, right in zip(node.ops, operands[:-1], operands[1:], strict=True):
-            if isinstance(operator, ast.Eq | ast.NotEq) and (
-                self.scalar(left) or self.scalar(right)
-            ):
-                return "compare"
-            if isinstance(operator, ast.In | ast.NotIn) and (
-                self.scalar(left) or self.collection(right)
-            ):
-                return "membership"
-        return None
 
-    def matches_literal(self, node: ast.Match) -> bool:
-        return any(
-            isinstance(pattern, ast.MatchValue) and self.scalar(pattern.value)
-            for case in node.cases
-            for pattern in ast.walk(case.pattern)
-        )
+def _comparison_form(literals: _LiteralComparisons, node: ast.Compare) -> str | None:
+    operands = [node.left, *node.comparators]
+    for operator, left, right in zip(node.ops, operands[:-1], operands[1:], strict=True):
+        if isinstance(operator, ast.Eq | ast.NotEq) and (
+            literals.scalar(left) or literals.scalar(right)
+        ):
+            return "compare"
+        if isinstance(operator, ast.In | ast.NotIn) and (
+            literals.scalar(left) or literals.collection(right)
+        ):
+            return "membership"
+    return None
+
+def _matches_literal(literals: _LiteralComparisons, node: ast.Match) -> bool:
+    return any(
+        isinstance(pattern, ast.MatchValue) and literals.scalar(pattern.value)
+        for case in node.cases
+        for pattern in ast.walk(case.pattern)
+    )
 
 
 def _handled_types(caught: ast.expr) -> list[str]:
@@ -353,8 +354,6 @@ def _handled_types(caught: ast.expr) -> list[str]:
 
 class ConstructCollector(ast.NodeVisitor):
     """Walk one module, recording each construct under the scope that owns it."""
-
-    comparisons: _LiteralComparisons
 
     def __init__(self, module: ParsedModule, evidence: dict[str, RawEvidence]) -> None:
         self.module = module
@@ -423,7 +422,7 @@ class ConstructCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Compare(self, node: ast.Compare) -> None:
-        form = self.comparisons.comparison_form(node)
+        form = _comparison_form(self.comparisons, node)
         if form is not None:
             self._record(
                 node,
@@ -435,7 +434,7 @@ class ConstructCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Match(self, node: ast.Match) -> None:
-        if self.comparisons.matches_literal(node):
+        if _matches_literal(self.comparisons, node):
             self._record(
                 node,
                 kind="string_literal_compare",

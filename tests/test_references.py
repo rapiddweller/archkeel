@@ -223,6 +223,6 @@ def test_construct_comparison_helpers_have_their_declared_receiver_targets(
         for target in record.data.get("targets", ())
     }
     assert {
-        "archkeel.analyzer.python.constructs._LiteralComparisons.comparison_form",
-        "archkeel.analyzer.python.constructs._LiteralComparisons.matches_literal",
+        "archkeel.analyzer.python.constructs._comparison_form",
+        "archkeel.analyzer.python.constructs._matches_literal",
     } <= targets
