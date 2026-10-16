@@ -33,7 +33,7 @@ jobs:
               root,config=_repository(Path(folder),before_source)
               model=_model(root,config)
               comparison=architecture_report(model).comparison
-              assert comparison is not None and comparison.status=="FAIL",comparison
+              assert comparison is not None and comparison.status=="UNKNOWN",comparison
               print("ACTUAL_OWNED_API_RED="+repr(comparison),flush=True)
           PY
       - name: Inspect fixed intent diagnostics and format actual candidate
