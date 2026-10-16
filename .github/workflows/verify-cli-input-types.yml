@@ -30,6 +30,6 @@ jobs:
           print("FORMAT_PATCH=" + base64.b64encode(patch).decode())
           PY
       - name: CLI and installer compatibility
-        run: uv run --locked python -m pytest -q tests/test_cli_typed_inputs.py tests/test_cli.py tests/test_skill.py tests/test_cli_config.py
+        run: uv run --locked python -m pytest -q tests/test_cli_typed_inputs.py tests/test_cli.py tests/test_skill.py tests/test_config.py
       - name: Lint and types
         run: make lint typecheck
