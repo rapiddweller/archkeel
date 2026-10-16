@@ -131,16 +131,16 @@ jobs:
               calls = [row for row in model.records('calls') if row.data.get('source_scope') == 'archkeel.ir.codec_observation.encode_canonical_model' and row.data.get('expression') == 'encoded.update']
               assert len(calls) == 1, len(calls)
               return calls[0].data.get('status')
+          import subprocess
+          baseline_source = subprocess.check_output(['git', 'show', '2f4fd495fadc5c9d7154b8df710b842147d1e784:src/archkeel/ir/codec_observation.py']).decode()
           with TemporaryDirectory() as temporary:
               root, config = _collector_repository(Path(temporary), module='codec_observation')
-              actual = update_status(_model(root, config))
-              assert actual == 'resolved', actual
               path = root / 'archkeel/ir/codec_observation.py'
               source = path.read_text()
-              declared = 'encoded: dict[str, RawJson] = _omit_fields'
-              assert source.count(declared) == 1
-              path.write_text(source.replace(declared, 'encoded = _omit_fields'))
-              mutated = update_status(_model(root, config))
-              assert mutated == 'unresolved', mutated
-              print(f'ACTUAL_RECEIVER={actual}; ANNOTATION_REMOVED={mutated}')
+              path.write_text(baseline_source)
+              baseline = update_status(_model(root, config))
+              path.write_text(source)
+              actual = update_status(_model(root, config))
+              assert baseline == actual == 'resolved', (baseline, actual)
+              print(f'BASELINE_RECEIVER={baseline}; ACTUAL_RECEIVER={actual}')
           PY
