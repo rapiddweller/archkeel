@@ -1,0 +1,53 @@
+name: Prepare reviewed Measurement on combined owner source
+on:
+  push:
+    branches: [verify/542-measurement-on-browser-core]
+permissions:
+  contents: read
+jobs:
+  source-union:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: bd1c136e94affda8c970e1ef0d37bbac33ff256f
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Calculate bounded Git source patch without remote writes
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          
+          def git(*args):
+              return subprocess.run(["git", *args], check=True, capture_output=True).stdout.decode()
+          
+          stages = [{"name":"reviewed-existing-measurement-owner","base":"3dd2efdc54ef99f2b4cb742f3194cfd1f2619a84","head":"af9f0f708142bf0529992f4f7147c7d37e3b1a99","paths":["docs/architecture/measurement-control-types.md","docs/superpowers/plans/2026-10-16-measurement-control-types.md","src/archkeel/check/evaluation/rules.py","src/archkeel/check/ratchets.py","src/archkeel/check/validation/__init__.py","src/archkeel/check/validation/public_api.py","src/archkeel/ir/codec_governance.py","src/archkeel/ir/interfaces.py","src/archkeel/ir/measurements.py","src/archkeel/ir/model.py","src/archkeel/ir/widening.py","src/archkeel/render/html.py","src/archkeel/render/summary.py","tests/test_typed_measurement_controls.py"]}]
+          for stage in stages:
+              patch = subprocess.run(["git", "diff", "--binary", stage["base"], stage["head"], "--", *stage["paths"]], check=True, capture_output=True).stdout
+              if patch:
+                  applied = subprocess.run(["git", "apply", "--3way", "--index", "-"], input=patch, capture_output=True)
+                  if applied.returncode:
+                      print("MERGE_CONFLICT=" + stage["name"])
+                      print(applied.stderr.decode()[-6000:])
+                      print(git("diff", "--name-only", "--diff-filter=U"))
+                      raise SystemExit(1)
+              print("SOURCE_STAGE=" + stage["name"])
+          
+          paths = []
+          for line in git("diff", "--cached", "--name-status", "--no-renames", "HEAD").splitlines():
+              status, path = line.split("\t")
+              if status == "D":
+                  paths.append({"path": path, "deleted": True})
+                  continue
+              mode = git("ls-files", "--stage", "--", path).split()[0]
+              content = Path(path).read_text()
+              parts = [content[index:index + 12000] for index in range(0, len(content), 12000)] or [""]
+              paths.append({"path": path, "mode": mode, "parts": len(parts), "index_sha": git("ls-files", "--stage", "--", path).split()[1], "text_sha": subprocess.run(["git", "hash-object", "--stdin"], input=content.encode(), capture_output=True, check=True).stdout.decode().strip()})
+              for index, part in enumerate(parts):
+                  print("SOURCE_UNION_CHUNK=" + json.dumps({"path": path, "index": index, "content": part}, separators=(",", ":")))
+          print("SOURCE_UNION_PATHS=" + json.dumps(paths, separators=(",", ":")))
+          print("SOURCE_UNION_TREE=" + git("write-tree").strip())
+          
+          PY
