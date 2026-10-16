@@ -1,0 +1,23 @@
+name: Actual existing Evidence views Scene compatibility
+on:
+  push:
+    branches: [verify/542-browser-control-inventory]
+permissions:
+  contents: read
+jobs:
+  actual-existing-evidence-modes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - name: Actual old and new Scene programs
+        run: |
+          git fetch --no-tags origin d08dfaf6a2e6992153a434341465306a88d993a2
+          git show d08dfaf6a2e6992153a434341465306a88d993a2:src/archkeel/render/assets/report-scene.js > "$RUNNER_TEMP/old-report-scene.js"
+          node evidence-views-scene-compatibility.cjs "$RUNNER_TEMP/old-report-scene.js"
