@@ -88,7 +88,8 @@
         "archkeel.analyzer.typescript.config:join",
         "archkeel.analyzer.typescript.config:load_config",
         "archkeel.analyzer.typescript.config:within",
-        "archkeel.analyzer.typescript.config:Json"
+        "archkeel.analyzer.typescript.config:Json",
+        "archkeel.analyzer.typescript.config:has_field"
       ],
       "provenance": [
         "docs/architecture/typescript-control-types.md"
@@ -602,6 +603,43 @@
           },
           "responsibilities": [
             "Resolve specifiers through supported source lookup passes using a nominal loading format."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-json-field-boundary.md"
+          ],
+          "id": "TS-TYPED-has_field",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.typescript.config.has_field",
+          "parent_id": "TS-TYPED-CONFIG",
+          "signature": {
+            "parameters": [
+              {
+                "name": "record",
+                "annotation": "Json",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "name",
+                "annotation": "str",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          },
+          "responsibilities": [
+            "Distinguish absent open JSON field names from present null or falsy values without interpreting their vocabulary."
           ],
           "visibility": {
             "kind": "public",

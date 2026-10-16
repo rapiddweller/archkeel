@@ -51,6 +51,9 @@ def _repository(tmp_path, *, changed=None):
             "docs/architecture/typescript-control-types.md": (
                 ROOT / "docs/architecture/typescript-control-types.md"
             ).read_text(),
+            "docs/architecture/typescript-json-field-boundary.md": (
+                ROOT / "docs/architecture/typescript-json-field-boundary.md"
+            ).read_text(),
             "docs/architecture/language-adapter-target.md": (
                 ROOT / "docs/architecture/language-adapter-target.md"
             ).read_text(),
@@ -91,6 +94,7 @@ def test_native_typescript_api_matches_the_independent_target(tmp_path):
     ("module", "old", "new"),
     [
         ("config", "module: ModuleKind | None", "module: str | None"),
+        ("config", "def has_field(record: Json, name: str) -> bool:", "def has_field(record: Json, name: str) -> str:"),
         ("config", "module_resolution: ModuleResolution | None", "module_resolution: str | None"),
         ("config", "target: ScriptTarget | None", "target: str | None"),
         ("config", "def emit_module(self) -> ModuleKind:", "def emit_module(self) -> str:"),
@@ -102,7 +106,7 @@ def test_native_typescript_api_matches_the_independent_target(tmp_path):
             "def format_of(self, rel: str) -> str | Unknown | None:",
         ),
     ],
-    ids=["module", "resolution", "target", "derived-emit", "derived-resolution", "mode", "format"],
+    ids=["module", "json-presence-result", "resolution", "target", "derived-emit", "derived-resolution", "mode", "format"],
 )
 def test_native_source_type_widening_fails_with_fixed_intent(tmp_path, module, old, new):
     source = (ROOT / f"src/archkeel/analyzer/typescript/{module}.py").read_text()
@@ -129,13 +133,14 @@ def test_native_source_type_widening_fails_with_fixed_intent(tmp_path, module, o
     [
         'def _probe(value):\n    return value == "node16"\n',
         'def _probe(value):\n    return value in ("node16", "nodenext")\n',
+        'def _probe(value):\n    return "node16" in value\n',
         'def _probe(value):\n    match value:\n        case "node16":\n            return True\n',
         (
             'from typing import Final\nTOKEN: Final[str] = "node16"\n'
             "def _probe(value):\n    return value == TOKEN\n"
         ),
     ],
-    ids=["equality", "membership", "match", "final-alias"],
+    ids=["equality", "membership", "literal-left-membership", "match", "final-alias"],
 )
 def test_native_parser_and_protocol_strings_fail_without_exceptions(tmp_path, module, probe):
     source = (ROOT / f"src/archkeel/analyzer/typescript/{module}.py").read_text()
