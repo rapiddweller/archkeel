@@ -12,6 +12,7 @@ from typing import Final
 
 from archkeel.analyzer.runtime import collector_provenance
 from archkeel.ir.facts import (
+    Language,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
     Capabilities,
@@ -115,7 +116,7 @@ class _Collection:
         imports = tuple(
             parse_record(item) for item in sorted(self.imports, key=lambda item: item["id"])
         )
-        adapter, runtime = collector_provenance("typescript")
+        adapter, runtime = collector_provenance(Language.TYPESCRIPT)
         listing: str = json.dumps(
             [{"path": item.path, "digest": item.digest, "role": item.role} for item in inputs],
             separators=(",", ":"),

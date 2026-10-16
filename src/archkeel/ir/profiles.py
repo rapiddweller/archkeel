@@ -124,9 +124,9 @@ TYPESCRIPT: Final = Profile(
 )
 
 PROFILES: Final[dict[Language, Profile]] = {
-    "python": PYTHON,
-    "dart": DART,
-    "typescript": TYPESCRIPT,
+    Language.PYTHON: PYTHON,
+    Language.DART: DART,
+    Language.TYPESCRIPT: TYPESCRIPT,
 }
 _ANALYZER_PROFILES: Final = {
     PYTHON_ANALYZER: PYTHON,

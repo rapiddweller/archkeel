@@ -4,11 +4,18 @@
 """Source-only request and response envelopes for replaceable language processes."""
 
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Final, Literal, TypeAlias
 
-from .facts import SourceFacts
+from .facts import Language, SourceFacts
 
-PROTOCOL_VERSION: Final = "3.0.0"
+class ProtocolVersion(StrEnum):
+    V1 = "1.0.0"
+    V2 = "2.0.0"
+    V3 = "3.0.0"
+
+
+PROTOCOL_VERSION: Final = ProtocolVersion.V3
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,18 +33,18 @@ class SourceScope:
 
 @dataclass(frozen=True, slots=True)
 class PythonSettings:
-    language: Literal["python"] = "python"
+    language: Literal[Language.PYTHON] = Language.PYTHON
 
 
 @dataclass(frozen=True, slots=True)
 class DartSettings:
-    language: Literal["dart"] = "dart"
+    language: Literal[Language.DART] = Language.DART
 
 
 @dataclass(frozen=True, slots=True)
 class TypeScriptSettings:
     tsconfig: str = "tsconfig.json"
-    language: Literal["typescript"] = "typescript"
+    language: Literal[Language.TYPESCRIPT] = Language.TYPESCRIPT
 
 
 ResolverSettings: TypeAlias = PythonSettings | DartSettings | TypeScriptSettings
@@ -48,13 +55,13 @@ class CollectionRequest:
     snapshot: SnapshotInput
     scope: SourceScope
     resolver: ResolverSettings
-    protocol_version: str = PROTOCOL_VERSION
+    protocol_version: ProtocolVersion = PROTOCOL_VERSION
 
 
 @dataclass(frozen=True, slots=True)
 class CollectionResponse:
     facts: SourceFacts
-    protocol_version: str = PROTOCOL_VERSION
+    protocol_version: ProtocolVersion = PROTOCOL_VERSION
 
 
 @dataclass(frozen=True, slots=True)

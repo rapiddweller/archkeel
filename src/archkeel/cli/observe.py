@@ -40,7 +40,7 @@ def observe(
     git_head: str,
     dirty: bool,
     contract_root: Path,
-    language: Language = "python",
+    language: Language = Language.PYTHON,
 ) -> ObservationResult:
     return observer_for(language)(
         source_root,
@@ -63,7 +63,7 @@ def analyze_snapshot(
     contract_path: Path | None = None,
     roots: tuple[str, ...] = ("src",),
     namespace: str = "src",
-    language: Language = "python",
+    language: Language = Language.PYTHON,
 ) -> tuple[dict[str, RawJson], int]:
     """Compose source collection and Core assembly for local demo and audit tools."""
     observation, exit_code = analyze_source_snapshot(

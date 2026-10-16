@@ -21,7 +21,7 @@ class ScanConfig:
     namespace: str
     contract: str
     digest: str
-    language: Language = "python"
+    language: Language = Language.PYTHON
     tsconfig: str | None = None
     collector_argv: tuple[str, ...] | None = None
     collector_output_limit_bytes: int | None = None

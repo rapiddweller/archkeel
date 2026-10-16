@@ -12,6 +12,7 @@ from collections import Counter
 
 from archkeel.analyzer.runtime import collector_provenance
 from archkeel.ir.facts import (
+    Language,
     BuiltinTarget,
     Capabilities,
     CollectionCoverage,
@@ -179,7 +180,7 @@ class _Collection:
             ).encode("utf-8")
             for item in inputs
         )
-        adapter, runtime = collector_provenance("dart")
+        adapter, runtime = collector_provenance(Language.DART)
         records: dict[SourceSectionName, tuple[Record, ...]] = {
             "imports": tuple(
                 parse_record(item) for item in sorted(self.imports, key=lambda x: x["id"])

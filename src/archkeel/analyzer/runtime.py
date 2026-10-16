@@ -9,20 +9,19 @@ import platform
 import re
 import tomllib
 from pathlib import Path
-from typing import Literal
 
 from archkeel.ir.facts import AnalyzerInfo, RuntimeInfo, RuntimeRequirementState
+from archkeel.ir.facts import Language as Language
 
-Language = Literal["python", "dart", "typescript"]
 _ANALYZERS: dict[Language, str] = {
-    "python": "archkeel-python-analyzer",
-    "dart": "archkeel-dart-analyzer",
-    "typescript": "archkeel-typescript-imports",
+    Language.PYTHON: "archkeel-python-analyzer",
+    Language.DART: "archkeel-dart-analyzer",
+    Language.TYPESCRIPT: "archkeel-typescript-imports",
 }
 # A parser change can change facts without changing a line of this package.
 _PARSERS: dict[Language, tuple[str, ...]] = {
-    "typescript": ("tree-sitter", "tree-sitter-typescript"),
-    "dart": ("tree-sitter", "tree-sitter-dart"),
+    Language.TYPESCRIPT: ("tree-sitter", "tree-sitter-typescript"),
+    Language.DART: ("tree-sitter", "tree-sitter-dart"),
 }
 
 
@@ -30,7 +29,7 @@ def collector_provenance(
     language: Language,
     *,
     required: str | None = ">=3.11",
-    requirement_state: RuntimeRequirementState = "declared",
+    requirement_state: RuntimeRequirementState = RuntimeRequirementState.DECLARED,
 ) -> tuple[AnalyzerInfo, RuntimeInfo]:
     """Identify the collector from its installed version and its actual source files."""
     package = Path(__file__).parent
@@ -78,12 +77,12 @@ def python_requirement(root: Path) -> tuple[str | None, RuntimeRequirementState]
     path = root / "pyproject.toml"
     try:
         if not path.resolve().is_relative_to(root.resolve()):
-            return None, "metadata_invalid"
+            return None, RuntimeRequirementState.METADATA_INVALID
         metadata = tomllib.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
-        return None, "metadata_missing"
+        return None, RuntimeRequirementState.METADATA_MISSING
     except (OSError, ValueError):
-        return None, "metadata_invalid"
+        return None, RuntimeRequirementState.METADATA_INVALID
     project = metadata.get("project")
     if isinstance(project, dict) and "requires-python" in project:
         required = project["requires-python"]
@@ -92,14 +91,14 @@ def python_requirement(root: Path) -> tuple[str | None, RuntimeRequirementState]
         poetry = tool.get("poetry") if isinstance(tool, dict) else None
         dependencies = poetry.get("dependencies") if isinstance(poetry, dict) else None
         if not isinstance(dependencies, dict) or "python" not in dependencies:
-            return None, "requirement_missing"
+            return None, RuntimeRequirementState.REQUIREMENT_MISSING
         required = dependencies["python"]
         if not isinstance(required, str) or not required.strip():
-            return None, "requirement_invalid"
+            return None, RuntimeRequirementState.REQUIREMENT_INVALID
         required = _normalize_poetry_caret(required)
     if not isinstance(required, str) or not required.strip():
-        return None, "requirement_invalid"
-    return required, "declared"
+        return None, RuntimeRequirementState.REQUIREMENT_INVALID
+    return required, RuntimeRequirementState.DECLARED
 
 
 def _normalize_poetry_caret(required: str) -> str:

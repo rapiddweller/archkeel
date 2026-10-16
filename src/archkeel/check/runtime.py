@@ -6,6 +6,7 @@
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion, Version
 
+from archkeel.ir.facts import Language, RuntimeRequirementState
 from archkeel.ir.model import Diagnostic, RuntimeInfo
 
 _PYTHON_REQUIREMENT_REMEDY = (
@@ -22,10 +23,10 @@ def runtime_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
 
 
 def _python_metadata_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
-    if runtime.name != "python":
+    if runtime.name != Language.PYTHON:
         return None
     metadata = "pyproject.toml"
-    if runtime.requirement_state == "metadata_missing":
+    if runtime.requirement_state == RuntimeRequirementState.METADATA_MISSING:
         return Diagnostic(
             "runtime_mismatch",
             f"{metadata} is missing",
@@ -33,15 +34,15 @@ def _python_metadata_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
             "Add [project].requires-python to pyproject.toml with the repository's "
             "supported range.",
         )
-    if runtime.requirement_state == "metadata_invalid":
+    if runtime.requirement_state == RuntimeRequirementState.METADATA_INVALID:
         return Diagnostic(
             "runtime_mismatch",
             f"{metadata} is invalid",
             "The supported Python range cannot be read.",
             "Repair pyproject.toml as valid TOML and declare [project].requires-python.",
         )
-    if runtime.requirement_state == "requirement_missing" or (
-        runtime.requirement_state == "declared" and runtime.required is None
+    if runtime.requirement_state == RuntimeRequirementState.REQUIREMENT_MISSING or (
+        runtime.requirement_state == RuntimeRequirementState.DECLARED and runtime.required is None
     ):
         return Diagnostic(
             "runtime_mismatch",
@@ -50,7 +51,7 @@ def _python_metadata_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
             "Add [project].requires-python to pyproject.toml with the repository's "
             "supported range.",
         )
-    if runtime.requirement_state == "requirement_invalid":
+    if runtime.requirement_state == RuntimeRequirementState.REQUIREMENT_INVALID:
         return Diagnostic(
             "runtime_mismatch",
             "pyproject.toml Python requirement is invalid or unsupported",
@@ -61,19 +62,19 @@ def _python_metadata_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
 
 
 def _declared_runtime_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
-    label = "requires-python" if runtime.name == "python" else "required-runtime"
+    label = "requires-python" if runtime.name == Language.PYTHON else "required-runtime"
     subject = f"{runtime.name} {runtime.version}; {label} {runtime.required or 'unavailable'}"
     remedy = f"Run the collector with a {runtime.name} matching its declared requirement."
     try:
-        ranges = _parse_ranges(runtime.required, allow_alternatives=runtime.name != "python")
+        ranges = _parse_ranges(runtime.required, allow_alternatives=runtime.name != Language.PYTHON)
     except ValueError as error:
-        if runtime.name == "python":
+        if runtime.name == Language.PYTHON:
             subject = "pyproject.toml Python requirement is invalid or unsupported"
         else:
             subject += f" ({error})"
         remedy = (
             _PYTHON_REQUIREMENT_REMEDY
-            if runtime.name == "python"
+            if runtime.name == Language.PYTHON
             else "Correct the declared runtime requirement."
         )
     else:
@@ -94,7 +95,7 @@ def _declared_runtime_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
                 ),
                 default=None,
             )
-            if runtime.name == "python" and lower is not None:
+            if runtime.name == Language.PYTHON and lower is not None:
                 remedy = (
                     "Run Archkeel with a matching Python, for example: "
                     f"uvx --python {lower.major}.{lower.minor} archkeel <command>"
@@ -121,7 +122,7 @@ def _parse_ranges(required: str | None, *, allow_alternatives: bool) -> tuple[Sp
 
 def has_invalid_python_requirement(runtime: RuntimeInfo) -> bool:
     """Classify malformed declared Python metadata at the Core boundary."""
-    if runtime.name != "python" or runtime.required is None:
+    if runtime.name != Language.PYTHON or runtime.required is None:
         return False
     try:
         _parse_ranges(runtime.required, allow_alternatives=False)
