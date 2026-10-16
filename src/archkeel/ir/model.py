@@ -29,6 +29,11 @@ from .dependency import DependencyTargetKind as DependencyTargetKind
 from .dependency import ModuleSelection as ModuleSelection
 from .dependency import SelectorMatch as SelectorMatch
 from .dependency import module_in_ownership as module_in_ownership
+from .diagnostics import Diagnostic as Diagnostic
+from .diagnostics import DiagnosticCode as DiagnosticCode
+from .diagnostics import DiagnosticError as DiagnosticError
+from .diagnostics import DiagnosticKind as DiagnosticKind
+from .diagnostics import ReportLocation as ReportLocation
 from .facts import (
     EVIDENCE_FIELDS as EVIDENCE_FIELDS,
 )
@@ -1036,96 +1041,11 @@ class Observation:
         return next((item.records for item in self.sections if item.name == section), None)
 
 
-DiagnosticKind: TypeAlias = Literal[
-    "missing_tool",
-    "timeout",
-    "parse_error",
-    "scope_empty",
-    "rule_without_subjects",
-    "rule_unsupported_by_profile",
-    "runtime_mismatch",
-    "incomparable_runtime",
-    "contract_invalid",
-    "existing_files",
-    "filter_unknown",
-]
-
-# AD-12: sixteen findings shared one kind and differed only in prose.
-DiagnosticCode: TypeAlias = Literal[
-    "decision.open",
-    "decision.conflict",
-    "closed_world.observed_forbidden",
-    "closed_world.duplicate",
-    "interface.undeclared",
-    "interface.unused",
-    "interface.usage_unknown",
-    "interface.missing",
-    "interface.planned_built",
-    "rationale.placeholder",
-    "rationale.repeated",
-    "graph.count",
-    "graph.drift",
-    "rule.violated",
-    "responsibility.missing",
-    "reference.namespace",
-    "reference.public_owner",
-    "reference.public_underscore",
-    "reference.provenance",
-    "reference.package_unscanned",
-    "api_surface.missing",
-    "contract.schema_version",
-    "contract.invalid",
-    "baseline.invalid",
-    "against.invalid",
-    "amendment.invalid",
-    "observation.incomplete",
-    "inside.public_mismatch",
-    "inside.forbidden_import",
-    "compatibility.invalid",
-    "budget.exceeded",
-    "budget.unknown",
-]
-
-
-@dataclass(frozen=True, slots=True)
-class Diagnostic:
-    kind: DiagnosticKind
-    subject: str
-    unknown_claim: str
-    remedy: str
-    pointer: str | None = None
-    code: DiagnosticCode | None = None
-    locations: tuple[ReportLocation, ...] = ()
-    contract_path: str | None = None
-
-    def __post_init__(self) -> None:
-        if self.kind not in get_args(DiagnosticKind):
-            raise ValueError("invalid diagnostic kind")
-        if not all(value.strip() for value in (self.subject, self.unknown_claim, self.remedy)):
-            raise ValueError("diagnostic fields must not be empty")
-        if "\n" in self.remedy or "\r" in self.remedy:
-            raise ValueError("diagnostic remedy must be one line")
-        if self.pointer is not None and self.pointer and not self.pointer.startswith("/"):
-            raise ValueError("diagnostic pointer must be a JSON Pointer")
-        if self.code is not None and self.code not in get_args(DiagnosticCode):
-            raise ValueError("invalid diagnostic code")
-        if self.kind == "contract_invalid" and self.code is None:
-            raise ValueError("contract_invalid diagnostics require a code")
-        if self.kind != "contract_invalid" and self.code is not None:
-            raise ValueError("only contract_invalid diagnostics carry a code")
-
-
 @dataclass(frozen=True, slots=True)
 class WideningFinding:
     code: Literal["ir.widening"]
     subject: str
     field: str
-
-
-class DiagnosticError(ValueError):
-    def __init__(self, diagnostic: Diagnostic) -> None:
-        self.diagnostic = diagnostic
-        super().__init__(diagnostic.unknown_claim)
 
 
 class UmlEligibility(StrEnum):
@@ -1377,12 +1297,6 @@ class ReportFilter:
     only_calls: bool = False
     only_architecture: bool = False
     full_architecture: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class ReportLocation:
-    path: str
-    line: int
 
 
 @dataclass(frozen=True, slots=True)

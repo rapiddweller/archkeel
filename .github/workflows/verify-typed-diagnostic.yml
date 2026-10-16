@@ -43,3 +43,133 @@ jobs:
                   if calls: rows.append({"path":str(path),"calls":calls})
           print("DIAGNOSTIC_CALL_INVENTORY="+json.dumps(rows,separators=(",",":")))
           PY
+  diagnostic-producer-delta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Propose precise producer edits from actual AST parameter ownership
+        run: |
+          uv run --locked python - <<'PY'
+          import ast, base64, difflib, json, pathlib
+          from archkeel.ir.diagnostics import DiagnosticKind, DiagnosticCode
+          domains={"DiagnosticKind":DiagnosticKind,"DiagnosticCode":DiagnosticCode}
+          patches=[]
+          summary=[]
+          candidates=[]
+          for path in sorted([*pathlib.Path("src").rglob("*.py"), *pathlib.Path("tools").rglob("*.py")]):
+              if path.as_posix() in {"src/archkeel/ir/model.py","src/archkeel/ir/diagnostics.py"}:
+                  continue
+              source=path.read_text()
+              tree=ast.parse(source)
+              lines=source.splitlines(keepends=True)
+              offsets=[0]
+              for line in lines: offsets.append(offsets[-1]+len(line))
+              def offset(line,col):
+                  return offsets[line-1]+len(lines[line-1].encode()[:col].decode())
+              aliases={}
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.ImportFrom) and node.module in {"archkeel.ir.model","archkeel.ir.diagnostics"}:
+                      for alias in node.names:
+                          if alias.name in domains: aliases[alias.name]=alias.asname or alias.name
+              needed=set()
+              edits={}
+              def local(domain):
+                  if domain in aliases: return aliases[domain]
+                  needed.add(domain)
+                  return "_"+domain
+              def replace_values(expr, domain):
+                  values={member.value:member.name for member in domains[domain]}
+                  for leaf in ast.walk(expr):
+                      if isinstance(leaf,ast.Constant) and isinstance(leaf.value,str) and leaf.value in values:
+                          key=(offset(leaf.lineno,leaf.col_offset),offset(leaf.end_lineno,leaf.end_col_offset))
+                          replacement=local(domain)+"."+values[leaf.value]
+                          if key in edits: assert edits[key]==replacement
+                          edits[key]=replacement
+              functions={}
+              for node in ast.walk(tree):
+                  if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef)):
+                      params=[*node.args.posonlyargs,*node.args.args]
+                      typed={i:arg.annotation.id for i,arg in enumerate(params) if isinstance(arg.annotation,ast.Name) and arg.annotation.id in domains}
+                      typed_keywords={arg.arg:arg.annotation.id for arg in [*params,*node.args.kwonlyargs] if isinstance(arg.annotation,ast.Name) and arg.annotation.id in domains}
+                      if typed or typed_keywords: functions[node.name]=(typed,typed_keywords)
+              functions["Diagnostic"]=({0:"DiagnosticKind",5:"DiagnosticCode"},{"kind":"DiagnosticKind","code":"DiagnosticCode"})
+              if path.as_posix().startswith("src/archkeel/check/validation/"):
+                  functions["_diagnostic"]=({0:"DiagnosticCode"},{"code":"DiagnosticCode"})
+              for node in ast.walk(tree):
+                  if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id in functions:
+                      positions, keywords=functions[node.func.id]
+                      for index, domain in positions.items():
+                          if len(node.args)>index: replace_values(node.args[index],domain)
+                      for item in node.keywords:
+                          if item.arg in keywords: replace_values(item.value,keywords[item.arg])
+                  if isinstance(node,ast.AnnAssign):
+                      annotation=ast.unparse(node.annotation)
+                      if isinstance(node.annotation,ast.Name) and node.annotation.id in domains and node.value is not None:
+                          replace_values(node.value,node.annotation.id)
+                      elif isinstance(node.target,ast.Name) and node.target.id=="_RULE_FAILURES" and "DiagnosticKind" in annotation and isinstance(node.value,ast.Dict):
+                          for value in node.value.values:
+                              assert isinstance(value,ast.Tuple)
+                              replace_values(value.elts[0],"DiagnosticKind")
+                  if isinstance(node,ast.Compare):
+                      literals=[leaf.value for leaf in ast.walk(node) if isinstance(leaf,ast.Constant) and isinstance(leaf.value,str)]
+                      if any(value in {member.value for enum in domains.values() for member in enum} for value in literals):
+                          candidates.append({"path":str(path),"line":node.lineno,"source":ast.unparse(node)})
+                          if path.as_posix()=="src/archkeel/check/report.py" and isinstance(node.left,ast.Attribute) and node.left.attr=="kind":
+                              replace_values(node,"DiagnosticKind")
+                          if path.as_posix()=="src/archkeel/check/uml.py" and isinstance(node.left,ast.Attribute) and node.left.attr=="code":
+                              replace_values(node,"DiagnosticCode")
+              scopes=[tree,*[node for node in ast.walk(tree) if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef))]]
+              for scope in scopes:
+                  body=scope.body
+                  owned={}
+                  def visit_body(nodes):
+                      for node in nodes:
+                          if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)): continue
+                          yield node
+                          for child in ast.iter_child_nodes(node):
+                              if isinstance(child,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)): continue
+                              yield from visit_body([child])
+                  nodes=list(visit_body(body))
+                  for node in nodes:
+                      if isinstance(node,ast.AnnAssign) and isinstance(node.target,ast.Name) and isinstance(node.annotation,ast.Name) and node.annotation.id in domains:
+                          owned[node.target.id]=node.annotation.id
+                  for node in nodes:
+                      if isinstance(node,ast.Assign):
+                          for target in node.targets:
+                              if isinstance(target,ast.Name) and target.id in owned:
+                                  replace_values(node.value,owned[target.id])
+              if not edits: continue
+              result=source
+              for (start,end),replacement in sorted(edits.items(),reverse=True):
+                  result=result[:start]+replacement+result[end:]
+              if needed:
+                  new_imports="".join("from archkeel.ir.model import "+name+" as _"+name+"\n" for name in sorted(needed))
+                  future=next((node for node in tree.body if isinstance(node,ast.ImportFrom) and node.module=="__future__"),None)
+                  if future is not None:
+                      original_point=offsets[future.end_lineno]
+                      shift=sum(len(replacement)-(end-start) for (start,end),replacement in edits.items() if start<original_point)
+                      point=original_point+shift
+                      result=result[:point]+"\n"+new_imports+result[point:]
+                  else:
+                      first_import=next(node for node in tree.body if isinstance(node,(ast.Import,ast.ImportFrom)))
+                      original_point=offset(first_import.lineno,0)
+                      shift=sum(len(replacement)-(end-start) for (start,end),replacement in edits.items() if start<original_point)
+                      point=original_point+shift
+                      result=result[:point]+new_imports+result[point:]
+              ast.parse(result)
+              patch="".join(difflib.unified_diff(source.splitlines(keepends=True),result.splitlines(keepends=True),fromfile="a/"+str(path),tofile="b/"+str(path)))
+              patches.append("diff --git a/"+str(path)+" b/"+str(path)+"\n"+patch)
+              summary.append({"path":str(path),"typed_literal_sites":len(edits),"new_private_imports":sorted(needed)})
+          print("PRODUCER_EDIT_SUMMARY="+json.dumps(summary,separators=(",",":")))
+          print("DIAGNOSTIC_DISPATCH_CANDIDATES="+json.dumps(candidates,separators=(",",":")))
+          print("PRODUCER_PATCH="+base64.b64encode("".join(patches).encode()).decode())
+          
+          PY
