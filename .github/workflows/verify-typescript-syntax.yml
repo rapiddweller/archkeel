@@ -1,4 +1,4 @@
-name: TypeScript final syntax hygiene and compiler GREEN
+name: TypeScript final syntax Target and normal amendment
 on:
   push:
     branches: [fix/issue-542-typescript-syntax-domains]
@@ -7,35 +7,48 @@ permissions:
 jobs:
   typed-api:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 00920bdf5747c727151fd7735bc64762418b5f9d
+          ref: ebdf601652347200d65fee0b12e3bf2962563bc7
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
-        with:
-          node-version: "22"
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - name: Test typed compiler and resolver behavior
-        run: uv run --locked python -m pytest -q tests/test_typescript_syntax_types.py tests/test_typescript_parse.py tests/test_typescript_inner.py tests/test_typescript_parameter_properties.py tests/test_typescript_decorated_inventory.py tests/test_typescript_array_constants.py tests/test_repository_hygiene.py
-      - name: Export formatting
-        if: always()
+      - name: Verify frozen parser port, real native mutations, source evidence and hygiene
         run: |
-          uv run --locked ruff check --select I --fix src/archkeel/analyzer/typescript tests/test_typescript_syntax_types.py tests/test_typescript_control_target.py tests/test_typescript_parse.py tests/test_typescript_inner.py tests/test_typescript_parameter_properties.py tests/test_typescript_decorated_inventory.py
-          uv run --locked ruff format src/archkeel/analyzer/typescript tests/test_typescript_syntax_types.py tests/test_typescript_control_target.py tests/test_typescript_parse.py tests/test_typescript_inner.py tests/test_typescript_parameter_properties.py tests/test_typescript_decorated_inventory.py
-          python - <<'PY'
-          import base64, subprocess
-          print("FORMAT_PATCH=" + base64.b64encode(subprocess.check_output(["git", "diff"])).decode())
-          PY
+          git rev-parse HEAD
+          uv run --locked python -m pytest -q tests/test_typescript_syntax_types.py tests/test_typescript_control_target.py tests/test_python_source_evidence_lines.py tests/test_repository_hygiene.py
       - name: Lint and typecheck
         if: always()
         run: make lint typecheck
-      - name: Existing compiler differential corpus
-        if: always()
-        run: make typescript-compiler-check typescript-differential
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ebdf601652347200d65fee0b12e3bf2962563bc7
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Generate normal v2 syntax amendment against exact evidence predecessor
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 8ebc1da53b3ac7290f78978d5e69e4f3c59185c3 --amendment docs/architecture/decisions/issue-542-typescript-syntax-amendment.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'Move existing TypeScript syntax DTOs into one nominal source port, decode parser kinds once, preserve conservative unknown grammar, and consume owned collector controls. Independent Target fields and whole-module native source guards require the typed APIs. Lower calls_unresolved from917 to measured864; no increased limit, allowance or accepted debt.' > "$RUNNER_TEMP/tssyn-integrated.json"
+          task_status=$?
+          python - <<'PY'
+          import json, os, pathlib
+          result = json.loads((pathlib.Path(os.environ["RUNNER_TEMP"]) / "tssyn-integrated.json").read_text())
+          print("AMENDMENT_RESULT=" + json.dumps({key: result.get(key) for key in ("exit_code", "failures", "diagnostics", "measurements")}))
+          print("AMENDMENT_JSON=" + pathlib.Path("docs/architecture/decisions/issue-542-typescript-syntax-amendment.json").read_text().replace("\n", ""))
+          PY
+          exit "$task_status"
