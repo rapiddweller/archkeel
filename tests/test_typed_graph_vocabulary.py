@@ -111,7 +111,7 @@ def _contract():
     contract.pop("$schema", None)
     contract["declarations"]["uml"]["entities"] = [
         item for item in contract["declarations"]["uml"]["entities"]
-        if item["id"].startswith("IR-GRAPH-")
+        if item["id"].startswith(("IR-GRAPH-", "IR-UML-architecture_graph"))
     ]
     contract["declarations"]["uml"]["relationships"] = []
     contract["declarations"]["uml"]["scopes"] = []

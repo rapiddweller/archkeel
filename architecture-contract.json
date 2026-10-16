@@ -145,7 +145,16 @@
         "archkeel.ir.dependency:DependencySelector",
         "archkeel.ir.dependency:DependencyTargetKind",
         "archkeel.ir.dependency:ModuleSelection",
-        "archkeel.ir.dependency:SelectorMatch"
+        "archkeel.ir.dependency:SelectorMatch",
+        "archkeel.ir.profiles:ObservedSection",
+        "archkeel.ir.architecture_graph:CompletenessMode",
+        "archkeel.ir.architecture_graph:CoverageStatus",
+        "archkeel.ir.architecture_graph:OriginKind",
+        "archkeel.ir.architecture_graph:ParameterKind",
+        "archkeel.ir.architecture_graph:PresenceKind",
+        "archkeel.ir.architecture_graph:ResolutionKind",
+        "archkeel.ir.architecture_graph:VisibilityBasis",
+        "archkeel.ir.architecture_graph:VisibilityKind"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
@@ -770,10 +779,17 @@
         "archkeel.ir.type_shapes",
         "archkeel.ir.architecture_graph",
         "archkeel.ir.dependency",
+        "archkeel.ir.protocol",
+        "archkeel.ir.facts_codec",
+        "archkeel.ir.codec_observation",
+        "archkeel.ir.profiles",
+        "archkeel.analyzer.runtime",
+        "archkeel.cli.config",
+        "archkeel.check.runtime",
         "archkeel.ir.state_facts",
         "archkeel.ir.state_codec"
       ],
-      "rationale": "Each shared vocabulary belongs to its domain model; state_facts owns state controls and state_codec owns its private wire event tag.",
+      "rationale": "Each domain and wire boundary owns its closed control vocabulary; codecs keep private wire tags while consumers share published nominal types.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],
@@ -865,6 +881,97 @@
       "decided_by": "architect"
     },
     {
+      "id": "COLLECTOR-TYPED-IR-FACTS",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.facts",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
+      "provenance": [
+        "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COLLECTOR-TYPED-IR-PROTOCOL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.protocol",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
+      "provenance": [
+        "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COLLECTOR-TYPED-IR-FACTS-CODEC",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.facts_codec",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
+      "provenance": [
+        "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COLLECTOR-TYPED-IR-TYPE-SHAPES",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.type_shapes",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
+      "provenance": [
+        "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COLLECTOR-TYPED-IR-CODEC-OBSERVATION",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.codec_observation",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
+      "provenance": [
+        "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COLLECTOR-TYPED-ANALYZER-RUNTIME",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.runtime",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
+      "provenance": [
+        "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COLLECTOR-TYPED-CHECK-RUNTIME",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.runtime",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
+      "provenance": [
+        "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "STATE-FACTS-TYPED-CONTROL",
       "kind": "forbidden_construct",
       "source": "archkeel.ir.state_facts",
@@ -887,6 +994,58 @@
       "rationale": "State controls use their owned enums in the domain and parser; JSON conversion does not exempt protocol-string dispatch.",
       "provenance": [
         "docs/architecture/typed-state-protocol.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "GRAPH-TYPED-ARCHITECTURE-GRAPH",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.architecture_graph",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The graph owner, parser and UML comparison use shared nominal control vocabulary without parser exceptions.",
+      "provenance": [
+        "docs/architecture/typed-graph-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "GRAPH-TYPED-GRAPH-CODEC",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.graph_codec",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The graph owner, parser and UML comparison use shared nominal control vocabulary without parser exceptions.",
+      "provenance": [
+        "docs/architecture/typed-graph-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "GRAPH-TYPED-TARGET-GRAPH",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.target_graph",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The graph owner, parser and UML comparison use shared nominal control vocabulary without parser exceptions.",
+      "provenance": [
+        "docs/architecture/typed-graph-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "GRAPH-TYPED-UML-COMPARE",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.uml_compare",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The graph owner, parser and UML comparison use shared nominal control vocabulary without parser exceptions.",
+      "provenance": [
+        "docs/architecture/typed-graph-vocabulary.md"
       ],
       "decided_by": "architect"
     }

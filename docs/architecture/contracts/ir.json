@@ -128,7 +128,8 @@
         "archkeel.ir.profiles:DeclarationField",
         "archkeel.ir.profiles:profile_for",
         "archkeel.ir.profiles:PROFILES",
-        "archkeel.ir.profiles:UnmeasurableScalar"
+        "archkeel.ir.profiles:UnmeasurableScalar",
+        "archkeel.ir.profiles:ObservedSection"
       ]
     },
     {
@@ -1336,7 +1337,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "Literal['architect', 'agent'] | None"
+          "annotation": "DecisionMaker | None"
         },
         {
           "id": "IR-UML-architecture_graph.Coverage",
@@ -2013,7 +2014,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "Literal['1.0.0']"
+          "annotation": "Literal[GraphSchemaVersion.V1_0_0]"
         },
         {
           "id": "IR-UML-architecture_graph.GraphComparison.correspondences",
@@ -2912,7 +2913,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "Literal['1.2.0', '1.0.0']"
+          "annotation": "ReportSchemaVersion"
         },
         {
           "id": "IR-UML-architecture_graph.ArchitectureReport.findings",
@@ -3066,7 +3067,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "Literal['FAIL', 'UNKNOWN']"
+          "annotation": "Literal[AssessmentStatus.FAIL, AssessmentStatus.UNKNOWN]"
         },
         {
           "id": "IR-UML-architecture_graph.ReportFinding.rule_ids",
@@ -3357,7 +3358,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "Literal['external_dependency_scope']"
+          "annotation": "Literal[ArchitectureRuleKind.EXTERNAL_DEPENDENCY_SCOPE]"
         },
         {
           "id": "IR-UML-architecture_graph.ExternalDependencyScopeRule.dependency",
@@ -3452,7 +3453,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "Literal['architect', 'agent']"
+          "annotation": "DecisionMaker"
         },
         {
           "id": "IR-UML-architecture_graph.ExternalDependencyScopeRule.exact_sources",
@@ -4372,7 +4373,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "str",
+          "annotation": "ProtocolVersion",
           "presence": "planned",
           "responsibilities": [
             "Carry protocol_version as source-only protocol data."
@@ -4431,7 +4432,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "str",
+          "annotation": "ProtocolVersion",
           "presence": "planned",
           "responsibilities": [
             "Carry protocol_version as source-only protocol data."
@@ -4545,7 +4546,7 @@
           "qualified_name": "archkeel.ir.facts.MemberInventory.kind",
           "language": "python",
           "parent_id": "member-inventory",
-          "annotation": "Literal['attribute', 'method']",
+          "annotation": "MemberKind",
           "visibility": {
             "kind": "public",
             "basis": "declared"
@@ -4564,7 +4565,7 @@
           "qualified_name": "archkeel.ir.facts.MemberInventory.status",
           "language": "python",
           "parent_id": "member-inventory",
-          "annotation": "Literal['complete', 'partial']",
+          "annotation": "InventoryStatus",
           "visibility": {
             "kind": "public",
             "basis": "declared"
@@ -4621,7 +4622,7 @@
           "qualified_name": "archkeel.ir.facts.MemberInventory.schema_version",
           "language": "python",
           "parent_id": "member-inventory",
-          "annotation": "Literal['1.0.0']",
+          "annotation": "InventoryVersion",
           "visibility": {
             "kind": "public",
             "basis": "declared"
@@ -4636,7 +4637,7 @@
         },
         {
           "id": "IR-UML-architecture_graph.GraphSchemaVersion",
-          "kind": "type_alias",
+          "kind": "enum",
           "qualified_name": "archkeel.ir.architecture_graph.GraphSchemaVersion",
           "parent_id": "IR-UML-architecture_graph",
           "responsibilities": [
@@ -4966,7 +4967,7 @@
           "kind": "attribute",
           "qualified_name": "archkeel.ir.architecture_graph.ComponentIntent.decided_by",
           "parent_id": "IR-UML-architecture_graph.ComponentIntent",
-          "annotation": "Literal['architect', 'agent'] | None",
+          "annotation": "DecisionMaker | None",
           "responsibilities": [
             "Retain the decision owner."
           ],
@@ -5113,7 +5114,7 @@
           "provenance": [
             "docs/architecture/language-adapter-target.md"
           ],
-          "annotation": "Literal['python']"
+          "annotation": "Literal[Language.PYTHON]"
         },
         {
           "id": "dart-settings",
@@ -5153,7 +5154,7 @@
           "provenance": [
             "docs/architecture/language-adapter-target.md"
           ],
-          "annotation": "Literal['dart']"
+          "annotation": "Literal[Language.DART]"
         },
         {
           "id": "typescript-settings",
@@ -5193,7 +5194,7 @@
           "provenance": [
             "docs/architecture/language-adapter-target.md"
           ],
-          "annotation": "Literal['typescript']"
+          "annotation": "Literal[Language.TYPESCRIPT]"
         },
         {
           "id": "typescript-settings.tsconfig",
@@ -5316,7 +5317,7 @@
           "parent_id": "archkeel.ir.facts.ResolutionInput",
           "language": "python",
           "presence": "planned",
-          "annotation": "Literal['selected', 'resolution']",
+          "annotation": "ResolutionRole",
           "responsibilities": [
             "Distinguish selected Dart source from package metadata."
           ],
@@ -6201,6 +6202,204 @@
           }
         },
         {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-PROFILES",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.profiles",
+          "parent_id": "TARGET-PROFILES",
+          "responsibilities": [
+            "Own declared source capabilities independently of collector identity."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-facts.Language",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.Language",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Select the collector language without duplicating its vocabulary in adapters or Core."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-facts.RuntimeRequirementState",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.RuntimeRequirementState",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Distinguish declared requirements from missing or invalid metadata."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-facts.SourceDirty",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.SourceDirty",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Validate the unknown source-dirty sentinel while retaining its wire spelling."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-facts.MemberKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.MemberKind",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Identify attribute and method inventory receipts."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-facts.InventoryStatus",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.InventoryStatus",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Distinguish complete inventories from bounded partial collection."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-facts.InventoryVersion",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.InventoryVersion",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Identify the supported member-inventory wire version."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-facts.ResolutionRole",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.ResolutionRole",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Distinguish selected source from resolver metadata."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-protocol.ProtocolVersion",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.protocol.ProtocolVersion",
+          "parent_id": "archkeel.ir.protocol",
+          "responsibilities": [
+            "Own supported collector envelope versions and their compatibility gates."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-profiles.ObservedSection",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.profiles.ObservedSection",
+          "parent_id": "IR-COLLECTOR-PROFILES",
+          "responsibilities": [
+            "Name the source sections whose availability a profile declares."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-profiles.UnmeasurableScalar",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.profiles.UnmeasurableScalar",
+          "parent_id": "IR-COLLECTOR-PROFILES",
+          "responsibilities": [
+            "Name measurements a source profile cannot prove."
+          ]
+        },
+        {
           "id": "IR-STATE-state_facts",
           "kind": "module",
           "qualified_name": "archkeel.ir.state_facts",
@@ -6651,6 +6850,366 @@
             "docs/architecture/typed-state-protocol.md"
           ],
           "annotation": "StateAccess",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-EntityKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.EntityKind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed EntityKind vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-RelationshipKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.RelationshipKind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed RelationshipKind vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-VisibilityKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.VisibilityKind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed VisibilityKind vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-VisibilityBasis",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.VisibilityBasis",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed VisibilityBasis vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-ParameterKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.ParameterKind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed ParameterKind vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-ModifierKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.ModifierKind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed ModifierKind vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-DefinitionContextKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.DefinitionContextKind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed DefinitionContextKind vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-DefinitionBranchKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.DefinitionBranchKind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed DefinitionBranchKind vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-CoverageStatus",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.CoverageStatus",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed CoverageStatus vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-OriginKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.OriginKind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed OriginKind vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-PresenceKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.PresenceKind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed PresenceKind vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-ResolutionKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.ResolutionKind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed ResolutionKind vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-CompletenessMode",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.CompletenessMode",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed CompletenessMode vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-AssessmentStatus",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.AssessmentStatus",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed AssessmentStatus vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-RuleAssessmentStatus",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.RuleAssessmentStatus",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed RuleAssessmentStatus vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-AssessmentAspect",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.AssessmentAspect",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed AssessmentAspect vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-AssessmentChange",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.AssessmentChange",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed AssessmentChange vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-ReportSchemaVersion",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.ReportSchemaVersion",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed ReportSchemaVersion vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-DecisionMaker",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.DecisionMaker",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed DecisionMaker vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-GRAPH-ArchitectureRuleKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureRuleKind",
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed ArchitectureRuleKind vocabulary used by graph and UML responsibilities."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ],
           "visibility": {
             "kind": "public",
             "basis": "declared"

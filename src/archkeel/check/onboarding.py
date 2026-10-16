@@ -238,7 +238,7 @@ def draft_contract(
     namespace: str,
     *,
     roots: tuple[str, ...] = (),
-    language: Language = "python",
+    language: Language = Language.PYTHON,
 ) -> tuple[ArchitectureContract, frozenset[tuple[str, str]], tuple[StructureMetric, ...]]:
     """Propose components, structural rules and each draft's measured size.
 
@@ -247,7 +247,7 @@ def draft_contract(
     AD-38: sizes come from `scope_metrics`, the same aggregation `structure_metrics` uses for
     a declared component, applied here to the draft grouping before any component exists.
     """
-    if language == "typescript":
+    if language == Language.TYPESCRIPT:
         module_labels, draft_components = _typescript_components(observation, namespace, roots)
     else:
         depth = len(namespace.split("."))
@@ -393,20 +393,20 @@ def run_init(
     force: bool,
     full: bool = False,
     analyzer: Analyzer,
-    language: Language = "python",
+    language: Language = Language.PYTHON,
     tsconfig: str | None = None,
     collector_argv: tuple[str, ...] | None = None,
     collector_output_limit_bytes: int | None = None,
 ) -> tuple[RunResult, FilesToWrite]:
     """Observe the repository and return the onboarding files without writing them."""
-    if language == "typescript" and (not source or not namespace or not tsconfig):
+    if language == Language.TYPESCRIPT and (not source or not namespace or not tsconfig):
         raise ValueError("TypeScript init requires --source, --namespace and --tsconfig")
-    if language != "typescript" and tsconfig is not None:
+    if language != Language.TYPESCRIPT and tsconfig is not None:
         raise ValueError("--tsconfig requires --language typescript")
     if source is None or namespace is None:
         if source is not None or namespace is not None:
             raise ValueError("pass both --source and --namespace, or neither")
-        if language == "dart":
+        if language == Language.DART:
             # Detection reads Python package markers; a Dart package names its own root.
             raise DiagnosticError(
                 Diagnostic(
@@ -468,14 +468,14 @@ def run_init(
         (
             file
             for record in observed.observation.records("modules") or ()
-            if language == "python"
+            if language == Language.PYTHON
             and record.data.get("qualified_name") == namespace
             and isinstance((file := record.data.get("file")), str)
         ),
         None,
     )
     # Absent means Python, so a Python draft keeps the exact config bytes it always had.
-    language_line = "" if language == "python" else f"language = {json.dumps(language)}\n"
+    language_line = "" if language == Language.PYTHON else f"language = {json.dumps(language)}\n"
     tsconfig_line = "" if tsconfig is None else f"tsconfig = {json.dumps(tsconfig)}\n"
     collector_line = (
         "" if collector_argv is None else f"collector_argv = {json.dumps(collector_argv)}\n"

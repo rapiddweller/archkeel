@@ -117,8 +117,8 @@ def _integer(value: RawJson, label: str) -> int:
 def _visibility(value: RawJson) -> Visibility:
     item = _fields(value, set(), {"kind", "basis", "spelling"}, "visibility")
     return Visibility(
-        VisibilityKind(_text(item.get("kind", "unknown"), "visibility.kind")),
-        VisibilityBasis(_text(item.get("basis", "unknown"), "visibility.basis")),
+        VisibilityKind(_text(item.get("kind", VisibilityKind.UNKNOWN), "visibility.kind")),
+        VisibilityBasis(_text(item.get("basis", VisibilityBasis.UNKNOWN), "visibility.basis")),
         _nullable(item.get("spelling"), "visibility.spelling"),
     )
 
@@ -131,7 +131,7 @@ def _parameter(value: RawJson) -> Parameter:
     return Parameter(
         _text(item["name"], "parameter.name"),
         _nullable(item.get("annotation"), "parameter.annotation"),
-        ParameterKind(_text(item.get("kind", "unknown"), "parameter.kind")),
+        ParameterKind(_text(item.get("kind", ParameterKind.UNKNOWN), "parameter.kind")),
         default,
         _boolean(item.get("default_known", False), "parameter.default_known"),
     )
@@ -304,7 +304,7 @@ def parse_entity(value: RawJson) -> Entity:
             ModifierKind(_text(entry, "modifier"))
             for entry in _texts(item.get("modifiers", ()), "modifiers")
         ),
-        PresenceKind(_text(item.get("presence", "unspecified"), "entity.presence")),
+        PresenceKind(_text(item.get("presence", PresenceKind.UNSPECIFIED), "entity.presence")),
         _texts(item.get("responsibilities", ()), "entity.responsibilities"),
         _texts(item.get("evidence_ids", ()), "entity.evidence_ids"),
         _texts(item.get("provenance", ()), "entity.provenance"),
@@ -345,7 +345,7 @@ def parse_relationship(value: RawJson) -> Relationship:
         RelationshipKind(_text(item["kind"], "relationship.kind")),
         _text(item["source_id"], "relationship.source_id"),
         _nullable(item.get("target_id"), "relationship.target_id"),
-        ResolutionKind(_text(item.get("resolution", "not_applicable"), "relationship.resolution")),
+        ResolutionKind(_text(item.get("resolution", ResolutionKind.NOT_APPLICABLE), "relationship.resolution")),
         _texts(item.get("candidate_ids", ()), "relationship.candidate_ids"),
         _nullable(item.get("expression"), "relationship.expression"),
         _texts(item.get("evidence_ids", ()), "relationship.evidence_ids"),
@@ -381,7 +381,7 @@ def _coverage(value: RawJson) -> Coverage:
         _text(item["scope_id"], "coverage.scope_id"),
         entity_kinds,
         relationship_kinds,
-        CoverageStatus(_text(item.get("status", "unavailable"), "coverage.status")),
+        CoverageStatus(_text(item.get("status", CoverageStatus.UNAVAILABLE), "coverage.status")),
         _nullable(item.get("reason"), "coverage.reason"),
     )
 

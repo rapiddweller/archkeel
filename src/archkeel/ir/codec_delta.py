@@ -24,6 +24,7 @@ from archkeel.ir.codec_wire import (
     _string,
     _strings,
 )
+from archkeel.ir.facts import RuntimeRequirementState
 from archkeel.ir.model import (
     DELTA_SCHEMA_VERSION,
     AnalyzerInfo,
@@ -58,7 +59,8 @@ def _projection_payload(value: Projection) -> dict[str, RawJson]:
 
 def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
     if delta.schema_version != DELTA_SCHEMA_VERSION and any(
-        snapshot.runtime is not None and snapshot.runtime.requirement_state != "declared"
+        snapshot.runtime is not None
+        and snapshot.runtime.requirement_state != RuntimeRequirementState.DECLARED
         for snapshot in (delta.baseline, delta.head)
     ):
         raise ValueError("runtime.requirement_state requires Delta schema 2.0.0")
@@ -72,7 +74,7 @@ def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
             if isinstance(runtime, dict):
                 if runtime.get("required") is None:
                     del runtime["required"]
-                if runtime.get("requirement_state") == "declared":
+                if runtime.get("requirement_state") == RuntimeRequirementState.DECLARED:
                     del runtime["requirement_state"]
             if snapshot.get("producer") is None:
                 del snapshot["producer"]

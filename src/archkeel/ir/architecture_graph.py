@@ -526,11 +526,11 @@ class GraphComparison:
         correspondences: tuple[EntityCorrespondence, ...] = (),
     ) -> GraphComparison:
         status: AssessmentStatus = (
-            "FAIL"
+            AssessmentStatus.FAIL
             if any(item.status == AssessmentStatus.FAIL for item in assessments)
-            else "UNKNOWN"
+            else AssessmentStatus.UNKNOWN
             if not assessments or any(item.status == AssessmentStatus.UNKNOWN for item in assessments)
-            else "PASS"
+            else AssessmentStatus.PASS
         )
         return GraphComparison(status, assessments, correspondences=correspondences)
 
