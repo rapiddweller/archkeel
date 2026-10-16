@@ -128,10 +128,12 @@ def _resolved_calls(observation: Observation) -> dict[str, tuple[str, ...]]:
         ):
             definitions[name] = None if name in definitions else symbol
     grouped: dict[str, list[Record]] = defaultdict(list)
+    scopes: set[str] = set()
     for record in calls:
         name = text_value(record.data.get("source_scope"))
         if not name:
             return {}
+        scopes.add(name)
         if name in definitions:
             bucket: list[Record] = grouped[name]
             bucket.append(record)
@@ -140,6 +142,9 @@ def _resolved_calls(observation: Observation) -> dict[str, tuple[str, ...]]:
     for name, rows in grouped.items():
         definition = definitions[name]
         if definition is None or len(definition.evidence_ids) != 1:
+            continue
+        # Body shapes include nested scopes, whose call correspondence is not established here.
+        if any(scope != name and in_scope(scope, name) for scope in scopes):
             continue
         origin = evidence.get(definition.evidence_ids[0])
         if origin is None:
