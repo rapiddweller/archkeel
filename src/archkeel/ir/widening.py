@@ -207,8 +207,10 @@ def _interface_boundary_widenings(
             subject, before.include_type_checking, after.include_type_checking
         ),
         *_generic_field_widenings(
-            subject, before, after,
-            handled=frozenset({"include_type_checking", "module_object_grants"})
+            subject,
+            before,
+            after,
+            handled=frozenset({"include_type_checking", "module_object_grants"}),
         ),
     ]
 

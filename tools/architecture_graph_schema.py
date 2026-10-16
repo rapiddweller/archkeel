@@ -419,7 +419,11 @@ def _update_contract_schema(path: Path) -> None:
                 for name in ("mapping_depth", "alias_body", "key_alias_body", "native_mapping")
             ]
         }
-    if schema["properties"]["schema_version"] in ({"const": "3.4.0"}, {"const": "3.5.0"}, {"const": "3.6.0"}):
+    if schema["properties"]["schema_version"] in (
+        {"const": "3.4.0"},
+        {"const": "3.5.0"},
+        {"const": "3.6.0"},
+    ):
         for name in ("source_match", "target_match"):
             schema["$defs"]["forbiddenDependency"]["properties"][name] = {
                 "enum": ["prefix", "exact"]

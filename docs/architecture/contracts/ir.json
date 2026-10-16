@@ -6284,6 +6284,53 @@
             "kind": "public",
             "basis": "declared"
           }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ],
+          "id": "IR-MODULE-OBJECT-profiles",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.profiles",
+          "parent_id": "TARGET-PROFILES",
+          "responsibilities": [
+            "Own declared language support for module-object proof."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ],
+          "id": "IR-MODULE-OBJECT-Profile",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.profiles.Profile",
+          "parent_id": "IR-MODULE-OBJECT-profiles",
+          "responsibilities": [
+            "Declare the capabilities an analyzer can prove."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ],
+          "id": "IR-MODULE-OBJECT-Profile.module_object_imports",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.profiles.Profile.module_object_imports",
+          "parent_id": "IR-MODULE-OBJECT-Profile",
+          "responsibilities": [
+            "Require explicit module-object proof support."
+          ],
+          "annotation": "bool",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
         }
       ],
       "relationships": [
