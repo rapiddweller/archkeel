@@ -6842,11 +6842,7 @@
           "presence": "planned",
           "provenance": [
             "docs/architecture/contract-version-types.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          }
+          ]
         },
         {
           "id": "IR-VERSION-ContractFeature",
