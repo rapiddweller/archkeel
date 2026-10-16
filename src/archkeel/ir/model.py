@@ -649,13 +649,15 @@ def declared_package_pair(
 
 def forbidden_dependency_scopes(
     rule: ForbiddenDependencyRule, components: tuple[ComponentOwnership, ...]
-) -> tuple[
-    tuple[tuple[str, ...], tuple[str, ...]], tuple[tuple[str, ...], tuple[str, ...]]
-]:
+) -> tuple[tuple[tuple[str, ...], tuple[str, ...]], tuple[tuple[str, ...], tuple[str, ...]]]:
     """Use component ownership only for whole-pair bans; otherwise select modules."""
     pair = declared_package_pair(
-        rule.source, rule.target, rule.target_symbol, components,
-        source_match=rule.source_match, target_match=rule.target_match,
+        rule.source,
+        rule.target,
+        rule.target_symbol,
+        components,
+        source_match=rule.source_match,
+        target_match=rule.target_match,
     )
     if pair is not None:
         owners = {label: (packages, exact) for label, packages, exact in components}

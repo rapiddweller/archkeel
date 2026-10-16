@@ -363,7 +363,11 @@ def _update_contract_schema(path: Path) -> None:
             "properties": {"field_path": {"const": ""}},
             "not": {"anyOf": [{"required": ["container_depth"]}, {"required": ["mapping_depth"]}]},
         }
-    if schema["properties"]["schema_version"] in ({"const": "3.2.0"}, {"const": "3.3.0"}, {"const": "3.4.0"}):
+    if schema["properties"]["schema_version"] in (
+        {"const": "3.2.0"},
+        {"const": "3.3.0"},
+        {"const": "3.4.0"},
+    ):
         selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
         selector["properties"]["literal_mapping_arm"] = {"$ref": "#/$defs/nonEmpty"}
         selector["dependentSchemas"]["literal_mapping_arm"] = {

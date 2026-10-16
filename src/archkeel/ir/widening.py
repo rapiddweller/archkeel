@@ -257,8 +257,12 @@ def _forbidden_dependency_widenings(
             if getattr(before, name) == "prefix" and getattr(after, name) == "exact"
         ],
         *_generic_field_widenings(
-            subject, before, after,
-            handled=frozenset({"allowed_sources", "include_type_checking", "source_match", "target_match"})
+            subject,
+            before,
+            after,
+            handled=frozenset(
+                {"allowed_sources", "include_type_checking", "source_match", "target_match"}
+            ),
         ),
     ]
 

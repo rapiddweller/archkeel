@@ -136,7 +136,9 @@ def parse_contract(raw: object) -> ArchitectureContract:
         "contract",
     )
     if root["schema_version"] == "2.1.0":
-        version: Literal["2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0"] = "2.1.0"
+        version: Literal["2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0"] = (
+            "2.1.0"
+        )
     elif root["schema_version"] == "2.2.0":
         version = "2.2.0"
     elif root["schema_version"] == "2.3.0":
@@ -774,6 +776,7 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
     rationale = _nonempty(item["rationale"], f"{label}.rationale")
     decided_by = _decided_by(item["decided_by"], f"{label}.decided_by")
     allowed = _contract_strings(item.get("allowed_sources", []), f"{label}.allowed_sources")
+
     def selector(name: str) -> Literal["prefix", "exact"]:
         value = item.get(name, "prefix")
         if value == "prefix":

@@ -56,7 +56,9 @@ def _contract(**selectors):
 
 
 def _ownership(contract):
-    return tuple((item.label, item.packages, item.exact_modules or ()) for item in contract.components)
+    return tuple(
+        (item.label, item.packages, item.exact_modules or ()) for item in contract.components
+    )
 
 
 def _import(source, target, *, symbol=None, typing=False, symbols_known=True):
@@ -78,8 +80,12 @@ def _import(source, target, *, symbol=None, typing=False, symbols_known=True):
 
 def _module(name):
     return classified(
-        item_id=f"MODULE-{name}", evidence_class=EvidenceClass.FACT,
-        area="modules", kind="module", title=name, data={"qualified_name": name},
+        item_id=f"MODULE-{name}",
+        evidence_class=EvidenceClass.FACT,
+        area="modules",
+        kind="module",
+        title=name,
+        data={"qualified_name": name},
     )
 
 
@@ -114,10 +120,15 @@ def test_selector_matrix(source_match, target_match):
 
 
 def test_exact_selection_preserves_symbol_typing_and_exact_source_allowances():
-    contract = parse_contract(_contract(
-        source_match="exact", target_match="exact", target_symbol="Hidden",
-        include_type_checking=False, allowed_sources=["sample.caller.child"],
-    ))
+    contract = parse_contract(
+        _contract(
+            source_match="exact",
+            target_match="exact",
+            target_symbol="Hidden",
+            include_type_checking=False,
+            allowed_sources=["sample.caller.child"],
+        )
+    )
     imports = [
         _import("sample.caller", "sample.errors", symbol="Hidden"),
         _import("sample.caller", "sample.errors", symbol="Other"),
@@ -125,9 +136,12 @@ def test_exact_selection_preserves_symbol_typing_and_exact_source_allowances():
         _import("sample.caller", "sample.errors", symbol="Hidden", typing=True),
         _import("sample.caller.child", "sample.errors", symbol="Hidden"),
     ]
-    assert [verdict for _, _, verdict in _forbidden_dependency_verdicts(
-        imports, contract.rules, _ownership(contract)
-    )] == ["violation", "allowed", "undecided"]
+    assert [
+        verdict
+        for _, _, verdict in _forbidden_dependency_verdicts(
+            imports, contract.rules, _ownership(contract)
+        )
+    ] == ["violation", "allowed", "undecided"]
     rule = replace(contract.rules[0], allowed_sources=("sample.caller",))
     assert not list(_forbidden_dependency_verdicts(imports, (rule,), _ownership(contract)))
 
@@ -136,8 +150,13 @@ def test_exact_source_requires_its_own_subject_and_receipt():
     contract = parse_contract(_contract(source_match="exact", target_match="exact"))
     child = _module("sample.caller.child")
     root = _module("sample.caller")
-    kwargs = dict(profile=PYTHON, scope="root", source_modules=None,
-                  blank_modules=frozenset(), receipt_scope_complete=True)
+    kwargs = dict(
+        profile=PYTHON,
+        scope="root",
+        source_modules=None,
+        blank_modules=frozenset(),
+        receipt_scope_complete=True,
+    )
     assert rule_evaluation_facts(contract, modules=[child], **kwargs) == []
     [receipt] = rule_evaluation_facts(contract, modules=[root, child], **kwargs)
     assert receipt["subjects"] == ["sample.caller"]
@@ -148,7 +167,11 @@ def test_exact_source_requires_its_own_subject_and_receipt():
 
 
 def test_exact_selection_is_not_a_whole_pair_decision():
-    for source_match, target_match in (("exact", "exact"), ("exact", "prefix"), ("prefix", "exact")):
+    for source_match, target_match in (
+        ("exact", "exact"),
+        ("exact", "prefix"),
+        ("prefix", "exact"),
+    ):
         contract = parse_contract(_contract(source_match=source_match, target_match=target_match))
         assert _decided_pairs(contract, ForbiddenDependencyRule) == []
         declaration = project_rule_declaration(contract.rules[0])
@@ -216,10 +239,15 @@ def test_native_exact_policy_preserves_nested_receipts_and_saved_reports(tmp_pat
     if mounted:
         files["inside.json"] = json.dumps(contract)
         outer = _contract()
-        outer["components"] = [{
-            **outer["components"][0], "id": "all", "label": "all",
-            "packages": ["sample"], "inside": "inside.json",
-        }]
+        outer["components"] = [
+            {
+                **outer["components"][0],
+                "id": "all",
+                "label": "all",
+                "packages": ["sample"],
+                "inside": "inside.json",
+            }
+        ]
         outer["rules"] = []
         contract = outer
     result = _observe_tree(tmp_path, files, contract)
@@ -228,12 +256,14 @@ def test_native_exact_policy_preserves_nested_receipts_and_saved_reports(tmp_pat
     assert observation.coverage.status == "PASS", observation.coverage.failures
     findings = trace_valid_violations(observation)
     assert len(findings) == 1
-    assert findings[0].data["source_module"] == "sample.caller"
-    assert findings[0].data["target_module"] == "sample.errors"
+    assert findings[0].data.get("source_module") == "sample.caller"
+    assert findings[0].data.get("target_module") == "sample.errors"
     identity = "all:NO-AGGREGATE" if mounted else "NO-AGGREGATE"
     [row] = [r for r in rule_assessments(observation, undecided_by_rule={}) if r.id == identity]
     assert row.status == "FAIL" and row.evaluation_proven
-    saved = parse_observation(decode_canonical_model(json.loads(canonical_report_bytes(observation))))
+    saved = parse_observation(
+        decode_canonical_model(json.loads(canonical_report_bytes(observation)))
+    )
     assert rule_assessments(saved, undecided_by_rule={}) == rule_assessments(
         observation, undecided_by_rule={}
     )
@@ -245,6 +275,15 @@ def test_exact_parent_ban_does_not_prohibit_an_entire_child_component_pair():
     contract = parse_contract(_contract(source_match="exact", target_match="exact"))
     assert _forbidden_targets(contract, contract.components[0]) == []
     # The parent ban still rejects its exact import through the shared evaluator.
-    assert len(list(_forbidden_dependency_verdicts(
-        [_import("sample.caller", "sample.errors")], contract.rules, _ownership(contract)
-    ))) == 1
+    assert (
+        len(
+            list(
+                _forbidden_dependency_verdicts(
+                    [_import("sample.caller", "sample.errors")],
+                    contract.rules,
+                    _ownership(contract),
+                )
+            )
+        )
+        == 1
+    )

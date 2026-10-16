@@ -1060,10 +1060,14 @@ def rule_subject_failures(
             for side, side_scopes in scopes.items()
         }
         if isinstance(rule, ForbiddenDependencyRule):
-            ownership = tuple(
-                (component.label, component.packages, component.exact_modules or ())
-                for component in contract.components
-            ) if contract is not None else ()
+            ownership = (
+                tuple(
+                    (component.label, component.packages, component.exact_modules or ())
+                    for component in contract.components
+                )
+                if contract is not None
+                else ()
+            )
             source_selection, target_selection = forbidden_dependency_scopes(rule, ownership)
             matches = {
                 side: sum(module_in_ownership(module, *selection) for module in subjects)
@@ -1927,7 +1931,8 @@ def rule_evaluation_facts(
             )
             sources, _ = forbidden_dependency_scopes(rule, ownership)
             selected = tuple(
-                item for item in observed
+                item
+                for item in observed
                 if module_in_ownership(item["data"]["qualified_name"], *sources)
             )
         elif isinstance(rule, SiblingIsolationRule):
