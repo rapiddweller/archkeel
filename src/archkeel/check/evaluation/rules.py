@@ -1126,6 +1126,19 @@ def rule_subject_failures(
     return rule_failures
 
 
+def _unsupported_module_object_grants(
+    contract: ArchitectureContract, profile: Profile
+) -> list[tuple[str, list[str], str]]:
+    """Describe declared grants the profile lacks facts to decide."""
+    return [
+        (rule.id, [rule.id], "exact module-object grants")
+        for rule in contract.rules
+        if isinstance(rule, InterfaceBoundaryRule)
+        and rule.module_object_grants
+        and not profile.module_object_imports
+    ]
+
+
 def profile_failures(
     contract: ArchitectureContract,
     profile: Profile,
@@ -1144,13 +1157,7 @@ def profile_failures(
         "coupling_budgets": bool(declarations.coupling_budgets),
     }
     items = [
-        *(
-            (rule.id, [rule.id], "exact module-object grants")
-            for rule in contract.rules
-            if isinstance(rule, InterfaceBoundaryRule)
-            and rule.module_object_grants
-            and not profile.module_object_imports
-        ),
+        *_unsupported_module_object_grants(contract, profile),
         *(
             (rule.id, [rule.id], f"rule kind {rule.kind}")
             for rule in contract.rules

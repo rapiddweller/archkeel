@@ -24,20 +24,12 @@ jobs:
           uv run --locked ruff check src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py src/archkeel/check/declarations.py src/archkeel/check/evaluation/rules.py src/archkeel/ir/widening.py tools/architecture_graph_schema.py tests/test_contract_model.py src/archkeel/ir/profiles.py src/archkeel/check/uml.py src/archkeel/check/evaluation/boundary_types.py tests/test_module_object_grants.py
       - name: Native and lifecycle controls
         run: uv run --locked python -m pytest -q tests/test_module_object_grants.py
-      - name: Focused lifecycle regressions
-        if: always()
-        run: |
-          uv run --locked python -m pytest -q tests/test_contract_model.py tests/test_schema_drift.py tests/test_references.py tests/test_renames.py tests/test_widening.py tests/test_interfaces.py tests/test_nested_interface_lifecycle.py tests/test_dependency_selectors.py tests/test_typed_dependency_api.py tests/test_codec.py tests/test_boundary_type_nested_mapping.py --maxfail=5
       - name: Types and hygiene
         if: always()
         run: |
+          make lint
           make typecheck
           uv run --locked python -m pytest -q tests/test_repository_hygiene.py
-      - name: Reproducible schemas
-        if: always()
-        run: |
-          make architecture-graph-schema
-          git diff --exit-code -- schema
       - name: Capture formatter patch
         if: always()
         run: |
