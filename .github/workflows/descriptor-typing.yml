@@ -1,0 +1,29 @@
+name: Descriptor typing signal diagnosis
+on:
+  push:
+    branches: [verify/542-descriptor-typing]
+permissions:
+  contents: read
+jobs:
+  source-signal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Print actual new source typing position
+        run: |
+          uv run --locked python - <<'PY'
+          from pathlib import Path
+          from archkeel.analyzer.python.collect import collect
+          from archkeel.ir.protocol import CollectionRequest,SnapshotInput,SourceScope,PythonSettings
+          from archkeel.ir.facts_codec import record_payload
+          facts=collect(CollectionRequest(SnapshotInput(str(Path.cwd()),"a"*40,False),SourceScope(("src/archkeel",),"archkeel"),PythonSettings()))
+          rows=[r for s in facts.sections if s.name=="typing_signals" for r in s.records if r.data.get("owner")=="archkeel.ir.facts.parse_method_kind:value"]
+          print("ACTUAL_DESCRIPTOR_NEW_TYPING", [record_payload(r) for r in rows])
+          assert len(rows)==1 and rows[0].kind=="object_annotation"
+          PY
