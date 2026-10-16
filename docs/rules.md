@@ -183,6 +183,12 @@ vocabulary and source scope. Aliases/shadowing are limits. Exact type-ignore
 allowances bind scope, line, AST statement and tag; moving or changing them needs
 review.
 
+ArchKeel's own dependency-policy component uses the existing
+`string_literal_compare` construct rule to protect closed selector modes. Native
+source mutations check literal equality, membership, `match` and `Final[str]`
+disguises. See the [migration scope](architecture/typed-control-migration.md) for
+the protected API, legitimate wire/name data and remaining vocabularies.
+
 ### Nested and independent intent
 
 Explicit `inside` mounts evaluate child contracts over the same scan. Paths are

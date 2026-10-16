@@ -1,0 +1,59 @@
+name: Verify complete typed component change
+on:
+  push:
+    branches: [verify/typed-component-full]
+permissions:
+  contents: read
+jobs:
+  full-suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Install supported runtimes and locked dependencies
+        run: |
+          uv python install 3.11.12 3.12.10
+          uv sync --locked
+      - name: Install report browser
+        run: make browser-install
+      - name: Run all source and browser tests with lint and type checks
+        run: make check PYTEST_EXTRA="--with playwright==1.62.0"
+      - name: Upload full-suite evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: typed-component-full-suite
+          path: test-artifacts/pytest/results.xml
+          if-no-files-found: warn
+          retention-days: 1
+  native-self-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Validate complete own contract without budget changes
+        run: |
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > .task-full-native.json
+          python - <<'PY'
+          import json,pathlib
+          data=json.loads(pathlib.Path(".task-full-native.json").read_text())
+          print(json.dumps({key:data.get(key) for key in ("exit_code","failures","diagnostics","measurements")},indent=2))
+          PY
