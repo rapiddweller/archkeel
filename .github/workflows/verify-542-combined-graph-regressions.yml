@@ -1,0 +1,94 @@
+name: Verify combined Graph and Version regressions
+on:
+  push:
+    branches: [verify/542-combined-graph-regressions]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: b475e027f4384feb8cdf2cc9844b82cdf89185ea
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Check canonical strings, fixtures, and independent intent
+        run: |
+          uv run --locked python -m pytest -n 2 --dist=loadfile -q tests/test_scoped_dependency_proof.py tests/test_widening.py tests/test_renames.py tests/test_dependency_api_target.py tests/test_dependency_typed_control.py tests/test_layers.py tests/test_protocol_uml_target.py tests/test_contract_version_types.py tests/test_references.py tests/test_boundary_type_opaque_map_values.py tests/test_schema_drift.py tests/test_repository_hygiene.py
+          make lint typecheck
+  demos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: b475e027f4384feb8cdf2cc9844b82cdf89185ea
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Check exact combined codec against real Dart and TypeScript reports
+        run: |
+          uv run --locked python -m pytest -n 2 --dist=loadfile -q tests/test_compass_project_report.py tests/test_nest_realworld_project_report.py tests/test_flutter_demo.py tests/test_typescript_demo.py
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: b475e027f4384feb8cdf2cc9844b82cdf89185ea
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Install report browser
+        run: make browser-install
+      - name: Check routes, navigation, previews and renderer contracts
+        run: uv run --locked --with playwright==1.62.0 python -m pytest -n 2 --dist=loadfile -q tests/test_own_uml_target.py tests/test_report_renderer_units.py
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: b475e027f4384feb8cdf2cc9844b82cdf89185ea
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Validate frozen baseline and normal amendment without writes
+        run: |
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against bb6c6512414e0f432be2f6719a705fddba60e9b7 --amendment docs/architecture/decisions/2026-10-16-contract-version-types.json > "$RUNNER_TEMP/union-native.json"
+          uv run --locked python - <<'PY'
+          import json, os
+          from pathlib import Path
+          result = json.loads((Path(os.environ["RUNNER_TEMP"]) / "union-native.json").read_text())
+          assert result["exit_code"] == 0 and result["amendment_status"] == "valid", result
+          assert not result["diagnostics"] and not result["failures"], result
+          print("UNION_NATIVE=" + json.dumps({key: result.get(key) for key in ("exit_code", "amendment_status", "measurements", "diagnostics", "failures")}, separators=(",", ":")))
+          PY
+          git diff --exit-code -- architecture-baseline.json docs/architecture/decisions/2026-10-16-contract-version-types.json
