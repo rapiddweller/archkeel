@@ -25,3 +25,16 @@ jobs:
           result=$?
           echo "PROPERTY_RED_EXIT=$result"
           test "$result" -eq 1
+      - name: Diagnose isolated IR Target
+        run: |
+          PYTHONPATH=src:tests uv run --locked python - <<'PY'
+          import tempfile
+          from pathlib import Path
+          from test_typed_python_properties import _repository
+          from archkeel.check.report import run_report
+          from archkeel.cli.observe import observe
+          root, config = _repository(Path(tempfile.mkdtemp()))
+          result, encoded = run_report(root, config=config, analyzer=observe)
+          print("IR_PROPERTY_NATIVE_DIAGNOSTICS", result.diagnostics)
+          print("IR_PROPERTY_NATIVE_EXIT", result.exit_code)
+          PY
