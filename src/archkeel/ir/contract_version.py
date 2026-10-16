@@ -35,11 +35,13 @@ class ContractVersion(StrEnum):
 
     def supports(self, feature: ContractFeature) -> bool:
         """Read and write use the same feature introduction policy."""
-        return self in _FEATURE_VERSIONS[feature]
+        return _VERSION_RANK[self] >= _VERSION_RANK[_FEATURE_START[feature]]
 
 
 # Declaration order is the supported contract evolution order.
-_VERSIONS: tuple[ContractVersion, ...] = tuple(ContractVersion)
+_VERSION_RANK: dict[ContractVersion, int] = {
+    version: position for position, version in enumerate(ContractVersion)
+}
 _FEATURE_START: dict[ContractFeature, ContractVersion] = {
     ContractFeature.UML: ContractVersion.V2_2,
     ContractFeature.LAYERS: ContractVersion.V2_3,
@@ -50,8 +52,4 @@ _FEATURE_START: dict[ContractFeature, ContractVersion] = {
     ContractFeature.MODULE_SELECTORS: ContractVersion.V3_4,
     ContractFeature.IMPORT_NAMESPACES: ContractVersion.V3_5,
     ContractFeature.MODULE_OBJECT_GRANTS: ContractVersion.V3_6,
-}
-_FEATURE_VERSIONS: dict[ContractFeature, frozenset[ContractVersion]] = {
-    feature: frozenset(_VERSIONS[_VERSIONS.index(first) :])
-    for feature, first in _FEATURE_START.items()
 }
