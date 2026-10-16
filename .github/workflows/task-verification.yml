@@ -1,13 +1,13 @@
-name: Verify typed dependency seam
+name: Bind typed dependency contract change
 on:
   push:
-    branches: [verify/540-typed-dependencies]
+    branches: [verify/540-contract-amendment]
 permissions:
   contents: read
 jobs:
-  policy-tests:
+  bind-amendment:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -17,45 +17,12 @@ jobs:
         with:
           python-version: "3.11.12"
           version: "0.12.13"
-      - name: Format and lint
+      - name: Bind the exact intended contract and unchanged baseline
         run: |
-          uv run --locked ruff format src tests tools/architecture_graph_schema.py
-          uv run --locked ruff check --fix src tests tools/architecture_graph_schema.py
-      - name: Export exact formatting patch
-        if: always()
-        run: |
-          git diff --no-ext-diff > .task-format.patch
-          python -c "import base64,pathlib; print('FORMAT_PATCH='+base64.b64encode(pathlib.Path('.task-format.patch').read_bytes()).decode())"
-      - name: Verify dependency semantics and compatibility
-        run: uv run --locked python -m pytest -q tests/test_dependency_selectors.py tests/test_typed_dependency_api.py tests/test_absent_import_namespace.py tests/test_contract_model.py tests/test_widening.py --maxfail=8
-      - name: Verify source types
-        if: always()
-        run: uv run --locked mypy src
-      - name: Verify function size
-        if: always()
-        run: uv run --locked python -m pytest -q tests/test_repository_hygiene.py::test_long_functions_have_a_named_reason
-
-
-  self-audit:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - name: Validate own native contract without budget changes
-        run: |
-          set +e
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > .task-self-validate.json
-          task_audit_status=$?
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 63437df6734275850838ba1026b276c2f930bf2f --amendment docs/architecture/decisions/issue-540-dependency-policy-amendment.json --write-amendment --decided-by "ake2l (requested typed APIs and component responsibilities); Codex implementation, independent Astra review before merge" --rationale "Issue #540 extracts one pure typed dependency-policy component with six named shared type exports and an inner ownership matcher port. Existing model compatibility exports delegate to this owner; codecs retain raw conversion, Core retains verdicts and reports reuse selection. The enum placement rule explicitly permits this vocabulary owner. Existing budgets and baseline remain unchanged. Native semantic and compatibility regressions and independent final review are required; docs/architecture/dependency-selection.md records the API responsibilities." > .task-amendment-result.json
           python - <<'PY'
           import json,pathlib
-          data=json.loads(pathlib.Path(".task-self-validate.json").read_text())
-          print(json.dumps({key:data.get(key) for key in ("exit_code","failures","unresolved_call_changes","diagnostics","measurement_regressions")},indent=2))
+          result=json.loads(pathlib.Path(".task-amendment-result.json").read_text())
+          print("AMENDMENT_RESULT="+json.dumps({key:result.get(key) for key in ("exit_code","failures","diagnostics")}))
+          print("AMENDMENT_JSON="+pathlib.Path("docs/architecture/decisions/issue-540-dependency-policy-amendment.json").read_text().replace("\n",""))
           PY
-          exit "$task_audit_status"
