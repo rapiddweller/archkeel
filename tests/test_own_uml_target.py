@@ -268,6 +268,12 @@ def test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints(
     page.context.new_cdp_session(page).send("Emulation.setCPUThrottlingRate", {"rate": 4})
     try:
         for label in ("ir", "governance", "architecture_graph"):
+            print("OWN_UML_NAV=" + json.dumps({"view": view, "next": label,
+                "state": page.evaluate("""() => ({
+                    scope: window.ArchkeelFlow.state().scope,
+                    labels: [...document.querySelectorAll('.flow-nodes [data-label]')]
+                      .map(node => node.dataset.label)
+                })""")}))
             page.locator(f'.flow-nodes [data-label="{label}"]').dblclick(timeout=30000)
             _wait_for_layout(page)
         graph_id = page.locator('.flow-nodes [data-label="ArchitectureGraph"]').get_attribute(
@@ -513,15 +519,47 @@ def test_own_type_dependencies_have_visible_endpoints_and_connected_focus(
         errors=errors,
     )
     try:
+        page.evaluate("""() => {
+          const api = window.ArchkeelReportLayout;
+          const layout = api.layoutUml;
+          api.layoutUml = async (input) => {
+            const output = await layout(input);
+            window.__routeDiagnostic = {input, positions: output.positions,
+              routes: [...output.routes.entries()]};
+            return output;
+          };
+        }""")
         page.get_by_role("button", name=view, exact=True).click()
         _wait_for_layout(page)
         for label in ("ir", "governance", "architecture_graph"):
+            print("OWN_UML_NAV=" + json.dumps({"view": view, "next": label,
+                "state": page.evaluate("""() => ({
+                    scope: window.ArchkeelFlow.state().scope,
+                    labels: [...document.querySelectorAll('.flow-nodes [data-label]')]
+                      .map(node => node.dataset.label)
+                })""")}))
             page.locator(f'.flow-nodes [data-label="{label}"]').dblclick()
             _wait_for_layout(page)
         edges = page.locator('.flow-edges [data-relationship-kind="references"]')
         assert edges.count() == len(TYPE_DEPENDENCIES)
         page.get_by_role("button", name="Fit overview", exact=True).click()
-        assert not _route_problems(page.locator(".flow-edges .edge"))
+        problems = _route_problems(page.locator(".flow-edges .edge"))
+        print("OWN_UML_ROUTE_DIAGNOSTIC=" + json.dumps({
+            "view": view, "problems": problems,
+            "geometry": page.evaluate("""() => ({
+              scale: (() => {const m = document.querySelector('.flow-edges .line').getScreenCTM();
+                return Math.hypot(m.a, m.b)})(),
+              layout: window.__routeDiagnostic,
+              cards: [...document.querySelectorAll('.flow-nodes .card')].map(node =>
+                ({id: node.dataset.umlId, label: node.dataset.label,
+                  x: node.getBoundingClientRect().x, y: node.getBoundingClientRect().y,
+                  width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height})),
+              routes: [...document.querySelectorAll('.flow-edges .edge')].map(node =>
+                ({id: node.dataset.umlId, source: node.dataset.umlSource, target: node.dataset.umlTarget,
+                  path: node.querySelector('.line').getAttribute('d')}))
+            })"""),
+        }))
+        assert not problems
         identities = set(
             page.locator(".flow-nodes [data-uml-id]").evaluate_all(
                 "nodes => nodes.map(node => node.dataset.umlId)"
