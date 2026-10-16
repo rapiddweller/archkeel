@@ -386,7 +386,7 @@ def resolve_reexports(
             )
         ):
             aliases[consumer.module][binding] = (provider, symbol)
-    candidates = _type_reference_candidates(imports, modules, aliases)
+    candidates = _type_reference_candidates(imports, modules, aliases, module_counts)
     escaped_bindings = {module.module: unproven_member_bindings(module) for module in parsed}
     escaped_bindings = _converge_member_escapes(
         imports, modules, stable_bindings, escaped_bindings, candidates
@@ -501,13 +501,14 @@ def _converge_member_escapes(
 
 
 def _generic_alias_bindings(
-    imports: Sequence[RawRecord], modules: dict[str, ParsedModule]
+    imports: Sequence[RawRecord],
+    modules: dict[str, ParsedModule],
+    module_counts: Mapping[str, int],
 ) -> dict[str, dict[str, frozenset[tuple[str, str]]]]:
-    counts = Counter(module.module for module in modules.values())
     providers = {
         name: intrinsic_generic_aliases(module)
         for name, module in modules.items()
-        if counts[name] == 1
+        if module_counts[name] == 1
     }
     bindings = {
         name: {binding: frozenset({(name, binding)}) for binding in providers.get(name, ())}
@@ -519,11 +520,13 @@ def _generic_alias_bindings(
         origin = f"{provider}.{symbol}"
         if (
             source in modules
+            and module_counts[source] == 1
             and symbol in providers.get(provider, ())
             and _callable_provider_binding(data)
             and data.get("origin_binding_unique") is True
             and data["origin_definition"] == origin
             and data["reexport_chain"] == [origin]
+            and data["binding"] in modules[source].aliases
             and modules[source].aliases[data["binding"]].target == origin
         ):
             bindings[source][data["binding"]] = frozenset(
@@ -536,8 +539,9 @@ def _type_reference_candidates(
     imports: Sequence[RawRecord],
     modules: dict[str, ParsedModule],
     aliases: Mapping[str, dict[str, tuple[str, str]]],
+    module_counts: Mapping[str, int],
 ) -> dict[str, dict[ast.expr, frozenset[tuple[str, str]]]]:
-    generic_aliases = _generic_alias_bindings(imports, modules)
+    generic_aliases = _generic_alias_bindings(imports, modules, module_counts)
     callable_providers = _callable_providers(imports, modules)
     candidates = {
         name: {

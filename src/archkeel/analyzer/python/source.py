@@ -1739,11 +1739,12 @@ def _closed_builtin_type_arguments(module: ParsedModule, node: ast.AST) -> bool:
 
 def intrinsic_generic_aliases(module: ParsedModule) -> frozenset[str]:
     """Admit unique native alias values from their RHS, independently of TypeAlias spelling."""
-    stable = stable_direct_module_bindings(module) & unique_direct_module_bindings(module)
+    stable = stable_direct_module_bindings(module)
+    counts = Counter(module.bound_names)
     return frozenset(
         name
         for node, name in module_scope_bindings(module)
-        if name in stable
+        if name in stable and counts[name] == 1
         and (value := admitted_type_alias_value(module, node)) is not None
         and _builtin_generic_alias(module, value)
     )

@@ -34,7 +34,8 @@ def _repository(root: Path, *, imported=True, provider=None, suffix="", prefix="
 
 def _position_unknowns(model):
     return [
-        row for row in model.records("unknowns")
+        row
+        for row in model.records("unknowns")
         if row.kind == "boundary_type_position"
         and row.data.get("qualified_name") == "sample.app.impl.select"
     ]
@@ -46,7 +47,8 @@ def test_native_builtin_alias_union_keeps_the_alias_shape_proven(tmp_path, impor
     assert not _position_unknowns(model)
     assert not trace_valid_violations(model)
     aliases = [
-        row for row in model.records("symbols")
+        row
+        for row in model.records("symbols")
         if row.kind == "type_alias" and row.data.get("name") == "Ownership"
     ]
     assert aliases and all(row.data.get("source_member_binding_static") is True for row in aliases)
@@ -54,8 +56,16 @@ def test_native_builtin_alias_union_keeps_the_alias_shape_proven(tmp_path, impor
 
 @pytest.mark.parametrize(
     "mutation",
-    ["custom_operator", "custom_subscript", "shadowed_container", "rebound_provider",
-     "conditional_provider", "unknown_escape", "import_rebind", "provider_namespace_write"],
+    [
+        "custom_operator",
+        "custom_subscript",
+        "shadowed_container",
+        "rebound_provider",
+        "conditional_provider",
+        "unknown_escape",
+        "import_rebind",
+        "provider_namespace_write",
+    ],
 )
 def test_native_unsafe_union_operands_do_not_gain_builtin_proof(tmp_path, mutation):
     provider = f"Ownership = {_OWNERSHIP}\n"
@@ -91,8 +101,10 @@ def test_native_builtin_generic_alias_heads_are_read_only_union_operands(tmp_pat
     body = f"{container}[str, int]" if container == "dict" else f"{container}[str]"
     model = _repository(tmp_path, provider=f"Ownership = {body}\n")
     alias = next(
-        row for row in model.records("symbols")
-        if row.kind == "type_alias" and row.data.get("qualified_name") == "sample.app.types.Ownership"
+        row
+        for row in model.records("symbols")
+        if row.kind == "type_alias"
+        and row.data.get("qualified_name") == "sample.app.types.Ownership"
     )
     assert alias.data.get("source_member_binding_static") is True
     assert not _position_unknowns(model)

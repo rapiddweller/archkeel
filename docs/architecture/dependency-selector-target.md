@@ -35,6 +35,18 @@ type/signature aspects; a mode field or parameter changed to `str`, a selection
 return changed to `tuple`, a selector property changed to `str`, and an
 unpublished import produce trace-valid native violations.
 
+The Python collector also recognizes a bounded case of executable alias unions.
+Both operands must resolve to unique, stable builtin GenericAlias constructions
+(`tuple`, `list`, `dict`, `set` or `frozenset`) with closed builtin arguments.
+Direct imports retain dependencies on both the importing and defining bindings.
+The existing escape fixed point withdraws this protection after an unknown
+escape, namespace write or rebinding. A `TypeAlias` annotation alone proves
+nothing; custom subscription and metaclass operators remain unsupported.
+This small source-proof extension preserves the existing ownership aliases and
+lets the dependency boundary check their actual tuple shapes without exemptions.
+Native tests cover local and imported providers, all five heads, custom
+operators, shadowed containers, source rebinding and unknown escapes.
+
 This is not a closed inventory of all IR members or relationships. A missing
 method under a class with partial member evidence remains UNKNOWN; the tests
 do not change observations or manufacture complete coverage. Unspecified

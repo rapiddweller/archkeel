@@ -17,25 +17,6 @@ jobs:
         with:
           python-version: "3.11.12"
           version: "0.12.13"
-      - name: Inspect candidate roots
-        run: |
-          uv run --locked python - <<'PY'
-          import sys,ast
-          sys.path.insert(0,"tests")
-          from test_boundary_types_aliases import _module
-          from archkeel.analyzer.python.source import intrinsic_generic_aliases,proven_generic_alias_union_candidates,unproven_member_bindings,stable_direct_module_bindings,unique_direct_module_bindings
-          from archkeel.analyzer.python.imports import _type_reference_candidates,_generic_alias_bindings
-          source="Ownership = tuple[str, tuple[str, ...], tuple[str, ...]]\nPackageOwnership = tuple[str, tuple[str, ...]]\nCompatible = Ownership | PackageOwnership\n"
-          module=_module(source)
-          print("BINDINGS",module.bound_names,module.binding_names,stable_direct_module_bindings(module),unique_direct_module_bindings(module))
-          print("NATIVE",intrinsic_generic_aliases(module))
-          bindings=_generic_alias_bindings([],{"sample":module})
-          print("BINDING_MAP",bindings)
-          candidates=_type_reference_candidates([],{"sample":module},{"sample":{}})
-          print("CANDIDATES",[(ast.unparse(node),deps) for node,deps in candidates["sample"].items()])
-          print("PROTECTED",[ast.unparse(node) for node in module._proven_map_union_expressions])
-          print("UNPROVEN",unproven_member_bindings(module))
-          PY
       - name: Focused native source controls
         run: uv run --locked python -m pytest -q tests/test_generic_alias_union_proof.py tests/test_dependency_api_target.py --maxfail=10
       - name: Lint and types
