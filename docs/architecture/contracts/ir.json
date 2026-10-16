@@ -9686,6 +9686,290 @@
             "kind": "public",
             "basis": "declared"
           }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/measurement-control-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Keep measurement decisions nominal at the existing typed owner boundary."
+          ],
+          "id": "IR-MEASURE-owner",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.measurements"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/measurement-control-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Keep measurement decisions nominal at the existing typed owner boundary."
+          ],
+          "id": "IR-MEASURE-MeasurementBudgetName",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.measurements.MeasurementBudgetName",
+          "parent_id": "IR-MEASURE-owner"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/measurement-control-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Keep measurement decisions nominal at the existing typed owner boundary."
+          ],
+          "id": "IR-MEASURE-NameBudgetKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.measurements.NameBudgetKind",
+          "parent_id": "IR-MEASURE-owner"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/measurement-control-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Keep measurement decisions nominal at the existing typed owner boundary."
+          ],
+          "id": "IR-MEASURE-MeasurementResolution",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.measurements.MeasurementResolution",
+          "parent_id": "IR-MEASURE-owner"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/measurement-control-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Keep measurement decisions nominal at the existing typed owner boundary."
+          ],
+          "id": "IR-MEASURE-MetricComparisonStatus",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.measurements.MetricComparisonStatus",
+          "parent_id": "IR-MEASURE-owner"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/measurement-control-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Keep measurement decisions nominal at the existing typed owner boundary."
+          ],
+          "id": "IR-MEASURE-MeasurementBudget",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.measurements.MeasurementBudget",
+          "parent_id": "IR-MEASURE-owner",
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/measurement-control-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Keep measurement decisions nominal at the existing typed owner boundary."
+          ],
+          "id": "IR-MEASURE-Measurements",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.measurements.Measurements",
+          "parent_id": "IR-MEASURE-owner",
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/measurement-control-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Keep measurement decisions nominal at the existing typed owner boundary."
+          ],
+          "id": "IR-MEASURE-ContractMeasurementBudget",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.ContractMeasurementBudget",
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/measurement-control-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Keep measurement decisions nominal at the existing typed owner boundary."
+          ],
+          "id": "IR-MEASURE-InterfaceBudgetResult",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.InterfaceBudgetResult",
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/measurement-control-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Keep measurement decisions nominal at the existing typed owner boundary."
+          ],
+          "id": "IR-MEASURE-MeasurementBudget-name",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.measurements.MeasurementBudget.name",
+          "parent_id": "IR-MEASURE-MeasurementBudget",
+          "annotation": "MeasurementBudgetName | NameBudgetKind"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/measurement-control-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Keep measurement decisions nominal at the existing typed owner boundary."
+          ],
+          "id": "IR-MEASURE-Measurements-resolution",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.measurements.Measurements.resolution",
+          "parent_id": "IR-MEASURE-Measurements",
+          "annotation": "MeasurementResolution"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/measurement-control-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Keep measurement decisions nominal at the existing typed owner boundary."
+          ],
+          "id": "IR-MEASURE-ContractMeasurementBudget-name",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ContractMeasurementBudget.name",
+          "parent_id": "IR-MEASURE-ContractMeasurementBudget",
+          "annotation": "MeasurementBudgetName"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/measurement-control-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Keep measurement decisions nominal at the existing typed owner boundary."
+          ],
+          "id": "IR-MEASURE-InterfaceBudgetResult-budget",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.InterfaceBudgetResult.budget",
+          "parent_id": "IR-MEASURE-InterfaceBudgetResult",
+          "annotation": "NameBudgetKind"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/measurement-control-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Keep measurement decisions nominal at the existing typed owner boundary."
+          ],
+          "id": "IR-MEASURE-compare_measurements",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.measurements.compare_measurements",
+          "parent_id": "IR-MEASURE-owner",
+          "signature": {
+            "parameters": [
+              {
+                "name": "accepted",
+                "annotation": "Measurements",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "candidate",
+                "annotation": "Measurements",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "tuple[tuple[str, str, str, MetricComparisonStatus], ...]"
+          }
         }
       ],
       "relationships": [
