@@ -1,0 +1,53 @@
+name: Prepare exact command and symbol-port source union
+on:
+  push:
+    branches: [verify/542-core-command-source-union]
+permissions:
+  contents: read
+jobs:
+  source-union:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 7b56ba28856d55908c0b9ed9925b56e8058787e4
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Calculate exact Git source union without remote writes
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          
+          def git(*args):
+              return subprocess.run(["git", *args], check=True, capture_output=True).stdout.decode()
+          
+          stages = [{"name":"reviewed-symbol-requires-and-command","base":"c7444205d4fe87eaae0de5e2dc98b70909fd1cc7","head":"3dd2efdc54ef99f2b4cb742f3194cfd1f2619a84","paths":["docs/architecture/core-command-result-types.md","docs/architecture/decisions/ad-42-a-requires-entry-may-name-the-modules-it-goes-through-and.md","docs/architecture/symbol-requires-ports.md","docs/rules.md","docs/superpowers/plans/2026-10-16-core-command-result.md","docs/superpowers/plans/2026-10-16-symbol-specific-requires.md","src/archkeel/check/evaluation/rule_support.py","src/archkeel/check/evaluation/rules.py","src/archkeel/check/onboarding.py","src/archkeel/check/report.py","src/archkeel/check/run.py","src/archkeel/check/validation/__init__.py","src/archkeel/cli/arguments.py","src/archkeel/ir/codec_result.py","src/archkeel/ir/command_view.py","src/archkeel/ir/dependency.py","src/archkeel/ir/model.py","src/archkeel/render/summary.py","tests/test_cli_input_target.py","tests/test_core_command_result.py","tests/test_dependency_selectors.py","tests/test_repository_hygiene.py","tests/test_requires_symbol_ports.py","tests/test_rule_yield.py","tools/github_pr_report.py","tools/rule_yield.py"]}]
+          for stage in stages:
+              patch = subprocess.run(["git", "diff", "--binary", stage["base"], stage["head"], "--", *stage["paths"]], check=True, capture_output=True).stdout
+              if patch:
+                  applied = subprocess.run(["git", "apply", "--3way", "--index", "-"], input=patch, capture_output=True)
+                  if applied.returncode:
+                      print("MERGE_CONFLICT=" + stage["name"])
+                      print(applied.stderr.decode()[-6000:])
+                      print(git("diff", "--name-only", "--diff-filter=U"))
+                      raise SystemExit(1)
+              print("SOURCE_STAGE=" + stage["name"])
+          
+          paths = []
+          for line in git("diff", "--cached", "--name-status", "--no-renames", "HEAD").splitlines():
+              status, path = line.split("\t")
+              if status == "D":
+                  paths.append({"path": path, "deleted": True})
+                  continue
+              mode = git("ls-files", "--stage", "--", path).split()[0]
+              content = Path(path).read_text()
+              parts = [content[index:index + 12000] for index in range(0, len(content), 12000)] or [""]
+              paths.append({"path": path, "mode": mode, "parts": len(parts), "index_sha": git("ls-files", "--stage", "--", path).split()[1], "text_sha": subprocess.run(["git", "hash-object", "--stdin"], input=content.encode(), capture_output=True, check=True).stdout.decode().strip()})
+              for index, part in enumerate(parts):
+                  print("SOURCE_UNION_CHUNK=" + json.dumps({"path": path, "index": index, "content": part}, separators=(",", ":")))
+          print("SOURCE_UNION_PATHS=" + json.dumps(paths, separators=(",", ":")))
+          print("SOURCE_UNION_TREE=" + git("write-tree").strip())
+          
+          PY
