@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ab78e1747645f7e0297e8cc110e24ef3c05bbade
+          ref: 63e13979f12a42905e902e278edc969004c96ae4
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -199,6 +199,6 @@ jobs:
               _, peak = tracemalloc.get_traced_memory()
               tracemalloc.stop()
               print("REVIEW_BENCH_RESULT=" + json.dumps({"variant": key, "seconds_per_corpus": samples[key], "median_seconds": statistics.median(samples[key]), "peak_python_bytes": peak}, sort_keys=True))
-          print("REVIEW_BENCH_CONTEXT=" + json.dumps({"python": platform.python_version(), "before_ref": "8ebc1da", "after_ref": "ab78e174", "after_source_sha256": hashlib.sha256(after_source.encode()).hexdigest(), "ast_nodes_before": sum(1 for _ in ast.walk(ast.parse(before_source))), "ast_nodes_nominal": sum(1 for _ in ast.walk(ast.parse(after_source))), "ast_nodes_alternative": sum(1 for _ in ast.walk(ast.parse(alternative_source)))}, sort_keys=True))
+          print("REVIEW_BENCH_CONTEXT=" + json.dumps({"python": platform.python_version(), "before_ref": "8ebc1da", "after_ref": "63e13979", "after_source_sha256": hashlib.sha256(after_source.encode()).hexdigest(), "ast_nodes_before": sum(1 for _ in ast.walk(ast.parse(before_source))), "ast_nodes_nominal": sum(1 for _ in ast.walk(ast.parse(after_source))), "ast_nodes_alternative": sum(1 for _ in ast.walk(ast.parse(alternative_source)))}, sort_keys=True))
           
           PY
