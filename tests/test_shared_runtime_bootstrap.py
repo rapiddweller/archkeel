@@ -248,3 +248,20 @@ def test_actual_bootstrap_rejects_raw_protocol_dispatch_mutations(tmp_path, prob
         for row in trace_valid_violations(model)
     )
     assert (root / "contract.json").read_bytes() == before
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_shared_bootstrap_source_contributes_to_each_collector_digest(monkeypatch, language):
+    from archkeel.analyzer.runtime import collector_provenance
+    from archkeel.ir.facts import Language
+
+    original = Path.read_bytes
+    shared = ROOT / "src/archkeel/analyzer/bootstrap.py"
+    before = collector_provenance(Language(language))[0].code_digest
+
+    def changed(path):
+        content = original(path)
+        return content + b"\n# changed shared startup\n" if path == shared else content
+
+    monkeypatch.setattr(Path, "read_bytes", changed)
+    assert collector_provenance(Language(language))[0].code_digest != before
