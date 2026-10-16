@@ -1,0 +1,50 @@
+name: Property ratchet normal writer and replay
+on:
+  push:
+    branches: [verify/542-property-final]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Accept only resolved prior debt through the normal writer
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --write-baseline --against 0e3b8a7f62b9b13417cda78e11b52d0de82986cd --amendment docs/architecture/decisions/issue-542-properties-amendment.json --write-amendment --decided-by ake2l --rationale "Share nominal property proof without changing source semantics, and ratchet only the already measured resolution improvement from 918 to 865." --json > "$RUNNER_TEMP/property-final-write.json"
+          result=$?
+          echo "PROPERTY_FINAL_WRITER_EXIT=$result"
+          python - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+          value = json.loads((Path(os.environ["RUNNER_TEMP"])/"property-final-write.json").read_text())
+          for key in ("exit_code","failures","widenings","amendment_status","baseline_comparisons","baseline_new","baseline_resolved","diagnostics","measurements","renames"):
+              print("PROPERTY_FINAL_WRITE",key,json.dumps(value.get(key),sort_keys=True))
+          for label,path in (("BASELINE","architecture-baseline.json"),("AMENDMENT","docs/architecture/decisions/issue-542-properties-amendment.json")):
+              if Path(path).exists():
+                  print("PROPERTY_FINAL_"+label+"="+base64.b64encode(Path(path).read_bytes()).decode())
+          PY
+          test "$result" -eq 0 || exit "$result"
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 0e3b8a7f62b9b13417cda78e11b52d0de82986cd --amendment docs/architecture/decisions/issue-542-properties-amendment.json --json > "$RUNNER_TEMP/property-final-replay.json"
+          replay=$?
+          echo "PROPERTY_FINAL_REPLAY_EXIT=$replay"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          value = json.loads((Path(os.environ["RUNNER_TEMP"])/"property-final-replay.json").read_text())
+          for key in ("exit_code","failures","widenings","amendment_status","diagnostics","measurements"):
+              print("PROPERTY_FINAL_REPLAY",key,json.dumps(value.get(key),sort_keys=True))
+          PY
+          exit "$replay"
