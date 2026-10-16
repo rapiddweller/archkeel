@@ -1,0 +1,146 @@
+name: TypeScript558 final syntax cost
+on:
+  push:
+    branches: [verify/issue-542-typescript-final-cost]
+permissions:
+  contents: read
+jobs:
+  parser-cost:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 63e13979f12a42905e902e278edc969004c96ae4
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Compare actual H and NestJS parser cost with equivalent DTO output
+        run: |
+          uv run --locked python - <<'PY'
+          import ast, dataclasses, enum, gc, hashlib, importlib.util, json, os, platform, statistics, subprocess, sys, time, tracemalloc
+          from pathlib import Path
+          from archkeel.analyzer.typescript import parse as current
+          
+          temporary = Path(os.environ["RUNNER_TEMP"])
+          def load_source(name, source):
+              path = temporary / (name.rsplit(".", 1)[-1] + ".py")
+              path.write_text(source)
+              spec = importlib.util.spec_from_file_location(name, path)
+              module = importlib.util.module_from_spec(spec)
+              sys.modules[name] = module
+              spec.loader.exec_module(module)
+              return module
+          
+          before_source = subprocess.check_output(["git", "show", "8ebc1da53b3ac7290f78978d5e69e4f3c59185c3:src/archkeel/analyzer/typescript/parse.py"]).decode()
+          after_source = Path("src/archkeel/analyzer/typescript/parse.py").read_text()
+          before = load_source("_review_legacy_parser", before_source)
+          tree = ast.parse(after_source)
+          parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+          class Smaller(ast.NodeTransformer):
+              def visit_ClassDef(self, node):
+                  if node.name in {"_Tree", "_Node"}:
+                      return None
+                  if node.name == "_Source":
+                      for method in node.body:
+                          if isinstance(method, ast.FunctionDef) and method.name == "captures":
+                              method.body = ast.parse("return QueryCursor(_query(self.kind, query)).captures(scope or self.root)").body
+                  return self.generic_visit(node)
+              def visit_FunctionDef(self, node):
+                  if node.name == "parse":
+                      node.body = [part for item in node.body if not (isinstance(item, ast.Assign) and any(isinstance(target, ast.Name) and target.id=="tree" for target in item.targets)) for part in (item.body if isinstance(item, ast.Try) else [item])]
+                  return self.generic_visit(node)
+              def visit_Name(self, node):
+                  return ast.copy_location(ast.Name(id="_RawNode", ctx=node.ctx), node) if node.id=="_Node" else node
+              def visit_Call(self, node):
+                  if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and node.func.value.id=="tree" and node.func.attr=="node":
+                      return self.visit(node.args[0])
+                  return self.generic_visit(node)
+              def visit_Attribute(self, node):
+                  parent = parents.get(node)
+                  semantic = isinstance(parent, ast.Attribute) and parent.attr=="value"
+                  grammar = isinstance(node.value, ast.Name) and node.value.id=="self"
+                  if node.attr=="kind" and not semantic and not grammar:
+                      return ast.copy_location(ast.Call(func=ast.Name(id="_node_kind", ctx=ast.Load()), args=[self.visit(node.value)], keywords=[]), node)
+                  return self.generic_visit(node)
+          tree = Smaller().visit(tree)
+          helper = ast.parse("def _node_kind(raw: _RawNode) -> _NodeKind | None:\n    return _NODE_KINDS.get(raw.type)\n").body[0]
+          insert = next(index for index, node in enumerate(tree.body) if isinstance(node, ast.FunctionDef) and node.name=="parse")
+          tree.body.insert(insert, helper)
+          ast.fix_missing_locations(tree)
+          alternative_source = ast.unparse(tree)
+          alternative = load_source("archkeel.analyzer.typescript._review_direct_kind", alternative_source)
+          paths = sorted(path for folder in ("fixtures/H-uml-typescript", "fixtures/L-nest-realworld") for path in Path(folder).rglob("*") if path.is_file() and path.suffix in {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"})
+          cases = [(path.as_posix(), path.read_bytes()) for path in paths]
+          assert cases, "actual H/NestJS corpus must exist"
+          
+          def normalized(value):
+              if isinstance(value, enum.Enum):
+                  return value.value
+              if dataclasses.is_dataclass(value):
+                  result = {field.name: normalized(getattr(value, field.name)) for field in dataclasses.fields(value) if field.name!="receiver_kind"}
+                  if "import_bindings" in result:
+                      result["import_bindings"].sort(key=lambda row: json.dumps(row,sort_keys=True))
+                  return result
+              if isinstance(value, (tuple, list)):
+                  return [normalized(item) for item in value]
+              return value
+          
+          def strict(value):
+              if isinstance(value, enum.Enum):
+                  return value.value
+              if dataclasses.is_dataclass(value):
+                  result = {field.name: strict(getattr(value, field.name)) for field in dataclasses.fields(value)}
+                  if "import_bindings" in result:
+                      result["import_bindings"].sort(key=lambda row: json.dumps(row,sort_keys=True))
+                  return result
+              if isinstance(value, (tuple, list)):
+                  return [strict(item) for item in value]
+              return value
+          
+          def differences(before, after, path=""):
+              if type(before) is not type(after):
+                  return [{"path": path, "before": before, "after": after}]
+              if isinstance(before, dict):
+                  return [row for key in before.keys()|after.keys() for row in differences(before.get(key), after.get(key), path+"."+key)]
+              if isinstance(before, list):
+                  if len(before)!=len(after):
+                      return [{"path": path+".length", "before": len(before), "after": len(after)}]
+                  return [row for index, (old,new) in enumerate(zip(before,after,strict=True)) for row in differences(old,new,path+"["+str(index)+"]")]
+              return [] if before==after else [{"path": path, "before": before, "after": after}]
+          legacy_differences, alternative_differences = [], []
+          for path, raw in cases:
+              old, new, small = before.parse(path, raw), current.parse(path, raw), alternative.parse(path, raw)
+              legacy_delta = differences(normalized(old),normalized(new))
+              alternative_delta = differences(strict(new),strict(small))
+              if legacy_delta:
+                  legacy_differences.append({"file": path, "differences": legacy_delta[:20]})
+              if alternative_delta:
+                  alternative_differences.append({"file": path, "differences": alternative_delta[:20]})
+          print("REVIEW_BENCH_EQUIVALENCE=" + json.dumps({"files": len(cases), "bytes": sum(len(raw) for _, raw in cases), "legacy_projection": not legacy_differences, "alternative_full_projection": not alternative_differences, "legacy_differences": legacy_differences, "alternative_differences": alternative_differences, "alternative_constraint": "per-access kind decoding; does not meet selected once-per-node cache requirement"}, sort_keys=True))
+          modules = {"legacy8eb": before, "nominal558": current, "smaller_per_access": alternative}
+          samples = {key: [] for key in modules}
+          for round in range(7):
+              order = list(modules) if round%2==0 else list(reversed(modules))
+              for key in order:
+                  gc.collect()
+                  start = time.perf_counter()
+                  for repeat in range(3):
+                      for path, raw in cases:
+                          result = modules[key].parse(path, raw)
+                  samples[key].append((time.perf_counter()-start)/3)
+          for key, module in modules.items():
+              gc.collect()
+              tracemalloc.start()
+              for path, raw in cases:
+                  result = module.parse(path, raw)
+              _, peak = tracemalloc.get_traced_memory()
+              tracemalloc.stop()
+              print("REVIEW_BENCH_RESULT=" + json.dumps({"variant": key, "seconds_per_corpus": samples[key], "median_seconds": statistics.median(samples[key]), "peak_python_bytes": peak}, sort_keys=True))
+          print("REVIEW_BENCH_CONTEXT=" + json.dumps({"python": platform.python_version(), "before_ref": "8ebc1da", "after_ref": "63e13979", "after_source_sha256": hashlib.sha256(after_source.encode()).hexdigest(), "ast_nodes_before": sum(1 for _ in ast.walk(ast.parse(before_source))), "ast_nodes_nominal": sum(1 for _ in ast.walk(ast.parse(after_source))), "ast_nodes_alternative": sum(1 for _ in ast.walk(ast.parse(alternative_source)))}, sort_keys=True))
+          
+          PY
