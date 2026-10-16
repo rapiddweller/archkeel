@@ -5,6 +5,7 @@
 
 import json
 from dataclasses import replace
+
 import pytest
 from test_architecture_demo import CONFIG, _prepare_repo
 
