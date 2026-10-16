@@ -1,0 +1,31 @@
+name: Diagnose exact version report result
+on:
+  push:
+    branches: [verify/542-version-port-diagnostics]
+permissions:
+  contents: read
+jobs:
+  exact-report-result:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Print actual report diagnostics
+        run: |
+          uv run --locked python - <<'PY'
+          import json, os, subprocess, sys
+          from pathlib import Path
+          output = str(Path(os.environ["RUNNER_TEMP"]) / "version-diagnostic.json")
+          result = subprocess.run([sys.executable, "-m", "archkeel.cli", "report", "--root", ".", "--output", output, "--json"], capture_output=True, text=True)
+          print("REPORT_RETURN_CODE=" + str(result.returncode))
+          data = json.loads(result.stdout)
+          print("REPORT_DIAGNOSTICS=" + json.dumps({key: data.get(key) for key in ("diagnostics", "failures", "coverage", "observation_complete")}, separators=(",", ":")))
+          print("REPORT_STDERR=" + result.stderr)
+          PY
