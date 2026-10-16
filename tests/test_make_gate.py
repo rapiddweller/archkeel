@@ -55,7 +55,7 @@ def _run_gate(
         ("" if separate_override else f"include {ROOT / 'Makefile'}\n")
         + ".PHONY: "
         + " ".join([*names, "lint", "typecheck", "test"])
-        + "\nlint typecheck test:\n\t@:\n"
+        + "\nlint typecheck test browser-runtime-install:\n\t@:\n"
         + "".join(recipes)
     )
     args = ["make", f"-j{jobs}"]
