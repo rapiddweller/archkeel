@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import builtins as _builtins
 import json
 import re
 from enum import StrEnum

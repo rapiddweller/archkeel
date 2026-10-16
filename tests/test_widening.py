@@ -961,7 +961,6 @@ def test_boundary_type_allowance_removal_is_narrowing(tmp_path: Path) -> None:
     assert (result.exit_code, result.failures) == (0, ())
 
 
-
 def test_string_field_text_preserves_characters_when_str_is_decorated() -> None:
     class DecoratedString(str):
         def __str__(self) -> str:
