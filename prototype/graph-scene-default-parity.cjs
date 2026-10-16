@@ -35,8 +35,20 @@ for (const options of [undefined,{}, {directChildren:true}, {viewMode:undefined}
   compare(old,options);
   let failure = null;
   try { compare(current,options); } catch (error) { failure=String(error); }
-  controls.push({options: options ?? "omitted", old_default_matches_explicit_diagram:true,
+  controls.push({case: ["omitted", "empty", "direct-children-only", "explicit-undefined"][controls.length],
+    options: options ?? "omitted", old_default_matches_explicit_diagram:true,
     new_failure:failure});
 }
 console.log("REAL_LEGACY_OPTION_PARITY=" + JSON.stringify(controls));
 assert(controls.every(control => control.new_failure === null),"New source lost a valid legacy default");
+
+function explicitScene(api,viewMode) {
+  const data = structuredClone({observed:graph,target:null});
+  const model = api.create(data);
+  return JSON.stringify(model.projectArchitectureScene(
+    {graph:data.observed,scope:null,comparison:null},{viewMode}));
+}
+for (const viewMode of ["diagram","target","diff"]) {
+  assert.equal(explicitScene(current,viewMode),explicitScene(old,viewMode));
+}
+console.log("REAL_KNOWN_MODE_PARITY=" + JSON.stringify(["diagram","target","diff"]));

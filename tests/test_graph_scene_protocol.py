@@ -87,8 +87,8 @@ def test_scene_vocabulary_is_generated_from_canonical_owners():
         ),
         (
             "report-graph-scene.js",
-            "@param {Context} context @param {Options} options @returns {Scene}",
-            "@param {Context} context @param {Options} options @returns {object}",
+            "@param {Context} context @param {Options} [options] @returns {Scene}",
+            "@param {Context} context @param {Options} [options] @returns {object}",
         ),
     ],
     ids=["raw-field", "same-spelling-wrong-domain", "field-widening", "return-widening"],
@@ -308,3 +308,48 @@ def test_stale_generated_vocabulary_fails_the_actual_check_command(tmp_path, mon
     monkeypatch.setattr(sys, "argv", ["browser_graph_protocol", "--check"])
     with pytest.raises(SystemExit, match="Browser graph vocabulary is stale"):
         browser_graph_protocol.main()
+
+
+def test_native_projection_preserves_legacy_default_options_and_rejects_invalid_modes():
+    api = pytest.importorskip("playwright.sync_api")
+    playwright, browser, page = _asset_page(api, ["report-scene.js"])
+    try:
+        result = page.evaluate(
+            """() => {
+              const P = ArchkeelGraphSceneProtocol;
+              const graph = {origin:"observed", entities:[
+                {id:"a", kind:"module", qualified_name:"pkg.a", parent_id:null,
+                 presence:"defined", responsibilities:[], modifiers:[], file_path:"pkg/a.py"},
+              ], relationships:[], component_intents:[]};
+              const model = ArchkeelReportScene.create({observed:graph, target:null});
+              const context = {graph, scope:null, comparison:null};
+              const defaults = [undefined, {}, {directChildren:true}, {viewMode:undefined}]
+                .map(options => {
+                  const expected = model.projectArchitectureScene(context, {
+                    viewMode:P.ViewMode.DIAGRAM, directChildren:options?.directChildren ?? false,
+                  });
+                  const actual = options === undefined
+                    ? model.projectArchitectureScene(context)
+                    : model.projectArchitectureScene(context, options);
+                  return JSON.stringify(actual) === JSON.stringify(expected);
+                });
+              const modes = Object.values(P.ViewMode).map(viewMode => {
+                model.projectArchitectureScene(context, {viewMode});
+                return true;
+              });
+              const invalid = [null, 0, "unsupported-view", "toString"].map(viewMode => {
+                try { model.projectArchitectureScene(context, {viewMode}); }
+                catch (error) { return error instanceof TypeError; }
+                return false;
+              });
+              return {defaults, modes, invalid};
+            }"""
+        )
+        assert result == {
+            "defaults": [True] * 4,
+            "modes": [True] * 3,
+            "invalid": [True] * 4,
+        }
+    finally:
+        browser.close()
+        playwright.stop()

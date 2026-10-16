@@ -62,7 +62,7 @@ namespace ArchkeelGraphSceneProtocol {
     findings?: Finding[]; decision_gaps?: DecisionGap[]; comparison?: Comparison | null;
   }
   export interface Context { graph: Graph; scope: string | null; comparison?: Comparison | null }
-  export interface Options { viewMode: ViewMode; directChildren?: boolean }
+  export interface Options { viewMode?: ViewMode; directChildren?: boolean }
   export interface GraphIndex {
     entities: Entity[]; byId: Map<string, Entity>;
     parents: Map<string, string | null>; children: Map<string | null, Entity[]>;

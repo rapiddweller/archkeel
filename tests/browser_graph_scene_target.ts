@@ -9,7 +9,9 @@ namespace GraphSceneTarget {
     componentOverview: boolean;
   }
   const api = ArchkeelGraphScene.create({});
-  const projection: (context: P.Context, options: P.Options) => RequiredScene = api.projectArchitectureScene;
+  const projection: (context: P.Context, options?: {
+    viewMode?: P.ViewMode; directChildren?: boolean;
+  }) => RequiredScene = api.projectArchitectureScene;
   const members: (entity: P.Entity, includeName?: boolean) => string = api.member;
   const entities: (graph: P.Graph) => P.Entity[] = api.entities;
   void projection; void members; void entities;
