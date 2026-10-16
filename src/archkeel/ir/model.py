@@ -21,11 +21,11 @@ from .architecture_graph import RuleAssessmentStatus as RuleAssessmentStatus
 from .architecture_graph import contract_relative_path as contract_relative_path
 from .dependency import ComponentOwnership as ComponentOwnership
 from .dependency import ComponentOwnershipInput as ComponentOwnershipInput
-from .dependency import PackageComponentOwnership as PackageComponentOwnership
 from .dependency import DependencySelection as DependencySelection
 from .dependency import DependencySelector as DependencySelector
 from .dependency import DependencyTargetKind as DependencyTargetKind
 from .dependency import ModuleSelection as ModuleSelection
+from .dependency import PackageComponentOwnership as PackageComponentOwnership
 from .dependency import SelectorMatch as SelectorMatch
 from .dependency import module_in_ownership as module_in_ownership
 from .facts import (
