@@ -223,6 +223,15 @@ def test_existing_public_diagnostic_reexports_reach_the_canonical_owner(tmp_path
         target = root / source.removeprefix("src/")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(_diagnostic_imports(source))
+    # Real existing helpers give both boundary scopes a non-vacuous function subject.
+    helper = root / "archkeel/check/validation/diagnostics.py"
+    helper.parent.mkdir(parents=True)
+    helper.write_text((ROOT / "src/archkeel/check/validation/diagnostics.py").read_text())
+    (helper.parent / "__init__.py").write_text("")
+    html = root / "archkeel/render/html.py"
+    html.write_text(
+        html.read_text() + "\n" + _source_members("src/archkeel/render/html.py", {"_diagnostic"})
+    )
     for package in ("check", "render"):
         (root / "archkeel" / package / "__init__.py").write_text("")
     contract = _contract()
@@ -238,6 +247,8 @@ def test_existing_public_diagnostic_reexports_reach_the_canonical_owner(tmp_path
                 "archkeel.check.report:ReportLocation",
                 "archkeel.render.html:Diagnostic",
                 "archkeel.render.terminal:Diagnostic",
+                "archkeel.check.validation.diagnostics:_sorted",
+                "archkeel.render.html:_diagnostic",
             ],
             "responsibilities": ["Retain existing public diagnostic names with clear owned types."],
             "forbidden_responsibilities": [],
@@ -250,7 +261,7 @@ def test_existing_public_diagnostic_reexports_reach_the_canonical_owner(tmp_path
                 "id": "DIAGNOSTIC-PUBLIC-" + source.rsplit(".", 1)[-1],
                 "kind": "boundary_types",
                 "source": source,
-                "rationale": "Existing public diagnostic names must resolve to their canonical owner.",
+                "rationale": "Resolve existing diagnostic names to their canonical owner.",
                 "provenance": ["docs/architecture/typed-diagnostic-owner.md"],
                 "decided_by": "architect",
             }
@@ -258,8 +269,18 @@ def test_existing_public_diagnostic_reexports_reach_the_canonical_owner(tmp_path
     (root / "contract.json").write_text(json.dumps(contract))
     value = _model(root, config)
     unknown = tuple(
-        row for row in value.records("unknowns") or ()
+        row
+        for row in value.records("unknowns") or ()
         if any(identity.startswith("DIAGNOSTIC-PUBLIC-") for identity in row.rule_ids)
     )
-    assert not unknown, unknown
+    details = [
+        {
+            "kind": row.kind,
+            "qualified_name": row.data.get("qualified_name"),
+            "reason": row.data.get("reason"),
+        }
+        for row in unknown
+    ]
+    print("PUBLIC_ROUTE_UNKNOWN_JSON=" + json.dumps(details))
+    assert not unknown, details
     assert not trace_valid_violations(value)

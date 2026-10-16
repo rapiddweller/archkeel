@@ -9,9 +9,6 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Literal as _Literal
 
-from archkeel.ir.diagnostics import Diagnostic as Diagnostic
-from archkeel.ir.diagnostics import DiagnosticError as DiagnosticError
-from archkeel.ir.diagnostics import ReportLocation as ReportLocation
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
@@ -44,6 +41,9 @@ from archkeel.ir.decisions import (
     rule_assessments,
     violation_counts,
 )
+from archkeel.ir.diagnostics import Diagnostic as Diagnostic
+from archkeel.ir.diagnostics import DiagnosticError as DiagnosticError
+from archkeel.ir.diagnostics import ReportLocation as ReportLocation
 from archkeel.ir.facts import SourceSectionName
 from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.model import (

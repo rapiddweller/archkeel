@@ -14,12 +14,12 @@ from importlib.resources import files
 from pathlib import PurePosixPath as _PurePosixPath
 from typing import TypeAlias
 
-from archkeel.ir.diagnostics import Diagnostic as Diagnostic
 from archkeel.ir.architecture_graph import ArchitectureReport, RuleAssessment
 from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import agent_decisions, open_decisions
+from archkeel.ir.diagnostics import Diagnostic as Diagnostic
 from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, OwnedLogic, repeated_logic
 from archkeel.ir.graph_codec import report_bytes
 from archkeel.ir.interfaces import (
