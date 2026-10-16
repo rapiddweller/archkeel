@@ -14,6 +14,6 @@ No new grammar feature, resolver/runtime authority, budget increase, allowance, 
 ## Progress
 
 - Root test-only correction: complete at 16ca (68 PASS; Astra approved).
-- Prefix and TypeScript integration: pending actual three-way merge.
+- Prefix integrated with three-way proof 38978457379; Root local-scalar evidence preserved. TypeScript three-way proof 38978740304 required additive Makefile/root/Target unions; all five NativeTS Target entities/public port retained and source_input added to the explicit owner inventory. A historical dependency copy would remove _local_scalar, so the current reviewed observer file is retained unchanged.
 - Dart final profiling/verification and review: pending agent handoff.
 - Combined final native evidence and normal baseline/receipt: pending complete activation.

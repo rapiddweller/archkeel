@@ -1,6 +1,6 @@
 {
   "$schema": "../../../schema/architecture-contract.schema.json",
-  "schema_version": "2.2.0",
+  "schema_version": "2.3.0",
   "components": [
     {
       "id": "TARGET-ENTRY",
@@ -38,6 +38,11 @@
           "component": "resolution",
           "rationale": "Resolve imports through typed format and bounded source lookup.",
           "decided_by": "agent"
+        },
+        {
+          "component": "input",
+          "rationale": "Consume the shared nominal filename and specifier input grammar; retain local policy and I/O ownership.",
+          "decided_by": "architect"
         }
       ],
       "public": []
@@ -80,6 +85,13 @@
         "archkeel.analyzer.typescript.syntax:SiteUse",
         "archkeel.analyzer.typescript.syntax:ReceiverKind",
         "archkeel.analyzer.typescript.syntax:StringComparison"
+      ],
+      "requires": [
+        {
+          "component": "input",
+          "rationale": "Consume the shared nominal filename and specifier input grammar; retain local policy and I/O ownership.",
+          "decided_by": "architect"
+        }
       ]
     },
     {
@@ -113,7 +125,14 @@
       "provenance": [
         "docs/architecture/typescript-control-types.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "requires": [
+        {
+          "component": "input",
+          "rationale": "Consume the shared nominal filename and specifier input grammar; retain local policy and I/O ownership.",
+          "decided_by": "architect"
+        }
+      ]
     },
     {
       "id": "TARGET-RESOLUTION",
@@ -142,12 +161,47 @@
           "component": "configuration",
           "rationale": "Use the snapshot and the single typed compiler/path grammar boundary.",
           "decided_by": "architect"
+        },
+        {
+          "component": "input",
+          "rationale": "Consume the shared nominal filename and specifier input grammar; retain local policy and I/O ownership.",
+          "decided_by": "architect"
         }
       ],
       "provenance": [
         "docs/architecture/typescript-control-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "TARGET-INPUT",
+      "label": "input",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.typescript.source_input"
+      ],
+      "responsibilities": [
+        "Own filename/suffix and module-specifier input classification and shared source/format vocabulary, without filesystem or resolution authority."
+      ],
+      "forbidden_responsibilities": [
+        "Reading files, parsing source ASTs, interpreting compiler options or resolving package manifests."
+      ],
+      "provenance": [
+        "docs/architecture/typescript-source-input.md"
+      ],
+      "decided_by": "architect",
+      "public": [
+        "archkeel.analyzer.typescript.source_input:PathToken",
+        "archkeel.analyzer.typescript.source_input:ModuleFormat",
+        "archkeel.analyzer.typescript.source_input:SourceKind",
+        "archkeel.analyzer.typescript.source_input:FileSuffix",
+        "archkeel.analyzer.typescript.source_input:FileParts",
+        "archkeel.analyzer.typescript.source_input:SpecifierKind",
+        "archkeel.analyzer.typescript.source_input:SpecifierInfo",
+        "archkeel.analyzer.typescript.source_input:classify_file",
+        "archkeel.analyzer.typescript.source_input:split_file",
+        "archkeel.analyzer.typescript.source_input:classify_specifier"
+      ]
     }
   ],
   "rules": [
@@ -195,9 +249,10 @@
       "constructs": [
         "string_literal_compare"
       ],
-      "rationale": "Enforce the native string_literal_compare observation scope across this whole module without allowances. Compiler and resolver dispatch use owned nominal domains; remaining prefix/suffix grammar entry points are explicitly listed in the migration ledger.",
+      "rationale": "Native whole-module construct observation covers nominal compiler/lookup decisions and shared filename/specifier input grammar, without allowances.",
       "provenance": [
-        "docs/architecture/typescript-control-types.md"
+        "docs/architecture/typescript-control-types.md",
+        "docs/architecture/typescript-source-input.md"
       ],
       "decided_by": "architect"
     },
@@ -208,9 +263,10 @@
       "constructs": [
         "string_literal_compare"
       ],
-      "rationale": "Enforce the native string_literal_compare observation scope across this whole module without allowances. Compiler and resolver dispatch use owned nominal domains; remaining prefix/suffix grammar entry points are explicitly listed in the migration ledger.",
+      "rationale": "Native whole-module construct observation covers nominal compiler/lookup decisions and shared filename/specifier input grammar, without allowances.",
       "provenance": [
-        "docs/architecture/typescript-control-types.md"
+        "docs/architecture/typescript-control-types.md",
+        "docs/architecture/typescript-source-input.md"
       ],
       "decided_by": "architect"
     },
@@ -250,6 +306,19 @@
       "rationale": "The syntax DTO owner normalizes its closed legacy inputs once; native comparison guards cover this whole module without parser/protocol exceptions.",
       "provenance": [
         "docs/architecture/typescript-syntax-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "TARGET-TYPESCRIPT-INPUT-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.typescript.source_input",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The input decoder owns the grammar; native whole-module comparison and written prefix/suffix observation has no parser, form or source exceptions.",
+      "provenance": [
+        "docs/architecture/typescript-source-input.md"
       ],
       "decided_by": "architect"
     }
@@ -366,12 +435,13 @@
           "language": "python",
           "presence": "planned",
           "provenance": [
-            "docs/architecture/typescript-control-types.md"
+            "docs/architecture/typescript-control-types.md",
+            "docs/architecture/typescript-source-input.md"
           ],
           "id": "TS-TYPED-PathToken",
           "kind": "enum",
-          "qualified_name": "archkeel.analyzer.typescript.config.PathToken",
-          "parent_id": "TS-TYPED-CONFIG",
+          "qualified_name": "archkeel.analyzer.typescript.source_input.PathToken",
+          "parent_id": "TS-INPUT-PORT",
           "responsibilities": [
             "Classify recognized path and glob tokens while keeping arbitrary names as data."
           ],
@@ -384,12 +454,13 @@
           "language": "python",
           "presence": "planned",
           "provenance": [
-            "docs/architecture/typescript-control-types.md"
+            "docs/architecture/typescript-control-types.md",
+            "docs/architecture/typescript-source-input.md"
           ],
           "id": "TS-TYPED-ModuleFormat",
           "kind": "enum",
-          "qualified_name": "archkeel.analyzer.typescript.resolve.ModuleFormat",
-          "parent_id": "TS-TYPED-RESOLVE",
+          "qualified_name": "archkeel.analyzer.typescript.source_input.ModuleFormat",
+          "parent_id": "TS-INPUT-PORT",
           "responsibilities": [
             "Distinguish ESM from CommonJS at the resolution and collection API."
           ],
@@ -402,12 +473,13 @@
           "language": "python",
           "presence": "planned",
           "provenance": [
-            "docs/architecture/typescript-control-types.md"
+            "docs/architecture/typescript-control-types.md",
+            "docs/architecture/typescript-source-input.md"
           ],
           "id": "TS-TYPED-SourceKind",
           "kind": "enum",
-          "qualified_name": "archkeel.analyzer.typescript.resolve.SourceKind",
-          "parent_id": "TS-TYPED-RESOLVE",
+          "qualified_name": "archkeel.analyzer.typescript.source_input.SourceKind",
+          "parent_id": "TS-INPUT-PORT",
           "responsibilities": [
             "Name TypeScript, declaration, JavaScript and JSON lookup passes."
           ],
@@ -1098,6 +1170,315 @@
           "annotation": "ReceiverKind",
           "responsibilities": [
             "Retain the nominal ReceiverKind domain across the syntax/collection boundary."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-INPUT-PORT",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.typescript.source_input",
+          "parent_id": "TARGET-INPUT",
+          "responsibilities": [
+            "Expose nominal source-input grammar at its single owner."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-INPUT-FileSuffix",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.source_input.FileSuffix",
+          "parent_id": "TS-INPUT-PORT",
+          "responsibilities": [
+            "Expose nominal source-input grammar at its single owner."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-INPUT-SpecifierKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.source_input.SpecifierKind",
+          "parent_id": "TS-INPUT-PORT",
+          "responsibilities": [
+            "Expose nominal source-input grammar at its single owner."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-INPUT-FileParts",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.typescript.source_input.FileParts",
+          "parent_id": "TS-INPUT-PORT",
+          "responsibilities": [
+            "Expose nominal source-input grammar at its single owner."
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-INPUT-SpecifierInfo",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.typescript.source_input.SpecifierInfo",
+          "parent_id": "TS-INPUT-PORT",
+          "responsibilities": [
+            "Expose nominal source-input grammar at its single owner."
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-INPUT-FileParts.suffix",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.source_input.FileParts.suffix",
+          "parent_id": "TS-INPUT-FileParts",
+          "responsibilities": [
+            "Expose nominal source-input grammar at its single owner."
+          ],
+          "annotation": "FileSuffix",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-INPUT-SpecifierInfo.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.source_input.SpecifierInfo.kind",
+          "parent_id": "TS-INPUT-SpecifierInfo",
+          "responsibilities": [
+            "Expose nominal source-input grammar at its single owner."
+          ],
+          "annotation": "SpecifierKind",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-INPUT-classify_file",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.typescript.source_input.classify_file",
+          "parent_id": "TS-INPUT-PORT",
+          "responsibilities": [
+            "Expose nominal source-input grammar at its single owner."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "name",
+                "annotation": "str",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "FileSuffix | None"
+          },
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-INPUT-split_file",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.typescript.source_input.split_file",
+          "parent_id": "TS-INPUT-PORT",
+          "responsibilities": [
+            "Expose nominal source-input grammar at its single owner."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "name",
+                "annotation": "str",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "FileParts | None"
+          },
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-INPUT-classify_specifier",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.typescript.source_input.classify_specifier",
+          "parent_id": "TS-INPUT-PORT",
+          "responsibilities": [
+            "Expose nominal source-input grammar at its single owner."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "text",
+                "annotation": "str",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "SpecifierInfo"
+          },
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-INPUT-FileSuffix.source_kind",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.typescript.source_input.FileSuffix.source_kind",
+          "parent_id": "TS-INPUT-FileSuffix",
+          "responsibilities": [
+            "Expose nominal source-input grammar at its single owner."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "SourceKind | None"
+          },
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-INPUT-FileSuffix.format_hint",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.typescript.source_input.FileSuffix.format_hint",
+          "parent_id": "TS-INPUT-FileSuffix",
+          "responsibilities": [
+            "Expose nominal source-input grammar at its single owner."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "ModuleFormat | None"
+          },
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-TYPED-Snapshot",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.typescript.config.Snapshot",
+          "parent_id": "TS-TYPED-CONFIG",
+          "responsibilities": [
+            "Own contained source reads and canonical resolution-input roles."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-TYPED-Snapshot.inputs",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.config.Snapshot.inputs",
+          "parent_id": "TS-TYPED-Snapshot",
+          "annotation": "dict[str, tuple[str, ResolutionRole]]",
+          "responsibilities": [
+            "Keep canonical IR roles in input bookkeeping from the source boundary onward."
           ]
         },
         {

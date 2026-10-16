@@ -21,10 +21,10 @@ input-owning `syntax.py`, without exceptions. Independent authored Target intent
 critical DTO fields, and actual source mutations are checked against fixed intent bytes.
 Class/member names, field lookup keys and query-capture names remain open lookup data.
 
-Reserved path/package-prefix and file-extension grammar remains explicitly tracked in
-[the migration ledger](typescript-control-types.md) as the next coherent input-decoder
-increment under #542. Native construct observations are bounded evidence, so this
-increment does not claim complete grammar migration.
+Reserved path/package-prefix and file-extension grammar belongs to the shared
+[source-input port](typescript-source-input.md). The parser consumes its filename
+classification and retains conservative fallback behavior. Native construct observations
+remain bounded evidence; this does not claim complete runtime grammar coverage.
 
 Valid direct construction through the old parser imports stays supported: each owning
 frozen DTO normalizes only its own closed fields at construction. Invalid closed values
