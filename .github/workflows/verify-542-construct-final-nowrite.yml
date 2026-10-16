@@ -1,0 +1,69 @@
+name: Final TS constructs exact committed replay
+on:
+  push:
+    branches: [verify/542-typescript-construct-final-nowrite]
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Real legacy API, codec and native type ports
+        run: uv run --locked python -m pytest -q tests/test_nullable_profile_measurements.py tests/test_typescript_string_constructs.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_control_target.py -k 'not native_source_type_widening and not native_parser_and_protocol_strings and not native_syntax_field_widening and not native_typescript_api and not native_configuration_crossing and not native_parser_and_collector_guards and not own_observation' --tb=short
+      - name: Ruff
+        if: ${{ always() }}
+        run: uv run --locked ruff check src/archkeel tests/test_nullable_profile_measurements.py tests/test_typescript_control_target.py tests/test_typescript_string_constructs.py tests/test_typescript_demo.py tests/test_schema_drift.py
+      - name: Format
+        if: ${{ always() }}
+        run: uv run --locked ruff format --diff src/archkeel/analyzer/typescript/parse.py src/archkeel/analyzer/typescript/syntax.py src/archkeel/analyzer/typescript/collect.py src/archkeel/ir/profiles.py src/archkeel/ir/codec_observation.py src/archkeel/check/evaluation/evaluate.py tests/test_nullable_profile_measurements.py tests/test_typescript_control_target.py tests/test_typescript_string_constructs.py tests/test_typescript_demo.py tests/test_schema_drift.py
+      - name: Strict mypy
+        if: ${{ always() }}
+        run: uv run --locked mypy src/archkeel
+      - name: Canonical optional-section readers
+        if: ${{ always() }}
+        run: git grep -n optional_sections -- src tests
+  no-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual committed no-write comparison
+        run: |
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against fa37f59600cfae64ba0528cb56e609c6bbd756e4 --amendment docs/architecture/decisions/issue-542-typescript-written-controls-amendment.json > "$RUNNER_TEMP/construct-nowrite.json"
+      - name: Verify result and clean checkout
+        if: ${{ always() }}
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+          result = json.loads((Path(os.environ["RUNNER_TEMP"]) / "construct-nowrite.json").read_text())
+          print("EXACT_COMMITTED_RESULT=" + json.dumps({key: result.get(key) for key in ("exit_code", "amendment_status", "failures", "diagnostics", "measurements")}), flush=True)
+          assert result["exit_code"] == 0
+          assert result["amendment_status"] == "valid"
+          assert result["measurements"]["scalars"]["calls_unresolved"] == 913
+          assert result["measurements"]["scalars"]["typing_positions"] == 52
+          assert result["measurements"]["scalars"]["unknown_positions"] == 58
+          assert result["measurements"]["scalars"]["violations"] == 0
+          status = subprocess.run(["git", "status", "--porcelain"], check=True, capture_output=True, text=True).stdout
+          assert status == "", status
+          print("EXACT_NO_WRITE_GIT_CLEAN", flush=True)
+          PY
