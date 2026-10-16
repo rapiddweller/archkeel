@@ -44,6 +44,7 @@ def _collector_contract(module):
             {**intent, "id": "version", "kind": "attribute",
              "qualified_name": "archkeel.ir.protocol.CollectionRequest.protocol_version",
              "parent_id": "request", "annotation": "ProtocolVersion",
+             "responsibilities": ["Identify the supported closed collector wire protocol."],
              "visibility": {"kind": "public", "basis": "declared"}},
         ], "relationships": [], "scopes": []}},
     }

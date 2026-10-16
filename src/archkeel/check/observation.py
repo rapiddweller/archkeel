@@ -19,7 +19,7 @@ from archkeel.ir.codec import (
 )
 from archkeel.ir.decisions import dependency_binding_id
 from archkeel.ir.digest import package_digest
-from archkeel.ir.facts import SourceFacts, dart_module_name
+from archkeel.ir.facts import RuntimeRequirementState, SourceFacts, dart_module_name
 from archkeel.ir.facts_codec import (
     RawRecord,
     classified,
@@ -39,7 +39,6 @@ from archkeel.ir.model import (
     contract_relative_path,
     stable_id,
 )
-from archkeel.ir.facts import RuntimeRequirementState
 from archkeel.ir.profiles import PROFILES, Language, Profile
 
 from .declarations import (
@@ -409,7 +408,7 @@ def _dart_target_names(
         path = record["data"].get("path")
         if record["kind"] != "module_target" or not isinstance(path, str):
             continue
-        name = _declared_module_name(path, roots, namespace, "dart")
+        name = _declared_module_name(path, roots, namespace, Language.DART)
         if name is not None:
             names[record["id"]] = name
             paths_by_name.setdefault(name, set()).add(path)
@@ -462,7 +461,9 @@ def _declaration_records(
         *inside_records,
     ]
     roots, namespace = module_scope
-    dart_names = _dart_target_names(records, scan, roots, namespace) if language == Language.DART else {}
+    dart_names = (
+        _dart_target_names(records, scan, roots, namespace) if language == Language.DART else {}
+    )
     for record in records:
         data = record["data"]
         if record["kind"] != "module_target" or "path" not in data:
@@ -807,7 +808,9 @@ def assemble_observation(
         "evidence": scan.evidence,
     }
     requirement_state = facts.runtime.requirement_state
-    if requirement_state == RuntimeRequirementState.DECLARED and has_invalid_python_requirement(facts.runtime):
+    if requirement_state == RuntimeRequirementState.DECLARED and has_invalid_python_requirement(
+        facts.runtime
+    ):
         requirement_state = RuntimeRequirementState.REQUIREMENT_INVALID
     model["runtime"] = {
         "name": facts.runtime.name,

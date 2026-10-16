@@ -28,8 +28,8 @@ from .facts import (
     ForbiddenConstructKind,
     ImportTarget,
     JsonValue,
-    LocalTarget,
     Language,
+    LocalTarget,
     Record,
     RecordData,
     ResolutionInput,
@@ -44,12 +44,11 @@ from .facts import (
 )
 from .facts_validation import validate_source_facts
 from .protocol import (
-    PROTOCOL_VERSION,
     CollectionRequest,
     CollectionResponse,
     DartSettings,
-    PythonSettings,
     ProtocolVersion,
+    PythonSettings,
     SnapshotInput,
     SourceScope,
     TypeScriptSettings,
@@ -148,7 +147,6 @@ def _runtime_requirement_state(value: RawJson) -> RuntimeRequirementState:
         raise ProtocolError(str(error)) from error
 
 
-
 def _relative(value: RawJson, label: str) -> str:
     path = _string(value, label)
     parsed = PurePosixPath(path)
@@ -164,7 +162,6 @@ def _version(value: RawJson) -> ProtocolVersion:
         return ProtocolVersion(value)
     except ValueError as error:
         raise ProtocolError("unsupported collection protocol version") from error
-
 
 
 def decode_request(payload: bytes) -> CollectionRequest:
@@ -791,7 +788,10 @@ def decode_response(payload: bytes) -> CollectionResponse:
 def encode_response(response: CollectionResponse) -> bytes:
     facts = response.facts
     version = _version(response.protocol_version)
-    if version is ProtocolVersion.V1 and facts.runtime.requirement_state != RuntimeRequirementState.DECLARED:
+    if (
+        version is ProtocolVersion.V1
+        and facts.runtime.requirement_state != RuntimeRequirementState.DECLARED
+    ):
         raise ProtocolError("protocol 1.0.0 cannot carry runtime.requirement_state")
     raw: dict[str, RawJson] = {
         "protocol_version": response.protocol_version,

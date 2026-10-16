@@ -171,8 +171,12 @@ def load_config(root: Path, path: str = CONFIG_PATH) -> ScanConfig:
     config = parse_config(payload, path)
     for relative in config.roots:
         target = _contained(repository, relative, field="scan.roots")
-        if not target.is_dir() and not (config.language == Language.TYPESCRIPT and target.is_file()):
-            expected = "directory or file" if config.language == Language.TYPESCRIPT else "directory"
+        if not target.is_dir() and not (
+            config.language == Language.TYPESCRIPT and target.is_file()
+        ):
+            expected = (
+                "directory or file" if config.language == Language.TYPESCRIPT else "directory"
+            )
             raise ConfigError(f"scan root is not a {expected}: {relative}")
     contract = _contained(repository, config.contract, field="scan.contract")
     if not contract.is_file():

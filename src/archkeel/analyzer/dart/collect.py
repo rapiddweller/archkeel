@@ -12,7 +12,6 @@ from collections import Counter
 
 from archkeel.analyzer.runtime import collector_provenance
 from archkeel.ir.facts import (
-    Language,
     BuiltinTarget,
     Capabilities,
     CollectionCoverage,
@@ -20,6 +19,7 @@ from archkeel.ir.facts import (
     ExternalPackageTarget,
     FactSection,
     FileFact,
+    Language,
     LocalTarget,
     Record,
     SourceFacts,

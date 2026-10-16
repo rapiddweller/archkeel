@@ -9,6 +9,7 @@ from typing import Final, Literal, TypeAlias
 
 from .facts import Language, SourceFacts
 
+
 class ProtocolVersion(StrEnum):
     V1 = "1.0.0"
     V2 = "2.0.0"

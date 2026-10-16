@@ -14,6 +14,7 @@ from typing import Literal, TypeAlias
 from .state_facts import StateFacts
 from .type_shapes import TypeShape
 
+
 class Language(StrEnum):
     PYTHON = "python"
     DART = "dart"

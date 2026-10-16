@@ -12,7 +12,6 @@ from typing import Final
 
 from archkeel.analyzer.runtime import collector_provenance
 from archkeel.ir.facts import (
-    Language,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
     Capabilities,
@@ -22,6 +21,7 @@ from archkeel.ir.facts import (
     FactSection,
     FileFact,
     ImportTarget,
+    Language,
     LocalTarget,
     Record,
     ResolutionInput,
