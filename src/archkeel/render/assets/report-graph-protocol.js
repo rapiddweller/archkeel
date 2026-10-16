@@ -191,7 +191,19 @@ var ArchkeelGraphSceneProtocol;
         ViewMode["DIAGRAM"] = "diagram";
         ViewMode["TARGET"] = "target";
         ViewMode["DIFF"] = "diff";
+        ViewMode["ACTUAL"] = "actual";
+        ViewMode["STRUCTURE"] = "structure";
+        ViewMode["REVIEW"] = "review";
     })(ViewMode = ArchkeelGraphSceneProtocol.ViewMode || (ArchkeelGraphSceneProtocol.ViewMode = {}));
+    function projectViewMode(value) {
+        switch (value) {
+            case ViewMode.ACTUAL:
+            case ViewMode.STRUCTURE:
+            case ViewMode.REVIEW: return ViewMode.DIAGRAM;
+            default: return value;
+        }
+    }
+    ArchkeelGraphSceneProtocol.projectViewMode = projectViewMode;
     let EdgeState;
     (function (EdgeState) {
         EdgeState["OBSERVED"] = "observed";

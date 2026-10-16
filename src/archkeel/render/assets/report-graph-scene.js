@@ -182,7 +182,7 @@ var ArchkeelGraphScene = (function () {
 
     /** @param {Context} context @param {Options} [options] @returns {Scene} */
     function projectArchitectureScene(context, options = {}) {
-      /** @type {P.ProjectionMode} */
+      /** @type {ArchkeelGraphSceneProtocol.ProjectionMode} */
       const viewMode = P.projectViewMode(P.decodeViewMode(options.viewMode === undefined
         ? P.ViewMode.DIAGRAM : options.viewMode));
       const directChildren = options.directChildren ?? false;
