@@ -129,9 +129,15 @@ jobs:
           def calls(model,source_root):
               asts={}
               def call_ast(site,expression):
-                  if site.file not in asts: asts[site.file]=ast.parse((source_root/site.file).read_text())
-                  tree=asts[site.file]
-                  matches=[ast.dump(node,include_attributes=False) for node in ast.walk(tree) if isinstance(node,ast.Call) and node.lineno==site.line and (site.column is None or node.col_offset==site.column) and ast.unparse(node.func)==expression]
+                  if site.file not in asts:
+                      index={}
+                      for node in ast.walk(ast.parse((source_root/site.file).read_text())):
+                          if isinstance(node,ast.Call):
+                              key=(node.lineno,node.col_offset,ast.unparse(node.func))
+                              index.setdefault(key,[]).append(ast.dump(node,include_attributes=False))
+                      asts[site.file]=index
+                  index=asts[site.file]
+                  matches=(index.get((site.line,site.column,expression),[]) if site.column is not None else [value for (line,column,name),values in index.items() if line==site.line and name==expression for value in values])
                   assert len(matches)==1,(site,expression,matches)
                   return matches[0]
               evidence={row.id:row for row in model.evidence}

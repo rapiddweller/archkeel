@@ -302,11 +302,19 @@ def test_legacy_module_only_import_records_need_no_symbol_fields():
     from archkeel.ir.codec import parse_contract
 
     caller = _component("caller")
-    caller["requires"] = [{"component": "core", "through": ["sample.core"], "rationale": "Use module."}]
+    caller["requires"] = [
+        {"component": "core", "through": ["sample.core"], "rationale": "Use module."}
+    ]
     raw = {"schema_version": "2.2.0", "components": [caller, _component("core")], "rules": [RULE]}
     record = {
-        "id": "LEGACY-IMPORT", "kind": "import", "evidence_ids": [],
-        "data": {"source_module": "sample.caller", "target_module": "sample.core", "under_type_checking": False},
+        "id": "LEGACY-IMPORT",
+        "kind": "import",
+        "evidence_ids": [],
+        "data": {
+            "source_module": "sample.caller",
+            "target_module": "sample.core",
+            "under_type_checking": False,
+        },
     }
     assert requires_violations([record], parse_contract(raw)) == []
     caller["requires"] = []
