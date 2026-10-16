@@ -8,7 +8,6 @@ import copy
 import importlib
 import json
 import sys
-from dataclasses import replace
 from enum import StrEnum
 from pathlib import Path
 from typing import Literal, get_args, get_type_hints
@@ -22,6 +21,7 @@ from test_uml_evaluation import _model
 from archkeel import cli
 from archkeel.ir import model
 from archkeel.ir.architecture_graph import AssessmentStatus
+from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.codec_result import result_payload
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
@@ -44,7 +44,9 @@ def test_command_has_one_core_owner_and_cli_keeps_identical_class():
 
 
 def test_run_result_annotations_use_distinct_precise_nominal_domains():
-    hints = get_type_hints(model.RunResult)
+    hints = get_type_hints(
+        model.RunResult, globalns={**vars(model), "ArchitectureProjection": ArchitectureProjection}
+    )
     assert hasattr(model, "Command") and hints["command"] is model.Command
     assert hints["observation_complete"] == Literal[AssessmentStatus.PASS, AssessmentStatus.UNKNOWN]
     assert set(get_args(hints["observation_complete"])) == {
