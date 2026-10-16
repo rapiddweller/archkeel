@@ -92,7 +92,8 @@ def test_ambiguous_duplicate_receiver_facts_do_not_prove_construction(tmp_path):
     source = parsed["lib/main.dart"]
     call = next(site for site in source.sites if site.expression == "Box()")
     ambiguous = replace(source, sites=(*source.sites, call))
-    results = resolve.Resolver(snapshot, {"lib/main.dart": ambiguous}).resolved_sites("lib/main.dart")
+    resolver = resolve.Resolver(snapshot, {"lib/main.dart": ambiguous})
+    results = resolver.resolved_sites("lib/main.dart")
     matches = [result for result in results if result.site.name == "work"]
     assert matches
     assert all(result.status is not resolve.ResolutionStatus.RESOLVED for result in matches)
