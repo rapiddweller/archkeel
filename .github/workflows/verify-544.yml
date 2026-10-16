@@ -1,0 +1,21 @@
+name: Verify exact module-object grants
+on:
+  push:
+    branches: [verify/544-module-object-grants-tests]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Native RED
+        run: uv run --locked python -m pytest -q tests/test_module_object_grants.py --maxfail=1
