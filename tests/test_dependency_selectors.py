@@ -287,3 +287,48 @@ def test_exact_parent_ban_does_not_prohibit_an_entire_child_component_pair():
         )
         == 1
     )
+
+
+@pytest.mark.parametrize(
+    "source_match,target_match,source,target,expected",
+    [
+        ("exact", "prefix", "sample.caller", "sample.errors_extra", False),
+        ("prefix", "exact", "sample.caller_extra", "sample.errors", False),
+        ("exact", "prefix", "sample.caller", "sample.errors.child", True),
+        ("prefix", "exact", "sample.caller.child", "sample.errors", True),
+    ],
+)
+def test_module_cells_obey_both_module_selectors(source_match, target_match, source, target, expected):
+    from archkeel.ir.architecture_graph import ComponentIntent, RuleAssessment
+    from archkeel.ir.model import Record, RecordData
+    from archkeel.ir.module_explore import _rule_applies
+
+    contract = parse_contract(_contract(source_match=source_match, target_match=target_match))
+    raw_declaration = project_rule_declaration(contract.rules[0])
+    raw_site = _import(source, target)
+
+    def record(raw):
+        return Record(
+            id=raw["id"], evidence_class=EvidenceClass(raw["evidence_class"]),
+            area=raw["area"], kind=raw["kind"], title=raw["title"],
+            subjects=tuple(raw["subjects"]), evidence_ids=tuple(raw["evidence_ids"]),
+            rule_ids=tuple(raw["rule_ids"]), fact_ids=tuple(raw["fact_ids"]),
+            provenance=tuple(raw["provenance"]), data=RecordData(tuple(raw["data"].items())),
+        )
+
+    intents = {
+        identity: ComponentIntent(
+            identity, component.role, packages=component.packages, label=component.packages[0]
+        )
+        for identity, component in zip(("source", "target"), contract.components, strict=True)
+    }
+    assessment = RuleAssessment(
+        id="NO-AGGREGATE", kind="forbidden_dependency", status="PASS",
+        evaluation_proven=True, count=0, undecided=0, decided_by="architect",
+        rationale="Keep narrow dependencies.", provenance=("target.md",),
+        reason="Completed source proof.", scope="root", components=("source", "target"),
+    )
+    assert _rule_applies(
+        record(raw_declaration), assessment, source, target, record(raw_site), (),
+        {"source"}, {"target"}, intents, {},
+    ) is expected
