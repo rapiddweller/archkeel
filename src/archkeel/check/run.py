@@ -24,10 +24,8 @@ from archkeel.ir.measurements import Measurements, RatchetError
 from archkeel.ir.model import (
     AssessmentStatus,
     CheckProvenance,
-    Command as _Command,
     Diagnostic,
     DiagnosticError,
-    ExpectationOutcome as _ExpectationOutcome,
     Observation,
     ObservationResult,
     RuleAssessmentStatus,
@@ -35,8 +33,14 @@ from archkeel.ir.model import (
     UnresolvedCallChange,
     Verdict,
 )
+from archkeel.ir.model import (
+    Command as _Command,
+)
 from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
+from archkeel.ir.model import (
+    ExpectationOutcome as _ExpectationOutcome,
+)
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
 from .delta import build_architecture_delta

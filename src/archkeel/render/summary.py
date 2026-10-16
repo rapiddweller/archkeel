@@ -11,10 +11,16 @@ from typing import Final, TypeAlias
 from archkeel.ir.measurements import compare_measurements
 from archkeel.ir.model import (
     AssessmentStatus as _AssessmentStatus,
+)
+from archkeel.ir.model import (
     Command as _Command,
+)
+from archkeel.ir.model import (
     DraftedComponentSize,
-    ExpectationOutcome as _ExpectationOutcome,
     RunResult,
+)
+from archkeel.ir.model import (
+    ExpectationOutcome as _ExpectationOutcome,
 )
 
 from .summary_badges import Badge as Badge
@@ -294,7 +300,9 @@ def report_summary(result: RunResult) -> Summary:
         _ExpectationOutcome.PASS: "The candidate matches its published expectation.",
         _ExpectationOutcome.FAIL: "The candidate does not match its published expectation.",
         _ExpectationOutcome.UNKNOWN: "The expectation could not be evaluated completely.",
-        _ExpectationOutcome.NOT_APPLICABLE: "Report mode does not evaluate a published expectation.",
+        _ExpectationOutcome.NOT_APPLICABLE: (
+            "Report mode does not evaluate a published expectation."
+        ),
     }[result.expectation_fulfilled]
     verdicts = (
         VerdictRow(

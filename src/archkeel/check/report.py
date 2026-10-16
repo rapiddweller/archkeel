@@ -47,11 +47,12 @@ from archkeel.ir.diagnostics import ReportLocation as ReportLocation
 from archkeel.ir.facts import SourceSectionName
 from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.model import (
+    AssessmentStatus as _AssessmentStatus,
+)
+from archkeel.ir.model import (
     BaselineViolationComparison,
     CallRow,
-    Command as _Command,
     EvidenceClass,
-    ExpectationOutcome as _ExpectationOutcome,
     FilteredViolation,
     Observation,
     ObservationResult,
@@ -59,9 +60,12 @@ from archkeel.ir.model import (
     RunResult,
 )
 from archkeel.ir.model import (
-    AssessmentStatus as _AssessmentStatus,
+    Command as _Command,
 )
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
+from archkeel.ir.model import (
+    ExpectationOutcome as _ExpectationOutcome,
+)
 from archkeel.ir.model import (
     RuleAssessmentStatus as _RuleAssessmentStatus,
 )

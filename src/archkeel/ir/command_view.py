@@ -26,13 +26,17 @@ from archkeel.ir.architecture_projection import (
 from archkeel.ir.facts import Record, SourceInfo
 from archkeel.ir.model import (
     BaselineViolationComparison,
-    Command as _Command,
     Coverage,
     Diagnostic,
-    ExpectationOutcome as _ExpectationOutcome,
     FilteredViolation,
     ReportFilter,
     RunResult,
+)
+from archkeel.ir.model import (
+    Command as _Command,
+)
+from archkeel.ir.model import (
+    ExpectationOutcome as _ExpectationOutcome,
 )
 
 

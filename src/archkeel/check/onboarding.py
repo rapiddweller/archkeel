@@ -25,8 +25,6 @@ from archkeel.ir.identity import module_identity
 from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
-    AssessmentStatus as _AssessmentStatus,
-    Command as _Command,
     CompleteAssignmentRule,
     ComponentOwnership,
     ComponentRole,
@@ -36,7 +34,6 @@ from archkeel.ir.model import (
     Diagnostic,
     DiagnosticError,
     DraftedComponentSize,
-    ExpectationOutcome as _ExpectationOutcome,
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
     Observation,
@@ -44,7 +41,16 @@ from archkeel.ir.model import (
     RunResult,
     in_scope,
 )
+from archkeel.ir.model import (
+    AssessmentStatus as _AssessmentStatus,
+)
+from archkeel.ir.model import (
+    Command as _Command,
+)
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
+from archkeel.ir.model import (
+    ExpectationOutcome as _ExpectationOutcome,
+)
 from archkeel.ir.profiles import Language
 from archkeel.ir.structure import StructureMetric, scope_metrics
 

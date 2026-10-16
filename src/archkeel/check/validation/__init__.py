@@ -54,11 +54,8 @@ from archkeel.ir.measurements import (
 )
 from archkeel.ir.model import (
     ArchitectureContract,
-    AssessmentStatus as _AssessmentStatus,
-    Command as _Command,
     ContractDeclarations,
     Diagnostic,
-    ExpectationOutcome as _ExpectationOutcome,
     InterfaceBudgetResult,
     NoComponentCyclesRule,
     Observation,
@@ -68,7 +65,16 @@ from archkeel.ir.model import (
     WideningFinding,
     text_value,
 )
+from archkeel.ir.model import (
+    AssessmentStatus as _AssessmentStatus,
+)
+from archkeel.ir.model import (
+    Command as _Command,
+)
 from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
+from archkeel.ir.model import (
+    ExpectationOutcome as _ExpectationOutcome,
+)
 from archkeel.ir.renames import Renamed, module_layouts, observed_names, renames_since
 from archkeel.ir.widening import (
     Amendment,
