@@ -1,0 +1,94 @@
+name: TypeScript canonical direct decoder concrete diff
+on:
+  push:
+    branches: [verify/issue-542-typescript-direct-kind-diff]
+permissions:
+  contents: read
+jobs:
+  prepare-diff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 3ba489e4019950c24edc974bb3242620704c5b34
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Preserve a minimal review diff without changing any product source
+        run: |
+          uv run --locked python - <<'PY'
+          import ast, base64, difflib, hashlib, json, os, re, textwrap
+          from pathlib import Path
+          path=Path("src/archkeel/analyzer/typescript/parse.py")
+          original=path.read_text()
+          source=original
+          
+          def bounds(text,node,whole=False):
+              lines=text.encode().splitlines(keepends=True)
+              offsets=[0]
+              for line in lines: offsets.append(offsets[-1]+len(line))
+              return (offsets[node.lineno-1] if whole else offsets[node.lineno-1]+node.col_offset,
+                      offsets[node.end_lineno] if whole else offsets[node.end_lineno-1]+node.end_col_offset)
+          def replace(text,edits):
+              raw=text.encode()
+              for start,end,value in sorted(edits,reverse=True):
+                  raw=raw[:start]+value.encode()+raw[end:]
+              return raw.decode()
+          
+          tree=ast.parse(source)
+          edits=[]
+          for node in tree.body:
+              if isinstance(node,ast.ClassDef) and node.name in {"_Tree","_Node"}:
+                  start,end=bounds(source,node,True);edits.append((start,end,""))
+              if isinstance(node,ast.ClassDef) and node.name=="_Source":
+                  method=next(item for item in node.body if isinstance(item,ast.FunctionDef) and item.name=="captures")
+                  start,_=bounds(source,method.body[0],True)
+                  _,end=bounds(source,method.body[-1],True)
+                  edits.append((start,end,"        return QueryCursor(_query(self.kind, query)).captures(scope or self.root)\n"))
+              if isinstance(node,ast.FunctionDef) and node.name=="parse":
+                  assignment=next(item for item in node.body if isinstance(item,ast.Assign) and isinstance(item.value,ast.Call) and isinstance(item.value.func,ast.Name) and item.value.func.id=="_Tree")
+                  start,end=bounds(source,assignment,True);edits.append((start,end,""))
+                  block=next(item for item in node.body if isinstance(item,ast.Try))
+                  assert len(block.finalbody)==1 and ast.unparse(block.finalbody[0])=="tree.clear()"
+                  body_start,_=bounds(source,block.body[0],True);_,body_end=bounds(source,block.body[-1],True)
+                  body=source.encode()[body_start:body_end].decode()
+                  body="".join(line[4:] if line.startswith("    ") else line for line in body.splitlines(keepends=True))
+                  start,end=bounds(source,block,True);edits.append((start,end,body))
+          source=replace(source,edits)
+          tree=ast.parse(source)
+          edits=[]
+          parents={child:node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+          kinds=0
+          for node in ast.walk(tree):
+              if isinstance(node,ast.Call) and isinstance(node.func,ast.Attribute) and isinstance(node.func.value,ast.Name) and node.func.value.id=="tree" and node.func.attr=="node":
+                  assert len(node.args)==1
+                  start,end=bounds(source,node);edits.append((start,end,ast.get_source_segment(source,node.args[0])))
+              if isinstance(node,ast.Attribute) and node.attr=="kind":
+                  parent=parents.get(node)
+                  if isinstance(parent,ast.Attribute) and parent.attr=="value": continue
+                  if isinstance(node.value,ast.Name) and node.value.id=="self": continue
+                  start,end=bounds(source,node)
+                  edits.append((start,end,"_node_kind("+ast.get_source_segment(source,node.value)+")"))
+                  kinds+=1
+          source=replace(source,edits)
+          source=re.sub(r"\b_Node\b","_RawNode",source)
+          source=source.replace("def _special_name(", "def _node_kind(raw: _RawNode) -> _NodeKind | None:\n    return _NODE_KINDS.get(raw.type)\n\n\ndef _special_name(",1)
+          assert "class _Tree:" not in source and "class _Node:" not in source
+          assert source.count("def _node_kind(")==1
+          assert "tree.clear()" not in source and "tree.node(" not in source
+          temporary=Path(os.environ["RUNNER_TEMP"])/"typescript-direct-kind.py"
+          temporary.write_text(source)
+          import subprocess
+          subprocess.run(["uv","run","--locked","ruff","format","--config","pyproject.toml",str(temporary)],check=True)
+          source=temporary.read_text()
+          diff="".join(difflib.unified_diff(original.splitlines(keepends=True),source.splitlines(keepends=True),fromfile="a/"+path.as_posix(),tofile="b/"+path.as_posix()))
+          print("DIRECT_KIND_DIFF="+base64.b64encode(diff.encode()).decode())
+          print("DIRECT_KIND_STATS="+json.dumps({"before_lines":len(original.splitlines()),"after_lines":len(source.splitlines()),"before_bytes":len(original.encode()),"after_bytes":len(source.encode()),"kind_accesses":kinds,"source_sha256":hashlib.sha256(source.encode()).hexdigest()}))
+          subprocess.run(["uv","run","--locked","ruff","check","--config","pyproject.toml",str(temporary)],check=True)
+          subprocess.run(["uv","run","--locked","mypy","--shadow-file",str(path),str(temporary),"src/archkeel"],check=True)
+          
+          PY
