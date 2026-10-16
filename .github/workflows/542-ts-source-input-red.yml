@@ -1,0 +1,49 @@
+name: TypeScript source input native RED
+on:
+  push:
+    branches: [verify/542-typescript-role-proof]
+permissions:
+  contents: read
+jobs:
+  native-source-input-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 5f9944caa5a4b81aec79e6e28f29b30c29aff8e1
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: |
+          uv run --locked python - <<'PY'
+          import json,sys,tempfile
+          from pathlib import Path
+          sys.path.insert(0,"tests")
+          from test_typescript_control_target import _repository
+          from test_uml_evaluation import _model
+          from archkeel.ir.report_graph import architecture_report
+          common={"language":"python","presence":"planned","provenance":["docs/architecture/typescript-source-input.md"]}
+          extra=[
+          {**common,"id":"TS-TYPED-Snapshot","kind":"class","qualified_name":"archkeel.analyzer.typescript.config.Snapshot","parent_id":"TS-TYPED-CONFIG","responsibilities":["Own contained source reads and canonical input roles."]},
+          {**common,"id":"TS-TYPED-Snapshot.inputs","kind":"attribute","qualified_name":"archkeel.analyzer.typescript.config.Snapshot.inputs","parent_id":"TS-TYPED-Snapshot","annotation":"dict[str, tuple[str, ResolutionRole]]","responsibilities":["Retain canonical IR input roles at the source owner."]},
+          ]
+          source=Path("src/archkeel/analyzer/typescript/config.py").read_text()
+          for label,updated in [
+          ("current",source),
+          ("class-annotation",source.replace('    def __init__(self, root: str) -> None:','    inputs: dict[str, tuple[str, ResolutionRole]]\n\n    def __init__(self, root: str) -> None:',1).replace('        self.inputs: dict[str, tuple[str, ResolutionRole]] = {}','        self.inputs = {}',1)),
+          ]:
+           with tempfile.TemporaryDirectory() as folder:
+            root,config=_repository(Path(folder),changed={"archkeel/analyzer/typescript/config.py":updated})
+            file=root/"contract.json"
+            intent=json.loads(file.read_text())
+            intent["declarations"]["uml"]["entities"].extend(extra)
+            file.write_text(json.dumps(intent))
+            comparison=architecture_report(_model(root,config)).comparison
+            rows=[{"subject_id":r.subject_id,"status":r.status,"aspect":r.aspect,"reason":r.reason} for r in comparison.assessments if "Snapshot" in r.subject_id]
+            print("SNAPSHOT_ROLE_PROOF="+json.dumps({"variant":label,"status":comparison.status,"assessments":rows}),flush=True)
+          
+          PY
