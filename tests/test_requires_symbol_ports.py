@@ -300,23 +300,120 @@ def test_required_symbol_port_uses_wire_text_even_for_overridden_string_partitio
 def test_legacy_module_only_import_records_need_no_symbol_fields():
     from archkeel.check.evaluation.rules import requires_violations
     from archkeel.ir.codec import parse_contract
+    from archkeel.ir.facts import EvidenceClass
+    from archkeel.ir.source_records import RawData, classified
 
     caller = _component("caller")
     caller["requires"] = [
         {"component": "core", "through": ["sample.core"], "rationale": "Use module."}
     ]
     raw = {"schema_version": "2.2.0", "components": [caller, _component("core")], "rules": [RULE]}
-    record = {
-        "id": "LEGACY-IMPORT",
-        "kind": "import",
-        "evidence_ids": [],
-        "data": {
-            "source_module": "sample.caller",
-            "target_module": "sample.core",
-            "under_type_checking": False,
-        },
+    data: RawData = {
+        "source_module": "sample.caller",
+        "target_module": "sample.core",
+        "under_type_checking": False,
     }
+    record = classified(
+        item_id="LEGACY-IMPORT",
+        evidence_class=EvidenceClass.FACT,
+        area="dependencies",
+        kind="import",
+        title="Legacy module import",
+        data=data,
+    )
+    assert record["data"] is data
     assert requires_violations([record], parse_contract(raw)) == []
     caller["requires"] = []
     [violation] = requires_violations([record], parse_contract(raw))
     assert violation["rule_ids"] == [RULE["id"]]
+
+
+@pytest.mark.parametrize(
+    ("descriptor", "exact_expected"),
+    [
+        ({"symbol": "Command", "symbols_known": True}, "PASS"),
+        ({"symbol": "Command", "symbols_known": False}, "UNKNOWN"),
+        ({"symbol": "Command", "symbols_known": None}, "UNKNOWN"),
+        ({"symbol": "Command"}, "UNKNOWN"),
+        ({"symbol": None, "symbols_known": True}, "FAIL"),
+        ({"symbol": None, "symbols_known": False}, "UNKNOWN"),
+        ({}, "UNKNOWN"),
+    ],
+)
+@pytest.mark.parametrize("exact", [False, True])
+def test_raw_data_ingress_preserves_boolean_null_and_missing_name_evidence(
+    descriptor, exact_expected, exact
+):
+    from archkeel.check.evaluation.rules import requires_violations, symbol_limits
+    from archkeel.ir.codec import parse_contract
+    from archkeel.ir.facts import EvidenceClass
+    from archkeel.ir.source_records import RawData, classified
+
+    caller = _component("caller")
+    caller["requires"] = [
+        {
+            "component": "core",
+            "through": ["sample.core:Command" if exact else "sample.core"],
+            "rationale": "Use this API.",
+        }
+    ]
+    contract = parse_contract(
+        {"schema_version": "2.2.0", "components": [caller, _component("core")], "rules": [RULE]}
+    )
+    data: RawData = {
+        "source_module": "sample.caller",
+        "target_module": "sample.core",
+        "under_type_checking": False,
+        **descriptor,
+    }
+    record = classified(
+        item_id="RAW-IMPORT",
+        evidence_class=EvidenceClass.FACT,
+        area="dependencies",
+        kind="import",
+        title="Direct raw import builder",
+        data=data,
+    )
+    assert record["data"] is data
+    expected = exact_expected if exact else "PASS"
+    assert bool(requires_violations([record], contract)) is (expected == "FAIL")
+    assert bool(symbol_limits([record], contract, {})) is (expected == "UNKNOWN")
+
+
+@pytest.mark.parametrize(("symbol", "expected"), [("Command", "PASS"), ("Other", "FAIL")])
+def test_raw_dictionary_subclass_cannot_spoof_the_stored_import_name(symbol, expected):
+    from archkeel.check.evaluation.rules import requires_violations, symbol_limits
+    from archkeel.ir.codec import parse_contract
+    from archkeel.ir.facts import EvidenceClass
+    from archkeel.ir.source_records import RawData, classified
+
+    class MisleadingData(dict):
+        def get(self, key, default=None):
+            return None
+
+    caller = _component("caller")
+    caller["requires"] = [
+        {"component": "core", "through": ["sample.core:Command"], "rationale": "Use this API."}
+    ]
+    contract = parse_contract(
+        {"schema_version": "2.2.0", "components": [caller, _component("core")], "rules": [RULE]}
+    )
+    data: RawData = MisleadingData(
+        source_module="sample.caller",
+        target_module="sample.core",
+        under_type_checking=False,
+        symbol=symbol,
+        symbols_known=True,
+    )
+    record = classified(
+        item_id="RAW-SUBCLASS-IMPORT",
+        evidence_class=EvidenceClass.FACT,
+        area="dependencies",
+        kind="import",
+        title="Actual stored dictionary fields",
+        data=data,
+    )
+    assert record["data"] is data
+    assert json.loads(json.dumps(data))["symbol"] == symbol
+    assert bool(requires_violations([record], contract)) is (expected == "FAIL")
+    assert not symbol_limits([record], contract, {})

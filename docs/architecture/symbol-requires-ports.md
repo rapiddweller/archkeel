@@ -8,4 +8,6 @@ Python currently records a wildcard as symbol `*`, even with literal __all__; th
 
 Required selectors are wire string data. The existing parser accepts str subclasses unchanged, so the matcher uses the builtin string primitive to read their actual Unicode content. A native parser/constructor regression proves that an overridden partition method cannot redirect an approved symbol to another namespace; the same sibling remains forbidden.
 
+Import evaluation reads the existing mutable RawRecord.data port, explicitly defined as RawData = dict[str, Any], through classified. It does not consume the immutable RecordData DTO or broaden that port to arbitrary Mapping objects. Missing legacy name fields retain their conservative defaults; false, null, and missing knowledge stay UNKNOWN only when an exact name is necessary. A known whole-module import cannot satisfy an exact name. Native direct-builder controls also preserve the actual stored dictionary contents when an accepted dict subclass overrides get. This primitive lookup adds no symbol-resolution authority.
+
 The source-backed native guard covers the complete dependency module and the selected real matcher declarations in a bounded fixture. Other model controls remain pending under #542; this change does not claim whole-model freedom from string dispatch or add an exception for that remaining work.
