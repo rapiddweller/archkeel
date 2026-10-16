@@ -215,5 +215,3 @@ class Syntax:
     first_error: Span | None
     complete: bool
     language_version: str | None = None
-
-

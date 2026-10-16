@@ -18,6 +18,16 @@ from archkeel.ir.facts import ResolutionInput, ResolutionRole, RuntimeRequiremen
 from archkeel.ir.protocol import CollectionRequest
 
 
+class SnapshotProblemKind(StrEnum):
+    SOURCE_LINK = "DartSourceLink"
+    READ_ERROR = "SnapshotError"
+    MODULE_ERROR = "DartModuleError"
+    SELECTED_ROOT = "SelectedRootError"
+    CONTAINMENT = "ContainmentError"
+    EXCLUDED_TREE = "ExcludedTreeError"
+    MODULE_COLLISION = "DartModuleCollision"
+
+
 class _Platform(StrEnum):
     WINDOWS = "win32"
 
@@ -32,7 +42,7 @@ def _platform(value: str) -> _Platform | None:
 @dataclass(frozen=True, slots=True)
 class SnapshotProblem:
     path: str
-    kind: str
+    kind: SnapshotProblemKind
     message: str
 
 
@@ -64,6 +74,7 @@ class Snapshot:
 
 _PACKAGE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _PUBSPEC_NAME = re.compile(r"^name\s*:\s*(.*?)\s*(?:#.*)?$")
+_PUBSPEC_SDK = re.compile(r"sdk")
 
 
 def _roots(values: tuple[str, ...]) -> tuple[str, ...]:
@@ -129,10 +140,10 @@ def _pubspec_metadata(raw: bytes) -> tuple[str | None, str | None, RuntimeRequir
             if field_indent is None:
                 field_indent = indent
             field = line.strip().partition(":")
-            if re.fullmatch(r"sdk", field[0]) is not None and (indent != field_indent or re.search(r"\t", line[:indent]) is not None):
+            if _PUBSPEC_SDK.fullmatch(field[0]) is not None and (indent != field_indent or re.search(r"\t", line[:indent]) is not None):
                 invalid_sdk = True
                 continue
-            if re.fullmatch(r"sdk", field[0]) is not None:
+            if _PUBSPEC_SDK.fullmatch(field[0]) is not None:
                 sdk_fields += 1
                 value = field[2].strip().split(" #", 1)[0].strip()
                 value = _unquote_scalar(value)
@@ -166,18 +177,21 @@ def _real_snapshot_root(root: Path) -> Path:
     return real_root
 
 
+def _regular_opener(path: str, flags: int) -> int:
+    # open(..., "rb") supplies the host binary flag. POSIX safety flags remain
+    # additive; containment and inode identity are checked before consuming bytes.
+    if _platform(sys.platform) != _Platform.WINDOWS:
+        flags |= os.O_NOFOLLOW | os.O_NONBLOCK
+    return os.open(path, flags)
+
+
 def _read_regular(path: Path, real_root: Path) -> bytes:
     expected = path.lstat()
     if not stat.S_ISREG(expected.st_mode) or not path.resolve(strict=True).is_relative_to(
         real_root
     ):
         raise OSError("input is outside snapshot or not a regular file")
-    flags = os.O_RDONLY
-    if _platform(sys.platform) == _Platform.WINDOWS:
-        flags |= os.O_BINARY
-    else:
-        flags |= os.O_NOFOLLOW | os.O_NONBLOCK
-    with os.fdopen(os.open(path, flags), "rb") as stream:
+    with open(path, "rb", opener=_regular_opener) as stream:
         opened = os.fstat(stream.fileno())
         # Check the opened object before consuming bytes; the pathname may have changed.
         if not stat.S_ISREG(opened.st_mode) or not os.path.samestat(expected, opened):
@@ -195,18 +209,18 @@ def _read_source_file(
 ) -> tuple[Source, ResolutionInput] | None:
     rel = path.relative_to(root).as_posix()
     if path.is_symlink():
-        problems.append(SnapshotProblem(rel, "DartSourceLink", "source file is a symlink"))
+        problems.append(SnapshotProblem(rel, SnapshotProblemKind.SOURCE_LINK, "source file is a symlink"))
         return None
     try:
         content = _read_regular(path, real_root)
     except OSError as error:
-        problems.append(SnapshotProblem(rel, "SnapshotError", str(error)))
+        problems.append(SnapshotProblem(rel, SnapshotProblemKind.READ_ERROR, str(error)))
         return None
     relative = PurePosixPath(rel).relative_to(PurePosixPath(source_root)).as_posix()
     short = dart_module_name(relative)
     if short is None:
         problems.append(
-            SnapshotProblem(rel, "DartModuleError", "path is not a Dart module identifier")
+            SnapshotProblem(rel, SnapshotProblemKind.MODULE_ERROR, "path is not a Dart module identifier")
         )
         return None
     source = Source(rel, f"{namespace}.{short}", content)
@@ -224,23 +238,23 @@ def _read_source_root(
 ) -> list[tuple[Source, ResolutionInput]]:
     base = root / source_root
     if base.is_symlink():
-        problems.append(SnapshotProblem(source_root, "DartSourceLink", "source root is a symlink"))
+        problems.append(SnapshotProblem(source_root, SnapshotProblemKind.SOURCE_LINK, "source root is a symlink"))
         return []
     if not base.exists() or not base.is_dir():
         problems.append(
             SnapshotProblem(
-                source_root, "SelectedRootError", "selected root is missing or not a directory"
+                source_root, SnapshotProblemKind.SELECTED_ROOT, "selected root is missing or not a directory"
             )
         )
         return []
     try:
         if not base.resolve(strict=True).is_relative_to(real_root):
             problems.append(
-                SnapshotProblem(source_root, "ContainmentError", "source root escapes snapshot")
+                SnapshotProblem(source_root, SnapshotProblemKind.CONTAINMENT, "source root escapes snapshot")
             )
             return []
     except OSError as error:
-        problems.append(SnapshotProblem(source_root, "SnapshotError", str(error)))
+        problems.append(SnapshotProblem(source_root, SnapshotProblemKind.READ_ERROR, str(error)))
         return []
 
     def on_walk_error(error: OSError) -> None:
@@ -249,7 +263,7 @@ def _read_source_root(
             rel = failed.relative_to(root).as_posix()
         except ValueError:
             rel = source_root
-        problems.append(SnapshotProblem(rel, "SnapshotError", str(error)))
+        problems.append(SnapshotProblem(rel, SnapshotProblemKind.READ_ERROR, str(error)))
 
     result: list[tuple[Source, ResolutionInput]] = []
     for directory, dirnames, filenames in os.walk(base, followlinks=False, onerror=on_walk_error):
@@ -277,12 +291,12 @@ def _safe_subdirectories(
             problems.append(
                 SnapshotProblem(
                     rel,
-                    "ExcludedTreeError",
+                    SnapshotProblemKind.EXCLUDED_TREE,
                     "selected source tree contains excluded generated/cache files",
                 )
             )
         elif path.is_symlink():
-            problems.append(SnapshotProblem(rel, "DartSourceLink", "source directory is a symlink"))
+            problems.append(SnapshotProblem(rel, SnapshotProblemKind.SOURCE_LINK, "source directory is a symlink"))
         else:
             result.append(name)
     return result
@@ -316,7 +330,7 @@ def _collision_problems(sources: list[Source], problems: list[SnapshotProblem]) 
             for rel in paths:
                 problems.append(
                     SnapshotProblem(
-                        rel, "DartModuleCollision", f"{module} maps from {', '.join(sorted(paths))}"
+                        rel, SnapshotProblemKind.MODULE_COLLISION, f"{module} maps from {', '.join(sorted(paths))}"
                     )
                 )
 

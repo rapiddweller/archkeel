@@ -13,28 +13,62 @@ from enum import StrEnum
 from typing import Literal, overload
 
 import tree_sitter_dart
-from tree_sitter import Language, Node as RawNode, Parser
-
+from tree_sitter import Language, Parser
+from tree_sitter import Node as RawNode
 
 from .syntax import (
-    ParameterKind as ParameterKind,
-    Visibility as Visibility,
-    MemberKind as MemberKind,
-    DefinitionKind as DefinitionKind,
-    DirectiveKind as DirectiveKind,
     Combinator as Combinator,
-    SiteKind as SiteKind,
-    SiteUse as SiteUse,
-    Modifier as Modifier,
-    ConcernKind as ConcernKind,
-    Span as Span,
-    Parameter as Parameter,
-    Member as Member,
-    Definition as Definition,
-    Directive as Directive,
-    Site as Site,
+)
+from .syntax import (
     Concern as Concern,
+)
+from .syntax import (
+    ConcernKind as ConcernKind,
+)
+from .syntax import (
+    Definition as Definition,
+)
+from .syntax import (
+    DefinitionKind as DefinitionKind,
+)
+from .syntax import (
+    Directive as Directive,
+)
+from .syntax import (
+    DirectiveKind as DirectiveKind,
+)
+from .syntax import (
+    Member as Member,
+)
+from .syntax import (
+    MemberKind as MemberKind,
+)
+from .syntax import (
+    Modifier as Modifier,
+)
+from .syntax import (
+    Parameter as Parameter,
+)
+from .syntax import (
+    ParameterKind as ParameterKind,
+)
+from .syntax import (
+    Site as Site,
+)
+from .syntax import (
+    SiteKind as SiteKind,
+)
+from .syntax import (
+    SiteUse as SiteUse,
+)
+from .syntax import (
+    Span as Span,
+)
+from .syntax import (
     Syntax as Syntax,
+)
+from .syntax import (
+    Visibility as Visibility,
 )
 
 
@@ -328,7 +362,12 @@ def parse(content: bytes) -> Syntax:
     errors = [
         item.span
         for item in concerns
-        if item.kind in {ConcernKind.SYNTAX_ERROR, ConcernKind.INVALID_ENCODING, ConcernKind.LANGUAGE_VERSION_ERROR}
+        if item.kind
+        in {
+            ConcernKind.SYNTAX_ERROR,
+            ConcernKind.INVALID_ENCODING,
+            ConcernKind.LANGUAGE_VERSION_ERROR,
+        }
     ]
     return Syntax(
         definitions,
@@ -395,7 +434,12 @@ def _first_identifier(node: _Node | None, source: _Source) -> str | None:
     if node is None:
         return None
     found = next(
-        (child for child in _walk(node) if child.kind in {_NodeKind.IDENTIFIER, _NodeKind.TYPE_IDENTIFIER}), None
+        (
+            child
+            for child in _walk(node)
+            if child.kind in {_NodeKind.IDENTIFIER, _NodeKind.TYPE_IDENTIFIER}
+        ),
+        None,
     )
     return source.text(found) if found is not None else None
 
@@ -438,7 +482,9 @@ def _decode_dart_string(raw: str) -> str | None:
     # This is the Dart string escape grammar, including the unchanged rejection of
     # interpolation, unknown escapes and Unicode codepoints above the scalar limit.
     pattern = re.compile(
-        r"""(?P<text>[^\\$]+)|\\(?:(?P<simple>[\\'\x22$])|(?P<short>[nrtbfv])|x(?P<hex>[0-9A-Fa-f]{2})|u(?:\{(?P<long>[0-9A-Fa-f]{1,6})\}|(?P<unicode>[0-9A-Fa-f]{4})))"""
+        r"""(?P<text>[^\\$]+)|\\(?:(?P<simple>[\\'\x22$])|(?P<short>[nrtbfv])"""
+        r"""|x(?P<hex>[0-9A-Fa-f]{2})"""
+        r"""|u(?:\{(?P<long>[0-9A-Fa-f]{1,6})\}|(?P<unicode>[0-9A-Fa-f]{4})))"""
     )
     escapes = {"n": "\n", "r": "\r", "t": "\t", "b": "\b", "f": "\f", "v": "\v"}
     for token in pattern.finditer(content):
@@ -564,7 +610,10 @@ def _skip_trivia(data: bytes, index: int, end: int) -> int:
 
 
 def _string_end(data: bytes, index: int, end: int) -> int | None:
-    if re.fullmatch(rb"[rR]", data[index : index + 1]) is not None and re.fullmatch(rb"[\x27\x22]", data[index + 1 : index + 2]) is not None:
+    if (
+        re.fullmatch(rb"[rR]", data[index : index + 1]) is not None
+        and re.fullmatch(rb"[\x27\x22]", data[index + 1 : index + 2]) is not None
+    ):
         index += 1
     quote = data[index : index + 1]
     if re.fullmatch(rb"[\x27\x22]", quote) is None:
@@ -586,7 +635,9 @@ def _directives(root: _Node, source: _Source, concerns: list[Concern]) -> tuple[
     result: list[Directive] = []
     for node in root.named_children:
         if node.kind == _NodeKind.LIBRARY_NAME:
-            result.append(Directive(DirectiveKind.LIBRARY, source.span(node), _text_children(node, source)))
+            result.append(
+                Directive(DirectiveKind.LIBRARY, source.span(node), _text_children(node, source))
+            )
         elif node.kind == _NodeKind.PART_DIRECTIVE:
             uri = _named(node, _NodeKind.URI)
             target = _literal_uri(uri, source)
@@ -626,8 +677,12 @@ def _directives(root: _Node, source: _Source, concerns: list[Concern]) -> tuple[
 
 
 def _library_directive(node: _Node, source: _Source, concerns: list[Concern]) -> Directive:
-    kind: DirectiveKind = DirectiveKind.IMPORT if node.kind == _NodeKind.LIBRARY_IMPORT else DirectiveKind.EXPORT
-    spec = _named(node, _NodeKind.IMPORT_SPECIFICATION) or _named(node, _NodeKind.EXPORT_SPECIFICATION)
+    kind: DirectiveKind = (
+        DirectiveKind.IMPORT if node.kind == _NodeKind.LIBRARY_IMPORT else DirectiveKind.EXPORT
+    )
+    spec = _named(node, _NodeKind.IMPORT_SPECIFICATION) or _named(
+        node, _NodeKind.EXPORT_SPECIFICATION
+    )
     if spec is None:
         spec = node
     uri = None
@@ -674,7 +729,9 @@ def _library_directive(node: _Node, source: _Source, concerns: list[Concern]) ->
         for item in _named_all(spec, _NodeKind.COMBINATOR):
             mode = Combinator(source.text(item.children[0]))
             names = [
-                source.text(child) for child in item.named_children if child.kind == _NodeKind.IDENTIFIER
+                source.text(child)
+                for child in item.named_children
+                if child.kind == _NodeKind.IDENTIFIER
             ]
             combinators.append((mode, tuple(names)))
             (show if mode == Combinator.SHOW else hide).extend(names)
@@ -706,7 +763,9 @@ def _library_directive(node: _Node, source: _Source, concerns: list[Concern]) ->
 
 
 def _text_children(node: _Node, source: _Source) -> str:
-    return ".".join(source.text(child) for child in _walk(node) if child.kind == _NodeKind.IDENTIFIER)
+    return ".".join(
+        source.text(child) for child in _walk(node) if child.kind == _NodeKind.IDENTIFIER
+    )
 
 
 def _definitions(root: _Node, source: _Source) -> tuple[Definition, ...]:
@@ -723,7 +782,10 @@ def _definitions(root: _Node, source: _Source) -> tuple[Definition, ...]:
                 (item for item in node.named_children if item.kind == _NodeKind.DECLARATION), node
             )
             result.extend(_variables(declaration, source, DefinitionKind.VARIABLE))
-        elif node.kind in {_NodeKind.STATIC_FINAL_DECLARATION_LIST, _NodeKind.INITIALIZED_IDENTIFIER_LIST}:
+        elif node.kind in {
+            _NodeKind.STATIC_FINAL_DECLARATION_LIST,
+            _NodeKind.INITIALIZED_IDENTIFIER_LIST,
+        }:
             result.extend(_variables(node, source, DefinitionKind.VARIABLE))
         elif node.kind == _NodeKind.DECLARATION:
             result.extend(_variables(node, source, DefinitionKind.VARIABLE))
@@ -732,14 +794,23 @@ def _definitions(root: _Node, source: _Source) -> tuple[Definition, ...]:
 
 def _classifier(node: _Node, source: _Source) -> Definition:
     name_node = _named(node, _NodeKind.NAME) or next(
-        (child for child in node.named_children if child.kind in {_NodeKind.IDENTIFIER, _NodeKind.TYPE_IDENTIFIER}),
+        (
+            child
+            for child in node.named_children
+            if child.kind in {_NodeKind.IDENTIFIER, _NodeKind.TYPE_IDENTIFIER}
+        ),
         None,
     )
     name = source.text(name_node) if name_node is not None else ""
     kind = _classifier_kind(node)
     extends, with_types, implements, type_parameters = _classifier_relations(node, source)
     body = _named(node, _NodeKind.BODY) or next(
-        (child for child in node.named_children if child.kind in {_NodeKind.CLASS_BODY, _NodeKind.ENUM_BODY}), None
+        (
+            child
+            for child in node.named_children
+            if child.kind in {_NodeKind.CLASS_BODY, _NodeKind.ENUM_BODY}
+        ),
+        None,
     )
     members, enum_members, enum_member_spans = _classifier_members(node, body, source)
     alias = _classifier_alias(node, kind, name_node, source)
@@ -765,7 +836,11 @@ def _classifier_kind(
     node: _Node,
 ) -> DefinitionKind:
     if node.kind == _NodeKind.CLASS_DEFINITION:
-        return DefinitionKind.INTERFACE if any(child.kind == _NodeKind.INTERFACE for child in node.children) else DefinitionKind.CLASS
+        return (
+            DefinitionKind.INTERFACE
+            if any(child.kind == _NodeKind.INTERFACE for child in node.children)
+            else DefinitionKind.CLASS
+        )
     if node.kind == _NodeKind.MIXIN_DECLARATION:
         return DefinitionKind.MIXIN
     if node.kind == _NodeKind.ENUM_DECLARATION:
@@ -836,7 +911,8 @@ def _classifier_members(
         following = (
             children[index + 1]
             if index + 1 < len(children)
-            and children[index + 1].kind in {_NodeKind.FUNCTION_BODY, _NodeKind.FUNCTION_EXPRESSION_BODY}
+            and children[index + 1].kind
+            in {_NodeKind.FUNCTION_BODY, _NodeKind.FUNCTION_EXPRESSION_BODY}
             else None
         )
         if child.kind == _NodeKind.DECLARATION:
@@ -863,24 +939,23 @@ def _classifier_alias(
         (
             child
             for child in node.named_children[position + 1 :]
-            if child.kind in {_NodeKind.FUNCTION_TYPE, _NodeKind.TYPE_IDENTIFIER, _NodeKind.GENERIC_TYPE}
+            if child.kind
+            in {_NodeKind.FUNCTION_TYPE, _NodeKind.TYPE_IDENTIFIER, _NodeKind.GENERIC_TYPE}
         ),
         None,
     )
     return source.text(alias_node) if alias_node is not None else None
 
 
-def _classifier_modifiers(node: _Node, name_node: _Node | None, source: _Source) -> tuple[Modifier, ...]:
+def _classifier_modifiers(
+    node: _Node, name_node: _Node | None, source: _Source
+) -> tuple[Modifier, ...]:
     prefix = (
         source.data[node.start_byte : name_node.start_byte].decode("utf-8", "replace")
         if name_node is not None
         else _prefix(node, source)
     )
-    return tuple(
-        word
-        for word in Modifier
-        if re.search(rf"\b{word}\b", prefix)
-    )
+    return tuple(word for word in Modifier if re.search(rf"\b{word}\b", prefix))
 
 
 def _member_declaration(node: _Node, source: _Source) -> list[Member]:
@@ -898,7 +973,9 @@ def _member_declaration(node: _Node, source: _Source) -> list[Member]:
         None,
     )
     if constructor is not None:
-        name_nodes = [child for child in constructor.named_children if child.kind == _NodeKind.IDENTIFIER]
+        name_nodes = [
+            child for child in constructor.named_children if child.kind == _NodeKind.IDENTIFIER
+        ]
         name = (
             ".".join(source.text(item) for item in name_nodes)
             or _first_identifier(constructor, source)
@@ -932,7 +1009,12 @@ def _member_declaration(node: _Node, source: _Source) -> list[Member]:
         (
             child
             for child in node.named_children
-            if child.kind in {_NodeKind.FUNCTION_SIGNATURE, _NodeKind.GETTER_SIGNATURE, _NodeKind.SETTER_SIGNATURE}
+            if child.kind
+            in {
+                _NodeKind.FUNCTION_SIGNATURE,
+                _NodeKind.GETTER_SIGNATURE,
+                _NodeKind.SETTER_SIGNATURE,
+            }
         ),
         None,
     )
@@ -1014,7 +1096,8 @@ def _redirect(node: _Node, source: _Source) -> str | None:
         (
             child
             for child in node.named_children
-            if child.kind in {_NodeKind.REDIRECTION, _NodeKind.REDIRECTING_FACTORY_CONSTRUCTOR_SIGNATURE}
+            if child.kind
+            in {_NodeKind.REDIRECTION, _NodeKind.REDIRECTING_FACTORY_CONSTRUCTOR_SIGNATURE}
         ),
         None,
     )
@@ -1036,14 +1119,23 @@ def _operator_name(node: _Node, source: _Source) -> str:
     )
     if operator is not None:
         return f"operator{source.text(operator)}"
-    token = next((child for child in node.children if child.kind in {_NodeKind.INDEX, _NodeKind.INDEX_ASSIGN}), None)
+    token = next(
+        (
+            child
+            for child in node.children
+            if child.kind in {_NodeKind.INDEX, _NodeKind.INDEX_ASSIGN}
+        ),
+        None,
+    )
     return f"operator{source.text(token)}" if token is not None else MemberKind.OPERATOR
 
 
 def _top_level_accessor(node: _Node, source: _Source) -> Definition:
     name_node = _named(node, _NodeKind.NAME)
     name = source.text(name_node) if name_node is not None else ""
-    kind: DefinitionKind = DefinitionKind.GETTER if node.kind == _NodeKind.GETTER_SIGNATURE else DefinitionKind.SETTER
+    kind: DefinitionKind = (
+        DefinitionKind.GETTER if node.kind == _NodeKind.GETTER_SIGNATURE else DefinitionKind.SETTER
+    )
     return Definition(
         name,
         kind,
@@ -1089,10 +1181,13 @@ def _parameters(node: _Node | None, source: _Source) -> tuple[Parameter, ...]:
             result.append(_parameter(group, ParameterKind.POSITIONAL, source))
         elif group.kind == _NodeKind.OPTIONAL_FORMAL_PARAMETERS:
             kind: ParameterKind = (
-                ParameterKind.NAMED if source.text(group).lstrip().startswith("{") else ParameterKind.POSITIONAL
+                ParameterKind.NAMED
+                if source.text(group).lstrip().startswith("{")
+                else ParameterKind.POSITIONAL
             )
             result.extend(
-                _parameter(item, kind, source) for item in _named_all(group, _NodeKind.FORMAL_PARAMETER)
+                _parameter(item, kind, source)
+                for item in _named_all(group, _NodeKind.FORMAL_PARAMETER)
             )
     return tuple(result)
 
@@ -1107,11 +1202,18 @@ def _parameter(node: _Node, kind: ParameterKind, source: _Source) -> Parameter:
         None,
     )
     super_formal = any(
-        item.kind in {_NodeKind.SUPER_FORMAL_PARAMETER, _NodeKind.SUPER_PARAMETER} for item in _walk(node)
+        item.kind in {_NodeKind.SUPER_FORMAL_PARAMETER, _NodeKind.SUPER_PARAMETER}
+        for item in _walk(node)
     )
-    ids = [item for item in node.named_children if item.kind in {_NodeKind.IDENTIFIER, _NodeKind.TYPE_IDENTIFIER}]
+    ids = [
+        item
+        for item in node.named_children
+        if item.kind in {_NodeKind.IDENTIFIER, _NodeKind.TYPE_IDENTIFIER}
+    ]
     name_node = (
-        ids[-1] if ids else next((item for item in _walk(node) if item.kind == _NodeKind.IDENTIFIER), None)
+        ids[-1]
+        if ids
+        else next((item for item in _walk(node) if item.kind == _NodeKind.IDENTIFIER), None)
     )
     name = source.text(name_node) if name_node is not None else source.text(node)
     annotation = (
@@ -1136,11 +1238,20 @@ def _parameter(node: _Node, kind: ParameterKind, source: _Source) -> Parameter:
                 default = source.text(following)
     if default is None:
         candidate = next(
-            (item for item in node.named_children if item.kind == _NodeKind.DEFAULT_FORMAL_PARAMETER), None
+            (
+                item
+                for item in node.named_children
+                if item.kind == _NodeKind.DEFAULT_FORMAL_PARAMETER
+            ),
+            None,
         )
         if candidate is not None:
             default = next(
-                (source.text(item) for item in candidate.named_children if item.kind not in {_NodeKind.EMPTY}),
+                (
+                    source.text(item)
+                    for item in candidate.named_children
+                    if item.kind not in {_NodeKind.EMPTY}
+                ),
                 None,
             )
     before = source.data[node.parent.start_byte : node.start_byte] if node.parent else b""
@@ -1148,7 +1259,11 @@ def _parameter(node: _Node, kind: ParameterKind, source: _Source) -> Parameter:
     optional = kind == ParameterKind.NAMED and not required
     if node.parent is not None and node.parent.kind == _NodeKind.OPTIONAL_FORMAL_PARAMETERS:
         optional = source.text(node.parent).lstrip().startswith("[") or optional
-    nullable_or_dynamic = annotation is None or annotation.endswith("?") or re.fullmatch(r"dynamic", annotation) is not None
+    nullable_or_dynamic = (
+        annotation is None
+        or annotation.endswith("?")
+        or re.fullmatch(r"dynamic", annotation) is not None
+    )
     if default is None and optional and nullable_or_dynamic:
         default = "null"
     return Parameter(
@@ -1170,7 +1285,9 @@ def _variables(node: _Node, source: _Source, kind: Literal[MemberKind.FIELD]) ->
 
 
 @overload
-def _variables(node: _Node, source: _Source, kind: Literal[DefinitionKind.VARIABLE]) -> list[Definition]: ...
+def _variables(
+    node: _Node, source: _Source, kind: Literal[DefinitionKind.VARIABLE]
+) -> list[Definition]: ...
 
 
 def _variables(
@@ -1180,7 +1297,7 @@ def _variables(
     list_node = _variable_list_node(node)
     if list_node is None:
         return []
-    items = list_node.named_children if list_node.kind.endswith("list") else (list_node,)
+    items = list_node.named_children if list_node.kind in {_NodeKind.INITIALIZED_IDENTIFIER_LIST, _NodeKind.STATIC_FINAL_DECLARATION_LIST} else (list_node,)
     if kind == MemberKind.FIELD:
         return _field_members(node, items, source)
     return _top_level_variables(node, items, source)
@@ -1188,10 +1305,10 @@ def _variables(
 
 def _variable_list_node(node: _Node) -> _Node | None:
     declaration_types = {
-        "initialized_identifier_list",
-        "static_final_declaration_list",
-        "initialized_variable_definition",
-        "initialized_identifier",
+        _NodeKind.INITIALIZED_IDENTIFIER_LIST,
+        _NodeKind.STATIC_FINAL_DECLARATION_LIST,
+        _NodeKind.INITIALIZED_VARIABLE_DEFINITION,
+        _NodeKind.INITIALIZED_IDENTIFIER,
     }
     return (
         node
@@ -1258,7 +1375,9 @@ def _top_level_variables(node: _Node, items: Sequence[_Node], source: _Source) -
 
 
 def _initializer(node: _Node, source: _Source) -> str | None:
-    equal = next((index for index, child in enumerate(node.children) if child.kind == _NodeKind.EQUALS), None)
+    equal = next(
+        (index for index, child in enumerate(node.children) if child.kind == _NodeKind.EQUALS), None
+    )
     return (
         source.text(node.children[equal + 1])
         if equal is not None and equal + 1 < len(node.children)
@@ -1273,10 +1392,20 @@ def _declaration_text(node: _Node, source: _Source) -> str:
     position = next((index for index, item in enumerate(siblings) if item == node), -1)
     modifiers: list[str] = []
     for sibling in reversed(siblings[:position]):
-        if sibling.kind in {_NodeKind.CONST_BUILTIN, _NodeKind.FINAL_BUILTIN, _NodeKind.LATE_BUILTIN, _NodeKind.STATIC_BUILTIN}:
+        if sibling.kind in {
+            _NodeKind.CONST_BUILTIN,
+            _NodeKind.FINAL_BUILTIN,
+            _NodeKind.LATE_BUILTIN,
+            _NodeKind.STATIC_BUILTIN,
+        }:
             modifiers.append(source.text(sibling))
             continue
-        if sibling.kind in {_NodeKind.TYPE_IDENTIFIER, _NodeKind.TYPE_NAME, _NodeKind.GENERIC_TYPE, _NodeKind.NULLABLE_TYPE}:
+        if sibling.kind in {
+            _NodeKind.TYPE_IDENTIFIER,
+            _NodeKind.TYPE_NAME,
+            _NodeKind.GENERIC_TYPE,
+            _NodeKind.NULLABLE_TYPE,
+        }:
             continue
         break
     return " ".join(reversed(modifiers)) or source.text(node)
@@ -1290,7 +1419,8 @@ def _unsupported_concerns(root: _Node, source: _Source) -> tuple[Concern, ...]:
             source.span(node),
         )
         for node in _walk(root)
-        if node.kind == _NodeKind.MIXIN_DECLARATION and any(child.kind == _NodeKind.ON for child in node.children)
+        if node.kind == _NodeKind.MIXIN_DECLARATION
+        and any(child.kind == _NodeKind.ON for child in node.children)
     )
 
 
@@ -1327,7 +1457,8 @@ def _sites(
     scopes = tuple(
         (node, _scope_name(node, source, callables))
         for node in _walk(root)
-        if node.kind in {_NodeKind.FUNCTION_BODY, _NodeKind.FUNCTION_EXPRESSION_BODY, _NodeKind.BLOCK}
+        if node.kind
+        in {_NodeKind.FUNCTION_BODY, _NodeKind.FUNCTION_EXPRESSION_BODY, _NodeKind.BLOCK}
     )
     result: list[Site] = []
     for node in _walk(root):
@@ -1340,7 +1471,9 @@ def _sites(
         )
         scope_node, scope = max(active, key=lambda pair: pair[0].start_byte, default=(None, None))
         context = (scope, source.span(scope_node) if scope_node is not None else None, len(active))
-        parameter_nodes = [item for item in _ancestors(node) if item.kind == _NodeKind.FORMAL_PARAMETER]
+        parameter_nodes = [
+            item for item in _ancestors(node) if item.kind == _NodeKind.FORMAL_PARAMETER
+        ]
         parameter_node = parameter_nodes[-1] if parameter_nodes else None
         if node.kind == _NodeKind.FORMAL_PARAMETER:
             parameter_node = node
@@ -1383,7 +1516,14 @@ def _typed_receiver_names(
     names.update(
         definition.name
         for definition in definitions
-        if definition.kind in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.MIXIN, DefinitionKind.ENUM, DefinitionKind.EXTENSION_TYPE}
+        if definition.kind
+        in {
+            DefinitionKind.CLASS,
+            DefinitionKind.INTERFACE,
+            DefinitionKind.MIXIN,
+            DefinitionKind.ENUM,
+            DefinitionKind.EXTENSION_TYPE,
+        }
     )
     parameters = (
         parameter
@@ -1470,14 +1610,14 @@ def _callable_context(
     scopes: tuple[tuple[_Node, str | None], ...],
 ) -> tuple[str | None, Span | None, int] | None:
     signatures = {
-        "function_signature",
-        "method_signature",
-        "constructor_signature",
-        "constant_constructor_signature",
-        "factory_constructor_signature",
-        "redirecting_factory_constructor_signature",
-        "getter_signature",
-        "setter_signature",
+        _NodeKind.FUNCTION_SIGNATURE,
+        _NodeKind.METHOD_SIGNATURE,
+        _NodeKind.CONSTRUCTOR_SIGNATURE,
+        _NodeKind.CONSTANT_CONSTRUCTOR_SIGNATURE,
+        _NodeKind.FACTORY_CONSTRUCTOR_SIGNATURE,
+        _NodeKind.REDIRECTING_FACTORY_CONSTRUCTOR_SIGNATURE,
+        _NodeKind.GETTER_SIGNATURE,
+        _NodeKind.SETTER_SIGNATURE,
     }
     callable_node = next((item for item in _ancestors(node) if item.kind in signatures), None)
     if callable_node is None:
@@ -1537,7 +1677,11 @@ def _callable_context_for(
 def _callable_body(owner: _Node) -> _Node | None:
     if owner.kind == _NodeKind.FUNCTION_EXPRESSION:
         return next(
-            (child for child in owner.named_children if child.kind == _NodeKind.FUNCTION_EXPRESSION_BODY),
+            (
+                child
+                for child in owner.named_children
+                if child.kind == _NodeKind.FUNCTION_EXPRESSION_BODY
+            ),
             None,
         )
     parent = owner.parent
@@ -1550,7 +1694,11 @@ def _callable_body(owner: _Node) -> _Node | None:
     for sibling in siblings[position + 1 :]:
         if sibling.kind in {_NodeKind.FUNCTION_BODY, _NodeKind.FUNCTION_EXPRESSION_BODY}:
             return sibling
-        if sibling.kind in {_NodeKind.FUNCTION_SIGNATURE, _NodeKind.METHOD_SIGNATURE, _NodeKind.FUNCTION_EXPRESSION}:
+        if sibling.kind in {
+            _NodeKind.FUNCTION_SIGNATURE,
+            _NodeKind.METHOD_SIGNATURE,
+            _NodeKind.FUNCTION_EXPRESSION,
+        }:
             break
     return None
 
@@ -1600,9 +1748,7 @@ def _binding_sites(
         )
     ]
     if parameter.field_formal or parameter.super_formal:
-        kind: SiteKind = (
-            SiteKind.FIELD_FORMAL if parameter.field_formal else SiteKind.SUPER_FORMAL
-        )
+        kind: SiteKind = SiteKind.FIELD_FORMAL if parameter.field_formal else SiteKind.SUPER_FORMAL
         sites.append(
             Site(
                 kind,
@@ -1645,17 +1791,42 @@ def _canonical_range(root: _Node, source: _Source, start: int, end: int) -> str:
         if lexeme == _Lexeme.COMMA:
             output = output.rstrip() + ", "
             previous_word = False
-        elif lexeme in {_Lexeme.CLOSE_PAREN, _Lexeme.CLOSE_BRACKET, _Lexeme.CLOSE_BRACE, _Lexeme.DOT, _Lexeme.NULL_DOT, _Lexeme.NULL_CASCADE, _Lexeme.CASCADE, _Lexeme.NULL_INDEX, _Lexeme.ASSERT_DOT, _Lexeme.NULL_OPEN_INDEX}:
+        elif lexeme in {
+            _Lexeme.CLOSE_PAREN,
+            _Lexeme.CLOSE_BRACKET,
+            _Lexeme.CLOSE_BRACE,
+            _Lexeme.DOT,
+            _Lexeme.NULL_DOT,
+            _Lexeme.NULL_CASCADE,
+            _Lexeme.CASCADE,
+            _Lexeme.NULL_INDEX,
+            _Lexeme.ASSERT_DOT,
+            _Lexeme.NULL_OPEN_INDEX,
+        }:
             output = output.rstrip() + value
             prefix = output[:-1].rstrip()
-            if lexeme in {_Lexeme.CLOSE_PAREN, _Lexeme.CLOSE_BRACKET, _Lexeme.CLOSE_BRACE} and prefix.endswith(","):
+            if lexeme in {
+                _Lexeme.CLOSE_PAREN,
+                _Lexeme.CLOSE_BRACKET,
+                _Lexeme.CLOSE_BRACE,
+            } and prefix.endswith(","):
                 output = prefix[:-1].rstrip() + value
             previous_word = lexeme in {
                 _Lexeme.CLOSE_PAREN,
                 _Lexeme.CLOSE_BRACKET,
                 _Lexeme.CLOSE_BRACE,
             }
-        elif lexeme in {_Lexeme.OPEN_PAREN, _Lexeme.OPEN_BRACKET, _Lexeme.OPEN_BRACE, _Lexeme.DOT, _Lexeme.NULL_DOT, _Lexeme.NULL_CASCADE, _Lexeme.CASCADE, _Lexeme.ASSERT_DOT, _Lexeme.NULL_OPEN_INDEX}:
+        elif lexeme in {
+            _Lexeme.OPEN_PAREN,
+            _Lexeme.OPEN_BRACKET,
+            _Lexeme.OPEN_BRACE,
+            _Lexeme.DOT,
+            _Lexeme.NULL_DOT,
+            _Lexeme.NULL_CASCADE,
+            _Lexeme.CASCADE,
+            _Lexeme.ASSERT_DOT,
+            _Lexeme.NULL_OPEN_INDEX,
+        }:
             output = output.rstrip() + value
             previous_word = False
         elif lexeme in {
@@ -1752,7 +1923,10 @@ def _reference_sites(
 ) -> tuple[Site, ...]:
     scope, scope_span, scope_depth = context
     if node.kind in {_NodeKind.TYPE_IDENTIFIER, _NodeKind.GENERIC_TYPE, _NodeKind.FUNCTION_TYPE}:
-        if node.parent is None or node.parent.kind in {_NodeKind.TYPE_PARAMETERS, _NodeKind.TYPE_PARAMETER}:
+        if node.parent is None or node.parent.kind in {
+            _NodeKind.TYPE_PARAMETERS,
+            _NodeKind.TYPE_PARAMETER,
+        }:
             return ()
         name, receiver, computed = _member_parts(node, source)
         return (
@@ -1829,7 +2003,13 @@ def _ancestors(node: _Node) -> Iterator[_Node]:
 
 def _inside_directive(node: _Node) -> bool:
     return any(
-        parent.kind in {_NodeKind.IMPORT_OR_EXPORT, _NodeKind.LIBRARY_NAME, _NodeKind.PART_DIRECTIVE, _NodeKind.PART_OF_DIRECTIVE}
+        parent.kind
+        in {
+            _NodeKind.IMPORT_OR_EXPORT,
+            _NodeKind.LIBRARY_NAME,
+            _NodeKind.PART_DIRECTIVE,
+            _NodeKind.PART_OF_DIRECTIVE,
+        }
         for parent in _ancestors(node)
     )
 
@@ -1869,7 +2049,10 @@ def _is_member_receiver(node: _Node) -> bool:
     position = next((index for index, item in enumerate(siblings) if item == node), -1)
     return position >= 0 and any(
         item.kind == _NodeKind.SELECTOR
-        and any(child.kind == _NodeKind.UNCONDITIONAL_ASSIGNABLE_SELECTOR for child in item.named_children)
+        and any(
+            child.kind == _NodeKind.UNCONDITIONAL_ASSIGNABLE_SELECTOR
+            for child in item.named_children
+        )
         for item in siblings[position + 1 :]
     )
 
@@ -1882,18 +2065,26 @@ def _receiver_needs_site(node: _Node) -> bool:
     position = next((index for index, item in enumerate(siblings) if item == node), -1)
     selectors = tuple(item for item in siblings[position + 1 :] if item.kind == _NodeKind.SELECTOR)
     if any(
-        _named(item, _NodeKind.ARGUMENT_PART) is not None or _selector_has_index(item) for item in selectors
+        _named(item, _NodeKind.ARGUMENT_PART) is not None or _selector_has_index(item)
+        for item in selectors
     ):
         return True
     return any(
-        any(child.kind == _NodeKind.UNCONDITIONAL_ASSIGNABLE_SELECTOR for child in item.named_children)
+        any(
+            child.kind == _NodeKind.UNCONDITIONAL_ASSIGNABLE_SELECTOR
+            for child in item.named_children
+        )
         for item in selectors
     )
 
 
 def _selector_has_index(node: _Node) -> bool:
     selector = next(
-        (item for item in node.named_children if item.kind == _NodeKind.UNCONDITIONAL_ASSIGNABLE_SELECTOR),
+        (
+            item
+            for item in node.named_children
+            if item.kind == _NodeKind.UNCONDITIONAL_ASSIGNABLE_SELECTOR
+        ),
         None,
     )
     return selector is not None and _named(selector, _NodeKind.INDEX_SELECTOR) is not None
@@ -1962,7 +2153,9 @@ def _creation(
         None,
     )
     args = _named(node, _NodeKind.ARGUMENTS)
-    arguments = tuple(source.text(item) for item in _named_all(args, _NodeKind.ARGUMENT)) if args else ()
+    arguments = (
+        tuple(source.text(item) for item in _named_all(args, _NodeKind.ARGUMENT)) if args else ()
+    )
     name = None
     if type_node is not None:
         suffix = tuple(
@@ -2085,7 +2278,11 @@ def _member_reference(
         if index <= 0:
             break
         earlier = siblings[index - 1]
-        if earlier.kind not in {_NodeKind.IDENTIFIER, _NodeKind.TYPE_IDENTIFIER, _NodeKind.SELECTOR}:
+        if earlier.kind not in {
+            _NodeKind.IDENTIFIER,
+            _NodeKind.TYPE_IDENTIFIER,
+            _NodeKind.SELECTOR,
+        }:
             break
         if source.data[earlier.end_byte : previous.start_byte].strip():
             break
@@ -2096,7 +2293,10 @@ def _member_reference(
     )
     if receiver is None:
         for ancestor in _ancestors(node):
-            if ancestor.kind not in {_NodeKind.ASSIGNMENT_EXPRESSION, _NodeKind.COMPOUND_ASSIGNMENT_EXPRESSION}:
+            if ancestor.kind not in {
+                _NodeKind.ASSIGNMENT_EXPRESSION,
+                _NodeKind.COMPOUND_ASSIGNMENT_EXPRESSION,
+            }:
                 continue
             left = _named(ancestor, _NodeKind.LEFT)
             if left is not None and left.start_byte <= node.start_byte < left.end_byte:
@@ -2105,7 +2305,13 @@ def _member_reference(
     name = source.text(node)
     end = outer_selector.end_byte
     expression = source.data[start:end].decode("utf-8", "replace")
-    return name, receiver, re.search(r"\[", receiver or "") is not None, expression, _span_bytes(source, start, end)
+    return (
+        name,
+        receiver,
+        re.search(r"\[", receiver or "") is not None,
+        expression,
+        _span_bytes(source, start, end),
+    )
 
 
 def _assignment_use(node: _Node, source: _Source) -> SiteUse:
@@ -2119,12 +2325,19 @@ def _assignment_use(node: _Node, source: _Source) -> SiteUse:
 
 def _reference_use(node: _Node, source: _Source) -> SiteUse:
     for parent in _ancestors(node):
-        if parent.kind in {_NodeKind.ASSIGNMENT_EXPRESSION, _NodeKind.COMPOUND_ASSIGNMENT_EXPRESSION}:
+        if parent.kind in {
+            _NodeKind.ASSIGNMENT_EXPRESSION,
+            _NodeKind.COMPOUND_ASSIGNMENT_EXPRESSION,
+        }:
             left = _named(parent, _NodeKind.LEFT)
             if left is not None and left.start_byte <= node.start_byte < left.end_byte:
                 return _assignment_use(parent, source)
             break
-        if parent.kind in {_NodeKind.FUNCTION_BODY, _NodeKind.BLOCK, _NodeKind.EXPRESSION_STATEMENT}:
+        if parent.kind in {
+            _NodeKind.FUNCTION_BODY,
+            _NodeKind.BLOCK,
+            _NodeKind.EXPRESSION_STATEMENT,
+        }:
             break
     return SiteUse.READ
 

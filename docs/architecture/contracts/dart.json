@@ -88,7 +88,8 @@
         "archkeel.analyzer.dart.snapshot:SnapshotError",
         "archkeel.analyzer.dart.snapshot:SnapshotProblem",
         "archkeel.analyzer.dart.snapshot:Source",
-        "archkeel.analyzer.dart.snapshot:read_snapshot"
+        "archkeel.analyzer.dart.snapshot:read_snapshot",
+        "archkeel.analyzer.dart.snapshot:SnapshotProblemKind"
       ],
       "requires": [],
       "provenance": [
@@ -243,6 +244,10 @@
       {
         "path": "src/archkeel/analyzer/dart/resolve.py",
         "responsibility": "Bind libraries, parts and source-level names only when unique and supported by selected inputs."
+      },
+      {
+        "path": "src/archkeel/analyzer/dart/syntax.py",
+        "responsibility": "Own immutable Dart syntax values and nominal semantic categories, without parser nodes or I/O."
       }
     ],
     "uml": {
@@ -601,7 +606,7 @@
           "modifiers": [
             "frozen"
           ],
-          "parent_id": "archkeel.analyzer.dart.parse",
+          "parent_id": "archkeel.analyzer.dart.syntax",
           "visibility": {
             "kind": "public",
             "basis": "declared"
@@ -698,7 +703,7 @@
           "modifiers": [
             "frozen"
           ],
-          "parent_id": "archkeel.analyzer.dart.parse",
+          "parent_id": "archkeel.analyzer.dart.syntax",
           "visibility": {
             "kind": "public",
             "basis": "declared"
@@ -795,7 +800,7 @@
           "modifiers": [
             "frozen"
           ],
-          "parent_id": "archkeel.analyzer.dart.parse",
+          "parent_id": "archkeel.analyzer.dart.syntax",
           "visibility": {
             "kind": "public",
             "basis": "declared"
@@ -854,7 +859,7 @@
           "modifiers": [
             "frozen"
           ],
-          "parent_id": "archkeel.analyzer.dart.parse",
+          "parent_id": "archkeel.analyzer.dart.syntax",
           "visibility": {
             "kind": "public",
             "basis": "declared"
@@ -894,7 +899,7 @@
           "modifiers": [
             "frozen"
           ],
-          "parent_id": "archkeel.analyzer.dart.parse",
+          "parent_id": "archkeel.analyzer.dart.syntax",
           "visibility": {
             "kind": "public",
             "basis": "declared"
@@ -953,7 +958,7 @@
           "modifiers": [
             "frozen"
           ],
-          "parent_id": "archkeel.analyzer.dart.parse",
+          "parent_id": "archkeel.analyzer.dart.syntax",
           "visibility": {
             "kind": "public",
             "basis": "declared"
@@ -2073,7 +2078,7 @@
           "modifiers": [
             "frozen"
           ],
-          "parent_id": "archkeel.analyzer.dart.parse",
+          "parent_id": "archkeel.analyzer.dart.syntax",
           "visibility": {
             "kind": "public",
             "basis": "declared"
@@ -2417,7 +2422,7 @@
           "modifiers": [
             "frozen"
           ],
-          "parent_id": "archkeel.analyzer.dart.parse",
+          "parent_id": "archkeel.analyzer.dart.syntax",
           "visibility": {
             "kind": "public",
             "basis": "declared"
@@ -3665,6 +3670,61 @@
             "kind": "public",
             "basis": "declared"
           }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Own bounded immutable snapshot diagnostic categories."
+          ],
+          "provenance": [
+            "docs/architecture/dart-nominal-controls.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "archkeel.analyzer.dart.snapshot.SnapshotProblemKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.dart.snapshot.SnapshotProblemKind",
+          "parent_id": "archkeel.analyzer.dart.snapshot"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Own bounded immutable snapshot diagnostic categories."
+          ],
+          "provenance": [
+            "docs/architecture/dart-nominal-controls.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "archkeel.analyzer.dart.snapshot.SnapshotProblem",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.dart.snapshot.SnapshotProblem",
+          "parent_id": "archkeel.analyzer.dart.snapshot"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Own bounded immutable snapshot diagnostic categories."
+          ],
+          "provenance": [
+            "docs/architecture/dart-nominal-controls.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "archkeel.analyzer.dart.snapshot.SnapshotProblem.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.snapshot.SnapshotProblem.kind",
+          "parent_id": "archkeel.analyzer.dart.snapshot.SnapshotProblem",
+          "annotation": "SnapshotProblemKind"
         }
       ],
       "relationships": [
@@ -3727,9 +3787,9 @@
           "id": "DART-REL-6",
           "kind": "imports",
           "source_id": "archkeel.analyzer.dart.resolve",
-          "target_id": "archkeel.analyzer.dart.parse",
+          "target_id": "archkeel.analyzer.dart.syntax",
           "resolution": "not_applicable",
-          "reason": "Consume the declared component interface.",
+          "reason": "Consume the immutable syntax API without importing the parser implementation.",
           "provenance": [
             "docs/architecture/dart-python-target.md"
           ]
@@ -3930,6 +3990,17 @@
           "reason": "The first parser error is carried as source evidence.",
           "provenance": [
             "docs/architecture/dart-python-target.md"
+          ]
+        },
+        {
+          "id": "DART-REL-25",
+          "kind": "imports",
+          "source_id": "archkeel.analyzer.dart.collect",
+          "target_id": "archkeel.analyzer.dart.syntax",
+          "resolution": "not_applicable",
+          "reason": "Consume nominal syntax values independently of extraction.",
+          "provenance": [
+            "docs/architecture/dart-nominal-controls.md"
           ]
         }
       ],

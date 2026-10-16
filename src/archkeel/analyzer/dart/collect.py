@@ -20,13 +20,12 @@ from archkeel.ir.facts import (
     ExternalPackageTarget,
     FactSection,
     FileFact,
+    InventoryStatus,
+    InventoryVersion,
     Language,
     LocalTarget,
     Record,
     RuntimeRequirementState,
-    MemberKind as InventoryMemberKind,
-    InventoryStatus,
-    InventoryVersion,
     SourceFacts,
     SourceInfo,
     SourceProfile,
@@ -34,19 +33,18 @@ from archkeel.ir.facts import (
     UnresolvedTarget,
     stable_id,
 )
+from archkeel.ir.facts import (
+    MemberKind as InventoryMemberKind,
+)
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, parse_evidence, parse_record
 from archkeel.ir.protocol import CollectionRequest, DartSettings
 from archkeel.ir.source_records import RawData, classified, file_evidence, record_evidence
 
 from .parse import parse
-from .syntax import (
-    Combinator, ConcernKind, Definition, DefinitionKind, DirectiveKind, Member, MemberKind,
-    Modifier, Parameter, ParameterKind, Site, SiteKind, SiteUse, Span, Syntax, Visibility,
-)
 from .resolve import (
     BindingRole,
-    ResolutionProblemKind,
     ConstructionResolution,
+    ResolutionProblemKind,
     ResolutionStatus,
     ResolvedBinding,
     ResolvedParameter,
@@ -54,6 +52,25 @@ from .resolve import (
     Resolver,
 )
 from .snapshot import Snapshot, read_snapshot
+from .syntax import (
+    Combinator,
+    ConcernKind,
+    Definition,
+    DefinitionKind,
+    DirectiveKind,
+    Member,
+    MemberKind,
+    Modifier,
+    Parameter,
+    ParameterKind,
+    Site,
+    SiteKind,
+    SiteUse,
+    Span,
+    Syntax,
+    Visibility,
+)
+
 
 class _SymbolKind(StrEnum):
     CLASS = "class"
@@ -389,7 +406,12 @@ class _Collection:
         )
         data["symbol_category"] = "type_alias" if kind == DefinitionKind.TYPEDEF else record_kind
         data["modifiers"] = list(definition.modifiers)
-        if kind in {DefinitionKind.CLASS, DefinitionKind.MIXIN, DefinitionKind.ENUM, DefinitionKind.INTERFACE}:
+        if kind in {
+            DefinitionKind.CLASS,
+            DefinitionKind.MIXIN,
+            DefinitionKind.ENUM,
+            DefinitionKind.INTERFACE,
+        }:
             self._class_definition(rel, module, definition, qualified, symbol_id, data)
         elif kind in {DefinitionKind.FUNCTION, DefinitionKind.GETTER, DefinitionKind.SETTER}:
             parameters = self._parameters(definition.parameters)
@@ -512,7 +534,13 @@ class _Collection:
                         member.constant,
                     )
                 )
-            elif member.kind in {MemberKind.METHOD, MemberKind.CONSTRUCTOR, MemberKind.GETTER, MemberKind.SETTER, MemberKind.OPERATOR}:
+            elif member.kind in {
+                MemberKind.METHOD,
+                MemberKind.CONSTRUCTOR,
+                MemberKind.GETTER,
+                MemberKind.SETTER,
+                MemberKind.OPERATOR,
+            }:
                 methods.append(
                     self._member(rel, module, qualified, symbol_id, definition.name, member)
                 )
@@ -529,12 +557,16 @@ class _Collection:
             enum_members=list(definition.enum_members),
             attribute_declarations=attributes,
             member_inventories=[
-                _inventory(InventoryMemberKind.ATTRIBUTE, [item["definition_id"] for item in attributes]),
+                _inventory(
+                    InventoryMemberKind.ATTRIBUTE, [item["definition_id"] for item in attributes]
+                ),
                 _inventory(InventoryMemberKind.METHOD, methods),
             ],
         )
         if definition.kind in {DefinitionKind.CLASS, DefinitionKind.MIXIN}:
-            data["mixin_capable"] = definition.kind == DefinitionKind.MIXIN or Modifier.MIXIN in definition.modifiers
+            data["mixin_capable"] = (
+                definition.kind == DefinitionKind.MIXIN or Modifier.MIXIN in definition.modifiers
+            )
 
     def _member(
         self,
@@ -548,7 +580,9 @@ class _Collection:
         name = member.name
         constructor = member.kind == MemberKind.CONSTRUCTOR
         member_spelling = name.rsplit(".", 1)[-1]
-        accessor = f"::{member.kind}" if member.kind in {MemberKind.GETTER, MemberKind.SETTER} else ""
+        accessor = (
+            f"::{member.kind}" if member.kind in {MemberKind.GETTER, MemberKind.SETTER} else ""
+        )
         qualified = f"{parent}.{member_spelling if constructor else name}{accessor}"
         identity = stable_id("DARTDEF", rel, member.span.start_byte, qualified, "method")
         owner = self._owner_definition(rel, module, parent)
@@ -571,7 +605,9 @@ class _Collection:
             if constructor
             else member.visibility
         )
-        data = self._meta(rel, module, name, MemberKind.METHOD, qualified, parent, parent_id, visibility)
+        data = self._meta(
+            rel, module, name, MemberKind.METHOD, qualified, parent, parent_id, visibility
+        )
         data.update(
             annotation=None,
             returns=returns,
@@ -631,7 +667,9 @@ class _Collection:
                 problem.span or member.span,
                 problem.kind,
                 problem.message,
-                signature_id=identity if problem.kind == ResolutionProblemKind.SOURCE_RESOLUTION_GAP else None,
+                signature_id=identity
+                if problem.kind == ResolutionProblemKind.SOURCE_RESOLUTION_GAP
+                else None,
             )
         parameters = self._resolved_parameters(resolution.parameters)
         formals = {item.name: item for item in member.parameters if item.super_formal}
@@ -691,7 +729,9 @@ class _Collection:
             "parent": parent,
             "lexical_parent_id": parent_id,
             "visibility_detail": {
-                "kind": Visibility.PRIVATE if visibility == Visibility.PRIVATE else Visibility.PUBLIC,
+                "kind": Visibility.PRIVATE
+                if visibility == Visibility.PRIVATE
+                else Visibility.PUBLIC,
                 "basis": "language",
                 "spelling": name.rsplit(".", 1)[-1],
             },
@@ -781,7 +821,11 @@ class _Collection:
                                     ),
                                     "symbol": symbol,
                                     "binding": symbol
-                                    or (directive.prefix if directive.kind == DirectiveKind.IMPORT else None),
+                                    or (
+                                        directive.prefix
+                                        if directive.kind == DirectiveKind.IMPORT
+                                        else None
+                                    ),
                                     "symbols_known": known,
                                     "relative_level": 0,
                                     "under_type_checking": False,
@@ -796,7 +840,11 @@ class _Collection:
                                     else f"{target_module}.{symbol}",
                                     "symbol_visibility": None
                                     if symbol is None
-                                    else (Visibility.PRIVATE if symbol.startswith("_") else "public_name"),
+                                    else (
+                                        Visibility.PRIVATE
+                                        if symbol.startswith("_")
+                                        else "public_name"
+                                    ),
                                 },
                             )
                         )
@@ -819,7 +867,12 @@ class _Collection:
                 continue
             module = self.modules[rel]
             for definition in syntax.definitions:
-                if definition.kind not in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.MIXIN, DefinitionKind.ENUM}:
+                if definition.kind not in {
+                    DefinitionKind.CLASS,
+                    DefinitionKind.INTERFACE,
+                    DefinitionKind.MIXIN,
+                    DefinitionKind.ENUM,
+                }:
                     continue
                 qualified = f"{module}.{definition.name}"
                 record = self.symbol_by_name.get(qualified)
@@ -838,7 +891,10 @@ class _Collection:
                             target_record = self.symbol_by_name.get(target)
                         else:
                             target, target_record = "", None
-                        is_class = target_record is not None and _SymbolKind(target_record["kind"]) == _SymbolKind.CLASS
+                        is_class = (
+                            target_record is not None
+                            and _SymbolKind(target_record["kind"]) == _SymbolKind.CLASS
+                        )
                         mixin_target = bool(
                             target_record is not None
                             and (
@@ -853,7 +909,9 @@ class _Collection:
                                     "DARTBASE", rel, definition.span.start_byte, kind, name
                                 ),
                                 "relationship_kind": kind,
-                                "status": ResolutionStatus.RESOLVED if resolved else ResolutionStatus.UNRESOLVED,
+                                "status": ResolutionStatus.RESOLVED
+                                if resolved
+                                else ResolutionStatus.UNRESOLVED,
                                 "targets": [target] if resolved else [],
                                 "candidate_count": 1 if resolved else len(targets),
                                 "candidates_truncated": False,
@@ -906,7 +964,9 @@ class _Collection:
     ) -> list[tuple[Site, RawData]]:
         result: list[tuple[Site, RawData]] = []
         call_expressions = {
-            item.site.expression for item in sites if item.site.kind in {SiteKind.CALL, SiteKind.CREATION}
+            item.site.expression
+            for item in sites
+            if item.site.kind in {SiteKind.CALL, SiteKind.CREATION}
         }
         for resolved in sites:
             site = resolved.site
@@ -1107,9 +1167,17 @@ class _Collection:
             else ResolutionStatus.UNRESOLVED
         )
         if resolved.status != ResolutionStatus.RESOLVED:
-            status = ResolutionStatus.PARTIALLY_RESOLVED if call and target_names else ResolutionStatus.UNRESOLVED
+            status = (
+                ResolutionStatus.PARTIALLY_RESOLVED
+                if call and target_names
+                else ResolutionStatus.UNRESOLVED
+            )
         if construction is not None:
-            status = ResolutionStatus.RESOLVED if construction["status"] != ResolutionStatus.UNRESOLVED else ResolutionStatus.UNRESOLVED
+            status = (
+                ResolutionStatus.RESOLVED
+                if construction["status"] != ResolutionStatus.UNRESOLVED
+                else ResolutionStatus.UNRESOLVED
+            )
         return target_names, construction, status
 
     @staticmethod
@@ -1396,7 +1464,11 @@ def _constraint_floor(value: str) -> tuple[int, int, int] | None:
                 upper_candidate = ((0, 0, version[2] + 1), False)
             lower = _tighter_lower(lower, lower_candidate)
             upper = _tighter_upper(upper, upper_candidate)
-        elif operator in {_ConstraintOperator.GREATER_EQUAL, _ConstraintOperator.GREATER, _ConstraintOperator.EQUAL}:
+        elif operator in {
+            _ConstraintOperator.GREATER_EQUAL,
+            _ConstraintOperator.GREATER,
+            _ConstraintOperator.EQUAL,
+        }:
             lower = _tighter_lower(lower, (version, operator != _ConstraintOperator.GREATER))
             if operator == _ConstraintOperator.EQUAL:
                 upper = _tighter_upper(upper, (version, True))

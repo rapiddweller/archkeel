@@ -13,11 +13,25 @@ from urllib.parse import unquote, urlsplit
 
 from archkeel.ir.facts import SOURCE_RESOLUTION_GAP_KIND, dart_module_name
 
-from .syntax import (
-    Combinator, Definition, DefinitionKind, Directive, DirectiveKind, Member, MemberKind,
-    Modifier, Parameter, ParameterKind, Site, SiteKind, SiteUse, Span, Syntax, Visibility,
-)
 from .snapshot import Snapshot, Source
+from .syntax import (
+    Combinator,
+    Definition,
+    DefinitionKind,
+    Directive,
+    DirectiveKind,
+    Member,
+    MemberKind,
+    Modifier,
+    Parameter,
+    ParameterKind,
+    Site,
+    SiteKind,
+    SiteUse,
+    Span,
+    Syntax,
+    Visibility,
+)
 
 
 class ResolutionProblemKind(StrEnum):
@@ -195,7 +209,9 @@ class Resolver:
             for directive in parsed.directives:
                 if directive.kind not in {DirectiveKind.IMPORT, DirectiveKind.EXPORT}:
                     continue
-                destination = self._imports if directive.kind == DirectiveKind.IMPORT else self._exports
+                destination = (
+                    self._imports if directive.kind == DirectiveKind.IMPORT else self._exports
+                )
                 destination.setdefault(module, []).append((path, directive))
 
     def module_for(self, rel_path: str) -> str | None:
@@ -228,7 +244,9 @@ class Resolver:
             path = unquote(parsed.path)
             module_name = _module_path(path)
             if module_name is None:
-                self._problem(rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}")
+                self._problem(
+                    rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}"
+                )
                 return None
             module = f"dart.{module_name}"
             return ResolvedTarget(module, "dart", None, uri)
@@ -241,11 +259,15 @@ class Resolver:
                 or not target_path
                 or target_path.startswith("/")
             ):
-                self._problem(rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}")
+                self._problem(
+                    rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}"
+                )
                 return None
             module_name = _module_path(target_path)
             if module_name is None:
-                self._problem(rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}")
+                self._problem(
+                    rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}"
+                )
                 return None
             if package != self.snapshot.package_name:
                 return ResolvedTarget(f"{package}.{module_name}", package, None, uri)
@@ -254,20 +276,30 @@ class Resolver:
                 return None
             return ResolvedTarget(selected.module, package, selected.rel_path, uri)
         if parsed.scheme:
-            self._problem(rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unsupported URI scheme in {uri!r}")
+            self._problem(
+                rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unsupported URI scheme in {uri!r}"
+            )
             return None
         target_path = unquote(parsed.path)
         if target_path.startswith("/"):
-            self._problem(rel_path, ResolutionProblemKind.IMPORT_ERROR, f"absolute URI {uri!r} is unsupported")
+            self._problem(
+                rel_path, ResolutionProblemKind.IMPORT_ERROR, f"absolute URI {uri!r} is unsupported"
+            )
             return None
         importer = self.sources.get(rel_path)
         if importer is None:
-            self._problem(rel_path, ResolutionProblemKind.IMPORT_ERROR, "importer is not in the selected snapshot")
+            self._problem(
+                rel_path,
+                ResolutionProblemKind.IMPORT_ERROR,
+                "importer is not in the selected snapshot",
+            )
             return None
         joined = posixpath.normpath(posixpath.join(posixpath.dirname(rel_path), target_path))
         if not self._in_roots(joined):
             self._problem(
-                rel_path, ResolutionProblemKind.IMPORT_ERROR, f"relative URI {uri!r} leaves the selected roots"
+                rel_path,
+                ResolutionProblemKind.IMPORT_ERROR,
+                f"relative URI {uri!r} leaves the selected roots",
             )
             return None
         selected = self._source_at(joined, rel_path, uri)
@@ -339,13 +371,19 @@ class Resolver:
     def resolve_construction(self, rel_path: str, site: Site) -> ConstructionResolution:
         """Prove a constructor only from its owning class and a declared or implicit default."""
         if site.kind not in {SiteKind.CALL, SiteKind.CREATION} or not site.name:
-            return ConstructionResolution(ResolutionStatus.UNRESOLVED, None, "site is not a constructor form")
+            return ConstructionResolution(
+                ResolutionStatus.UNRESOLVED, None, "site is not a constructor form"
+            )
         module = self.module_for(rel_path)
         if module is None:
-            return ConstructionResolution(ResolutionStatus.UNKNOWN, None, "source has no unique library owner")
+            return ConstructionResolution(
+                ResolutionStatus.UNKNOWN, None, "source has no unique library owner"
+            )
         resolved_type = self._construction_type(rel_path, module, site)
         if resolved_type is None:
-            return ConstructionResolution(ResolutionStatus.UNKNOWN, None, "constructor type is not a simple name")
+            return ConstructionResolution(
+                ResolutionStatus.UNKNOWN, None, "constructor type is not a simple name"
+            )
         class_name, constructor_name, classes = resolved_type
         if len(classes) != 1:
             return ConstructionResolution(
@@ -363,17 +401,23 @@ class Resolver:
             None,
         )
         if declaration is None:
-            return ConstructionResolution(ResolutionStatus.UNKNOWN, None, "class declaration is incomplete")
+            return ConstructionResolution(
+                ResolutionStatus.UNKNOWN, None, "class declaration is incomplete"
+            )
         parsed = self.syntax.get(declaration.path)
         if parsed is None or not parsed.complete:
-            return ConstructionResolution(ResolutionStatus.UNKNOWN, None, "class source is incomplete")
+            return ConstructionResolution(
+                ResolutionStatus.UNKNOWN, None, "class source is incomplete"
+            )
         result = self._declared_constructor(declaration, binding, class_name, constructor_name)
         if (
             result.binding is not None
             and result.binding.name.rpartition(".")[2].startswith("_")
             and declaration.module != module
         ):
-            return ConstructionResolution(ResolutionStatus.UNKNOWN, None, "private constructor is library-local")
+            return ConstructionResolution(
+                ResolutionStatus.UNKNOWN, None, "private constructor is library-local"
+            )
         return result
 
     def _construction_type(
@@ -392,7 +436,13 @@ class Resolver:
             prefixed_classes = tuple(
                 item
                 for item in self._imported_bindings(module, site.name, prefix=site.receiver)
-                if item.kind in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM, DefinitionKind.MIXIN}
+                if item.kind
+                in {
+                    DefinitionKind.CLASS,
+                    DefinitionKind.INTERFACE,
+                    DefinitionKind.ENUM,
+                    DefinitionKind.MIXIN,
+                }
             )
             receiver = site.receiver.split(".")
             if prefixed_classes:
@@ -419,7 +469,13 @@ class Resolver:
         classes = [
             binding
             for binding in candidates
-            if binding.kind in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM, DefinitionKind.MIXIN}
+            if binding.kind
+            in {
+                DefinitionKind.CLASS,
+                DefinitionKind.INTERFACE,
+                DefinitionKind.ENUM,
+                DefinitionKind.MIXIN,
+            }
         ]
         return class_name, constructor_name, classes
 
@@ -440,7 +496,9 @@ class Resolver:
             if not constructors:
                 if Modifier.ABSTRACT in declaration.definition.modifiers:
                     return ConstructionResolution(
-                        ResolutionStatus.UNRESOLVED, None, "abstract class has no constructible default"
+                        ResolutionStatus.UNRESOLVED,
+                        None,
+                        "abstract class has no constructible default",
                     )
                 implicit = ResolvedBinding(
                     declaration.module,
@@ -469,7 +527,9 @@ class Resolver:
         member = matches[0]
         if Modifier.ABSTRACT in declaration.definition.modifiers and not member.factory:
             return ConstructionResolution(
-                ResolutionStatus.UNRESOLVED, None, "abstract class has no constructible generative constructor"
+                ResolutionStatus.UNRESOLVED,
+                None,
+                "abstract class has no constructible generative constructor",
             )
         resolved = ResolvedBinding(
             declaration.module,
@@ -529,13 +589,19 @@ class Resolver:
             parent = self._parent_declaration(declaration)
             if parent is None:
                 return self._parameter_unknown(parameter), self._parameter_problem(
-                    rel_path, parameter, ResolutionProblemKind.SOURCE_RESOLUTION_GAP, "superclass source is unresolved"
+                    rel_path,
+                    parameter,
+                    ResolutionProblemKind.SOURCE_RESOLUTION_GAP,
+                    "superclass source is unresolved",
                 )
             parent_declaration, parent_substitutions = parent
             inherited = self._super_parameter(parent_declaration, parameter.name)
             if inherited is None:
                 return self._parameter_unknown(parameter), self._parameter_problem(
-                    rel_path, parameter, ResolutionProblemKind.UNSUPPORTED_PARAMETER, "superclass formal is not proven"
+                    rel_path,
+                    parameter,
+                    ResolutionProblemKind.UNSUPPORTED_PARAMETER,
+                    "superclass formal is not proven",
                 )
             _, source_parameter = inherited
             value, issue = self._resolve_formal(
@@ -588,7 +654,10 @@ class Resolver:
         terminal = self._redirect_terminal(rel_path, owner, factory)
         if terminal is None:
             return self._parameter_failure(
-                rel_path, factory.parameters, ResolutionProblemKind.UNSUPPORTED_PARAMETER, "factory redirect is unproven"
+                rel_path,
+                factory.parameters,
+                ResolutionProblemKind.UNSUPPORTED_PARAMETER,
+                "factory redirect is unproven",
             )
         target_class, target_member, substitutions = terminal
         result: list[ResolvedParameter] = []
@@ -652,7 +721,8 @@ class Resolver:
             candidates = [
                 item
                 for item in constructors
-                if (item.name.rpartition(".")[-1] if re.search(r"\.", item.name) else None) == requested
+                if (item.name.rpartition(".")[-1] if re.search(r"\.", item.name) else None)
+                == requested
             ]
             if requested is None:
                 candidates = [
@@ -693,7 +763,13 @@ class Resolver:
             local_classes = [
                 item
                 for item in local
-                if item.definition.kind in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM, DefinitionKind.MIXIN}
+                if item.definition.kind
+                in {
+                    DefinitionKind.CLASS,
+                    DefinitionKind.INTERFACE,
+                    DefinitionKind.ENUM,
+                    DefinitionKind.MIXIN,
+                }
             ]
             if len(local_classes) == 1:
                 name = parts[0]
@@ -710,7 +786,15 @@ class Resolver:
             else self._name_bindings(rel_path, module, name, None)
         )
         classes = [
-            item for item in bindings if item.kind in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM, DefinitionKind.MIXIN}
+            item
+            for item in bindings
+            if item.kind
+            in {
+                DefinitionKind.CLASS,
+                DefinitionKind.INTERFACE,
+                DefinitionKind.ENUM,
+                DefinitionKind.MIXIN,
+            }
         ]
         if len({item.declaration_id for item in classes}) != 1:
             return None
@@ -759,7 +843,9 @@ class Resolver:
     ) -> Parameter | None:
         if parameter.kind == ParameterKind.NAMED:
             matches = [
-                item for item in values if item.kind == ParameterKind.NAMED and item.name == parameter.name
+                item
+                for item in values
+                if item.kind == ParameterKind.NAMED and item.name == parameter.name
             ]
             return matches[0] if len(matches) == 1 else None
         positional = [item for item in values if item.kind == ParameterKind.POSITIONAL]
@@ -849,7 +935,11 @@ class Resolver:
         return ResolutionProblem(path, kind, message, parameter.span)
 
     def _parameter_failure(
-        self, path: str, parameters: tuple[Parameter, ...], kind: ResolutionProblemKind, message: str
+        self,
+        path: str,
+        parameters: tuple[Parameter, ...],
+        kind: ResolutionProblemKind,
+        message: str,
     ) -> ParameterResolution:
         return ParameterResolution(
             tuple(self._parameter_unknown(item) for item in parameters),
@@ -898,7 +988,9 @@ class Resolver:
                 return self._site_result(site, lexical, module)
         if site.receiver:
             receiver_name = site.receiver.split(".", 1)[0]
-            if site.kind == SiteKind.CALL and not self._has_lexical_binding(rel_path, site, receiver_name):
+            if site.kind == SiteKind.CALL and not self._has_lexical_binding(
+                rel_path, site, receiver_name
+            ):
                 construction = self.resolve_construction(rel_path, site)
                 if construction.binding is not None:
                     return self._construction_result(site, construction)
@@ -924,7 +1016,15 @@ class Resolver:
         bindings = self._site_members(site, bindings)
         if site.kind == SiteKind.CALL:
             class_bindings = [
-                item for item in bindings if item.kind in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM, DefinitionKind.MIXIN}
+                item
+                for item in bindings
+                if item.kind
+                in {
+                    DefinitionKind.CLASS,
+                    DefinitionKind.INTERFACE,
+                    DefinitionKind.ENUM,
+                    DefinitionKind.MIXIN,
+                }
             ]
             if class_bindings:
                 return self._construction_site(rel_path, site)
@@ -1000,7 +1100,11 @@ class Resolver:
             return ResolvedSite(site, ResolutionStatus.RESOLVED, accessible)
         if not accessible and bindings:
             return ResolvedSite(site, ResolutionStatus.UNKNOWN, ())
-        return ResolvedSite(site, ResolutionStatus.UNKNOWN if accessible else ResolutionStatus.UNRESOLVED, accessible)
+        return ResolvedSite(
+            site,
+            ResolutionStatus.UNKNOWN if accessible else ResolutionStatus.UNRESOLVED,
+            accessible,
+        )
 
     def _name_bindings(
         self, rel_path: str, module: str, name: str, receiver: str | None
@@ -1015,7 +1119,11 @@ class Resolver:
         if imports:
             return imports
         local_types = self._local_declarations(module, receiver)
-        if any(item.definition.kind in {DefinitionKind.CLASS, DefinitionKind.ENUM, DefinitionKind.MIXIN} for item in local_types):
+        if any(
+            item.definition.kind
+            in {DefinitionKind.CLASS, DefinitionKind.ENUM, DefinitionKind.MIXIN}
+            for item in local_types
+        ):
             static = self._member_bindings(module, receiver, name, static_only=True)
             return static or self._constructor_bindings(module, receiver, name)
         owner = self._receiver_type(rel_path, receiver, None)
@@ -1060,7 +1168,12 @@ class Resolver:
             )
         if len(receiver_parts) == 2:
             imported = self._imported_bindings(module, receiver_parts[1], prefix=receiver_parts[0])
-            if len(imported) == 1 and imported[0].kind in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM, DefinitionKind.MIXIN}:
+            if len(imported) == 1 and imported[0].kind in {
+                DefinitionKind.CLASS,
+                DefinitionKind.INTERFACE,
+                DefinitionKind.ENUM,
+                DefinitionKind.MIXIN,
+            }:
                 type_binding = imported[0]
                 return self._site_members(
                     site,
@@ -1082,7 +1195,11 @@ class Resolver:
         if imports:
             return imports
         local_types = self._local_declarations(module, receiver)
-        if any(item.definition.kind in {DefinitionKind.CLASS, DefinitionKind.ENUM, DefinitionKind.MIXIN} for item in local_types):
+        if any(
+            item.definition.kind
+            in {DefinitionKind.CLASS, DefinitionKind.ENUM, DefinitionKind.MIXIN}
+            for item in local_types
+        ):
             name = site.name or ""
             static = self._member_bindings(module, receiver, name, static_only=True)
             return self._site_members(
@@ -1224,7 +1341,14 @@ class Resolver:
         candidates = [
             definition
             for definition in parsed.definitions
-            if definition.kind in {DefinitionKind.CLASS, DefinitionKind.MIXIN, DefinitionKind.ENUM, DefinitionKind.EXTENSION, DefinitionKind.EXTENSION_TYPE}
+            if definition.kind
+            in {
+                DefinitionKind.CLASS,
+                DefinitionKind.MIXIN,
+                DefinitionKind.ENUM,
+                DefinitionKind.EXTENSION,
+                DefinitionKind.EXTENSION_TYPE,
+            }
             and definition.span.start_byte <= position <= definition.span.end_byte
         ]
         return (
@@ -1247,7 +1371,11 @@ class Resolver:
         type_text = (annotation or "").split("<", 1)[0].strip().rstrip("?")
         type_parts = type_text.split(".")
         type_name = type_parts[-1] if type_parts else None
-        if type_name is None or _builtin_type(type_name) in {_BuiltinType.DYNAMIC, _BuiltinType.OBJECT, _BuiltinType.VOID}:
+        if type_name is None or _builtin_type(type_name) in {
+            _BuiltinType.DYNAMIC,
+            _BuiltinType.OBJECT,
+            _BuiltinType.VOID,
+        }:
             return None
         bindings = (
             self._imported_bindings(module, type_name, prefix=type_parts[0])
@@ -1255,7 +1383,15 @@ class Resolver:
             else self._name_bindings(rel_path, module, type_name, None)
         )
         classes = [
-            item for item in bindings if item.kind in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM, DefinitionKind.MIXIN}
+            item
+            for item in bindings
+            if item.kind
+            in {
+                DefinitionKind.CLASS,
+                DefinitionKind.INTERFACE,
+                DefinitionKind.ENUM,
+                DefinitionKind.MIXIN,
+            }
         ]
         return classes[0] if len({item.declaration_id for item in classes}) == 1 else None
 
@@ -1325,7 +1461,10 @@ class Resolver:
         if not collection_type:
             return None
         collection_name, _, arguments = collection_type.partition("<")
-        if _builtin_type(collection_name.strip()) not in {_BuiltinType.LIST, _BuiltinType.ITERABLE} or not arguments.endswith(">"):
+        if _builtin_type(collection_name.strip()) not in {
+            _BuiltinType.LIST,
+            _BuiltinType.ITERABLE,
+        } or not arguments.endswith(">"):
             return None
         if self._local_declarations(self.module_for(rel_path) or "", collection_name.strip()):
             return None
@@ -1334,7 +1473,10 @@ class Resolver:
         ):
             return None
         element_type = arguments[:-1].strip()
-        if not element_type or _builtin_type(element_type) in {_BuiltinType.DYNAMIC, _BuiltinType.NULLABLE_OBJECT}:
+        if not element_type or _builtin_type(element_type) in {
+            _BuiltinType.DYNAMIC,
+            _BuiltinType.NULLABLE_OBJECT,
+        }:
             return None
         return element_type
 
@@ -1671,7 +1813,14 @@ class Resolver:
                     continue
                 child_syntax = self.syntax.get(target.rel_path)
                 part_of = (
-                    next((item for item in child_syntax.directives if item.kind == DirectiveKind.PART_OF), None)
+                    next(
+                        (
+                            item
+                            for item in child_syntax.directives
+                            if item.kind == DirectiveKind.PART_OF
+                        ),
+                        None,
+                    )
                     if child_syntax
                     else None
                 )
@@ -1696,10 +1845,14 @@ class Resolver:
                 self._invalid_parts.add(part)
                 self._invalid_libraries.update(libraries)
                 self._problem(
-                    part, ResolutionProblemKind.PART_OWNERSHIP_CONFLICT, "part belongs to more than one selected library"
+                    part,
+                    ResolutionProblemKind.PART_OWNERSHIP_CONFLICT,
+                    "part belongs to more than one selected library",
                 )
         for path, parsed in self.syntax.items():
-            part_of = next((item for item in parsed.directives if item.kind == DirectiveKind.PART_OF), None)
+            part_of = next(
+                (item for item in parsed.directives if item.kind == DirectiveKind.PART_OF), None
+            )
             if part_of is not None and path not in owners and path not in self._invalid_parts:
                 self._problem(
                     path,
@@ -1717,17 +1870,29 @@ class Resolver:
         if _is_uri(target):
             resolved = self.resolve_uri(part_path, target)
             return resolved is not None and resolved.rel_path == path
-        library = next((item.target for item in syntax.directives if item.kind == DirectiveKind.LIBRARY), None)
+        library = next(
+            (item.target for item in syntax.directives if item.kind == DirectiveKind.LIBRARY), None
+        )
         return library == target
 
     def _source_at(self, rel: str, importer: str, uri: str) -> Source | None:
-        if re.fullmatch(r"\.\.", rel) is not None or rel.startswith("../") or not self._in_roots(rel):
-            self._problem(importer, ResolutionProblemKind.IMPORT_ERROR, f"URI {uri!r} leaves the selected roots")
+        if (
+            re.fullmatch(r"\.\.", rel) is not None
+            or rel.startswith("../")
+            or not self._in_roots(rel)
+        ):
+            self._problem(
+                importer,
+                ResolutionProblemKind.IMPORT_ERROR,
+                f"URI {uri!r} leaves the selected roots",
+            )
             return None
         source = self.sources.get(rel)
         if source is None or len(self._module_paths.get(source.module, ())) != 1:
             self._problem(
-                importer, ResolutionProblemKind.IMPORT_ERROR, f"URI {uri!r} names no unique selected Dart source"
+                importer,
+                ResolutionProblemKind.IMPORT_ERROR,
+                f"URI {uri!r} names no unique selected Dart source",
             )
             return None
         return source
@@ -1739,14 +1904,20 @@ class Resolver:
             for root in self.snapshot.roots
         )
 
-    def _problem(self, path: str, kind: ResolutionProblemKind, message: str, span: Span | None = None) -> None:
+    def _problem(
+        self, path: str, kind: ResolutionProblemKind, message: str, span: Span | None = None
+    ) -> None:
         issue = ResolutionProblem(path, kind, message, span)
         if issue not in self.problems:
             self.problems.append(issue)
 
 
 def _module_path(path: str) -> str | None:
-    if not path or path.startswith("/") or any(re.fullmatch(r"\.\.", part) for part in _path_parts(path)):
+    if (
+        not path
+        or path.startswith("/")
+        or any(re.fullmatch(r"\.\.", part) for part in _path_parts(path))
+    ):
         return None
     return dart_module_name(path)
 

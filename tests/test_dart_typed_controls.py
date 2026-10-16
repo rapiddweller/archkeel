@@ -38,6 +38,7 @@ FIELDS = (
     (resolve.ConstructionResolution, "status", "ResolutionStatus"),
     (resolve.ResolvedParameter, "kind", "ParameterKind"),
     (snapshot.Snapshot, "sdk_constraint_state", "RuntimeRequirementState"),
+    (snapshot.SnapshotProblem, "kind", "SnapshotProblemKind"),
 )
 GUARDS = tuple(
     (f"DART-{name.upper()}-TYPED-CONTROL", f"archkeel.analyzer.dart.{name}")
@@ -59,7 +60,9 @@ def _model(root, config):
 
 
 def _contract():
-    contract = copy.deepcopy(json.loads((ROOT / "docs/architecture/contracts/dart.json").read_text()))
+    contract = copy.deepcopy(
+        json.loads((ROOT / "docs/architecture/contracts/dart.json").read_text())
+    )
     contract.pop("$schema", None)
     contract["rules"] = [
         {
@@ -82,9 +85,7 @@ def _contract():
         selected.add(name.rsplit(".", 1)[0])
         selected.add(name.rsplit(".", 2)[0])
     uml = contract["declarations"]["uml"]
-    uml["entities"] = [
-        entity for entity in uml["entities"] if entity["qualified_name"] in selected
-    ]
+    uml["entities"] = [entity for entity in uml["entities"] if entity["qualified_name"] in selected]
     for entity in uml["entities"]:
         if entity["qualified_name"] in fields:
             entity["annotation"] = fields[entity["qualified_name"]]
@@ -119,7 +120,9 @@ def test_native_dart_control_api_matches_independent_nominal_target(tmp_path):
     assert comparison is not None and comparison.status == "PASS", comparison
     assessments = {row.id: row for row in rule_assessments(model, undecided_by_rule={})}
     for identifier, _ in GUARDS:
-        assert assessments[identifier].status == "PASS" and assessments[identifier].evaluation_proven
+        assert (
+            assessments[identifier].status == "PASS" and assessments[identifier].evaluation_proven
+        )
     assert not trace_valid_violations(model)
 
 
@@ -129,10 +132,14 @@ def test_native_dart_control_api_matches_independent_nominal_target(tmp_path):
         'def _control_probe(value):\n    return value == "import"\n',
         'def _control_probe(value):\n    return value in ("import", "export")\n',
         'def _control_probe(value):\n    return "import" in value\n',
-        ('def _control_probe(value):\n    match value:\n        case "import":\n'
-         "            return True\n        case _:\n            return False\n"),
-        ('from typing import Final\nCONTROL: Final[str] = "import"\n'
-         "def _control_probe(value):\n    return value == CONTROL\n"),
+        (
+            'def _control_probe(value):\n    match value:\n        case "import":\n'
+            "            return True\n        case _:\n            return False\n"
+        ),
+        (
+            'from typing import Final\nCONTROL: Final[str] = "import"\n'
+            "def _control_probe(value):\n    return value == CONTROL\n"
+        ),
     ],
     ids=["equality", "membership", "needle", "match", "final"],
 )
@@ -143,7 +150,8 @@ def test_native_dart_control_guard_rejects_actual_source_string_dispatch(tmp_pat
     before = (root / "contract.json").read_bytes()
     model = _model(root, config)
     probes = {
-        row.id for row in model.records("constructs")
+        row.id
+        for row in model.records("constructs")
         if "_control_probe" in str(row.data.get("owner", ""))
         and row.data.get("construct") == "string_literal_compare"
     }
@@ -167,21 +175,29 @@ def test_native_dart_nominal_annotation_widening_fails_without_target_change(tmp
 
 
 def test_parse_node_view_preserves_tree_identity_fields_and_unknown_children():
-    raw = parse._PARSER.parse(b"void main() { var value = 1; value = other; return value; }").root_node
+    raw = parse._PARSER.parse(
+        b"void main() { var value = 1; value = other; return value; }"
+    ).root_node
     tree = parse._Tree()
     root = tree.wrap(raw)
     assert tree.wrap(raw) is root
     nodes = tuple(parse._walk(root))
     assert any(node.kind is None and node.named_children for node in nodes)
     assert any(
-        node.kind is None and any(child.kind == parse._NodeKind.IDENTIFIER for child in node.named_children)
+        node.kind is None
+        and any(child.kind == parse._NodeKind.IDENTIFIER for child in node.named_children)
         for node in nodes
     )
     for node in nodes:
         assert tree.wrap(node._raw) is node
         if node.parent is not None:
             assert node in node.parent.children
-        for field in (parse._NodeKind.NAME, parse._NodeKind.LEFT, parse._NodeKind.RIGHT, parse._NodeKind.VALUE):
+        for field in (
+            parse._NodeKind.NAME,
+            parse._NodeKind.LEFT,
+            parse._NodeKind.RIGHT,
+            parse._NodeKind.VALUE,
+        ):
             raw_child = node._raw.child_by_field_name(field.value)
             child = node.child_by_field_name(field)
             assert (child is None) == (raw_child is None)
@@ -201,7 +217,7 @@ def test_parse_node_view_preserves_tree_identity_fields_and_unknown_children():
         ("'''multi\nline'''", "multi\nline"),
         ("'\\n\\r\\t\\b\\f\\v'", "\n\r\t\b\f\v"),
         ("'\\x41\\u0042\\u{43}'", "ABC"),
-        ("'\\\\\\\'\\\"\\$'", "\\\'\"$"),
+        ("'\\\\\\'\\\"\\$'", "\\'\"$"),
         ("'$value'", None),
         ("r'$value'", None),
         ("'\\q'", None),
@@ -220,5 +236,28 @@ def test_dart_string_decoder_preserves_delimiters_escape_grammar_and_rejections(
 def test_parse_compatibility_exports_are_the_canonical_syntax_types():
     from archkeel.analyzer.dart import syntax
 
-    for name in ("Span", "Parameter", "Member", "Definition", "Directive", "Site", "Concern", "Syntax"):
+    for name in (
+        "Span",
+        "Parameter",
+        "Member",
+        "Definition",
+        "Directive",
+        "Site",
+        "Concern",
+        "Syntax",
+    ):
         assert getattr(parse, name) is getattr(syntax, name)
+
+
+def test_own_dart_module_guards_are_proven_from_actual_source(self_observation):
+    assessments = {
+        row.id: row for row in rule_assessments(self_observation, undecided_by_rule={})
+    }
+    for identifier, _ in GUARDS:
+        row = assessments[identifier]
+        assert row.status == "PASS" and row.evaluation_proven, row
+    assert not [
+        row for row in self_observation.records("constructs")
+        if row.data.get("construct") == "string_literal_compare"
+        and str(row.data.get("owner", "")).startswith("archkeel.analyzer.dart.")
+    ]
