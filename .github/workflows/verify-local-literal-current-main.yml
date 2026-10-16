@@ -1,0 +1,48 @@
+name: Verify reviewed local literal guard on actual merged version
+on:
+  push:
+    branches: [verify/542-local-literal-current-main]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 9bee2a7728df334e4d3bf915466e5a6f427309cb
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Normal measured baseline, amendment and exact replay
+        run: |
+          uv run --locked python - <<'PY'
+          import base64,json,subprocess
+          from pathlib import Path
+          base="9c7c8d664f4c9c93c252d737555a7156bb59a035"
+          path="docs/architecture/decisions/issue-542-local-literal-amendment.json"
+          common=["uv","run","--locked","python","-m","archkeel.cli","validate","--root",".","--baseline","architecture-baseline.json","--json"]
+          stages=[
+              ("baseline",["--write-baseline"]),
+              ("amendment",["--against",base,"--amendment",path,"--write-amendment","--decided-by","ake2l","--rationale","Recognize one proven same-function local literal binding without adding resolver or general value authority, preserving merged graph/version policy and all measured debt ceilings."]),
+              ("replay",["--against",base,"--amendment",path]),
+          ]
+          codes=[]
+          for stage,extra in stages:
+              result=subprocess.run(common+extra,text=True,capture_output=True)
+              codes.append(result.returncode)
+              data=json.loads(result.stdout)
+              print("LOCAL_RESULT="+json.dumps({"stage":stage,**{k:data.get(k) for k in ("exit_code","diagnostics","failures","widenings","amendment_status","measurements")}},separators=(",",":")))
+              if result.stderr:print("LOCAL_STDERR="+result.stderr[-3000:])
+          for marker,filename in (("LOCAL_BASELINE","architecture-baseline.json"),("LOCAL_AMENDMENT",path)):
+              file=Path(filename)
+              if file.exists():print(marker+"="+base64.b64encode(file.read_bytes()).decode())
+          assert codes==[0,0,0],codes
+          PY
+      - name: Actual local-literal, lexical ownership and version regressions
+        run: uv run --locked python -m pytest -q tests/test_local_string_comparisons.py tests/test_string_comparison_observation.py tests/test_bindings.py tests/test_binding_proof_reuse.py tests/test_python_source_evidence_lines.py tests/test_contract_version_types.py tests/test_codec_compatibility.py tests/test_repository_hygiene.py
+      - run: make lint typecheck
