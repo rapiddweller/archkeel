@@ -9966,6 +9966,128 @@
             ],
             "returns": "tuple[tuple[str, str, str, MetricComparisonStatus], ...]"
           }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/delta-version-types.md"
+          ],
+          "responsibilities": [
+            "Own supported Delta format identities and nullable-count policy without closing extension data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-DELTA-VERSION-enum",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.model.DeltaVersion",
+          "parent_id": "IR-DEPENDENCY-model"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/delta-version-types.md"
+          ],
+          "responsibilities": [
+            "Own supported Delta format identities and nullable-count policy without closing extension data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-DELTA-VERSION-delta",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.ArchitectureDelta",
+          "parent_id": "IR-DEPENDENCY-model"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/delta-version-types.md"
+          ],
+          "responsibilities": [
+            "Own supported Delta format identities and nullable-count policy without closing extension data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-DELTA-VERSION-field",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ArchitectureDelta.schema_version",
+          "parent_id": "IR-DELTA-VERSION-delta",
+          "annotation": "DeltaVersion"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/delta-version-types.md"
+          ],
+          "responsibilities": [
+            "Own supported Delta format identities and nullable-count policy without closing extension data."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-DELTA-VERSION-policy",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.model.supports_nullable_delta_counts",
+          "parent_id": "IR-DEPENDENCY-model",
+          "signature": {
+            "parameters": [
+              {
+                "name": "version",
+                "annotation": "DeltaVersion",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/delta-version-types.md"
+          ],
+          "responsibilities": [
+            "Own supported Delta format identities and nullable-count policy without closing extension data."
+          ],
+          "id": "IR-DELTA-VERSION-codec",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.codec_delta"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/delta-version-types.md"
+          ],
+          "responsibilities": [
+            "Own supported Delta format identities and nullable-count policy without closing extension data."
+          ],
+          "id": "IR-DELTA-VERSION-ingress",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.codec_delta._parse_delta_version",
+          "parent_id": "IR-DELTA-VERSION-codec",
+          "signature": {
+            "parameters": [
+              {
+                "name": "raw",
+                "annotation": "RawJson",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "DeltaVersion"
+          }
         }
       ],
       "relationships": [
