@@ -8,14 +8,13 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
-from archkeel.ir.architecture_graph import AssessmentStatus
 from test_analyzer import _component
 from test_boundary_types_nested_dtos import _write_app
 from test_dart_directives import dart_package
 from test_inside_publication import _child, _inside, _rule
 
 from archkeel.cli.observe import analyze_snapshot
+from archkeel.ir.architecture_graph import AssessmentStatus
 from tools import rule_yield
 from tools.rule_yield import _captured_analysis, _rule_measures, measure
 

@@ -32,9 +32,7 @@ RULE = {
 }
 
 
-def _report(
-    tmp_path, statement, *, through=("sample.core:Command",), exports=None, mounted=False
-):
+def _report(tmp_path, statement, *, through=("sample.core:Command",), exports=None, mounted=False):
     caller = _component("caller")
     caller["requires"] = [
         {"component": "core", "through": list(through), "rationale": "Use this API."}
@@ -44,9 +42,11 @@ def _report(
     if exports is not None:
         source += "__all__ = " + repr(exports) + "\n"
     contract = {"schema_version": "2.2.0", "components": [caller, core], "rules": [RULE]}
-    outer = {"schema_version": "2.2.0", "components": [
-        {**_component("app", packages=["sample"]), "inside": "inside.json"}
-    ], "rules": []}
+    outer = {
+        "schema_version": "2.2.0",
+        "components": [{**_component("app", packages=["sample"]), "inside": "inside.json"}],
+        "rules": [],
+    }
     root = _prepare_repo(
         tmp_path,
         {
@@ -182,7 +182,7 @@ def _api_repository(tmp_path):
                     "RequiredComponent",
                     "ContractComponent",
                     "requires_covers",
-                    "_required_port_covers",
+                    "_required_port_assessment",
                     "requires_import_assessment",
                 },
             )
@@ -254,9 +254,9 @@ def test_exact_port_assessments_survive_nested_scope_and_saved_replay(
         'def _probe(symbol):\n    return symbol == "*"\n',
         'def _probe(symbol):\n    return symbol in ("*",)\n',
         'def _probe(symbol):\n    match symbol:\n        case "*":\n'
-        '            return True\n        case _:\n            return False\n',
+        "            return True\n        case _:\n            return False\n",
         'from typing import Final\nSTAR: Final[str] = "*"\n'
-        'def _probe(symbol):\n    return symbol == STAR\n',
+        "def _probe(symbol):\n    return symbol == STAR\n",
     ],
 )
 def test_native_selected_requires_code_rejects_raw_wildcard_dispatch(tmp_path, probe):
@@ -265,6 +265,4 @@ def test_native_selected_requires_code_rejects_raw_wildcard_dispatch(tmp_path, p
     source = root / "archkeel/ir/model.py"
     source.write_text(source.read_text() + "\n" + probe)
     value = _model(root, config)
-    assert any(
-        "REQUIRES-SELECTED-CONTROL" in row.rule_ids for row in trace_valid_violations(value)
-    )
+    assert any("REQUIRES-SELECTED-CONTROL" in row.rule_ids for row in trace_valid_violations(value))

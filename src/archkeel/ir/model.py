@@ -250,18 +250,27 @@ def requires_covers(
             target_module is None
             or not entry.through
             or any(
-                _required_port_covers(port, target_module, target_symbol) for port in entry.through
+                _required_port_assessment(
+                    port, target_module, target_symbol, symbols_known=True
+                ) is AssessmentStatus.PASS
+                for port in entry.through
             )
         )
         for entry in entries
     )
 
 
-def _required_port_covers(port: str, target_module: str, target_symbol: str | None) -> bool:
+def _required_port_assessment(
+    port: str, target_module: str, target_symbol: str | None, *, symbols_known: bool
+) -> AssessmentStatus:
     module, separator, symbol = port.partition(":")
-    if separator:
-        return target_module == module and target_symbol == symbol
-    return in_scope(target_module, module)
+    if not separator:
+        return AssessmentStatus.PASS if in_scope(target_module, module) else AssessmentStatus.FAIL
+    if target_module != module:
+        return AssessmentStatus.FAIL
+    if not symbols_known:
+        return AssessmentStatus.UNKNOWN
+    return AssessmentStatus.PASS if target_symbol == symbol else AssessmentStatus.FAIL
 
 
 def requires_import_assessment(
@@ -283,8 +292,9 @@ def requires_import_assessment(
     if not named and any(
         entry.component == target_label
         and any(
-            module == target_module and bool(symbol_name)
-            for module, _, symbol_name in (port.partition(":") for port in entry.through)
+            _required_port_assessment(port, target_module, symbol, symbols_known=False)
+            is AssessmentStatus.UNKNOWN
+            for port in entry.through
         )
         for entry in source.requires or ()
     ):
