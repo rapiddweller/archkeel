@@ -1,0 +1,45 @@
+name: Contract rule grammar finalization
+on:
+  push:
+    branches: [verify/issue-542-rule-grammar-final]
+permissions:
+  contents: read
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+      - run: uv python install 3.11.12
+      - run: uv sync --locked --python 3.11.12
+      - name: Watch nominal constructor and native source RED
+        run: uv run pytest -q tests/test_typed_contract_rule_grammar.py tests/test_typed_contract_rule_native.py
+  exact-three-way:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Produce actual Git three-way source merge
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess, tempfile
+          paths = ["src/archkeel/check/declarations.py","src/archkeel/check/evaluation/rules.py","src/archkeel/check/onboarding.py","src/archkeel/ir/architecture_graph.py","src/archkeel/ir/codec_contract.py","src/archkeel/ir/codec_wire.py","src/archkeel/ir/decisions.py","src/archkeel/ir/model.py","src/archkeel/ir/widening.py"]
+          with tempfile.TemporaryDirectory() as tmp:
+              for i, path in enumerate(paths):
+                  files=[]
+                  for name, ref in [("current","babfb45cf15588a7313e3c7ab37a8b256fccecc2"),("base","5933ffbbfd588ac96e36748de937cb1f6e739655"),("other","a0948a708198a0aab432d00017f45f184b0d05d1")]:
+                      target=pathlib.Path(tmp)/f"{i}-{name}"
+                      target.write_bytes(subprocess.check_output(["git","show",f"{ref}:{path}"]))
+                      files.append(str(target))
+                  result=subprocess.run(["git","merge-file","-p",*files],text=True,capture_output=True)
+                  print("GRAMMAR_MERGE "+json.dumps({"path":path,"status":result.returncode,"content":result.stdout,"stderr":result.stderr}),flush=True)
+          
+          PY
