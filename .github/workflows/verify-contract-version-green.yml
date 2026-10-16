@@ -18,8 +18,8 @@ jobs:
           version: "0.12.13"
       - name: Format candidate and report exact patch
         run: |
-          uv run --locked ruff check --fix src/archkeel/ir/contract_version.py src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py tests/test_contract_version_types.py
           uv run --locked ruff format src/archkeel/ir/contract_version.py src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py tests/test_contract_version_types.py
+          uv run --locked ruff check --fix src/archkeel/ir/contract_version.py src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py tests/test_contract_version_types.py
           git diff --no-ext-diff | python -c 'import base64,sys; print("FORMAT_PATCH="+base64.b64encode(sys.stdin.buffer.read()).decode())'
       - name: Focused legacy and native version tests
         run: uv run --locked pytest -q tests/test_contract_version_types.py tests/test_contract_model.py tests/test_module_object_grants.py tests/test_codec_compatibility.py tests/test_dependency_selectors.py tests/test_widening.py
