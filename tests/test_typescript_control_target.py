@@ -61,7 +61,8 @@ def _repository(tmp_path, *, changed=None):
 
 def _rule(model, identity):
     return next(
-        row for row in rule_assessments(model, undecided_by_rule={})
+        row
+        for row in rule_assessments(model, undecided_by_rule={})
         if row.id == identity or row.id.endswith(":" + identity)
     )
 
@@ -92,7 +93,8 @@ def test_native_typescript_api_matches_the_independent_target(tmp_path):
         ("config", "def resolution(self) -> ModuleResolution:", "def resolution(self) -> str:"),
         ("resolve", "mode: ModuleFormat | None,", "mode: str | None,"),
         (
-            "resolve", "def format_of(self, rel: str) -> ModuleFormat | Unknown | None:",
+            "resolve",
+            "def format_of(self, rel: str) -> ModuleFormat | Unknown | None:",
             "def format_of(self, rel: str) -> str | Unknown | None:",
         ),
     ],
@@ -126,7 +128,7 @@ def test_native_source_type_widening_fails_with_fixed_intent(tmp_path, module, o
         'def _probe(value):\n    match value:\n        case "node16":\n            return True\n',
         (
             'from typing import Final\nTOKEN: Final[str] = "node16"\n'
-            'def _probe(value):\n    return value == TOKEN\n'
+            "def _probe(value):\n    return value == TOKEN\n"
         ),
     ],
     ids=["equality", "membership", "match", "final-alias"],
@@ -149,7 +151,8 @@ def test_own_observation_proves_both_migrated_module_guards(self_observation):
         rule = _rule(self_observation, name)
         assert rule.status == "PASS" and rule.evaluation_proven, rule
     assert not [
-        row for row in self_observation.records("constructs")
+        row
+        for row in self_observation.records("constructs")
         if row.kind == "string_literal_compare"
         and any(
             row.data.get("owner") == f"{MODULE}.{module}"
@@ -165,3 +168,17 @@ def test_guards_cover_whole_migrated_modules_without_allowances():
         assert rule["source"] in {f"{MODULE}.config", f"{MODULE}.resolve"}
         assert rule["constructs"] == ["string_literal_compare"]
         assert not rule.get("allowed_sources") and not rule.get("exact_sources")
+
+
+def test_native_configuration_crossing_must_use_its_named_public_api(tmp_path):
+    root, config = _repository(
+        tmp_path,
+        changed={
+            "archkeel/analyzer/typescript/collect.py": "from .config import _enum_value\n"
+        },
+    )
+    model = _model(root, config)
+    assert any(
+        "TARGET-INTERFACE_BOUNDARY" in row.rule_ids
+        for row in trace_valid_violations(model)
+    )

@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Final, Literal, TypeVar
 
+
 class ModuleKind(Enum):
     """TypeScript's accepted emit modes, owned by configuration."""
 
@@ -42,12 +43,16 @@ class ModuleKind(Enum):
 class ModuleResolution(Enum):
     """Accepted resolver modes; NODE is normalized to NODE10 at the input boundary."""
 
-    NODE = "node"
     NODE10 = "node10"
     CLASSIC = "classic"
     NODE16 = "node16"
     NODENEXT = "nodenext"
     BUNDLER = "bundler"
+
+    @classmethod
+    def _missing_(cls, value: object) -> ModuleResolution | None:
+        """The compiler's legacy spelling has one canonical nominal value."""
+        return {"node": cls.NODE10}.get(value) if isinstance(value, str) else None
 
 
 class ScriptTarget(Enum):
@@ -155,7 +160,9 @@ _KNOWN_OPTIONS: Final = frozenset(
     "tsBuildInfoFile typeRoots types useDefineForClassFields useUnknownInCatchVariables "
     "verbatimModuleSyntax version".split()
 )
-_ESM_MODULES: Final = frozenset({ModuleKind.ES6, ModuleKind.ES2015, ModuleKind.ES2020, ModuleKind.ES2022, ModuleKind.ESNEXT})
+_ESM_MODULES: Final = frozenset(
+    {ModuleKind.ES6, ModuleKind.ES2015, ModuleKind.ES2020, ModuleKind.ES2022, ModuleKind.ESNEXT}
+)
 _NODE16_MODULES: Final = frozenset({ModuleKind.NODE16, ModuleKind.NODE18, ModuleKind.NODE20})
 _SUPPORTED: Final = (".ts", ".tsx", ".d.ts", ".cts", ".d.cts", ".mts", ".d.mts")
 _SUPPORTED_JS: Final = (".js", ".jsx", ".cjs", ".mjs")
@@ -226,8 +233,6 @@ class Options:
     @property
     def resolution(self) -> ModuleResolution:
         """The effective resolution mode, normalized once before resolver dispatch."""
-        if self.module_resolution is ModuleResolution.NODE:
-            return ModuleResolution.NODE10
         if self.module_resolution is not None:
             return self.module_resolution
         implied = {
@@ -260,7 +265,9 @@ def is_outside(rel: str) -> bool:
 
 
 def within(scope: str, path: str) -> bool:
-    return PathToken.parse(scope) is PathToken.CURRENT or path == scope or path.startswith(f"{scope}/")
+    return (
+        PathToken.parse(scope) is PathToken.CURRENT or path == scope or path.startswith(f"{scope}/")
+    )
 
 
 class Snapshot:
@@ -541,8 +548,6 @@ def _paths(raw: dict[str, object], problems: list[str]) -> tuple[tuple[str, tupl
 def _options(layer: _Layer, problems: list[str]) -> Options:
     raw = layer.compiler
     resolution = _enum_value(raw.get("moduleResolution"), ModuleResolution)
-    if resolution is ModuleResolution.NODE:
-        resolution = ModuleResolution.NODE10
     paths = _paths(raw, problems)
     unmodeled = [name for name in _UNMODELED if raw.get(name) not in (None, False, [])]
     if any("${configDir}" in target for _, targets in paths for target in targets):
@@ -574,7 +579,9 @@ def _options(layer: _Layer, problems: list[str]) -> Options:
     elif emit in _NODE16_MODULES | {ModuleKind.NODENEXT} and kind != (
         ModuleResolution.NODENEXT if emit is ModuleKind.NODENEXT else ModuleResolution.NODE16
     ):
-        problems.append(f"Compiler option 5110: 'moduleResolution' must follow 'module' {emit.value}.")
+        problems.append(
+            f"Compiler option 5110: 'moduleResolution' must follow 'module' {emit.value}."
+        )
     return options
 
 
@@ -593,7 +600,10 @@ def _wildcard(spec: str, base: str, usage: _WildcardUsage) -> str | None:
     single, deep = _WILDCARDS[usage]
     path: str = posixpath.normpath(posixpath.join("/", base, spec))
     components = [""] if PathToken.parse(path) is PathToken.ROOT else path.split("/")
-    if usage is not _WildcardUsage.EXCLUDE and PathToken.parse(components[-1]) is PathToken.DEEP_STAR:
+    if (
+        usage is not _WildcardUsage.EXCLUDE
+        and PathToken.parse(components[-1]) is PathToken.DEEP_STAR
+    ):
         return None
     if usage is not _WildcardUsage.EXCLUDE and not re.search(r"[.*?]", components[-1]):
         components += ["**", "*"]
@@ -606,12 +616,20 @@ def _wildcard(spec: str, base: str, usage: _WildcardUsage) -> str | None:
                 out, optional = out + "(?:", optional + 1
             out += "/" if written else ""
             part = ""
-            if usage is not _WildcardUsage.EXCLUDE and PathToken.parse(component[:1]) is PathToken.STAR:
+            if (
+                usage is not _WildcardUsage.EXCLUDE
+                and PathToken.parse(component[:1]) is PathToken.STAR
+            ):
                 part, component = f"(?:[^./]{single})?", component[1:]
-            elif usage is not _WildcardUsage.EXCLUDE and PathToken.parse(component[:1]) is PathToken.QUESTION:
+            elif (
+                usage is not _WildcardUsage.EXCLUDE
+                and PathToken.parse(component[:1]) is PathToken.QUESTION
+            ):
                 part, component = "[^./]", component[1:]
             part += re.sub(r"[^\w\s/]", _wildcard_text(single), component, flags=re.ASCII)
-            out += (_NOT_EXCLUDED if usage is not _WildcardUsage.EXCLUDE and part != component else "") + part
+            out += (
+                _NOT_EXCLUDED if usage is not _WildcardUsage.EXCLUDE and part != component else ""
+            ) + part
         written = True
     return out + ")?" * optional
 
@@ -700,7 +718,8 @@ def _shadowed(rel: str, known: set[str]) -> bool:
         stem = rel[: -len(own)]
         # A JavaScript file is kept next to its declaration file.
         return any(
-            f"{stem}{ext}" in known and not (
+            f"{stem}{ext}" in known
+            and not (
                 _enum_value(ext, _ShadowKind) is _ShadowKind.DECLARATION
                 and _enum_value(own, _ShadowKind) in (_ShadowKind.JAVASCRIPT, _ShadowKind.JSX)
             )

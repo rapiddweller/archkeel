@@ -265,7 +265,9 @@ def test_package_exports_and_typesversions_are_unknown_where_the_compiler_reads_
         },
         options,
     )
-    result = resolver.resolve(specifier, "src/main.ts", ModuleFormat.CJS if options is NODENEXT else None)
+    result = resolver.resolve(
+        specifier, "src/main.ts", ModuleFormat.CJS if options is NODENEXT else None
+    )
     if unknown is None:
         assert _path(result) == "node_modules/pkg/index.d.ts"
     else:
@@ -284,7 +286,10 @@ def test_package_exports_resolve_exact_javascript_target_to_declaration(tmp_path
         NODENEXT,
     )
 
-    assert _path(resolver.resolve("pkg", "src/main.ts", ModuleFormat.CJS)) == "node_modules/pkg/index.d.ts"
+    assert (
+        _path(resolver.resolve("pkg", "src/main.ts", ModuleFormat.CJS))
+        == "node_modules/pkg/index.d.ts"
+    )
 
 
 def test_package_exports_keep_recognized_typescript_target_exact(tmp_path: Path) -> None:
@@ -298,7 +303,10 @@ def test_package_exports_keep_recognized_typescript_target_exact(tmp_path: Path)
         NODENEXT,
     )
 
-    assert _path(resolver.resolve("pkg", "src/main.ts", ModuleFormat.ESM)) == "node_modules/pkg/index.d.ts"
+    assert (
+        _path(resolver.resolve("pkg", "src/main.ts", ModuleFormat.ESM))
+        == "node_modules/pkg/index.d.ts"
+    )
 
 
 def test_missing_typescript_export_target_does_not_substitute_sibling(tmp_path: Path) -> None:
@@ -347,7 +355,11 @@ def test_unsupported_export_target_kinds_remain_unknown(tmp_path: Path, target: 
             ModuleFormat.CJS,
             "node_modules/pkg/require.cts",
         ),
-        ('{"./legacy": "./legacy/index.js"}', ModuleFormat.CJS, "node_modules/pkg/legacy/index.d.ts"),
+        (
+            '{"./legacy": "./legacy/index.js"}',
+            ModuleFormat.CJS,
+            "node_modules/pkg/legacy/index.d.ts",
+        ),
     ],
 )
 def test_package_exports_select_supported_exact_targets(
@@ -475,9 +487,9 @@ def test_node_builtin_precedes_conflicting_package_only_after_aliases(tmp_path: 
         },
         options,
     )
-    assert _path(resolver.resolve("crypto", "src/main.ts", ModuleFormat.CJS, prefer_builtin=True)) == (
-        "src/crypto.ts"
-    )
+    assert _path(
+        resolver.resolve("crypto", "src/main.ts", ModuleFormat.CJS, prefer_builtin=True)
+    ) == ("src/crypto.ts")
     no_alias = _resolver(
         tmp_path / "plain",
         {
@@ -518,7 +530,9 @@ def test_pinned_nest_imports_resolve_from_exact_captured_package_files(tmp_path:
     (tmp_path / "tsconfig.json").write_text(json.dumps(config))
     snapshot = Snapshot(str(tmp_path))
     resolver = Resolver(snapshot, load_config(snapshot, "tsconfig.json", ("src",)))
-    results = [resolver.resolve(specifier, "src/main.ts", ModuleFormat.CJS) for specifier in specifiers]
+    results = [
+        resolver.resolve(specifier, "src/main.ts", ModuleFormat.CJS) for specifier in specifiers
+    ]
     assert len(results) == 17
     assert all(isinstance(result, Found) and result.external for result in results)
     assert {result.path for result in results if isinstance(result, Found)} <= captured_paths

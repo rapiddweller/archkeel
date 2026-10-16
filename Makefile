@@ -162,7 +162,8 @@ typescript-native:
 	$(UV) run --locked python -m pytest -q tests/test_typescript_parse.py \
 		tests/test_typescript_inner.py tests/test_typescript_uml_acceptance.py \
 		tests/test_typescript_namespace_identities.py \
-		tests/test_typescript_collect.py tests/test_typescript_config.py \
+		tests/test_typescript_collect.py tests/test_typescript_owned_types.py \
+		tests/test_typescript_control_target.py tests/test_typescript_config.py \
 		tests/test_typescript_config_reference.py \
 		tests/test_typescript_resolve.py tests/test_typescript_provenance.py \
 		tests/test_typescript_init_acceptance.py tests/test_typescript_demo.py

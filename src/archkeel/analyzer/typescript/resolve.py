@@ -19,6 +19,7 @@ from typing import Final, TypeAlias
 
 from .config import Config, Json, ModuleResolution, Options, PathToken, Snapshot, decode, join
 
+
 class ModuleFormat(Enum):
     """The loading format passed between resolution and collection."""
 
@@ -68,6 +69,8 @@ def _package_type(manifest: Json) -> _PackageType | None:
         return _PackageType(value)
     except ValueError:
         return None
+
+
 # `module.builtinModules` of Node 22, plus the names that exist only with the `node:` prefix.
 _BUILTINS: Final = frozenset(
     "_http_agent _http_client _http_common _http_incoming _http_outgoing _http_server "
@@ -257,7 +260,9 @@ class Resolver:
     @property
     def _exports_aware(self) -> bool:
         return self.options.resolution in (
-            ModuleResolution.NODE16, ModuleResolution.NODENEXT, ModuleResolution.BUNDLER
+            ModuleResolution.NODE16,
+            ModuleResolution.NODENEXT,
+            ModuleResolution.BUNDLER,
         )
 
     def _blocked(self) -> Unknown | None:
@@ -266,8 +271,10 @@ class Resolver:
         if self.partial:
             return Unknown("TSConfig settings are not fully observed")
         if self.options.resolution not in (
-            ModuleResolution.NODE10, ModuleResolution.NODE16,
-            ModuleResolution.NODENEXT, ModuleResolution.BUNDLER
+            ModuleResolution.NODE10,
+            ModuleResolution.NODE16,
+            ModuleResolution.NODENEXT,
+            ModuleResolution.BUNDLER,
         ):
             return Unknown(f"moduleResolution {self.options.resolution.value} is not observed")
         return None
@@ -336,13 +343,11 @@ class Resolver:
         node10 = self.options.resolution is ModuleResolution.NODE10
         # Under Node10 the compiler looks for TypeScript everywhere before it looks for JavaScript.
         # JSON modules are tried with the JavaScript files, which come last.
-        last = (
-            (SourceKind.JAVASCRIPT, SourceKind.JSON)
-            if self._json else (SourceKind.JAVASCRIPT,)
-        )
+        last = (SourceKind.JAVASCRIPT, SourceKind.JSON) if self._json else (SourceKind.JAVASCRIPT,)
         passes: tuple[Kinds, ...] = (
             ((SourceKind.TYPESCRIPT, SourceKind.DECLARATION), last)
-            if node10 else ((SourceKind.TYPESCRIPT, SourceKind.DECLARATION, *last),)
+            if node10
+            else ((SourceKind.TYPESCRIPT, SourceKind.DECLARATION, *last),)
         )
         if is_relative(specifier):
             candidate = join(posixpath.dirname(importer) or ".", specifier)
@@ -420,7 +425,11 @@ class Resolver:
             return None
         found = self._package(modules, specifier, esm, kinds)
         types = join(modules, "@types")
-        if found is not None or SourceKind.DECLARATION not in kinds or not self.snapshot.is_dir(types):
+        if (
+            found is not None
+            or SourceKind.DECLARATION not in kinds
+            or not self.snapshot.is_dir(types)
+        ):
             return found
         return self._package(types, _typed_name(specifier), esm, (SourceKind.DECLARATION,))
 
@@ -459,7 +468,10 @@ class Resolver:
         if isinstance(exports, str):
             selected: Json | str | None = exports if not rest else None
         elif isinstance(exports, dict):
-            subpaths = [isinstance(item, str) and PathToken.parse(item[:1]) is PathToken.CURRENT for item in exports]
+            subpaths = [
+                isinstance(item, str) and PathToken.parse(item[:1]) is PathToken.CURRENT
+                for item in exports
+            ]
             if any(subpaths) and not all(subpaths):
                 return Unknown(f"Package exports map shape is not observed: {name}")
             if exports and all(subpaths):
@@ -483,7 +495,8 @@ class Resolver:
         if PathToken.parse(target[:2]) is not PathToken.RELATIVE:
             return Unknown(f"Package exports target is not package-relative: {name}{key[1:]}")
         if re.fullmatch(r"\./[^/%?#\\]+(?:/[^/%?#\\]+)*\Z", target) is None or any(
-            PathToken.parse(segment) in {PathToken.CURRENT, PathToken.PARENT, PathToken.NODE_MODULES}
+            PathToken.parse(segment)
+            in {PathToken.CURRENT, PathToken.PARENT, PathToken.NODE_MODULES}
             for segment in re.split("/", target[2:])
         ):
             return Unknown(f"Package exports target path is not observed: {name}{key[1:]}")
@@ -491,7 +504,10 @@ class Resolver:
         candidate = join(package_dir, target[2:])
         # Only a recognized TS declaration/source target names its exact source file.
         extension = _strip_extension(target)
-        if extension is not None and _KIND_OF.get(extension[1]) in {SourceKind.TYPESCRIPT, SourceKind.DECLARATION}:
+        if extension is not None and _KIND_OF.get(extension[1]) in {
+            SourceKind.TYPESCRIPT,
+            SourceKind.DECLARATION,
+        }:
             paths = [candidate]
         else:
             paths = _file_paths(candidate, True, kinds)
@@ -558,7 +574,8 @@ class Resolver:
             strict = esm and _package_type(fields) is _PackageType.MODULE
             expanded = (
                 (SourceKind.TYPESCRIPT, SourceKind.DECLARATION)
-                if kinds == (SourceKind.DECLARATION,) else kinds
+                if kinds == (SourceKind.DECLARATION,)
+                else kinds
             )
             found = self._by_name(target, False, strict, expanded, False)
             if found is not None:

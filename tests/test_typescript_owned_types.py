@@ -24,7 +24,11 @@ def _loaded(tmp_path, options):
 
 @pytest.mark.parametrize(
     ("field", "type_name"),
-    [("module", "ModuleKind"), ("module_resolution", "ModuleResolution"), ("target", "ScriptTarget")],
+    [
+        ("module", "ModuleKind"),
+        ("module_resolution", "ModuleResolution"),
+        ("target", "ScriptTarget"),
+    ],
 )
 def test_option_fields_have_nominal_owner_types(field, type_name):
     annotation = get_type_hints(config.Options)[field]
@@ -70,12 +74,14 @@ def test_package_protocol_conversion_keeps_unknown_conditions_unknown():
     assert resolve.Resolver._export_condition(
         {"future-condition": "./unsupported.js", "default": "./fallback.js"}, True
     ) == resolve.Unknown("Package exports condition is not observed: future-condition")
-    assert resolve.Resolver._export_condition(
-        {"require": "./cjs.js", "import": "./esm.js"}, True
-    ) == "./esm.js"
-    assert resolve.Resolver._export_condition(
-        {"require": "./cjs.js", "import": "./esm.js"}, False
-    ) == "./cjs.js"
+    assert (
+        resolve.Resolver._export_condition({"require": "./cjs.js", "import": "./esm.js"}, True)
+        == "./esm.js"
+    )
+    assert (
+        resolve.Resolver._export_condition({"require": "./cjs.js", "import": "./esm.js"}, False)
+        == "./cjs.js"
+    )
 
 
 def test_formats_are_typed_at_the_resolver_consumer_boundary(tmp_path):
@@ -101,3 +107,11 @@ def test_resolve_refuses_a_raw_format_instead_of_treating_it_as_cjs(tmp_path):
     loaded, snapshot = _loaded(tmp_path, {"module": "NodeNext"})
     with pytest.raises(TypeError, match="ModuleFormat"):
         resolve.Resolver(snapshot, loaded).resolve("./main.js", "src/main.ts", "esm")
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(None, False), (False, False), (0, False), ("", False), ({}, True), ([], True), ("./x", True)],
+)
+def test_exports_truthiness_follows_the_existing_javascript_boundary(value, expected):
+    assert resolve._declares_exports({"exports": value}) is expected

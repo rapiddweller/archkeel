@@ -10,7 +10,12 @@ from pathlib import Path
 import pytest
 
 from archkeel.analyzer.typescript.config import (
-    Config, ModuleKind, ModuleResolution, ScriptTarget, Snapshot, load_config,
+    Config,
+    ModuleKind,
+    ModuleResolution,
+    ScriptTarget,
+    Snapshot,
+    load_config,
 )
 
 
@@ -204,7 +209,8 @@ def test_option_defaults_follow_the_compiler(
 ) -> None:
     config, _ = _config(tmp_path, {"src/a.ts": ""}, text)
     assert (config.options.module, config.options.resolution) == (
-        ModuleKind(module) if module is not None else None, ModuleResolution(resolution)
+        ModuleKind(module) if module is not None else None,
+        ModuleResolution(resolution),
     )
     assert config.partial is False
 

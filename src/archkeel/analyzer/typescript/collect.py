@@ -879,7 +879,10 @@ class _Collection:
         cjs = (
             rel.endswith((".cjs", ".cts"))
             or options.module is ModuleKind.COMMONJS
-            or (form is ModuleFormat.CJS and options.module in (ModuleKind.NODENEXT, ModuleKind.NODE16))
+            or (
+                form is ModuleFormat.CJS
+                and options.module in (ModuleKind.NODENEXT, ModuleKind.NODE16)
+            )
         )
         for reference in syntax.references:
             evidence = self._cite(rel, reference.span)
