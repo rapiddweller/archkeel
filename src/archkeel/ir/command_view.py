@@ -25,6 +25,8 @@ from archkeel.ir.architecture_projection import (
 )
 from archkeel.ir.facts import Record, SourceInfo
 from archkeel.ir.model import (
+    Command,
+    ExpectationOutcome,
     BaselineViolationComparison,
     Coverage,
     Diagnostic,
@@ -117,15 +119,15 @@ class ArchitectureCommandView:
 @dataclass(frozen=True, slots=True)
 class ArchitectureCommandEnvelope:
     exit_code: Literal[0, 1, 2]
-    observation_complete: Literal["PASS", "UNKNOWN"]
+    observation_complete: Literal[AssessmentStatus.PASS, AssessmentStatus.UNKNOWN]
     declared_rules: AssessmentStatus
     coverage: Coverage | None
     diagnostics: tuple[Diagnostic, ...]
     report_filter: ReportFilter | None
     architecture_projection: ArchitectureCommandView
     filtered_violations: tuple[FilteredViolation, ...]
-    command: Literal["report"] = "report"
-    expectation_fulfilled: Literal["n/a"] = "n/a"
+    command: Literal[Command.REPORT] = Command.REPORT
+    expectation_fulfilled: Literal[ExpectationOutcome.NOT_APPLICABLE] = ExpectationOutcome.NOT_APPLICABLE
     schema_version: Literal["1.0.0", "2.0.0"] = "1.0.0"
     baseline_path: str | None = None
     baseline_comparisons: tuple[BaselineViolationComparison, ...] | None = None

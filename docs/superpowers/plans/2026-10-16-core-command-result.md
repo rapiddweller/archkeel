@@ -19,3 +19,8 @@ Parent approved this bounded stage on0e3b8a7f62b9b13417cda78e11b52d0de82986cd. E
 - [ ] Clean product freeze and exact-source carrier for parent/Astra. Stop before another Core stage.
 
 Review focus: four-valued published schema rejects skill/arguments even though actual CLI failures retain those tags; Observation completion rejects FAIL; free shell commands and actors remain data; old constructor/wire behavior and CLI invalid-input remedies remain; shared types have one owner and no duplicated status enums in render.
+
+## Execution ledger
+- Plan773d3d1 committed before code.
+- Hosted native RED38968992765/job117202418705:20 FAIL/5 PASS on unchanged production, including actual authored Target failures, loose fields and missing canonical owner. The prior forward-reference test helper was corrected to resolve the real ArchitectureProjection class without production changes.
+- Actual AST inventory38968992765/job117202418264 finds only the four published command labels in literal RunResult producers/tests; actual CLI error-path tests retain skill/arguments. No additional legitimate constructor vocabulary was found.

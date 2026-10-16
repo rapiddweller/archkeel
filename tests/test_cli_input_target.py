@@ -51,6 +51,14 @@ def _cli_repository(tmp_path):
             ).read_text(),
         }
     )
+    core = (source_root / "ir/model.py").read_text()
+    command = next(
+        node for node in ast.parse(core).body
+        if isinstance(node, ast.ClassDef) and node.name == "Command"
+    )
+    files["archkeel/ir/model.py"] = (
+        "from enum import StrEnum\n\n" + ast.get_source_segment(core, command)
+    )
     root = _prepare_repo(tmp_path, files)
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
 

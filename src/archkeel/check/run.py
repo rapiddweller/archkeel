@@ -22,6 +22,8 @@ from archkeel.ir.host_records import InitialPRHeadEvidence, OrderingError, parse
 from archkeel.ir.lock import LOCK_PATH, AcceptedLock, LockError, verify_observation
 from archkeel.ir.measurements import Measurements, RatchetError
 from archkeel.ir.model import (
+    Command,
+    ExpectationOutcome,
     AssessmentStatus,
     CheckProvenance,
     Diagnostic,
@@ -223,7 +225,7 @@ def _incomplete(result: ObservationResult) -> RunResult:
     """Build the shared exit-2 result for a snapshot that failed to observe."""
     observation = result.observation
     return RunResult(
-        "check",
+        Command.CHECK,
         2,
         diagnostics=result.diagnostics,
         coverage=result.coverage,
@@ -234,7 +236,7 @@ def _incomplete(result: ObservationResult) -> RunResult:
 
 def _measurement_incomplete(observation: Observation, error: RatchetError) -> RunResult:
     return RunResult(
-        "check",
+        Command.CHECK,
         2,
         diagnostics=(
             Diagnostic(
@@ -344,11 +346,11 @@ def run_check(
     result = evaluate_expectation(delta, expectation)
     failures = sorted([*git_failures, *ordering_failures, *result.failures])
     return RunResult(
-        "check",
+        Command.CHECK,
         1 if failures or declared == "FAIL" else 0,
-        observation_complete="PASS",
+        observation_complete=AssessmentStatus.PASS,
         declared_rules=declared,
-        expectation_fulfilled="FAIL" if failures else "PASS",
+        expectation_fulfilled=ExpectationOutcome.FAIL if failures else ExpectationOutcome.PASS,
         git_predicate=Verdict.FAIL if git_failures else Verdict.PASS,
         host_source=(
             "github_initial_pr_head"

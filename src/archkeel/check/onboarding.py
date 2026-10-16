@@ -23,6 +23,9 @@ from archkeel.ir.decisions import (
 )
 from archkeel.ir.identity import module_identity
 from archkeel.ir.model import (
+    Command,
+    ExpectationOutcome,
+    AssessmentStatus,
     ArchitectureContract,
     ArchitectureRule,
     CompleteAssignmentRule,
@@ -462,7 +465,7 @@ def run_init(
             ) from error
     if observed.diagnostics or observed.observation is None:
         return RunResult(
-            "init", 2, diagnostics=observed.diagnostics, coverage=observed.coverage
+            Command.INIT, 2, diagnostics=observed.diagnostics, coverage=observed.coverage
         ), FilesToWrite()
     contract, edges, sizes = draft_contract(
         observed.observation, namespace, roots=roots, language=language
@@ -512,10 +515,10 @@ def run_init(
         decisions, decision_count = open_decision_summary(observed.observation, ownership)
         decisions_complete = len(decisions) == decision_count
     result = RunResult(
-        "init",
+        Command.INIT,
         0,
-        observation_complete="PASS",
-        expectation_fulfilled="n/a",
+        observation_complete=AssessmentStatus.PASS,
+        expectation_fulfilled=ExpectationOutcome.NOT_APPLICABLE,
         coverage=observed.coverage,
         python_version=observed.observation.python_version,
         artifact=CONTRACT_PATH,

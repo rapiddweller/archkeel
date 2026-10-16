@@ -92,6 +92,22 @@ SCHEMA_VERSION = "2.0.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 
 
+class Command(StrEnum):
+    REPORT = "report"
+    VALIDATE = "validate"
+    CHECK = "check"
+    INIT = "init"
+    SKILL = "skill"
+    ARGUMENTS = "arguments"
+
+
+class ExpectationOutcome(StrEnum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+    UNKNOWN = "UNKNOWN"
+    NOT_APPLICABLE = "n/a"
+
+
 class Verdict(StrEnum):
     PASS = "PASS"
     FAIL = "FAIL"
@@ -1367,11 +1383,13 @@ class UnresolvedCallChange:
 
 @dataclass(frozen=True, slots=True)
 class RunResult:
-    command: str
+    command: Command
     exit_code: Literal[0, 1, 2]
-    observation_complete: Literal["PASS", "UNKNOWN"] = "UNKNOWN"
+    observation_complete: Literal[AssessmentStatus.PASS, AssessmentStatus.UNKNOWN] = (
+        AssessmentStatus.UNKNOWN
+    )
     declared_rules: AssessmentStatus = AssessmentStatus.UNKNOWN
-    expectation_fulfilled: Literal["PASS", "FAIL", "UNKNOWN", "n/a"] = "UNKNOWN"
+    expectation_fulfilled: ExpectationOutcome = ExpectationOutcome.UNKNOWN
     diagnostics: tuple[Diagnostic, ...] = ()
     coverage: Coverage | None = None
     observation: Observation | None = None
@@ -1435,3 +1453,11 @@ class RunResult:
             raise ValueError("exit 2 requires at least one Diagnostic")
         if self.diagnostics and self.exit_code != 2:
             raise ValueError("diagnostics require exit 2")
+        completion = AssessmentStatus(self.observation_complete)
+        if completion not in {AssessmentStatus.PASS, AssessmentStatus.UNKNOWN}:
+            raise ValueError("observation_complete must be PASS or UNKNOWN")
+        builtins.object.__setattr__(self, "command", Command(self.command))
+        builtins.object.__setattr__(self, "observation_complete", completion)
+        builtins.object.__setattr__(
+            self, "expectation_fulfilled", ExpectationOutcome(self.expectation_fulfilled)
+        )
