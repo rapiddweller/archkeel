@@ -7,3 +7,5 @@ const invalidCrossDomainField = {origin: SceneProbe.Assessment.PASS, id: "cross"
 function widenedReturn() { return SceneProbe.Origin.OBSERVED; }
 /** @type {SceneProbe.Origin} */
 const invalidReturn = widenedReturn();
+/** @type {SceneProbe.RuleAssessment} */
+const invalidIdenticalSpellingDomain = SceneProbe.Assessment.PASS;

@@ -21,7 +21,7 @@ jobs:
           npx --yes --package typescript@5.9.3 tsc --strict --target ES2022 --module none --outFile "$RUNNER_TEMP/string-enum-protocol.js" prototype/string-enum-protocol.ts
           cat "$RUNNER_TEMP/string-enum-protocol.js" prototype/string-enum-good.js > "$RUNNER_TEMP/string-enum-runtime.js"
           node "$RUNNER_TEMP/string-enum-runtime.js"
-      - name: Actual raw-field, cross-domain-field and widened-return rejection
+      - name: Actual raw-field, cross-domain, same-spelling-domain and widened-return rejection
         run: |
           set +e
           npx --yes --package typescript@5.9.3 tsc --strict --allowJs --checkJs --noEmit --target ES2022 --module none prototype/string-enum-protocol.ts prototype/string-enum-negative.js > "$RUNNER_TEMP/string-enum-negative.txt" 2>&1
@@ -32,5 +32,5 @@ jobs:
           node - "$RUNNER_TEMP/string-enum-negative.txt" <<'JS'
           const fs = require("fs");
           const output = fs.readFileSync(process.argv[2], "utf8");
-          if ((output.match(/error TS2322:/g) || []).length !== 3) throw new Error("Expected three nominal errors");
+          if ((output.match(/error TS2322:/g) || []).length !== 4) throw new Error("Expected four nominal errors");
           JS
