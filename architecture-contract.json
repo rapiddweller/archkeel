@@ -788,7 +788,8 @@
         "archkeel.ir.profiles",
         "archkeel.analyzer.runtime",
         "archkeel.cli.config",
-        "archkeel.check.runtime"
+        "archkeel.check.runtime",
+        "archkeel.ir.diagnostics"
       ],
       "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags and consumers use published nominal types.",
       "provenance": [
@@ -1047,6 +1048,19 @@
       "rationale": "The graph owner, parser and UML comparison use shared nominal control vocabulary without parser exceptions.",
       "provenance": [
         "docs/architecture/typed-graph-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DIAGNOSTIC-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.diagnostics",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The diagnostic owner normalizes kind and code once and uses nominal decisions; parser and protocol strings have no exception.",
+      "provenance": [
+        "docs/architecture/typed-diagnostic-owner.md"
       ],
       "decided_by": "architect"
     }

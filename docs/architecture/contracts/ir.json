@@ -170,7 +170,8 @@
         "archkeel.ir.graph_codec",
         "archkeel.ir.source_graph",
         "archkeel.ir.target_graph",
-        "archkeel.ir.target_records"
+        "archkeel.ir.target_records",
+        "archkeel.ir.diagnostics"
       ],
       "responsibilities": [
         "Own governance models, codecs, policy metrics and pure derivations.",
@@ -255,7 +256,12 @@
         "archkeel.ir.module_explore:ModuleImportCell",
         "archkeel.ir.module_explore:HintCandidate",
         "archkeel.ir.module_explore:ModuleExploreLevel",
-        "archkeel.ir.module_explore:module_exploration"
+        "archkeel.ir.module_explore:module_exploration",
+        "archkeel.ir.diagnostics:DiagnosticKind",
+        "archkeel.ir.diagnostics:DiagnosticCode",
+        "archkeel.ir.diagnostics:Diagnostic",
+        "archkeel.ir.diagnostics:DiagnosticError",
+        "archkeel.ir.diagnostics:ReportLocation"
       ]
     },
     {
@@ -380,6 +386,10 @@
       {
         "path": "src/archkeel/ir/module_explore.py",
         "responsibility": "Derive sparse module statistics and evidence-backed review questions from shared Core records."
+      },
+      {
+        "path": "src/archkeel/ir/diagnostics.py",
+        "responsibility": "Own immutable diagnostics, source locations and nominal diagnostic vocabulary with their validation invariants."
       }
     ],
     "uml": {
@@ -7412,6 +7422,395 @@
             "docs/architecture/typed-graph-vocabulary.md"
           ],
           "annotation": "AssessmentStatus"
+        },
+        {
+          "id": "IR-DIAGNOSTIC-owner",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.diagnostics",
+          "language": "python",
+          "parent_id": "TARGET-GOVERNANCE",
+          "presence": "planned",
+          "responsibilities": [
+            "Own diagnostic values and invariants independently of workflow and codecs."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ]
+        },
+        {
+          "id": "IR-DIAGNOSTIC-DiagnosticKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.diagnostics.DiagnosticKind",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-owner",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the existing closed DiagnosticKind wire vocabulary."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DIAGNOSTIC-DiagnosticKind.CONTRACT_INVALID",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.diagnostics.DiagnosticKind.CONTRACT_INVALID",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-DiagnosticKind",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain this existing diagnostic protocol value."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DIAGNOSTIC-DiagnosticCode",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.diagnostics.DiagnosticCode",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-owner",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the existing closed DiagnosticCode wire vocabulary."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DIAGNOSTIC-DiagnosticCode.RULE_VIOLATED",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.diagnostics.DiagnosticCode.RULE_VIOLATED",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-DiagnosticCode",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain this existing diagnostic protocol value."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DIAGNOSTIC-ReportLocation",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.diagnostics.ReportLocation",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-owner",
+          "presence": "planned",
+          "responsibilities": [
+            "Name a source path and line without interpreting repository content."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-DIAGNOSTIC-ReportLocation.path",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.diagnostics.ReportLocation.path",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-ReportLocation",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose the typed source location."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-DIAGNOSTIC-ReportLocation.line",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.diagnostics.ReportLocation.line",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-ReportLocation",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose the typed source location."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "int"
+        },
+        {
+          "id": "IR-DIAGNOSTIC-Diagnostic",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.diagnostics.Diagnostic",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-owner",
+          "presence": "planned",
+          "responsibilities": [
+            "Keep immutable actionable diagnostics and enforce diagnostic-kind/code consistency."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-DIAGNOSTIC-Diagnostic.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.diagnostics.Diagnostic.kind",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-Diagnostic",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose the diagnostic value through its declared domain type."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "DiagnosticKind"
+        },
+        {
+          "id": "IR-DIAGNOSTIC-Diagnostic.subject",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.diagnostics.Diagnostic.subject",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-Diagnostic",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose the diagnostic value through its declared domain type."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-DIAGNOSTIC-Diagnostic.unknown_claim",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.diagnostics.Diagnostic.unknown_claim",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-Diagnostic",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose the diagnostic value through its declared domain type."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-DIAGNOSTIC-Diagnostic.remedy",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.diagnostics.Diagnostic.remedy",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-Diagnostic",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose the diagnostic value through its declared domain type."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-DIAGNOSTIC-Diagnostic.pointer",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.diagnostics.Diagnostic.pointer",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-Diagnostic",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose the diagnostic value through its declared domain type."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-DIAGNOSTIC-Diagnostic.code",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.diagnostics.Diagnostic.code",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-Diagnostic",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose the diagnostic value through its declared domain type."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "DiagnosticCode | None"
+        },
+        {
+          "id": "IR-DIAGNOSTIC-Diagnostic.locations",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.diagnostics.Diagnostic.locations",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-Diagnostic",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose the diagnostic value through its declared domain type."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "tuple[ReportLocation, ...]"
+        },
+        {
+          "id": "IR-DIAGNOSTIC-Diagnostic.contract_path",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.diagnostics.Diagnostic.contract_path",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-Diagnostic",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose the diagnostic value through its declared domain type."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str | None"
+        },
+        {
+          "id": "IR-DIAGNOSTIC-DiagnosticError",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.diagnostics.DiagnosticError",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-owner",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry one typed diagnostic through existing exception boundaries."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DIAGNOSTIC-DiagnosticError.diagnostic",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.diagnostics.DiagnosticError.diagnostic",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-DiagnosticError",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose the original typed diagnostic rather than arbitrary error data."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "Diagnostic"
+        },
+        {
+          "id": "IR-DIAGNOSTIC-DiagnosticError.__init__",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.diagnostics.DiagnosticError.__init__",
+          "language": "python",
+          "parent_id": "IR-DIAGNOSTIC-DiagnosticError",
+          "presence": "planned",
+          "responsibilities": [
+            "Construct an exception from exactly one diagnostic."
+          ],
+          "provenance": [
+            "docs/architecture/typed-diagnostic-owner.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "diagnostic",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Diagnostic"
+              }
+            ],
+            "returns": "None"
+          }
         }
       ],
       "relationships": [
