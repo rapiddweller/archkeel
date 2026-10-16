@@ -49,3 +49,69 @@ def test_predicate_observation_does_not_infer_runtime_or_unrelated_calls(tmp_pat
     assert not result.diagnostics and result.observation is not None
     assert not result.observation.records("constructs")
     assert not trace_valid_violations(result.observation)
+
+
+@pytest.mark.parametrize(
+    ("source", "form"),
+    [
+        (ENUM + 'def parse(value):\n    return value.startswith(("x", Token.IMPORT))\n', "startswith"),
+        ('PREFIXES = ("import", "export")\ndef parse(value):\n    return value.startswith(PREFIXES)\n', "startswith"),
+        ('PREFIXES = (b"import", b"export")\ndef parse(value):\n    return value.endswith(PREFIXES)\n', "endswith"),
+        ('def parse(value, stop):\n    return value.startswith("import", 1, stop)\n', "startswith"),
+    ],
+)
+def test_literal_prefix_vocabulary_cannot_hide_inside_a_tuple_or_range_call(tmp_path, source, form):
+    result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
+    assert not result.diagnostics and result.observation is not None
+    constructs = [
+        row for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
+    assert [row.data.get("form") for row in constructs] == [form]
+    assert [(row.kind, row.rule_ids) for row in trace_valid_violations(result.observation)] == [
+        ("forbidden_construct", ("RULE",))
+    ]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        ENUM + "def parse(value):\n    return value.startswith((Token.IMPORT,))\n",
+        'PREFIXES = ("import",)\ndef parse(value, PREFIXES):\n    return value.startswith(PREFIXES)\n',
+        'PREFIXES = ("import",)\nPREFIXES = read_prefixes()\ndef parse(value):\n    return value.startswith(PREFIXES)\n',
+        'PREFIXES = ("import",)\nother = PREFIXES\ndef parse(value):\n    return value.startswith(PREFIXES)\n',
+        'PREFIXES = ["import"]\ndef parse(value):\n    return value.startswith(PREFIXES)\n',
+        'PREFIXES = {"import"}\ndef parse(value):\n    return value.startswith(PREFIXES)\n',
+        'PREFIXES = tuple("import")\ndef parse(value):\n    return value.startswith(PREFIXES)\n',
+        'PREFIXES = (compute_prefix(),)\ndef parse(value):\n    return value.startswith(PREFIXES)\n',
+        'PREFIXES = (("import",),)\ndef parse(value):\n    return value.startswith(PREFIXES)\n',
+        'def parse(value):\n    return value.startswith(["import"])\n',
+        'def parse(value):\n    return value.startswith({"import"})\n',
+        "def parse(value):\n    return value.startswith(())\n",
+        'def parse(value, prefix):\n    return value.startswith(prefix, "import")\n',
+        'def parse(value, prefix):\n    return value.endswith(prefix, 0, "import")\n',
+        'def parse(value):\n    return value.startswith(prefix="import")\n',
+    ],
+)
+def test_unproven_collections_and_non_prefix_arguments_are_not_vocabulary(tmp_path, source):
+    result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
+    assert not result.diagnostics and result.observation is not None
+    assert not result.observation.records("constructs")
+    assert not trace_valid_violations(result.observation)
+
+
+def test_prefix_evidence_keeps_the_exact_written_call_and_native_span(tmp_path):
+    source = 'def parse(value):\n    return value.startswith("import", 1)\n'
+    result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
+    assert not result.diagnostics and result.observation is not None
+    [construct] = result.observation.records("constructs")
+    evidence = {row.id: row for row in result.observation.evidence}
+    [site] = [evidence[identity] for identity in construct.evidence_ids]
+    assert (site.file, site.line, site.end_line, site.column, site.excerpt) == (
+        "sample/core.py", 2, 2, 11, '    return value.startswith("import", 1)'
+    )
+    assert construct.data.get("owner") == "sample.core.parse"
+    assert construct.data.get("form") == "startswith"
+    assert [(row.kind, row.rule_ids) for row in trace_valid_violations(result.observation)] == [
+        ("forbidden_construct", ("RULE",))
+    ]
