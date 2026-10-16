@@ -12,14 +12,17 @@ function semanticAst(source) {
   walk.simple(tree,{TaggedTemplateExpression(node) { tagged.add(node.quasi); }});
   walk.simple(tree,{
     Literal(node) { delete node.raw; },
+    Property(node) { if (!node.computed) delete node.key.raw; },
+    MethodDefinition(node) { if (!node.computed) delete node.key.raw; },
+    PropertyDefinition(node) { if (!node.computed) delete node.key.raw; },
     TemplateLiteral(node) {
       if (!tagged.has(node)) {
         for (const quasi of node.quasis) quasi.value = {cooked:quasi.value.cooked};
       }
     },
   });
-  walk.full(tree,node => { delete node.start; delete node.end; });
-  return JSON.stringify(tree);
+  const locations = new Set(["start","end"]);
+  return JSON.stringify(tree,(key,value) => locations.has(key) ? undefined : value);
 }
 const tick = String.fromCharCode(96);
 const actualLineBreak = tick+"a"+String.fromCharCode(10)+"b"+tick;
@@ -34,7 +37,7 @@ const source = fs.readFileSync(process.argv[3],"utf8");
 const emitted = fs.readFileSync(process.argv[4],"utf8");
 const before = semanticAst(source);
 const after = semanticAst(emitted);
-assert.equal(after,before,"Published Flow must preserve the actual program AST");
+assert(after === before,"Published Flow must preserve the actual program AST");
 console.log("FLOW_SEMANTIC_AST="+JSON.stringify({
   source_bytes:Buffer.byteLength(source),emitted_bytes:Buffer.byteLength(emitted),
   sha256:crypto.createHash("sha256").update(before).digest("hex"),

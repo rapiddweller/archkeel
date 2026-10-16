@@ -1,46 +1,52 @@
-name: Flow publication TDD and locked compiler preparation
+name: Single Flow publication verification
 on:
   push:
     branches: [verify/566-flow-runtime-publication]
 permissions:
   contents: read
 jobs:
-  real-report-publication-red:
+  actual-flow-publication:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
           version: "0.12.13"
           python-version: "3.11.12"
-      - run: uv sync --locked
-      - name: Actual HTML lacks provenance and exceeds unchanged budgets
-        run: uv run --locked python -m pytest -q tests/test_flow_runtime_publication.py tests/test_atlas_report.py::test_default_report_is_one_authentic_repository_with_sparse_native_cells
-  locked-compiler-proof:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
           node-version: "22"
-      - run: npm install --prefix tools/browser-runtime --package-lock-only --ignore-scripts --no-audit --no-fund
-      - run: npm ci --prefix tools/browser-runtime --ignore-scripts --no-audit --no-fund
-      - name: Actual pinned CLI stdin printing and semantic AST parity
+      - run: uv sync --locked
+      - name: Generate only Flow then check actual deterministic bytes
         run: |
-          node tools/browser-runtime/node_modules/terser/bin/terser --config-file tools/browser-runtime/options.json < src/archkeel/render/assets/flow.js > "$RUNNER_TEMP/flow.candidate.js"
-          node tests/browser_runtime_ast.cjs tools/browser-runtime/node_modules src/archkeel/render/assets/flow.js "$RUNNER_TEMP/flow.candidate.js"
-      - name: Export actual lockfile and compiler metadata
+          make browser-runtime-generate
+          make browser-runtime-check
+          make browser-graph-check
+      - name: Actual publication, stale-source, AST negatives and unchanged report budgets
+        run: uv run --locked python -m pytest -q -s tests/test_flow_runtime_publication.py tests/test_atlas_report.py::test_default_report_is_one_authentic_repository_with_sparse_native_cells
+      - name: Measure real Flow-only HTML and verify other programs untouched
+        run: |
+          uv run --locked python prototype/flow-report-size.py
+          git diff --exit-code -- src/archkeel/render/assets/flow.js src/archkeel/render/assets/report-canvas.js src/archkeel/render/assets/report-filters.js src/archkeel/render/assets/report-graph-protocol.js src/archkeel/render/assets/report-graph-scene.js src/archkeel/render/assets/report-layout.js src/archkeel/render/assets/report-scene.js src/archkeel/render/assets/violations.js
+      - name: Existing lint, typing and hygiene
+        run: |
+          make lint typecheck
+          uv run --locked python -m pytest -q tests/test_repository_hygiene.py
+      - name: Format authored Python
+        if: always()
+        run: |
+          uv run --locked ruff format tools/browser_runtime.py tests/test_flow_runtime_publication.py tests/smoke_test.py
+          uv run --locked ruff check --fix tools/browser_runtime.py tests/test_flow_runtime_publication.py tests/smoke_test.py
+      - name: Export actual generated artifact and formatting
         if: always()
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          path = "tools/browser-runtime/package-lock.json"
-          print("FLOW_LOCKFILE=" + json.dumps({path:Path(path).read_text()}))
+          paths = ["tools/browser_runtime.py", "tests/test_flow_runtime_publication.py", "tests/smoke_test.py", "src/archkeel/render/assets/flow.runtime.js"]
+          print("FLOW_PUBLISH_ARTIFACTS=" + json.dumps({path:Path(path).read_text() for path in paths if Path(path).is_file()}))
           PY
