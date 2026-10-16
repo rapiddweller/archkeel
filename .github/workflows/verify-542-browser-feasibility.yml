@@ -1,0 +1,37 @@
+name: Probe browser nominal control boundary
+on:
+  push:
+    branches: [verify/542-browser-nominal-feasibility]
+permissions:
+  contents: read
+jobs:
+  actual-compiler-and-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - name: Verify positive classic-JavaScript consumer with strict types
+        run: |
+          npx --yes --package typescript@5.9.3 tsc --strict --allowJs --checkJs --noEmit --target ES2022 --module none prototype/browser_protocol.ts prototype/good.js
+          npx --yes --package typescript@5.9.3 tsc --strict --target ES2022 --module none --outFile "$RUNNER_TEMP/browser-protocol.js" prototype/browser_protocol.ts
+          cat "$RUNNER_TEMP/browser-protocol.js" prototype/good.js > "$RUNNER_TEMP/browser-runtime.js"
+          node "$RUNNER_TEMP/browser-runtime.js"
+      - name: Require actual cross-domain and raw-input compiler failures
+        run: |
+          set +e
+          npx --yes --package typescript@5.9.3 tsc --strict --allowJs --checkJs --noEmit --target ES2022 --module none prototype/browser_protocol.ts prototype/negative.js > "$RUNNER_TEMP/browser-negative.txt" 2>&1
+          task_type_status=$?
+          set -e
+          cat "$RUNNER_TEMP/browser-negative.txt"
+          test "$task_type_status" -ne 0
+          node - "$RUNNER_TEMP/browser-negative.txt" <<'JS'
+          const fs = require("fs");
+          const text = fs.readFileSync(process.argv[2], "utf8");
+          const errors = text.match(/error TS2322:/g) || [];
+          if (errors.length !== 3) throw new Error("Expected exactly three real nominal type errors");
+          JS
