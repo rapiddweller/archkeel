@@ -7,6 +7,7 @@ import ast
 from enum import Enum
 from pathlib import Path
 from typing import get_type_hints
+from unittest.mock import patch
 
 import pytest
 from test_analyzer import _observe_one_rule, _parsed_module
@@ -70,3 +71,21 @@ def test_actual_binding_control_functions_have_no_raw_dispatch(
     assert not [
         row for row in trace_valid_violations(result.observation) if owner in row.subjects
     ]
+
+
+def test_unknown_compiler_scope_kind_cannot_authorize_module_fallback():
+    module = _parsed_module(
+        "def outer():\n    captured = 1\n"
+        "    def inner():\n        return captured\n    return inner\n"
+    )
+    scopes = LexicalScopes(module)
+    use = next(
+        node for node in ast.walk(module.tree)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+        and node.id == "captured"
+    )
+    parent = scopes.by_node[use].parent
+    assert parent is not None and parent.table is not None
+    with patch.object(parent.table, "get_type", return_value="future compiler scope"):
+        binding = scopes.lookup(use, use.id)
+    assert binding.owner is None
