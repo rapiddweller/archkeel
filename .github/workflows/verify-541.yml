@@ -36,6 +36,14 @@ jobs:
                           print("DEPENDENCY",provider,binding,{"escaped":binding in escaped[provider],"exposed":binding in exposed[provider],"transferred":binding in transferred[provider],"incoming":binding in modules[provider].incoming_member_escapes})
               return original(modules,candidates,escaped,exposed,transferred)
           imported._retain_type_reference_protection=retain
+          saturate=imported._saturate_unknown_owner_namespaces
+          def trace_saturation(modules,namespaces,exposed,transferred):
+              for name,module in modules.items():
+                  for owner in module.tree.body:
+                      if isinstance(owner,ast.ClassDef) and owner.name in transferred[name] and not imported.class_namespace_static(module,owner):
+                          print("SATURATION_OWNER",name,owner.name,ast.unparse(owner)[:1800])
+              return saturate(modules,namespaces,exposed,transferred)
+          imported._saturate_unknown_owner_namespaces=trace_saturation
           for name in ("archkeel.ir.model","archkeel.ir.dependency"):
               print("NATIVE",name,intrinsic_generic_aliases(modules[name]))
           imported.resolve_reexports(imports,{name:module.all_exports for name,module in modules.items()},parsed)
