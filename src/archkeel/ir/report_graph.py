@@ -28,8 +28,8 @@ from archkeel.ir.model import (
     TARGET_GRAPH_RECORD_KINDS,
     UML_TARGET_KIND,
     Observation,
-    Verdict,
     Record,
+    Verdict,
     stable_id,
 )
 from archkeel.ir.source_graph import observed_graph, validated_member_inventory_proof

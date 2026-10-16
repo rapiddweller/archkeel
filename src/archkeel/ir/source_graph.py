@@ -47,10 +47,10 @@ from archkeel.ir.model import (
     EvidenceClass,
     JsonValue,
     Observation,
-    Verdict,
     RawJson,
     Record,
     RecordData,
+    Verdict,
     stable_id,
 )
 from archkeel.ir.profiles import PROFILES, profile_for

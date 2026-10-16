@@ -332,9 +332,9 @@ def validate_layout_rule(rule: RootLayoutRule) -> None:
     rationale: str = rule.rationale
     if not root.strip() or not rationale.strip():
         raise ValueError("layout needs a root and rationale")
-    child: str
     for index, child in enumerate(rule.allowed_children):
-        parent, _, name = child.rpartition(".")
+        child_path: str = child
+        parent, _, name = child_path.rpartition(".")
         if parent != root or not name:
             raise ValueError(
                 f"allowed_children[{index}] must be exactly one immediate child of root"

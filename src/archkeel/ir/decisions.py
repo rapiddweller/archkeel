@@ -36,7 +36,6 @@ from .model import (
     ForbiddenDependencyRule,
     JsonValue,
     Observation,
-    Verdict,
     OpenDecision,
     Record,
     RecordData,
@@ -45,6 +44,7 @@ from .model import (
     RuleAssessmentStatus,
     RuntimeInfo,
     Section,
+    Verdict,
     ViolationCounts,
     dependency_owners,
     in_scope,
@@ -326,7 +326,9 @@ def rule_uncertainty_evidence(observation: Observation) -> dict[str, RuleUncerta
     complete_scopes = {
         row.id
         for row in rule_assessments(
-            observation, undecided_by_rule=counts, complete=observation.coverage.status == Verdict.PASS
+            observation,
+            undecided_by_rule=counts,
+            complete=observation.coverage.status == Verdict.PASS,
         )
         if row.evaluation_proven
     }
