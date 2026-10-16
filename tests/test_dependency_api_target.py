@@ -28,7 +28,9 @@ def _source_members(path, names):
         ast.get_source_segment(source, node)
         if not isinstance(node, ast.ClassDef)
         else "\n".join(
-            source.splitlines()[min([node.lineno, *(d.lineno for d in node.decorator_list)]) - 1 : node.end_lineno]
+            source.splitlines()[
+                min([node.lineno, *(d.lineno for d in node.decorator_list)]) - 1 : node.end_lineno
+            ]
         )
         for node in tree.body
         if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in names
@@ -41,55 +43,78 @@ def _dependency_contract():
     contract = copy.deepcopy(contract)
     contract.pop("$schema", None)
     contract["rules"] = [
-        rule for rule in contract["rules"]
+        rule
+        for rule in contract["rules"]
         if rule["kind"] in {"interface_boundary", "boundary_types"}
     ]
     contract["declarations"]["uml"]["entities"] = [
-        entity for entity in contract["declarations"]["uml"]["entities"]
+        entity
+        for entity in contract["declarations"]["uml"]["entities"]
         if entity["id"].startswith(TARGET_PREFIX)
     ]
     contract["declarations"]["uml"]["relationships"] = []
     contract["declarations"]["uml"]["scopes"] = []
     root_contract = json.loads((ROOT / "architecture-contract.json").read_text())
     contract["rules"].extend(
-        rule for rule in root_contract["rules"]
+        rule
+        for rule in root_contract["rules"]
         if rule["kind"] == "forbidden_construct" and rule.get("source") == "archkeel.ir.dependency"
     )
-    contract["components"].append({
-        "id": "DEPENDENCY-CONSUMER", "label": "consumer", "role": "component",
-        "packages": ["archkeel.consumer"], "public": ["archkeel.consumer"],
-        "responsibilities": ["Consume the declared dependency API."],
-        "forbidden_responsibilities": [], "provenance": ["docs/architecture/archkeel.md"],
-    })
+    contract["components"].append(
+        {
+            "id": "DEPENDENCY-CONSUMER",
+            "label": "consumer",
+            "role": "component",
+            "packages": ["archkeel.consumer"],
+            "public": ["archkeel.consumer"],
+            "responsibilities": ["Consume the declared dependency API."],
+            "forbidden_responsibilities": [],
+            "provenance": ["docs/architecture/archkeel.md"],
+        }
+    )
     return contract
 
 
-def _dependency_repository(tmp_path, *, dependency_source=None, model_source=None, consumer_source=None):
+def _dependency_repository(
+    tmp_path, *, dependency_source=None, model_source=None, consumer_source=None
+):
     """Observe real Python declarations in a disposable archkeel-named repository."""
     dependency = (ROOT / "src/archkeel/ir/dependency.py").read_text()
     model = (
         "from dataclasses import dataclass\nfrom typing import Literal\n"
         "from .dependency import (ComponentOwnership, DependencySelection, DependencySelector, "
         "DependencyTargetKind, SelectorMatch)\n\n"
-        + _source_members("src/archkeel/ir/model.py", {
-            "ForbiddenDependencyRule", "declared_package_pair", "forbidden_dependency_scopes",
-        })
+        + _source_members(
+            "src/archkeel/ir/model.py",
+            {
+                "ForbiddenDependencyRule",
+                "declared_package_pair",
+                "forbidden_dependency_scopes",
+            },
+        )
     )
     facts = _source_members("src/archkeel/ir/facts.py", {"in_scope"})
     codec = (
         "from .facts import Record\nfrom .dependency import DependencySelector\n"
         + _source_members("src/archkeel/ir/codec_contract.py", {"parse_dependency_selector"})
     )
-    root = _prepare_repo(tmp_path, {
-        "archkeel/__init__.py": "", "archkeel/ir/__init__.py": "",
-        "archkeel/ir/dependency.py": dependency if dependency_source is None else dependency_source,
-        "archkeel/ir/model.py": model if model_source is None else model_source,
-        "archkeel/ir/facts.py": facts,
-        "archkeel/ir/codec_contract.py": codec,
-        "archkeel/consumer.py": consumer_source or "from .ir.dependency import DependencySelector\n",
-        "contract.json": json.dumps(_dependency_contract()),
-        "docs/architecture/archkeel.md": (ROOT / "docs/architecture/archkeel.md").read_text(),
-    })
+    root = _prepare_repo(
+        tmp_path,
+        {
+            "archkeel/__init__.py": "",
+            "archkeel/ir/__init__.py": "",
+            "archkeel/ir/dependency.py": dependency
+            if dependency_source is None
+            else dependency_source,
+            "archkeel/ir/model.py": model if model_source is None else model_source,
+            "archkeel/ir/facts.py": facts,
+            "archkeel/ir/codec_contract.py": codec,
+            "archkeel/consumer.py": consumer_source
+            or "from .ir.dependency import DependencySelector\n",
+            "contract.json": json.dumps(_dependency_contract()),
+            "docs/architecture/archkeel.md": (ROOT / "docs/architecture/archkeel.md").read_text(),
+        },
+    )
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
 
 
@@ -131,30 +156,39 @@ def test_native_source_type_widening_fails_with_the_target_unchanged(tmp_path, m
     if mutation == "field":
         path, old, new = "dependency.py", "source_match: SelectorMatch", "source_match: str"
     elif mutation == "parameter":
-        path, old, new = "model.py", "source_match: SelectorMatch = SelectorMatch.PREFIX,", "source_match: str = SelectorMatch.PREFIX,"
+        path, old, new = (
+            "model.py",
+            "source_match: SelectorMatch = SelectorMatch.PREFIX,",
+            "source_match: str = SelectorMatch.PREFIX,",
+        )
     elif mutation == "selection":
         path, old, new = "model.py", ") -> DependencySelection:", ") -> tuple:"
     else:
-        path, old, new = "model.py", "def selector(self) -> DependencySelector:", "def selector(self) -> str:"
+        path, old, new = (
+            "model.py",
+            "def selector(self) -> DependencySelector:",
+            "def selector(self) -> str:",
+        )
     source = root / "archkeel/ir" / path
     assert old in source.read_text()
     source.write_text(source.read_text().replace(old, new, 1))
     model = _model(root, config)
     assert (root / "contract.json").read_bytes() == before
     assert any(row.status == "FAIL" for row in _comparison(model).assessments)
-    rules = [row for row in rule_assessments(model, undecided_by_rule={}) if row.kind == "uml_target"]
+    rules = [
+        row for row in rule_assessments(model, undecided_by_rule={}) if row.kind == "uml_target"
+    ]
     assert len(rules) == 1 and rules[0].status == "FAIL"
     assert any(row.rule_ids == (rules[0].id,) for row in trace_valid_violations(model))
 
 
 def test_native_consumer_must_use_the_declared_dependency_api(tmp_path):
     root, config = _dependency_repository(
-        tmp_path, consumer_source="from .ir.dependency import in_scope\n",
+        tmp_path,
+        consumer_source="from .ir.dependency import in_scope\n",
     )
     model = _model(root, config)
-    assert any(
-        "TARGET-INTERFACE_BOUNDARY" in row.rule_ids for row in trace_valid_violations(model)
-    )
+    assert any("TARGET-INTERFACE_BOUNDARY" in row.rule_ids for row in trace_valid_violations(model))
 
 
 def test_native_incomplete_member_proof_stays_unknown(tmp_path):
@@ -164,7 +198,8 @@ def test_native_incomplete_member_proof_stays_unknown(tmp_path):
     source.write_text(source.read_text().replace("def select(", "def unavailable_select(", 1))
     model = _model(root, config)
     entity = next(
-        item for item in _dependency_contract()["declarations"]["uml"]["entities"]
+        item
+        for item in _dependency_contract()["declarations"]["uml"]["entities"]
         if item["qualified_name"] == "archkeel.ir.dependency.DependencySelector.select"
     )
     # Calls leave this class's member inventory partial. An absent method cannot

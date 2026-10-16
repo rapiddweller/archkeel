@@ -770,7 +770,7 @@
         "archkeel.ir.architecture_graph",
         "archkeel.ir.dependency"
       ],
-      "rationale": "Governance enums stay in ir.model; source facts, type shapes and the shared UML graph own their respective vocabularies.",
+      "rationale": "Governance enums stay in ir.model; source facts, type shapes, the shared UML graph and pure dependency policy own their respective vocabularies.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],

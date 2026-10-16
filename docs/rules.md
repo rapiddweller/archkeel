@@ -60,6 +60,11 @@ Earlier contract versions reject the new fields; omitted defaults retain canonic
 bytes and digests. `target_symbol`, type-checking filters and allowances keep their
 existing meanings.
 
+Core and reports share immutable typed selections, including all packages and exact
+modules of a uniquely selected legacy component pair. Component display labels do
+not affect matching. See [dependency selection](architecture/dependency-selection.md)
+for the type and responsibility boundary.
+
 Contract **3.5.0** adds `target_kind: "import_namespace"` on
 `forbidden_dependency`. This explicitly prohibits an import name even when no
 target module exists, for example source `sample.caller` and target

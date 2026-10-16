@@ -189,7 +189,8 @@ def _dependency_selections(
             for intent in intents.values()
             if intent.parent_id == parent
         )
-        selections[item.id] = parse_dependency_selector(item).select(ownership)
+        selector = parse_dependency_selector(item)
+        selections[item.id] = selector.select(ownership)
     return selections
 
 
