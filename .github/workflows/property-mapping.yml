@@ -1,0 +1,29 @@
+name: Property Mapping compatibility
+on:
+  push:
+    branches: [verify/542-property-mapping]
+permissions:
+  contents: read
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - run: uv run --locked ruff format tests/test_typed_python_properties.py
+      - run: uv run --locked ruff check tests/test_typed_python_properties.py
+      - name: Export formatting
+        run: |
+          python - <<'PY'
+          import base64, subprocess
+          print("PROPERTY_MAPPING_FORMAT_PATCH=" + base64.b64encode(subprocess.check_output(["git","diff","--","tests"])).decode())
+          PY
+      - run: uv run --locked python -m pytest -q tests/test_typed_python_properties.py
