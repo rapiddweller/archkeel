@@ -38,9 +38,9 @@ def test_authored_flow_and_derivative_preserve_native_construct_multisets(tmp_pa
         status = next(item.status for item in facts.capabilities.constructs
             if item.name is ForbiddenConstructKind.STRING_LITERAL_COMPARE)
         assert status is ConstructSupport.PARTIAL
-        modules = next(section.records for section in facts.sections
-            if section.name is SourceSectionName.MODULES)
-        assert len(modules) == 1, "The derivative must not become a second authored module"
+        assert tuple(file.rel_path for file in facts.files) == ("src/flow.js",), (
+            "The derivative must not become a second authored input"
+        )
         records = [record for section in facts.sections for record in section.records
             if section.name is SourceSectionName.CONSTRUCTS
             and record.kind == ForbiddenConstructKind.STRING_LITERAL_COMPARE]

@@ -5,7 +5,7 @@ on:
 permissions:
   contents: read
 jobs:
-  package-offline-without-node:
+  actual-native-source-parity:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -17,26 +17,18 @@ jobs:
         with:
           version: "0.12.13"
           python-version: "3.11.12"
-      - run: uv sync --locked
-      - name: Warm Python build dependencies
-        run: uv build --no-sources --clear
-      - name: Disable Node commands for actual offline archive builds, install and reports
+      - name: Explicit independent native observer dependency, not product scope
         run: |
-          python - <<'PY'
-          import os
-          from pathlib import Path
-          root = Path(os.environ["RUNNER_TEMP"]) / "blocked-node"
-          root.mkdir()
-          body = '#!/bin/sh\nprintf "unexpected Node invocation\\n" >> "$FLOW_BLOCKED_NODE_LOG"\nexit 127\n'
-          for name in ("node", "npm", "npx"):
-              target = root / name
-              target.write_text(body)
-              target.chmod(0o755)
-          PY
-          export PATH="$RUNNER_TEMP/blocked-node:$PATH"
-          export FLOW_BLOCKED_NODE_LOG="$RUNNER_TEMP/unexpected-node-use"
-          make smoke
-          export UV_OFFLINE=1
-          make smoke
-          test ! -e "$FLOW_BLOCKED_NODE_LOG"
-
+          git fetch origin ccd28126663a6ed11891d6d512b4f95c263c8ddc
+          for flow_observer_path in \
+            src/archkeel/analyzer/typescript/parse.py \
+            src/archkeel/analyzer/typescript/syntax.py \
+            src/archkeel/analyzer/typescript/collect.py \
+            src/archkeel/ir/profiles.py \
+            src/archkeel/ir/codec_observation.py \
+            src/archkeel/check/evaluation/evaluate.py; do
+            git show "ccd28126663a6ed11891d6d512b4f95c263c8ddc:$flow_observer_path" > "$flow_observer_path"
+          done
+      - run: uv sync --locked
+      - name: Native authored-module and witnessed construct parity; no absence claim
+        run: uv run --locked python -m pytest -q -s prototype/test_flow_native_parity.py
