@@ -1,3 +1,4 @@
+# Verification-only: actual product b54a9f10, explicit f624 observer overlay.
 name: Dart input grammar native GREEN
 on:
   push:
