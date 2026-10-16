@@ -20,6 +20,7 @@ CI_CHECK_STEPS = [
     "browser-install",
     *GATE_STEPS,
     "typescript-compiler-check",
+    "browser-graph-check",
     "demo-typescript",
     "report-timing",
     "report-browser-proof",
@@ -208,14 +209,13 @@ def test_pr_core_uses_representative_dart_and_flutter_checks() -> None:
     assert "tests/test_flutter_demo.py " not in command
 
 
-@pytest.mark.parametrize("failed", [None, "browser-install", "pr-report-test"])
+@pytest.mark.parametrize("failed", [None, "browser-install", "browser-graph-check", "pr-report-test"])
 def test_pr_report_gate_runs_its_browser_sample_and_propagates_failure(tmp_path, failed):
     result, steps = _run_gate(tmp_path, "ci-pr-report-check", failed, 2, False)
-    assert steps == (
-        ["browser-install"]
-        if failed == "browser-install"
-        else ["browser-install", "pr-report-test"]
-    )
+    expected = ["browser-install", "browser-graph-check", "pr-report-test"]
+    if failed is not None:
+        expected = expected[: expected.index(failed) + 1]
+    assert steps == expected
     assert result.returncode == (0 if failed is None else 2)
 
 
@@ -235,6 +235,7 @@ def test_pr_report_sample_uses_two_loadfile_workers_and_keeps_selected_tests() -
     assert "--junitxml=test-artifacts/pytest/pr-report.xml" in command
     for selector in (
         "tests/test_report_renderer_units.py",
+        "tests/test_graph_scene_protocol.py",
         "tests/test_report_interactions.py::test_native_card_drag_reroutes_all_hits_and_keeps_architecture_unchanged",
         "tests/test_uml_rendering.py::test_standard_uml_ignores_stale_layout_and_retries_rejected_layout",
         "tests/test_atlas_report.py::test_target_content_is_independent_of_observed_evidence",
