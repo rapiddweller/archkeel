@@ -1,0 +1,32 @@
+name: Replay committed owner union without writes
+on:
+  push:
+    branches: [verify/542-owner-union-nowrite]
+permissions:
+  contents: read
+jobs:
+  no-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 8a56d6d09e16372b43064798cc0b24428daa5e5f
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Validate committed normal ratchet and bound intent without write flags
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against ef937c4e61d69e51440abe283461ae6c4134b583 --amendment docs/architecture/decisions/2026-10-16-reviewed-owners-union.json > "$RUNNER_TEMP/owner-nowrite.json"
+          task_status=$?
+          python - <<'PY'
+          import json,os,pathlib
+          data=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"owner-nowrite.json").read_text())
+          print(json.dumps({k:data.get(k) for k in ("exit_code","failures","diagnostics","measurements","widenings","amendment_status")},separators=(",",":")))
+          PY
+          git diff --exit-code
+          exit "$task_status"
