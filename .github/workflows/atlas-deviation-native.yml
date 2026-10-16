@@ -1,0 +1,28 @@
+name: Actual Atlas deviation native partial witness
+on:
+  push:
+    branches: [verify/542-atlas-deviation-native]
+permissions:
+  contents: read
+jobs:
+  actual-native-js-mutation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - name: Explicit auxiliary observer dependency, not feature product
+        run: |
+          git fetch origin ccd28126663a6ed11891d6d512b4f95c263c8ddc
+          for atlas_observer_path in src/archkeel/analyzer/typescript/parse.py src/archkeel/analyzer/typescript/syntax.py src/archkeel/analyzer/typescript/collect.py src/archkeel/ir/profiles.py src/archkeel/ir/codec_observation.py src/archkeel/check/evaluation/evaluate.py; do
+            git show "ccd28126663a6ed11891d6d512b4f95c263c8ddc:$atlas_observer_path" > "$atlas_observer_path"
+          done
+      - run: uv sync --locked
+      - name: Actual source positive witness under independent fixed rule
+        run: uv run --locked python -m pytest -q -s prototype/test_atlas_deviation_native_js.py
