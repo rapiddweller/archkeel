@@ -50,12 +50,12 @@ jobs:
       - run: uv sync --locked
 
       - run: |
-          uv run --locked ruff check --select I --fix src/archkeel/ir/dependency.py src/archkeel/ir/model.py src/archkeel/check/evaluation/rules.py src/archkeel/check/evaluation/rule_support.py tests/test_requires_symbol_ports.py tests/test_dependency_selectors.py tests/test_absent_import_namespace.py tools/rule_yield.py
-          uv run --locked ruff format src/archkeel/ir/dependency.py src/archkeel/ir/model.py src/archkeel/check/evaluation/rules.py src/archkeel/check/evaluation/rule_support.py tests/test_requires_symbol_ports.py tests/test_dependency_selectors.py tests/test_absent_import_namespace.py tools/rule_yield.py
+          uv run --locked ruff check --select I --fix src/archkeel/ir/dependency.py src/archkeel/ir/model.py src/archkeel/check/evaluation/rules.py src/archkeel/check/evaluation/rule_support.py tests/test_requires_symbol_ports.py tests/test_dependency_selectors.py tests/test_absent_import_namespace.py tools/rule_yield.py tests/test_rule_yield.py
+          uv run --locked ruff format src/archkeel/ir/dependency.py src/archkeel/ir/model.py src/archkeel/check/evaluation/rules.py src/archkeel/check/evaluation/rule_support.py tests/test_requires_symbol_ports.py tests/test_dependency_selectors.py tests/test_absent_import_namespace.py tools/rule_yield.py tests/test_rule_yield.py
           python - <<'PY'
           import base64,subprocess
-          print("FORMAT_PATCH="+base64.b64encode(subprocess.check_output(["git","diff","--","src/archkeel/ir/dependency.py","src/archkeel/ir/model.py","src/archkeel/check/evaluation/rules.py","src/archkeel/check/evaluation/rule_support.py","tests/test_requires_symbol_ports.py","tests/test_dependency_selectors.py","tests/test_absent_import_namespace.py","tools/rule_yield.py"])).decode())
+          print("FORMAT_PATCH="+base64.b64encode(subprocess.check_output(["git","diff","--","src/archkeel/ir/dependency.py","src/archkeel/ir/model.py","src/archkeel/check/evaluation/rules.py","src/archkeel/check/evaluation/rule_support.py","tests/test_requires_symbol_ports.py","tests/test_dependency_selectors.py","tests/test_absent_import_namespace.py","tools/rule_yield.py","tests/test_rule_yield.py"])).decode())
           PY
-          uv run --locked ruff check src/archkeel/ir/dependency.py src/archkeel/ir/model.py src/archkeel/check/evaluation/rules.py src/archkeel/check/evaluation/rule_support.py tests/test_requires_symbol_ports.py tests/test_dependency_selectors.py tests/test_absent_import_namespace.py tools/rule_yield.py
+          uv run --locked ruff check src/archkeel/ir/dependency.py src/archkeel/ir/model.py src/archkeel/check/evaluation/rules.py src/archkeel/check/evaluation/rule_support.py tests/test_requires_symbol_ports.py tests/test_dependency_selectors.py tests/test_absent_import_namespace.py tools/rule_yield.py tests/test_rule_yield.py
           make typecheck
           uv run --locked python -m pytest -q tests/test_repository_hygiene.py

@@ -86,7 +86,9 @@ def _captured_analysis(root: Path, arguments: dict[str, Any]) -> tuple[dict, lis
             if function is _requires_import_assessment:
                 owner = frame.f_back
                 evaluator = owner
-                while evaluator is not None and evaluator.f_code is not requires_violations.__code__:
+                while (
+                    evaluator is not None and evaluator.f_code is not requires_violations.__code__
+                ):
                     evaluator = evaluator.f_back
                 if evaluator is None or owner is None:
                     return

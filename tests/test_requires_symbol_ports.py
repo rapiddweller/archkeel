@@ -5,6 +5,7 @@
 
 import copy
 import json
+from pathlib import Path
 
 import pytest
 from test_analyzer import _component
@@ -19,8 +20,6 @@ from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.model import RequiredComponent, requires_covers
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
-
-from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 
@@ -81,7 +80,11 @@ def test_actual_named_import_port_is_exact_and_legacy_module_permissions_stay(
     assert row.status == expected
     violations = [item for item in model.records("violations") or () if RULE["id"] in item.rule_ids]
     assert bool(violations) is (expected == "FAIL")
-    imports = [item for item in model.records("imports") or () if item.data.get("source_module") == "sample.caller"]
+    imports = [
+        item
+        for item in model.records("imports") or ()
+        if item.data.get("source_module") == "sample.caller"
+    ]
     assert imports and all(item.data.get("symbols_known") is True for item in imports)
 
 
@@ -103,7 +106,11 @@ def test_source_mutation_to_sibling_cannot_borrow_approved_command_port(tmp_path
 )
 def test_unexpanded_wildcard_cannot_invent_name_proof_from_export_list(tmp_path, exports):
     _, row, model = _report(tmp_path, "from sample.core import *", exports=exports)
-    imports = [item for item in model.records("imports") or () if item.data.get("source_module") == "sample.caller"]
+    imports = [
+        item
+        for item in model.records("imports") or ()
+        if item.data.get("source_module") == "sample.caller"
+    ]
     assert imports and all(item.data.get("symbols_known") is True for item in imports)
     assert {item.data.get("symbol") for item in imports} == {"*"}
     assert {item.data.get("target_module") for item in imports} == {"sample.core"}
@@ -132,38 +139,46 @@ def _api_repository(tmp_path):
     intent = copy.deepcopy(json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text()))
     intent.pop("$schema", None)
     intent["declarations"]["uml"]["entities"] = [
-        row for row in intent["declarations"]["uml"]["entities"]
+        row
+        for row in intent["declarations"]["uml"]["entities"]
         if row["id"].startswith("IR-REQUIRES-")
         or row["id"] in {"IR-DEPENDENCY-model", "IR-DEPENDENCY-dependency"}
     ]
     intent["declarations"]["uml"]["relationships"] = []
     intent["declarations"]["uml"]["scopes"] = []
-    intent["rules"] = [{
-        "id": "REQUIRES-SELECTED-CONTROL",
-        "kind": "forbidden_construct",
-        "source": "archkeel.ir",
-        "constructs": ["string_literal_compare"],
-        "rationale": "Protect the actual selected matcher and marker declarations in this fixture.",
-        "provenance": ["docs/architecture/symbol-requires-ports.md"],
-        "decided_by": "architect",
-    }]
+    intent["rules"] = [
+        {
+            "id": "REQUIRES-SELECTED-CONTROL",
+            "kind": "forbidden_construct",
+            "source": "archkeel.ir",
+            "constructs": ["string_literal_compare"],
+            "rationale": "Protect the actual selected matcher and marker in this fixture.",
+            "provenance": ["docs/architecture/symbol-requires-ports.md"],
+            "decided_by": "architect",
+        }
+    ]
     files = {
         "archkeel/__init__.py": "",
         "archkeel/ir/__init__.py": "",
         "archkeel/ir/dependency.py": (ROOT / "src/archkeel/ir/dependency.py").read_text(),
         "archkeel/ir/facts.py": _source_members("src/archkeel/ir/facts.py", {"in_scope"}),
-        "archkeel/ir/architecture_graph.py": "from enum import StrEnum\n" + _source_members(
-            "src/archkeel/ir/architecture_graph.py", {"AssessmentStatus"}
-        ),
+        "archkeel/ir/architecture_graph.py": "from enum import StrEnum\n"
+        + _source_members("src/archkeel/ir/architecture_graph.py", {"AssessmentStatus"}),
         "archkeel/ir/model.py": (
             "from __future__ import annotations\nfrom dataclasses import dataclass\n"
             "from .dependency import ImportSymbolMarker as _ImportSymbolMarker\n"
             "from .facts import in_scope\n"
             "from .architecture_graph import AssessmentStatus as AssessmentStatus\n"
-            + _source_members("src/archkeel/ir/model.py", {
-                "RequiredComponent", "ContractComponent", "requires_covers",
-                "_required_port_covers", "requires_import_assessment"
-            })
+            + _source_members(
+                "src/archkeel/ir/model.py",
+                {
+                    "RequiredComponent",
+                    "ContractComponent",
+                    "requires_covers",
+                    "_required_port_covers",
+                    "requires_import_assessment",
+                },
+            )
         ),
         "contract.json": json.dumps(intent),
         "docs/architecture/symbol-requires-ports.md": "Exact required API intent.\n",
@@ -184,7 +199,11 @@ def test_native_requires_api_is_independent_and_rejects_source_widening(tmp_path
     root, config = _api_repository(tmp_path)
     value = _model(root, config)
     comparison = architecture_report(value).comparison
-    assert comparison.status == "PASS", [(row.aspect, row.status, row.reason, row.target_id) for row in comparison.assessments if row.status != "PASS"]
+    assert comparison.status == "PASS", [
+        (row.aspect, row.status, row.reason, row.subject_id)
+        for row in comparison.assessments
+        if row.status != "PASS"
+    ]
     assert not trace_valid_violations(value)
     source = root / (
         "archkeel/ir/dependency.py" if old.startswith("class") else "archkeel/ir/model.py"
