@@ -14,7 +14,6 @@ from test_atlas_report import _page, _sample
 
 with tempfile.TemporaryDirectory() as directory:
     page = _page(_sample(Path(directory)))
-    Path("report-size-current.html").write_text(page, encoding="utf-8")
     segments = []
     for kind in ("script", "style"):
         for match in re.finditer(r"<" + kind + r"\b([^>]*)>(.*?)</" + kind + r">", page, re.S):
