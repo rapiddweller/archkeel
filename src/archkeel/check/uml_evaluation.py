@@ -7,7 +7,11 @@ import json
 from dataclasses import asdict, replace
 
 from archkeel.ir.architecture_graph import (
-    ArchitectureGraph, AssessmentAspect, AssessmentStatus, CompletenessMode, GraphComparison,
+    ArchitectureGraph,
+    AssessmentAspect,
+    AssessmentStatus,
+    CompletenessMode,
+    GraphComparison,
 )
 from archkeel.ir.codec import parse_record
 from archkeel.ir.model import (
@@ -88,7 +92,9 @@ def _comparison_receipt(
                 "scope": "root",
                 "assessment_complete": not partial
                 and comparison.status != AssessmentStatus.UNKNOWN
-                and not any(item.status == AssessmentStatus.UNKNOWN for item in comparison.assessments),
+                and not any(
+                    item.status == AssessmentStatus.UNKNOWN for item in comparison.assessments
+                ),
                 "comparison": json.loads(json.dumps(asdict(comparison))),
                 **(
                     {
@@ -133,7 +139,9 @@ def _records(
                 {
                     **common,
                     "id": stable_id("UML-FINDING", declaration.id, assessment.id),
-                    "evidence_class": "VIOLATION" if assessment.status == AssessmentStatus.FAIL else "UNKNOWN",
+                    "evidence_class": "VIOLATION"
+                    if assessment.status == AssessmentStatus.FAIL
+                    else "UNKNOWN",
                     "kind": "uml_conformance",
                     "title": assessment.reason,
                     "fact_ids": list(assessment.fact_ids),

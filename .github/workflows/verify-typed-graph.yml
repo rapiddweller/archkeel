@@ -20,16 +20,48 @@ jobs:
       - run: uv sync --locked
       - name: Format owned graph source and export patch
         run: |
-          uv run --locked ruff check --select I --fix src/archkeel/ir/architecture_graph.py tests/test_typed_graph_vocabulary.py src/archkeel/ir/graph_codec.py src/archkeel/check/uml_compare.py src/archkeel/ir/target_graph.py tools/architecture_graph_schema.py src/archkeel/ir/source_graph.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/decisions.py src/archkeel/ir/report_graph.py src/archkeel/ir/codec_contract.py
-          uv run --locked ruff format src/archkeel/ir/architecture_graph.py tests/test_typed_graph_vocabulary.py src/archkeel/ir/graph_codec.py src/archkeel/check/uml_compare.py src/archkeel/ir/target_graph.py tools/architecture_graph_schema.py src/archkeel/ir/source_graph.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/decisions.py src/archkeel/ir/report_graph.py src/archkeel/ir/codec_contract.py
+          uv run --locked ruff check --select I --fix src/archkeel/ir/architecture_graph.py tests/test_typed_graph_vocabulary.py src/archkeel/ir/graph_codec.py src/archkeel/check/uml_compare.py src/archkeel/ir/target_graph.py tools/architecture_graph_schema.py src/archkeel/ir/source_graph.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/decisions.py src/archkeel/ir/report_graph.py src/archkeel/ir/codec_contract.py tests/test_uml_demo.py
+          uv run --locked ruff format src/archkeel/ir/architecture_graph.py tests/test_typed_graph_vocabulary.py src/archkeel/ir/graph_codec.py src/archkeel/check/uml_compare.py src/archkeel/ir/target_graph.py tools/architecture_graph_schema.py src/archkeel/ir/source_graph.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/decisions.py src/archkeel/ir/report_graph.py src/archkeel/ir/codec_contract.py tests/test_uml_demo.py
           python - <<'PY'
           import base64, subprocess
-          print("FORMAT_PATCH=" + base64.b64encode(subprocess.check_output(["git", "diff", "--", "src/archkeel/ir/architecture_graph.py", "tests/test_typed_graph_vocabulary.py", "src/archkeel/ir/graph_codec.py", "src/archkeel/check/uml_compare.py", "src/archkeel/ir/target_graph.py", "tools/architecture_graph_schema.py", "src/archkeel/ir/source_graph.py", "src/archkeel/check/uml_evaluation.py", "src/archkeel/ir/decisions.py", "src/archkeel/ir/report_graph.py", "src/archkeel/ir/codec_contract.py"])).decode())
+          print("FORMAT_PATCH=" + base64.b64encode(subprocess.check_output(["git", "diff", "--", "src/archkeel/ir/architecture_graph.py", "tests/test_typed_graph_vocabulary.py", "src/archkeel/ir/graph_codec.py", "src/archkeel/check/uml_compare.py", "src/archkeel/ir/target_graph.py", "tools/architecture_graph_schema.py", "src/archkeel/ir/source_graph.py", "src/archkeel/check/uml_evaluation.py", "src/archkeel/ir/decisions.py", "src/archkeel/ir/report_graph.py", "src/archkeel/ir/codec_contract.py", "tests/test_uml_demo.py"])).decode())
           PY
-      - name: Style and types
-        run: |
-          uv run --locked ruff check src/archkeel/ir/architecture_graph.py tests/test_typed_graph_vocabulary.py src/archkeel/ir/graph_codec.py src/archkeel/check/uml_compare.py src/archkeel/ir/target_graph.py tools/architecture_graph_schema.py src/archkeel/ir/source_graph.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/decisions.py src/archkeel/ir/report_graph.py src/archkeel/ir/codec_contract.py
-          make typecheck
-      - name: Nominal graph and native source controls
+      - name: Style
+        run: uv run --locked ruff check src/archkeel/ir/architecture_graph.py tests/test_typed_graph_vocabulary.py src/archkeel/ir/graph_codec.py src/archkeel/check/uml_compare.py src/archkeel/ir/target_graph.py tools/architecture_graph_schema.py src/archkeel/ir/source_graph.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/decisions.py src/archkeel/ir/report_graph.py src/archkeel/ir/codec_contract.py tests/test_uml_demo.py
+      - name: Types
         if: always()
-        run: uv run --locked python -m pytest -q tests/test_typed_graph_vocabulary.py
+        run: make typecheck
+      - name: Hygiene
+        if: always()
+        run: uv run --locked python -m pytest -q tests/test_repository_hygiene.py
+      - name: Graph UML source target and schema regressions
+        if: always()
+        run: uv run --locked python -m pytest -q tests/test_typed_graph_vocabulary.py tests/test_architecture_graph.py tests/test_enum_graph.py tests/test_graph_comparison_codec.py tests/test_source_graph.py tests/test_target_graph.py tests/test_target_navigation_graph.py tests/test_uml_comparison.py tests/test_uml_evaluation.py tests/test_uml_source_facts.py tests/test_uml_classifier_facts.py tests/test_schema_drift.py tests/test_uml_demo.py
+  native-budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Verify own graph policy and unchanged budgets
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 5022d1d30d867dd028e52b4e96dbc377d2c730a6 --amendment docs/architecture/decisions/issue-542-graph-vocabulary-amendment.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'Graph and UML control vocabulary has one domain owner, a shared assessment type through the model facade, independently authored API Target and whole migrated module guards. Graph parser has no string-control exception. Historical schemas and valid wire/default behavior remain. No baseline, cap or allowance changes. See docs/architecture/typed-graph-vocabulary.md.' > "$RUNNER_TEMP/graph-native.json"
+          graph_status=$?
+          set -e
+          python - "$RUNNER_TEMP/graph-native.json" <<'PY'
+          import json, pathlib, sys
+          data = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          print("NATIVE_RESULT=" + json.dumps({key: data.get(key) for key in ("exit_code", "failures", "diagnostics", "measurements", "amendment_status")}, separators=(",", ":")))
+          path = pathlib.Path("docs/architecture/decisions/issue-542-graph-vocabulary-amendment.json")
+          if path.exists():
+              print("AMENDMENT_JSON=" + json.dumps(json.loads(path.read_text()), separators=(",", ":")))
+          PY
+          exit "$graph_status"

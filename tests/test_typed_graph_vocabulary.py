@@ -24,15 +24,30 @@ from tools.architecture_graph_schema import comparison_schema, graph_schema, rep
 
 ROOT = Path(__file__).parents[1]
 VOCABULARIES = (
-    "EntityKind", "GraphSchemaVersion", "RelationshipKind", "VisibilityKind",
-    "VisibilityBasis", "ParameterKind", "ModifierKind", "DefinitionContextKind",
-    "DefinitionBranchKind", "CoverageStatus", "OriginKind", "PresenceKind",
-    "ResolutionKind", "CompletenessMode", "AssessmentStatus",
-    "RuleAssessmentStatus", "AssessmentAspect", "AssessmentChange",
+    "EntityKind",
+    "GraphSchemaVersion",
+    "RelationshipKind",
+    "VisibilityKind",
+    "VisibilityBasis",
+    "ParameterKind",
+    "ModifierKind",
+    "DefinitionContextKind",
+    "DefinitionBranchKind",
+    "CoverageStatus",
+    "OriginKind",
+    "PresenceKind",
+    "ResolutionKind",
+    "CompletenessMode",
+    "AssessmentStatus",
+    "RuleAssessmentStatus",
+    "AssessmentAspect",
+    "AssessmentChange",
 )
 MODULES = (
-    "archkeel.ir.architecture_graph", "archkeel.ir.graph_codec",
-    "archkeel.ir.target_graph", "archkeel.check.uml_compare",
+    "archkeel.ir.architecture_graph",
+    "archkeel.ir.graph_codec",
+    "archkeel.ir.target_graph",
+    "archkeel.check.uml_compare",
 )
 
 
@@ -51,11 +66,21 @@ def test_shared_rule_verdict_has_one_owner_and_declared_status_stays_distinct():
 
 @pytest.mark.parametrize("version", ["1.0.0", "1.1.0", "1.2.0"])
 def test_graph_parser_converts_closed_values_once_and_preserves_legacy_bytes(version):
-    raw = {"origin": "declared", "schema_version": version, "entities": [{
-        "id": "module", "kind": "module", "qualified_name": "sample",
-        "language": "future-language", "presence": "planned",
-        "responsibilities": ["Own the sample module."], "provenance": ["target.md"],
-    }]}
+    raw = {
+        "origin": "declared",
+        "schema_version": version,
+        "entities": [
+            {
+                "id": "module",
+                "kind": "module",
+                "qualified_name": "sample",
+                "language": "future-language",
+                "presence": "planned",
+                "responsibilities": ["Own the sample module."],
+                "provenance": ["target.md"],
+            }
+        ],
+    }
     value = parse_graph(raw)
     assert isinstance(value.origin, StrEnum)
     assert isinstance(value.schema_version, StrEnum)
@@ -84,24 +109,35 @@ def test_graph_codecs_keep_comparison_and_report_version_boundaries():
     comparison = parse_comparison({"status": "UNKNOWN", "schema_version": "1.0.0"})
     assert comparison.status is graph.AssessmentStatus.UNKNOWN
     for version in ("1.0.0", "1.2.0"):
-        report = parse_report({
-            "observed": None, "target": None, "unavailable": "No source.",
-            "schema_version": version,
-        })
+        report = parse_report(
+            {
+                "observed": None,
+                "target": None,
+                "unavailable": "No source.",
+                "schema_version": version,
+            }
+        )
         assert isinstance(report.schema_version, StrEnum)
     for version in ("1.1.0", "future", None):
         with pytest.raises(ValueError, match="report schema_version"):
-            parse_report({
-                "observed": None, "target": None, "unavailable": "No source.",
-                "schema_version": version,
-            })
+            parse_report(
+                {
+                    "observed": None,
+                    "target": None,
+                    "unavailable": "No source.",
+                    "schema_version": version,
+                }
+            )
 
 
-@pytest.mark.parametrize("factory,path", [
-    (graph_schema, "schema/architecture-graph.schema.json"),
-    (comparison_schema, "schema/architecture-comparison.schema.json"),
-    (report_schema, "schema/architecture-report.schema.json"),
-])
+@pytest.mark.parametrize(
+    "factory,path",
+    [
+        (graph_schema, "schema/architecture-graph.schema.json"),
+        (comparison_schema, "schema/architecture-comparison.schema.json"),
+        (report_schema, "schema/architecture-report.schema.json"),
+    ],
+)
 def test_nominal_graph_control_types_preserve_historical_schema(factory, path):
     assert factory() == json.loads((ROOT / path).read_text())
 
@@ -110,22 +146,30 @@ def _contract():
     contract = copy.deepcopy(json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text()))
     contract.pop("$schema", None)
     contract["declarations"]["uml"]["entities"] = [
-        item for item in contract["declarations"]["uml"]["entities"]
+        item
+        for item in contract["declarations"]["uml"]["entities"]
         if item["id"].startswith(("IR-GRAPH-", "IR-UML-architecture_graph"))
     ]
     contract["declarations"]["uml"]["relationships"] = []
     contract["declarations"]["uml"]["scopes"] = []
     root = json.loads((ROOT / "architecture-contract.json").read_text())
     contract["rules"] = [
-        item for item in root["rules"] if item.get("source") in MODULES
-        and item["kind"] == "forbidden_construct"
+        item
+        for item in root["rules"]
+        if item.get("source") in MODULES and item["kind"] == "forbidden_construct"
     ]
-    contract["components"].append({
-        "id": "GRAPH-CHECK", "label": "graph-check", "role": "component",
-        "packages": ["archkeel.check"], "public": ["archkeel.check.uml_compare"],
-        "responsibilities": ["Compare independent graph intent with observed proof."],
-        "forbidden_responsibilities": [], "provenance": ["docs/architecture/typed-graph-vocabulary.md"],
-    })
+    contract["components"].append(
+        {
+            "id": "GRAPH-CHECK",
+            "label": "graph-check",
+            "role": "component",
+            "packages": ["archkeel.check"],
+            "public": ["archkeel.check.uml_compare"],
+            "responsibilities": ["Compare independent graph intent with observed proof."],
+            "forbidden_responsibilities": [],
+            "provenance": ["docs/architecture/typed-graph-vocabulary.md"],
+        }
+    )
     return contract
 
 
@@ -141,9 +185,11 @@ def _repository(tmp_path):
         + _source_members("src/archkeel/ir/model.py", {"RawJson"})
     )
     files = {
-        "archkeel/__init__.py": "", "archkeel/ir/__init__.py": "",
+        "archkeel/__init__.py": "",
+        "archkeel/ir/__init__.py": "",
         "archkeel/check/__init__.py": "",
-        "archkeel/ir/facts.py": facts, "archkeel/ir/model.py": model,
+        "archkeel/ir/facts.py": facts,
+        "archkeel/ir/model.py": model,
         "contract.json": json.dumps(_contract()),
         "docs/architecture/typed-graph-vocabulary.md": "Owned graph intent.\n",
     }
@@ -173,10 +219,13 @@ def test_native_graph_api_matches_independent_intent_and_all_migrated_module_gua
     assert not trace_valid_violations(value)
 
 
-@pytest.mark.parametrize("old,new", [
-    ("status: AssessmentStatus", "status: str"),
-    (") -> GraphComparison:", ") -> str:"),
-])
+@pytest.mark.parametrize(
+    "old,new",
+    [
+        ("status: AssessmentStatus", "status: str"),
+        (") -> GraphComparison:", ") -> str:"),
+    ],
+)
 def test_native_graph_enum_field_and_return_widening_fail_with_fixed_target(tmp_path, old, new):
     root, config = _repository(tmp_path)
     path = root / "archkeel/ir/architecture_graph.py"
@@ -185,26 +234,36 @@ def test_native_graph_enum_field_and_return_widening_fail_with_fixed_target(tmp_
     path.write_text(path.read_text().replace(old, new, 1))
     value = _model(root, config)
     assert any(
-        row.status == "FAIL" for row in _comparison(value).assessments
+        row.status == "FAIL"
+        for row in _comparison(value).assessments
         if row.aspect in {"annotation", "signature"}
     )
     assert trace_valid_violations(value)
     assert (root / "contract.json").read_bytes() == contract
 
 
-@pytest.mark.parametrize("probe", [
-    'def _probe(value):\n    return value == "declared"\n',
-    'def _probe(value):\n    return value in ("declared", "observed")\n',
-    ('def _probe(value):\n    match value:\n        case "declared":\n'
-     "            return True\n        case _:\n            return False\n"),
-    ('from typing import Final\nDECLARED: Final[str] = "declared"\n'
-     "\ndef _probe(value):\n    return value == DECLARED\n"),
-], ids=["equality", "membership", "match", "final-string"])
+@pytest.mark.parametrize(
+    "probe",
+    [
+        'def _probe(value):\n    return value == "declared"\n',
+        'def _probe(value):\n    return value in ("declared", "observed")\n',
+        (
+            'def _probe(value):\n    match value:\n        case "declared":\n'
+            "            return True\n        case _:\n            return False\n"
+        ),
+        (
+            'from typing import Final\nDECLARED: Final[str] = "declared"\n'
+            "\ndef _probe(value):\n    return value == DECLARED\n"
+        ),
+    ],
+    ids=["equality", "membership", "match", "final-string"],
+)
 def test_native_graph_parser_has_no_string_control_exception(tmp_path, probe):
     root, config = _repository(tmp_path)
     path = root / "archkeel/ir/graph_codec.py"
     path.write_text(path.read_text() + "\n" + probe)
     value = _model(root, config)
-    guard = next(item for item in _contract()["rules"]
-                 if item["source"] == "archkeel.ir.graph_codec")
+    guard = next(
+        item for item in _contract()["rules"] if item["source"] == "archkeel.ir.graph_codec"
+    )
     assert any(guard["id"] in row.rule_ids for row in trace_valid_violations(value))

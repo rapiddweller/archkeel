@@ -7,22 +7,20 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
-    ArchitectureRuleKind,
-    DecisionMaker,
-    EntityKind,
-    OriginKind,
-    PresenceKind,
-    RelationshipKind,
     ComponentIntent,
+    DecisionMaker,
     Entity,
+    EntityKind,
     ExternalDependencyScopeRule,
     GraphSchemaVersion,
     ModuleInventory,
+    OriginKind,
+    PresenceKind,
     PublicAPIEntry,
     Relationship,
+    RelationshipKind,
     RootLayoutRule,
     TargetDefinition,
 )
@@ -121,7 +119,10 @@ def intent_graph(
     for entity in target.entities:
         if entity.kind == EntityKind.COMPONENT:
             raise ValueError("UML cannot redeclare an existing component owner")
-        if entity.presence not in {PresenceKind.PLANNED, PresenceKind.REFERENCED} or entity.record_ids:
+        if (
+            entity.presence not in {PresenceKind.PLANNED, PresenceKind.REFERENCED}
+            or entity.record_ids
+        ):
             raise ValueError("UML entities need independent planned or referenced intent")
         if entity.presence == PresenceKind.PLANNED and not entity.responsibilities:
             raise ValueError("UML entities need a responsibility")
@@ -333,7 +334,9 @@ def declared_tree_graph(tree: InsideContractTree, *, root_path: str) -> Architec
         ),
         entities=tuple(entity for entity in entities if entity.kind == EntityKind.COMPONENT)
         + tuple(entity for entity in entities if entity.kind != EntityKind.COMPONENT),
-        relationships=tuple(edge for edge in relationships if edge.kind == RelationshipKind.REQUIRES)
+        relationships=tuple(
+            edge for edge in relationships if edge.kind == RelationshipKind.REQUIRES
+        )
         + tuple(edge for edge in relationships if edge.kind != RelationshipKind.REQUIRES),
         target_scopes=tuple(scopes),
         component_intents=tuple(intents.values()),

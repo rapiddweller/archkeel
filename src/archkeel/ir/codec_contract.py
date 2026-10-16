@@ -13,7 +13,10 @@ from dataclasses import asdict
 from typing import Final, Literal, TypeGuard, get_args
 
 from archkeel.ir.architecture_graph import (
-    ArchitectureRuleKind, DecisionMaker, validate_layout_rule, validate_module_target,
+    ArchitectureRuleKind,
+    DecisionMaker,
+    validate_layout_rule,
+    validate_module_target,
 )
 from archkeel.ir.codec_governance import _measurement_budget_name
 from archkeel.ir.codec_wire import (

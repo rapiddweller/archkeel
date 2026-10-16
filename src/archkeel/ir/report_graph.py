@@ -8,16 +8,16 @@ from dataclasses import asdict
 
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
-    AssessmentStatus,
-    GraphSchemaVersion,
-    ReportSchemaVersion,
     ArchitectureReport,
+    AssessmentStatus,
     ComponentMembership,
     DependencyDecisionGap,
     Entity,
     GraphComparison,
+    GraphSchemaVersion,
     Relationship,
     ReportFinding,
+    ReportSchemaVersion,
 )
 from archkeel.ir.codec import decode_json, value_bytes
 from archkeel.ir.decisions import open_decisions
@@ -241,14 +241,19 @@ def _findings(
                 identities: set[str] = subjects.setdefault(record_id, set())
                 identities.add(graph_item.id)
     findings = []
-    for section, status in (("violations", AssessmentStatus.FAIL), ("unknowns", AssessmentStatus.UNKNOWN)):
+    for section, status in (
+        ("violations", AssessmentStatus.FAIL),
+        ("unknowns", AssessmentStatus.UNKNOWN),
+    ):
         for item in model.records(section) or ():
             findings.append(
                 ReportFinding(
                     item.id,
                     item.kind,
                     item.title,
-                    AssessmentStatus.FAIL if status == AssessmentStatus.FAIL else AssessmentStatus.UNKNOWN,
+                    AssessmentStatus.FAIL
+                    if status == AssessmentStatus.FAIL
+                    else AssessmentStatus.UNKNOWN,
                     item.rule_ids,
                     item.subjects,
                     tuple(

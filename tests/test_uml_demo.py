@@ -6,7 +6,6 @@
 import json
 import re
 from dataclasses import replace
-from typing import get_args
 
 import pytest
 
@@ -15,7 +14,7 @@ from archkeel.ir.graph_codec import parse_report
 from fixtures.architecture_demo import CATALOG, replay
 
 # The shared vocabulary includes mixins, but these source-backed demos are Python-only.
-_PYTHON_DEMO_ENTITY_KINDS = frozenset(get_args(EntityKind)) - {"mixin"}
+_PYTHON_DEMO_ENTITY_KINDS = frozenset(EntityKind) - {EntityKind.MIXIN}
 
 
 def _demo_report(output):

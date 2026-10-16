@@ -23,20 +23,24 @@ from archkeel.ir.architecture_graph import (
     EntityKind,
     ModifierKind,
     OriginKind,
-    PresenceKind,
-    ResolutionKind,
     Parameter,
     ParameterKind,
+    PresenceKind,
     Relationship,
     RelationshipKind,
+    ResolutionKind,
     Signature,
     Visibility,
     VisibilityBasis,
     VisibilityKind,
 )
 from archkeel.ir.facts import (
-    SOURCE_RESOLUTION_GAP_KIND, InventoryStatus, MemberKind,
-    ResolutionInput, ResolutionRole, member_inventories,
+    SOURCE_RESOLUTION_GAP_KIND,
+    InventoryStatus,
+    MemberKind,
+    ResolutionInput,
+    ResolutionRole,
+    member_inventories,
 )
 from archkeel.ir.model import (
     TARGET_GRAPH_RECORD_KINDS,
@@ -50,7 +54,11 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.profiles import PROFILES, profile_for
 
-_CLASSIFIER_RELATIONSHIPS = (RelationshipKind.INHERITS, RelationshipKind.REALIZES, RelationshipKind.MIXES_IN)
+_CLASSIFIER_RELATIONSHIPS = (
+    RelationshipKind.INHERITS,
+    RelationshipKind.REALIZES,
+    RelationshipKind.MIXES_IN,
+)
 MEMBER_INVENTORY_PROOF = "member_inventory_proof"
 _INVENTORY_SOURCE_SECTIONS = (
     "modules",
@@ -330,7 +338,7 @@ def validated_member_inventory_proof(model: Observation) -> Record | None:
                     ResolutionInput(
                         str(row.get("path")),
                         str(row.get("digest")),
-                        ResolutionRole.SELECTED if row.get("role") == "selected" else ResolutionRole.RESOLUTION,
+                        ResolutionRole(_text(row.get("role"))),
                     )
                     for row in rows
                 ),
@@ -431,7 +439,9 @@ def _symbol(record: Record, language: str) -> Entity:
         kind = EntityKind(_text(category, default=EntityKind.SYMBOL))
     if kind == EntityKind.CLASS:
         classifier_kinds = {
-            "protocol": EntityKind.INTERFACE, "enum": EntityKind.ENUM, "mixin": EntityKind.MIXIN
+            "protocol": EntityKind.INTERFACE,
+            "enum": EntityKind.ENUM,
+            "mixin": EntityKind.MIXIN,
         }
         kind = classifier_kinds.get(_text(data.get("class_kind")) or "", kind)
     modifiers: list[ModifierKind] = []
@@ -441,7 +451,9 @@ def _symbol(record: Record, language: str) -> Entity:
         if data.get(key) is True:
             modifiers.append(modifier)
     if data.get("method_kind") in {"static", "class"}:
-        modifiers.append(ModifierKind.STATIC if data.get("method_kind") == "static" else ModifierKind.CLASS)
+        modifiers.append(
+            ModifierKind.STATIC if data.get("method_kind") == "static" else ModifierKind.CLASS
+        )
     return Entity(
         record.id,
         kind,
@@ -450,7 +462,8 @@ def _symbol(record: Record, language: str) -> Entity:
         visibility=_visibility(data.get("visibility_detail"), _text(data.get("name"))),
         signature=(
             _signature(data)
-            if kind in {EntityKind.METHOD, EntityKind.FUNCTION} and data.get("signature_complete") is not False
+            if kind in {EntityKind.METHOD, EntityKind.FUNCTION}
+            and data.get("signature_complete") is not False
             else None
         ),
         annotation=_text(data.get("annotation")),
@@ -571,7 +584,9 @@ def _source_resolution(value: JsonValue, message: str) -> ResolutionKind:
 def _site_relationship(
     record: Record, kind: RelationshipKind, source: str, targets: tuple[str, ...]
 ) -> Relationship:
-    status = _source_resolution(record.data.get("status"), "source relationship needs a resolution status")
+    status = _source_resolution(
+        record.data.get("status"), "source relationship needs a resolution status"
+    )
     resolved = status == ResolutionKind.RESOLVED and len(targets) == 1
     count = record.data.get("candidate_count")
     if count is not None and (not isinstance(count, int) or isinstance(count, bool)):
@@ -588,7 +603,11 @@ def _site_relationship(
         kind,
         source,
         targets[0] if resolved else None,
-        ResolutionKind.RESOLVED if resolved else ResolutionKind.PARTIAL if status != ResolutionKind.UNRESOLVED else ResolutionKind.UNRESOLVED,
+        ResolutionKind.RESOLVED
+        if resolved
+        else ResolutionKind.PARTIAL
+        if status != ResolutionKind.UNRESOLVED
+        else ResolutionKind.UNRESOLVED,
         candidate_ids=() if resolved else targets,
         expression=_text(record.data.get("expression")),
         evidence_ids=record.evidence_ids,
@@ -820,7 +839,8 @@ def _construction_sites(
     resolved = status == ResolutionKind.RESOLVED and len(targets) == 1 and not truncated
     relations: list[tuple[RelationshipKind, str, bool]] = [(RelationshipKind.CREATES, source, True)]
     relations.extend(
-        (RelationshipKind.INSTANCE_OF, binding.id, target_kind == "name") for binding, target_kind in bindings
+        (RelationshipKind.INSTANCE_OF, binding.id, target_kind == "name")
+        for binding, target_kind in bindings
     )
     result: list[Relationship] = []
     for kind, caller, stored in relations:
@@ -832,7 +852,11 @@ def _construction_sites(
                 kind,
                 caller,
                 targets[0] if proven else None,
-                ResolutionKind.RESOLVED if proven else ResolutionKind.UNRESOLVED if unresolved else ResolutionKind.PARTIAL,
+                ResolutionKind.RESOLVED
+                if proven
+                else ResolutionKind.UNRESOLVED
+                if unresolved
+                else ResolutionKind.PARTIAL,
                 candidate_ids=() if proven or unresolved else targets,
                 expression=_text(record.data.get("expression")),
                 evidence_ids=record.evidence_ids,
@@ -899,10 +923,18 @@ def _relationships(
 
     result: list[Relationship] = []
     result.extend(_namespace_memberships(observation, entities))
-    for section, kind in (("imports", RelationshipKind.IMPORTS), ("calls", RelationshipKind.CALLS), ("references", RelationshipKind.REFERENCES)):
+    for section, kind in (
+        ("imports", RelationshipKind.IMPORTS),
+        ("calls", RelationshipKind.CALLS),
+        ("references", RelationshipKind.REFERENCES),
+    ):
         for record in observation.records(section) or ():
             source_name = (
-                _text(record.data.get("source_scope" if kind != RelationshipKind.IMPORTS else "source_module"))
+                _text(
+                    record.data.get(
+                        "source_scope" if kind != RelationshipKind.IMPORTS else "source_module"
+                    )
+                )
                 or ""
             )
             sources = _source_endpoint(record, source_name, by_name, entities, language)
@@ -933,11 +965,7 @@ def _relationships(
                     for target in _endpoint(name, record, by_name, entities, language):
                         target_ids[target] = None
                 targets = tuple(target_ids)
-                result.append(
-                    _site_relationship(
-                        record, kind, sources[0], targets
-                    )
-                )
+                result.append(_site_relationship(record, kind, sources[0], targets))
                 if kind == "calls":
                     bindings = _value_bindings(record, sources[0], entities, by_name, language)
                     result.extend(_construction_sites(record, sources[0], bindings, by_name))
@@ -945,7 +973,9 @@ def _relationships(
         for base in _records(record.data.get("base_declarations")):
             if record.kind != "class" or base.get("relationship_kind") is None:
                 raise ValueError("typed base needs a classifier source and relationship kind")
-            base_kind = RelationshipKind(_text(base.get("relationship_kind"), default=RelationshipKind.INHERITS))
+            base_kind = RelationshipKind(
+                _text(base.get("relationship_kind"), default=RelationshipKind.INHERITS)
+            )
             if base_kind not in _CLASSIFIER_RELATIONSHIPS:
                 raise ValueError("invalid classifier relationship kind")
             base_targets = tuple(
@@ -992,7 +1022,10 @@ def _section_coverage(
             "symbol records do not certify an exhaustive module-level lexical inventory",
         )
     elif section == "references":
-        status, reason = CoverageStatus.PARTIAL, "reference collector omits unresolved and external symbol uses"
+        status, reason = (
+            CoverageStatus.PARTIAL,
+            "reference collector omits unresolved and external symbol uses",
+        )
     return Coverage(scope_id, entity_kinds, relationships, status, reason)
 
 
@@ -1004,7 +1037,9 @@ def _partial_inventory_coverage(
         Coverage(
             entity.id,
             (EntityKind.BINDING,),
-            status=CoverageStatus.PARTIAL if entity.qualified_name in value_modules else CoverageStatus.UNAVAILABLE,
+            status=CoverageStatus.PARTIAL
+            if entity.qualified_name in value_modules
+            else CoverageStatus.UNAVAILABLE,
             reason="call-result assignments are recorded; other binding forms remain incomplete"
             if entity.qualified_name in value_modules
             else "the source facts do not certify a complete static binding inventory",
@@ -1013,8 +1048,14 @@ def _partial_inventory_coverage(
     result.append(
         Coverage(
             entity.id,
-            relationship_kinds=(RelationshipKind.INHERITS, RelationshipKind.REALIZES, RelationshipKind.MIXES_IN),
-            status=CoverageStatus.PARTIAL if entity.qualified_name in base_modules else CoverageStatus.UNAVAILABLE,
+            relationship_kinds=(
+                RelationshipKind.INHERITS,
+                RelationshipKind.REALIZES,
+                RelationshipKind.MIXES_IN,
+            ),
+            status=CoverageStatus.PARTIAL
+            if entity.qualified_name in base_modules
+            else CoverageStatus.UNAVAILABLE,
             reason="explicit bases are recorded; the classifier inventory is not exhaustive"
             if entity.qualified_name in base_modules
             else "no typed classifier relationship facts were recorded",
@@ -1024,7 +1065,9 @@ def _partial_inventory_coverage(
         Coverage(
             entity.id,
             relationship_kinds=(RelationshipKind.CREATES, RelationshipKind.INSTANCE_OF),
-            status=CoverageStatus.PARTIAL if entity.qualified_name in value_modules else CoverageStatus.UNAVAILABLE,
+            status=CoverageStatus.PARTIAL
+            if entity.qualified_name in value_modules
+            else CoverageStatus.UNAVAILABLE,
             reason="constructor sites are recorded; result typing and inventory remain partial"
             if entity.qualified_name in value_modules
             else "adapter has no typed instance relationship facts",
@@ -1132,7 +1175,11 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
         result.append(
             Coverage(
                 item.id,
-                relationship_kinds=(RelationshipKind.INHERITS, RelationshipKind.REALIZES, RelationshipKind.MIXES_IN),
+                relationship_kinds=(
+                    RelationshipKind.INHERITS,
+                    RelationshipKind.REALIZES,
+                    RelationshipKind.MIXES_IN,
+                ),
                 status=CoverageStatus.COMPLETE if complete else CoverageStatus.PARTIAL,
                 reason=None if complete else "a base binding or classifier kind is not proven",
             )
@@ -1143,7 +1190,9 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
                 Coverage(
                     entity.id,
                     relationship_kinds=(RelationshipKind.OWNS,),
-                    status=CoverageStatus.COMPLETE if observation.coverage.status == "PASS" else CoverageStatus.PARTIAL,
+                    status=CoverageStatus.COMPLETE
+                    if observation.coverage.status == "PASS"
+                    else CoverageStatus.PARTIAL,
                     reason=None
                     if observation.coverage.status == "PASS"
                     else "source observation is incomplete",

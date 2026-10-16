@@ -11,8 +11,8 @@ from typing import TypeGuard
 
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
-    ArchitectureRuleKind,
     ArchitectureReport,
+    ArchitectureRuleKind,
     AssessmentAspect,
     AssessmentChange,
     AssessmentStatus,
@@ -23,11 +23,11 @@ from archkeel.ir.architecture_graph import (
     ContractModuleTarget,
     Coverage,
     CoverageStatus,
+    DecisionMaker,
     DefinitionBranchKind,
     DefinitionContext,
     DefinitionContextKind,
     DependencyDecisionGap,
-    DecisionMaker,
     Entity,
     EntityCorrespondence,
     EntityKind,
@@ -345,7 +345,9 @@ def parse_relationship(value: RawJson) -> Relationship:
         RelationshipKind(_text(item["kind"], "relationship.kind")),
         _text(item["source_id"], "relationship.source_id"),
         _nullable(item.get("target_id"), "relationship.target_id"),
-        ResolutionKind(_text(item.get("resolution", ResolutionKind.NOT_APPLICABLE), "relationship.resolution")),
+        ResolutionKind(
+            _text(item.get("resolution", ResolutionKind.NOT_APPLICABLE), "relationship.resolution")
+        ),
         _texts(item.get("candidate_ids", ()), "relationship.candidate_ids"),
         _nullable(item.get("expression"), "relationship.expression"),
         _texts(item.get("evidence_ids", ()), "relationship.evidence_ids"),

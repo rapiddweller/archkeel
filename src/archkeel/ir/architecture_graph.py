@@ -13,6 +13,7 @@ from typing import Literal
 
 from archkeel.ir.facts import Evidence, Language
 
+
 class EntityKind(StrEnum):
     COMPONENT = "component"
     PACKAGE = "package"
@@ -30,14 +31,18 @@ class EntityKind(StrEnum):
     BINDING = "binding"
     SYMBOL = "symbol"
 
+
 class GraphSchemaVersion(StrEnum):
     V1_2_0 = "1.2.0"
     V1_1_0 = "1.1.0"
     V1_0_0 = "1.0.0"
 
-_CLASSIFIER_KINDS: frozenset[EntityKind] = frozenset({
-    EntityKind.CLASS, EntityKind.INTERFACE, EntityKind.ENUM, EntityKind.MIXIN
-})
+
+_CLASSIFIER_KINDS: frozenset[EntityKind] = frozenset(
+    {EntityKind.CLASS, EntityKind.INTERFACE, EntityKind.ENUM, EntityKind.MIXIN}
+)
+
+
 class RelationshipKind(StrEnum):
     IMPORTS = "imports"
     CALLS = "calls"
@@ -51,6 +56,7 @@ class RelationshipKind(StrEnum):
     REQUIRES = "requires"
     PUBLISHES = "publishes"
 
+
 class VisibilityKind(StrEnum):
     PUBLIC = "public"
     PRIVATE = "private"
@@ -58,11 +64,13 @@ class VisibilityKind(StrEnum):
     PACKAGE = "package"
     UNKNOWN = "unknown"
 
+
 class VisibilityBasis(StrEnum):
     LANGUAGE = "language"
     CONVENTION = "convention"
     DECLARED = "declared"
     UNKNOWN = "unknown"
+
 
 class ParameterKind(StrEnum):
     POSITIONAL_ONLY = "positional_only"
@@ -72,6 +80,7 @@ class ParameterKind(StrEnum):
     KWARGS = "kwargs"
     UNKNOWN = "unknown"
 
+
 class ModifierKind(StrEnum):
     ABSTRACT = "abstract"
     STATIC = "static"
@@ -79,6 +88,7 @@ class ModifierKind(StrEnum):
     ASYNC = "async"
     FROZEN = "frozen"
     MIXIN = "mixin"
+
 
 class DefinitionContextKind(StrEnum):
     IF = "if"
@@ -91,6 +101,7 @@ class DefinitionContextKind(StrEnum):
     ASYNC_WITH = "async_with"
     MATCH = "match"
 
+
 class DefinitionBranchKind(StrEnum):
     BODY = "body"
     ELSE = "else"
@@ -98,14 +109,17 @@ class DefinitionBranchKind(StrEnum):
     FINALLY = "finally"
     CASE = "case"
 
+
 class CoverageStatus(StrEnum):
     COMPLETE = "complete"
     PARTIAL = "partial"
     UNAVAILABLE = "unavailable"
 
+
 class OriginKind(StrEnum):
     OBSERVED = "observed"
     DECLARED = "declared"
+
 
 class PresenceKind(StrEnum):
     DEFINED = "defined"
@@ -113,26 +127,31 @@ class PresenceKind(StrEnum):
     PLANNED = "planned"
     UNSPECIFIED = "unspecified"
 
+
 class ResolutionKind(StrEnum):
     RESOLVED = "resolved"
     PARTIAL = "partial"
     UNRESOLVED = "unresolved"
     NOT_APPLICABLE = "not_applicable"
 
+
 class CompletenessMode(StrEnum):
     OPEN = "open"
     CLOSED = "closed"
+
 
 class AssessmentStatus(StrEnum):
     PASS = "PASS"
     FAIL = "FAIL"
     UNKNOWN = "UNKNOWN"
 
+
 class RuleAssessmentStatus(StrEnum):
     PASS = "PASS"
     FAIL = "FAIL"
     UNKNOWN = "UNKNOWN"
     DECLARATION = "DECLARATION"
+
 
 class AssessmentAspect(StrEnum):
     EXISTENCE = "existence"
@@ -146,6 +165,7 @@ class AssessmentAspect(StrEnum):
     RELATIONSHIP = "relationship"
     COMPLETENESS = "completeness"
 
+
 class AssessmentChange(StrEnum):
     MATCHED = "matched"
     MISSING = "missing"
@@ -153,7 +173,6 @@ class AssessmentChange(StrEnum):
     CHANGED = "changed"
     AMBIGUOUS = "ambiguous"
     UNAVAILABLE = "unavailable"
-
 
 
 class ReportSchemaVersion(StrEnum):
@@ -233,7 +252,9 @@ class ComponentIntent:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "role", ComponentRole(self.role))
-        object.__setattr__(self, "decided_by", None if self.decided_by is None else DecisionMaker(self.decided_by))
+        object.__setattr__(
+            self, "decided_by", None if self.decided_by is None else DecisionMaker(self.decided_by)
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -363,8 +384,18 @@ class DefinitionContext:
             DefinitionContextKind.FOR: {DefinitionBranchKind.BODY, DefinitionBranchKind.ELSE},
             DefinitionContextKind.ASYNC_FOR: {DefinitionBranchKind.BODY, DefinitionBranchKind.ELSE},
             DefinitionContextKind.WHILE: {DefinitionBranchKind.BODY, DefinitionBranchKind.ELSE},
-            DefinitionContextKind.TRY: {DefinitionBranchKind.BODY, DefinitionBranchKind.ELSE, DefinitionBranchKind.HANDLER, DefinitionBranchKind.FINALLY},
-            DefinitionContextKind.TRY_STAR: {DefinitionBranchKind.BODY, DefinitionBranchKind.ELSE, DefinitionBranchKind.HANDLER, DefinitionBranchKind.FINALLY},
+            DefinitionContextKind.TRY: {
+                DefinitionBranchKind.BODY,
+                DefinitionBranchKind.ELSE,
+                DefinitionBranchKind.HANDLER,
+                DefinitionBranchKind.FINALLY,
+            },
+            DefinitionContextKind.TRY_STAR: {
+                DefinitionBranchKind.BODY,
+                DefinitionBranchKind.ELSE,
+                DefinitionBranchKind.HANDLER,
+                DefinitionBranchKind.FINALLY,
+            },
             DefinitionContextKind.WITH: {DefinitionBranchKind.BODY},
             DefinitionContextKind.ASYNC_WITH: {DefinitionBranchKind.BODY},
             DefinitionContextKind.MATCH: {DefinitionBranchKind.CASE},
@@ -421,7 +452,9 @@ class Relationship:
     def __post_init__(self) -> None:
         object.__setattr__(self, "kind", RelationshipKind(self.kind))
         object.__setattr__(self, "resolution", ResolutionKind(self.resolution))
-        object.__setattr__(self, "decided_by", None if self.decided_by is None else DecisionMaker(self.decided_by))
+        object.__setattr__(
+            self, "decided_by", None if self.decided_by is None else DecisionMaker(self.decided_by)
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -433,8 +466,14 @@ class Coverage:
     reason: str | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "entity_kinds", tuple(EntityKind(item) for item in self.entity_kinds))
-        object.__setattr__(self, "relationship_kinds", tuple(RelationshipKind(item) for item in self.relationship_kinds))
+        object.__setattr__(
+            self, "entity_kinds", tuple(EntityKind(item) for item in self.entity_kinds)
+        )
+        object.__setattr__(
+            self,
+            "relationship_kinds",
+            tuple(RelationshipKind(item) for item in self.relationship_kinds),
+        )
         object.__setattr__(self, "status", CoverageStatus(self.status))
 
 
@@ -449,8 +488,14 @@ class TargetScope:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "mode", CompletenessMode(self.mode))
-        object.__setattr__(self, "entity_kinds", tuple(EntityKind(item) for item in self.entity_kinds))
-        object.__setattr__(self, "relationship_kinds", tuple(RelationshipKind(item) for item in self.relationship_kinds))
+        object.__setattr__(
+            self, "entity_kinds", tuple(EntityKind(item) for item in self.entity_kinds)
+        )
+        object.__setattr__(
+            self,
+            "relationship_kinds",
+            tuple(RelationshipKind(item) for item in self.relationship_kinds),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -518,7 +563,6 @@ class GraphComparison:
         object.__setattr__(self, "status", AssessmentStatus(self.status))
         object.__setattr__(self, "schema_version", GraphSchemaVersion(self.schema_version))
 
-
     @staticmethod
     def from_assessments(
         assessments: tuple[GraphAssessment, ...],
@@ -529,7 +573,8 @@ class GraphComparison:
             AssessmentStatus.FAIL
             if any(item.status == AssessmentStatus.FAIL for item in assessments)
             else AssessmentStatus.UNKNOWN
-            if not assessments or any(item.status == AssessmentStatus.UNKNOWN for item in assessments)
+            if not assessments
+            or any(item.status == AssessmentStatus.UNKNOWN for item in assessments)
             else AssessmentStatus.PASS
         )
         return GraphComparison(status, assessments, correspondences=correspondences)
@@ -593,7 +638,6 @@ class ArchitectureGraph:
         object.__setattr__(self, "origin", OriginKind(self.origin))
         object.__setattr__(self, "schema_version", GraphSchemaVersion(self.schema_version))
 
-
     def validate(self) -> None:
         _validate_graph_version(
             self.schema_version, self.entities, self.target_scopes, self.coverage
@@ -624,7 +668,11 @@ class ArchitectureGraph:
                 if self.schema_version != GraphSchemaVersion.V1_2_0:
                     raise ValueError("component layer requires graph schema_version 1.2.0")
             owner = entities.get(intent.component_id)
-            if self.origin != OriginKind.DECLARED or owner is None or owner.kind != EntityKind.COMPONENT:
+            if (
+                self.origin != OriginKind.DECLARED
+                or owner is None
+                or owner.kind != EntityKind.COMPONENT
+            ):
                 raise ValueError("component intent needs a declared component")
             if set(intent.public or ()) & set(intent.planned or ()):
                 raise ValueError("a component API entry cannot be public and planned")
@@ -732,7 +780,11 @@ class ArchitectureGraph:
                 raise ValueError("empty entity identity")
             if entity.file_path is not None:
                 relative = contract_relative_path(entity.file_path)
-                if entity.kind != EntityKind.MODULE or relative is None or str(relative) != entity.file_path:
+                if (
+                    entity.kind != EntityKind.MODULE
+                    or relative is None
+                    or str(relative) != entity.file_path
+                ):
                     raise ValueError("invalid module file path")
             if entity.kind == EntityKind.COMPONENT and entity.parent_id is not None:
                 raise ValueError("component containment belongs in component intent")
@@ -746,7 +798,10 @@ class ArchitectureGraph:
                     raise ValueError("lexical containment cycle")
                 ancestors.add(parent)
                 parent = entities[parent].parent_id
-            if entity.signature is not None and entity.kind not in {EntityKind.METHOD, EntityKind.FUNCTION}:
+            if entity.signature is not None and entity.kind not in {
+                EntityKind.METHOD,
+                EntityKind.FUNCTION,
+            }:
                 raise ValueError("signature on a non-operation")
             if self.origin == OriginKind.DECLARED:
                 if entity.presence == PresenceKind.PLANNED and entity.kind != EntityKind.COMPONENT:
@@ -785,7 +840,11 @@ class ArchitectureGraph:
                 raise ValueError("enum literal needs an enumeration parent and no modifiers")
             self._validate_evidence(entity.evidence_ids, entity.provenance, evidence_ids)
             for context in entity.definition_contexts:
-                if self.origin != OriginKind.OBSERVED or entity.kind in {EntityKind.PACKAGE, EntityKind.MODULE, EntityKind.COMPONENT}:
+                if self.origin != OriginKind.OBSERVED or entity.kind in {
+                    EntityKind.PACKAGE,
+                    EntityKind.MODULE,
+                    EntityKind.COMPONENT,
+                }:
                     raise ValueError("definition contexts describe observed source declarations")
                 self._validate_evidence(context.evidence_ids, (), evidence_ids)
 
@@ -822,26 +881,38 @@ class ArchitectureGraph:
                 raise ValueError("unknown relationship source")
             if edge.target_id is not None and edge.target_id not in entities:
                 raise ValueError("unknown relationship target")
-            if self.origin == OriginKind.DECLARED and edge.kind in {RelationshipKind.INHERITS, RelationshipKind.REALIZES, RelationshipKind.MIXES_IN}:
+            if self.origin == OriginKind.DECLARED and edge.kind in {
+                RelationshipKind.INHERITS,
+                RelationshipKind.REALIZES,
+                RelationshipKind.MIXES_IN,
+            }:
                 for identity in (edge.source_id, edge.target_id):
                     if identity is None:
                         continue
                     endpoint = entities[identity]
                     if endpoint.kind not in _CLASSIFIER_KINDS and not (
-                        endpoint.kind == EntityKind.SYMBOL and endpoint.presence == PresenceKind.REFERENCED
+                        endpoint.kind == EntityKind.SYMBOL
+                        and endpoint.presence == PresenceKind.REFERENCED
                     ):
                         raise ValueError("classifier relationship needs classifier endpoints")
                 if edge.kind == RelationshipKind.MIXES_IN and edge.target_id is not None:
                     source = entities[edge.source_id]
                     target = entities[edge.target_id]
                     if source.kind not in {EntityKind.CLASS, EntityKind.ENUM} and not (
-                        source.kind == EntityKind.SYMBOL and source.presence == PresenceKind.REFERENCED
+                        source.kind == EntityKind.SYMBOL
+                        and source.presence == PresenceKind.REFERENCED
                     ):
                         raise ValueError("mixes_in relationship needs a class or enum source")
                     if (
                         target.kind != EntityKind.MIXIN
-                        and not (target.kind == EntityKind.CLASS and ModifierKind.MIXIN in target.modifiers)
-                        and not (target.kind == EntityKind.SYMBOL and target.presence == PresenceKind.REFERENCED)
+                        and not (
+                            target.kind == EntityKind.CLASS
+                            and ModifierKind.MIXIN in target.modifiers
+                        )
+                        and not (
+                            target.kind == EntityKind.SYMBOL
+                            and target.presence == PresenceKind.REFERENCED
+                        )
                     ):
                         raise ValueError("mixes_in relationship needs a mixin-capable target")
             self._validate_permission_metadata(edge, entities)
@@ -856,9 +927,14 @@ class ArchitectureGraph:
                 or edge.candidates_truncated
             ):
                 raise ValueError("Target does not assert observed resolution")
-            if edge.resolution == ResolutionKind.RESOLVED and (edge.target_id is None or edge.candidate_ids):
+            if edge.resolution == ResolutionKind.RESOLVED and (
+                edge.target_id is None or edge.candidate_ids
+            ):
                 raise ValueError("resolved relationship needs one target")
-            if edge.resolution in {ResolutionKind.PARTIAL, ResolutionKind.UNRESOLVED} and edge.target_id is not None:
+            if (
+                edge.resolution in {ResolutionKind.PARTIAL, ResolutionKind.UNRESOLVED}
+                and edge.target_id is not None
+            ):
                 raise ValueError("uncertain relationship has no confirmed target")
             if edge.resolution == ResolutionKind.UNRESOLVED and edge.candidate_ids:
                 raise ValueError("unresolved relationship has no resolved candidates")
@@ -970,7 +1046,6 @@ class ArchitectureReport:
     def __post_init__(self) -> None:
         object.__setattr__(self, "schema_version", ReportSchemaVersion(self.schema_version))
 
-
     def validate(self) -> None:
         if self.observed is None and not self.unavailable:
             raise ValueError("missing observed graph needs an unavailable reason")
@@ -979,7 +1054,10 @@ class ArchitectureReport:
             for graph in (self.observed, self.target)
         ):
             raise ValueError("graph layer vocabulary requires report schema_version 1.2.0")
-        for graph, origin in ((self.observed, OriginKind.OBSERVED), (self.target, OriginKind.DECLARED)):
+        for graph, origin in (
+            (self.observed, OriginKind.OBSERVED),
+            (self.target, OriginKind.DECLARED),
+        ):
             if graph is not None:
                 if graph.origin != origin:
                     raise ValueError(f"report needs {origin} origin")
@@ -1030,7 +1108,11 @@ class ArchitectureReport:
         if len(gaps) != len(self.decision_gaps):
             raise ValueError("duplicate dependency decision gap")
         imports = (
-            {edge.id for edge in self.observed.relationships if edge.kind == RelationshipKind.IMPORTS}
+            {
+                edge.id
+                for edge in self.observed.relationships
+                if edge.kind == RelationshipKind.IMPORTS
+            }
             if self.observed
             else set()
         )

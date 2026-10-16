@@ -5,26 +5,26 @@
 
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
-    CompletenessMode,
-    CoverageStatus,
-    OriginKind,
-    ParameterKind,
-    PresenceKind,
-    ResolutionKind,
-    VisibilityBasis,
-    VisibilityKind,
     AssessmentAspect,
     AssessmentChange,
     AssessmentStatus,
+    CompletenessMode,
+    CoverageStatus,
     Entity,
     EntityCorrespondence,
     EntityKind,
     GraphAssessment,
     GraphComparison,
+    OriginKind,
+    ParameterKind,
+    PresenceKind,
     Relationship,
     RelationshipKind,
+    ResolutionKind,
     Signature,
     TargetScope,
+    VisibilityBasis,
+    VisibilityKind,
 )
 from archkeel.ir.facts import Language
 from archkeel.ir.model import stable_id
@@ -56,7 +56,14 @@ def _result(
 def _matches(graph: ArchitectureGraph, wanted: Entity) -> tuple[Entity, ...]:
     namespace = wanted.kind in {EntityKind.MODULE, EntityKind.PACKAGE}
     type_only = {EntityKind.INTERFACE, EntityKind.TYPE_ALIAS}
-    value_only = {EntityKind.METHOD, EntityKind.FUNCTION, EntityKind.ATTRIBUTE, EntityKind.CONSTANT, EntityKind.BINDING, EntityKind.ENUM_LITERAL}
+    value_only = {
+        EntityKind.METHOD,
+        EntityKind.FUNCTION,
+        EntityKind.ATTRIBUTE,
+        EntityKind.CONSTANT,
+        EntityKind.BINDING,
+        EntityKind.ENUM_LITERAL,
+    }
     # Classes, enums and opaque kinds can occupy both namespaces; never pick by kind alone.
     excluded = (
         value_only
@@ -71,12 +78,18 @@ def _matches(graph: ArchitectureGraph, wanted: Entity) -> tuple[Entity, ...]:
         if item.qualified_name == wanted.qualified_name
         and item.language == wanted.language
         and (item.presence == PresenceKind.DEFINED or wanted.presence == PresenceKind.REFERENCED)
-        and (item.kind == wanted.kind if namespace else item.kind not in {EntityKind.MODULE, EntityKind.PACKAGE})
+        and (
+            item.kind == wanted.kind
+            if namespace
+            else item.kind not in {EntityKind.MODULE, EntityKind.PACKAGE}
+        )
         and item.kind not in excluded
     )
     if wanted.kind == EntityKind.ENUM_LITERAL:
         # A physical field or value binding alone does not prove enum membership.
-        return tuple(item for item in matches if item.kind not in {EntityKind.ATTRIBUTE, EntityKind.BINDING})
+        return tuple(
+            item for item in matches if item.kind not in {EntityKind.ATTRIBUTE, EntityKind.BINDING}
+        )
     if wanted.kind in {EntityKind.ATTRIBUTE, EntityKind.BINDING} and any(
         item.kind == wanted.kind for item in matches
     ):
@@ -84,7 +97,8 @@ def _matches(graph: ArchitectureGraph, wanted: Entity) -> tuple[Entity, ...]:
         return tuple(
             item
             for item in matches
-            if item.kind == wanted.kind or item.kind not in {EntityKind.ATTRIBUTE, EntityKind.BINDING}
+            if item.kind == wanted.kind
+            or item.kind not in {EntityKind.ATTRIBUTE, EntityKind.BINDING}
         )
     return matches
 
@@ -226,7 +240,12 @@ def _containment(
 def _syntax_details(wanted: Entity, actual: Entity) -> tuple[GraphAssessment, ...]:
     fields: tuple[tuple[AssessmentAspect, str | None, str | None, str], ...] = (
         (AssessmentAspect.ANNOTATION, wanted.annotation, actual.annotation, "Annotation"),
-        (AssessmentAspect.INITIALIZER, wanted.initializer, actual.initializer, "Initializer syntax"),
+        (
+            AssessmentAspect.INITIALIZER,
+            wanted.initializer,
+            actual.initializer,
+            "Initializer syntax",
+        ),
     )
     results = []
     for aspect, expected, value, label in fields:
@@ -238,8 +257,16 @@ def _syntax_details(wanted: Entity, actual: Entity) -> tuple[GraphAssessment, ..
             _result(
                 wanted.id,
                 aspect,
-                AssessmentStatus.UNKNOWN if unknown else AssessmentStatus.PASS if equal else AssessmentStatus.FAIL,
-                AssessmentChange.UNAVAILABLE if unknown else AssessmentChange.MATCHED if equal else AssessmentChange.CHANGED,
+                AssessmentStatus.UNKNOWN
+                if unknown
+                else AssessmentStatus.PASS
+                if equal
+                else AssessmentStatus.FAIL,
+                AssessmentChange.UNAVAILABLE
+                if unknown
+                else AssessmentChange.MATCHED
+                if equal
+                else AssessmentChange.CHANGED,
                 f"{label} is unavailable."
                 if unknown
                 else f"{label} matches."
@@ -260,13 +287,20 @@ def _details(wanted: Entity, actual: Entity) -> tuple[GraphAssessment, ...]:
                 wanted.id,
                 AssessmentAspect.SIGNATURE,
                 status,
-                AssessmentChange.MATCHED if status == AssessmentStatus.PASS else AssessmentChange.CHANGED if status == AssessmentStatus.FAIL else AssessmentChange.UNAVAILABLE,
+                AssessmentChange.MATCHED
+                if status == AssessmentStatus.PASS
+                else AssessmentChange.CHANGED
+                if status == AssessmentStatus.FAIL
+                else AssessmentChange.UNAVAILABLE,
                 reason,
                 (actual,),
             )
         )
     if wanted.visibility.kind != VisibilityKind.UNKNOWN:
-        unknown = actual.visibility.kind == VisibilityKind.UNKNOWN or actual.visibility.basis == VisibilityBasis.UNKNOWN
+        unknown = (
+            actual.visibility.kind == VisibilityKind.UNKNOWN
+            or actual.visibility.basis == VisibilityBasis.UNKNOWN
+        )
         equal = (
             wanted.visibility.kind == actual.visibility.kind
             and (
@@ -282,8 +316,16 @@ def _details(wanted: Entity, actual: Entity) -> tuple[GraphAssessment, ...]:
             _result(
                 wanted.id,
                 AssessmentAspect.VISIBILITY,
-                AssessmentStatus.UNKNOWN if unknown else AssessmentStatus.PASS if equal else AssessmentStatus.FAIL,
-                AssessmentChange.UNAVAILABLE if unknown else AssessmentChange.MATCHED if equal else AssessmentChange.CHANGED,
+                AssessmentStatus.UNKNOWN
+                if unknown
+                else AssessmentStatus.PASS
+                if equal
+                else AssessmentStatus.FAIL,
+                AssessmentChange.UNAVAILABLE
+                if unknown
+                else AssessmentChange.MATCHED
+                if equal
+                else AssessmentChange.CHANGED,
                 "Visibility is unavailable."
                 if unknown
                 else "Visibility matches."
@@ -364,11 +406,23 @@ def _entity(
         )
     if actual.kind != wanted.kind:
         return (
-            _result(wanted.id, AssessmentAspect.KIND, AssessmentStatus.FAIL, AssessmentChange.CHANGED, "Recorded entity kind differs.", matches),
+            _result(
+                wanted.id,
+                AssessmentAspect.KIND,
+                AssessmentStatus.FAIL,
+                AssessmentChange.CHANGED,
+                "Recorded entity kind differs.",
+                matches,
+            ),
         )
     return (
         _result(
-            wanted.id, AssessmentAspect.EXISTENCE, AssessmentStatus.PASS, AssessmentChange.MATCHED, "Declared definition is recorded.", matches
+            wanted.id,
+            AssessmentAspect.EXISTENCE,
+            AssessmentStatus.PASS,
+            AssessmentChange.MATCHED,
+            "Declared definition is recorded.",
+            matches,
         ),
         *_containment(observed, target, wanted, actual),
         *_details(wanted, actual),
@@ -407,7 +461,8 @@ def _relationship(
     matched = tuple(
         item
         for item in sites
-        if item.target_id == targets[0].id and item.resolution in {ResolutionKind.RESOLVED, ResolutionKind.NOT_APPLICABLE}
+        if item.target_id == targets[0].id
+        and item.resolution in {ResolutionKind.RESOLVED, ResolutionKind.NOT_APPLICABLE}
     )
     if matched:
         return _result(
@@ -418,7 +473,11 @@ def _relationship(
             "Directed relationship is recorded.",
             matched,
         )
-    uncertain = tuple(item for item in sites if item.resolution in {ResolutionKind.PARTIAL, ResolutionKind.UNRESOLVED})
+    uncertain = tuple(
+        item
+        for item in sites
+        if item.resolution in {ResolutionKind.PARTIAL, ResolutionKind.UNRESOLVED}
+    )
     if uncertain:
         return _result(
             wanted.id,
@@ -497,7 +556,9 @@ def _closed_relationship_assessments(
     complete = all(
         _complete(observed, actual, kind)
         for kind in (*wanted.entity_kinds, *wanted.relationship_kinds)
-    ) and not any(item.resolution in {ResolutionKind.PARTIAL, ResolutionKind.UNRESOLVED} for item in sites)
+    ) and not any(
+        item.resolution in {ResolutionKind.PARTIAL, ResolutionKind.UNRESOLVED} for item in sites
+    )
     return (
         _result(
             scope.id,

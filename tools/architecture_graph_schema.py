@@ -121,7 +121,11 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
 
     reference = shape(root)
     versions = get_type_hints(root)["schema_version"]
-    version = next(iter(versions)).value if isinstance(versions, type) and issubclass(versions, StrEnum) else get_args(versions)[0]
+    version = (
+        next(iter(versions)).value
+        if isinstance(versions, type) and issubclass(versions, StrEnum)
+        else get_args(versions)[0]
+    )
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": f"urn:archkeel:{name}:{version}",
