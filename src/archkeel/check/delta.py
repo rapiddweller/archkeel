@@ -19,6 +19,7 @@ from archkeel.ir.model import (
     DeltaCoverage,
     DeltaProvenance,
     DeltaUnknown,
+    DeltaVersion,
     Diagnostic,
     DiagnosticError,
     DimensionDelta,
@@ -588,7 +589,7 @@ def build_architecture_delta(
         )
     unknown_dimensions = tuple(item.name for item in dimensions if item.status == "UNKNOWN")
     return ArchitectureDelta(
-        DELTA_SCHEMA_VERSION,
+        DeltaVersion.V2_0,
         head.analyzer,
         DeltaProvenance(
             checker_digest, analyzer_digest, contract_digest, baseline_digest, head_digest

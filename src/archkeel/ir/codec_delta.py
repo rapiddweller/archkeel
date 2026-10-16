@@ -26,7 +26,6 @@ from archkeel.ir.codec_wire import (
 )
 from archkeel.ir.facts import RuntimeRequirementState
 from archkeel.ir.model import (
-    DELTA_SCHEMA_VERSION,
     AnalyzerInfo,
     ArchitectureDelta,
     ComparisonStatus,
@@ -34,17 +33,28 @@ from archkeel.ir.model import (
     DeltaCoverage,
     DeltaProvenance,
     DeltaUnknown,
+    DeltaVersion,
     DimensionDelta,
     Projection,
     RatchetObservations,
     SemanticChange,
     SnapshotSummary,
 )
+from archkeel.ir.model import DELTA_SCHEMA_VERSION as DELTA_SCHEMA_VERSION
 from archkeel.ir.model import RawJson as RawJson
+from archkeel.ir.model import supports_nullable_delta_counts as _supports_nullable_delta_counts
 from archkeel.ir.profiles import profile_for
 
 from .facts_codec import freeze_data as _data
 from .facts_codec import parse_evidence as parse_evidence
+
+
+def _parse_delta_version(raw: RawJson) -> DeltaVersion:
+    value = _string(raw, "delta.schema_version")
+    try:
+        return DeltaVersion(value)
+    except ValueError as error:
+        raise ValueError("unsupported delta schema version") from error
 
 
 def _is_comparison_status(value: RawJson) -> TypeGuard[ComparisonStatus]:
@@ -58,7 +68,7 @@ def _projection_payload(value: Projection) -> dict[str, RawJson]:
 
 
 def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
-    if delta.schema_version != DELTA_SCHEMA_VERSION and any(
+    if delta.schema_version is not DeltaVersion.V2_0 and any(
         snapshot.runtime is not None
         and snapshot.runtime.requirement_state != RuntimeRequirementState.DECLARED
         for snapshot in (delta.baseline, delta.head)
@@ -97,7 +107,7 @@ def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
     if ratchets.status == "SUPPORTED":
         if ratchets.baseline is None or ratchets.head is None:
             raise ValueError("supported regression checks require both measurements")
-        legacy_calls = delta.schema_version in {"1.2.0", "1.3.0"}
+        legacy_calls = not _supports_nullable_delta_counts(delta.schema_version)
         result["ratchets"] = {
             "status": "SUPPORTED",
             "baseline": _measurement_payload(ratchets.baseline, legacy_calls=legacy_calls),
@@ -163,9 +173,7 @@ def parse_delta(raw: object) -> ArchitectureDelta:
     delta_status = _parse_verdict(cv["status"], "delta coverage status")
     baseline_status = _parse_verdict(cv["baseline_status"], "delta coverage status")
     head_status = _parse_verdict(cv["head_status"], "delta coverage status")
-    version = _string(item["schema_version"], "delta.schema_version")
-    if version not in {"1.2.0", "1.3.0", "1.4.0", DELTA_SCHEMA_VERSION}:
-        raise ValueError("unsupported delta schema version")
+    version = _parse_delta_version(item["schema_version"])
     profile_for(_string(analyzer["name"], "delta.analyzer.name"))
     dimensions_raw = _object(item["dimensions"], "delta.dimensions")
     dimensions = tuple(
@@ -173,7 +181,7 @@ def parse_delta(raw: object) -> ArchitectureDelta:
         for name, raw_dimension in sorted(dimensions_raw.items())
     )
     ratchets = _parse_ratchets(
-        item["ratchets"], nullable_calls=version in {"1.4.0", DELTA_SCHEMA_VERSION}
+        item["ratchets"], nullable_calls=_supports_nullable_delta_counts(version)
     )
     semantic_changes_raw = item["semantic_changes"]
     unknowns_raw = item["unknowns"]
@@ -184,7 +192,7 @@ def parse_delta(raw: object) -> ArchitectureDelta:
     )
     unknowns = tuple(_parse_delta_unknown(value) for value in unknowns_raw)
     return ArchitectureDelta(
-        _string(item["schema_version"], "schema_version"),
+        version,
         AnalyzerInfo(
             _string(analyzer["name"], "analyzer.name"),
             _string(analyzer["version"], "analyzer.version"),
@@ -205,10 +213,10 @@ def parse_delta(raw: object) -> ArchitectureDelta:
         _parse_snapshot_summary(
             item["baseline"],
             "delta.baseline",
-            allow_requirement_state=version == DELTA_SCHEMA_VERSION,
+            allow_requirement_state=version is DeltaVersion.V2_0,
         ),
         _parse_snapshot_summary(
-            item["head"], "delta.head", allow_requirement_state=version == DELTA_SCHEMA_VERSION
+            item["head"], "delta.head", allow_requirement_state=version is DeltaVersion.V2_0
         ),
         ContractInfo(
             _string(c["schema_version"], "contract.schema_version"),
@@ -249,7 +257,7 @@ def _parse_snapshot_summary(
     )
 
 
-def _parse_dimension(name: str, raw: RawJson, *, version: str) -> DimensionDelta:
+def _parse_dimension(name: str, raw: RawJson, *, version: DeltaVersion) -> DimensionDelta:
     label = f"dimensions.{name}"
     dimension = _exact(
         raw,
@@ -263,12 +271,12 @@ def _parse_dimension(name: str, raw: RawJson, *, version: str) -> DimensionDelta
         name,
         status,
         None
-        if version in {"1.4.0", DELTA_SCHEMA_VERSION}
+        if _supports_nullable_delta_counts(version)
         and status == "UNKNOWN"
         and dimension["before_count"] is None
         else _count(dimension["before_count"], f"{label}.before_count"),
         None
-        if version in {"1.4.0", DELTA_SCHEMA_VERSION}
+        if _supports_nullable_delta_counts(version)
         and status == "UNKNOWN"
         and dimension["after_count"] is None
         else _count(dimension["after_count"], f"{label}.after_count"),

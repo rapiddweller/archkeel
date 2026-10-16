@@ -97,6 +97,18 @@ SCHEMA_VERSION = "2.0.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 
 
+class DeltaVersion(StrEnum):
+    V1_2 = "1.2.0"
+    V1_3 = "1.3.0"
+    V1_4 = "1.4.0"
+    V2_0 = DELTA_SCHEMA_VERSION
+
+
+def supports_nullable_delta_counts(version: DeltaVersion) -> bool:
+    """Nullable call/dimension counts entered the Delta wire in 1.4."""
+    return version in {DeltaVersion.V1_4, DeltaVersion.V2_0}
+
+
 class Command(StrEnum):
     REPORT = "report"
     VALIDATE = "validate"
@@ -1262,7 +1274,7 @@ class RatchetObservations:
 
 @dataclass(frozen=True, slots=True)
 class ArchitectureDelta:
-    schema_version: str
+    schema_version: DeltaVersion
     analyzer: AnalyzerInfo
     provenance: DeltaProvenance
     baseline: SnapshotSummary
@@ -1273,6 +1285,9 @@ class ArchitectureDelta:
     ratchets: RatchetObservations
     semantic_changes: tuple[SemanticChange, ...]
     unknowns: tuple[DeltaUnknown, ...]
+
+    def __post_init__(self) -> None:
+        builtins.object.__setattr__(self, "schema_version", DeltaVersion(self.schema_version))
 
 
 @dataclass(frozen=True, slots=True)

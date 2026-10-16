@@ -15,9 +15,11 @@ from typing import Final
 from archkeel.ir.baseline import CycleIdentity, is_contraction
 from archkeel.ir.digest import package_digest
 from archkeel.ir.model import ArchitectureDelta, DeltaProvenance, Projection, SemanticChange
+from archkeel.ir.model import supports_nullable_delta_counts as _supports_nullable_delta_counts
 from archkeel.ir.profiles import Profile, delta_dimension_applicable, profile_for
 
-from .delta import DELTA_SCHEMA_VERSION, SUPPORTED_DIMENSIONS, require_comparable_runtime
+from .delta import DELTA_SCHEMA_VERSION as DELTA_SCHEMA_VERSION
+from .delta import SUPPORTED_DIMENSIONS, require_comparable_runtime
 from .ratchets import compare_ratchets
 
 EXPECTATION_SCHEMA_VERSION: Final = "1.2.0"
@@ -249,7 +251,7 @@ def _require_profile_coverage(delta: ArchitectureDelta) -> Profile:
         or coverage.head_status != delta.head.coverage_status
     ):
         raise ExpectationError("delta coverage disagrees with complete snapshots")
-    if unknown and delta.schema_version not in {"1.4.0", DELTA_SCHEMA_VERSION}:
+    if unknown and not _supports_nullable_delta_counts(delta.schema_version):
         raise ExpectationError("profile-scoped comparison requires delta 1.4.0 or 2.0.0")
     if any(
         dimensions[name].before_count is not None or dimensions[name].after_count is not None
