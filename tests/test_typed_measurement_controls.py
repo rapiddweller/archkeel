@@ -347,7 +347,9 @@ def test_existing_profile_capability_domain_maps_to_eligible_budget_selectors():
         ),
     ],
 )
-def test_native_real_budget_and_codec_decision_reversions_fail_fixed_guard(tmp_path, path, old, new):
+def test_native_real_budget_and_codec_decision_reversions_fail_fixed_guard(
+    tmp_path, path, old, new
+):
     root, config = _repository(tmp_path)
     _valid(_model(root, config))
     source = root / "archkeel/ir" / path

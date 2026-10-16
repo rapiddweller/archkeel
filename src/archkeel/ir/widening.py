@@ -121,7 +121,8 @@ def _set_widenings(
             for item in sorted(after - before)
         ]
     return [
-        WideningChange(subject, field, f"{label} lost {_builtins.str.__str__(item)!r}") for item in sorted(before - after)
+        WideningChange(subject, field, f"{label} lost {_builtins.str.__str__(item)!r}")
+        for item in sorted(before - after)
     ]
 
 
