@@ -189,6 +189,8 @@ def _literal_collections(module: ParsedModule, scopes: LexicalScopes) -> frozens
     for statement in module.tree.body:
         if not isinstance(statement, ast.Assign | ast.AnnAssign):
             continue
+        if isinstance(statement, ast.Assign) and len(statement.targets) != 1:
+            continue
         value = statement.value
         if not (
             isinstance(value, ast.Tuple | ast.List | ast.Set)
@@ -213,9 +215,10 @@ def _literal_collections(module: ParsedModule, scopes: LexicalScopes) -> frozens
         if node.id not in candidates or scopes.lookup(node, node.id).owner is not scopes.root:
             continue
         parent = parents[node]
-        if not isinstance(parent, ast.Compare) or not any(
-            right is node and isinstance(operator, ast.In | ast.NotIn)
-            for operator, right in zip(parent.ops, parent.comparators, strict=True)
+        if (
+            not isinstance(parent, ast.Compare)
+            or parent.comparators[-1] is not node
+            or not isinstance(parent.ops[-1], ast.In | ast.NotIn)
         ):
             candidates.discard(node.id)
     return frozenset(candidates)
