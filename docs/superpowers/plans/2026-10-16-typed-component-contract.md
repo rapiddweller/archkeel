@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use superpowers:executing-plans to implement the tasks in order with RED/GREEN evidence. The user explicitly ordered execution; preserve independent final Astra reviews and separate PRs.
 
-**Goal:** Close #540–#542 with shared typed selection, enforceable API intent and scoped string-control guards.
+**Goal:** Address #540 and #541 with shared typed selection and enforceable API intent, then complete the expanded #542 migration including parser and protocol controls. The initial dependency-only guard is one increment and must not close #542.
 **Architecture:** The model owns selector vocabulary and pure matching. The existing contract codec owns conversion from wire/record strings. Core and projections consume the same selection; Core remains the verdict authority.
 **Tech Stack:** Python 3.11+, dataclasses/NamedTuple/StrEnum, existing pytest, native ArchKeel contracts and GitHub Actions.
 **Spec:** docs/superpowers/specs/2026-10-16-typed-component-contract-design.md at 8a5f650c66d13add619eaf38a4fc69dd6fffd8a8.
@@ -69,9 +69,18 @@
 - [ ] Activate existing string_literal_compare policy for the migrated domain APIs; keep wire/data handling in its responsible boundary.
 - [ ] Prove enums and legitimate data inputs remain accepted. Do not add blanket exemptions.
 - [ ] Record measured protected/remaining scope and avoid claiming whole-repository string freedom.
-- [ ] Run native self/guard/compatibility suites and CI; create separate PR closing #542.
+- [ ] Run native self/guard/compatibility suites and CI; create a separate scoped PR contributing to #542; keep the expanded issue open.
 
 ## Execution and review
 
 Pre-flight: Task 2 consumes Task 1 exact type names/signatures; Task 3 consumes both the typed API and its explicit scope. These are sequential dependencies. Read-only Target research may run independently.
 For every task record hosted RED and GREEN run URLs in its PR. Independent Astra reviews each final issue diff and then the combined final state. Resolve all blockers, obtain required green checks at the final head, merge in order and verify issue closure.
+
+
+## Expanded scope after user clarification
+
+The user explicitly prohibits comparisons with parser/protocol control strings too. The execution ledger records the current staged work and evidence. Migrate each coherent owner independently: state; collector protocol/facts; language configuration and syntax DTOs; graph; CLI; contract grammar; presentation and browser ingress. Preserve existing bytes, malformed-input rejection, actual capability limits and unknown evidence. An input parser is not an exception. Structural JSON key identity remains open data and belongs to the input codec's field grammar, not a mirrored key enum.
+
+Before activating each whole-module guard, demonstrate a native positive and fixed-contract source mutations on the actual source. Independently authored Target fields/returns must reject widening to strings. Never replace incomplete native proof with an inferred observed Target. Static compiler/protocol validators supplement rather than impersonate native capability.
+
+Separate #544 grants may proceed as their own feature with exact caller/target module identity, schema-version compatibility, and negative symbol/forwarder controls. It must not broaden the publication inventory.
