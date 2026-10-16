@@ -1,0 +1,40 @@
+name: TS construct ordinary amendment
+on:
+  push:
+    branches: [verify/542-typescript-construct-receipt]
+permissions:
+  contents: read
+jobs:
+  receipt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Refresh actual baseline and ordinary contract amendment without accepting new debt
+        run: |
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --write-baseline --json --against fa37f59600cfae64ba0528cb56e609c6bbd756e4 --amendment docs/architecture/decisions/issue-542-typescript-written-controls-amendment.json --write-amendment --decided-by "ake2l (explicit parser/protocol control request); Codex implementation, independent Astra review before merge" --rationale "Observe only actual written TypeScript/JavaScript equality and switch literals through the existing syntax port, canonical construct kind and PARTIAL capability. Independent optional construct receipts preserve legacy null and the atomic UML group. Add authored lexical DTO and receipt-group field intent, with native source mutations. Actual source retains913 unresolved calls,52 typing and all58 semantic UNKNOWN positions/routes; no budget increase, allowance, cast or new analysis authority." > "$RUNNER_TEMP/receipt-result.json"
+      - name: Exact generated policy files and actual result
+        if: ${{ always() }}
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          result = json.loads((Path(os.environ["RUNNER_TEMP"]) / "receipt-result.json").read_text())
+          print("ACTUAL_RECEIPT_RESULT=" + json.dumps({key: result.get(key) for key in ("exit_code", "amendment_status", "failures", "diagnostics", "measurements")}), flush=True)
+          for rel in ("architecture-baseline.json", "docs/architecture/decisions/issue-542-typescript-written-controls-amendment.json"):
+              path = Path(rel)
+              if path.is_file():
+                  print("GENERATED_FILE=" + json.dumps({"path": rel, "content": path.read_text()}), flush=True)
+          assert result["exit_code"] == 0
+          assert result["measurements"]["scalars"]["calls_unresolved"] == 913
+          assert result["measurements"]["scalars"]["unknown_positions"] == 58
+          PY
