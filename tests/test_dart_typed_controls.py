@@ -131,11 +131,13 @@ def test_native_dart_control_guard_rejects_actual_source_string_dispatch(tmp_pat
     path.write_text(path.read_text() + "\n" + probe)
     before = (root / "contract.json").read_bytes()
     model = _model(root, config)
-    assert any(
-        row.data.get("construct") == "string_literal_compare"
-        and "_control_probe" in str(row.data.get("owner", ""))
-        for row in trace_valid_violations(model)
-    )
+    probes = {
+        row.id for row in model.records("constructs")
+        if "_control_probe" in str(row.data.get("owner", ""))
+        and row.data.get("construct") == "string_literal_compare"
+    }
+    assert probes
+    assert any(probes.intersection(row.fact_ids) for row in trace_valid_violations(model))
     assert (root / "contract.json").read_bytes() == before
 
 
