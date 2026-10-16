@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Sequence
+from enum import Enum
 
 from archkeel.ir.facts import EvidenceClass, stable_id
 from archkeel.ir.facts_codec import RawData as RecordData
@@ -14,6 +15,22 @@ from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
 from .scopes import LexicalScopes
 from .source import ParsedModule, add_evidence, body_is_empty, decorator_names, location
+
+
+class _StringPredicate(Enum):
+    STARTSWITH = "startswith"
+    ENDSWITH = "endswith"
+
+
+def _string_predicate(node: ast.Call) -> _StringPredicate | None:
+    """Decode written member syntax without asserting the receiver's runtime type."""
+    if not isinstance(node.func, ast.Attribute):
+        return None
+    try:
+        return _StringPredicate(node.func.attr)
+    except ValueError:
+        return None
+
 
 _BROAD_NAMES = frozenset({"Exception", "BaseException"})
 _REFLECTION_CALLS = {"setattr": "setattr_call", "delattr": "delattr_call", "vars": "vars_call"}
@@ -183,9 +200,11 @@ def _static_string_constants(
     return module_values, class_values, enum_classes
 
 
-def _literal_collections(module: ParsedModule, scopes: LexicalScopes) -> frozenset[str]:
-    """Name direct literal collections whose visible loads are only membership tests."""
-    candidates: set[str] = set()
+def _literal_collections(
+    module: ParsedModule, scopes: LexicalScopes
+) -> dict[str, ast.Tuple | ast.List | ast.Set]:
+    """Retain qualified literal nodes; only tuples also serve predicate arguments."""
+    candidates: dict[str, ast.Tuple | ast.List | ast.Set] = {}
     for statement in module.tree.body:
         if not isinstance(statement, ast.Assign | ast.AnnAssign):
             continue
@@ -200,11 +219,13 @@ def _literal_collections(module: ParsedModule, scopes: LexicalScopes) -> frozens
             continue
         targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
         candidates.update(
-            target.id
-            for target in targets
-            if isinstance(target, ast.Name)
-            and module.scope_bound_names.count(target.id) == 1
-            and target.id not in module.global_names
+            {
+                target.id: value
+                for target in targets
+                if isinstance(target, ast.Name)
+                and module.scope_bound_names.count(target.id) == 1
+                and target.id not in module.global_names
+            }
         )
     parents = {
         child: parent for parent in module.all_nodes for child in ast.iter_child_nodes(parent)
@@ -215,13 +236,21 @@ def _literal_collections(module: ParsedModule, scopes: LexicalScopes) -> frozens
         if node.id not in candidates or scopes.lookup(node, node.id).owner is not scopes.root:
             continue
         parent = parents[node]
-        if (
-            not isinstance(parent, ast.Compare)
-            or parent.comparators[-1] is not node
-            or not isinstance(parent.ops[-1], ast.In | ast.NotIn)
-        ):
-            candidates.discard(node.id)
-    return frozenset(candidates)
+        membership = (
+            isinstance(parent, ast.Compare)
+            and parent.comparators[-1] is node
+            and isinstance(parent.ops[-1], ast.In | ast.NotIn)
+        )
+        predicate = (
+            isinstance(candidates[node.id], ast.Tuple)
+            and isinstance(parent, ast.Call)
+            and bool(parent.args)
+            and parent.args[0] is node
+            and _string_predicate(parent) is not None
+        )
+        if not membership and not predicate:
+            candidates.pop(node.id, None)
+    return candidates
 
 
 def _literal_enum_body(node: ast.ClassDef) -> bool:
@@ -288,31 +317,8 @@ class _LiteralComparisons:
             return False
         return resolved in {"enum.Enum", "enum.StrEnum"}
 
-    def _local_scalar(self, node: ast.Name) -> bool:
-        """One preceding literal write in the same function is written syntax evidence."""
-        binding = self.scopes.lookup(node, node.id)
-        owner = binding.owner
-        if (
-            binding.uncertain
-            or owner is None
-            or owner is not self.scopes.by_node[node]
-            or not isinstance(owner.node, ast.FunctionDef | ast.AsyncFunctionDef)
-        ):
-            return False
-        sites = owner.bindings.get(node.id, [])
-        if len(sites) != 1:
-            return False
-        assignment = self.scopes.parents.get(sites[0])
-        return (
-            isinstance(assignment, ast.Assign | ast.AnnAssign)
-            and self.scopes.parents.get(assignment) is owner.node
-            and (assignment.lineno, assignment.col_offset) < (node.lineno, node.col_offset)
-            and assignment.value is not None
-            and _is_str(assignment.value)
-        )
-
     def scalar(self, node: ast.expr) -> bool:
-        if _is_str(node) or (isinstance(node, ast.Name) and self._local_scalar(node)):
+        if _is_str(node):
             return True
         if not self._module_name(node):
             return False
@@ -346,6 +352,16 @@ class _LiteralComparisons:
             return bool(node.elts) and all(self.scalar(item) for item in node.elts)
         return (
             isinstance(node, ast.Name) and node.id in self.collections and self._module_name(node)
+        )
+
+    def predicate(self, node: ast.expr) -> bool:
+        if isinstance(node, ast.Tuple):
+            return any(self.scalar(item) for item in node.elts)
+        return self.scalar(node) or (
+            isinstance(node, ast.Name)
+            and node.id in self.collections
+            and isinstance(self.collections[node.id], ast.Tuple)
+            and self._module_name(node)
         )
 
 
@@ -436,6 +452,15 @@ class ConstructCollector(ast.NodeVisitor):
         name = _as_written(node.func)
         if name is not None and name in _REFLECTION_CALLS:
             self._record(node, kind=_REFLECTION_CALLS[name], construct=name, handled=None)
+        predicate = _string_predicate(node)
+        if predicate is not None and node.args and self.comparisons.predicate(node.args[0]):
+            self._record(
+                node,
+                kind="string_literal_compare",
+                construct="string_literal_compare",
+                handled=None,
+                form=predicate.value,
+            )
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
