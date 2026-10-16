@@ -203,6 +203,7 @@ class Resolver:
     def __init__(self, snapshot: Snapshot, syntax: dict[str, Syntax]) -> None:
         self.snapshot = snapshot
         self.syntax = syntax
+        self._path_cache: dict[str, PurePosixPath] = {}
         self.problems: list[ResolutionProblem] = []
         self.sources = snapshot.source_by_path
         self._module_paths: dict[str, list[str]] = {}
@@ -254,7 +255,7 @@ class Resolver:
             return None
         if _uri_scheme(parsed.scheme) == _UriScheme.DART:
             path = unquote(parsed.path)
-            module_name = _module_path(path)
+            module_name = self._module_path(path)
             if module_name is None:
                 self._problem(
                     rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}"
@@ -269,13 +270,13 @@ class Resolver:
                 not separator
                 or not _PACKAGE_NAME.fullmatch(package)
                 or not target_path
-                or PurePosixPath(target_path).is_absolute()
+                or self._posix_path(target_path).is_absolute()
             ):
                 self._problem(
                     rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}"
                 )
                 return None
-            module_name = _module_path(target_path)
+            module_name = self._module_path(target_path)
             if module_name is None:
                 self._problem(
                     rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}"
@@ -293,7 +294,7 @@ class Resolver:
             )
             return None
         target_path = unquote(parsed.path)
-        if PurePosixPath(target_path).is_absolute():
+        if self._posix_path(target_path).is_absolute():
             self._problem(
                 rel_path, ResolutionProblemKind.IMPORT_ERROR, f"absolute URI {uri!r} is unsupported"
             )
@@ -1896,8 +1897,24 @@ class Resolver:
         )
         return library == target
 
+    def _posix_path(self, spelling: str) -> PurePosixPath:
+        path = self._path_cache.get(spelling)
+        if path is None:
+            path = PurePosixPath(spelling)
+            self._path_cache[spelling] = path
+        return path
+
+    def _module_path(self, path: str) -> str | None:
+        if (
+            not path
+            or self._posix_path(path).is_absolute()
+            or any(re.fullmatch(r"\.\.", part) for part in _path_parts(path))
+        ):
+            return None
+        return dart_module_name(path)
+
     def _source_at(self, rel: str, importer: str, uri: str) -> Source | None:
-        if PurePosixPath(rel).is_relative_to("..") or not self._in_roots(rel):
+        if self._posix_path(rel).is_relative_to(self._posix_path("..")) or not self._in_roots(rel):
             self._problem(
                 importer,
                 ResolutionProblemKind.IMPORT_ERROR,
@@ -1927,16 +1944,6 @@ class Resolver:
         issue = ResolutionProblem(path, kind, message, span)
         if issue not in self.problems:
             self.problems.append(issue)
-
-
-def _module_path(path: str) -> str | None:
-    if (
-        not path
-        or PurePosixPath(path).is_absolute()
-        or any(re.fullmatch(r"\.\.", part) for part in _path_parts(path))
-    ):
-        return None
-    return dart_module_name(path)
 
 
 def _path_parts(path: str) -> tuple[str, ...]:

@@ -143,8 +143,7 @@ def test_index_receiver_does_not_gain_known_targets(tmp_path):
         tmp_path,
         {
             "lib/main.dart": (
-                "class Box { Box(); void work() {} } "
-                "void run(List<Box> boxes) { boxes[0].work(); }"
+                "class Box { Box(); void work() {} } void run(List<Box> boxes) { boxes[0].work(); }"
             )
         },
     )
