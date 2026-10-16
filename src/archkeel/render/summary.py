@@ -29,7 +29,7 @@ from .summary_badges import BadgeState as BadgeState
 from .summary_badges import badge as badge
 
 State: TypeAlias = BadgeState
-Comparison: TypeAlias = tuple[str, str, str, str]
+Comparison: TypeAlias = tuple[str, str, str, _MetricComparisonStatus]
 # AD-100: a rejected run names this many unresolved call sites; the JSON result names all.
 _CALL_SITES_SHOWN: Final = 5
 

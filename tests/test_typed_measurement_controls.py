@@ -295,3 +295,15 @@ def test_native_complete_measurement_owner_rejects_raw_dispatch(tmp_path, probe)
     source.write_text(source.read_text() + "\n" + probe)
     value = _model(root, config)
     assert any("MEASURE-CONTROL" in row.rule_ids for row in trace_valid_violations(value))
+
+
+def test_existing_profile_capability_domain_maps_to_eligible_budget_selectors():
+    from archkeel.ir.profiles import UnmeasurableScalar
+
+    assert [(item.name, str(item)) for item in UnmeasurableScalar] == [
+        ("PRIVATE_CROSSINGS", "private_crossings"),
+        ("TYPING_POSITIONS", "typing_positions"),
+        ("CALLS_UNRESOLVED", "calls_unresolved"),
+        ("UNTYPED_PRIVATE_ACCESSES", "untyped_private_accesses"),
+    ]
+    assert all(type(m.MeasurementBudgetName(item)) is m.MeasurementBudgetName for item in UnmeasurableScalar)

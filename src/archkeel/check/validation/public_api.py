@@ -796,6 +796,6 @@ def interface_budget_diagnostics(
 
 
 _BUDGET_NOUNS: Final[dict[NameBudgetKind, str]] = {
-    "facade_names": "facade",
-    "coupling_names": "pair",
+    NameBudgetKind.FACADE_NAMES: "facade",
+    NameBudgetKind.COUPLING_NAMES: "pair",
 }

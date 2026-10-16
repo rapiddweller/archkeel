@@ -18,6 +18,7 @@ from archkeel.ir.facts import ConstructCapability, ConstructSupport
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.graph import strongly_connected_components
+from archkeel.ir.measurements import MeasurementBudgetName as _MeasurementBudgetName
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -1213,7 +1214,7 @@ def profile_failures(
         *(
             (f"declarations.measurement_budgets.{budget.name}", [], f"budget {budget.name}")
             for budget in declarations.measurement_budgets
-            if budget.name in profile.unmeasured
+            if budget.name in {_MeasurementBudgetName(name) for name in profile.unmeasured}
         ),
     ]
 

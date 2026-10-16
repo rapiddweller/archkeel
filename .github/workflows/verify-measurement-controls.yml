@@ -35,13 +35,13 @@ jobs:
       - run: uv sync --locked
 
       - run: |
-          uv run --locked ruff check --select I --fix src/archkeel/ir/measurements.py src/archkeel/ir/codec_governance.py src/archkeel/ir/model.py src/archkeel/check/ratchets.py src/archkeel/check/validation/__init__.py src/archkeel/ir/interfaces.py src/archkeel/render/summary.py tests/test_typed_measurement_controls.py
-          uv run --locked ruff format src/archkeel/ir/measurements.py src/archkeel/ir/codec_governance.py src/archkeel/ir/model.py src/archkeel/check/ratchets.py src/archkeel/check/validation/__init__.py src/archkeel/ir/interfaces.py src/archkeel/render/summary.py tests/test_typed_measurement_controls.py
+          uv run --locked ruff check --select I --fix src/archkeel/ir/measurements.py src/archkeel/ir/codec_governance.py src/archkeel/ir/model.py src/archkeel/check/ratchets.py src/archkeel/check/validation/__init__.py src/archkeel/ir/interfaces.py src/archkeel/render/summary.py src/archkeel/check/evaluation/rules.py src/archkeel/check/validation/public_api.py tests/test_typed_measurement_controls.py
+          uv run --locked ruff format src/archkeel/ir/measurements.py src/archkeel/ir/codec_governance.py src/archkeel/ir/model.py src/archkeel/check/ratchets.py src/archkeel/check/validation/__init__.py src/archkeel/ir/interfaces.py src/archkeel/render/summary.py src/archkeel/check/evaluation/rules.py src/archkeel/check/validation/public_api.py tests/test_typed_measurement_controls.py
           python - <<'PY'
           import base64,subprocess
           print("FORMAT_PATCH="+base64.b64encode(subprocess.check_output(["git","diff","--","src","tests/test_typed_measurement_controls.py"])).decode())
           PY
-          uv run --locked ruff check src/archkeel/ir/measurements.py src/archkeel/ir/codec_governance.py src/archkeel/ir/model.py src/archkeel/check/ratchets.py src/archkeel/check/validation/__init__.py src/archkeel/ir/interfaces.py src/archkeel/render/summary.py tests/test_typed_measurement_controls.py
+          uv run --locked ruff check src/archkeel/ir/measurements.py src/archkeel/ir/codec_governance.py src/archkeel/ir/model.py src/archkeel/check/ratchets.py src/archkeel/check/validation/__init__.py src/archkeel/ir/interfaces.py src/archkeel/render/summary.py src/archkeel/check/evaluation/rules.py src/archkeel/check/validation/public_api.py tests/test_typed_measurement_controls.py
           make typecheck
           uv run --locked python -m pytest -q tests/test_repository_hygiene.py
   measurement-regressions:

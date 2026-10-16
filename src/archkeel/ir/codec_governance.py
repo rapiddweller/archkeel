@@ -102,6 +102,8 @@ def parse_measurements(raw: object, label: str, *, nullable_calls: bool = True) 
 def _measurement_resolution(
     raw: RawJson, label: str, expected: _MeasurementResolution
 ) -> _MeasurementResolution:
+    if not isinstance(raw, str):
+        raise RatchetError(f"{label}.resolution must be {expected}")
     try:
         resolution = _MeasurementResolution(raw)
     except ValueError as error:
