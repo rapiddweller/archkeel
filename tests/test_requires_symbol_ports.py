@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Native import facts must prove the exact required port, including uncertainty."""
 
+import ast
 import copy
 import json
 from pathlib import Path
@@ -218,7 +219,16 @@ def test_native_requires_api_is_independent_and_rejects_source_widening(tmp_path
     original = source.read_text()
     assert old in original
     intent = (root / "contract.json").read_bytes()
-    source.write_text(original.replace(old, new, 1))
+    if old == ") -> AssessmentStatus:":
+        node = next(
+            item for item in ast.parse(original).body
+            if isinstance(item, ast.FunctionDef) and item.name == "requires_import_assessment"
+        )
+        segment = ast.get_source_segment(original, node)
+        changed_source = original.replace(segment, segment.replace(old, new, 1), 1)
+    else:
+        changed_source = original.replace(old, new, 1)
+    source.write_text(changed_source)
     changed = _model(root, config)
     assert any(row.status == "FAIL" for row in architecture_report(changed).comparison.assessments)
     assert trace_valid_violations(changed)

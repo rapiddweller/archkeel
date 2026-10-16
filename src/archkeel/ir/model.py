@@ -250,9 +250,8 @@ def requires_covers(
             target_module is None
             or not entry.through
             or any(
-                _required_port_assessment(
-                    port, target_module, target_symbol, symbols_known=True
-                ) is AssessmentStatus.PASS
+                _required_port_assessment(port, target_module, target_symbol, symbols_known=True)
+                is AssessmentStatus.PASS
                 for port in entry.through
             )
         )
