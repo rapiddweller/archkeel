@@ -1,0 +1,55 @@
+name: Audit exact reviewed SourceInput stage patch
+on:
+  push:
+    branches: [verify/542-source-input-focused-stage-audit]
+permissions:
+  contents: read
+jobs:
+  stage-patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 631d8fbaa0004e242ee8a8ae9d3a80444499d6f7
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Apply only explicit reviewed stage delta and compare exact source blobs
+        run: |
+          python - <<'PY'
+          import hashlib,json,pathlib,subprocess
+          start="631d8fbaa0004e242ee8a8ae9d3a80444499d6f7"
+          feature="d894c0692b06dd5f1ea114c3a81edbb180bc93cf"
+          stage_base="bbcba3ae4e79ca72329d382333c1fba9546586cd"
+          expected="cefe7564f68fff45d938c6d1a6a7a9273a670789"
+          owned=["Makefile","architecture-contract.json","docs/architecture/contracts/typescript.json","docs/architecture/typescript-control-types.md","docs/architecture/typescript-source-input.md","docs/architecture/typescript-syntax-types.md","src/archkeel/analyzer/typescript/collect.py","src/archkeel/analyzer/typescript/config.py","src/archkeel/analyzer/typescript/parse.py","src/archkeel/analyzer/typescript/resolve.py","src/archkeel/analyzer/typescript/source_input.py","tests/test_typescript_control_target.py","tests/test_typescript_source_input.py","docs/superpowers/plans/2026-10-16-typescript-source-input-grammar.md"]
+          def git(*args):
+              return subprocess.check_output(["git",*args])
+          all_paths=git("diff","--name-only",stage_base,feature).decode().splitlines()
+          assert set(all_paths)==set(owned),(all_paths,owned)
+          patch=git("diff","--binary",stage_base,feature,"--",*owned)
+          result=subprocess.run(["git","apply","--3way","--index","-"],input=patch,capture_output=True)
+          conflicts=git("diff","--name-only","--diff-filter=U").decode().splitlines()
+          print("FOCUSED_APPLY="+json.dumps({"stage_base":stage_base,"feature":feature,"onto":start,"status":result.returncode,"conflicts":conflicts,"owned":owned,"stderr":result.stderr.decode()},separators=(",",":")),flush=True)
+          assert set(conflicts)=={"Makefile","architecture-contract.json","docs/architecture/contracts/typescript.json"},conflicts
+          source_checks=[]
+          for name in owned:
+              if name in conflicts:
+                  continue
+              actual=pathlib.Path(name).read_bytes()
+              wanted=git("show",f"{expected}:{name}")
+              assert actual==wanted,name
+              source_checks.append({"path":name,"sha256":hashlib.sha256(actual).hexdigest(),"exact":True})
+          observer="src/archkeel/analyzer/python/constructs.py"
+          assert pathlib.Path(observer).read_bytes()==git("show",f"{start}:{observer}")==git("show",f"{expected}:{observer}")
+          print("FOCUSED_NONCONFLICT_BLOBS="+json.dumps(source_checks,separators=(",",":")),flush=True)
+          print("OBSERVER_CURRENT_EXACT=PASS",flush=True)
+          stages={}
+          for name in conflicts:
+              stages[name]={str(stage):hashlib.sha256(git("show",f":{stage}:{name}")).hexdigest() for stage in (1,2,3)}
+          print("FOCUSED_CONFLICT_STAGE_HASHES="+json.dumps(stages,separators=(",",":")),flush=True)
+          changed=git("diff","--name-only",start).decode().splitlines()
+          assert set(changed)<=set(owned),(changed,owned)
+          print("FOCUSED_SCOPE_EXACT=PASS",flush=True)
+          
+          PY
