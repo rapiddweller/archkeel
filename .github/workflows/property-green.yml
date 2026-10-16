@@ -1,0 +1,100 @@
+name: Typed property proof verification
+on:
+  push:
+    branches: [verify/542-property-green]
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Format and lint the changed Python files
+        run: |
+          uv run --locked ruff format src/archkeel/ir/facts.py src/archkeel/ir/facts_codec.py src/archkeel/ir/facts_validation.py src/archkeel/analyzer/python/source.py src/archkeel/check/evaluation/boundary_types.py tests/test_typed_python_properties.py
+          uv run --locked ruff check --fix src/archkeel/ir/facts.py src/archkeel/ir/facts_codec.py src/archkeel/ir/facts_validation.py src/archkeel/analyzer/python/source.py src/archkeel/check/evaluation/boundary_types.py tests/test_typed_python_properties.py
+      - name: Export exact formatter patch
+        if: always()
+        run: |
+          python - <<'PY'
+          import base64, subprocess
+          print("PROPERTY_FORMAT_PATCH=" + base64.b64encode(subprocess.check_output(["git", "diff", "--", "src", "tests"])).decode())
+          PY
+      - name: New native property controls and lifecycle
+        run: uv run --locked python -m pytest -q tests/test_typed_python_properties.py --tb=short
+      - name: Existing property and source protocol regressions
+        if: always()
+        run: uv run --locked python -m pytest -q tests/test_property_proof_transport.py tests/test_owned_property_candidates.py tests/test_inherited_properties.py tests/test_collection_protocol.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py tests/test_inheritance_proof_transport.py tests/test_native_member_proof.py --tb=short
+      - name: Full lint and typecheck
+        if: always()
+        run: make lint typecheck
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Normal amendment writer and replay
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 0e3b8a7f62b9b13417cda78e11b52d0de82986cd --amendment docs/architecture/decisions/issue-542-properties-amendment.json --write-amendment --decided-by ake2l --rationale "Use one immutable source-facts property binding across Source and Core while preserving property proof and wire semantics." --json > "$RUNNER_TEMP/property-native-write.json"
+          writer=$?
+          echo "PROPERTY_NATIVE_WRITER_EXIT=$writer"
+          python - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+          value = json.loads((Path(os.environ["RUNNER_TEMP"]) / "property-native-write.json").read_text())
+          print("PROPERTY_NATIVE_KEYS", list(value))
+          print("PROPERTY_NATIVE_WRITE", json.dumps({key:value[key] for key in value if key in {"command","exit_code","diagnostics","unknowns","measurements","baseline_comparisons","interface_budgets","declared_rules","observation_complete"}}, sort_keys=True))
+          path = Path("docs/architecture/decisions/issue-542-properties-amendment.json")
+          if path.exists():
+              print("PROPERTY_AMENDMENT=" + base64.b64encode(path.read_bytes()).decode())
+          PY
+          test "$writer" -eq 0 || exit "$writer"
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 0e3b8a7f62b9b13417cda78e11b52d0de82986cd --amendment docs/architecture/decisions/issue-542-properties-amendment.json --json > "$RUNNER_TEMP/property-native-replay.json"
+          echo "PROPERTY_NATIVE_REPLAY_EXIT=$?"
+      - name: Exact property wire bytes across revisions
+        if: always()
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/property-before" 0e3b8a7f62b9b13417cda78e11b52d0de82986cd
+          uv run --locked python .github/verify/property-wire.py "$RUNNER_TEMP/property-before" "$RUNNER_TEMP/property-fixtures" "$RUNNER_TEMP/property-wire-before.json"
+          uv run --locked python .github/verify/property-wire.py "$PWD" "$RUNNER_TEMP/property-fixtures" "$RUNNER_TEMP/property-wire-after.json"
+          cmp "$RUNNER_TEMP/property-wire-before.json" "$RUNNER_TEMP/property-wire-after.json"
+          echo PROPERTY_WIRE_BYTES_IDENTICAL
+      - name: Exact native site and UNKNOWN comparison
+        if: always()
+        run: |
+          uv run --locked python .github/verify/property-sites.py "$RUNNER_TEMP/property-before" "$RUNNER_TEMP/property-sites-before.json"
+          uv run --locked python .github/verify/property-sites.py "$PWD" "$RUNNER_TEMP/property-sites-after.json"
+          uv run --locked python - <<'PY'
+          import json, os
+          from collections import Counter
+          from pathlib import Path
+          root = Path(os.environ["RUNNER_TEMP"])
+          before = json.loads((root / "property-sites-before.json").read_text())
+          after = json.loads((root / "property-sites-after.json").read_text())
+          for key in before:
+              old = Counter(json.dumps(item,sort_keys=True) for item in before[key])
+              new = Counter(json.dumps(item,sort_keys=True) for item in after[key])
+              print("PROPERTY_NATIVE_SITE_DIFF", key, json.dumps({"before":sum(old.values()),"after":sum(new.values()),"removed":list((old-new).items()),"added":list((new-old).items())}))
+          PY
