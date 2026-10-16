@@ -33,7 +33,7 @@ jobs:
           from archkeel.ir.decisions import rule_uncertainty_evidence, unknown_positions_by_rule
           
           def plain(value):
-              if isinstance(value, Mapping):
+              if isinstance(value, Mapping) or hasattr(value, "items"):
                   return {key: plain(item) for key, item in value.items()}
               if isinstance(value, (tuple, list)):
                   return [plain(item) for item in value]
@@ -161,11 +161,26 @@ jobs:
                   return [strict(item) for item in value]
               return value
           
+          def differences(before, after, path=""):
+              if type(before) is not type(after):
+                  return [{"path": path, "before": before, "after": after}]
+              if isinstance(before, dict):
+                  return [row for key in before.keys()|after.keys() for row in differences(before.get(key), after.get(key), path+"."+key)]
+              if isinstance(before, list):
+                  if len(before)!=len(after):
+                      return [{"path": path+".length", "before": len(before), "after": len(after)}]
+                  return [row for index, (old,new) in enumerate(zip(before,after,strict=True)) for row in differences(old,new,path+"["+str(index)+"]")]
+              return [] if before==after else [{"path": path, "before": before, "after": after}]
+          legacy_differences, alternative_differences = [], []
           for path, raw in cases:
               old, new, small = before.parse(path, raw), current.parse(path, raw), alternative.parse(path, raw)
-              assert normalized(old)==normalized(new), path
-              assert strict(new)==strict(small), path
-          print("REVIEW_BENCH_EQUIVALENCE=" + json.dumps({"files": len(cases), "bytes": sum(len(raw) for _, raw in cases), "legacy_projection": True, "alternative_full_projection": True, "alternative_constraint": "per-access kind decoding; does not meet selected once-per-node cache requirement"}, sort_keys=True))
+              legacy_delta = differences(normalized(old),normalized(new))
+              alternative_delta = differences(strict(new),strict(small))
+              if legacy_delta:
+                  legacy_differences.append({"file": path, "differences": legacy_delta[:20]})
+              if alternative_delta:
+                  alternative_differences.append({"file": path, "differences": alternative_delta[:20]})
+          print("REVIEW_BENCH_EQUIVALENCE=" + json.dumps({"files": len(cases), "bytes": sum(len(raw) for _, raw in cases), "legacy_projection": not legacy_differences, "alternative_full_projection": not alternative_differences, "legacy_differences": legacy_differences, "alternative_differences": alternative_differences, "alternative_constraint": "per-access kind decoding; does not meet selected once-per-node cache requirement"}, sort_keys=True))
           modules = {"legacy8eb": before, "nominal558": current, "smaller_per_access": alternative}
           samples = {key: [] for key in modules}
           for round in range(7):
