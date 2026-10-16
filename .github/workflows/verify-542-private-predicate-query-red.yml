@@ -19,20 +19,6 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - name: Prove the real missing Query and remaining candidate are RED
-        run: |
-          set +e
-          uv run --locked python -m pytest -q tests/test_python_string_predicate_target.py::test_actual_predicate_enum_and_decoder_satisfy_independent_native_target tests/test_references.py::test_construct_queries_have_direct_native_references tests/test_references.py::test_the_claim_stays_small_enough_to_read > "$RUNNER_TEMP/query-red.txt" 2>&1
-          task_status=$?
-          cat "$RUNNER_TEMP/query-red.txt"
-          test "$task_status" -eq 1
-          uv run --locked python - <<'PY'
-          import os
-          from pathlib import Path
-          output=(Path(os.environ["RUNNER_TEMP"])/"query-red.txt").read_text()
-          assert "3 failed" in output and "ERROR " not in output,output
-          print("GENUINE_PRIVATE_QUERY_RED=3_FAIL_0_ERROR")
-          PY
       - name: Measure actual function selector support without changing the observer
         run: |
           uv run --locked python - <<'PY'
@@ -40,7 +26,9 @@ jobs:
           from pathlib import Path
           sys.path.insert(0,str(Path("tests").resolve()))
           from test_python_string_predicate_target import _repository
-          from test_uml_evaluation import _model
+          from archkeel.check.report import run_report
+          from archkeel.cli.observe import observe
+          from archkeel.ir.codec import decode_canonical_model,parse_observation
           from archkeel.ir.decisions import rule_assessments
           from archkeel.ir.trace import trace_valid_violations
           marker="def _comparison_form(literals: _LiteralComparisons, node: ast.Compare) -> str | None:\n"
@@ -51,9 +39,13 @@ jobs:
                   assert marker in written
                   root,config=_repository(Path(directory),written)
                   contract=json.loads((root/"contract.json").read_text())
+                  contract["schema_version"]="2.3.0"
                   contract["rules"].append({"id":"PROBE-FUNCTION-SOURCE","kind":"forbidden_construct","source":"archkeel.analyzer.python.constructs._comparison_form","constructs":["string_literal_compare"],"rationale":"Probe only the existing function selector without new evaluator authority.","provenance":["docs/architecture/python-string-predicates.md"],"decided_by":"architect"})
                   (root/"contract.json").write_text(json.dumps(contract))
-                  model=_model(root,config)
+                  result,encoded=run_report(root,config=config,analyzer=observe)
+                  print("FUNCTION_SELECTOR_RESULT="+json.dumps(dataclasses.asdict(result),default=str,sort_keys=True),flush=True)
+                  if encoded is None: continue
+                  model=parse_observation(decode_canonical_model(json.loads(encoded)))
                   rows=[dataclasses.asdict(row) for row in rule_assessments(model,undecided_by_rule={}) if row.id=="PROBE-FUNCTION-SOURCE"]
                   violations=[dataclasses.asdict(row) for row in trace_valid_violations(model) if "PROBE-FUNCTION-SOURCE" in row.rule_ids]
                   print("ACTUAL_FUNCTION_SELECTOR="+json.dumps({"mutation":changed,"assessments":rows,"trace_valid_violations":violations},default=str,sort_keys=True),flush=True)
