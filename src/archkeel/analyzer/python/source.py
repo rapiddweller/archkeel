@@ -1756,12 +1756,9 @@ def proven_generic_alias_union_candidates(
     """Native immutable alias operands cannot receive arbitrary class __or__ dispatch."""
     candidates: dict[ast.expr, frozenset[tuple[str, str]]] = {}
     expressions = [
-        *_protected_type_expressions(module.all_nodes),
-        *(
-            value
-            for node in module.tree.body
-            if (value := admitted_type_alias_value(module, node)) is not None
-        ),
+        value
+        for node in module.tree.body
+        if (value := admitted_type_alias_value(module, node)) is not None
     ]
     for expression in expressions:
         pending = [expression]

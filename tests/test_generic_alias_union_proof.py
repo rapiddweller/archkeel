@@ -65,6 +65,8 @@ def test_native_builtin_alias_union_keeps_the_alias_shape_proven(tmp_path, impor
         "unknown_escape",
         "import_rebind",
         "provider_namespace_write",
+        "local_shadow",
+        "class_shadow",
     ],
 )
 def test_native_unsafe_union_operands_do_not_gain_builtin_proof(tmp_path, mutation):
@@ -90,8 +92,18 @@ def test_native_unsafe_union_operands_do_not_gain_builtin_proof(tmp_path, mutati
         suffix = "unknown(Ownership)\n"
     elif mutation == "import_rebind":
         suffix = "Ownership = Unknown\n"
-    else:
+    elif mutation == "provider_namespace_write":
         suffix = "from . import types\ntypes.Ownership = Unknown\n"
+    elif mutation == "local_shadow":
+        suffix = (
+            "def outer():\n    Ownership = Unknown\n"
+            "    def inner(value: Ownership | PackageOwnership):\n        return value\n"
+        )
+    else:
+        suffix = (
+            "class Outer:\n    Ownership = Unknown\n"
+            "    def inner(self, value: Ownership | PackageOwnership):\n        return value\n"
+        )
     model = _repository(tmp_path, provider=provider, suffix=suffix)
     assert _position_unknowns(model) or trace_valid_violations(model)
 
