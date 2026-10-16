@@ -37,4 +37,5 @@ jobs:
         if: always()
         run: uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json
       - name: Complete compiler differential
+        if: always()
         run: make typescript-compiler-check typescript-differential
