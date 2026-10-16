@@ -51,12 +51,13 @@ def test_import_collection_and_lexical_lookup_produce_nominal_kinds(name):
 def test_actual_binding_control_functions_have_no_raw_dispatch(
     tmp_path, filename, qualified_scope
 ):
-    # These six function observations do not certify their complete source modules.
+    # The module is observed in full; unrelated raw grammars may still fail its rule.
+    # Only these six function observations are asserted, without a module PASS claim.
     source = (ROOT / "src/archkeel/analyzer/python" / filename).read_text()
     owner = f"sample.core.{qualified_scope}"
     result = _observe_one_rule(
         tmp_path,
-        {"kind": "forbidden_construct", "source": owner,
+        {"kind": "forbidden_construct", "source": "sample.core",
          "constructs": ["string_literal_compare"]},
         {"core.py": source},
     )
@@ -66,4 +67,6 @@ def test_actual_binding_control_functions_have_no_raw_dispatch(
         if row.kind == "string_literal_compare" and row.data.get("owner") == owner
     ]
     assert observed == [], [(row.title, row.evidence_ids) for row in observed]
-    assert trace_valid_violations(result.observation) == ()
+    assert not [
+        row for row in trace_valid_violations(result.observation) if owner in row.subjects
+    ]
