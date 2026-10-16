@@ -17,19 +17,34 @@ jobs:
         with:
           python-version: "3.11.12"
           version: "0.12.13"
-      - name: Native and lifecycle GREEN
-        run: uv run --locked python -m pytest -q tests/test_module_object_grants.py --maxfail=8
-      - name: Format and lint
-        if: always()
+      - name: Format
         run: |
+          uv run --locked ruff check --select I --fix src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py src/archkeel/check/declarations.py src/archkeel/check/evaluation/rules.py src/archkeel/ir/widening.py tools/architecture_graph_schema.py tests/test_contract_model.py tests/test_module_object_grants.py
           uv run --locked ruff format src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py src/archkeel/check/declarations.py src/archkeel/check/evaluation/rules.py src/archkeel/ir/widening.py tools/architecture_graph_schema.py tests/test_contract_model.py tests/test_module_object_grants.py
           uv run --locked ruff check src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py src/archkeel/check/declarations.py src/archkeel/check/evaluation/rules.py src/archkeel/ir/widening.py tools/architecture_graph_schema.py tests/test_contract_model.py tests/test_module_object_grants.py
+      - name: Native and lifecycle controls
+        run: uv run --locked python -m pytest -q tests/test_module_object_grants.py
+      - name: Focused lifecycle regressions
+        run: |
+          uv run --locked python -m pytest -q tests/test_contract_model.py tests/test_schema_drift.py tests/test_references.py tests/test_renames.py tests/test_widening.py tests/test_interfaces.py tests/test_nested_interface_lifecycle.py tests/test_dependency_selectors.py tests/test_typed_dependency_api.py tests/test_module_object_grants.py --maxfail=5
+      - name: Types and hygiene
+        run: |
+          make typecheck
+          uv run --locked python -m pytest -q tests/test_repository_hygiene.py
+      - name: Reproducible schemas
+        run: |
+          make architecture-graph-schema
+          git diff --exit-code -- schema
       - name: Capture formatted files and version maps
         if: always()
         run: |
-          rg -n '3\\.5\\.0|architecture-contract-3\\.5' src tools tests docs README.md Makefile
           python - <<'PY'
           import json,pathlib,base64
+          for root in ("src","tools"):
+              for path in pathlib.Path(root).rglob("*.py"):
+                  for index,line in enumerate(path.read_text().splitlines(),1):
+                      if "3.5.0" in line:
+                          print(f"VERSION_MAP={path}:{index}:{line}")
           paths=["src/archkeel/ir/model.py","src/archkeel/ir/codec_contract.py","src/archkeel/check/declarations.py","src/archkeel/check/evaluation/rules.py","src/archkeel/ir/widening.py","tools/architecture_graph_schema.py","tests/test_contract_model.py","tests/test_module_object_grants.py"]
           print("FILES="+base64.b64encode(json.dumps({p:pathlib.Path(p).read_text() for p in paths}).encode()).decode())
           PY

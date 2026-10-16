@@ -56,7 +56,7 @@ def _contract(grants=(GRANT,), *, version="3.6.0"):
             {
                 "id": "INTERFACE",
                 "kind": "interface_boundary",
-                "rationale": "Permit discovery by the composition owner without publishing internals.",
+                "rationale": "Let the registry discover packages without publishing internals.",
                 "provenance": ["target.md"],
                 "decided_by": "architect",
                 **({"module_object_grants": list(grants)} if grants is not None else {}),
@@ -69,7 +69,8 @@ def _repository(tmp_path, *, registry="", consumer="", child="", contract=None):
     contract = _contract() if contract is None else contract
     files = {
         "demo/__init__.py": "",
-        "demo/plugins/__init__.py": "class Allowed: pass\nclass Secret: pass\nclass _Private: pass\n",
+        "demo/plugins/__init__.py": ("class Allowed: pass\n"
+                                    "class Secret: pass\nclass _Private: pass\n"),
         "demo/plugins/extra.py": "class Other: pass\n",
         "demo/plugins/forwarder.py": 'from . import Secret\n__all__ = ["Secret"]\n',
         "demo/registry/__init__.py": registry,
@@ -188,6 +189,9 @@ def test_grants_roundtrip_through_wire_and_projected_rule_records():
     assert rule.module_object_grants[0].source_module == "demo.registry"
     assert rule.module_object_grants[0].target_module == "demo.plugins"
     assert parse_contract(json.loads(contract_bytes(contract))) == contract
+    schema = json.loads((ROOT / "schema/architecture-contract-3.6.schema.json").read_text())
+    Draft202012Validator.check_schema(schema)
+    assert not list(Draft202012Validator(schema).iter_errors(json.loads(contract_bytes(contract))))
     record = project_rule_declaration(rule)
     assert record["data"]["module_object_grants"] == [GRANT]
     decoded = parse_record(record)
@@ -338,7 +342,7 @@ def test_native_grant_types_follow_fixed_independent_own_intent(tmp_path, widen)
             "archkeel/ir/__init__.py": "",
             "archkeel/ir/model.py": source,
             "contract.json": json.dumps(contract),
-            "docs/architecture/module-object-grants.md": "Bounded independent module-object intent.",
+            "docs/architecture/module-object-grants.md": "Independent module-object intent.",
         },
     )
     before = (root / "contract.json").read_bytes()
