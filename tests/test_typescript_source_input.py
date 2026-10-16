@@ -307,13 +307,23 @@ def test_actual_input_api_type_mutation_fails_fixed_native_intent(tmp_path, old,
     assert comparison is not None and comparison.status == "FAIL", comparison
     from archkeel.ir.decisions import rule_assessments
 
-    target = next(row for row in rule_assessments(model, undecided_by_rule={}) if row.kind == "uml_target")
+    target = next(
+        row for row in rule_assessments(model, undecided_by_rule={}) if row.kind == "uml_target"
+    )
     assert target.status == "FAIL"
     assert any(target.id in row.rule_ids for row in trace_valid_violations(model))
     assert (root / "contract.json").read_bytes() == intent
 
 
-@pytest.mark.parametrize(("spec", "reported"), [("src/**", "src/**"), ("src/**/", "src/**"), ("src/foo**", "src/foo**"), ("src/foo**/", "src/foo**")])
+@pytest.mark.parametrize(
+    ("spec", "reported"),
+    [
+        ("src/**", "src/**"),
+        ("src/**/", "src/**"),
+        ("src/foo**", "src/foo**"),
+        ("src/foo**/", "src/foo**"),
+    ],
+)
 def test_recursive_tail_diagnostic_keeps_existing_non_component_star_rule(tmp_path, spec, reported):
     import json
 
@@ -325,7 +335,8 @@ def test_recursive_tail_diagnostic_keeps_existing_non_component_star_rule(tmp_pa
         json.dumps({"include": [spec]}),
     )
     assert (
-        f"Compiler option 5010: '{reported}' cannot end in a recursive wildcard." in snapshot.problems
+        f"Compiler option 5010: '{reported}' cannot end in a recursive wildcard."
+        in snapshot.problems
     )
 
 
@@ -383,14 +394,13 @@ def test_declaration_cts_keeps_written_commonjs_loader_semantics(tmp_path):
 
     (tmp_path / "src").mkdir()
     (tmp_path / "src/main.d.cts").write_text('const fs = require("node:fs");')
-    (tmp_path / "tsconfig.json").write_text(json.dumps(
-        {"compilerOptions": {"moduleResolution": "node"}, "files": ["src/main.d.cts"]}
-    ))
+    (tmp_path / "tsconfig.json").write_text(
+        json.dumps({"compilerOptions": {"moduleResolution": "node"}, "files": ["src/main.d.cts"]})
+    )
     facts = collect(request_for(tmp_path, ("src",), "app"))
     assert any(isinstance(target, BuiltinTarget) for target in facts.imports)
     assert not any(
-        "Unproven or shadowed require" in row.data.get("reason", "")
-        for row in facts.coverage.gaps
+        "Unproven or shadowed require" in row.data.get("reason", "") for row in facts.coverage.gaps
     )
 
 
@@ -401,9 +411,12 @@ def test_actual_snapshot_input_role_widening_fails_fixed_native_intent(tmp_path)
     source = (ROOT / "src" / path).read_text()
     old = "inputs: dict[str, tuple[str, ResolutionRole]]"
     assert old in source
-    root, config = _repository(tmp_path, changed={
-        path: source.replace(old, "inputs: dict[str, tuple[str, str]]", 1),
-    })
+    root, config = _repository(
+        tmp_path,
+        changed={
+            path: source.replace(old, "inputs: dict[str, tuple[str, str]]", 1),
+        },
+    )
     intent = (root / "contract.json").read_bytes()
     model = _model(root, config)
     comparison = architecture_report(model).comparison

@@ -45,11 +45,12 @@ from archkeel.ir.facts_codec import (
 from archkeel.ir.identity import module_identity
 from archkeel.ir.protocol import CollectionRequest, TypeScriptSettings
 
-from .config import ModuleKind, PathToken, Snapshot, join, load_config, within
+from .config import ModuleKind, Snapshot, join, load_config, within
 from .parse import parse
 from .resolve import Found, Resolver, Unknown
 from .source_input import (
     ModuleFormat,
+    PathToken,
     SourceKind,
     SpecifierKind,
     classify_file,

@@ -132,7 +132,7 @@ _FILE_RULES: Final[dict[FileSuffix, _FileRule]] = {
     FileSuffix.JSON_DECLARATION: _FileRule(SourceKind.DECLARATION),
 }
 # Longest recognized input suffix wins, including declarations and dotfiles.
-_SUFFIX: Final = re.compile(
+_SUFFIX: Final[re.Pattern[str]] = re.compile(
     "(?:"
     + "|".join(
         re.escape(suffix)
@@ -178,6 +178,7 @@ class SpecifierInfo:
     kind: SpecifierKind
     name: str
     package: str
+    typed_name: str
     directory_only: bool
 
     @property
@@ -194,14 +195,8 @@ class SpecifierInfo:
             self.kind is SpecifierKind.NODE and self.name in _SCHEME_ONLY
         )
 
-    @property
-    def typed_name(self) -> str:
-        if self.kind is SpecifierKind.SCOPED and len(self.original.split("/")) > 1:
-            return self.original.replace("/", "__", 1)[1:]
-        return self.original
 
-
-_SPECIFIER: Final = re.compile(
+_SPECIFIER: Final[re.Pattern[str]] = re.compile(
     r"(?P<current>\.\Z)|(?P<parent>\.\.\Z)|(?P<current_path>\./)|"
     r"(?P<parent_path>\.\./)|(?P<absolute>/)|(?P<node>node:)|(?P<scoped>@)|(?P<imports>\#)"
 )
@@ -227,4 +222,16 @@ def classify_specifier(text: str) -> SpecifierInfo:
     name = text[found.end() :] if kind is SpecifierKind.NODE and found is not None else text
     parts = text.split("/")
     package = "/".join(parts[:2]) if kind is SpecifierKind.SCOPED else parts[0]
-    return SpecifierInfo(text, kind, name, package, PathToken.parse(text[-1:]) is PathToken.ROOT)
+    typed_name = (
+        text.replace("/", "__", 1)[1:]
+        if kind is SpecifierKind.SCOPED and len(parts) > 1
+        else text
+    )
+    return SpecifierInfo(
+        original=text,
+        kind=kind,
+        name=name,
+        package=package,
+        typed_name=typed_name,
+        directory_only=PathToken.parse(text[-1:]) is PathToken.ROOT,
+    )
