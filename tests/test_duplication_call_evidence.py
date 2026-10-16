@@ -5,6 +5,7 @@
 
 import json
 from dataclasses import replace
+
 import pytest
 from test_architecture_demo import CONFIG, _prepare_repo
 
@@ -249,3 +250,28 @@ def test_ambiguous_function_definition_retains_the_candidate(
         sections.append(section)
     ambiguous = replace(converter_observation, sections=tuple(sections))
     assert _pairs(ambiguous)[f"{_OUTSIDE}.different"] == f"{_OWNER}.a_first"
+
+
+@pytest.mark.parametrize("field", ["source_scope", "source_definition_id"])
+def test_bilateral_missing_caller_metadata_preserves_the_original_candidate(
+    converter_observation: Observation, field: str
+) -> None:
+    records = []
+    changed = 0
+    for row in converter_observation.records("calls") or ():
+        if (
+            row.data.get("source_scope") == f"{_OWNER}.a_first"
+            and row.data.get("expression") == "str"
+        ) or (
+            row.data.get("source_scope") == f"{_OUTSIDE}.different"
+            and row.data.get("expression") == "Third"
+        ):
+            data = thaw_data(row.data)
+            del data[field]
+            row = replace(row, data=freeze_data(data))
+            changed += 1
+        records.append(row)
+    assert changed == 2
+    incomplete = _with_calls(converter_observation, tuple(records))
+    assert incomplete.coverage.calls_analyzed == len(records)
+    assert _pairs(incomplete)[f"{_OUTSIDE}.different"] == f"{_OWNER}.a_first"

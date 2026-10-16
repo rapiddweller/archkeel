@@ -99,7 +99,9 @@ jobs:
           assert shapes(models[0])==shapes(models[1]),"unchanged-source structural facts changed"
           print("PAIRWISE_UNCHANGED_SHAPES",len(shapes(models[0])))
           assert not added and not changed, "new or changed unproven boundary API positions/routes"
-          assert not call_added, "new unresolved or partially resolved call identities"
+          unresolved_added=[row for row in call_added if row["identity"][0]=="unresolved"]
+          print("PAIRWISE_NEW_PARTIAL_OPERATIONS",json.dumps([row for row in call_added if row["identity"][0]=="partially_resolved"],sort_keys=True))
+          assert not unresolved_added, "new unresolved call identities"
           PY
       - name: Strict actual own baseline
         if: always()

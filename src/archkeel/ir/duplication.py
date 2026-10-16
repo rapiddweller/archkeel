@@ -130,9 +130,11 @@ def _resolved_calls(observation: Observation) -> dict[str, tuple[str, ...]]:
     grouped: dict[str, list[Record]] = defaultdict(list)
     for record in calls:
         name = text_value(record.data.get("source_scope"))
+        if not name:
+            return {}
         if name in definitions:
-            rows: list[Record] = grouped[name]
-            rows.append(record)
+            bucket: list[Record] = grouped[name]
+            bucket.append(record)
     evidence: dict[str, Evidence] = {item.id: item for item in observation.evidence}
     result: dict[str, tuple[str, ...]] = {}
     for name, rows in grouped.items():
