@@ -13,8 +13,8 @@ from .facts import (
     Evidence,
     EvidenceClass,
     ExternalPackageTarget,
-    JsonValue,
     LocalTarget,
+    PropertyOrigin,
     Record,
     RecordData,
     SourceFacts,
@@ -22,6 +22,7 @@ from .facts import (
     UnresolvedTarget,
     in_scope,
     member_inventories,
+    property_binding,
 )
 from .state_facts import ArgumentPass, AttributeAccess
 
@@ -147,8 +148,6 @@ def _payload(value: RecordData) -> None:
     # Nested mappings may use source-defined names such as `status` or `contract`.
     # Only the record envelope's own fields have protocol meaning.
     for key, child in value.entries:
-        if key == "property_binding":
-            _property_payload(child)
         if key in _POLICY_FIELDS:
             raise ValueError(f"policy field {key} is not a source fact")
         if key in _STRING_FIELDS and not isinstance(child, str):
@@ -170,30 +169,6 @@ def _payload(value: RecordData) -> None:
             raise ValueError(f"source payload {key} must be a string array")
 
 
-def _property_payload(value: JsonValue) -> None:
-    if not isinstance(value, RecordData) or {key for key, _ in value.entries} != {
-        "operation",
-        "source",
-        "line",
-        "source_line",
-    }:
-        raise ValueError("invalid property binding fields")
-    operation, source = value.get("operation"), value.get("source")
-    line, source_line = value.get("line"), value.get("source_line")
-    if (
-        operation not in ("create", "getter", "setter")
-        or source not in ("new", "local", "base")
-        or type(line) is not int
-        or type(source_line) is not int
-        or line < 1
-        or source_line < 0
-        or source_line >= line
-        or (operation == "create") != (source == "new")
-        or (source == "local") != (source_line > 0)
-    ):
-        raise ValueError("invalid property binding operation or order")
-
-
 def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> None:
     classes = {
         name: record
@@ -211,7 +186,12 @@ def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> 
     for record in records:
         if record.data.get("property_members") is not None and record.kind != "class":
             raise ValueError("property members need a class owner")
-        binding = record.data.get("property_binding")
+        raw_binding = record.data.get("property_binding")
+        binding = None
+        if any(key == "property_binding" for key, _ in record.data.entries):
+            if not isinstance(raw_binding, RecordData):
+                raise ValueError("invalid property binding fields")
+            binding = property_binding(raw_binding)
         if record.data.get("source_final_method_binding") is True:
             parent, name = record.data.get("parent"), record.data.get("name")
             owner = classes.get(parent) if isinstance(parent, str) else None
@@ -240,7 +220,6 @@ def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> 
             or record.data.get("symbol_category") != "method"
             or record.data.get("method_kind") != "instance"
             or record.data.get("async") is not False
-            or not isinstance(binding, RecordData)
             or not isinstance(parent, str)
             or not isinstance(name, str)
             or owner is None
@@ -248,11 +227,11 @@ def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> 
             or owner.data.get("module") != record.data.get("module")
         ):
             raise ValueError("property binding needs its defining class and method")
-        line, source_line = binding.get("line"), binding.get("source_line")
+        line, source_line = binding.line, binding.source_line
         group = ordered.get((parent, name), {})
         if not isinstance(line, int) or group.get(line) != record:
             raise ValueError("property order disagrees with method evidence")
-        if binding.get("source") == "local":
+        if binding.source is PropertyOrigin.LOCAL:
             previous = max((position for position in group if position < line), default=0)
             previous_record = group.get(previous)
             if (

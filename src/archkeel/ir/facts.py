@@ -5,10 +5,12 @@
 
 from __future__ import annotations
 
+import builtins
 import hashlib
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import Enum, StrEnum
 from typing import Literal, TypeAlias
 
 from .state_facts import StateFacts
@@ -153,6 +155,67 @@ class RecordData:
 
 
 JsonValue: TypeAlias = str | int | float | bool | None | tuple["JsonValue", ...] | RecordData
+
+
+class PropertyOperation(Enum):
+    CREATE = "create"
+    GETTER = "getter"
+    SETTER = "setter"
+
+
+class PropertyOrigin(Enum):
+    NEW = "new"
+    LOCAL = "local"
+    BASE = "base"
+
+
+@dataclass(frozen=True, slots=True)
+class PropertyBinding:
+    """An ordered standard-property operation, not proof of descriptor ownership."""
+
+    operation: PropertyOperation
+    source: PropertyOrigin
+    line: int
+    source_line: int
+
+    def __post_init__(self) -> None:
+        try:
+            builtins.object.__setattr__(self, "operation", PropertyOperation(self.operation))
+            builtins.object.__setattr__(self, "source", PropertyOrigin(self.source))
+        except ValueError as error:
+            raise ValueError("invalid property binding operation or order") from error
+        if (
+            type(self.line) is not int
+            or type(self.source_line) is not int
+            or self.line < 1
+            or self.source_line < 0
+            or self.source_line >= self.line
+            or (self.operation is PropertyOperation.CREATE) != (self.source is PropertyOrigin.NEW)
+            or (self.source is PropertyOrigin.LOCAL) != (self.source_line > 0)
+        ):
+            raise ValueError("invalid property binding operation or order")
+
+
+def property_binding(value: RecordData | Mapping[str, object]) -> PropertyBinding:
+    """Decode the existing property wire record at the source-facts boundary."""
+    raw = dict(value.entries) if isinstance(value, RecordData) else value
+    if set(raw) != {"operation", "source", "line", "source_line"}:
+        raise ValueError("invalid property binding fields")
+    operation, source = raw["operation"], raw["source"]
+    line, source_line = raw["line"], raw["source_line"]
+    if (
+        not isinstance(operation, str)
+        or not isinstance(source, str)
+        or not isinstance(line, int)
+        or not isinstance(source_line, int)
+    ):
+        raise ValueError("invalid property binding operation or order")
+    try:
+        return PropertyBinding(
+            PropertyOperation(operation), PropertyOrigin(source), line, source_line
+        )
+    except ValueError as error:
+        raise ValueError("invalid property binding operation or order") from error
 
 
 @dataclass(frozen=True, slots=True)

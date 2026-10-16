@@ -16,12 +16,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, Literal, Protocol, TypedDict
 
-from archkeel.ir.facts import EvidenceClass, stable_id
+from archkeel.ir.facts import (
+    EvidenceClass,
+    PropertyBinding,
+    PropertyOperation,
+    PropertyOrigin,
+    stable_id,
+)
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import (
     RawEvidence,
     RawRecord,
     classified,
+    property_binding_data,
 )
 from archkeel.ir.facts_codec import (
     file_evidence as file_evidence,
@@ -780,10 +787,10 @@ def unproven_class_body(
 
 def property_bindings(
     module: ParsedModule, parent: ast.ClassDef
-) -> dict[FunctionNode, _PropertyBinding]:
+) -> dict[FunctionNode, PropertyBinding]:
     if parent not in module.tree.body:
         return {}
-    bindings: dict[FunctionNode, _PropertyBinding] = {}
+    bindings: dict[FunctionNode, PropertyBinding] = {}
     previous: dict[str, FunctionNode] = {}
     for child in parent.body:
         names = _class_statement_bindings(child)
@@ -803,28 +810,28 @@ def _property_operation(
     node: FunctionNode,
     parent: ast.ClassDef,
     previous: dict[str, FunctionNode],
-    bindings: dict[FunctionNode, _PropertyBinding],
-) -> _PropertyBinding | None:
+    bindings: dict[FunctionNode, PropertyBinding],
+) -> PropertyBinding | None:
     if len(node.decorator_list) != 1 or isinstance(node, ast.AsyncFunctionDef):
         return None
     decorator = node.decorator_list[0]
     if is_proven_decorator(
         module, decorator, node, parent, frozenset({"property", "builtins.property"})
     ) and not isinstance(decorator, ast.Call):
-        return {"operation": "create", "source": "new", "line": node.lineno, "source_line": 0}
-    if not isinstance(decorator, ast.Attribute) or decorator.attr not in {"getter", "setter"}:
+        return PropertyBinding(PropertyOperation.CREATE, PropertyOrigin.NEW, node.lineno, 0)
+    if not isinstance(decorator, ast.Attribute):
         return None
-    operation: Literal["getter", "setter"] = "getter" if decorator.attr == "getter" else "setter"
+    try:
+        operation = PropertyOperation(decorator.attr)
+    except ValueError:
+        return None
+    if operation is PropertyOperation.CREATE:
+        return None
     descriptor = decorator.value
     if isinstance(descriptor, ast.Name) and descriptor.id == node.name:
         origin = previous.get(node.name)
         if origin is not None and origin in bindings:
-            return {
-                "operation": operation,
-                "source": "local",
-                "line": node.lineno,
-                "source_line": origin.lineno,
-            }
+            return PropertyBinding(operation, PropertyOrigin.LOCAL, node.lineno, origin.lineno)
     if (
         isinstance(descriptor, ast.Attribute)
         and descriptor.attr == node.name
@@ -837,7 +844,7 @@ def _property_operation(
         if isinstance(root, ast.Name) and not binding_may_exist_before(
             module, parent.body, node, root.id
         ):
-            return {"operation": operation, "source": "base", "line": node.lineno, "source_line": 0}
+            return PropertyBinding(operation, PropertyOrigin.BASE, node.lineno, 0)
     return None
 
 
@@ -850,7 +857,7 @@ def setter_local_references(module: ParsedModule) -> frozenset[ast.AST]:
         for method, binding in bindings.items():
             positional = (*method.args.posonlyargs, *method.args.args)
             parameters = (*positional[1:], *method.args.kwonlyargs)
-            if binding["operation"] != "setter" or method.name not in {
+            if binding.operation is not PropertyOperation.SETTER or method.name not in {
                 argument.arg for argument in parameters
             }:
                 continue
@@ -929,7 +936,7 @@ def method_decorator_data(
         and parent.name in stable_direct_module_bindings(module)
         and binding_may_exist_before(module, parent.body, node, node.name)
         and not binding_may_exist_before(module, tuple(reversed(parent.body)), node, node.name),
-        **({"property_binding": binding} if binding is not None else {}),
+        **({"property_binding": property_binding_data(binding)} if binding is not None else {}),
     }
 
 

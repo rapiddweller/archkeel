@@ -8342,6 +8342,211 @@
           }
         },
         {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-python-properties.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-PROPERTY-BINDING",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.facts.PropertyBinding",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Keep the ordered standard-property operation and its source immutable."
+          ],
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-python-properties.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-PROPERTY-OPERATION",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.PropertyOperation",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Own the standard property create, getter and setter vocabulary."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-python-properties.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-PROPERTY-ORIGIN",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.PropertyOrigin",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Own new, local and inherited-base property origins."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-python-properties.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-PROPERTY-BINDING-operation",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.PropertyBinding.operation",
+          "parent_id": "IR-PROPERTY-BINDING",
+          "responsibilities": [
+            "Retain the typed operation in the source property proof."
+          ],
+          "annotation": "PropertyOperation"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-python-properties.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-PROPERTY-BINDING-source",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.PropertyBinding.source",
+          "parent_id": "IR-PROPERTY-BINDING",
+          "responsibilities": [
+            "Retain the typed source in the source property proof."
+          ],
+          "annotation": "PropertyOrigin"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-python-properties.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-PROPERTY-BINDING-line",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.PropertyBinding.line",
+          "parent_id": "IR-PROPERTY-BINDING",
+          "responsibilities": [
+            "Retain the typed line in the source property proof."
+          ],
+          "annotation": "int"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-python-properties.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-PROPERTY-BINDING-source_line",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.PropertyBinding.source_line",
+          "parent_id": "IR-PROPERTY-BINDING",
+          "responsibilities": [
+            "Retain the typed source_line in the source property proof."
+          ],
+          "annotation": "int"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-python-properties.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-PROPERTY-DECODE",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.facts.property_binding",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Decode the strict property record once into the shared domain model."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "RecordData | Mapping[str, object]"
+              }
+            ],
+            "returns": "PropertyBinding"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-python-properties.md"
+          ],
+          "id": "IR-PROPERTY-CODEC",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.facts_codec",
+          "parent_id": "TARGET-FACTS-CODEC",
+          "responsibilities": [
+            "Adapt immutable source facts to the existing process wire format."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-python-properties.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-PROPERTY-ENCODE",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.facts_codec.property_binding_data",
+          "parent_id": "IR-PROPERTY-CODEC",
+          "responsibilities": [
+            "Write the unchanged four-field JSON property proof without deciding its meaning."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "binding",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "PropertyBinding"
+              }
+            ],
+            "returns": "RawData"
+          }
+        },
+        {
           "id": "IR-RULE-GRAMMAR-CompatibilityLifetime",
           "kind": "enum",
           "qualified_name": "archkeel.ir.model.CompatibilityLifetime",

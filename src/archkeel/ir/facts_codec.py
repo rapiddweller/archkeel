@@ -32,6 +32,7 @@ from .facts import (
     JsonValue,
     Language,
     LocalTarget,
+    PropertyBinding,
     Record,
     RecordData,
     ResolutionInput,
@@ -93,6 +94,16 @@ from .type_shapes import (
 )
 
 RawJson: TypeAlias = str | int | float | bool | None | list["RawJson"] | dict[str, "RawJson"]
+
+
+def property_binding_data(binding: PropertyBinding) -> RawData:
+    """Write the unchanged JSON shape; the facts owner validates its meaning."""
+    return {
+        "operation": binding.operation.value,
+        "source": binding.source.value,
+        "line": binding.line,
+        "source_line": binding.source_line,
+    }
 
 
 class _TargetKind(StrEnum):

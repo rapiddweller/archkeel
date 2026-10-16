@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "ce0214aa53088d46512d9c71a8fe5fe51597afadb50bd8e5b6629be012533ef7",
+  "after_digest": "ffc87f3a95f0117bf80c9a4875b1d15da4779b5dfbc3629b15e552651991bcca",
+  "before_baseline_digest": "02279ca79283191bc1137034db4191abc1850cf3f290e974ec1caed594f95600",
+  "before_digest": "8aea00dcba2312ec6aadf842ec9a50ad252af4f2dab9cc3684dcdcc909c888e8",
+  "decided_by": "ake2l",
+  "rationale": "Combine independently reviewed nominal API owners and preserve all authored component boundaries without increasing accepted debt.",
+  "schema_version": "2.0.0"
+}

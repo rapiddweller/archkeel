@@ -5,26 +5,135 @@ on:
 permissions:
   contents: read
 jobs:
-  final-three-way:
+  quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - run: |
-          python3 - <<'PY'
-          import json, pathlib, subprocess, tempfile
-          paths=["src/archkeel/check/declarations.py","src/archkeel/check/evaluation/rules.py","src/archkeel/check/onboarding.py","src/archkeel/ir/architecture_graph.py","src/archkeel/ir/codec_contract.py","src/archkeel/ir/codec_wire.py","src/archkeel/ir/decisions.py","src/archkeel/ir/model.py","src/archkeel/ir/widening.py"]
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked --python 3.11.12
+      - run: make lint typecheck
+      - run: uv run pytest -q tests/test_repository_hygiene.py
+  compatibility-and-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked --python 3.11.12
+      - run: uv run pytest -n 2 --dist=loadfile -q tests/test_typed_contract_rule_grammar.py tests/test_typed_contract_rule_native.py tests/test_contract_model.py tests/test_contract_version_types.py tests/test_codec.py tests/test_codec_compatibility.py tests/test_dependency_selectors.py tests/test_typed_dependency_api.py tests/test_dependency_api_target.py tests/test_dependency_typed_control.py tests/test_module_object_grants.py tests/test_decisions.py tests/test_layers.py tests/test_onboarding.py tests/test_onboarding_demo.py tests/test_widening.py tests/test_typed_python_properties.py
+  actual-sites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked --python 3.11.12
+      - name: Complete call target multiplicities and API position evidence
+        run: |
+          uv run python - <<'PY'
+          import collections, dataclasses, json, pathlib, re, subprocess, tempfile
+          from archkeel.ir.codec import parse_observation, decode_canonical_model
+          from archkeel.check.ratchets import measure_python_ratchets, unresolved_call_changes
+          from archkeel.ir.decisions import unknown_positions_by_rule
+          from archkeel.ir.facts_codec import record_payload
+          before_ref="e5215b1403d98522003220b4c240aae9b011575f"
+          def read(root, out):
+              result=subprocess.run(["uv","run","archkeel","report","--root",str(root),"--output",str(out),"--json"],text=True,capture_output=True)
+              print("REPORT_EXIT",str(root),result.returncode,flush=True)
+              if not out.exists():
+                  print(result.stdout[-12000:],result.stderr[-12000:],flush=True)
+                  raise AssertionError("Report must exist")
+              return parse_observation(decode_canonical_model(json.loads(out.read_text())))
+          def unknowns(model):
+              return {row.id: {"kind":row.kind,"rule_ids":row.rule_ids,"data":record_payload(row)["data"]} for row in model.records("unknowns") or () if row.kind in {"boundary_type_position","boundary_type_route"}}
+          def normalize_caller(value):
+              return re.sub(r"(<[^>]*?):[0-9]+>",r"\1>",value)
+          def calls(model):
+              evidence={row.id:row for row in model.evidence}
+              result=collections.defaultdict(list)
+              symbols={row.id:row.data.get("qualified_name") or (row.subjects[0] if row.subjects else row.id) for row in model.records("symbols") or ()}
+              for row in model.records("calls") or ():
+                  data=record_payload(row)["data"]
+                  status=data.get("status")
+                  if status not in {"unresolved","partially_resolved"}:
+                      continue
+                  site=[evidence[key] for key in row.evidence_ids if key in evidence]
+                  target=data.get("targets") or ()
+                  signature=(str(data.get("source_module")),normalize_caller(str(data.get("source_scope"))),str(data.get("expression")),str(status))
+                  result[signature].append({"id":row.id,"source_scope":data.get("source_scope"),"source_definition_id":data.get("source_definition_id"),"path":site[0].file if site else None,"line":site[0].line if site else None,"column":site[0].column if site else None,"reason":data.get("reason"),"targets":target,"target_names":[symbols.get(key,key) for key in target],"target_count":len(target),"candidate_count":data.get("candidate_count"),"candidates_truncated":data.get("candidates_truncated")})
+              return result
+          def comparable(rows):
+              return collections.Counter((row["reason"],row["target_count"],row["candidate_count"],row["candidates_truncated"],tuple(row["target_names"])) for row in rows)
           with tempfile.TemporaryDirectory() as tmp:
-              for i, path in enumerate(paths):
-                  files=[]
-                  for name, ref in [("current","e5215b1403d98522003220b4c240aae9b011575f"),("base","babfb45cf15588a7313e3c7ab37a8b256fccecc2"),("other","fdec9fd0f8150eb87d64566f39e15a6c9b88be86")]:
-                      target=pathlib.Path(tmp)/f"{i}-{name}"
-                      target.write_bytes(subprocess.check_output(["git","show",f"{ref}:{path}"]))
-                      files.append(str(target))
-                  result=subprocess.run(["git","merge-file","-p",*files],text=True,capture_output=True)
-                  print("GRAMMAR_FINAL_MERGE "+json.dumps({"path":path,"status":result.returncode,"content":result.stdout,"stderr":result.stderr}),flush=True)
+              tmp=pathlib.Path(tmp)
+              before_root=tmp/"before"
+              subprocess.run(["git","worktree","add","--detach",str(before_root),before_ref],check=True)
+              before=read(before_root,tmp/"before.json")
+              after=read(pathlib.Path.cwd(),tmp/"after.json")
+              print("GRAMMAR_METRICS "+json.dumps({"before":dataclasses.asdict(measure_python_ratchets(before)),"after":dataclasses.asdict(measure_python_ratchets(after)),"unknown_rules_before":unknown_positions_by_rule(before),"unknown_rules_after":unknown_positions_by_rule(after)}),flush=True)
+              old,new=unknowns(before),unknowns(after)
+              print("GRAMMAR_UNKNOWN "+json.dumps({"before":old,"after":new,"added":{key:new[key] for key in new.keys()-old.keys()},"removed":{key:old[key] for key in old.keys()-new.keys()},"changed":{key:{"before":old[key],"after":new[key]} for key in old.keys()&new.keys() if old[key]!=new[key]}}),flush=True)
+              print("GRAMMAR_UNRESOLVED "+json.dumps([dataclasses.asdict(row) for row in unresolved_call_changes(before,after)]),flush=True)
+              oldcalls,newcalls=calls(before),calls(after)
+              delta=[{"signature":key,"before":oldcalls[key],"after":newcalls[key]} for key in sorted(oldcalls.keys()|newcalls.keys()) if comparable(oldcalls[key])!=comparable(newcalls[key])]
+              print("GRAMMAR_CALL_DELTA "+json.dumps(delta),flush=True)
+              print("GRAMMAR_CALL_TOTALS "+json.dumps({"before":{status:sum(len(value) for key,value in oldcalls.items() if key[-1]==status) for status in ["unresolved","partially_resolved"]},"after":{status:sum(len(value) for key,value in newcalls.items() if key[-1]==status) for status in ["unresolved","partially_resolved"]}}),flush=True)
+              result=subprocess.run(["uv","run","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--json"],text=True,capture_output=True)
+              print("GRAMMAR_SELF_EXIT",result.returncode,flush=True)
+              print("GRAMMAR_SELF "+result.stdout,flush=True)
+              print(result.stderr,flush=True)
+              assert result.returncode==0, "Strict native baseline must pass"
+          
+          PY
+  normal-writer-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked --python 3.11.12
+      - name: Fresh normal writer and no-write replay against the exact predecessor
+        run: |
+          uv run python - <<'PY'
+          import hashlib, json, pathlib, subprocess
+          path=pathlib.Path("docs/architecture/decisions/2026-10-16-contract-rule-grammar-amendment.json")
+          common=["uv","run","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--against","e5215b1403d98522003220b4c240aae9b011575f","--amendment",str(path),"--json"]
+          writer=subprocess.run(common+["--write-amendment","--decided-by","ake2l (architect)","--rationale","Nominalize shared contract rule grammar and preserve legacy constructors and wire behavior; independently declare exact API intent without raising any ratchet."],text=True,capture_output=True)
+          print("GRAMMAR_NORMAL_WRITE_EXIT",writer.returncode,flush=True)
+          print(writer.stdout,writer.stderr,flush=True)
+          assert writer.returncode==0
+          before=path.read_bytes()
+          print("GRAMMAR_RECEIPT "+json.dumps({"path":str(path),"content":before.decode(),"sha256":hashlib.sha256(before).hexdigest()}),flush=True)
+          replay=subprocess.run(common,text=True,capture_output=True)
+          print("GRAMMAR_NORMAL_REPLAY_EXIT",replay.returncode,flush=True)
+          print(replay.stdout,replay.stderr,flush=True)
+          assert replay.returncode==0
+          assert path.read_bytes()==before
+          print("GRAMMAR_NORMAL_REPLAY_UNCHANGED",hashlib.sha256(before).hexdigest(),flush=True)
           
           PY

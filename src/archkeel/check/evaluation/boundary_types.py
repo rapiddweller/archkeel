@@ -11,6 +11,7 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, replace
 from typing import Final, NamedTuple, TypeAlias
 
+from archkeel.ir.facts import PropertyOperation, PropertyOrigin, property_binding
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 from archkeel.ir.model import (
@@ -2963,7 +2964,10 @@ def _property_chains(symbols: Sequence[RawRecord]) -> frozenset[str]:
         name = data["qualified_name"]
         group: list[RawRecord] = grouped[name]
         group.append(item)
-        if "property_binding" in data and data["property_binding"]["operation"] != "create":
+        if (
+            "property_binding" in data
+            and property_binding(data["property_binding"]).operation is not PropertyOperation.CREATE
+        ):
             chains.add(name)
     return frozenset(
         chains | {name for name, group in grouped.items() if _ambiguous_method_group(group)}
@@ -3743,28 +3747,30 @@ def _apply_property_methods(
         if any("property_binding" not in item["data"] for item in group):
             return None
         local: dict[int, _PropertyMethods] = {}
-        for method in sorted(group, key=lambda item: item["data"]["property_binding"]["line"]):
+        bindings = [
+            (method, property_binding(method["data"]["property_binding"])) for method in group
+        ]
+        for method, binding in sorted(bindings, key=lambda item: item[1].line):
             method_data = method["data"]
-            binding = method_data["property_binding"]
             bound = _BoundMethod(method, data, imports, classes)
-            if binding["operation"] == "create":
+            if binding.operation is PropertyOperation.CREATE:
                 if method_data.get("signature_decorators_proven") is not True:
                     return None
                 selected = _PropertyMethods(bound)
             else:
                 origin = (
                     inherited.get(name)
-                    if binding["source"] == "base"
-                    else local.get(binding["source_line"])
+                    if binding.source is PropertyOrigin.BASE
+                    else local.get(binding.source_line)
                 )
                 if not isinstance(origin, _PropertyMethods):
                     return None
                 selected = (
                     _PropertyMethods(bound, origin.setter)
-                    if binding["operation"] == "getter"
+                    if binding.operation is PropertyOperation.GETTER
                     else _PropertyMethods(origin.getter, bound)
                 )
-            local[binding["line"]] = selected
+            local[binding.line] = selected
             surface[name] = selected
     return surface
 
