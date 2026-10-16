@@ -23,11 +23,11 @@ jobs:
           uv run --locked python - <<'PY'
           import json,pathlib,sys,tempfile
           sys.path.insert(0,"tests")
-          from test_scoped_dependency_proof import _dependency_model_before_wire
+          from test_scoped_dependency_proof import _dependency_model_from_core
           from archkeel.ir.codec import observation_payload,parse_observation
           from archkeel.ir.decisions import dependency_binding_id
           with tempfile.TemporaryDirectory() as root:
-              initial=_dependency_model_before_wire(pathlib.Path(root)/"project")
+              initial=_dependency_model_from_core(pathlib.Path(root)/"project")
               replay=parse_observation(json.loads(json.dumps(observation_payload(initial))))
               def binding(value): return dependency_binding_id(value.sections,value.coverage.failures,value.evidence)
               previous={record.id:record for section in initial.sections for record in section.records}
@@ -63,10 +63,10 @@ jobs:
           cat "$RUNNER_TEMP/causal.txt"
           if [ "${{ matrix.ref }}" = "7b2a14de58eb18be716c8eadef5c43928ec464a5" ]; then
             test "$causal_status" -eq 0
-            rg '3 passed' "$RUNNER_TEMP/causal.txt"
+            grep '3 passed' "$RUNNER_TEMP/causal.txt"
           else
             test "$causal_status" -eq 1
-            rg '3 failed' "$RUNNER_TEMP/causal.txt"
+            grep '3 failed' "$RUNNER_TEMP/causal.txt"
           fi
   wire-quality:
     runs-on: ubuntu-latest
@@ -122,6 +122,7 @@ jobs:
       - run: uv sync --locked
       - name: Validate unchanged contract and inspect individual type and call positions
         run: |
+          git diff --exit-code 5933ffbbfd588ac96e36748de937cb1f6e739655 -- architecture-contract.json architecture-baseline.json docs/architecture/contracts schema docs/architecture/decisions src/archkeel/ir/decisions.py src/archkeel/check/observation.py
           set +e
           uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 5933ffbbfd588ac96e36748de937cb1f6e739655 > "$RUNNER_TEMP/wire-native.json"
           wire_status=$?

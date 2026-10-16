@@ -734,9 +734,10 @@ def test_open_record_strings_are_canonical_primitives_before_json(wire, dependen
     assert type(initial.data.get("nested")[0].get("value")) is str
     assert type(initial.evidence_class) is EvidenceClass
     assert repr(initial) == repr(replay)
+    assert json.dumps(record_payload(initial), sort_keys=True) == json.dumps(raw, sort_keys=True)
 
 
-def _dependency_model_before_wire(root):
+def _dependency_model_from_core(root):
     config = _project(root)
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     result = Observer(_TypeScriptCollector())(
@@ -757,12 +758,16 @@ def test_dependency_binding_is_identical_before_and_after_the_real_json_boundary
     from archkeel.ir.codec import observation_payload
     from archkeel.ir.decisions import dependency_binding_id
 
-    initial = _dependency_model_before_wire(tmp_path / "project")
+    initial = _dependency_model_from_core(tmp_path / "project")
     replay = parse_observation(json.loads(json.dumps(observation_payload(initial))))
-    initial_id = dependency_binding_id(initial.sections, initial.coverage.failures, initial.evidence)
+    initial_id = dependency_binding_id(
+        initial.sections, initial.coverage.failures, initial.evidence
+    )
     replay_id = dependency_binding_id(replay.sections, replay.coverage.failures, replay.evidence)
     receipt = next(
-        row for row in initial.records("scope_observations") if row.data.get("dependency_scope_proof")
+        row
+        for row in initial.records("scope_observations")
+        if row.data.get("dependency_scope_proof")
     )
     issued_id = receipt.data.get("dependency_scope_proof").get("binding_id")
     assert issued_id == initial_id == replay_id == "DEPENDENCY-PROOF-e7455e745c3a5c89"
