@@ -223,9 +223,7 @@ def classify_specifier(text: str) -> SpecifierInfo:
     parts = text.split("/")
     package = "/".join(parts[:2]) if kind is SpecifierKind.SCOPED else parts[0]
     typed_name = (
-        text.replace("/", "__", 1)[1:]
-        if kind is SpecifierKind.SCOPED and len(parts) > 1
-        else text
+        text.replace("/", "__", 1)[1:] if kind is SpecifierKind.SCOPED and len(parts) > 1 else text
     )
     return SpecifierInfo(
         original=text,

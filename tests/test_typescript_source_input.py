@@ -425,3 +425,13 @@ def test_actual_snapshot_input_role_widening_fails_fixed_native_intent(tmp_path)
     assert any(row.status == "FAIL" for row in rows), rows
     assert trace_valid_violations(model)
     assert (root / "contract.json").read_bytes() == intent
+
+
+def test_every_owned_suffix_has_complete_nominal_metadata():
+    from archkeel.analyzer.typescript.source_input import FileSuffix, ModuleFormat, SourceKind
+
+    for suffix in FileSuffix:
+        assert suffix.source_kind is None or isinstance(suffix.source_kind, SourceKind)
+        assert suffix.format_hint is None or isinstance(suffix.format_hint, ModuleFormat)
+        assert all(isinstance(item, FileSuffix) for item in suffix.replacements(tuple(SourceKind)))
+        assert all(isinstance(item, FileSuffix) for item in suffix.priority)
