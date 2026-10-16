@@ -1,0 +1,62 @@
+name: Diagnose exact activation inventories
+on:
+  push:
+    branches: [verify/542-activation-inventory]
+permissions:
+  contents: read
+jobs:
+  actual-inventories:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 15f1fa127c37399541e09b16ccf23ebe246f3709
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Read exact actual reports and fixed Target failure
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/activation-inventory-before" ad7be0ec26ff4ac0b41db6d4bb8e2b118ecf9596
+          uv run --locked archkeel report --root "$RUNNER_TEMP/activation-inventory-before" --output "$RUNNER_TEMP/activation-inventory-before.json" > "$RUNNER_TEMP/activation-inventory-before.stdout"
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/activation-inventory-after.json" > "$RUNNER_TEMP/activation-inventory-after.stdout"
+          uv run --locked python - <<'PY'
+          import ast,dataclasses,json,os,subprocess,sys,tempfile
+          from pathlib import Path
+          sys.path.insert(0,str(Path("tests").resolve()))
+          from archkeel.ir.codec import decode_canonical_model,parse_observation
+          from archkeel.ir.references import unreferenced_symbols
+          from archkeel.ir.report_graph import architecture_report
+          from test_python_string_predicate_target import _repository
+          from test_uml_evaluation import _model
+          def emit(marker,value): print(marker+"="+json.dumps(value,sort_keys=True,default=str),flush=True)
+          temporary=Path(os.environ["RUNNER_TEMP"])
+          with tempfile.TemporaryDirectory(dir=temporary) as directory:
+              root,config=_repository(Path(directory))
+              model=_model(root,config)
+              comparison=architecture_report(model).comparison
+              emit("PREDICATE_TARGET_ASSESSMENTS",dataclasses.asdict(comparison))
+          inventories={}
+          for label in ("before","after"):
+              model=parse_observation(decode_canonical_model(json.loads((temporary/("activation-inventory-"+label+".json")).read_bytes())))
+              result=unreferenced_symbols(model)
+              inventories[label]=[dataclasses.asdict(row) for row in result.candidates]
+              emit("ACTUAL_UNREFERENCED_INVENTORY",{"label":label,"symbols":result.symbols,"candidates":inventories[label]})
+          before={row["name"]:row for row in inventories["before"]}
+          after={row["name"]:row for row in inventories["after"]}
+          emit("UNREFERENCED_IDENTITY_DELTA",{"added":[after[name] for name in sorted(after.keys()-before.keys())],"removed":[before[name] for name in sorted(before.keys()-after.keys())]})
+          for label,ref in (("before","ad7be0ec26ff4ac0b41db6d4bb8e2b118ecf9596"),("after","HEAD")):
+              source=subprocess.check_output(["git","show",ref+":src/archkeel/analyzer/dart/collect.py"],text=True)
+              tree=ast.parse(source)
+              for owner in tree.body:
+                  if isinstance(owner,ast.ClassDef) and owner.name=="_Collection":
+                      for node in owner.body:
+                          if isinstance(node,ast.FunctionDef) and node.name=="_class_definition":
+                              emit("DART_CLASS_DEFINITION_LINES",{"label":label,"start":node.lineno,"end":node.end_lineno,"count":node.end_lineno-node.lineno+1,"source":ast.get_source_segment(source,node)})
+          emit("EXACT_DIAGNOSTIC_SOURCE",{"head":subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),"dirty":subprocess.check_output(["git","status","--porcelain"],text=True).strip()})
+          
+          PY
