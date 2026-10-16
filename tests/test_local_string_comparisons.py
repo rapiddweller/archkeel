@@ -29,9 +29,7 @@ _RULE = {
         ('other = flag = "--json"', "flag in value", "membership"),
     ],
 )
-def test_single_local_literal_produces_trace_valid_failure(
-    tmp_path, statement, expression, form
-):
+def test_single_local_literal_produces_trace_valid_failure(tmp_path, statement, expression, form):
     source = f"def parse(value):\n    {statement}\n    return {expression}\n"
     result = _observe_one_rule(tmp_path, _RULE, {"core.py": source})
     assert result.diagnostics == () and result.observation is not None
