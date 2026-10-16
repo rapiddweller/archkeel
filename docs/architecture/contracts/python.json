@@ -535,6 +535,39 @@
             ],
             "returns": "_StringPredicate | None"
           }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/python-string-predicates.md"
+          ],
+          "id": "PYTHON-PREDICATE-QUERY",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.python.constructs._predicate_matches",
+          "parent_id": "PYTHON-PREDICATE-MODULE",
+          "responsibilities": [
+            "Query the existing lexical literal context for the first written prefix or suffix argument."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "literals",
+                "annotation": "_LiteralComparisons",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "node",
+                "annotation": "ast.expr",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          }
         }
       ],
       "relationships": [],

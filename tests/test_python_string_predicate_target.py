@@ -30,6 +30,7 @@ def _repository(tmp_path, changed=None):
         "PYTHON-PREDICATE-MODULE",
         "PYTHON-PREDICATE-KIND",
         "PYTHON-PREDICATE-DECODE",
+        "PYTHON-PREDICATE-QUERY",
     }
     uml = contract["declarations"]["uml"]
     uml["entities"] = [entity for entity in uml["entities"] if entity["id"] in predicate_ids]
@@ -71,8 +72,16 @@ def test_actual_predicate_enum_and_decoder_satisfy_independent_native_target(tmp
     [
         ("class _StringPredicate(Enum):", "class _StringPredicate:"),
         ("-> _StringPredicate | None:", "-> str | None:"),
+        (
+            "def _predicate_matches(literals: _LiteralComparisons, node: ast.expr) -> bool:",
+            "def _predicate_matches(literals: str, node: ast.expr) -> bool:",
+        ),
+        (
+            "def _predicate_matches(literals: _LiteralComparisons, node: ast.expr) -> bool:",
+            "def _predicate_matches(literals: _LiteralComparisons, node: ast.expr) -> str:",
+        ),
     ],
-    ids=["enum-kind", "nominal-return"],
+    ids=["enum-kind", "nominal-return", "query-context", "query-result"],
 )
 def test_actual_decoder_type_widening_fails_fixed_native_target(tmp_path, old, new):
     source = (ROOT / SOURCE).read_text()
