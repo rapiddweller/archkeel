@@ -23,7 +23,9 @@ GUARD = "RENDER-BADGE-TYPED-CONTROL"
 
 def _badge_contract():
     render = json.loads((ROOT / "docs/architecture/contracts/render.json").read_text())
-    component = copy.deepcopy(next(row for row in render["components"] if row["label"] == "summary"))
+    component = copy.deepcopy(
+        next(row for row in render["components"] if row["label"] == "summary")
+    )
     component["exact_modules"] = ["archkeel.render.summary_badges"]
     component["provenance"] = ["docs/architecture/summary-badges.md"]
     component["public"] = [
@@ -119,7 +121,7 @@ def test_badge_source_widening_fails_without_changing_authored_target(tmp_path, 
         ("", 'value in ("PASS", "FAIL")'),
         ("", '"PASS" in value'),
         ('from typing import Final\n_PASS: Final[str] = "PASS"\n', "value == _PASS"),
-        ("", 'value == local_status'),
+        ("", "value == local_status"),
     ],
     ids=["equality", "membership", "literal-needle", "final-alias", "local-alias"],
 )
@@ -149,7 +151,10 @@ def test_badge_real_match_control_fails_native_guard_with_target_unchanged(tmp_p
     root, config = _badge_repository(tmp_path)
     intent = (root / "contract.json").read_bytes()
     source = root / "archkeel/render/summary_badges.py"
-    old = "    if status is AssessmentStatus.PASS:\n        return Badge(BadgeState.PASS, \"✓\", \"PASS\")"
+    old = (
+        "    if status is AssessmentStatus.PASS:\n"
+        '        return Badge(BadgeState.PASS, "✓", "PASS")'
+    )
     new = (
         '    match value:\n        case "PASS":\n'
         '            return Badge(BadgeState.PASS, "✓", "PASS")'
@@ -166,8 +171,7 @@ def test_badge_guard_accepts_nominal_controls_and_arbitrary_data_comparison(tmp_
     root, config = _badge_repository(tmp_path)
     source = root / "archkeel/render/summary_badges.py"
     source.write_text(
-        source.read_text()
-        + "\n\ndef _display_probe(value: BadgeState) -> bool:\n"
+        source.read_text() + "\n\ndef _display_probe(value: BadgeState) -> bool:\n"
         "    return value is BadgeState.INFO\n"
         "\n\ndef _data_probe(actual: str, expected: str) -> bool:\n"
         "    return actual == expected\n"

@@ -64,6 +64,7 @@ def test_legacy_summary_exports_are_the_same_owned_objects():
     assert summary.badge is summary_badges.badge
     assert summary.State is summary_badges.BadgeState
     assert summary.BadgeState is summary_badges.BadgeState
+    assert {state.value for state in summary_badges.BadgeState} == {"pass", "fail", "info", "unknown"}
     assert summary.Badge(summary_badges.BadgeState.INFO, "i", "DRAFT").state is (
         summary_badges.BadgeState.INFO
     )
@@ -78,8 +79,7 @@ def test_badge_html_states_and_declaration_style_in_chromium():
 
     values = ("PASS", "FAIL", "UNKNOWN", "n/a", "other")
     cards = "".join(
-        _verdict_card(summary.VerdictRow("Verdict", "", value, "Evidence"))
-        for value in values
+        _verdict_card(summary.VerdictRow("Verdict", "", value, "Evidence")) for value in values
     )
     rows = "".join(
         _rule_assessment_row(
@@ -88,7 +88,10 @@ def test_badge_html_states_and_declaration_style_in_chromium():
         for status in RuleAssessmentStatus
     )
     document = _document(
-        repository="sample", kind="report", title="Badges", content=cards + "<table>" + rows + "</table>"
+        repository="sample",
+        kind="report",
+        title="Badges",
+        content=cards + "<table>" + rows + "</table>",
     )
     playwright, browser, page = _browser_page(api, document.decode())
     try:
@@ -96,7 +99,11 @@ def test_badge_html_states_and_declaration_style_in_chromium():
             "nodes => nodes.map(node => node.dataset.verdict)"
         ) == ["pass", "fail", "unknown", "info", "unknown"]
         assert page.locator(".verdict-state").all_text_contents() == [
-            "✓PASS", "×FAIL", "?UNKNOWN", "iNOT APPLICABLE", "?NOT CHECKED"
+            "✓PASS",
+            "×FAIL",
+            "?UNKNOWN",
+            "iNOT APPLICABLE",
+            "?NOT CHECKED",
         ]
         assert page.locator("strong[data-status]").evaluate_all(
             "nodes => nodes.map(node => [node.dataset.status, node.textContent])"

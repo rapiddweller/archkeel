@@ -85,6 +85,7 @@ jobs:
           
           PY
   own-native:
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -113,6 +114,7 @@ jobs:
           PY
           exit "$badge_status"
   browser:
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

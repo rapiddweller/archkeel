@@ -62,7 +62,6 @@ from .summary import (
     report_summary,
     report_violates_rules,
 )
-
 from .summary_badges import BadgeState, badge
 
 

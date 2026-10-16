@@ -80,7 +80,11 @@ def _decision_badge(result: RunResult) -> Badge:
         and result.observation_complete == "PASS"
         and result.exit_code == 2
     ):
-        return badge("FAIL") if result.declared_rules == "FAIL" else Badge(BadgeState.FAIL, "×", "REJECT")
+        return (
+            badge("FAIL")
+            if result.declared_rules == "FAIL"
+            else Badge(BadgeState.FAIL, "×", "REJECT")
+        )
     if result.exit_code == 0:
         return Badge(BadgeState.PASS, "✓", "PASS")
     if result.exit_code == 1:
