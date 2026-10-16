@@ -1,13 +1,13 @@
-name: Inspect alias source proof
+name: Verify native dependency API
 on:
   push:
     branches: [verify/541-native-api-tests]
 permissions:
   contents: read
 jobs:
-  diagnose:
+  native:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -17,20 +17,18 @@ jobs:
         with:
           python-version: "3.11.12"
           version: "0.12.13"
-      - name: Check vocabulary move
-        run: uv run --locked ruff check src/archkeel/ir/model.py src/archkeel/ir/dependency.py
-      - run: uv run --locked archkeel report --root . --output .541-observation.json --json > .541-summary.json
-      - name: Inspect alias bindings
+      - name: Focused native source controls
+        run: uv run --locked python -m pytest -q tests/test_generic_alias_union_proof.py tests/test_dependency_api_target.py --maxfail=10
+      - name: Lint and types
+        if: always()
         run: |
-          uv run --locked python - <<'PY'
-          import json,pathlib
-          from archkeel.ir.codec import decode_canonical_model,parse_observation
-          model=parse_observation(decode_canonical_model(json.loads(pathlib.Path(".541-observation.json").read_text())))
-          print(pathlib.Path(".541-summary.json").read_text())
-          for row in model.records("unknowns"):
-              if any("DEPENDENCY" in key for key in row.rule_ids): print("BOUNDARY_UNKNOWN",row)
-          for section in ("symbols","imports"):
-              for row in model.records(section):
-                  if "ComponentOwnership" in str(row.data):
-                      print(section,row)
+          uv run --locked ruff format tests/test_dependency_api_target.py
+          uv run --locked ruff check tests/test_dependency_api_target.py
+          uv run --locked mypy src
+      - name: Formatting evidence
+        if: always()
+        run: |
+          python - <<'PY'
+          import base64,pathlib
+          print("TEST_FILE="+base64.b64encode(pathlib.Path("tests/test_dependency_api_target.py").read_bytes()).decode())
           PY

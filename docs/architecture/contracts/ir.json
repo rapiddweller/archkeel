@@ -271,9 +271,7 @@
         "archkeel.ir.dependency:DependencyTargetKind",
         "archkeel.ir.dependency:ModuleSelection",
         "archkeel.ir.dependency:SelectorMatch",
-        "archkeel.ir.dependency:module_in_ownership",
-        "archkeel.ir.dependency:ComponentOwnershipInput",
-        "archkeel.ir.dependency:PackageComponentOwnership"
+        "archkeel.ir.dependency:module_in_ownership"
       ],
       "requires": [
         {

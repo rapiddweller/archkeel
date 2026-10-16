@@ -138,7 +138,10 @@ def test_placeholder_diagnostic_rejects_validation_without_changing_rule_verdict
         raw["violations"] = [_violation("VIO-boundary", "EVD-import")]
         raw["violations"][0]["fact_ids"] = ["FACT-import"]
         rule = _record(
-            "DEP-TASKS-NO-CLIENTS", kind="forbidden_dependency", evidence_class="DECLARED_RULE"
+            "DEP-TASKS-NO-CLIENTS",
+            kind="forbidden_dependency",
+            evidence_class="DECLARED_RULE",
+            data={"source": "datamimic_ee.tasks", "target": "datamimic_ee.clients"},
         )
         rule["provenance"] = ["docs/architecture/sample.md"]
         raw["declarations"] = [rule]

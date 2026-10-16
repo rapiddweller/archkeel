@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "c7345d5fbcfd8083fe3a618d23a806dea1eee1c1083aa3e163d59b5e260fa2ed",
+  "after_digest": "0f4563402250d5727a25922bb084872355b3de9c65bdba9da1277b75e5cd2a7f",
+  "before_baseline_digest": "c7345d5fbcfd8083fe3a618d23a806dea1eee1c1083aa3e163d59b5e260fa2ed",
+  "before_digest": "0cc25b579afe4fca160837eaaee1baa6aba923f6efb3f6315cadf9965faa8170",
+  "decided_by": "ake2l (requested typed APIs and component responsibilities); Codex implementation, independent Astra review before merge",
+  "rationale": "Issue #540 extracts one pure typed dependency-policy component with six named shared type exports and an inner ownership matcher port. Existing model compatibility exports delegate to this owner; codecs retain raw conversion, Core retains verdicts and reports reuse selection. The enum placement rule explicitly permits this vocabulary owner. Existing budgets and baseline remain unchanged. Native semantic and compatibility regressions and independent final review are required; docs/architecture/dependency-selection.md records the API responsibilities.",
+  "schema_version": "2.0.0"
+}

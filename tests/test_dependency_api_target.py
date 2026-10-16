@@ -151,7 +151,8 @@ def test_native_dependency_api_matches_the_independent_target(tmp_path):
             for row in comparison.assessments
         ), (name, aspect, comparison)
     boundary = next(
-        row for row in rule_assessments(model, undecided_by_rule={})
+        row
+        for row in rule_assessments(model, undecided_by_rule={})
         if row.id == "TARGET-DEPENDENCY-BOUNDARY-TYPES"
     )
     assert boundary.status == "PASS", boundary
