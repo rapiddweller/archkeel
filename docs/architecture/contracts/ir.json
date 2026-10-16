@@ -4472,7 +4472,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "Literal['missing_tool', 'timeout', 'execution_error', 'protocol_error']",
+          "annotation": "CollectionErrorKind",
           "presence": "planned",
           "responsibilities": [
             "Carry kind as source-only protocol data."
@@ -6202,182 +6202,6 @@
           }
         },
         {
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
-            "docs/architecture/collector-wire-vocabulary.md"
-          ],
-          "id": "IR-COLLECTOR-PROFILES",
-          "kind": "module",
-          "qualified_name": "archkeel.ir.profiles",
-          "parent_id": "TARGET-PROFILES",
-          "responsibilities": [
-            "Own declared source capabilities independently of collector identity."
-          ]
-        },
-        {
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
-            "docs/architecture/collector-wire-vocabulary.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
-          "id": "IR-COLLECTOR-facts.Language",
-          "kind": "enum",
-          "qualified_name": "archkeel.ir.facts.Language",
-          "parent_id": "archkeel.ir.facts",
-          "responsibilities": [
-            "Select the collector language without duplicating its vocabulary in adapters or Core."
-          ]
-        },
-        {
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
-            "docs/architecture/collector-wire-vocabulary.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
-          "id": "IR-COLLECTOR-facts.RuntimeRequirementState",
-          "kind": "enum",
-          "qualified_name": "archkeel.ir.facts.RuntimeRequirementState",
-          "parent_id": "archkeel.ir.facts",
-          "responsibilities": [
-            "Distinguish declared requirements from missing or invalid metadata."
-          ]
-        },
-        {
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
-            "docs/architecture/collector-wire-vocabulary.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
-          "id": "IR-COLLECTOR-facts.SourceDirty",
-          "kind": "enum",
-          "qualified_name": "archkeel.ir.facts.SourceDirty",
-          "parent_id": "archkeel.ir.facts",
-          "responsibilities": [
-            "Validate the unknown source-dirty sentinel while retaining its wire spelling."
-          ]
-        },
-        {
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
-            "docs/architecture/collector-wire-vocabulary.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
-          "id": "IR-COLLECTOR-facts.MemberKind",
-          "kind": "enum",
-          "qualified_name": "archkeel.ir.facts.MemberKind",
-          "parent_id": "archkeel.ir.facts",
-          "responsibilities": [
-            "Identify attribute and method inventory receipts."
-          ]
-        },
-        {
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
-            "docs/architecture/collector-wire-vocabulary.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
-          "id": "IR-COLLECTOR-facts.InventoryStatus",
-          "kind": "enum",
-          "qualified_name": "archkeel.ir.facts.InventoryStatus",
-          "parent_id": "archkeel.ir.facts",
-          "responsibilities": [
-            "Distinguish complete inventories from bounded partial collection."
-          ]
-        },
-        {
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
-            "docs/architecture/collector-wire-vocabulary.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
-          "id": "IR-COLLECTOR-facts.InventoryVersion",
-          "kind": "enum",
-          "qualified_name": "archkeel.ir.facts.InventoryVersion",
-          "parent_id": "archkeel.ir.facts",
-          "responsibilities": [
-            "Identify the supported member-inventory wire version."
-          ]
-        },
-        {
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
-            "docs/architecture/collector-wire-vocabulary.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
-          "id": "IR-COLLECTOR-facts.ResolutionRole",
-          "kind": "enum",
-          "qualified_name": "archkeel.ir.facts.ResolutionRole",
-          "parent_id": "archkeel.ir.facts",
-          "responsibilities": [
-            "Distinguish selected source from resolver metadata."
-          ]
-        },
-        {
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
-            "docs/architecture/collector-wire-vocabulary.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
-          "id": "IR-COLLECTOR-protocol.ProtocolVersion",
-          "kind": "enum",
-          "qualified_name": "archkeel.ir.protocol.ProtocolVersion",
-          "parent_id": "archkeel.ir.protocol",
-          "responsibilities": [
-            "Own supported collector envelope versions and their compatibility gates."
-          ]
-        },
-        {
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
-            "docs/architecture/collector-wire-vocabulary.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
-          "id": "IR-COLLECTOR-profiles.UnmeasurableScalar",
-          "kind": "enum",
-          "qualified_name": "archkeel.ir.profiles.UnmeasurableScalar",
-          "parent_id": "IR-COLLECTOR-PROFILES",
-          "responsibilities": [
-            "Name measurements a source profile cannot prove."
-          ]
-        },
-        {
           "id": "IR-STATE-state_facts",
           "kind": "module",
           "qualified_name": "archkeel.ir.state_facts",
@@ -6834,6 +6658,254 @@
           }
         },
         {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "id": "IR-COLLECTOR-PROFILES",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.profiles",
+          "parent_id": "TARGET-PROFILES",
+          "responsibilities": [
+            "Own declared source capabilities independently of collector identity."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-facts.Language",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.Language",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Select the collector language without duplicating its vocabulary in adapters or Core."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-facts.RuntimeRequirementState",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.RuntimeRequirementState",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Distinguish declared requirements from missing or invalid metadata."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-facts.SourceDirty",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.SourceDirty",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Validate the unknown source-dirty sentinel while retaining its wire spelling."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-facts.MemberKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.MemberKind",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Identify attribute and method inventory receipts."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-facts.InventoryStatus",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.InventoryStatus",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Distinguish complete inventories from bounded partial collection."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-facts.InventoryVersion",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.InventoryVersion",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Identify the supported member-inventory wire version."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-facts.ResolutionRole",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.ResolutionRole",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Distinguish selected source from resolver metadata."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-protocol.ProtocolVersion",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.protocol.ProtocolVersion",
+          "parent_id": "archkeel.ir.protocol",
+          "responsibilities": [
+            "Own supported collector envelope versions and their compatibility gates."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-profiles.UnmeasurableScalar",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.profiles.UnmeasurableScalar",
+          "parent_id": "IR-COLLECTOR-PROFILES",
+          "responsibilities": [
+            "Name measurements a source profile cannot prove."
+          ]
+        },
+        {
+          "id": "IR-COLLECTOR-facts.SourceProfile",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.SourceProfile",
+          "parent_id": "archkeel.ir.facts",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Identify a registered collector source profile."
+          ],
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-COLLECTOR-facts.SourceSectionName",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.SourceSectionName",
+          "parent_id": "archkeel.ir.facts",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the exact section vocabulary in collector source facts."
+          ],
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-protocol.CollectionErrorKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.protocol.CollectionErrorKind",
+          "parent_id": "archkeel.ir.protocol",
+          "responsibilities": [
+            "Own local collector failure classification without raw protocol-string control."
+          ]
+        },
+        {
+          "id": "IR-COLLECTOR-model.Verdict",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.model.Verdict",
+          "parent_id": "IR-DEPENDENCY-model",
+          "language": "python",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Own binary observation completion states; UNKNOWN belongs only to rule assessments."
+          ],
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ]
+        },
+        {
           "id": "IR-GRAPH-EntityKind",
           "kind": "enum",
           "qualified_name": "archkeel.ir.architecture_graph.EntityKind",
@@ -7187,42 +7259,6 @@
           ],
           "provenance": [
             "docs/architecture/typed-graph-vocabulary.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          }
-        },
-        {
-          "id": "IR-COLLECTOR-facts.SourceProfile",
-          "kind": "enum",
-          "qualified_name": "archkeel.ir.facts.SourceProfile",
-          "parent_id": "archkeel.ir.facts",
-          "language": "python",
-          "presence": "planned",
-          "responsibilities": [
-            "Identify a registered collector source profile."
-          ],
-          "provenance": [
-            "docs/architecture/collector-wire-vocabulary.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          }
-        },
-        {
-          "id": "IR-COLLECTOR-facts.SourceSectionName",
-          "kind": "enum",
-          "qualified_name": "archkeel.ir.facts.SourceSectionName",
-          "parent_id": "archkeel.ir.facts",
-          "language": "python",
-          "presence": "planned",
-          "responsibilities": [
-            "Own the exact section vocabulary in collector source facts."
-          ],
-          "provenance": [
-            "docs/architecture/collector-wire-vocabulary.md"
           ],
           "visibility": {
             "kind": "public",

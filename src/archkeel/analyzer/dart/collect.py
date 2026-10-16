@@ -23,8 +23,8 @@ from archkeel.ir.facts import (
     LocalTarget,
     Record,
     SourceFacts,
-    SourceProfile,
     SourceInfo,
+    SourceProfile,
     SourceSectionName,
     UnresolvedTarget,
     stable_id,
@@ -186,7 +186,9 @@ class _Collection:
             SourceSectionName.IMPORTS: tuple(
                 parse_record(item) for item in sorted(self.imports, key=lambda x: x["id"])
             ),
-            SourceSectionName.UNKNOWNS: tuple(parse_record(item) for _, item in sorted(self.gaps.items())),
+            SourceSectionName.UNKNOWNS: tuple(
+                parse_record(item) for _, item in sorted(self.gaps.items())
+            ),
             SourceSectionName.SYMBOLS: tuple(
                 parse_record(item) for item in sorted(self.symbols, key=lambda x: x["id"])
             ),

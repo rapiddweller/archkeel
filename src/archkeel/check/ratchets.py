@@ -14,6 +14,7 @@ from archkeel.ir.measurements import (
     compare_measurements,
 )
 from archkeel.ir.model import (
+    Verdict,
     CallRow,
     CallStatus,
     EvidenceClass,
@@ -69,8 +70,8 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
     coverage = observation.coverage
     profile = profile_for(observation.analyzer.name)
     if (
-        coverage.status != "PASS"
-        or coverage.rules == "FAIL"
+        coverage.status != Verdict.PASS
+        or coverage.rules == Verdict.FAIL
         or coverage.files_discovered == 0
         or coverage.failures
         or len({coverage.files_discovered, coverage.files_read, coverage.files_parsed}) != 1

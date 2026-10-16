@@ -199,8 +199,13 @@ def member_inventories(value: JsonValue) -> tuple[MemberInventory, ...]:
             or {key for key, _ in item.entries} - (required | {"reason"})
         ):
             raise ValueError("member inventory fields mismatch")
-        if item.get("schema_version") != InventoryVersion.V1:
+        raw_version = item.get("schema_version")
+        if not isinstance(raw_version, str):
             raise ValueError("unsupported member inventory version")
+        try:
+            inventory_version = InventoryVersion(raw_version)
+        except ValueError as error:
+            raise ValueError("unsupported member inventory version") from error
         kind, status = item.get("kind"), item.get("status")
         ids, reason = item.get("definition_ids"), item.get("reason")
         if (
@@ -222,6 +227,7 @@ def member_inventories(value: JsonValue) -> tuple[MemberInventory, ...]:
                 inventory_status,
                 tuple(identifier for identifier in ids if isinstance(identifier, str)),
                 reason,
+                inventory_version,
             )
         )
     if len(result) != 2 or {item.kind for item in result} != {

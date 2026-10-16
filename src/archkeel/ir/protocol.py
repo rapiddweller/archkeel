@@ -9,7 +9,6 @@ from typing import Final, Literal, TypeAlias
 
 from .facts import Language, SourceFacts
 
-
 PROTOCOL_VERSION: Final = "3.0.0"
 
 
@@ -65,8 +64,15 @@ class CollectionResponse:
     protocol_version: ProtocolVersion = ProtocolVersion(PROTOCOL_VERSION)
 
 
+class CollectionErrorKind(StrEnum):
+    MISSING_TOOL = "missing_tool"
+    TIMEOUT = "timeout"
+    EXECUTION_ERROR = "execution_error"
+    PROTOCOL_ERROR = "protocol_error"
+
+
 @dataclass(frozen=True, slots=True)
 class CollectionError:
-    kind: Literal["missing_tool", "timeout", "execution_error", "protocol_error"]
+    kind: CollectionErrorKind
     subject: str
     message: str

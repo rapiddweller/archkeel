@@ -11,7 +11,7 @@ import tomllib
 from enum import StrEnum
 from pathlib import Path
 
-from archkeel.ir.facts import AnalyzerInfo, RuntimeInfo, RuntimeRequirementState
+from archkeel.ir.facts import AnalyzerInfo, RuntimeInfo, RuntimeRequirementState, SourceProfile
 from archkeel.ir.facts import Language as Language
 
 
@@ -20,10 +20,10 @@ class _MetadataField(StrEnum):
     PYTHON = "python"
 
 
-_ANALYZERS: dict[Language, str] = {
-    Language.PYTHON: "archkeel-python-analyzer",
-    Language.DART: "archkeel-dart-analyzer",
-    Language.TYPESCRIPT: "archkeel-typescript-imports",
+_ANALYZERS: dict[Language, SourceProfile] = {
+    Language.PYTHON: SourceProfile.PYTHON,
+    Language.DART: SourceProfile.DART,
+    Language.TYPESCRIPT: SourceProfile.TYPESCRIPT,
 }
 # A parser change can change facts without changing a line of this package.
 _PARSERS: dict[Language, tuple[str, ...]] = {
@@ -75,7 +75,7 @@ def collector_provenance(
     except importlib.metadata.PackageNotFoundError:
         version = "0+unknown"
     return (
-        AnalyzerInfo(_ANALYZERS[language], version, digest.hexdigest()),
+        AnalyzerInfo(_ANALYZERS[language].value, version, digest.hexdigest()),
         RuntimeInfo("python", platform.python_version(), required, requirement_state),
     )
 

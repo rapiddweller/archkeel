@@ -6,7 +6,13 @@
 from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
-from .architecture_graph import AssessmentStatus, ComponentRole, DecisionMaker, RelationshipKind, RuleAssessment
+from .architecture_graph import (
+    AssessmentStatus,
+    ComponentRole,
+    DecisionMaker,
+    RelationshipKind,
+    RuleAssessment,
+)
 from .facts import Record, SourceInfo
 
 PermissionStatus: TypeAlias = Literal["allowed", "forbidden", "undecided"]

@@ -10,7 +10,7 @@ from typing import TypeGuard, get_args
 
 from archkeel.ir.codec_governance import _measurement_payload, parse_measurements
 from archkeel.ir.codec_observation import (
-    _is_verdict,
+    _parse_verdict,
     _parse_analyzer,
     _parse_runtime,
     _python_version,
@@ -160,15 +160,9 @@ def parse_delta(raw: object) -> ArchitectureDelta:
         {"status", "baseline_status", "head_status", "supported_dimensions", "unknown_dimensions"},
         "delta.coverage",
     )
-    delta_status = cv["status"]
-    baseline_status = cv["baseline_status"]
-    head_status = cv["head_status"]
-    if not _is_verdict(delta_status):
-        raise ValueError("delta coverage status invalid")
-    if not _is_verdict(baseline_status):
-        raise ValueError("delta coverage status invalid")
-    if not _is_verdict(head_status):
-        raise ValueError("delta coverage status invalid")
+    delta_status = _parse_verdict(cv["status"], "delta coverage status")
+    baseline_status = _parse_verdict(cv["baseline_status"], "delta coverage status")
+    head_status = _parse_verdict(cv["head_status"], "delta coverage status")
     version = _string(item["schema_version"], "delta.schema_version")
     if version not in {"1.2.0", "1.3.0", "1.4.0", DELTA_SCHEMA_VERSION}:
         raise ValueError("unsupported delta schema version")
@@ -242,9 +236,7 @@ def _parse_snapshot_summary(
     optional = {"python_version", "runtime", "producer"}
     if set(x) - optional != {"git_head", "source_digest", "coverage_status"}:
         raise ValueError(f"{label} fields mismatch")
-    coverage_status = x["coverage_status"]
-    if not _is_verdict(coverage_status):
-        raise ValueError(f"{label}.coverage_status invalid")
+    coverage_status = _parse_verdict(x["coverage_status"], f"{label}.coverage_status")
     return SnapshotSummary(
         _string(x["git_head"], f"{label}.git_head"),
         _string(x["source_digest"], f"{label}.source_digest"),

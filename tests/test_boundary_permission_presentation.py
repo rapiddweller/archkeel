@@ -72,7 +72,7 @@ def test_unselected_permissions_are_neutral_counts_with_deferred_audit(
         audit = inspector.locator("[data-boundary-audit]")
         assert audit.get_attribute("open") is None
         audit.locator(":scope > summary").press("Enter")
-        page.wait_for_function("document.querySelector('[data-boundary-group]') !== null")
+        inspector.locator("[data-boundary-group]").first.wait_for(state="attached")
         assert inspector.locator("[data-boundary-permission]").count() == 0
         assert "Unmapped boundary permission audit" in inspector.inner_text()
         for group in inspector.locator("[data-boundary-group]").all():

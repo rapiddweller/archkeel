@@ -28,6 +28,7 @@ from archkeel.ir.model import (
     TARGET_GRAPH_RECORD_KINDS,
     UML_TARGET_KIND,
     Observation,
+    Verdict,
     Record,
     stable_id,
 )
@@ -119,7 +120,7 @@ def _inventory_comparison_is_bound(
         if declared is not None
         else ()
     )
-    inventory_pass = model.coverage.status != "PASS" and any(
+    inventory_pass = model.coverage.status != Verdict.PASS and any(
         a.aspect == "completeness"
         and a.status == AssessmentStatus.PASS
         and a.id

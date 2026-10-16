@@ -515,10 +515,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         raise ValueError("observed module needs a selected input")
     if len(facts.files) > facts.coverage.files_parsed:
         raise ValueError("observed modules exceed parsed files")
-    if (
-        facts.profile != SourceProfile.DART
-        and len(facts.files) != facts.coverage.files_parsed
-    ):
+    if facts.profile != SourceProfile.DART and len(facts.files) != facts.coverage.files_parsed:
         raise ValueError("each parsed source file needs an observed module")
     if facts.coverage.full_scope and facts.coverage.files_parsed and not facts.files:
         raise ValueError("complete parsed source needs an observed module")

@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from enum import StrEnum
 from math import isfinite
-from typing import Any, TypeGuard, get_args
+from typing import Any, TypeGuard
 
 from archkeel.ir.codec_wire import (
     _count,
@@ -132,8 +132,13 @@ _COVERAGE_KEYS = {
 _COVERAGE_REQUIRED_KEYS = _COVERAGE_KEYS - {"rules"}
 
 
-def _is_verdict(value: RawJson) -> TypeGuard[Verdict]:
-    return value in get_args(Verdict)
+def _parse_verdict(value: RawJson, label: str) -> Verdict:
+    if not isinstance(value, str):
+        raise ValueError(f"{label} invalid")
+    try:
+        return Verdict(value)
+    except ValueError as error:
+        raise ValueError(f"{label} invalid") from error
 
 
 def _percent(value: RawJson, label: str) -> float:
@@ -255,12 +260,9 @@ def _parse_coverage(
 ) -> Coverage:
     if set(coverage) - _COVERAGE_KEYS or not _COVERAGE_REQUIRED_KEYS.issubset(coverage):
         raise ValueError("coverage fields mismatch")
-    status = coverage["status"]
-    rules = coverage.get("rules")
-    if not _is_verdict(status):
-        raise ValueError("coverage status/rules invalid")
-    if rules is not None and not _is_verdict(rules):
-        raise ValueError("coverage status/rules invalid")
+    status = _parse_verdict(coverage["status"], "coverage status/rules")
+    raw_rules = coverage.get("rules")
+    rules = _parse_verdict(raw_rules, "coverage status/rules") if raw_rules is not None else None
     file_counts = (
         "files_discovered",
         "files_read",
@@ -393,9 +395,9 @@ def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
     """Losslessly columnize and intern repeated IR strings for browser-safe reports."""
     profile = _observation_profile(model)
     _validate_profile_sections(model, profile)
-    encoded = {
-        key: value for key, value in model.items() if key not in {*CLASSIFIED_SECTIONS, "evidence"}
-    }
+    encoded = model.copy()
+    for field in (*CLASSIFIED_SECTIONS, "evidence"):
+        encoded.pop(field, None)
     section_data_fields: dict[str, list[str]] = {}
     # AD-2: rows hold the non-JSON _MISSING_VALUE sentinel until intern writes "$m".
     rows_by_section: dict[str, list[list[Any]]] = {}
@@ -508,11 +510,9 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
             return {key: expand(entry) for key, entry in value.items()}
         return value
 
-    model: dict[str, RawJson] = {
-        key: value
-        for key, value in encoded.items()
-        if key not in {*CLASSIFIED_SECTIONS, "evidence", "encoding", "string_table"}
-    }
+    model = encoded.copy()
+    for field in (*CLASSIFIED_SECTIONS, "evidence", "encoding", "string_table"):
+        model.pop(field, None)
     record_fields = _strings(encoding["record_fields"], "record_fields")
     section_data_fields = _object(encoding["section_data_fields"], "section_data_fields")
     for section in CLASSIFIED_SECTIONS:

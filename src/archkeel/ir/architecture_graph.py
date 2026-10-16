@@ -429,7 +429,9 @@ class Entity:
     def __post_init__(self) -> None:
         builtins.object.__setattr__(self, "kind", EntityKind(self.kind))
         builtins.object.__setattr__(self, "presence", PresenceKind(self.presence))
-        builtins.object.__setattr__(self, "modifiers", tuple(ModifierKind(item) for item in self.modifiers))
+        builtins.object.__setattr__(
+            self, "modifiers", tuple(ModifierKind(item) for item in self.modifiers)
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -898,15 +900,13 @@ class ArchitectureGraph:
                 source = entities[edge.source_id]
                 target = entities[edge.target_id]
                 if source.kind not in {EntityKind.CLASS, EntityKind.ENUM} and not (
-                    source.kind == EntityKind.SYMBOL
-                    and source.presence == PresenceKind.REFERENCED
+                    source.kind == EntityKind.SYMBOL and source.presence == PresenceKind.REFERENCED
                 ):
                     raise ValueError("mixes_in relationship needs a class or enum source")
                 if (
                     target.kind != EntityKind.MIXIN
                     and not (
-                        target.kind == EntityKind.CLASS
-                        and ModifierKind.MIXIN in target.modifiers
+                        target.kind == EntityKind.CLASS and ModifierKind.MIXIN in target.modifiers
                     )
                     and not (
                         target.kind == EntityKind.SYMBOL
@@ -1051,7 +1051,9 @@ class ArchitectureReport:
     decision_gaps: tuple[DependencyDecisionGap, ...] = ()
 
     def __post_init__(self) -> None:
-        builtins.object.__setattr__(self, "schema_version", ReportSchemaVersion(self.schema_version))
+        builtins.object.__setattr__(
+            self, "schema_version", ReportSchemaVersion(self.schema_version)
+        )
 
     def validate(self) -> None:
         if self.observed is None and not self.unavailable:

@@ -515,7 +515,10 @@ def _closed_relationship_assessments(
     observed_entities = {item.id: item for item in observed.entities}
     scope = entities[wanted.scope_id]
     matches = (actual,)
-    kinds: tuple[EntityKind | RelationshipKind, ...] = (*wanted.entity_kinds, *wanted.relationship_kinds)
+    kinds: tuple[EntityKind | RelationshipKind, ...] = (
+        *wanted.entity_kinds,
+        *wanted.relationship_kinds,
+    )
     expected_edges = tuple(
         item for item in target.relationships if _within(entities, scope, entities[item.source_id])
     )
@@ -553,10 +556,7 @@ def _closed_relationship_assessments(
             )
             for item in extra_edges
         )
-    complete = all(
-        _complete(observed, actual, kind)
-        for kind in kinds
-    ) and not any(
+    complete = all(_complete(observed, actual, kind) for kind in kinds) and not any(
         item.resolution in {ResolutionKind.PARTIAL, ResolutionKind.UNRESOLVED} for item in sites
     )
     return (
@@ -579,7 +579,10 @@ def _scope_assessments(
 ) -> tuple[GraphAssessment, ...]:
     entities = {item.id: item for item in target.entities}
     scope = entities[wanted.scope_id]
-    kinds: tuple[EntityKind | RelationshipKind, ...] = (*wanted.entity_kinds, *wanted.relationship_kinds)
+    kinds: tuple[EntityKind | RelationshipKind, ...] = (
+        *wanted.entity_kinds,
+        *wanted.relationship_kinds,
+    )
     matches = _scope(observed, scope)
     if len(matches) != 1:
         return (

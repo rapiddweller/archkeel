@@ -11,9 +11,9 @@ from archkeel.ir.architecture_graph import (
     ContractModuleTarget,
     Entity,
     EntityKind,
-    PresenceKind,
     ExternalDependencyScopeRule,
     ModuleInventory,
+    PresenceKind,
     Relationship,
     RootLayoutRule,
 )

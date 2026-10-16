@@ -36,6 +36,7 @@ from .model import (
     ForbiddenDependencyRule,
     JsonValue,
     Observation,
+    Verdict,
     OpenDecision,
     Record,
     RecordData,
@@ -325,7 +326,7 @@ def rule_uncertainty_evidence(observation: Observation) -> dict[str, RuleUncerta
     complete_scopes = {
         row.id
         for row in rule_assessments(
-            observation, undecided_by_rule=counts, complete=observation.coverage.status == "PASS"
+            observation, undecided_by_rule=counts, complete=observation.coverage.status == Verdict.PASS
         )
         if row.evaluation_proven
     }
@@ -338,7 +339,7 @@ def rule_uncertainty_evidence(observation: Observation) -> dict[str, RuleUncerta
     for record in (*ownership_blockers, *observation.coverage.failures):
         for rule_id in record.rule_ids:
             records_by_rule.setdefault(rule_id, []).append(record)
-    if observation.coverage.status != "PASS" or observation.coverage.failures:
+    if observation.coverage.status != Verdict.PASS or observation.coverage.failures:
         for declaration in observation.records("declarations") or ():
             if (
                 declaration.evidence_class == EvidenceClass.DECLARED_RULE
@@ -351,7 +352,7 @@ def rule_uncertainty_evidence(observation: Observation) -> dict[str, RuleUncerta
     for rule_id, records in sorted(records_by_rule.items()):
         actions = {_rule_uncertainty_action(record) for record in records}
         if (
-            observation.coverage.status != "PASS" or observation.coverage.failures
+            observation.coverage.status != Verdict.PASS or observation.coverage.failures
         ) and rule_id not in complete_scopes:
             actions |= {_INCOMPLETE_EXECUTION_ACTION}
         result[rule_id] = RuleUncertainty(
@@ -901,7 +902,7 @@ def _scoped_dependency_receipt(
         not isinstance(proof, RecordData)
         or runtime is None
         or not _native_scope_runtime_valid(runtime)
-        or coverage.rules != "PASS"
+        or coverage.rules != Verdict.PASS
         or proof.get("source_digest") != observation.source.source_digest
         or proof.get("contract_digest") != observation.contract.digest
         or proof.get("binding_id")
@@ -956,7 +957,7 @@ def _scoped_dependency_receipt(
 def _rule_scope_complete(
     observation: Observation, declaration: Record, receipt: Record | None, complete: bool
 ) -> bool:
-    return (complete and observation.coverage.status == "PASS") or _scoped_dependency_receipt(
+    return (complete and observation.coverage.status == Verdict.PASS) or _scoped_dependency_receipt(
         observation, declaration, receipt
     )
 

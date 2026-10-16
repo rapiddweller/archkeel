@@ -19,6 +19,8 @@ from archkeel.ir.facts import (
     ConstructCapability,
     ExternalPackageTarget,
     SourceFacts,
+    SourceProfile,
+    SourceSectionName,
     UnresolvedTarget,
 )
 from archkeel.ir.facts_codec import (
@@ -602,7 +604,7 @@ def evaluate_source(
         ):
             raise ProtocolError("selected source identity is outside the configured namespace")
     profile = profile_for(facts.profile)
-    is_python = facts.profile == "archkeel-python-analyzer"
+    is_python = facts.profile == SourceProfile.PYTHON
     required = (
         {
             "symbols",
@@ -619,13 +621,13 @@ def evaluate_source(
     )
     declared_sections = set(facts.capabilities.sections)
     features = set(facts.capabilities.resolution_features)
-    if facts.profile == "archkeel-dart-analyzer":
+    if facts.profile == SourceProfile.DART:
         inner_uml_sections = {"imports", "unknowns", "symbols", "calls", "references", "bindings"}
         if declared_sections != inner_uml_sections or facts.capabilities.resolution_features != (
             "inner-uml-v1",
         ):
             raise ProtocolError("source sections or resolution features are not registered")
-    elif facts.profile == "archkeel-typescript-imports":
+    elif facts.profile == SourceProfile.TYPESCRIPT:
         native_import_features = {
             "literal-imports",
             "relative-specifiers",
@@ -650,7 +652,7 @@ def evaluate_source(
     parsed = facts.files
     paths = tuple(Path(path) for path in facts.coverage.selected_files)
     failures = [raw_record(record) for record in facts.coverage.gaps]
-    source_unknowns = sections.get("unknowns", [])
+    source_unknowns = sections.get(SourceSectionName.UNKNOWNS, [])
     stable_bindings_by_module = {module.module: module.stable_bindings for module in parsed}
     evidence = {entry.id: raw_evidence(entry) for entry in facts.evidence}
     module_names = {module.module for module in parsed}
@@ -660,7 +662,7 @@ def evaluate_source(
         binding: frozenset(origins) for binding, origins in facts.uncertain_reexports
     }
     type_shapes = MappingProxyType(dict(facts.type_shapes))
-    imports = sections.get("imports", [])
+    imports = sections.get(SourceSectionName.IMPORTS, [])
     unresolved_targets = {
         target.import_id: target for target in facts.imports if isinstance(target, UnresolvedTarget)
     }
@@ -682,7 +684,7 @@ def evaluate_source(
                 data={"source_module": item["data"]["source_module"], "reason": unresolved.reason},
             )
         )
-    if facts.profile == "archkeel-typescript-imports":
+    if facts.profile == SourceProfile.TYPESCRIPT:
         targets = {target.import_id: target for target in facts.imports}
         for item in imports:
             target = targets[item["id"]]
@@ -691,7 +693,7 @@ def evaluate_source(
             elif isinstance(target, BuiltinTarget):
                 item["data"]["builtin_target"] = True
 
-    symbols = sections.get("symbols", [])
+    symbols = sections.get(SourceSectionName.SYMBOLS, [])
     inventory_symbols = symbols
     conditional_symbols = [item for item in symbols if item["data"].get("definition_contexts")]
     conditional_ids = {item["id"] for item in conditional_symbols}
@@ -702,11 +704,11 @@ def evaluate_source(
         for item in conditional_symbols
         if item["data"]["parent"] is None
     )
-    calls = sections.get("calls", [])
-    references = sections.get("references", [])
-    bindings = sections.get("bindings", [])
-    typing_signals = sections.get("typing_signals", [])
-    constructs = sections.get("constructs", [])
+    calls = sections.get(SourceSectionName.CALLS, [])
+    references = sections.get(SourceSectionName.REFERENCES, [])
+    bindings = sections.get(SourceSectionName.BINDINGS, [])
+    typing_signals = sections.get(SourceSectionName.TYPING_SIGNALS, [])
+    constructs = sections.get(SourceSectionName.CONSTRUCTS, [])
     declarations = contract.declarations or ContractDeclarations()
     contexts, context_evidence, used_evidence = (
         evaluate_contexts(

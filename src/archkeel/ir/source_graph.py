@@ -47,6 +47,7 @@ from archkeel.ir.model import (
     EvidenceClass,
     JsonValue,
     Observation,
+    Verdict,
     RawJson,
     Record,
     RecordData,
@@ -158,8 +159,8 @@ def _inventory_selected_inputs(model: Observation, inputs: tuple[RecordData, ...
     if (
         hashlib.sha256(listing.encode()).hexdigest() != model.source.source_digest
         or not selected
-        or coverage.status != "FAIL"
-        or coverage.rules != "PASS"
+        or coverage.status != Verdict.FAIL
+        or coverage.rules != Verdict.PASS
         or not coverage.failures
         or coverage.files_discovered != len(selected)
         or coverage.files_read != len(selected)
@@ -1009,7 +1010,7 @@ def _section_coverage(
     reason: str | None = None
     if not available:
         status, reason = CoverageStatus.UNAVAILABLE, "profile does not publish this section"
-    elif observation.coverage.status != "PASS":
+    elif observation.coverage.status != Verdict.PASS:
         status, reason = CoverageStatus.PARTIAL, "source observation is incomplete"
     elif (
         section == "calls"
@@ -1110,7 +1111,7 @@ def _member_inventory_coverage(
                 raise ValueError("member inventory identities disagree with their owner")
             complete = (
                 inventory.status == InventoryStatus.COMPLETE
-                and (observation.coverage.status == "PASS" or item.id in approved)
+                and (observation.coverage.status == Verdict.PASS or item.id in approved)
                 and (
                     "enum_literal" not in kinds
                     or observation.analyzer.name
@@ -1172,7 +1173,7 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
         if item.data.get("base_declarations") is None:
             continue
         bases = _records(item.data.get("base_declarations"))
-        complete = observation.coverage.status == "PASS" and all(
+        complete = observation.coverage.status == Verdict.PASS and all(
             base.get("status") == "resolved" for base in bases
         )
         result.append(
@@ -1194,10 +1195,10 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
                     entity.id,
                     relationship_kinds=(RelationshipKind.OWNS,),
                     status=CoverageStatus.COMPLETE
-                    if observation.coverage.status == "PASS"
+                    if observation.coverage.status == Verdict.PASS
                     else CoverageStatus.PARTIAL,
                     reason=None
-                    if observation.coverage.status == "PASS"
+                    if observation.coverage.status == Verdict.PASS
                     else "source observation is incomplete",
                 )
             )

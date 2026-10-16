@@ -19,6 +19,7 @@ from archkeel.ir.codec import (
 )
 from archkeel.ir.facts import SOURCE_RESOLUTION_GAP_KIND, SourceFacts, UnresolvedTarget
 from archkeel.ir.model import (
+    Verdict,
     ArchitectureContract as _ArchitectureContract,
 )
 from archkeel.ir.model import (
@@ -35,6 +36,7 @@ from archkeel.ir.model import (
 from archkeel.ir.profiles import PROFILES, Language
 from archkeel.ir.protocol import (
     CollectionError,
+    CollectionErrorKind,
     CollectionRequest,
     DartSettings,
     PythonSettings,
@@ -192,7 +194,7 @@ def observation_diagnostics(
                 "Reinstall a complete Archkeel distribution.",
             )
         )
-    if model.coverage.status == "FAIL" and not diagnostics:
+    if model.coverage.status == Verdict.FAIL and not diagnostics:
         diagnostics.append(
             Diagnostic(
                 "parse_error",
@@ -221,8 +223,8 @@ def _partial_uml_source_is_eligible(
         or model.coverage.files_discovered != len(selected)
         or model.coverage.files_read != len(selected)
         or model.coverage.files_parsed != len(selected)
-        or model.coverage.status != "FAIL"
-        or model.coverage.rules != "PASS"
+        or model.coverage.status != Verdict.FAIL
+        or model.coverage.rules != Verdict.PASS
         or model.runtime is None
         or runtime is not None
     ):
@@ -327,9 +329,9 @@ def _observe(
         if isinstance(facts, CollectionError):
             kind: DiagnosticKind = (
                 "timeout"
-                if facts.kind == "timeout"
+                if facts.kind == CollectionErrorKind.TIMEOUT
                 else "missing_tool"
-                if facts.kind == "missing_tool"
+                if facts.kind == CollectionErrorKind.MISSING_TOOL
                 else "parse_error"
             )
             return _failure(

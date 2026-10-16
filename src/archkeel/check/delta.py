@@ -31,6 +31,7 @@ from archkeel.ir.model import (
     RecordData,
     SemanticChange,
     SnapshotSummary,
+    Verdict,
     identity_is_known,
     stable_id,
 )
@@ -511,7 +512,7 @@ def build_architecture_delta(
         and all(baseline.source.scope + head.source.scope)
         and sorted(baseline.source.scope) == sorted(head.source.scope)
     )
-    coverage_complete = baseline.coverage.status == "PASS" and head.coverage.status == "PASS"
+    coverage_complete = baseline.coverage.status == Verdict.PASS and head.coverage.status == Verdict.PASS
     profile = profile_for(head.analyzer.name)
     try:
         if not shared:
@@ -607,7 +608,7 @@ def build_architecture_delta(
         ),
         head.contract,
         DeltaCoverage(
-            "PASS"
+            Verdict.PASS
             if coverage_complete
             and available
             and all(
@@ -615,7 +616,7 @@ def build_architecture_delta(
                 for item in dimensions
                 if delta_dimension_applicable(profile, item.name)
             )
-            else "FAIL",
+            else Verdict.FAIL,
             baseline.coverage.status,
             head.coverage.status,
             tuple(item.name for item in dimensions if item.status == "SUPPORTED"),

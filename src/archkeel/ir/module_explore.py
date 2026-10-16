@@ -14,13 +14,13 @@ from .architecture_graph import (
     AssessmentStatus,
     ComponentIntent,
     Coverage,
+    CoverageStatus,
     Entity,
     EntityKind,
-    PresenceKind,
-    RelationshipKind,
-    CoverageStatus,
     GraphAssessment,
+    PresenceKind,
     Relationship,
+    RelationshipKind,
     ReportFinding,
     RuleAssessment,
 )
@@ -33,6 +33,7 @@ from .model import (
     ComponentOwnership,
     JsonValue,
     Observation,
+    Verdict,
     Record,
     dependency_owners,
     in_scope,
@@ -229,7 +230,7 @@ def _cells(
         for item in rule_assessments(
             model,
             undecided_by_rule=undecided,
-            complete=model.coverage.status == "PASS",
+            complete=model.coverage.status == Verdict.PASS,
         )
     }
     declarations = {item.id: item for item in model.records("declarations") or ()}
@@ -536,7 +537,9 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
     intents = {item.component_id: item for item in target.component_intents}
     scope_ids, owners = _scope_owners(model, intents)
     modules = tuple(
-        item for item in observed.entities if item.kind == EntityKind.MODULE and item.presence == PresenceKind.DEFINED
+        item
+        for item in observed.entities
+        if item.kind == EntityKind.MODULE and item.presence == PresenceKind.DEFINED
     )
     records = {item.id: item for item in model.records("modules") or ()}
     memberships = {item.component_id: set(item.module_ids) for item in report.memberships}
@@ -569,7 +572,7 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
         replace(
             level,
             hint_candidates=_hint_candidates(
-                level, root, cells, intents, model.coverage.status == "PASS"
+                level, root, cells, intents, model.coverage.status == Verdict.PASS
             ),
         )
         for level in levels
@@ -816,7 +819,8 @@ def _heavy_modules(
 ) -> tuple[ModuleStatistic, ...]:
     sizes = [item.symbols for item in level.modules if item.symbols is not None]
     symbols_complete = all(
-        item.symbol_coverage and all(entry.status == CoverageStatus.COMPLETE for entry in item.symbol_coverage)
+        item.symbol_coverage
+        and all(entry.status == CoverageStatus.COMPLETE for entry in item.symbol_coverage)
         for item in level.modules
     )
     if inventory_complete and symbols_complete and sizes and len(sizes) == len(level.modules):
@@ -843,16 +847,18 @@ def _imports_complete(
     covered = {
         item.scope_id
         for item in observed.coverage
-        if RelationshipKind.IMPORTS in item.relationship_kinds and item.status == CoverageStatus.COMPLETE
+        if RelationshipKind.IMPORTS in item.relationship_kinds
+        and item.status == CoverageStatus.COMPLETE
     }
     complete = (
-        model.coverage.status == "PASS"
+        model.coverage.status == Verdict.PASS
         and model.records("imports") is not None
         and model.records("dependency_edges") is not None
         and bool(modules)
         and all(item.id in covered for item in modules)
         and not any(
-            item.kind == RelationshipKind.IMPORTS and item.target_id is None for item in observed.relationships
+            item.kind == RelationshipKind.IMPORTS and item.target_id is None
+            for item in observed.relationships
         )
     )
     return complete and all(

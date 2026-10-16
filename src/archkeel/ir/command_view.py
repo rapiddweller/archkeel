@@ -7,7 +7,12 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Literal, TypeAlias
 
-from archkeel.ir.architecture_graph import AssessmentStatus, ComponentRole, DecisionMaker, RelationshipKind
+from archkeel.ir.architecture_graph import (
+    AssessmentStatus,
+    ComponentRole,
+    DecisionMaker,
+    RelationshipKind,
+)
 from archkeel.ir.architecture_projection import (
     ComponentProjection,
     LevelProjection,

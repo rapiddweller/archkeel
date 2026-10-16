@@ -14,7 +14,6 @@ from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Final
 
-from archkeel.ir.architecture_graph import DecisionMaker
 from archkeel.ir.codec import CONTRACT_SCHEMA_VERSION, contract_bytes
 from archkeel.ir.decisions import (
     DOCUMENT_PATH,
@@ -31,6 +30,7 @@ from archkeel.ir.model import (
     ComponentRole,
     ContractComponent,
     Diagnostic,
+    DecisionMaker,
     DiagnosticError,
     DraftedComponentSize,
     InterfaceBoundaryRule,

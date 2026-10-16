@@ -34,6 +34,22 @@ jobs:
       - name: Hygiene
         if: always()
         run: uv run --locked python -m pytest -q tests/test_repository_hygiene.py
+      - name: Diagnose actual graph fixture call evidence
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import json, sys
+          from dataclasses import asdict
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+          sys.path.insert(0, "tests")
+          from test_typed_graph_vocabulary import _repository, _model
+          from archkeel.check.ratchets import call_rows
+          with TemporaryDirectory() as directory:
+              root, config = _repository(Path(directory))
+              model = _model(root, config)
+              print("FIXTURE_UNRESOLVED_GRAPH_CALLS=" + json.dumps([asdict(row) for row in call_rows(model) if row.status == "unresolved" and "architecture_graph" in row.path], separators=(",", ":")))
+          PY
   graph-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -72,7 +88,7 @@ jobs:
           python - "$RUNNER_TEMP/graph-native.json" <<'PY'
           import json, pathlib, sys
           data = json.loads(pathlib.Path(sys.argv[1]).read_text())
-          print("NATIVE_RESULT=" + json.dumps({key: data.get(key) for key in ("exit_code", "failures", "diagnostics", "measurements", "amendment_status")}, separators=(",", ":")))
+          print("NATIVE_RESULT=" + json.dumps({key: data.get(key) for key in ("exit_code", "failures", "diagnostics", "measurements", "amendment_status", "unresolved_call_changes")}, separators=(",", ":")))
           path = pathlib.Path("docs/architecture/decisions/issue-542-graph-vocabulary-amendment.json")
           if path.exists():
               print("AMENDMENT_JSON=" + json.dumps(json.loads(path.read_text()), separators=(",", ":")))
@@ -83,10 +99,14 @@ jobs:
           from archkeel.ir.codec import decode_canonical_model, parse_observation
           from archkeel.ir.report_graph import architecture_report
           from archkeel.ir.trace import trace_valid_violations
+          from archkeel.check.ratchets import unknown_positions_by_rule, call_rows
+          from dataclasses import asdict
           model = parse_observation(decode_canonical_model(json.loads(pathlib.Path(sys.argv[1]).read_text())))
           report = architecture_report(model)
           print("OWN_VIOLATIONS=" + repr(trace_valid_violations(model)))
           print("OWN_GRAPH_FAILURES=" + repr(tuple(row for row in report.comparison.assessments if row.status == "FAIL") if report.comparison else ()))
-          print("OWN_UNRESOLVED_GRAPH_CALLS=" + repr(tuple(row for row in model.records("calls") or () if row.data.get("resolution") == "unresolved" and "architecture_graph" in str(row.data))))
+          print("OWN_UNRESOLVED_CHANGED_CALLS=" + json.dumps([asdict(row) for row in call_rows(model) if row.status == "unresolved" and any(part in row.path for part in ("architecture_graph", "graph_codec", "source_graph", "target_graph", "uml_compare", "uml_evaluation", "report_projection", "module_explore", "decisions", "report_graph", "onboarding"))], separators=(",", ":")))
+          print("OWN_UNKNOWN_BY_RULE=" + json.dumps(unknown_positions_by_rule(model), separators=(",", ":")))
+          print("OWN_UNKNOWN_EVIDENCE=" + repr(tuple(row for row in model.records("unknowns") or ())))
           PY
           exit "$graph_status"

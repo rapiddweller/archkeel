@@ -146,7 +146,6 @@
         "archkeel.ir.dependency:DependencyTargetKind",
         "archkeel.ir.dependency:ModuleSelection",
         "archkeel.ir.dependency:SelectorMatch",
-        "archkeel.ir.profiles:ObservedSection",
         "archkeel.ir.architecture_graph:CompletenessMode",
         "archkeel.ir.architecture_graph:CoverageStatus",
         "archkeel.ir.architecture_graph:OriginKind",
@@ -779,17 +778,17 @@
         "archkeel.ir.type_shapes",
         "archkeel.ir.architecture_graph",
         "archkeel.ir.dependency",
+        "archkeel.ir.state_facts",
+        "archkeel.ir.state_codec",
         "archkeel.ir.protocol",
         "archkeel.ir.facts_codec",
         "archkeel.ir.codec_observation",
         "archkeel.ir.profiles",
         "archkeel.analyzer.runtime",
         "archkeel.cli.config",
-        "archkeel.check.runtime",
-        "archkeel.ir.state_facts",
-        "archkeel.ir.state_codec"
+        "archkeel.check.runtime"
       ],
-      "rationale": "Each domain and wire boundary owns its closed control vocabulary; codecs keep private wire tags while consumers share published nominal types.",
+      "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags and consumers use published nominal types.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],
@@ -881,6 +880,32 @@
       "decided_by": "architect"
     },
     {
+      "id": "STATE-FACTS-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.state_facts",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "State controls use their owned enums in the domain and parser; JSON conversion does not exempt protocol-string dispatch.",
+      "provenance": [
+        "docs/architecture/typed-state-protocol.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "STATE-CODEC-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.state_codec",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "State controls use their owned enums in the domain and parser; JSON conversion does not exempt protocol-string dispatch.",
+      "provenance": [
+        "docs/architecture/typed-state-protocol.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COLLECTOR-TYPED-IR-FACTS",
       "kind": "forbidden_construct",
       "source": "archkeel.ir.facts",
@@ -968,32 +993,6 @@
       "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
       "provenance": [
         "docs/architecture/collector-wire-vocabulary.md"
-      ],
-      "decided_by": "architect"
-    },
-    {
-      "id": "STATE-FACTS-TYPED-CONTROL",
-      "kind": "forbidden_construct",
-      "source": "archkeel.ir.state_facts",
-      "constructs": [
-        "string_literal_compare"
-      ],
-      "rationale": "State controls use their owned enums in the domain and parser; JSON conversion does not exempt protocol-string dispatch.",
-      "provenance": [
-        "docs/architecture/typed-state-protocol.md"
-      ],
-      "decided_by": "architect"
-    },
-    {
-      "id": "STATE-CODEC-TYPED-CONTROL",
-      "kind": "forbidden_construct",
-      "source": "archkeel.ir.state_codec",
-      "constructs": [
-        "string_literal_compare"
-      ],
-      "rationale": "State controls use their owned enums in the domain and parser; JSON conversion does not exempt protocol-string dispatch.",
-      "provenance": [
-        "docs/architecture/typed-state-protocol.md"
       ],
       "decided_by": "architect"
     },

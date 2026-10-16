@@ -455,7 +455,6 @@ def _section_name(value: RawJson) -> SourceSectionName:
         raise ProtocolError("unsupported source section") from error
 
 
-
 def _file(value: RawJson) -> FileFact:
     item = _object(
         value,

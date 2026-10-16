@@ -19,7 +19,7 @@ from typing import BinaryIO
 
 from archkeel.ir.facts import Language, SourceFacts, SourceProfile
 from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_request
-from archkeel.ir.protocol import CollectionError, CollectionRequest
+from archkeel.ir.protocol import CollectionError, CollectionErrorKind, CollectionRequest
 
 
 class _OutputLimitError(ValueError):
@@ -61,11 +61,13 @@ class ProcessCollector:
                 executable = shutil.which(self.argv[0], path=search_path)
                 if executable is None:
                     return CollectionError(
-                        "missing_tool", subject, f"Collector could not execute: {subject}"
+                        CollectionErrorKind.MISSING_TOOL,
+                        subject,
+                        f"Collector could not execute: {subject}",
                     )
                 if Path(executable).suffix.lower() in {".bat", ".cmd"}:
                     return CollectionError(
-                        "execution_error",
+                        CollectionErrorKind.EXECUTION_ERROR,
                         subject,
                         "Windows .bat/.cmd collector shims cannot run without a shell; "
                         "configure an explicit executable and script argv.",
@@ -92,7 +94,7 @@ class ProcessCollector:
                 if process.returncode:
                     message = stderr.decode("utf-8", errors="replace").strip()
                     return CollectionError(
-                        "execution_error",
+                        CollectionErrorKind.EXECUTION_ERROR,
                         subject,
                         f"Collector exited {process.returncode}: {message}",
                     )
@@ -101,12 +103,16 @@ class ProcessCollector:
             return facts
         except subprocess.TimeoutExpired:
             return CollectionError(
-                "timeout", subject, f"Collector exceeded {self.timeout_seconds:g} seconds."
+                CollectionErrorKind.TIMEOUT,
+                subject,
+                f"Collector exceeded {self.timeout_seconds:g} seconds.",
             )
         except OSError as error:
-            return CollectionError("missing_tool", subject, f"Collector could not execute: {error}")
+            return CollectionError(
+                CollectionErrorKind.MISSING_TOOL, subject, f"Collector could not execute: {error}"
+            )
         except (ProtocolError, _OutputLimitError) as error:
-            return CollectionError("protocol_error", subject, str(error))
+            return CollectionError(CollectionErrorKind.PROTOCOL_ERROR, subject, str(error))
 
     def _exchange(
         self, process: subprocess.Popen[bytes], payload: bytes, workers: list[Thread]
