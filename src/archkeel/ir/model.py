@@ -13,7 +13,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, TypeAlias
 
 from .amendment import AmendmentStatus as AmendmentStatus
-from .architecture_graph import ArchitectureRuleGrammar
+from .architecture_graph import ArchitectureRuleGrammar, TargetDefinition
 from .architecture_graph import ArchitectureRuleKind as ArchitectureRuleKind
 from .architecture_graph import AssessmentStatus as AssessmentStatus
 from .architecture_graph import ComponentRole as ComponentRole
@@ -23,7 +23,6 @@ from .architecture_graph import ExternalDependencyScopeRule as ExternalDependenc
 from .architecture_graph import RootLayoutRule as RootLayoutRule
 from .architecture_graph import RuleAssessment as RuleAssessment
 from .architecture_graph import RuleAssessmentStatus as RuleAssessmentStatus
-from .architecture_graph import TargetDefinition
 from .architecture_graph import contract_relative_path as contract_relative_path
 from .contract_version import ContractVersion as ContractVersion
 from .dependency import ComponentOwnership as ComponentOwnership

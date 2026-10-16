@@ -310,7 +310,6 @@ class RootLayoutRule(ArchitectureRuleGrammar):
     decided_by: DecisionMaker
 
 
-
 def contract_relative_path(value: str) -> PurePosixPath | None:
     """Check a declared repository path without filesystem access."""
     relative = PurePosixPath(value)
@@ -629,7 +628,6 @@ class ExternalDependencyScopeRule(ArchitectureRuleGrammar):
     provenance: tuple[str, ...]
     decided_by: DecisionMaker
     exact_sources: tuple[str, ...] = ()
-
 
 
 @dataclass(frozen=True, slots=True)
