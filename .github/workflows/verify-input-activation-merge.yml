@@ -1,0 +1,48 @@
+name: Actual three-way typed input activation integration
+on:
+  push:
+    branches: [verify/542-source-input-activation-merge]
+permissions:
+  contents: read
+jobs:
+  actual-git-three-way:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 631d8fbaa0004e242ee8a8ae9d3a80444499d6f7
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Inspect actual three-way merges without changing any remote product branch
+        run: |
+          python - <<'PY'
+          import json,pathlib,subprocess
+          base="631d8fbaa0004e242ee8a8ae9d3a80444499d6f7"
+          stages=[("typescript-source-input","d894c0692b06dd5f1ea114c3a81edbb180bc93cf")]
+          def git(*args):
+              return subprocess.check_output(["git",*args],text=True)
+          subprocess.run(["git","config","user.name","Archkeel integration verification"],check=True)
+          subprocess.run(["git","config","user.email","noreply@github.com"],check=True)
+          for label,ref in stages:
+              common=git("merge-base","HEAD",ref).strip()
+              result=subprocess.run(["git","merge","--no-commit","--no-ff",ref],text=True,capture_output=True)
+              conflicts=git("diff","--name-only","--diff-filter=U").splitlines()
+              print("ACTUAL_MERGE="+json.dumps({"stage":label,"ref":ref,"base":common,"status":result.returncode,"conflicts":conflicts,"stdout":result.stdout,"stderr":result.stderr},separators=(",",":")),flush=True)
+              if conflicts:
+                  detail={}
+                  for name in conflicts:
+                      detail[name]={"merged":pathlib.Path(name).read_text(),"stages":{}}
+                      for stage in (1,2,3):
+                          value=subprocess.run(["git","show",f":{stage}:{name}"],text=True,capture_output=True)
+                          detail[name]["stages"][str(stage)]=value.stdout if value.returncode==0 else None
+                  print("MERGE_CONFLICT_FILES="+json.dumps(detail,separators=(",",":")),flush=True)
+                  break
+              assert result.returncode==0,result.stderr
+              subprocess.run(["git","commit","--allow-empty","-m",f"Actual hosted three-way merge: {label}"],check=True)
+          paths=git("diff","--name-only",base).splitlines()
+          files={name:pathlib.Path(name).read_text() if pathlib.Path(name).is_file() else None for name in paths}
+          print("MERGE_FILES="+json.dumps(files,separators=(",",":")),flush=True)
+          print("MERGE_STATUS="+json.dumps({"initial":base,"head":git("rev-parse","HEAD").strip(),"status":git("status","--porcelain"),"paths":paths},separators=(",",":")),flush=True)
+          
+          PY
