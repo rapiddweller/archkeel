@@ -26,7 +26,7 @@ ci-report-check: report-timing report-browser-proof
 
 ci-pr-check: $(if $(strip $(BASE)),against,self-validate) lint typecheck pr-test
 
-ci-pr-report-check: browser-install pr-report-test
+ci-pr-report-check: browser-install browser-graph-check pr-report-test
 
 pr-test:
 	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 \
@@ -76,7 +76,7 @@ pr-test:
 pr-report-test:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
 		--junitxml=test-artifacts/pytest/pr-report.xml \
-		tests/test_report_renderer_units.py \
+		tests/test_report_renderer_units.py tests/test_graph_scene_protocol.py \
 		tests/test_explorer_report.py \
 		tests/test_report_interactions.py::test_native_card_drag_reroutes_all_hits_and_keeps_architecture_unchanged \
 		tests/test_uml_rendering.py::test_standard_uml_ignores_stale_layout_and_retries_rejected_layout \
