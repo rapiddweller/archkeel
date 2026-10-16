@@ -5,9 +5,9 @@ on:
 permissions:
   contents: read
 jobs:
-  graph-scene-runtime:
+  graph-scene-compiler:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -17,7 +17,24 @@ jobs:
         with:
           version: "0.12.13"
           python-version: "3.11.12"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
       - run: uv sync --locked
-      - run: make browser-install
-      - name: Actual scene ingress behavior
-        run: uv run --locked --with playwright==1.62.0 python -m pytest -q tests/test_graph_scene_protocol.py
+      - name: Generate real canonical vocabulary and compile the protocol
+        run: |
+          uv run --locked python -m tools.browser_graph_protocol
+          npx --yes --package typescript@5.9.3 tsc --strict --target ES2022 --module none --outFile src/archkeel/render/assets/report-graph-protocol.js src/archkeel/render/assets/report-graph-vocabulary.ts src/archkeel/render/assets/report-graph-protocol.ts
+      - name: Check the actual native graph scene consumer
+        run: npx --yes --package typescript@5.9.3 tsc --strict --allowJs --checkJs --noEmit --target ES2022 --module none src/archkeel/render/assets/report-graph-vocabulary.ts src/archkeel/render/assets/report-graph-protocol.ts src/archkeel/render/assets/report-graph-scene.js
+      - name: Export deterministic artifacts and source formatting
+        if: always()
+        run: |
+          uv run --locked ruff check --fix tools/browser_graph_protocol.py tests/test_graph_scene_protocol.py
+          uv run --locked ruff format tools/browser_graph_protocol.py tests/test_graph_scene_protocol.py tests/test_report_renderer_units.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          paths = ["tools/browser_graph_protocol.py", "src/archkeel/render/assets/report-graph-vocabulary.ts", "src/archkeel/render/assets/report-graph-protocol.js", "tests/test_graph_scene_protocol.py", "tests/test_report_renderer_units.py"]
+          print("SCENE_ARTIFACTS=" + json.dumps({path: Path(path).read_text() for path in paths if Path(path).is_file()}))
+          PY

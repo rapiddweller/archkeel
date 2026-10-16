@@ -704,6 +704,8 @@ def _explorer_section(payload: str, *, atlas: bool = False) -> str:
     scripts: list[str] = []
     for name, attributes in (
         ("elkjs-0.12.0.bundled.js", ' data-elkjs-version="0.12.0"'),
+        ("report-graph-protocol.js", ' data-report-asset="graph-protocol"'),
+        ("report-graph-scene.js", ' data-report-asset="graph-scene"'),
         ("report-scene.js", ' data-report-asset="scene"'),
         ("report-layout.js", ' data-report-asset="layout"'),
         ("flow.js", ""),
