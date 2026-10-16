@@ -16,7 +16,7 @@ do not count as descriptors; property counts but never resets STATIC/CLASS.
 The existing `method_decorator_data` port still returns a real dict through a
 thin facts-codec writer, preserving key presence and values.
 
-`parse_method_kind(object) -> MethodKind | None` classifies supported tags once.
+`parse_method_kind(JsonValue | RawJson | MethodKind) -> MethodKind | None` classifies supported tags once.
 Missing/future/off-shape values stay unchanged in the raw wire transport and
 classify to None. Core retains its existing non-static receiver predicate;
 None is not normalized to INSTANCE and is not additional binding proof.
@@ -28,3 +28,9 @@ No parameter/visibility/definition-context/typing-role changes, new provider
 enum, stricter wire schema, protocol version or resolver authority belong here.
 Native tests restrict claims to descriptor controls: reserved names, record
 categories and unrelated grammar in large functions remain outside this scope.
+
+The existing RawJson alias lives upstream in facts beside frozen JsonValue; facts_codec
+reexports the same alias. This names both genuine input representations without a
+facts-to-codec cycle. Arbitrary non-JSON Python objects are not a promised input domain.
+The input annotation remains visible to normal typing measurements; no alias to object
+or measurement exception hides a new broad input position.

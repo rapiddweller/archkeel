@@ -34,7 +34,7 @@
 
 **Files:** this plan/spec; tests/test_typed_method_descriptors.py; docs/architecture/contracts/{ir,python}.json.
 
-**Interfaces:** MethodDescriptor.method_kind:MethodKind; signature_decorators_proven/source_final_method_binding:bool; property_binding:PropertyBinding|None. parse_method_kind(value:object)->MethodKind|None; method_descriptor(module,node,parent)->MethodDescriptor; method_descriptor_data(descriptor:MethodDescriptor)->RawData.
+**Interfaces:** MethodDescriptor.method_kind:MethodKind; signature_decorators_proven/source_final_method_binding:bool; property_binding:PropertyBinding|None. parse_method_kind(value:JsonValue | RawJson | MethodKind)->MethodKind|None; method_descriptor(module,node,parent)->MethodDescriptor; method_descriptor_data(descriptor:MethodDescriptor)->RawData.
 
 - [ ] Add independent Target entities for the DTO, fields, decoder, writer and actual Source return.
 - [ ] Add nominal Source/strict DTO/native annotation mutation RED tests and actual scoped dispatch observations.
@@ -64,3 +64,10 @@
 
 Native execution is explicitly authorized after the read-only design. Remote branches substitute for local worktrees because the executor cannot fork; hosted Actions run all checks. The plan is the durable ledger.
 Pre-flight: Task2 consumes Task1's exact nominal fields/ports; names and signatures agree. Legacy Source writer and optional property omission are shared constraints, not a second decision authority.
+
+Port correction after actual native measurement: the initially authored object input
+added one object_annotation signal (52→53). The approved input domain is the existing
+raw/frozen JSON value types plus MethodKind. Move the existing RawJson definition to
+facts and preserve facts_codec.RawJson as the identical public reexport. Add an
+independent Target parameter constraint and establish RED before this correction.
+No measurement policy, ceiling, wire validation or conservative None behavior changes.

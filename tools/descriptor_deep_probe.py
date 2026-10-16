@@ -32,6 +32,7 @@ if mode=="native":
         "id":item.id,"kind":item.kind,"subjects":list(item.subjects),
         "rule_ids":list(item.rule_ids),"data":record_payload(item)["data"]})
         for item in model.records("unknowns")]
+    sections["typing_signals"]=[normalized({"kind":item.kind,"subjects":list(item.subjects),"data":record_payload(item)["data"]}) for item in model.records("typing_signals")]
     Path(sys.argv[3]).write_text(json.dumps(sections,sort_keys=True))
 elif mode=="wire":
     from archkeel.ir.protocol import CollectionRequest,CollectionResponse,SnapshotInput,SourceScope,PythonSettings,DartSettings,TypeScriptSettings

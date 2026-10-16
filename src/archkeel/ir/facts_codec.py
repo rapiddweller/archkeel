@@ -11,7 +11,6 @@ import re
 from enum import StrEnum
 from math import isfinite
 from pathlib import PurePosixPath, PureWindowsPath
-from typing import TypeAlias
 
 from .facts import (
     EVIDENCE_FIELDS,
@@ -34,6 +33,7 @@ from .facts import (
     LocalTarget,
     MethodDescriptor,
     PropertyBinding,
+    RawJson as RawJson,
     Record,
     RecordData,
     ResolutionInput,
@@ -93,9 +93,6 @@ from .type_shapes import (
     TypeUnpack,
     UnresolvedType,
 )
-
-RawJson: TypeAlias = str | int | float | bool | None | list["RawJson"] | dict[str, "RawJson"]
-
 
 def property_binding_data(binding: PropertyBinding) -> RawData:
     """Write the unchanged JSON shape; the facts owner validates its meaning."""

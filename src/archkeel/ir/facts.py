@@ -155,6 +155,7 @@ class RecordData:
 
 
 JsonValue: TypeAlias = str | int | float | bool | None | tuple["JsonValue", ...] | RecordData
+RawJson: TypeAlias = str | int | float | bool | None | list["RawJson"] | dict[str, "RawJson"]
 
 
 class PropertyOperation(Enum):
@@ -226,7 +227,7 @@ class MethodKind(Enum):
     FACTORY = "factory"
 
 
-def parse_method_kind(value: object) -> MethodKind | None:
+def parse_method_kind(value: JsonValue | RawJson | MethodKind) -> MethodKind | None:
     """Recognize shared method tags without assigning meaning to opaque wire data."""
     if isinstance(value, MethodKind):
         return value

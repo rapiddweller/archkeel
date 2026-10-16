@@ -25,7 +25,7 @@ for name,payload in outputs["head"][1].items():
     kinds=collections.Counter(row["data"].get("method_kind") for section in payload["facts"]["sections"] for row in section["records"] if row["kind"]=="method")
     print("WIRE_EQUAL",name,dict(kinds))
 def counter(rows):return collections.Counter(json.dumps(row,sort_keys=True) for row in rows)
-for section in ("calls","references","unknowns"):
+for section in ("calls","references","unknowns","typing_signals"):
     left,right=(counter(outputs[name][0][section]) for name in ("base","head"))
     print("NATIVE_SECTION",section,"BASE",len(outputs["base"][0][section]),"HEAD",len(outputs["head"][0][section]))
     if section in ("calls","references"):
