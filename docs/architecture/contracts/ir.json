@@ -9693,10 +9693,6 @@
           "provenance": [
             "docs/architecture/measurement-control-types.md"
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "responsibilities": [
             "Keep measurement decisions nominal at the existing typed owner boundary."
           ],
