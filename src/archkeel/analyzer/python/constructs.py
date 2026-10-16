@@ -339,6 +339,7 @@ def _comparison_form(literals: _LiteralComparisons, node: ast.Compare) -> str | 
             return "membership"
     return None
 
+
 def _matches_literal(literals: _LiteralComparisons, node: ast.Match) -> bool:
     return any(
         isinstance(pattern, ast.MatchValue) and literals.scalar(pattern.value)

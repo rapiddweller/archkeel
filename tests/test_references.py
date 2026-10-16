@@ -214,7 +214,7 @@ def test_wildcard_import_disables_enum_member_evidence_for_the_module(
     assert all(item.data.get("targets") != ("sample.State",) for item in member_references)
 
 
-def test_construct_comparison_helpers_have_their_declared_receiver_targets(
+def test_construct_queries_have_direct_native_references(
     self_observation: Observation,
 ) -> None:
     targets = {
