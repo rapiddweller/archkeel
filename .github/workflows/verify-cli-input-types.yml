@@ -30,11 +30,62 @@ jobs:
           patch = subprocess.run(["git", "diff", "--", "src", "tests"], capture_output=True, check=True).stdout
           print("FORMAT_PATCH=" + base64.b64encode(patch).decode())
           PY
-      - name: Native intent and source-mutation controls
-        run: uv run --locked python -m pytest -q tests/test_cli_input_target.py
       - name: CLI and installer compatibility
         run: uv run --locked python -m pytest -q tests/test_cli_typed_inputs.py tests/test_cli.py tests/test_skill.py tests/test_config.py
       - name: Lint and types
         run: make lint typecheck
       - name: Repository hygiene
         run: uv run --locked python -m pytest -q tests/test_repository_hygiene.py
+
+      - name: Compare every command help text with the original parser
+        env:
+          NO_COLOR: "1"
+          COLUMNS: "100"
+        run: |
+          uv run --locked python - <<'PY'
+          import argparse, subprocess
+          from archkeel.cli import build_parser
+          source = subprocess.run(["git", "show", "a82fe0ee484e0b84f28159eed5b8cf5272767ea9:src/archkeel/cli/__init__.py"], capture_output=True, check=True, text=True).stdout
+          context = {"__name__": "archkeel.cli._legacy_help", "__package__": "archkeel.cli"}
+          exec(compile(source, "<original-cli>", "exec"), context)
+          before, after = context["build_parser"](), build_parser()
+          assert before.format_help() == after.format_help()
+          old = next(a for a in before._actions if isinstance(a, argparse._SubParsersAction))
+          new = next(a for a in after._actions if isinstance(a, argparse._SubParsersAction))
+          for command in old.choices:
+              assert old.choices[command].format_help() == new.choices[command].format_help(), command
+          print("ALL_COMMAND_HELP_BYTES_UNCHANGED")
+          PY
+      - name: Native intent and source-mutation controls
+        run: uv run --locked python -m pytest -q tests/test_cli_input_target.py
+
+      - name: Native own baseline
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > /tmp/cli-own-baseline.json
+          native_status=$?
+          uv run --locked python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path("/tmp/cli-own-baseline.json").read_text())
+          print("CLI_NATIVE_RESULT=" + json.dumps({k: result.get(k) for k in ("exit_code", "observation_complete", "declared_rules", "diagnostics", "failures", "measurements")}, ensure_ascii=True))
+          PY
+          exit "$native_status"
+      - name: Own observation diagnostics
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          from pathlib import Path
+          from archkeel.ir.codec import decode_canonical_model, parse_observation
+          from archkeel.ir.decisions import rule_assessments
+          from archkeel.ir.report_graph import architecture_report
+          from archkeel.ir.trace import trace_valid_violations
+          for path in Path("/tmp").glob("pytest-of-*/pytest-*/self-report/architecture.json"):
+              model = parse_observation(decode_canonical_model(json.loads(path.read_text())))
+              print("OWN_TRACE_VIOLATIONS=" + json.dumps([{"kind": v.kind, "rules": v.rule_ids, "data": dict(v.data.items())} for v in trace_valid_violations(model)], default=str))
+              print("CLI_GUARD_RECEIPT=" + repr([(v.id, v.status, v.evaluation_proven) for v in rule_assessments(model, undecided_by_rule={}) if v.id == "cli:CLI-TYPED-CONTROL"]))
+              comparison = architecture_report(model).comparison
+              print("CLI_TARGET_ASSESSMENTS=" + repr([(r.subject_id, r.aspect, r.status) for r in comparison.assessments if r.subject_id.startswith("cli:CLI-INPUT-")]))
+              break
+          PY

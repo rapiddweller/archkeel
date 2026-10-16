@@ -134,12 +134,12 @@ def test_own_native_cli_guard_covers_the_whole_package(self_observation):
     assert own_guard["source"] == "archkeel.cli"
     assert not own_guard.get("exact_sources") and not own_guard.get("allowed_sources")
 
+
 def test_native_cli_guard_accepts_owned_enums_and_path_data(tmp_path):
     root, config = _cli_repository(tmp_path)
     source = root / "archkeel/cli/arguments.py"
     source.write_text(
-        source.read_text()
-        + "\n\ndef _command_probe(value: Command) -> bool:\n"
+        source.read_text() + "\n\ndef _command_probe(value: Command) -> bool:\n"
         "    return value is Command.REPORT\n"
         "\n\ndef _path_probe(actual: str, expected: str) -> bool:\n"
         "    return actual == expected\n"

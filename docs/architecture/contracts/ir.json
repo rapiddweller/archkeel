@@ -128,7 +128,8 @@
         "archkeel.ir.profiles:DeclarationField",
         "archkeel.ir.profiles:profile_for",
         "archkeel.ir.profiles:PROFILES",
-        "archkeel.ir.profiles:UnmeasurableScalar"
+        "archkeel.ir.profiles:UnmeasurableScalar",
+        "archkeel.ir.profiles:ObservedSection"
       ]
     },
     {
@@ -4372,7 +4373,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "str",
+          "annotation": "ProtocolVersion",
           "presence": "planned",
           "responsibilities": [
             "Carry protocol_version as source-only protocol data."
@@ -4431,7 +4432,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "str",
+          "annotation": "ProtocolVersion",
           "presence": "planned",
           "responsibilities": [
             "Carry protocol_version as source-only protocol data."
@@ -4545,7 +4546,7 @@
           "qualified_name": "archkeel.ir.facts.MemberInventory.kind",
           "language": "python",
           "parent_id": "member-inventory",
-          "annotation": "Literal['attribute', 'method']",
+          "annotation": "MemberKind",
           "visibility": {
             "kind": "public",
             "basis": "declared"
@@ -4564,7 +4565,7 @@
           "qualified_name": "archkeel.ir.facts.MemberInventory.status",
           "language": "python",
           "parent_id": "member-inventory",
-          "annotation": "Literal['complete', 'partial']",
+          "annotation": "InventoryStatus",
           "visibility": {
             "kind": "public",
             "basis": "declared"
@@ -4621,7 +4622,7 @@
           "qualified_name": "archkeel.ir.facts.MemberInventory.schema_version",
           "language": "python",
           "parent_id": "member-inventory",
-          "annotation": "Literal['1.0.0']",
+          "annotation": "InventoryVersion",
           "visibility": {
             "kind": "public",
             "basis": "declared"
@@ -5113,7 +5114,7 @@
           "provenance": [
             "docs/architecture/language-adapter-target.md"
           ],
-          "annotation": "Literal['python']"
+          "annotation": "Literal[Language.PYTHON]"
         },
         {
           "id": "dart-settings",
@@ -5153,7 +5154,7 @@
           "provenance": [
             "docs/architecture/language-adapter-target.md"
           ],
-          "annotation": "Literal['dart']"
+          "annotation": "Literal[Language.DART]"
         },
         {
           "id": "typescript-settings",
@@ -5193,7 +5194,7 @@
           "provenance": [
             "docs/architecture/language-adapter-target.md"
           ],
-          "annotation": "Literal['typescript']"
+          "annotation": "Literal[Language.TYPESCRIPT]"
         },
         {
           "id": "typescript-settings.tsconfig",
@@ -5316,7 +5317,7 @@
           "parent_id": "archkeel.ir.facts.ResolutionInput",
           "language": "python",
           "presence": "planned",
-          "annotation": "Literal['selected', 'resolution']",
+          "annotation": "ResolutionRole",
           "responsibilities": [
             "Distinguish selected Dart source from package metadata."
           ],

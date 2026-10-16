@@ -17,6 +17,7 @@ from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 MODULES = ("facts", "protocol", "facts_codec", "type_shapes", "codec_observation")
+RUNTIMES = ("archkeel.analyzer.runtime", "archkeel.check.runtime")
 GUARD = "COLLECTOR-TYPED-CONTROL"
 
 
@@ -24,29 +25,67 @@ def _collector_contract(module):
     intent = {"presence": "planned", "language": "python", "provenance": ["docs/target.md"]}
     return {
         "schema_version": "3.5.0",
-        "components": [{
-            "id": "ir", "label": "ir", "role": "component", "packages": ["archkeel.ir"],
-            "responsibilities": ["Own immutable source facts and validated collector envelopes."],
-            "forbidden_responsibilities": [], "provenance": ["docs/target.md"],
-        }],
-        "rules": [{
-            "id": GUARD, "kind": "forbidden_construct",
-            "source": f"archkeel.ir.{module}", "constructs": ["string_literal_compare"],
-            "rationale": "Closed collector wire vocabulary is typed before control flow.",
-            "decided_by": "architect", "provenance": ["docs/target.md"],
-        }],
-        "declarations": {"uml": {"schema_version": "1.0.0", "entities": [
-            {**intent, "id": "module", "kind": "module", "qualified_name": "archkeel.ir.protocol",
-             "parent_id": "ir", "responsibilities": ["Own source-only process envelope versions."]},
-            {**intent, "id": "request", "kind": "class",
-             "qualified_name": "archkeel.ir.protocol.CollectionRequest", "parent_id": "module",
-             "responsibilities": ["Carry source inputs under a typed protocol version."]},
-            {**intent, "id": "version", "kind": "attribute",
-             "qualified_name": "archkeel.ir.protocol.CollectionRequest.protocol_version",
-             "parent_id": "request", "annotation": "ProtocolVersion",
-             "responsibilities": ["Identify the supported closed collector wire protocol."],
-             "visibility": {"kind": "public", "basis": "declared"}},
-        ], "relationships": [], "scopes": []}},
+        "components": [
+            {
+                "id": "ir",
+                "label": "ir",
+                "role": "component",
+                "packages": ["archkeel.ir", "archkeel.analyzer", "archkeel.check"],
+                "responsibilities": [
+                    "Own immutable source facts and validated collector envelopes."
+                ],
+                "forbidden_responsibilities": [],
+                "provenance": ["docs/target.md"],
+            }
+        ],
+        "rules": [
+            {
+                "id": GUARD,
+                "kind": "forbidden_construct",
+                "source": module if module in RUNTIMES else f"archkeel.ir.{module}",
+                "constructs": ["string_literal_compare"],
+                "rationale": "Closed collector wire vocabulary is typed before control flow.",
+                "decided_by": "architect",
+                "provenance": ["docs/target.md"],
+            }
+        ],
+        "declarations": {
+            "uml": {
+                "schema_version": "1.0.0",
+                "entities": [
+                    {
+                        **intent,
+                        "id": "module",
+                        "kind": "module",
+                        "qualified_name": "archkeel.ir.protocol",
+                        "parent_id": "ir",
+                        "responsibilities": ["Own source-only process envelope versions."],
+                    },
+                    {
+                        **intent,
+                        "id": "request",
+                        "kind": "class",
+                        "qualified_name": "archkeel.ir.protocol.CollectionRequest",
+                        "parent_id": "module",
+                        "responsibilities": ["Carry source inputs under a typed protocol version."],
+                    },
+                    {
+                        **intent,
+                        "id": "version",
+                        "kind": "attribute",
+                        "qualified_name": "archkeel.ir.protocol.CollectionRequest.protocol_version",
+                        "parent_id": "request",
+                        "annotation": "ProtocolVersion",
+                        "responsibilities": [
+                            "Identify the supported closed collector wire protocol."
+                        ],
+                        "visibility": {"kind": "public", "basis": "declared"},
+                    },
+                ],
+                "relationships": [],
+                "scopes": [],
+            }
+        },
     }
 
 
@@ -60,6 +99,10 @@ def _collector_repository(tmp_path, module="facts_codec", probe="", *, weaken_ve
             text = text.replace("protocol_version: ProtocolVersion", "protocol_version: str")
         files[f"archkeel/ir/{name}.py"] = text
     parse_contract(_collector_contract(module))
+    for runtime in RUNTIMES:
+        path = runtime.replace(".", "/") + ".py"
+        files[path.rsplit("/", 1)[0] + "/__init__.py"] = ""
+        files[path] = (ROOT / ("src/" + path)).read_text()
     files["contract.json"] = json.dumps(_collector_contract(module))
     files["docs/target.md"] = "Collector wire vocabulary and protocol version are typed intent.\n"
     root = _prepare_repo(tmp_path, files)
@@ -70,7 +113,7 @@ def _guard(model):
     return next(row for row in rule_assessments(model, undecided_by_rule={}) if row.id == GUARD)
 
 
-@pytest.mark.parametrize("module", MODULES)
+@pytest.mark.parametrize("module", (*MODULES, *RUNTIMES))
 def test_native_collector_codec_uses_no_raw_string_control(tmp_path, module):
     root, config = _collector_repository(tmp_path, module)
     model = _model(root, config)
@@ -78,13 +121,17 @@ def test_native_collector_codec_uses_no_raw_string_control(tmp_path, module):
     assert not [row for row in trace_valid_violations(model) if GUARD in row.rule_ids]
 
 
-@pytest.mark.parametrize("probe", [
-    'def _control(value):\n    return value == "local"\n',
-    'def _control(value):\n    return value in ("local", "external")\n',
-    'def _control(value):\n    match value:\n        case "local":\n            return True\n',
-    'from typing import Final\nLOCAL: Final[str] = "local"\n'
-    'def _control(value):\n    return value == LOCAL\n',
-], ids=["equality", "membership", "match", "final-alias"])
+@pytest.mark.parametrize(
+    "probe",
+    [
+        'def _control(value):\n    return value == "local"\n',
+        'def _control(value):\n    return value in ("local", "external")\n',
+        'def _control(value):\n    match value:\n        case "local":\n            return True\n',
+        'from typing import Final\nLOCAL: Final[str] = "local"\n'
+        "def _control(value):\n    return value == LOCAL\n",
+    ],
+    ids=["equality", "membership", "match", "final-alias"],
+)
 def test_native_collector_guard_rejects_actual_source_mutations(tmp_path, probe):
     root, config = _collector_repository(tmp_path, probe=probe)
     before = (root / "contract.json").read_bytes()

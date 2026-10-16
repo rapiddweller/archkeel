@@ -32,7 +32,7 @@ from archkeel.ir.architecture_graph import (
     VisibilityBasis,
     VisibilityKind,
 )
-from archkeel.ir.facts import SOURCE_RESOLUTION_GAP_KIND, ResolutionInput, member_inventories
+from archkeel.ir.facts import SOURCE_RESOLUTION_GAP_KIND, MemberKind, ResolutionInput, ResolutionRole, member_inventories
 from archkeel.ir.model import (
     TARGET_GRAPH_RECORD_KINDS,
     EvidenceClass,
@@ -331,7 +331,7 @@ def validated_member_inventory_proof(model: Observation) -> Record | None:
                     ResolutionInput(
                         str(row.get("path")),
                         str(row.get("digest")),
-                        "selected" if row.get("role") == "selected" else "resolution",
+                        ResolutionRole.SELECTED if row.get("role") == "selected" else ResolutionRole.RESOLUTION,
                     )
                     for row in rows
                 ),
@@ -1054,7 +1054,7 @@ def _member_inventory_coverage(
             kinds: tuple[EntityKind, ...] = (
                 ("attribute", "enum_literal")
                 if inventory.kind == "attribute" and item.data.get("class_kind") == "enum"
-                else (inventory.kind,)
+                else (("attribute",) if inventory.kind is MemberKind.ATTRIBUTE else ("method",))
             )
             actual = {
                 entity.id

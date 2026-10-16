@@ -55,7 +55,11 @@ def _path(value: object, *, field: str, allow_dot: bool = True) -> str:
     ):
         raise ConfigError(f"{field} must be a safe POSIX relative path")
     parsed = PurePosixPath(value)
-    if parsed.is_absolute() or _PathToken.PARENT in parsed.parts or (not allow_dot and value == _PathToken.CURRENT):
+    if (
+        parsed.is_absolute()
+        or _PathToken.PARENT in parsed.parts
+        or (not allow_dot and value == _PathToken.CURRENT)
+    ):
         raise ConfigError(f"{field} must be a safe POSIX relative path")
     return value
 
@@ -115,7 +119,8 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
             not isinstance(argv_raw, list)
             or not argv_raw
             or not all(
-                isinstance(value, str) and value and _PathToken.NUL not in value for value in argv_raw
+                isinstance(value, str) and value and _PathToken.NUL not in value
+                for value in argv_raw
             )
         ):
             raise ConfigError("scan.collector_argv must be a non-empty array of non-empty strings")

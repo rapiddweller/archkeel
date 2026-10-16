@@ -180,7 +180,7 @@ def build_parser() -> _Parser:
     )
     report.add_argument(
         "--only",
-        choices=[item.value for item in ReportMode],
+        choices=list(ReportMode),
         type=report_mode,
         help="violations: show only the declared-rule violations table, hiding component flow, "
         "component communication, review claims and size and coupling, for a small review "
@@ -394,7 +394,7 @@ def build_parser() -> _Parser:
         init.add_argument(option, help=help_text)
     init.add_argument(
         "--language",
-        choices=[item.value for item in Language],
+        choices=list(Language),
         type=source_language,
         default=Language.PYTHON,
         help="Source language of --source. Dart needs --source and --namespace (the pubspec "
@@ -436,13 +436,13 @@ def build_parser() -> _Parser:
     skill.set_defaults(command=Command.SKILL)
     skill.add_argument(
         "action",
-        choices=[item.value for item in SkillAction],
+        choices=list(SkillAction),
         type=skill_action,
         help="The only supported action.",
     )
     skill.add_argument(
         "agent",
-        choices=[item.value for item in InstallationAgent],
+        choices=list(InstallationAgent),
         type=installation_agent,
         help="Coding agent to instruct.",
     )
@@ -472,7 +472,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"Use {'$archkeel' if args.agent is InstallationAgent.CODEX else '/archkeel'} "
                 "in your agent session; start a new session if needed."
                 if interactive
-                else json.dumps({"command": "skill", "exit_code": 0, "path": str(path)})
+                else json.dumps({"command": Command.SKILL, "exit_code": 0, "path": str(path)})
             )
             return 0
         if args.config is None and (command is not Command.REPORT or args.input is None):
@@ -583,7 +583,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                             else str(resolved)
                         ),
                     )
-                    report_html = html_path(artifact, "report")
+                    report_html = html_path(artifact, Command.REPORT)
                     repository = project_name(root, config)
                     details = render_architecture_details(
                         result,
@@ -692,7 +692,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
                     args.output.write_bytes(render_result(result))
-                    check_html = html_path(args.output, "check")
+                    check_html = html_path(args.output, Command.CHECK)
                     check_html.write_bytes(
                         render_check_html(
                             result,

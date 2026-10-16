@@ -228,7 +228,10 @@ def member_inventories(value: JsonValue) -> tuple[MemberInventory, ...]:
                 reason,
             )
         )
-    if len(result) != 2 or {item.kind for item in result} != {MemberKind.ATTRIBUTE, MemberKind.METHOD}:
+    if len(result) != 2 or {item.kind for item in result} != {
+        MemberKind.ATTRIBUTE,
+        MemberKind.METHOD,
+    }:
         raise ValueError("member inventory needs one receipt per member kind")
     return tuple(result)
 

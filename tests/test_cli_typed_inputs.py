@@ -84,6 +84,7 @@ def test_installer_rejects_an_invalid_agent_before_writing(tmp_path: Path, agent
         install_skill(tmp_path, agent)
     assert list(tmp_path.iterdir()) == []
 
+
 def test_no_subcommand_remains_an_overview_request():
     assert build_parser().parse_args([]).command is None
 
@@ -91,10 +92,21 @@ def test_no_subcommand_remains_an_overview_request():
 def test_check_subcommand_is_typed_after_required_inputs_are_validated():
     arguments = build_parser().parse_args(
         [
-            "check", "--baseline", "a" * 40, "--expectation-commit", "b" * 40,
-            "--head", "c" * 40, "--expected", "expectation.json",
-            "--expected-digest", "d" * 64, "--branch", "origin/topic",
-            "--accepted-branch", "origin/main",
+            "check",
+            "--baseline",
+            "a" * 40,
+            "--expectation-commit",
+            "b" * 40,
+            "--head",
+            "c" * 40,
+            "--expected",
+            "expectation.json",
+            "--expected-digest",
+            "d" * 64,
+            "--branch",
+            "origin/topic",
+            "--accepted-branch",
+            "origin/main",
         ]
     )
     assert arguments.command is Command.CHECK
