@@ -1,0 +1,28 @@
+name: Pairwise owned logic verification
+on:
+  push:
+    branches: [aux/issue-542-pairwise-owned-logic-quality]
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.12.13
+          python-version: 3.11.12
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - run: make lint typecheck
+      - run: uv run --locked pytest -q tests/test_repository_hygiene.py
+      - name: Show actual formatter corrections if needed
+        if: failure()
+        run: |
+          uv run --locked ruff format src/archkeel/ir/duplication.py tests/test_duplication_call_evidence.py
+          git diff -- src/archkeel/ir/duplication.py tests/test_duplication_call_evidence.py
