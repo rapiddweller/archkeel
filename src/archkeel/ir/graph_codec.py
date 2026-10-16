@@ -537,7 +537,7 @@ def parse_comparison(value: RawJson) -> GraphComparison:
         value, {"status", "schema_version"}, {"assessments", "correspondences"}, "comparison"
     )
     try:
-        version = GraphSchemaVersion(item["schema_version"])
+        version = GraphSchemaVersion(_text(item["schema_version"], "comparison.schema_version"))
     except (TypeError, ValueError) as exc:
         raise ValueError("unsupported comparison schema_version") from exc
     if version is not GraphSchemaVersion.V1_0_0:
@@ -576,7 +576,7 @@ def parse_report(value: RawJson) -> ArchitectureReport:
         "report",
     )
     try:
-        version = ReportSchemaVersion(item["schema_version"])
+        version = ReportSchemaVersion(_text(item["schema_version"], "report.schema_version"))
     except (TypeError, ValueError) as exc:
         raise ValueError("unsupported report schema_version") from exc
     observed, target, comparison = item["observed"], item["target"], item.get("comparison")

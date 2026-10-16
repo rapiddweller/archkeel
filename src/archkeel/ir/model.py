@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, TypeAlias, get_args, get_type_hints
 
-from .architecture_graph import AssessmentStatus, TargetDefinition
+from .architecture_graph import AssessmentStatus, DecisionMaker, TargetDefinition
 from .architecture_graph import ComponentRole as ComponentRole
 from .architecture_graph import ContractModuleTarget as ContractModuleTarget
 from .architecture_graph import ExternalDependencyScopeRule as ExternalDependencyScopeRule
@@ -158,7 +158,7 @@ class ContractComponent:
     planned: tuple[str, ...] | None = None
     # AD-50: who decided this component's `public` list, and every `requires` entry that
     # names nobody of its own. None records no attribution, the way a contract read before.
-    decided_by: Literal["architect", "agent"] | None = None
+    decided_by: DecisionMaker | None = None
     # The physical package where this component is expected to live. `packages` remains
     # the ownership set; modules owned by this component outside `namespace` are violations.
     namespace: str | None = None
@@ -218,7 +218,7 @@ class RequiredComponent:
     component: str
     rationale: str
     through: tuple[str, ...] = ()
-    decided_by: Literal["architect", "agent"] | None = None
+    decided_by: DecisionMaker | None = None
 
 
 def requires_covers(
@@ -1422,7 +1422,7 @@ class RunResult:
     command: str
     exit_code: Literal[0, 1, 2]
     observation_complete: Literal["PASS", "UNKNOWN"] = "UNKNOWN"
-    declared_rules: RuleVerdict = "UNKNOWN"
+    declared_rules: RuleVerdict = RuleVerdict.UNKNOWN
     expectation_fulfilled: Literal["PASS", "FAIL", "UNKNOWN", "n/a"] = "UNKNOWN"
     diagnostics: tuple[Diagnostic, ...] = ()
     coverage: Coverage | None = None

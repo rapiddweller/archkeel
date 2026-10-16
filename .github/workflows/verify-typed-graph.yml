@@ -20,14 +20,14 @@ jobs:
       - run: uv sync --locked
       - name: Format owned graph source and export patch
         run: |
-          uv run --locked ruff check --select I --fix src/archkeel/ir/architecture_graph.py tests/test_typed_graph_vocabulary.py src/archkeel/ir/graph_codec.py src/archkeel/check/uml_compare.py src/archkeel/ir/target_graph.py tools/architecture_graph_schema.py src/archkeel/ir/source_graph.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/decisions.py src/archkeel/ir/report_graph.py src/archkeel/ir/codec_contract.py tests/test_uml_demo.py
-          uv run --locked ruff format src/archkeel/ir/architecture_graph.py tests/test_typed_graph_vocabulary.py src/archkeel/ir/graph_codec.py src/archkeel/check/uml_compare.py src/archkeel/ir/target_graph.py tools/architecture_graph_schema.py src/archkeel/ir/source_graph.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/decisions.py src/archkeel/ir/report_graph.py src/archkeel/ir/codec_contract.py tests/test_uml_demo.py
+          uv run --locked ruff check --select I --fix src/archkeel/ir/architecture_graph.py tests/test_typed_graph_vocabulary.py src/archkeel/ir/graph_codec.py src/archkeel/check/uml_compare.py src/archkeel/ir/target_graph.py tools/architecture_graph_schema.py src/archkeel/ir/source_graph.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/decisions.py src/archkeel/ir/report_graph.py src/archkeel/ir/codec_contract.py tests/test_uml_demo.py src/archkeel/ir/model.py src/archkeel/check/run.py src/archkeel/ir/architecture_projection.py src/archkeel/ir/report_projection.py src/archkeel/ir/module_explore.py src/archkeel/ir/target_records.py src/archkeel/check/report.py src/archkeel/check/validation/__init__.py fixtures/demo_catalog_uml.py
+          uv run --locked ruff format src/archkeel/ir/architecture_graph.py tests/test_typed_graph_vocabulary.py src/archkeel/ir/graph_codec.py src/archkeel/check/uml_compare.py src/archkeel/ir/target_graph.py tools/architecture_graph_schema.py src/archkeel/ir/source_graph.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/decisions.py src/archkeel/ir/report_graph.py src/archkeel/ir/codec_contract.py tests/test_uml_demo.py src/archkeel/ir/model.py src/archkeel/check/run.py src/archkeel/ir/architecture_projection.py src/archkeel/ir/report_projection.py src/archkeel/ir/module_explore.py src/archkeel/ir/target_records.py src/archkeel/check/report.py src/archkeel/check/validation/__init__.py fixtures/demo_catalog_uml.py
           python - <<'PY'
           import base64, subprocess
-          print("FORMAT_PATCH=" + base64.b64encode(subprocess.check_output(["git", "diff", "--", "src/archkeel/ir/architecture_graph.py", "tests/test_typed_graph_vocabulary.py", "src/archkeel/ir/graph_codec.py", "src/archkeel/check/uml_compare.py", "src/archkeel/ir/target_graph.py", "tools/architecture_graph_schema.py", "src/archkeel/ir/source_graph.py", "src/archkeel/check/uml_evaluation.py", "src/archkeel/ir/decisions.py", "src/archkeel/ir/report_graph.py", "src/archkeel/ir/codec_contract.py", "tests/test_uml_demo.py"])).decode())
+          print("FORMAT_PATCH=" + base64.b64encode(subprocess.check_output(["git","diff","--","src/archkeel/ir/architecture_graph.py","tests/test_typed_graph_vocabulary.py","src/archkeel/ir/graph_codec.py","src/archkeel/check/uml_compare.py","src/archkeel/ir/target_graph.py","tools/architecture_graph_schema.py","src/archkeel/ir/source_graph.py","src/archkeel/check/uml_evaluation.py","src/archkeel/ir/decisions.py","src/archkeel/ir/report_graph.py","src/archkeel/ir/codec_contract.py","tests/test_uml_demo.py","src/archkeel/ir/model.py","src/archkeel/check/run.py","src/archkeel/ir/architecture_projection.py","src/archkeel/ir/report_projection.py","src/archkeel/ir/module_explore.py","src/archkeel/ir/target_records.py","src/archkeel/check/report.py","src/archkeel/check/validation/__init__.py","fixtures/demo_catalog_uml.py"])).decode())
           PY
       - name: Style
-        run: uv run --locked ruff check src/archkeel/ir/architecture_graph.py tests/test_typed_graph_vocabulary.py src/archkeel/ir/graph_codec.py src/archkeel/check/uml_compare.py src/archkeel/ir/target_graph.py tools/architecture_graph_schema.py src/archkeel/ir/source_graph.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/decisions.py src/archkeel/ir/report_graph.py src/archkeel/ir/codec_contract.py tests/test_uml_demo.py
+        run: uv run --locked ruff check src/archkeel/ir/architecture_graph.py tests/test_typed_graph_vocabulary.py src/archkeel/ir/graph_codec.py src/archkeel/check/uml_compare.py src/archkeel/ir/target_graph.py tools/architecture_graph_schema.py src/archkeel/ir/source_graph.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/decisions.py src/archkeel/ir/report_graph.py src/archkeel/ir/codec_contract.py tests/test_uml_demo.py src/archkeel/ir/model.py src/archkeel/check/run.py src/archkeel/ir/architecture_projection.py src/archkeel/ir/report_projection.py src/archkeel/ir/module_explore.py src/archkeel/ir/target_records.py src/archkeel/check/report.py src/archkeel/check/validation/__init__.py fixtures/demo_catalog_uml.py
       - name: Types
         if: always()
         run: make typecheck
@@ -63,5 +63,17 @@ jobs:
           path = pathlib.Path("docs/architecture/decisions/issue-542-graph-vocabulary-amendment.json")
           if path.exists():
               print("AMENDMENT_JSON=" + json.dumps(json.loads(path.read_text()), separators=(",", ":")))
+          PY
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/graph-own.json" > "$RUNNER_TEMP/graph-report-result.json"
+          python - "$RUNNER_TEMP/graph-own.json" <<'PY'
+          import json, pathlib, sys
+          from archkeel.ir.codec import decode_canonical_model, parse_observation
+          from archkeel.ir.report_graph import architecture_report
+          from archkeel.ir.trace import trace_valid_violations
+          model = parse_observation(decode_canonical_model(json.loads(pathlib.Path(sys.argv[1]).read_text())))
+          report = architecture_report(model)
+          print("OWN_VIOLATIONS=" + repr(trace_valid_violations(model)))
+          print("OWN_GRAPH_FAILURES=" + repr(tuple(row for row in report.comparison.assessments if row.status == "FAIL") if report.comparison else ()))
+          print("OWN_SETATTR_CALLS=" + repr(tuple(row for row in model.records("calls") or () if "__setattr__" in str(row.data))))
           PY
           exit "$graph_status"

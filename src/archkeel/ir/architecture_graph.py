@@ -1,10 +1,11 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Shared source and Target graph types; no parsing, policy or layout."""
+"""Shared source and Target graph values, control vocabulary and invariants."""
 
 from __future__ import annotations
 
+import builtins
 import re
 from dataclasses import dataclass
 from enum import StrEnum
@@ -228,7 +229,7 @@ class RuleAssessment:
     components: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "status", RuleAssessmentStatus(self.status))
+        builtins.object.__setattr__(self, "status", RuleAssessmentStatus(self.status))
 
 
 @dataclass(frozen=True, slots=True)
@@ -251,8 +252,8 @@ class ComponentIntent:
     layer: str | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "role", ComponentRole(self.role))
-        object.__setattr__(
+        builtins.object.__setattr__(self, "role", ComponentRole(self.role))
+        builtins.object.__setattr__(
             self, "decided_by", None if self.decided_by is None else DecisionMaker(self.decided_by)
         )
 
@@ -297,8 +298,8 @@ class RootLayoutRule:
     decided_by: DecisionMaker
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "kind", ArchitectureRuleKind(self.kind))
-        object.__setattr__(self, "decided_by", DecisionMaker(self.decided_by))
+        builtins.object.__setattr__(self, "kind", ArchitectureRuleKind(self.kind))
+        builtins.object.__setattr__(self, "decided_by", DecisionMaker(self.decided_by))
 
 
 def contract_relative_path(value: str) -> PurePosixPath | None:
@@ -346,8 +347,8 @@ class Visibility:
     spelling: str | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "kind", VisibilityKind(self.kind))
-        object.__setattr__(self, "basis", VisibilityBasis(self.basis))
+        builtins.object.__setattr__(self, "kind", VisibilityKind(self.kind))
+        builtins.object.__setattr__(self, "basis", VisibilityBasis(self.basis))
 
 
 @dataclass(frozen=True, slots=True)
@@ -359,7 +360,7 @@ class Parameter:
     default_known: bool = False
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "kind", ParameterKind(self.kind))
+        builtins.object.__setattr__(self, "kind", ParameterKind(self.kind))
 
 
 @dataclass(frozen=True, slots=True)
@@ -377,8 +378,8 @@ class DefinitionContext:
     evidence_ids: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "kind", DefinitionContextKind(self.kind))
-        object.__setattr__(self, "branch", DefinitionBranchKind(self.branch))
+        builtins.object.__setattr__(self, "kind", DefinitionContextKind(self.kind))
+        builtins.object.__setattr__(self, "branch", DefinitionBranchKind(self.branch))
         branches = {
             DefinitionContextKind.IF: {DefinitionBranchKind.BODY, DefinitionBranchKind.ELSE},
             DefinitionContextKind.FOR: {DefinitionBranchKind.BODY, DefinitionBranchKind.ELSE},
@@ -425,9 +426,9 @@ class Entity:
     file_path: str | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "kind", EntityKind(self.kind))
-        object.__setattr__(self, "presence", PresenceKind(self.presence))
-        object.__setattr__(self, "modifiers", tuple(ModifierKind(item) for item in self.modifiers))
+        builtins.object.__setattr__(self, "kind", EntityKind(self.kind))
+        builtins.object.__setattr__(self, "presence", PresenceKind(self.presence))
+        builtins.object.__setattr__(self, "modifiers", tuple(ModifierKind(item) for item in self.modifiers))
 
 
 @dataclass(frozen=True, slots=True)
@@ -450,9 +451,9 @@ class Relationship:
     decided_by: DecisionMaker | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "kind", RelationshipKind(self.kind))
-        object.__setattr__(self, "resolution", ResolutionKind(self.resolution))
-        object.__setattr__(
+        builtins.object.__setattr__(self, "kind", RelationshipKind(self.kind))
+        builtins.object.__setattr__(self, "resolution", ResolutionKind(self.resolution))
+        builtins.object.__setattr__(
             self, "decided_by", None if self.decided_by is None else DecisionMaker(self.decided_by)
         )
 
@@ -466,15 +467,15 @@ class Coverage:
     reason: str | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(
+        builtins.object.__setattr__(
             self, "entity_kinds", tuple(EntityKind(item) for item in self.entity_kinds)
         )
-        object.__setattr__(
+        builtins.object.__setattr__(
             self,
             "relationship_kinds",
             tuple(RelationshipKind(item) for item in self.relationship_kinds),
         )
-        object.__setattr__(self, "status", CoverageStatus(self.status))
+        builtins.object.__setattr__(self, "status", CoverageStatus(self.status))
 
 
 @dataclass(frozen=True, slots=True)
@@ -487,11 +488,11 @@ class TargetScope:
     relationship_kinds: tuple[RelationshipKind, ...] = ()
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "mode", CompletenessMode(self.mode))
-        object.__setattr__(
+        builtins.object.__setattr__(self, "mode", CompletenessMode(self.mode))
+        builtins.object.__setattr__(
             self, "entity_kinds", tuple(EntityKind(item) for item in self.entity_kinds)
         )
-        object.__setattr__(
+        builtins.object.__setattr__(
             self,
             "relationship_kinds",
             tuple(RelationshipKind(item) for item in self.relationship_kinds),
@@ -508,7 +509,7 @@ class TargetDefinition:
     schema_version: GraphSchemaVersion = GraphSchemaVersion.V1_1_0
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "schema_version", GraphSchemaVersion(self.schema_version))
+        builtins.object.__setattr__(self, "schema_version", GraphSchemaVersion(self.schema_version))
         _validate_graph_version(self.schema_version, self.entities, self.scopes)
 
 
@@ -541,9 +542,9 @@ class GraphAssessment:
     fact_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "aspect", AssessmentAspect(self.aspect))
-        object.__setattr__(self, "status", AssessmentStatus(self.status))
-        object.__setattr__(self, "change", AssessmentChange(self.change))
+        builtins.object.__setattr__(self, "aspect", AssessmentAspect(self.aspect))
+        builtins.object.__setattr__(self, "status", AssessmentStatus(self.status))
+        builtins.object.__setattr__(self, "change", AssessmentChange(self.change))
 
 
 @dataclass(frozen=True, slots=True)
@@ -560,8 +561,8 @@ class GraphComparison:
     correspondences: tuple[EntityCorrespondence, ...] = ()
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "status", AssessmentStatus(self.status))
-        object.__setattr__(self, "schema_version", GraphSchemaVersion(self.schema_version))
+        builtins.object.__setattr__(self, "status", AssessmentStatus(self.status))
+        builtins.object.__setattr__(self, "schema_version", GraphSchemaVersion(self.schema_version))
 
     @staticmethod
     def from_assessments(
@@ -615,8 +616,8 @@ class ExternalDependencyScopeRule:
     exact_sources: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "kind", ArchitectureRuleKind(self.kind))
-        object.__setattr__(self, "decided_by", DecisionMaker(self.decided_by))
+        builtins.object.__setattr__(self, "kind", ArchitectureRuleKind(self.kind))
+        builtins.object.__setattr__(self, "decided_by", DecisionMaker(self.decided_by))
 
 
 @dataclass(frozen=True, slots=True)
@@ -635,8 +636,8 @@ class ArchitectureGraph:
     external_scopes: tuple[ExternalDependencyScopeRule, ...] = ()
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "origin", OriginKind(self.origin))
-        object.__setattr__(self, "schema_version", GraphSchemaVersion(self.schema_version))
+        builtins.object.__setattr__(self, "origin", OriginKind(self.origin))
+        builtins.object.__setattr__(self, "schema_version", GraphSchemaVersion(self.schema_version))
 
     def validate(self) -> None:
         _validate_graph_version(
@@ -875,46 +876,51 @@ class ArchitectureGraph:
         elif edge.through or edge.decided_by is not None:
             raise ValueError("permission metadata belongs on requires relationships")
 
+    def _validate_classifier_relationship(
+        self, edge: Relationship, entities: dict[str, Entity]
+    ) -> None:
+        if self.origin == OriginKind.DECLARED and edge.kind in {
+            RelationshipKind.INHERITS,
+            RelationshipKind.REALIZES,
+            RelationshipKind.MIXES_IN,
+        }:
+            for identity in (edge.source_id, edge.target_id):
+                if identity is None:
+                    continue
+                endpoint = entities[identity]
+                if endpoint.kind not in _CLASSIFIER_KINDS and not (
+                    endpoint.kind == EntityKind.SYMBOL
+                    and endpoint.presence == PresenceKind.REFERENCED
+                ):
+                    raise ValueError("classifier relationship needs classifier endpoints")
+            if edge.kind == RelationshipKind.MIXES_IN and edge.target_id is not None:
+                source = entities[edge.source_id]
+                target = entities[edge.target_id]
+                if source.kind not in {EntityKind.CLASS, EntityKind.ENUM} and not (
+                    source.kind == EntityKind.SYMBOL
+                    and source.presence == PresenceKind.REFERENCED
+                ):
+                    raise ValueError("mixes_in relationship needs a class or enum source")
+                if (
+                    target.kind != EntityKind.MIXIN
+                    and not (
+                        target.kind == EntityKind.CLASS
+                        and ModifierKind.MIXIN in target.modifiers
+                    )
+                    and not (
+                        target.kind == EntityKind.SYMBOL
+                        and target.presence == PresenceKind.REFERENCED
+                    )
+                ):
+                    raise ValueError("mixes_in relationship needs a mixin-capable target")
+
     def _validate_relationships(self, entities: dict[str, Entity], evidence_ids: set[str]) -> None:
         for edge in self.relationships:
             if not edge.id or edge.source_id not in entities:
                 raise ValueError("unknown relationship source")
             if edge.target_id is not None and edge.target_id not in entities:
                 raise ValueError("unknown relationship target")
-            if self.origin == OriginKind.DECLARED and edge.kind in {
-                RelationshipKind.INHERITS,
-                RelationshipKind.REALIZES,
-                RelationshipKind.MIXES_IN,
-            }:
-                for identity in (edge.source_id, edge.target_id):
-                    if identity is None:
-                        continue
-                    endpoint = entities[identity]
-                    if endpoint.kind not in _CLASSIFIER_KINDS and not (
-                        endpoint.kind == EntityKind.SYMBOL
-                        and endpoint.presence == PresenceKind.REFERENCED
-                    ):
-                        raise ValueError("classifier relationship needs classifier endpoints")
-                if edge.kind == RelationshipKind.MIXES_IN and edge.target_id is not None:
-                    source = entities[edge.source_id]
-                    target = entities[edge.target_id]
-                    if source.kind not in {EntityKind.CLASS, EntityKind.ENUM} and not (
-                        source.kind == EntityKind.SYMBOL
-                        and source.presence == PresenceKind.REFERENCED
-                    ):
-                        raise ValueError("mixes_in relationship needs a class or enum source")
-                    if (
-                        target.kind != EntityKind.MIXIN
-                        and not (
-                            target.kind == EntityKind.CLASS
-                            and ModifierKind.MIXIN in target.modifiers
-                        )
-                        and not (
-                            target.kind == EntityKind.SYMBOL
-                            and target.presence == PresenceKind.REFERENCED
-                        )
-                    ):
-                        raise ValueError("mixes_in relationship needs a mixin-capable target")
+            self._validate_classifier_relationship(edge, entities)
             self._validate_permission_metadata(edge, entities)
             if len(set(edge.candidate_ids)) != len(edge.candidate_ids) or any(
                 candidate not in entities for candidate in edge.candidate_ids
@@ -1020,7 +1026,7 @@ class ReportFinding:
     provenance: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "status", AssessmentStatus(self.status))
+        builtins.object.__setattr__(self, "status", AssessmentStatus(self.status))
 
 
 @dataclass(frozen=True, slots=True)
@@ -1044,7 +1050,7 @@ class ArchitectureReport:
     decision_gaps: tuple[DependencyDecisionGap, ...] = ()
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "schema_version", ReportSchemaVersion(self.schema_version))
+        builtins.object.__setattr__(self, "schema_version", ReportSchemaVersion(self.schema_version))
 
     def validate(self) -> None:
         if self.observed is None and not self.unavailable:
@@ -1065,22 +1071,7 @@ class ArchitectureReport:
         graphs = tuple(graph for graph in (self.observed, self.target) if graph is not None)
         subjects: set[str] = {entity.id for graph in graphs for entity in graph.entities}
         subjects.update(relationship.id for graph in graphs for relationship in graph.relationships)
-        finding_ids = [item.id for item in self.findings]
-        if len(finding_ids) != len(set(finding_ids)):
-            raise ValueError("report finding identities must be unique")
-        source_evidence = {item.id for item in self.observed.evidence} if self.observed else set()
-        for finding in self.findings:
-            if (
-                not finding.id
-                or not finding.kind
-                or not finding.title
-                or finding.status not in {AssessmentStatus.FAIL, AssessmentStatus.UNKNOWN}
-            ):
-                raise ValueError("invalid recorded Core finding")
-            if not set(finding.graph_subject_ids) <= subjects:
-                raise ValueError("finding has an unavailable graph subject")
-            if self.observed is not None and not set(finding.evidence_ids) <= source_evidence:
-                raise ValueError("finding has unavailable source evidence")
+        self._validate_findings(subjects)
         components = (
             {entity.id for entity in self.target.entities if entity.kind == EntityKind.COMPONENT}
             if self.target
@@ -1128,6 +1119,24 @@ class ArchitectureReport:
                     "dependency decision gap needs components and observed import sites"
                 )
         self._validate_comparison()
+
+    def _validate_findings(self, subjects: set[str]) -> None:
+        finding_ids = [item.id for item in self.findings]
+        if len(finding_ids) != len(set(finding_ids)):
+            raise ValueError("report finding identities must be unique")
+        source_evidence = {item.id for item in self.observed.evidence} if self.observed else set()
+        for finding in self.findings:
+            if (
+                not finding.id
+                or not finding.kind
+                or not finding.title
+                or finding.status not in {AssessmentStatus.FAIL, AssessmentStatus.UNKNOWN}
+            ):
+                raise ValueError("invalid recorded Core finding")
+            if not set(finding.graph_subject_ids) <= subjects:
+                raise ValueError("finding has an unavailable graph subject")
+            if self.observed is not None and not set(finding.evidence_ids) <= source_evidence:
+                raise ValueError("finding has unavailable source evidence")
 
     def _validate_comparison(self) -> None:
         if self.comparison is None:

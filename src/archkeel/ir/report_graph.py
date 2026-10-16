@@ -92,7 +92,7 @@ def architecture_report(model: Observation) -> ArchitectureReport:
         declared,
         comparison,
         schema_version=ReportSchemaVersion.V1_2_0
-        if declared is not None and declared.schema_version == ReportSchemaVersion.V1_2_0
+        if declared is not None and declared.schema_version == GraphSchemaVersion.V1_2_0
         else ReportSchemaVersion.V1_0_0,
         findings=_findings(model, observed, declared),
         memberships=_memberships(model, observed, declared),

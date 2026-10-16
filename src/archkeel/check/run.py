@@ -27,6 +27,7 @@ from archkeel.ir.model import (
     DiagnosticError,
     Observation,
     ObservationResult,
+    RuleAssessmentStatus,
     RuleVerdict,
     RunResult,
     UnresolvedCallChange,
@@ -69,18 +70,18 @@ def inspect_observation(model: Observation) -> tuple[Measurements, RuleVerdict]:
     if len(violations) != len(model.records("violations") or ()):
         raise ValueError("violation records lack a complete rule/fact/source trace")
     if violations:
-        return measurements, "FAIL"
+        return measurements, RuleVerdict.FAIL
     # AD-92: one count decides both the verdict and the scalar a budget can pin.
     if measurements.scalars.unknown_positions:
-        return measurements, "UNKNOWN"
+        return measurements, RuleVerdict.UNKNOWN
     if any(
-        assessment.status == "UNKNOWN"
+        assessment.status == RuleAssessmentStatus.UNKNOWN
         for assessment in rule_assessments(
             model, undecided_by_rule=unknown_positions_by_rule(model)
         )
     ):
-        return measurements, "UNKNOWN"
-    return measurements, "PASS"
+        return measurements, RuleVerdict.UNKNOWN
+    return measurements, RuleVerdict.PASS
 
 
 def materialize_declarations(

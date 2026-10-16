@@ -338,7 +338,7 @@ def validated_member_inventory_proof(model: Observation) -> Record | None:
                     ResolutionInput(
                         str(row.get("path")),
                         str(row.get("digest")),
-                        ResolutionRole(_text(row.get("role"))),
+                        ResolutionRole(_vocabulary_text(row.get("role"))),
                     )
                     for row in rows
                 ),
@@ -351,12 +351,15 @@ def validated_member_inventory_proof(model: Observation) -> Record | None:
         return None
 
 
-def _text(value: JsonValue, *, default: str | None = None) -> str | None:
-    if value is None:
-        return default
-    if isinstance(value, str):
+def _text(value: JsonValue) -> str | None:
+    if value is None or isinstance(value, str):
         return value
     raise ValueError("source graph expected text")
+
+
+def _vocabulary_text(value: JsonValue, *, default: str = "") -> str:
+    text = _text(value)
+    return default if text is None else text
 
 
 def _texts(value: JsonValue) -> tuple[str, ...]:
@@ -381,8 +384,8 @@ def _visibility(value: JsonValue, spelling: str | None = None) -> Visibility:
     if not isinstance(value, RecordData):
         raise ValueError("source graph expected visibility record")
     return Visibility(
-        VisibilityKind(_text(value.get("kind"), default=VisibilityKind.UNKNOWN)),
-        VisibilityBasis(_text(value.get("basis"), default=VisibilityBasis.UNKNOWN)),
+        VisibilityKind(_vocabulary_text(value.get("kind"), default=VisibilityKind.UNKNOWN)),
+        VisibilityBasis(_vocabulary_text(value.get("basis"), default=VisibilityBasis.UNKNOWN)),
         _text(value.get("spelling")),
     )
 
@@ -393,7 +396,7 @@ def _signature(data: RecordData) -> Signature:
         name: str = _text(item.get("name")) or ""
         if not name:
             raise ValueError("source parameter needs a name")
-        kind = ParameterKind(_text(item.get("kind"), default=ParameterKind.UNKNOWN))
+        kind = ParameterKind(_vocabulary_text(item.get("kind"), default=ParameterKind.UNKNOWN))
         known = item.get("default_known")
         if known is not None and not isinstance(known, bool):
             raise ValueError("source default_known must be boolean")
@@ -422,8 +425,8 @@ def _definition_contexts(value: JsonValue) -> tuple[DefinitionContext, ...]:
             raise ValueError("source definition context fields mismatch")
         result.append(
             DefinitionContext(
-                DefinitionContextKind(_text(kind, default=DefinitionContextKind.IF)),
-                DefinitionBranchKind(_text(branch, default=DefinitionBranchKind.BODY)),
+                DefinitionContextKind(_vocabulary_text(kind, default=DefinitionContextKind.IF)),
+                DefinitionBranchKind(_vocabulary_text(branch, default=DefinitionBranchKind.BODY)),
                 _texts(context.get("evidence_ids")),
             )
         )
@@ -436,7 +439,7 @@ def _symbol(record: Record, language: str) -> Entity:
     aliases = {"static_constant": EntityKind.CONSTANT, "dynamic_binding": EntityKind.BINDING}
     kind = aliases.get(category or "")
     if kind is None:
-        kind = EntityKind(_text(category, default=EntityKind.SYMBOL))
+        kind = EntityKind(_vocabulary_text(category, default=EntityKind.SYMBOL))
     if kind == EntityKind.CLASS:
         classifier_kinds = {
             "protocol": EntityKind.INTERFACE,
@@ -966,7 +969,7 @@ def _relationships(
                         target_ids[target] = None
                 targets = tuple(target_ids)
                 result.append(_site_relationship(record, kind, sources[0], targets))
-                if kind == "calls":
+                if kind == RelationshipKind.CALLS:
                     bindings = _value_bindings(record, sources[0], entities, by_name, language)
                     result.extend(_construction_sites(record, sources[0], bindings, by_name))
     for record in observation.records("symbols") or ():
@@ -974,7 +977,7 @@ def _relationships(
             if record.kind != "class" or base.get("relationship_kind") is None:
                 raise ValueError("typed base needs a classifier source and relationship kind")
             base_kind = RelationshipKind(
-                _text(base.get("relationship_kind"), default=RelationshipKind.INHERITS)
+                _vocabulary_text(base.get("relationship_kind"), default=RelationshipKind.INHERITS)
             )
             if base_kind not in _CLASSIFIER_RELATIONSHIPS:
                 raise ValueError("invalid classifier relationship kind")
@@ -1136,20 +1139,20 @@ def _member_inventory_coverage(
 
 def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverage, ...]:
     source_kinds: tuple[EntityKind, ...] = (
-        "class",
-        "interface",
-        "enum",
-        "mixin",
-        "method",
-        "function",
-        "type_alias",
-        "constant",
+        EntityKind.CLASS,
+        EntityKind.INTERFACE,
+        EntityKind.ENUM,
+        EntityKind.MIXIN,
+        EntityKind.METHOD,
+        EntityKind.FUNCTION,
+        EntityKind.TYPE_ALIAS,
+        EntityKind.CONSTANT,
     )
     sections: tuple[tuple[str, tuple[EntityKind, ...], tuple[RelationshipKind, ...]], ...] = (
         ("symbols", source_kinds, ()),
-        ("imports", (), ("imports",)),
-        ("calls", (), ("calls",)),
-        ("references", (), ("references",)),
+        ("imports", (), (RelationshipKind.IMPORTS,)),
+        ("calls", (), (RelationshipKind.CALLS,)),
+        ("references", (), (RelationshipKind.REFERENCES,)),
     )
     profile = profile_for(observation.analyzer.name)
     value_modules = {

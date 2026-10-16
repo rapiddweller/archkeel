@@ -60,6 +60,7 @@ from archkeel.ir.model import (
     NoComponentCyclesRule,
     Observation,
     RunResult,
+    RuleVerdict,
     UnresolvedCallChange,
     WideningFinding,
     text_value,
@@ -294,7 +295,7 @@ def _observed_result(
             )
         )
         measurements = None
-        declared = "UNKNOWN"
+        declared = RuleVerdict.UNKNOWN
     if compact_open_decisions:
         decisions, decision_count = open_decision_summary(observation)
     else:

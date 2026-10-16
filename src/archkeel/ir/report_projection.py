@@ -16,6 +16,7 @@ from archkeel.ir.architecture_graph import (
     RelationshipKind,
     ReportFinding,
     RuleAssessment,
+    RuleAssessmentStatus,
 )
 from archkeel.ir.architecture_projection import (
     ArchitectureProjection,
@@ -266,7 +267,7 @@ def _projection_unknowns(model: Observation, report: ArchitectureReport) -> list
     unknowns: list[UnknownProjection] = []
     target, observed = report.target, report.observed
     for item in report.findings:
-        if item.status == "UNKNOWN":
+        if item.status == AssessmentStatus.UNKNOWN:
             original_unknown: Record = original_unknowns[item.id]
             unknowns.append(
                 UnknownProjection(
@@ -314,7 +315,7 @@ def _unavailable_projection(
         (),
         (),
         tuple(unknowns),
-        "UNKNOWN",
+        AssessmentStatus.UNKNOWN,
         "Target or observed evidence is unavailable.",
         remedy,
     )
@@ -497,11 +498,11 @@ def _required_relationships(
             else ()
         )
         status: AssessmentStatus = (
-            "FAIL"
-            if any(item.status == "FAIL" for item in evaluations)
-            else "UNKNOWN"
-            if not evaluations or any(item.status == "UNKNOWN" for item in evaluations)
-            else "PASS"
+            AssessmentStatus.FAIL
+            if any(item.status == AssessmentStatus.FAIL for item in evaluations)
+            else AssessmentStatus.UNKNOWN
+            if not evaluations or any(item.status == AssessmentStatus.UNKNOWN for item in evaluations)
+            else AssessmentStatus.PASS
         )
         reasons = tuple(item.reason for item in evaluations) or (
             "No authenticated Core assessment exists for this required relationship.",
@@ -545,23 +546,23 @@ def _component_status(
     status: AssessmentStatus
     undecided = any(item.status == "undecided" for item in permissions)
     if not imports_complete or not scoped_modules:
-        status, reason = "UNKNOWN", "Complete owned module and import evidence is unavailable."
+        status, reason = AssessmentStatus.UNKNOWN, "Complete owned module and import evidence is unavailable."
     elif (
         undecided
-        or any(item.status == "UNKNOWN" for item in scoped)
-        or any(item.status == "UNKNOWN" for item in findings)
+        or any(item.status == RuleAssessmentStatus.UNKNOWN for item in scoped)
+        or any(item.status == AssessmentStatus.UNKNOWN for item in findings)
     ):
         status, reason = (
-            "UNKNOWN",
+            AssessmentStatus.UNKNOWN,
             "Dependency decisions or applicable Core assessments remain unknown.",
         )
-    elif any(item.status == "FAIL" for item in findings):
-        status, reason = "FAIL", "Core recorded a finding in this component's source facts."
-    elif not any(item.evaluation_proven and item.status != "DECLARATION" for item in scoped):
-        status, reason = "UNKNOWN", "No completed applicable Core evaluator scope is proven."
+    elif any(item.status == AssessmentStatus.FAIL for item in findings):
+        status, reason = AssessmentStatus.FAIL, "Core recorded a finding in this component's source facts."
+    elif not any(item.evaluation_proven and item.status != RuleAssessmentStatus.DECLARATION for item in scoped):
+        status, reason = AssessmentStatus.UNKNOWN, "No completed applicable Core evaluator scope is proven."
     else:
         status, reason = (
-            "PASS",
+            AssessmentStatus.PASS,
             "Core completed the applicable scopes without a finding in this component.",
         )
     return status, reason
@@ -689,7 +690,7 @@ def _component_projections(
                 scoped_rows.append(assessment)
         scoped = tuple(scoped_rows)
         for assessment in scoped:
-            if assessment.status == "UNKNOWN":
+            if assessment.status == RuleAssessmentStatus.UNKNOWN:
                 scopes: set[str] = assessment_scopes.setdefault(assessment.id, set())
                 scopes.add(intent.component_id)
         selector_prefix = intent.namespace
@@ -867,12 +868,12 @@ def _selected_projection(
 ) -> ArchitectureProjection:
     intents = {item.component_id: item for item in target.component_intents}
     projection_status: AssessmentStatus = (
-        "UNKNOWN"
+        AssessmentStatus.UNKNOWN
         if unknowns
-        else "FAIL"
-        if any(item.status == "FAIL" for item in report.findings)
-        or any(item.status == "FAIL" for item in relationships)
-        else "PASS"
+        else AssessmentStatus.FAIL
+        if any(item.status == AssessmentStatus.FAIL for item in report.findings)
+        or any(item.status == AssessmentStatus.FAIL for item in relationships)
+        else AssessmentStatus.PASS
     )
     subtree_ids: set[str] = set()
     context_parents: set[str | None] = set()
@@ -906,9 +907,9 @@ def _selected_projection(
         tuple(sorted(unknowns, key=lambda item: item.id)),
         projection_status,
         "Recorded Core findings remain."
-        if projection_status == "FAIL"
+        if projection_status == AssessmentStatus.FAIL
         else "Missing ownership, decisions or Core evidence remain."
-        if projection_status == "UNKNOWN"
+        if projection_status == AssessmentStatus.UNKNOWN
         else "Authenticated architecture evidence is complete.",
         violation_remedy,
         policy_context=tuple(
@@ -949,7 +950,7 @@ def _projection_uncertainties(
     unknowns.extend(
         UnknownProjection(item.id, item.reason, (item.id,))
         for item in assessments
-        if item.status == "UNKNOWN"
+        if item.status == RuleAssessmentStatus.UNKNOWN
     )
     unknowns.extend(
         UnknownProjection(
@@ -959,7 +960,7 @@ def _projection_uncertainties(
             scopes=tuple(names[identity] for identity in item.component_ids),
         )
         for item in relationships
-        if item.status == "UNKNOWN"
+        if item.status == AssessmentStatus.UNKNOWN
     )
     return unknowns
 

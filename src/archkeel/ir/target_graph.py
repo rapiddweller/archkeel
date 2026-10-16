@@ -188,7 +188,7 @@ def component_permissions(
                 provenance=tuple(sorted(provenance)),
                 reason=entry.rationale,
                 through=entry.through,
-                decided_by=entry.decided_by,
+                decided_by=None if entry.decided_by is None else DecisionMaker(entry.decided_by),
             )
         )
     return tuple(result)
@@ -204,7 +204,7 @@ def _component_intent(component: ContractComponent) -> ComponentIntent:
         None if component.public is None else tuple(sorted(component.public)),
         None if component.planned is None else tuple(sorted(component.planned)),
         tuple(sorted(component.forbidden_responsibilities)),
-        component.decided_by,
+        None if component.decided_by is None else DecisionMaker(component.decided_by),
         component.inside,
         label=component.label,
         layer=component.layer,
@@ -236,7 +236,7 @@ def declared_graph(
             component.requires or (),
             labels,
             component.provenance,
-            component.decided_by,
+            None if component.decided_by is None else DecisionMaker(component.decided_by),
         )
     )
     intents = tuple(_component_intent(component) for component in contract.components)

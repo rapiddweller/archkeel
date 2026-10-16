@@ -390,18 +390,18 @@ def _cell_status(
     site_results: list[tuple[tuple[RuleAssessment, ...], frozenset[str], frozenset[str]]],
 ) -> AssessmentStatus:
     evidence = findings + graph_assessments
-    if any(item.status == "FAIL" for item in evidence):
-        return "FAIL"
+    if any(item.status == AssessmentStatus.FAIL for item in evidence):
+        return AssessmentStatus.FAIL
     if (
-        any(item.status == "UNKNOWN" for item in evidence)
+        any(item.status == AssessmentStatus.UNKNOWN for item in evidence)
         or not site_results
         or any(
             not applicable or len(proven) != len(applicable)
             for applicable, proven, _ in site_results
         )
     ):
-        return "UNKNOWN"
-    return "PASS"
+        return AssessmentStatus.UNKNOWN
+    return AssessmentStatus.PASS
 
 
 def _cell_reasons(
@@ -434,7 +434,7 @@ def _cell_reasons(
     reasons.update(
         f"{identity}: {core_assessments[identity].reason}"
         for finding in findings
-        if finding.status == "UNKNOWN"
+        if finding.status == AssessmentStatus.UNKNOWN
         for identity in finding.rule_ids
         if identity in core_assessments
     )
@@ -480,7 +480,7 @@ def _statistic(
         entity.file_path,
         owner,
         candidates,
-        "PASS" if owner is not None else "UNKNOWN",
+        AssessmentStatus.PASS if owner is not None else AssessmentStatus.UNKNOWN,
         "Authenticated component membership."
         if owner is not None
         else "Several components claim this module at this level."
@@ -508,7 +508,7 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
                 (),
                 (),
                 (),
-                "UNKNOWN",
+                AssessmentStatus.UNKNOWN,
                 report.unavailable or "Authenticated Target is unavailable.",
             ),
         )
@@ -524,7 +524,7 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
                     if item.kind == "module" and item.presence == "defined"
                 ),
                 _cells(model, report, {}),
-                "UNKNOWN",
+                AssessmentStatus.UNKNOWN,
                 "Authenticated Target is unavailable.",
             ),
         )
@@ -586,7 +586,7 @@ def _hint_candidates(
         incoming[cell.target_id].append(cell)
     hints: list[HintCandidate] = []
 
-    if level.import_status == "PASS":
+    if level.import_status == AssessmentStatus.PASS:
         hints.extend(_used_elsewhere_hints(level, root_modules, incoming, intents))
         hubs = sorted(
             (item for item in level.modules if item.fan_in is not None and item.fan_in >= 10),
@@ -745,7 +745,7 @@ def _module_level(
             for item in cells
             if item.source_id in selected_ids and item.target_id in selected_ids
         ),
-        "PASS" if complete else "UNKNOWN",
+        AssessmentStatus.PASS if complete else AssessmentStatus.UNKNOWN,
         "Complete module import evidence."
         if complete
         else "Module/import coverage or resolved import-site evidence is incomplete.",

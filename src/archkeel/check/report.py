@@ -56,6 +56,7 @@ from archkeel.ir.model import (
     ReportFilter,
     ReportLocation,
     RunResult,
+    RuleVerdict,
 )
 from archkeel.ir.profiles import PROFILES
 from archkeel.ir.report_graph import architecture_report
@@ -297,7 +298,7 @@ def _report_filter(
 
 def _incomplete_report_result(result: ObservationResult) -> RunResult:
     model = result.observation
-    declared: _Literal["PASS", "FAIL", "UNKNOWN"] = "UNKNOWN"
+    declared = RuleVerdict.UNKNOWN
     if (
         model is not None
         and model.runtime is not None
@@ -309,7 +310,7 @@ def _incomplete_report_result(result: ObservationResult) -> RunResult:
     ):
         try:
             if trace_valid_violations(model):
-                declared = "FAIL"
+                declared = RuleVerdict.FAIL
         except ValueError:
             pass
     return RunResult(

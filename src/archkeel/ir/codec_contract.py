@@ -593,7 +593,7 @@ def parse_required_component(raw: RawJson, label: str = "requires") -> RequiredC
         _nonempty(item["component"], f"{label}.component"),
         _nonempty(item["rationale"], f"{label}.rationale"),
         _contract_strings(item.get("through", []), f"{label}.through"),
-        _decided_by(decided_by, f"{label}.decided_by") if decided_by is not None else None,
+        DecisionMaker(_decided_by(decided_by, f"{label}.decided_by")) if decided_by is not None else None,
     )
 
 
@@ -684,7 +684,7 @@ def _parse_component(raw: RawJson, label: str, *, version: str) -> ContractCompo
         _nonempty(inside, f"{label}.inside") if inside is not None else None,
         public,
         planned,
-        _decided_by(decided_by, f"{label}.decided_by") if decided_by is not None else None,
+        DecisionMaker(_decided_by(decided_by, f"{label}.decided_by")) if decided_by is not None else None,
         namespace,
         exact_modules or None,
         _nonempty(item["layer"], f"{label}.layer") if "layer" in item else None,
