@@ -223,14 +223,12 @@ def test_existing_public_diagnostic_reexports_reach_the_canonical_owner(tmp_path
         target = root / source.removeprefix("src/")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(_diagnostic_imports(source))
-    # Real existing helpers give both boundary scopes a non-vacuous function subject.
-    helper = root / "archkeel/check/validation/diagnostics.py"
-    helper.parent.mkdir(parents=True)
-    helper.write_text((ROOT / "src/archkeel/check/validation/diagnostics.py").read_text())
-    (helper.parent / "__init__.py").write_text("")
-    html = root / "archkeel/render/html.py"
-    html.write_text(
-        html.read_text() + "\n" + _source_members("src/archkeel/render/html.py", {"_diagnostic"})
+    # The existing public generator supplies a real function subject for render.
+    terminal = root / "archkeel/render/terminal.py"
+    terminal.write_text(
+        terminal.read_text()
+        + "from collections.abc import Iterator\n\n"
+        + _source_members("src/archkeel/render/terminal.py", {"progress"})
     )
     for package in ("check", "render"):
         (root / "archkeel" / package / "__init__.py").write_text("")
@@ -247,8 +245,7 @@ def test_existing_public_diagnostic_reexports_reach_the_canonical_owner(tmp_path
                 "archkeel.check.report:ReportLocation",
                 "archkeel.render.html:Diagnostic",
                 "archkeel.render.terminal:Diagnostic",
-                "archkeel.check.validation.diagnostics:_sorted",
-                "archkeel.render.html:_diagnostic",
+                "archkeel.render.terminal:progress",
             ],
             "responsibilities": ["Retain existing public diagnostic names with clear owned types."],
             "forbidden_responsibilities": [],

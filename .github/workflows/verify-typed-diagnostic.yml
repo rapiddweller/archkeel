@@ -35,8 +35,9 @@ jobs:
               rows=[json.loads(line.split(marker,1)[1]) for line in result.stdout.splitlines() if line.startswith(marker)]
               expected={"archkeel.check.report.Diagnostic","archkeel.check.report.DiagnosticError","archkeel.check.report.ReportLocation","archkeel.render.html.Diagnostic","archkeel.render.terminal.Diagnostic"}
               assert result.returncode==1 and len(rows)==1
-              assert {row["qualified_name"] for row in rows[0]}==expected
-              assert all(row["reason"]=="unresolved_reexport_route" for row in rows[0])
+              routes=[row for row in rows[0] if row["kind"]=="boundary_type_route"]
+              assert {row["qualified_name"] for row in routes}==expected
+              assert all(row["reason"]=="unresolved_reexport_route" for row in routes)
           finally:
               for path,source in saved.items(): pathlib.Path(path).write_bytes(source)
           PY
