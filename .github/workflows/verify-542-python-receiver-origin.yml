@@ -19,7 +19,57 @@ jobs:
           python-version: "3.11.12"
       - run: uv python install 3.11.12 3.12.10
       - run: uv sync --locked
-      - name: Actual receiver origin RED
+      - name: Export canonical formatting patch
+        run: |
+          uv run --locked ruff format src/archkeel/analyzer/python/receiver_types.py src/archkeel/analyzer/python/calls.py src/archkeel/analyzer/python/resolve.py tests/test_typed_python_receivers.py
+          uv run --locked ruff check --fix src/archkeel/analyzer/python/receiver_types.py src/archkeel/analyzer/python/calls.py src/archkeel/analyzer/python/resolve.py tests/test_typed_python_receivers.py
+          uv run --locked ruff format src/archkeel/analyzer/python/receiver_types.py src/archkeel/analyzer/python/calls.py src/archkeel/analyzer/python/resolve.py tests/test_typed_python_receivers.py
+          python - <<'PY'
+          import base64
+          import subprocess
+          print("FORMAT_PATCH=" + base64.b64encode(subprocess.check_output(["git", "diff", "--", "src", "tests"])).decode())
+          PY
+      - name: Receiver, call, lexical and native proof regressions
         run: >-
-          uv run --locked python -m pytest -q tests/test_typed_python_receivers.py
-          -k 'field_and_existing or normalizes_valid or invalid_origin or actual_receiver_producers or actual_receiver_merge or fulfils_owned'
+          uv run --locked python -m pytest -n2 --dist=loadfile -q
+          tests/test_typed_python_receivers.py tests/test_analyzer.py
+          tests/test_lexical_resolution.py tests/test_source_types.py
+          tests/test_source_namespace_acceptance.py tests/test_source_trust_boundary.py
+          tests/test_typed_python_bindings.py tests/test_binding_proof_reuse.py
+          tests/test_binding_claim_completeness.py tests/test_repository_hygiene.py
+          tests/test_make_gate.py tests/test_ci_changes.py
+      - run: uv run --locked ruff check src tests
+      - run: uv run --locked mypy src
+      - name: Native baseline and bound normal amendment
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 6fba15000baaeff6a274058291654b7301f2077a --amendment docs/architecture/decisions/issue-542-python-receivers-amendment.json --write-amendment --decided-by ake2l --rationale "Give existing Python receiver evidence one nominal origin owner while retaining legacy constructor inputs and conservative call resolution without additional allowances." > "$RUNNER_TEMP/542-receiver-native.json"
+          native_exit=$?
+          uv run --locked python - "$RUNNER_TEMP/542-receiver-native.json" "$native_exit" <<'PY'
+          import base64
+          import json
+          import sys
+          from pathlib import Path
+          result = json.loads(Path(sys.argv[1]).read_text())
+          print("NATIVE_RESULT=" + json.dumps({"exit_code": int(sys.argv[2]), "diagnostics": result.get("diagnostics"), "failures": result.get("failures"), "measurements": result.get("measurements")}))
+          path = Path("docs/architecture/decisions/issue-542-python-receivers-amendment.json")
+          if path.is_file():
+              print("AMENDMENT_BASE64=" + base64.b64encode(path.read_bytes()).decode())
+          if int(sys.argv[2]) == 0:
+              scalars = result["measurements"]["scalars"]
+              assert scalars["calls_unresolved"] == 918
+              assert scalars["unknown_positions"] == 58
+              assert scalars["typing_positions"] == 52
+              assert scalars["violations"] == 0
+          PY
+          exit "$native_exit"
+      - name: Replay amendment without writes
+        run: |
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 6fba15000baaeff6a274058291654b7301f2077a --amendment docs/architecture/decisions/issue-542-python-receivers-amendment.json > "$RUNNER_TEMP/542-receiver-replay.json"
+          uv run --locked python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          result = json.loads((Path(os.environ["RUNNER_TEMP"]) / "542-receiver-replay.json").read_bytes())
+          print("NO_WRITE_REPLAY=" + json.dumps({"diagnostics": result.get("diagnostics"), "failures": result.get("failures"), "measurements": result.get("measurements")}))
+          PY

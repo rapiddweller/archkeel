@@ -17,8 +17,8 @@ Ambiguous and shadowed receiver bindings retain their existing unresolved outcom
 
 ## Steps
 
-- [ ] Commit this plan before production changes.
-- [ ] RED: nominal field/producer identity, real calls._bind_receiver raw dispatch,
+- [x] Commit this plan before production changes.
+- [x] RED: nominal field/producer identity, real calls._bind_receiver raw dispatch,
   invalid legacy inputs, and actual Source versus an independently authored origin Target.
   Pin valid legacy verdicts, merge order and ambiguous/shadowed controls at the same time.
 - [ ] Replace the origin Literal with the owned Enum, retain Origin as an alias,
@@ -37,3 +37,5 @@ Ambiguous and shadowed receiver bindings retain their existing unresolved outcom
 Property operation/origin and its legacy Dict/wire port remain a separate increment.
 The Source physical-line correction in #553 remains independent and must be preserved
 when the branches are combined. Temporary verification workflows stay outside product.
+
+RED evidence: hosted run38955338212, candidate d0bba4984dd1ad9f3218ab3e02827a2e8f0d3fae:11 expected assertion/validation failures, no setup errors. Actual Source fails the authored origin Target and native observations expose the raw literal-merge comparison.

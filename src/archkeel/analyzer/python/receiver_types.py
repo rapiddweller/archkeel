@@ -12,8 +12,10 @@ resolves to the same targets on every supported interpreter, never on whichever 
 from __future__ import annotations
 
 import ast
+import builtins
 from dataclasses import dataclass
-from typing import Literal
+from enum import Enum
+from typing import TypeAlias
 
 # Each entry names the qualified type the target is reported under, and the methods it
 # resolves. `str` and `Path` share the same shape as `list`/`dict`/`set`; nothing here reads
@@ -182,7 +184,13 @@ _ANNOTATION_BASES = {
 _LITERAL_CONSTRUCTORS = {"list": "list", "dict": "dict", "set": "set", "sorted": "list"}
 
 
-Origin = Literal["literal", "annotation", "documented"]
+class ReceiverOrigin(Enum):
+    LITERAL = "literal"
+    ANNOTATION = "annotation"
+    DOCUMENTED = "documented"
+
+
+Origin: TypeAlias = ReceiverOrigin
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,7 +205,10 @@ class ReceiverType:
     """
 
     type_name: str
-    origin: Origin
+    origin: ReceiverOrigin
+
+    def __post_init__(self) -> None:
+        builtins.object.__setattr__(self, "origin", ReceiverOrigin(self.origin))
 
 
 def constructor_receiver_type(qualified_callee: str) -> str | None:

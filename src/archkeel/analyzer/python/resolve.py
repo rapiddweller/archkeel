@@ -19,6 +19,7 @@ from archkeel.ir.facts_codec import RawRecord
 
 from .binding_types import BindingKind
 from .receiver_types import (
+    ReceiverOrigin,
     ReceiverType,
     constructor_receiver_type,
     literal_receiver_type,
@@ -30,10 +31,10 @@ from .scopes import LexicalScopes, NameBinding
 _BUILTINS = frozenset(dir(builtins))
 _NO_RECEIVERS: Mapping[str, ReceiverType] = {}
 # What each receiver origin lets a call on it claim (AD-37, AD-40).
-_ORIGIN_VERDICT: dict[str, tuple[str, str]] = {
-    "literal": ("resolved", "literal-bound receiver of known type"),
-    "annotation": ("partially_resolved", "annotated receiver of known type, unproven at runtime"),
-    "documented": (
+_ORIGIN_VERDICT: dict[ReceiverOrigin, tuple[str, str]] = {
+    ReceiverOrigin.LITERAL: ("resolved", "literal-bound receiver of known type"),
+    ReceiverOrigin.ANNOTATION: ("partially_resolved", "annotated receiver of known type, unproven at runtime"),
+    ReceiverOrigin.DOCUMENTED: (
         "partially_resolved",
         "receiver bound to a call result of documented type, unproven at runtime",
     ),
