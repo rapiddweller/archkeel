@@ -208,8 +208,10 @@ _LOADER_MODULES: Final[dict[str, _LoaderModule]] = {item.value: item for item in
 class _Tree:
     """One parse's bounded node identity map; no parser objects escape the syntax boundary."""
 
+    nodes: dict[int, _Node]
+
     def __init__(self) -> None:
-        self.nodes: dict[int, _Node] = {}
+        self.nodes = {}
 
     def node(self, raw: _RawNode) -> _Node:
         found = self.nodes.get(raw.id)
