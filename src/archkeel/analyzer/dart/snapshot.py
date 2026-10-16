@@ -14,7 +14,12 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
 
-from archkeel.ir.facts import ResolutionInput, ResolutionRole, RuntimeRequirementState, dart_module_name
+from archkeel.ir.facts import (
+    ResolutionInput,
+    ResolutionRole,
+    RuntimeRequirementState,
+    dart_module_name,
+)
 from archkeel.ir.protocol import CollectionRequest
 
 
@@ -82,10 +87,7 @@ def _roots(values: tuple[str, ...]) -> tuple[str, ...]:
         raise ValueError("Dart snapshot roots must not be empty")
     result: list[str] = []
     for value in values:
-        if (
-            not value
-            or re.search(r"[\x00\\\\:*?\[\]{}!]", value) is not None
-        ):
+        if not value or re.search(r"[\x00\\\\:*?\[\]{}!]", value) is not None:
             raise ValueError(f"unsafe Dart snapshot root: {value!r}")
         path = PurePosixPath(value)
         if path.is_absolute() or any(re.fullmatch(r"\.\.", part) for part in path.parts):
@@ -140,7 +142,9 @@ def _pubspec_metadata(raw: bytes) -> tuple[str | None, str | None, RuntimeRequir
             if field_indent is None:
                 field_indent = indent
             field = line.strip().partition(":")
-            if _PUBSPEC_SDK.fullmatch(field[0]) is not None and (indent != field_indent or re.search(r"\t", line[:indent]) is not None):
+            if _PUBSPEC_SDK.fullmatch(field[0]) is not None and (
+                indent != field_indent or re.search(r"\t", line[:indent]) is not None
+            ):
                 invalid_sdk = True
                 continue
             if _PUBSPEC_SDK.fullmatch(field[0]) is not None:
@@ -209,7 +213,9 @@ def _read_source_file(
 ) -> tuple[Source, ResolutionInput] | None:
     rel = path.relative_to(root).as_posix()
     if path.is_symlink():
-        problems.append(SnapshotProblem(rel, SnapshotProblemKind.SOURCE_LINK, "source file is a symlink"))
+        problems.append(
+            SnapshotProblem(rel, SnapshotProblemKind.SOURCE_LINK, "source file is a symlink")
+        )
         return None
     try:
         content = _read_regular(path, real_root)
@@ -220,7 +226,9 @@ def _read_source_file(
     short = dart_module_name(relative)
     if short is None:
         problems.append(
-            SnapshotProblem(rel, SnapshotProblemKind.MODULE_ERROR, "path is not a Dart module identifier")
+            SnapshotProblem(
+                rel, SnapshotProblemKind.MODULE_ERROR, "path is not a Dart module identifier"
+            )
         )
         return None
     source = Source(rel, f"{namespace}.{short}", content)
@@ -238,19 +246,27 @@ def _read_source_root(
 ) -> list[tuple[Source, ResolutionInput]]:
     base = root / source_root
     if base.is_symlink():
-        problems.append(SnapshotProblem(source_root, SnapshotProblemKind.SOURCE_LINK, "source root is a symlink"))
+        problems.append(
+            SnapshotProblem(
+                source_root, SnapshotProblemKind.SOURCE_LINK, "source root is a symlink"
+            )
+        )
         return []
     if not base.exists() or not base.is_dir():
         problems.append(
             SnapshotProblem(
-                source_root, SnapshotProblemKind.SELECTED_ROOT, "selected root is missing or not a directory"
+                source_root,
+                SnapshotProblemKind.SELECTED_ROOT,
+                "selected root is missing or not a directory",
             )
         )
         return []
     try:
         if not base.resolve(strict=True).is_relative_to(real_root):
             problems.append(
-                SnapshotProblem(source_root, SnapshotProblemKind.CONTAINMENT, "source root escapes snapshot")
+                SnapshotProblem(
+                    source_root, SnapshotProblemKind.CONTAINMENT, "source root escapes snapshot"
+                )
             )
             return []
     except OSError as error:
@@ -296,7 +312,11 @@ def _safe_subdirectories(
                 )
             )
         elif path.is_symlink():
-            problems.append(SnapshotProblem(rel, SnapshotProblemKind.SOURCE_LINK, "source directory is a symlink"))
+            problems.append(
+                SnapshotProblem(
+                    rel, SnapshotProblemKind.SOURCE_LINK, "source directory is a symlink"
+                )
+            )
         else:
             result.append(name)
     return result
@@ -330,7 +350,9 @@ def _collision_problems(sources: list[Source], problems: list[SnapshotProblem]) 
             for rel in paths:
                 problems.append(
                     SnapshotProblem(
-                        rel, SnapshotProblemKind.MODULE_COLLISION, f"{module} maps from {', '.join(sorted(paths))}"
+                        rel,
+                        SnapshotProblemKind.MODULE_COLLISION,
+                        f"{module} maps from {', '.join(sorted(paths))}",
                     )
                 )
 

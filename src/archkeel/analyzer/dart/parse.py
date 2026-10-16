@@ -231,6 +231,9 @@ class _Tree:
     def __init__(self) -> None:
         self._nodes: dict[int, _Node] = {}
 
+    def clear(self) -> None:
+        self._nodes.clear()
+
     def wrap(self, raw: RawNode) -> _Node:
         cached = self._nodes.get(raw.id)
         if cached is None:
@@ -323,7 +326,14 @@ class _Source:
 
 def parse(content: bytes) -> Syntax:
     """Read declarations, directives and lexical sites from one Dart source unit."""
-    root = _Tree().wrap(_PARSER.parse(content).root_node)
+    tree = _Tree()
+    try:
+        return _parse_tree(content, tree.wrap(_PARSER.parse(content).root_node))
+    finally:
+        tree.clear()
+
+
+def _parse_tree(content: bytes, root: _Node) -> Syntax:
     source = _Source(content, (0, *(item.end() for item in _LINE_BREAK.finditer(content))))
     concerns = [
         Concern(
@@ -1297,7 +1307,12 @@ def _variables(
     list_node = _variable_list_node(node)
     if list_node is None:
         return []
-    items = list_node.named_children if list_node.kind in {_NodeKind.INITIALIZED_IDENTIFIER_LIST, _NodeKind.STATIC_FINAL_DECLARATION_LIST} else (list_node,)
+    items = (
+        list_node.named_children
+        if list_node.kind
+        in {_NodeKind.INITIALIZED_IDENTIFIER_LIST, _NodeKind.STATIC_FINAL_DECLARATION_LIST}
+        else (list_node,)
+    )
     if kind == MemberKind.FIELD:
         return _field_members(node, items, source)
     return _top_level_variables(node, items, source)

@@ -55,7 +55,7 @@ def test_dart_control_fields_have_owned_nominal_types(owner, field, expected):
 
 def _model(root, config):
     result, encoded = run_report(root, config=config, analyzer=observe)
-    assert result.exit_code == 0 and encoded is not None, result.failures
+    assert result.exit_code == 0 and encoded is not None, (result.diagnostics, result.failures)
     return parse_observation(decode_canonical_model(json.loads(encoded)))
 
 
@@ -85,7 +85,8 @@ def _contract():
         selected.add(name.rsplit(".", 1)[0])
         selected.add(name.rsplit(".", 2)[0])
     uml = contract["declarations"]["uml"]
-    uml["entities"] = [entity for entity in uml["entities"] if entity["qualified_name"] in selected]
+    uml["entities"] = [entity for entity in uml["entities"] if entity["qualified_name"] in selected
+        or (entity["kind"] == "enum" and entity["qualified_name"].startswith("archkeel.analyzer.dart."))]
     for entity in uml["entities"]:
         if entity["qualified_name"] in fields:
             entity["annotation"] = fields[entity["qualified_name"]]
@@ -205,6 +206,9 @@ def test_parse_node_view_preserves_tree_identity_fields_and_unknown_children():
                 assert child is tree.wrap(raw_child)
     assert any(node.child_by_field_name(parse._NodeKind.LEFT) is not None for node in nodes)
     assert parse._Tree().wrap(raw) is not root
+    tree.clear()
+    assert not tree._nodes
+    assert tree.wrap(raw) is not root
 
 
 @pytest.mark.parametrize(
@@ -250,14 +254,56 @@ def test_parse_compatibility_exports_are_the_canonical_syntax_types():
 
 
 def test_own_dart_module_guards_are_proven_from_actual_source(self_observation):
-    assessments = {
-        row.id: row for row in rule_assessments(self_observation, undecided_by_rule={})
-    }
+    assessments = {row.id: row for row in rule_assessments(self_observation, undecided_by_rule={})}
     for identifier, _ in GUARDS:
         row = assessments[identifier]
         assert row.status == "PASS" and row.evaluation_proven, row
     assert not [
-        row for row in self_observation.records("constructs")
+        row
+        for row in self_observation.records("constructs")
         if row.data.get("construct") == "string_literal_compare"
-        and str(row.data.get("owner", "")).startswith("archkeel.analyzer.dart.")
+        and any(
+            str(row.data.get("owner", "")) == module
+            or str(row.data.get("owner", "")).startswith(module + ".")
+            for _, module in GUARDS
+        )
     ]
+
+def test_native_dart_enum_identity_cannot_be_replaced_by_a_string_alias(tmp_path):
+    root, config = _repository(tmp_path)
+    path = root / "archkeel/analyzer/dart/syntax.py"
+    source = path.read_text()
+    original = 'class ParameterKind(StrEnum):\n    POSITIONAL = "positional"\n    NAMED = "named"'
+    assert original in source
+    path.write_text(source.replace(original, "ParameterKind = str", 1))
+    before = (root / "contract.json").read_bytes()
+    comparison = architecture_report(_model(root, config)).comparison
+    assert comparison is not None and comparison.status == "FAIL"
+    assert any(
+        row.status == "FAIL"
+        and row.subject_id == "archkeel.analyzer.dart.syntax.ParameterKind"
+        for row in comparison.assessments
+    ), comparison
+    assert (root / "contract.json").read_bytes() == before
+
+
+def test_dart_parser_produces_nominal_values_at_the_syntax_boundary():
+    result = parse.parse(
+        b"import 'other.dart' show Other; "
+        b"class Service { final int value; Service(this.value); int run(int x) => x; }"
+    )
+    assert result.directives and result.definitions and result.sites
+    assert all(isinstance(item.kind, parse.DirectiveKind) for item in result.directives)
+    assert all(
+        isinstance(mode, parse.Combinator)
+        for directive in result.directives for mode, _ in directive.combinators
+    )
+    for definition in result.definitions:
+        assert isinstance(definition.kind, parse.DefinitionKind)
+        assert isinstance(definition.visibility, parse.Visibility)
+        for member in definition.members:
+            assert isinstance(member.kind, parse.MemberKind)
+            assert isinstance(member.visibility, parse.Visibility)
+            assert all(isinstance(item.kind, parse.ParameterKind) for item in member.parameters)
+    assert all(isinstance(item.kind, parse.SiteKind) for item in result.sites)
+    assert all(isinstance(item.use, parse.SiteUse) for item in result.sites)
