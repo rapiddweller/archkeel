@@ -400,14 +400,15 @@ class _Collection:
         name = definition.name
         qualified = f"{parent}.{name}" if parent else f"{module}.{name}"
         kind = definition.kind
-        record_kind = {
+        record_kinds: dict[DefinitionKind, DefinitionKind | _SymbolKind] = {
             DefinitionKind.TYPEDEF: _SymbolKind.ALIAS,
             DefinitionKind.MIXIN: DefinitionKind.CLASS,
             DefinitionKind.ENUM: DefinitionKind.CLASS,
             DefinitionKind.INTERFACE: DefinitionKind.CLASS,
             DefinitionKind.GETTER: DefinitionKind.FUNCTION,
             DefinitionKind.SETTER: DefinitionKind.FUNCTION,
-        }.get(kind, kind)
+        }
+        record_kind = record_kinds.get(kind, kind)
         symbol_id = stable_id("DARTDEF", rel, definition.span.start_byte, qualified, record_kind)
         self.definition_ids[(rel, definition.span.line, definition.span.column)] = symbol_id
         data = self._meta(
@@ -901,7 +902,8 @@ class _Collection:
                         mixin_target = bool(
                             target_record is not None
                             and (
-                                _class_kind(target_record["data"].get("class_kind")) == _ClassKind.MIXIN
+                                _class_kind(target_record["data"].get("class_kind"))
+                                == _ClassKind.MIXIN
                                 or target_record["data"].get("mixin_capable") is True
                             )
                         )

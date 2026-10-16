@@ -91,7 +91,6 @@ class ConcernKind(StrEnum):
     INVALID_ENCODING = "invalid_encoding"
     LANGUAGE_VERSION_ERROR = "LanguageVersionError"
     UNSUPPORTED_DIRECTIVE = "unsupported_directive"
-    UNSUPPORTED_SYNTAX = "unsupported_syntax"
     UNSUPPORTED_DECLARATION = "unsupported_declaration"
 
 
