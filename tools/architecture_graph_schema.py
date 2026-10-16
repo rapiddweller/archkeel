@@ -440,7 +440,7 @@ def _update_contract_schema(path: Path) -> None:
             "properties": {
                 name: {
                     "type": "string",
-                    "pattern": r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$",
+                    "pattern": r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*(?![\s\S])",
                 }
                 for name in ("source_module", "target_module")
             },

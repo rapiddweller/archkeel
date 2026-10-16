@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 from test_architecture_demo import _prepare_repo
+from test_contract_model import _maximal_contract
 from test_dependency_api_target import _source_members
 from test_uml_evaluation import _model
 
@@ -20,7 +21,7 @@ from archkeel.check.validation.references import reference_diagnostics
 from archkeel.ir.codec import contract_bytes, parse_contract, parse_record
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import module_references
-from archkeel.ir.profiles import DART, TYPESCRIPT
+from archkeel.ir.profiles import DART, TYPESCRIPT, Profile
 from archkeel.ir.renames import renamed_contract
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
@@ -383,3 +384,20 @@ def test_native_absent_or_empty_grants_do_not_infer_discovery_permissions(tmp_pa
     model = _model(root, config)
     assert _interface(model).status == "FAIL"
     assert any(row.rule_ids == ("INTERFACE",) for row in trace_valid_violations(model))
+
+
+@pytest.mark.parametrize("version", ["3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"])
+def test_36_preserves_prior_feature_grammars(version):
+    raw = json.loads(contract_bytes(parse_contract(_maximal_contract(version))))
+    raw["schema_version"] = "3.6.0"
+    parsed = parse_contract(raw)
+    assert parse_contract(json.loads(contract_bytes(parsed))) == parsed
+    schema = json.loads((ROOT / "schema/architecture-contract-3.6.schema.json").read_text())
+    assert not list(Draft202012Validator(schema).iter_errors(raw))
+
+
+def test_profile_capability_preserves_existing_positional_constructor_arguments():
+    profile = Profile("custom-analyzer", ".py", frozenset(), True, False)
+    assert profile.dependency_symbols is True
+    assert profile.complete_api_crossings is False
+    assert profile.module_object_imports is False
