@@ -25,7 +25,7 @@ from archkeel.ir.identity import module_identity
 from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
-    AssessmentStatus,
+    AssessmentStatus as _AssessmentStatus,
     Command as _Command,
     CompleteAssignmentRule,
     ComponentOwnership,
@@ -517,7 +517,7 @@ def run_init(
     result = RunResult(
         _Command.INIT,
         0,
-        observation_complete=AssessmentStatus.PASS,
+        observation_complete=_AssessmentStatus.PASS,
         expectation_fulfilled=_ExpectationOutcome.NOT_APPLICABLE,
         coverage=observed.coverage,
         python_version=observed.observation.python_version,

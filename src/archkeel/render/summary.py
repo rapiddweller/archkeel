@@ -10,7 +10,7 @@ from typing import Final, TypeAlias
 
 from archkeel.ir.measurements import compare_measurements
 from archkeel.ir.model import (
-    AssessmentStatus,
+    AssessmentStatus as _AssessmentStatus,
     Command as _Command,
     DraftedComponentSize,
     ExpectationOutcome as _ExpectationOutcome,
@@ -90,7 +90,7 @@ def _decision_badge(result: RunResult) -> Badge:
         return badge("UNKNOWN")
     if (
         result.command is _Command.VALIDATE
-        and result.observation_complete is AssessmentStatus.PASS
+        and result.observation_complete is _AssessmentStatus.PASS
         and result.exit_code == 2
     ):
         return (
@@ -240,7 +240,7 @@ def _roots_reason(scan_roots: tuple[str, ...]) -> str:
 
 
 def _observation_reason(result: RunResult) -> str:
-    if result.observation_complete is not AssessmentStatus.PASS:
+    if result.observation_complete is not _AssessmentStatus.PASS:
         return "The configured source scope could not be observed completely."
     if result.scan_roots is None:
         return "All configured source files were read and parsed."
@@ -256,7 +256,7 @@ def report_summary(result: RunResult) -> Summary:
     }[result.exit_code]
     if (
         result.command is _Command.VALIDATE
-        and result.observation_complete is AssessmentStatus.PASS
+        and result.observation_complete is _AssessmentStatus.PASS
         and result.exit_code == 2
     ):
         sentence = (

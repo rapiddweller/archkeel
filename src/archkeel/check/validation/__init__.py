@@ -54,7 +54,7 @@ from archkeel.ir.measurements import (
 )
 from archkeel.ir.model import (
     ArchitectureContract,
-    AssessmentStatus,
+    AssessmentStatus as _AssessmentStatus,
     Command as _Command,
     ContractDeclarations,
     Diagnostic,
@@ -311,9 +311,9 @@ def _observed_result(
     return RunResult(
         _Command.VALIDATE,
         2 if diagnostics else 1 if failures else 0,
-        observation_complete=AssessmentStatus.PASS
+        observation_complete=_AssessmentStatus.PASS
         if measurements is not None
-        else AssessmentStatus.UNKNOWN,
+        else _AssessmentStatus.UNKNOWN,
         declared_rules=declared,
         expectation_fulfilled=_ExpectationOutcome.NOT_APPLICABLE
         if measurements is not None
