@@ -129,7 +129,11 @@ def test_native_dependency_api_matches_the_independent_target(tmp_path):
     model = _model(root, config)
     comparison = _comparison(model)
     assert comparison.assessments, "The bounded dependency API Target must be authored"
-    assert not [row for row in comparison.assessments if row.status == "FAIL"]
+    assert comparison.status == "PASS", comparison
+    rule = next(
+        row for row in rule_assessments(model, undecided_by_rule={}) if row.kind == "uml_target"
+    )
+    assert rule.status == "PASS" and rule.evaluation_proven
     protected = {
         "archkeel.ir.dependency.DependencySelector.source_match": "annotation",
         "archkeel.ir.dependency.DependencySelector.target_kind": "annotation",
@@ -198,7 +202,6 @@ def test_native_consumer_must_use_the_declared_dependency_api(tmp_path):
 
 def test_native_incomplete_member_proof_stays_unknown(tmp_path):
     root, config = _dependency_repository(tmp_path)
-    model = _model(root, config)
     source = root / "archkeel/ir/dependency.py"
     source.write_text(source.read_text().replace("def select(", "def unavailable_select(", 1))
     model = _model(root, config)
