@@ -172,6 +172,8 @@ def _repository(tmp_path, *, producer=False):
         or (not producer and item["id"] == "archkeel.ir.facts")
     ]
     target["declarations"]["uml"]["relationships"] = []
+    target["declarations"]["uml"]["scopes"] = []
+    target["declarations"]["modules"] = []
     root_contract = json.loads((ROOT / "architecture-contract.json").read_text())
     target["rules"] = [] if producer else [
         item for item in root_contract["rules"] if item["id"] == "COLLECTOR-TYPED-IR-FACTS"
