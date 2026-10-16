@@ -134,6 +134,6 @@ def test_record_ids_are_distinct_and_collection_order_does_not_change_evidence()
     first = collect_constructs([parsed], {})
     second = collect_constructs([parsed], {})
     records = [row for row in first if row["kind"] == "string_literal_compare"]
-    assert [row["data"]["form"] for row in records] == ["membership", "compare"]
+    assert sorted(row["data"]["form"] for row in records) == ["compare", "membership"]
     assert len({row["id"] for row in records}) == 2
     assert first == second
