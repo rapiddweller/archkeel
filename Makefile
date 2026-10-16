@@ -33,7 +33,7 @@ pr-test:
 		-q --durations=10 --junitxml=test-artifacts/pytest/pr-core.xml \
 		tests/test_ci_changes.py tests/test_make_gate.py tests/test_repository_hygiene.py \
 		tests/test_responsibility_validation.py \
-		tests/test_contract_model.py tests/test_dependency_selectors.py tests/test_typed_dependency_api.py tests/test_boundary_type_nested_mapping.py tests/test_decisions.py \
+		tests/test_contract_model.py tests/test_dependency_selectors.py tests/test_typed_dependency_api.py tests/test_dependency_api_target.py tests/test_boundary_type_nested_mapping.py tests/test_decisions.py \
 		tests/test_target_graph.py::test_contract_corpus_preserves_version_and_uml_presence \
 		tests/test_collection_protocol.py tests/test_source_trust_boundary.py \
 		tests/test_analyzer.py tests/test_typescript_config.py tests/test_typescript_resolve.py \

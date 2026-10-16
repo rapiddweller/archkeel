@@ -334,6 +334,16 @@
         "docs/architecture/language-adapter-target.md"
       ],
       "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-DEPENDENCY-BOUNDARY-TYPES",
+      "kind": "boundary_types",
+      "source": "archkeel.ir.dependency",
+      "rationale": "The owned dependency policy API exposes typed vocabulary and immutable selections; raw record conversion stays in codec_contract.",
+      "provenance": [
+        "docs/architecture/dependency-selector-target.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
@@ -5316,6 +5326,878 @@
           "visibility": {
             "kind": "public",
             "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.dependency",
+          "language": "python",
+          "parent_id": "TARGET-DEPENDENCY",
+          "presence": "planned",
+          "responsibilities": [
+            "Own typed dependency vocabulary and pure ownership selection."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ]
+        },
+        {
+          "id": "IR-DEPENDENCY-model",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.model",
+          "language": "python",
+          "parent_id": "TARGET-GOVERNANCE",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the typed compatibility API for existing model consumers."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ]
+        },
+        {
+          "id": "IR-DEPENDENCY-codec_contract",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.codec_contract",
+          "language": "python",
+          "parent_id": "TARGET-GOVERNANCE",
+          "presence": "planned",
+          "responsibilities": [
+            "Convert validated raw wire records into typed dependency policy."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ]
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.SelectorMatch",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.dependency.SelectorMatch",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed dependency selector vocabulary."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.SelectorMatch.PREFIX",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.dependency.SelectorMatch.PREFIX",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.SelectorMatch",
+          "presence": "planned",
+          "responsibilities": [
+            "Name one supported selector mode or target kind."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.SelectorMatch.EXACT",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.dependency.SelectorMatch.EXACT",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.SelectorMatch",
+          "presence": "planned",
+          "responsibilities": [
+            "Name one supported selector mode or target kind."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencyTargetKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.dependency.DependencyTargetKind",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the closed dependency selector vocabulary."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencyTargetKind.MODULE",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.dependency.DependencyTargetKind.MODULE",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencyTargetKind",
+          "presence": "planned",
+          "responsibilities": [
+            "Name one supported selector mode or target kind."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencyTargetKind.IMPORT_NAMESPACE",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.dependency.DependencyTargetKind.IMPORT_NAMESPACE",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencyTargetKind",
+          "presence": "planned",
+          "responsibilities": [
+            "Name one supported selector mode or target kind."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.ModuleSelection",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.dependency.ModuleSelection",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency",
+          "presence": "planned",
+          "responsibilities": [
+            "Own immutable package and exact-module selections."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.ModuleSelection.packages",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.dependency.ModuleSelection.packages",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.ModuleSelection",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the intended typed dependency value."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "annotation": "tuple[str, ...]",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.ModuleSelection.exact_modules",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.dependency.ModuleSelection.exact_modules",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.ModuleSelection",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the intended typed dependency value."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "annotation": "tuple[str, ...]",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.ModuleSelection.matches",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.dependency.ModuleSelection.matches",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.ModuleSelection",
+          "presence": "planned",
+          "responsibilities": [
+            "Match a module using the common ownership primitive."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "module",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str"
+              }
+            ],
+            "returns": "bool"
+          },
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencySelection",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.dependency.DependencySelection",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency",
+          "presence": "planned",
+          "responsibilities": [
+            "Name source and target selections without positional ambiguity."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencySelection.source",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.dependency.DependencySelection.source",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencySelection",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the intended typed dependency value."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "annotation": "ModuleSelection",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencySelection.target",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.dependency.DependencySelection.target",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencySelection",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the intended typed dependency value."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "annotation": "ModuleSelection",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencySelector",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.dependency.DependencySelector",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency",
+          "presence": "planned",
+          "responsibilities": [
+            "Own one immutable typed dependency selection policy."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencySelector.source",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.dependency.DependencySelector.source",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencySelector",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the intended typed dependency value."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "annotation": "str",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencySelector.target",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.dependency.DependencySelector.target",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencySelector",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the intended typed dependency value."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "annotation": "str",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencySelector.target_symbol",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.dependency.DependencySelector.target_symbol",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencySelector",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the intended typed dependency value."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "annotation": "str | None",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencySelector.source_match",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.dependency.DependencySelector.source_match",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencySelector",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the intended typed dependency value."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "annotation": "SelectorMatch",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencySelector.target_match",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.dependency.DependencySelector.target_match",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencySelector",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the intended typed dependency value."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "annotation": "SelectorMatch",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencySelector.target_kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.dependency.DependencySelector.target_kind",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencySelector",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the intended typed dependency value."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "annotation": "DependencyTargetKind",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencySelector.component_pair",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.dependency.DependencySelector.component_pair",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencySelector",
+          "presence": "planned",
+          "responsibilities": [
+            "Decide a whole component pair only for unambiguous legacy whole-package intent."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "components",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "tuple[DependencyOwner, ...]"
+              }
+            ],
+            "returns": "tuple[str, str] | None"
+          },
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencySelector.select",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.dependency.DependencySelector.select",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencySelector",
+          "presence": "planned",
+          "responsibilities": [
+            "Apply the shared source/target selection without widening explicit namespace intent."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "components",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "tuple[DependencyOwner, ...]"
+              }
+            ],
+            "returns": "DependencySelection"
+          },
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.module_in_ownership",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.dependency.module_in_ownership",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency",
+          "presence": "planned",
+          "responsibilities": [
+            "Apply recursive package and exact-module ownership consistently."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "module",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str"
+              },
+              {
+                "name": "packages",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Iterable[str]"
+              },
+              {
+                "name": "exact_modules",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Iterable[str]"
+              }
+            ],
+            "returns": "bool"
+          },
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-model.ForbiddenDependencyRule",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.ForbiddenDependencyRule",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-model",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain validated dependency policy as immutable governance intent."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-model.ForbiddenDependencyRule.source_match",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ForbiddenDependencyRule.source_match",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-model.ForbiddenDependencyRule",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the intended typed dependency value."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "annotation": "SelectorMatch",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-model.ForbiddenDependencyRule.target_match",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ForbiddenDependencyRule.target_match",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-model.ForbiddenDependencyRule",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the intended typed dependency value."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "annotation": "SelectorMatch",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-model.ForbiddenDependencyRule.target_kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ForbiddenDependencyRule.target_kind",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-model.ForbiddenDependencyRule",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the intended typed dependency value."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "annotation": "DependencyTargetKind",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-model.ForbiddenDependencyRule.selector",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.model.ForbiddenDependencyRule.selector",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-model.ForbiddenDependencyRule",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose the typed shared selection policy through the compatibility property."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "DependencySelector"
+          },
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-model.declared_package_pair",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.model.declared_package_pair",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-model",
+          "presence": "planned",
+          "responsibilities": [
+            "Delegate legacy component-pair selection to the typed domain API."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "source",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str"
+              },
+              {
+                "name": "target",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str"
+              },
+              {
+                "name": "target_symbol",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str | None"
+              },
+              {
+                "name": "components",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "tuple[ComponentOwnership, ...]"
+              },
+              {
+                "name": "source_match",
+                "kind": "keyword_only",
+                "default_known": true,
+                "annotation": "SelectorMatch",
+                "default": "SelectorMatch.PREFIX"
+              },
+              {
+                "name": "target_match",
+                "kind": "keyword_only",
+                "default_known": true,
+                "annotation": "SelectorMatch",
+                "default": "SelectorMatch.PREFIX"
+              },
+              {
+                "name": "target_kind",
+                "kind": "keyword_only",
+                "default_known": true,
+                "annotation": "DependencyTargetKind",
+                "default": "DependencyTargetKind.MODULE"
+              }
+            ],
+            "returns": "tuple[str, str] | None"
+          },
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-model.forbidden_dependency_scopes",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.model.forbidden_dependency_scopes",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-model",
+          "presence": "planned",
+          "responsibilities": [
+            "Expose the same named selection to Core subjects and report projections."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "rule",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "ForbiddenDependencyRule"
+              },
+              {
+                "name": "components",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "tuple[ComponentOwnership, ...]"
+              }
+            ],
+            "returns": "DependencySelection"
+          },
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-codec_contract.parse_dependency_selector",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.codec_contract.parse_dependency_selector",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-codec_contract",
+          "presence": "planned",
+          "responsibilities": [
+            "Validate and decode the record-to-domain boundary exactly once."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "record",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Record"
+              }
+            ],
+            "returns": "DependencySelector"
+          },
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencyOwner",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.dependency.DependencyOwner",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency",
+          "presence": "planned",
+          "responsibilities": [
+            "Name one caller-provided ownership identity and its shared module selection."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencyOwner.identity",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.dependency.DependencyOwner.identity",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencyOwner",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the caller's opaque ownership key without inferring a label or package."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencyOwner.modules",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.dependency.DependencyOwner.modules",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencyOwner",
+          "presence": "planned",
+          "responsibilities": [
+            "Reuse the owned package/exact-module selection instead of duplicating its representation."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "ModuleSelection"
+        },
+        {
+          "id": "IR-DEPENDENCY-model.dependency_owners",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.model.dependency_owners",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-model",
+          "presence": "planned",
+          "responsibilities": [
+            "Adapt legacy ownership triples once into the pure policy API without changing identities, order or duplicates."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "components",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "tuple[ComponentOwnership, ...]"
+              }
+            ],
+            "returns": "tuple[DependencyOwner, ...]"
           }
         }
       ],
