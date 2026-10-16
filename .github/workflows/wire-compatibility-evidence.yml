@@ -1,0 +1,78 @@
+name: Wire compatibility correction verification
+on:
+  push:
+    branches: [aux/issue-542-wire-compatibility]
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.12.13
+          python-version: 3.11.12
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - name: Format and export actual corrections
+        run: |
+          uv run --locked ruff format tools/architecture_graph_schema.py fixtures/demo_catalog_types.py tests/test_boundary_type_opaque_map_values.py
+          uv run --locked ruff check --fix tools/architecture_graph_schema.py fixtures/demo_catalog_types.py tests/test_boundary_type_opaque_map_values.py
+          uv run --locked ruff format tools/architecture_graph_schema.py fixtures/demo_catalog_types.py tests/test_boundary_type_opaque_map_values.py
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          paths=subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          print("WIRE_CORRECTION_FORMATTED",json.dumps({path:Path(path).read_text() for path in paths if path.endswith(".py")}))
+          PY
+      - run: make lint typecheck
+      - run: uv run --locked pytest -q tests/test_repository_hygiene.py
+  regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.12.13
+          python-version: 3.11.12
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - name: Full affected tests and source schema contracts
+        run: |
+          uv run --locked pytest -q tests/test_architecture_demo.py tests/test_boundary_type_opaque_map_values.py tests/test_member_inventory.py tests/test_partial_member_inventory.py tests/test_schema_drift.py tests/test_type_shapes.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py --tb=short
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.12.13
+          python-version: 3.11.12
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - name: Strict actual own baseline
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > "$RUNNER_TEMP/wire-correction-own.json"
+          status=$?
+          set -e
+          uv run --locked python - <<'PY'
+          import json,os
+          from pathlib import Path
+          result=json.loads((Path(os.environ["RUNNER_TEMP"])/"wire-correction-own.json").read_text())
+          print("WIRE_CORRECTION_OWN",json.dumps({key:result[key] for key in ("exit_code","failures","diagnostics","measurements")}))
+          PY
+          exit "$status"
