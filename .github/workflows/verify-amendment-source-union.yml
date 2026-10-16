@@ -44,7 +44,7 @@ jobs:
               mode = git("ls-files", "--stage", "--", path).split()[0]
               content = Path(path).read_text()
               parts = [content[index:index + 12000] for index in range(0, len(content), 12000)] or [""]
-              paths.append({"path": path, "mode": mode, "parts": len(parts)})
+              paths.append({"path": path, "mode": mode, "parts": len(parts), "index_sha": git("ls-files", "--stage", "--", path).split()[1], "text_sha": subprocess.run(["git", "hash-object", "--stdin"], input=content.encode(), capture_output=True, check=True).stdout.decode().strip()})
               for index, part in enumerate(parts):
                   print("SOURCE_UNION_CHUNK=" + json.dumps({"path": path, "index": index, "content": part}, separators=(",", ":")))
           print("SOURCE_UNION_PATHS=" + json.dumps(paths, separators=(",", ":")))
