@@ -1,0 +1,136 @@
+name: Contract grammar preparation evidence
+on:
+  push:
+    branches: [aux/issue-542-contract-rule-grammar-preparation]
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.12.13
+          python-version: 3.11.12
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - name: Format and export actual product deltas
+        run: |
+          uv run --locked ruff format src/archkeel/ir/codec_contract.py
+          uv run --locked ruff check --fix src/archkeel/ir/codec_contract.py
+          uv run --locked ruff format src/archkeel/ir/codec_contract.py
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          paths=subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          print("GRAMMAR_PREP_FORMATTED",json.dumps({path:Path(path).read_text() for path in paths if path.endswith(".py")}))
+          PY
+      - run: make lint typecheck
+      - run: uv run --locked pytest -q tests/test_repository_hygiene.py
+  grammar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.12.13
+          python-version: 3.11.12
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - run: uv run --locked pytest -q tests/test_typed_contract_rule_grammar.py tests/test_typed_contract_rule_native.py tests/test_local_string_comparisons.py
+  compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.12.13
+          python-version: 3.11.12
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - run: |
+          uv run --locked pytest -q tests/test_contract_model.py tests/test_contract_version_types.py tests/test_typed_graph_vocabulary.py tests/test_dependency_selectors.py tests/test_boundary_alias_contract.py tests/test_boundary_type_nested_mapping.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py tests/test_compatibility.py tests/test_cycle_levels.py tests/test_onboarding.py tests/test_onboarding_guidance.py
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.12.13
+          python-version: 3.11.12
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - name: Compare concrete type IDs and all unresolved or partial call sites
+        run: |
+          git worktree add "$RUNNER_TEMP/grammar-before" 7d22c1a5e5adf857b828618dac76b8fe14a7708b
+          uv run --locked archkeel report --root "$RUNNER_TEMP/grammar-before" --output "$RUNNER_TEMP/grammar-before.json" --json > "$RUNNER_TEMP/grammar-before-result.json"
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/grammar-after.json" --json > "$RUNNER_TEMP/grammar-after-result.json"
+          uv run --locked python - <<'PY'
+          import json,os,re
+          from collections import Counter,defaultdict
+          from dataclasses import asdict
+          from pathlib import Path
+          from archkeel.check.ratchets import call_rows,unknown_positions_by_rule
+          from archkeel.ir.codec import decode_canonical_model,parse_observation
+          from archkeel.ir.facts_codec import thaw_data
+          directory=Path(os.environ["RUNNER_TEMP"])
+          models=[parse_observation(decode_canonical_model(json.loads((directory/name).read_text()))) for name in ("grammar-before.json","grammar-after.json")]
+          def positions(model):
+              return {row.id:{"kind":row.kind,"rule_ids":row.rule_ids,"data":thaw_data(row.data)} for row in model.records("unknowns") or () if row.kind in {"boundary_type_position","boundary_type_route"}}
+          old,new=map(positions,models)
+          print("GRAMMAR_PREP_TYPE_RECORDS_BEFORE",json.dumps(old,sort_keys=True))
+          print("GRAMMAR_PREP_TYPE_RECORDS_AFTER",json.dumps(new,sort_keys=True))
+          added={key:new[key] for key in new.keys()-old.keys()}
+          removed={key:old[key] for key in old.keys()-new.keys()}
+          changed={key:{"before":old[key],"after":new[key]} for key in old.keys()&new.keys() if old[key]!=new[key]}
+          print("GRAMMAR_PREP_TYPE_DELTA",json.dumps({"added":added,"resolved":removed,"changed_existing":changed},sort_keys=True))
+          def calls(model):
+              counts=Counter()
+              rows=defaultdict(list)
+              for row in call_rows(model):
+                  caller=re.sub(r"<(genexpr|listcomp|setcomp|dictcomp):[0-9]+:[0-9]+>",r"<\1>",row.caller)
+                  key=(row.status,row.path,caller,row.expression,row.reason,row.component)
+                  counts[key]+=1
+                  rows[key].append(asdict(row))
+              assert sum(count for key,count in counts.items() if key[0]=="unresolved")==model.coverage.calls_unresolved
+              assert sum(count for key,count in counts.items() if key[0]=="partially_resolved")==model.coverage.calls_partially_resolved
+              return counts,rows
+          (old_calls,old_rows),(new_calls,new_rows)=map(calls,models)
+          call_added=[{"identity":key,"count":count,"actual_rows":new_rows[key]} for key,count in (new_calls-old_calls).items()]
+          call_removed=[{"identity":key,"count":count,"actual_rows":old_rows[key]} for key,count in (old_calls-new_calls).items()]
+          print("GRAMMAR_PREP_CALL_DELTA",json.dumps({"added":call_added,"removed":call_removed},sort_keys=True))
+          print("GRAMMAR_PREP_SITE_COUNTS",json.dumps([{"unknown_positions":dict(unknown_positions_by_rule(model)),"unresolved":model.coverage.calls_unresolved,"partial":model.coverage.calls_partially_resolved} for model in models]))
+          assert not added, "new unproven boundary API positions/routes"
+          assert not call_added, "new unresolved or partially resolved call identities"
+          PY
+      - name: Strict actual own baseline
+        if: always()
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > "$RUNNER_TEMP/grammar-prep-own.json"
+          status=$?
+          set -e
+          uv run --locked python - <<'PY'
+          import json,os
+          from pathlib import Path
+          result=json.loads((Path(os.environ["RUNNER_TEMP"])/"grammar-prep-own.json").read_text())
+          print("GRAMMAR_PREP_OWN",json.dumps({key:result[key] for key in ("exit_code","failures","diagnostics","measurements")}))
+          PY
+          exit "$status"
