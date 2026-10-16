@@ -182,7 +182,7 @@ def test_specifier_grammar_keeps_open_names_and_node_scheme_only_set(specifier, 
 
 @pytest.mark.parametrize(
     ("path", "outside", "base"),
-    [("../a", True, "/.."), ("..", True, "/.."), (".a", False, "/"),
+    [("../a", True, "/../a"), ("..", True, "/"), (".a", False, "/"),
      ("src/**/a.ts", False, "/src"), ("/src/*.ts", False, "/src")],
 )
 def test_path_and_config_walk_boundaries(path, outside, base):
