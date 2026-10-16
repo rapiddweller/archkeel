@@ -10,7 +10,7 @@ import re
 from enum import StrEnum
 from math import isfinite
 from pathlib import PurePosixPath, PureWindowsPath
-from typing import TypeAlias, TypeGuard, get_args
+from typing import TypeAlias
 
 from .facts import (
     EVIDENCE_FIELDS,
@@ -442,23 +442,18 @@ def _digest(value: RawJson, label: str) -> str:
 
 
 def _profile(value: RawJson) -> SourceProfile:
-    if isinstance(value, str) and _is_profile(value):
-        return value
-    raise ProtocolError("unregistered source profile")
-
-
-def _is_profile(value: str) -> TypeGuard[SourceProfile]:
-    return value in get_args(SourceProfile)
+    try:
+        return SourceProfile(_string(value, "source profile"))
+    except ValueError as error:
+        raise ProtocolError("unregistered source profile") from error
 
 
 def _section_name(value: RawJson) -> SourceSectionName:
-    if isinstance(value, str) and _is_section_name(value):
-        return value
-    raise ProtocolError("unsupported source section")
+    try:
+        return SourceSectionName(_string(value, "source section"))
+    except ValueError as error:
+        raise ProtocolError("unsupported source section") from error
 
-
-def _is_section_name(value: str) -> TypeGuard[SourceSectionName]:
-    return value in get_args(SourceSectionName)
 
 
 def _file(value: RawJson) -> FileFact:

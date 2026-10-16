@@ -9,3 +9,5 @@ JSON and TOML field labels remain declarative schema data validated by the exist
 The existing v1/v2/v3 collector encodings, strict version rejection, old observation encodings and source dirty unknown spelling remain stable. Native tests observe actual codec source, reject equality, membership, match and Final-string controls, and weaken the real protocol-version annotation against unchanged authored Target intent.
 
 This migration covers the named collector/codec modules. It does not assert that every historical string-controlled branch in the repository has been migrated.
+
+SourceProfile and SourceSectionName are nominal enums decoded at ingress, with exactly the former three profile IDs and eight section names. ObservedSection remains a compatibility name for the shared section identity owner. Its old six-value Literal annotation imposed no runtime validation; only this internal annotation now names the full canonical vocabulary. Registered profile subsets and mandatory imports/unknowns validation remain unchanged and have decoder controls.

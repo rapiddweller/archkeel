@@ -272,19 +272,21 @@ class SourceInfo:
     scope: tuple[str, ...]
 
 
-SourceSectionName: TypeAlias = Literal[
-    "symbols",
-    "imports",
-    "calls",
-    "references",
-    "bindings",
-    "typing_signals",
-    "constructs",
-    "unknowns",
-]
-SourceProfile: TypeAlias = Literal[
-    "archkeel-python-analyzer", "archkeel-dart-analyzer", "archkeel-typescript-imports"
-]
+class SourceSectionName(StrEnum):
+    SYMBOLS = "symbols"
+    IMPORTS = "imports"
+    CALLS = "calls"
+    REFERENCES = "references"
+    BINDINGS = "bindings"
+    TYPING_SIGNALS = "typing_signals"
+    CONSTRUCTS = "constructs"
+    UNKNOWNS = "unknowns"
+
+
+class SourceProfile(StrEnum):
+    PYTHON = "archkeel-python-analyzer"
+    DART = "archkeel-dart-analyzer"
+    TYPESCRIPT = "archkeel-typescript-imports"
 
 
 class ConstructSupport(StrEnum):

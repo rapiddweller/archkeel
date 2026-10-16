@@ -37,7 +37,6 @@ class ConfigError(ValueError):
 
 _NAMESPACE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
 _REQUIRED_SCAN = {"roots", "namespace", "contract"}
-_GLOB_SYNTAX = frozenset("*?[]{}!")
 
 
 class ConfigFileMissingError(ConfigError):
@@ -51,7 +50,7 @@ def _path(value: object, *, field: str, allow_dot: bool = True) -> str:
         _PathToken.NUL in value
         or _PathToken.BACKSLASH in value
         or _PathToken.COLON in value
-        or any(char in value for char in _GLOB_SYNTAX)
+        or re.search(r"[*?\[\]{}!]", value) is not None
     ):
         raise ConfigError(f"{field} must be a safe POSIX relative path")
     parsed = PurePosixPath(value)
