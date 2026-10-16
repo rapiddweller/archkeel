@@ -12,6 +12,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
           python-version: "3.11.12"
@@ -23,4 +24,10 @@ jobs:
         if: ${{ always() }}
         run: |
           git diff --exit-code f264c77eb55b1761a37a8083e479c3f1bc45f5cc -- src
-          uv run --locked ruff format --diff tests/test_boundary_reason_types.py
+          uv run --locked ruff format tests/test_boundary_reason_types.py
+          uv run --locked ruff check --fix tests/test_boundary_reason_types.py
+          uv run --locked python - <<'PY'
+          import json
+          from pathlib import Path
+          print("HOSTED_FORMATTED_TEST=" + json.dumps(Path("tests/test_boundary_reason_types.py").read_text()))
+          PY

@@ -457,7 +457,10 @@
           "visibility": {
             "kind": "private",
             "basis": "declared"
-          }
+          },
+          "responsibilities": [
+            "Name the existing closed causes of an undecidable annotated position."
+          ]
         },
         {
           "language": "python",
@@ -472,7 +475,10 @@
           "visibility": {
             "kind": "private",
             "basis": "declared"
-          }
+          },
+          "responsibilities": [
+            "Carry the one position interpretation and its independent diagnostic and type origins."
+          ]
         },
         {
           "language": "python",
@@ -488,7 +494,10 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "_UndecidableReason | None"
+          "annotation": "_UndecidableReason | None",
+          "responsibilities": [
+            "Identify why this position stayed undecidable, or retain its decided absence."
+          ]
         },
         {
           "language": "python",
@@ -515,7 +524,10 @@
               }
             ],
             "returns": "_UndecidableReason"
-          }
+          },
+          "responsibilities": [
+            "Classify an otherwise unresolved written annotation using existing diagnostic categories."
+          ]
         }
       ],
       "relationships": [

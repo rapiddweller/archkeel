@@ -14,13 +14,14 @@ import pytest
 from test_architecture_demo import _prepare_repo
 from test_delta import _model as wire_model
 from test_delta import _record
-from test_uml_evaluation import _model
 
 from archkeel.check.evaluation import boundary_types as boundary
 from archkeel.check.evaluation import rules
 from archkeel.check.ports import ScanConfig
 from archkeel.check.run import inspect_observation
-from archkeel.ir.codec import canonical_report_bytes, parse_observation
+from archkeel.check.report import run_report
+from archkeel.cli.observe import observe
+from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
 
@@ -97,7 +98,10 @@ def test_unknown_future_wire_reason_keeps_exact_text_and_conservative_verdict():
         data=dict(positions=1, decided=0, undecided=1, undecidable_positions=[detail], **{"future:reason": 1}),
     )
     position["rule_ids"] = limit["rule_ids"] = ["BOUNDARY"]
-    observation = parse_observation(wire_model(git_head="a" * 40, unknowns=[position, limit]))
+    declaration = _record("BOUNDARY", kind="boundary_types", evidence_class="DECLARED_RULE")
+    observation = parse_observation(
+        wire_model(git_head="a" * 40, declarations=[declaration], unknowns=[position, limit])
+    )
     assert inspect_observation(observation)[1] == "UNKNOWN"
     encoded = canonical_report_bytes(observation)
     replay = parse_observation(json.loads(encoded))
@@ -131,6 +135,12 @@ def _repository(tmp_path):
     }
     root = _prepare_repo(tmp_path, files)
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
+
+
+def _model(root, config):
+    result, encoded = run_report(root, config=config, analyzer=observe)
+    assert result.exit_code == 0 and encoded is not None, result.diagnostics
+    return parse_observation(decode_canonical_model(json.loads(encoded)))
 
 
 def _comparison(model):
