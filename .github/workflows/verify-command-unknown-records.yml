@@ -1,0 +1,46 @@
+name: Verify exact Core command UNKNOWN record sets
+on:
+  push:
+    branches: [verify/issue-542-core-command-unknown-records]
+permissions:
+  contents: read
+jobs:
+  unknown-records:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+
+      - name: Compare the complete records selected by the real UNKNOWN ratchet
+        run: |
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/unknown-after.json" > "$RUNNER_TEMP/unknown-after-result.json"
+          git worktree add --detach "$RUNNER_TEMP/unknown-before" d3f7b008fedbedbf029312ddee30d4bfcafe4eb0
+          uv run --locked archkeel report --root "$RUNNER_TEMP/unknown-before" --output "$RUNNER_TEMP/unknown-before.json" > "$RUNNER_TEMP/unknown-before-result.json"
+          uv run --locked python - "$RUNNER_TEMP/unknown-before.json" "$RUNNER_TEMP/unknown-after.json" <<'PY'
+          import json,pathlib,sys
+          from archkeel.ir.codec import decode_canonical_model,parse_observation
+          from archkeel.ir.decisions import _unknown_evidence_and_counts
+          from archkeel.ir.codec_wire import _raw_value
+          def rows(path):
+              value=parse_observation(decode_canonical_model(json.loads(pathlib.Path(path).read_text())))
+              count,counts,records=_unknown_evidence_and_counts(value)
+              result={}
+              for rule,selected in records.items():
+                  result[rule]=[{"id":row.id,"kind":row.kind,"title":row.title,"subjects":row.subjects,"rule_ids":row.rule_ids,"data":_raw_value(row.data)} for row in selected]
+              return count,counts,result
+          before,after=(rows(path) for path in sys.argv[1:])
+          changed=[{"rule":rule,"before":before[2].get(rule,[]),"after":after[2].get(rule,[])} for rule in sorted(before[2].keys()|after[2].keys()) if before[2].get(rule)!=after[2].get(rule)]
+          report={"before_ref":"d3f7b008fedbedbf029312ddee30d4bfcafe4eb0","after_ref":"3dd2efdc54ef99f2b4cb742f3194cfd1f2619a84","before_total":before[0],"after_total":after[0],"before_counts":before[1],"after_counts":after[1],"selected_record_ids":{key:[row["id"] for row in values] for key,values in after[2].items()},"uml_records":{key:value for key,value in after[2].items() if key.startswith("UML-")},"changed_records":changed}
+          print("COMPLETE_UNKNOWN_RECORD_PROOF="+json.dumps(report,separators=(",",":")))
+          assert before[0]==after[0]==58
+          assert before[1]==after[1]
+          assert not changed
+          PY
