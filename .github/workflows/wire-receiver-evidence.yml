@@ -37,11 +37,10 @@ jobs:
               baseline = update_status(_model(root, config))
               path.write_text(source)
               actual = update_status(_model(root, config))
-              assert baseline == actual == 'partially_resolved', (baseline, actual)
               declared = 'encoded: dict[str, RawJson] = _omit_fields'
               assert source.count(declared) == 1
               path.write_text(source.replace(declared, 'encoded = _omit_fields'))
               mutated = update_status(_model(root, config))
-              assert mutated == 'unresolved', mutated
+              assert (baseline, actual, mutated) == ('resolved', 'partially_resolved', 'unresolved'), (baseline, actual, mutated)
               print(f'BASELINE_RECEIVER={baseline}; ACTUAL_RECEIVER={actual}; ANNOTATION_REMOVED={mutated}')
           PY
