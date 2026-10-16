@@ -26,7 +26,7 @@ ci-report-check: report-timing report-browser-proof
 
 ci-pr-check: $(if $(strip $(BASE)),against,self-validate) lint typecheck pr-test
 
-ci-pr-report-check: browser-install pr-report-test
+ci-pr-report-check: browser-install browser-runtime-check pr-report-test
 
 pr-test:
 	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 \
@@ -344,3 +344,4 @@ browser-runtime-generate: browser-runtime-install
 browser-runtime-check: browser-runtime-install
 	uv run --locked mypy --strict tools/browser_runtime.py
 	uv run --locked python -m tools.browser_runtime --check
+	uv run --locked python -m pytest -q tests/test_flow_runtime_publication.py
