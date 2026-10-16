@@ -1256,7 +1256,9 @@ def _parameter(node: _Node, kind: ParameterKind, source: _Source) -> Parameter:
     required = re.search(rb"\brequired\b", before.rsplit(b",", 1)[-1]) is not None
     optional = kind == ParameterKind.NAMED and not required
     if node.parent is not None and node.parent.kind == _NodeKind.OPTIONAL_FORMAL_PARAMETERS:
-        optional = _lexeme(source.text(node.parent).lstrip()[:1]) is _Lexeme.OPEN_BRACKET or optional
+        optional = (
+            _lexeme(source.text(node.parent).lstrip()[:1]) is _Lexeme.OPEN_BRACKET or optional
+        )
     nullable_or_dynamic = (
         annotation is None
         or _lexeme(annotation[-1:]) is _Lexeme.NULLABLE

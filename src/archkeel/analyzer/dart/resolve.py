@@ -1478,10 +1478,14 @@ class Resolver:
         if not collection_type:
             return None
         collection_name, _, arguments = collection_type.partition("<")
-        if _builtin_type(collection_name.strip()) not in {
-            _BuiltinType.LIST,
-            _BuiltinType.ITERABLE,
-        } or _type_token(arguments[-1:]) is not _TypeToken.CLOSE:
+        if (
+            _builtin_type(collection_name.strip())
+            not in {
+                _BuiltinType.LIST,
+                _BuiltinType.ITERABLE,
+            }
+            or _type_token(arguments[-1:]) is not _TypeToken.CLOSE
+        ):
             return None
         if self._local_declarations(self.module_for(rel_path) or "", collection_name.strip()):
             return None

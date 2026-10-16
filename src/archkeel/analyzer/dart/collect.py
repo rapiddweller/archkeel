@@ -535,7 +535,14 @@ class _Collection:
             ):
                 attributes.append(
                     self._attribute(
-                        rel, span, qualified, literal, None, True, None, True,
+                        rel,
+                        span,
+                        qualified,
+                        literal,
+                        None,
+                        True,
+                        None,
+                        True,
                         visibility=Visibility.from_name(literal),
                     )
                 )

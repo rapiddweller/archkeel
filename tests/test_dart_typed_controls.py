@@ -117,7 +117,9 @@ def _repository(tmp_path):
         "archkeel/ir/__init__.py": "",
         "contract.json": json.dumps(_contract()),
         "docs/architecture/dart-nominal-controls.md": "Owned Dart control boundaries.\n",
-        "docs/architecture/dart-input-grammar.md": (ROOT / "docs/architecture/dart-input-grammar.md").read_text(),
+        "docs/architecture/dart-input-grammar.md": (
+            ROOT / "docs/architecture/dart-input-grammar.md"
+        ).read_text(),
     }
     for path in paths:
         files[path.relative_to(ROOT / "src").as_posix()] = path.read_text()
@@ -152,8 +154,8 @@ def test_native_dart_control_api_matches_independent_nominal_target(tmp_path):
             'from typing import Final\nCONTROL: Final[str] = "import"\n'
             "def _control_probe(value):\n    return value == CONTROL\n"
         ),
-        "def _control_probe(value):\n    return value.startswith(\"import\")\n",
-        "def _control_probe(value):\n    return value.endswith((\".dart\", \".g.dart\"))\n",
+        'def _control_probe(value):\n    return value.startswith("import")\n',
+        'def _control_probe(value):\n    return value.endswith((".dart", ".g.dart"))\n',
     ],
     ids=["equality", "membership", "needle", "match", "final", "prefix", "suffix"],
 )
@@ -180,7 +182,11 @@ def test_native_dart_control_guard_rejects_actual_source_string_dispatch(tmp_pat
         ("syntax", "kind: ParameterKind", "kind: str"),
         ("resolve", "status: ResolutionStatus", "status: str"),
         ("resolve", "builtin: bool", "builtin: str"),
-        ("resolve", "visibility: Visibility = field(init=False)", "visibility: str = field(init=False)"),
+        (
+            "resolve",
+            "visibility: Visibility = field(init=False)",
+            "visibility: str = field(init=False)",
+        ),
     ],
 )
 def test_native_dart_nominal_annotation_widening_fails_without_target_change(
@@ -438,7 +444,8 @@ def test_native_visibility_ingress_return_matches_fixed_authored_intent(tmp_path
     comparison = architecture_report(model).comparison
     assert comparison is not None
     selected = [
-        row for row in comparison.assessments
+        row
+        for row in comparison.assessments
         if row.subject_id == "archkeel.analyzer.dart.syntax.Visibility.from_name"
         and row.aspect == "signature"
     ]

@@ -130,8 +130,7 @@
         "archkeel.analyzer.dart.syntax:Directive",
         "archkeel.analyzer.dart.syntax:Site",
         "archkeel.analyzer.dart.syntax:Concern",
-        "archkeel.analyzer.dart.syntax:Syntax",
-        "archkeel.analyzer.dart.syntax:Visibility.from_name"
+        "archkeel.analyzer.dart.syntax:Syntax"
       ],
       "requires": [],
       "provenance": [
