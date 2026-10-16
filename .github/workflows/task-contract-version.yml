@@ -1,0 +1,50 @@
+name: Verify integrated contract version ownership
+on:
+  push:
+    branches: [verify/542-contract-version-integrated]
+permissions:
+  contents: read
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Check formatting
+        run: uv run --locked ruff format --check src/archkeel/ir/contract_version.py src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py tests/test_contract_version_types.py src/archkeel/check/onboarding.py
+      - name: Focused legacy and native version tests
+        run: uv run --locked pytest -q tests/test_contract_version_types.py tests/test_contract_model.py tests/test_module_object_grants.py tests/test_codec_compatibility.py tests/test_dependency_selectors.py tests/test_widening.py tests/test_onboarding.py tests/test_onboarding_guidance.py
+      - name: Full lint and production typing
+        run: make lint typecheck
+      - name: Native own contract and exact debt
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > "$RUNNER_TEMP/version-native.json"
+          task_native_status=$?
+          python - <<'PY'
+          import json,os,pathlib
+          data=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"version-native.json").read_text())
+          print(json.dumps({key:data.get(key) for key in ("exit_code","failures","diagnostics","measurements")}))
+          PY
+          exit "$task_native_status"
+
+      - name: Exact predecessor normal amendment
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against ff4cae52451f43550639959b6f87a77f96375597 --amendment docs/architecture/decisions/2026-10-16-contract-version-types.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'Own contract schema identities and feature introduction in one nominal domain; authored API intent and whole-module string-control guard; preserve wire compatibility and existing debt ceilings' > "$RUNNER_TEMP/version-amend.json"
+          task_status=$?
+          python - <<'PY'
+          import json,os,pathlib
+          data=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"version-amend.json").read_text())
+          print("AMENDMENT_RESULT="+json.dumps({key:data.get(key) for key in ("exit_code","failures","diagnostics","measurements")}))
+          amendment=pathlib.Path("docs/architecture/decisions/2026-10-16-contract-version-types.json")
+          if amendment.exists():
+              print("AMENDMENT_JSON="+amendment.read_text().replace("\n",""))
+          PY
+          exit "$task_status"
