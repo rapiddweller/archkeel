@@ -13,6 +13,8 @@ from typing import TypeAlias
 from .facts import in_scope
 
 ComponentOwnership: TypeAlias = tuple[str, tuple[str, ...], tuple[str, ...]]
+PackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]
+ComponentOwnershipInput: TypeAlias = ComponentOwnership | PackageComponentOwnership
 
 
 class SelectorMatch(StrEnum):
@@ -107,6 +109,8 @@ class DependencySelector:
 
 __all__ = (
     "ComponentOwnership",
+    "ComponentOwnershipInput",
+    "PackageComponentOwnership",
     "DependencySelection",
     "DependencySelector",
     "DependencyTargetKind",

@@ -17,26 +17,8 @@ jobs:
         with:
           python-version: "3.11.12"
           version: "0.12.13"
-      - name: Small fixture with actual compatibility alias use
-        run: |
-          uv run --locked python - <<'PY'
-          import sys,tempfile,pathlib
-          sys.path.insert(0,"tests")
-          from test_dependency_api_target import _dependency_repository,_source_members
-          from test_uml_evaluation import _model
-          from archkeel.ir.decisions import rule_assessments
-          with tempfile.TemporaryDirectory() as directory:
-              root,config=_dependency_repository(pathlib.Path(directory))
-              path=root/"archkeel/ir/model.py"
-              path.write_text("from typing import TypeAlias\n"+path.read_text()+"\nPackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]\nComponentOwnershipInput: TypeAlias = ComponentOwnership | PackageComponentOwnership\n")
-              model=_model(root,config)
-              for row in rule_assessments(model,undecided_by_rule={}):
-                  if "BOUNDARY" in row.id:
-                      print("SMALL_RULE",row)
-              for row in model.records("symbols"):
-                  if row.data.get("qualified_name") == "archkeel.ir.dependency.ComponentOwnership":
-                      print("SMALL_ALIAS",row)
-          PY
+      - name: Check vocabulary move
+        run: uv run --locked ruff check src/archkeel/ir/model.py src/archkeel/ir/dependency.py
       - run: uv run --locked archkeel report --root . --output .541-observation.json --json > .541-summary.json
       - name: Inspect alias bindings
         run: |
@@ -44,7 +26,10 @@ jobs:
           import json,pathlib
           from archkeel.ir.codec import decode_canonical_model,parse_observation
           model=parse_observation(decode_canonical_model(json.loads(pathlib.Path(".541-observation.json").read_text())))
-          for section in ("symbols","imports","bindings","references"):
+          print(pathlib.Path(".541-summary.json").read_text())
+          for row in model.records("unknowns"):
+              if any("DEPENDENCY" in key for key in row.rule_ids): print("BOUNDARY_UNKNOWN",row)
+          for section in ("symbols","imports"):
               for row in model.records(section):
                   if "ComponentOwnership" in str(row.data):
                       print(section,row)

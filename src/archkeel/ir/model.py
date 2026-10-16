@@ -20,6 +20,8 @@ from .architecture_graph import RuleAssessment as RuleAssessment
 from .architecture_graph import RuleAssessmentStatus as RuleAssessmentStatus
 from .architecture_graph import contract_relative_path as contract_relative_path
 from .dependency import ComponentOwnership as ComponentOwnership
+from .dependency import ComponentOwnershipInput as ComponentOwnershipInput
+from .dependency import PackageComponentOwnership as PackageComponentOwnership
 from .dependency import DependencySelection as DependencySelection
 from .dependency import DependencySelector as DependencySelector
 from .dependency import DependencyTargetKind as DependencyTargetKind
@@ -81,8 +83,6 @@ def public_api_id(selector: str) -> str:
 SCHEMA_VERSION = "2.0.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 Verdict: TypeAlias = Literal["PASS", "FAIL"]
-PackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]
-ComponentOwnershipInput: TypeAlias = ComponentOwnership | PackageComponentOwnership
 # AD-26's full vocabulary, for the one verdict that can also fail to decide (AD-67).
 RuleVerdict: TypeAlias = AssessmentStatus
 ComparisonStatus: TypeAlias = Literal["SUPPORTED", "UNKNOWN"]
