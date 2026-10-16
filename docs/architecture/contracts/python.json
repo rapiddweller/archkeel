@@ -439,10 +439,6 @@
           "provenance": [
             "docs/architecture/typed-python-properties.md"
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "id": "PYTHON-PROPERTY-SOURCE",
           "kind": "module",
           "qualified_name": "archkeel.analyzer.python.source",

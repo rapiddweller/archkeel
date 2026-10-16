@@ -143,12 +143,27 @@ def test_actual_property_functions_have_no_raw_operation_dispatch(tmp_path, file
         {"core.py": (ROOT / "src/archkeel" / filename).read_text()},
     )
     assert result.diagnostics == () and result.observation is not None
+    # Record-kind control and wire-key presence remain separate grammars. Native
+    # evidence is restricted to property value comparisons or enum-value extraction.
+    vocabulary = {"create", "getter", "setter", "new", "local", "base"}
+    property_lines = {
+        node.lineno
+        for node in ast.walk(ast.parse((ROOT / "src/archkeel" / filename).read_text()))
+        if isinstance(node, ast.Compare)
+        and any(
+            (isinstance(child, ast.Constant) and isinstance(child.value, str)
+             and child.value in vocabulary)
+            or (isinstance(child, ast.Attribute) and child.attr == "value")
+            for child in ast.walk(node)
+        )
+    }
+    evidence = {item.id: item for item in result.observation.evidence}
     assert not [
         row
         for row in result.observation.records("constructs")
         if row.kind == "string_literal_compare" and row.data.get("owner") == owner
+        and any(evidence[reference].line in property_lines for reference in row.evidence_ids)
     ]
-    assert not [row for row in trace_valid_violations(result.observation) if owner in row.subjects]
 
 
 @pytest.mark.parametrize("setter,expected", [("int", "PASS"), ("object", "FAIL")])

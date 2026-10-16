@@ -8150,10 +8150,6 @@
           "provenance": [
             "docs/architecture/typed-python-properties.md"
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "id": "IR-PROPERTY-CODEC",
           "kind": "module",
           "qualified_name": "archkeel.ir.facts_codec",

@@ -22,3 +22,8 @@ facts and facts-codec guards protect their closed-control decisions. Scoped
 native Source/Core observations cover the property functions only: unrelated
 raw annotation/compiler/proof controls in those large modules remain outside
 this stage. No whole-Source or whole-Core guard PASS is claimed.
+
+Within Core's two property functions the pre-existing record-kind `method`
+comparison and `property_binding` JSON-key presence tests remain separate
+control/data forms. The native property scope asserts operation/origin values
+and enum-value extraction, without certifying those entire functions.
