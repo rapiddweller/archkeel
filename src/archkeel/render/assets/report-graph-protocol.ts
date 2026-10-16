@@ -5,7 +5,14 @@ namespace ArchkeelGraphSceneProtocol {
   export enum EdgeState {
     OBSERVED = "observed", DECLARED = "declared", VIOLATION = "violation", UNDECIDED = "undecided"
   }
-  export enum ModuleEntryFile { PYTHON_INITIALIZER = "__init__.py" }
+  export enum SceneEdgeKind { DEPENDENCY = "dependency" }
+  export enum ModuleFileKind { NAMED, PYTHON_INITIALIZER }
+  const moduleEntryNames: ReadonlyMap<unknown, ModuleFileKind> = new Map([
+    ["__init__.py", ModuleFileKind.PYTHON_INITIALIZER],
+  ]);
+  export function classifyModuleFileName(name: string): ModuleFileKind {
+    return moduleEntryNames.get(name) ?? ModuleFileKind.NAMED;
+  }
   enum JavaScriptType { OBJECT = "object", STRING = "string", BOOLEAN = "boolean" }
   const views: ReadonlyMap<unknown, ViewMode> = new Map(
     Object.values(ViewMode).map((value): [unknown, ViewMode] => [value, value]),
@@ -71,7 +78,7 @@ namespace ArchkeelGraphSceneProtocol {
     outside: boolean; tooltip: string;
   }
   export interface EdgeGroup {
-    id: string; source: string; target: string; kind: string;
+    id: string; source: string; target: string; kind: SceneEdgeKind;
     relationshipKind: G.RelationshipKind; resolution: G.ResolutionKind;
     sites: Relationship[]; sourceGraph: Graph; assessments: Assessment[]; state: EdgeState;
   }

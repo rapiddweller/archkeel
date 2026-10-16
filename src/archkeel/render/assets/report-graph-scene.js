@@ -14,6 +14,10 @@
 var ArchkeelGraphScene = (function () {
   const G = ArchkeelGraphProtocol;
   const P = ArchkeelGraphSceneProtocol;
+  const visibility = new Map([
+    [G.VisibilityKind.PUBLIC, "+"], [G.VisibilityKind.PRIVATE, "−"],
+    [G.VisibilityKind.PROTECTED, "#"], [G.VisibilityKind.PACKAGE, "~"], [G.VisibilityKind.UNKNOWN, "?"],
+  ]);
   /** @param {unknown} data */
   function create(data) {
     const DATA = P.decodeReport(data);
@@ -122,7 +126,7 @@ var ArchkeelGraphScene = (function () {
     function architectureLabel(entity, graph) {
       if (entity.kind === G.EntityKind.MODULE && entity.file_path) {
         const filename = entity.file_path.split("/").at(-1) || entity.qualified_name;
-        if (filename !== P.ModuleEntryFile.PYTHON_INITIALIZER) return filename.replace(/\.[^.]+$/, "");
+        if (P.classifyModuleFileName(filename) !== P.ModuleFileKind.PYTHON_INITIALIZER) return filename.replace(/\.[^.]+$/, "");
       }
       return componentIntents(graph.origin === G.OriginKind.OBSERVED ? DATA.target : graph)
         .find((item) => item.component_id === entity.id)?.label
@@ -131,10 +135,7 @@ var ArchkeelGraphScene = (function () {
 
     /** @param {Entity} entity @param {boolean} includeName @returns {string} */
     function umlMember(entity, includeName = true) {
-      const visibility = new Map([
-        [G.VisibilityKind.PUBLIC, "+"], [G.VisibilityKind.PRIVATE, "−"],
-        [G.VisibilityKind.PROTECTED, "#"], [G.VisibilityKind.PACKAGE, "~"], [G.VisibilityKind.UNKNOWN, "?"],
-      ]);
+
       const name = entity.qualified_name.split(".").at(-1) || entity.qualified_name;
       if (entity.kind === G.EntityKind.ENUM_LITERAL) return name;
       let text = `${visibility.get(entity.visibility?.kind ?? G.VisibilityKind.UNKNOWN)} ${includeName ? name : ""}`;
@@ -306,7 +307,7 @@ var ArchkeelGraphScene = (function () {
         for (const entry of [source, target]) if (!entries.has(entry.id)) entries.set(entry.id, entry);
         const id = site.kind === G.RelationshipKind.REQUIRES ? site.id
           : `${sourceGraph !== graph ? "observed:" : ""}${site.kind}:${source.id}>${target.id}:${site.resolution}`;
-        if (!groups.has(id)) groups.set(id, { id, source: source.id, target: target.id, kind: "dependency",
+        if (!groups.has(id)) groups.set(id, { id, source: source.id, target: target.id, kind: P.SceneEdgeKind.DEPENDENCY,
           relationshipKind: site.kind, sites: [], sourceGraph, assessments: [], resolution: site.resolution,
           state: assessment?.status === G.AssessmentStatus.FAIL ? P.EdgeState.VIOLATION : assessment?.status === G.AssessmentStatus.UNKNOWN ? P.EdgeState.UNDECIDED
             : sourceGraph.origin === G.OriginKind.DECLARED ? P.EdgeState.DECLARED

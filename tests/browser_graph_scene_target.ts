@@ -4,7 +4,7 @@ namespace GraphSceneTarget {
   import P = ArchkeelGraphSceneProtocol;
   interface RequiredScene {
     nodes: {id: string; kind: G.EntityKind; entity: P.Entity; sourceGraph: P.Graph}[];
-    edges: {id: string; relationshipKind: G.RelationshipKind; state: P.EdgeState}[];
+    edges: {id: string; kind: P.SceneEdgeKind; relationshipKind: G.RelationshipKind; state: P.EdgeState}[];
     owner: string | null;
     componentOverview: boolean;
   }

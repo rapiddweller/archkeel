@@ -166,7 +166,8 @@ def test_graph_scene_keeps_wire_identity_json_and_primitive_tokens():
                 status: G.encodeAssessmentStatus(G.AssessmentStatus.PASS),
                 zeroRejected,
                 passVisible: mermaid.includes("A · PASS"),
-                tokensAreStrings: Object.values(G.AssessmentStatus).every(token => typeof token === "string"),
+                tokensAreStrings: Object.values(G.AssessmentStatus)
+                  .every(token => typeof token === "string"),
               };
             }"""
         )
@@ -239,9 +240,11 @@ def test_actual_own_graph_scene_preserves_full_wire_json(self_observation):
                 {graph, scope:module.id}, {viewMode:"diagram"});
               const again = model.projectArchitectureScene(
                 {graph, scope:module.id}, {viewMode:"diagram"});
+              const sceneJSON = value => JSON.stringify(value,
+                (key, item) => key === "sourceGraph" ? {origin:item.origin} : item);
               return {
                 unchanged: before === JSON.stringify(data),
-                stable: JSON.stringify(scene) === JSON.stringify(again),
+                stable: sceneJSON(scene) === sceneJSON(again),
                 identities: scene.nodes.every(node => node.sourceGraph === graph
                   && graph.entities.includes(node.entity)),
                 cards: scene.nodes.length,
@@ -254,3 +257,15 @@ def test_actual_own_graph_scene_preserves_full_wire_json(self_observation):
     finally:
         browser.close()
         playwright.stop()
+
+
+def test_offline_report_loads_the_actual_protocol_before_scene_consumers():
+    from archkeel.render.html import _explorer_section
+
+    page = _explorer_section("{}")
+    assert (
+        page.index('data-report-asset="graph-protocol"')
+        < page.index('data-report-asset="graph-scene"')
+        < page.index('data-report-asset="scene"')
+        < page.index('data-report-asset="layout"')
+    )
