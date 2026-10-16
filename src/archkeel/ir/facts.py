@@ -39,6 +39,42 @@ def parse_runtime_requirement_state(value: object) -> RuntimeRequirementState:
         raise ValueError("runtime.requirement_state is invalid") from error
 
 
+class SourceDirty(StrEnum):
+    UNKNOWN = "unknown"
+
+
+class MemberKind(StrEnum):
+    ATTRIBUTE = "attribute"
+    METHOD = "method"
+
+
+class InventoryStatus(StrEnum):
+    COMPLETE = "complete"
+    PARTIAL = "partial"
+
+
+class InventoryVersion(StrEnum):
+    V1 = "1.0.0"
+
+
+class ResolutionRole(StrEnum):
+    SELECTED = "selected"
+    RESOLUTION = "resolution"
+
+
+def source_dirty(value: object) -> bool | Literal["unknown"]:
+    """Validate the dirty sentinel without changing its legacy wire spelling."""
+    if isinstance(value, bool):
+        return value
+    if not isinstance(value, str):
+        raise ValueError("source.dirty is invalid")
+    try:
+        SourceDirty(value)
+    except ValueError as error:
+        raise ValueError("source.dirty is invalid") from error
+    return "unknown"
+
+
 SOURCE_RESOLUTION_GAP_KIND = "source_resolution_gap"
 
 RECORD_FIELDS = (
@@ -127,17 +163,17 @@ JsonValue: TypeAlias = str | int | float | bool | None | tuple["JsonValue", ...]
 class MemberInventory:
     """Direct static declarations; inherited and generated members stay outside proof."""
 
-    kind: Literal["attribute", "method"]
-    status: Literal["complete", "partial"]
+    kind: MemberKind
+    status: InventoryStatus
     definition_ids: tuple[str, ...]
     reason: str | None = None
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: InventoryVersion = InventoryVersion.V1
 
     def __post_init__(self) -> None:
         if (
-            self.schema_version != "1.0.0"
-            or self.kind not in ("attribute", "method")
-            or self.status not in ("complete", "partial")
+            self.schema_version != InventoryVersion.V1
+            or self.kind not in (MemberKind.ATTRIBUTE, MemberKind.METHOD)
+            or self.status not in (InventoryStatus.COMPLETE, InventoryStatus.PARTIAL)
         ):
             raise ValueError("invalid member inventory vocabulary")
         if (
@@ -146,8 +182,8 @@ class MemberInventory:
             or len(set(self.definition_ids)) != len(self.definition_ids)
         ):
             raise ValueError("invalid member inventory identities")
-        if (self.status == "complete" and self.reason is not None) or (
-            self.status == "partial"
+        if (self.status == InventoryStatus.COMPLETE and self.reason is not None) or (
+            self.status == InventoryStatus.PARTIAL
             and (not isinstance(self.reason, str) or not self.reason.strip())
         ):
             raise ValueError("member inventory reason contradicts status")
@@ -167,7 +203,7 @@ def member_inventories(value: JsonValue) -> tuple[MemberInventory, ...]:
             or {key for key, _ in item.entries} - (required | {"reason"})
         ):
             raise ValueError("member inventory fields mismatch")
-        if item.get("schema_version") != "1.0.0":
+        if item.get("schema_version") != InventoryVersion.V1:
             raise ValueError("unsupported member inventory version")
         kind, status = item.get("kind"), item.get("status")
         ids, reason = item.get("definition_ids"), item.get("reason")
@@ -177,17 +213,22 @@ def member_inventories(value: JsonValue) -> tuple[MemberInventory, ...]:
             or (reason is not None and not isinstance(reason, str))
         ):
             raise ValueError("invalid member inventory values")
-        if kind not in ("attribute", "method") or status not in ("complete", "partial"):
+        if not isinstance(kind, str) or not isinstance(status, str):
             raise ValueError("invalid member inventory vocabulary")
+        try:
+            member_kind = MemberKind(kind)
+            inventory_status = InventoryStatus(status)
+        except ValueError as error:
+            raise ValueError("invalid member inventory vocabulary") from error
         result.append(
             MemberInventory(
-                "attribute" if kind == "attribute" else "method",
-                "complete" if status == "complete" else "partial",
+                member_kind,
+                inventory_status,
                 tuple(identifier for identifier in ids if isinstance(identifier, str)),
                 reason,
             )
         )
-    if len(result) != 2 or {item.kind for item in result} != {"attribute", "method"}:
+    if len(result) != 2 or {item.kind for item in result} != {MemberKind.ATTRIBUTE, MemberKind.METHOD}:
         raise ValueError("member inventory needs one receipt per member kind")
     return tuple(result)
 
@@ -281,7 +322,7 @@ class RuntimeInfo:
 class ResolutionInput:
     path: str
     digest: str
-    role: Literal["selected", "resolution"]
+    role: ResolutionRole
 
 
 @dataclass(frozen=True, slots=True)

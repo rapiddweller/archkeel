@@ -8,10 +8,16 @@ import importlib.metadata
 import platform
 import re
 import tomllib
+from enum import StrEnum
 from pathlib import Path
 
 from archkeel.ir.facts import AnalyzerInfo, RuntimeInfo, RuntimeRequirementState
 from archkeel.ir.facts import Language as Language
+
+class _MetadataField(StrEnum):
+    REQUIRES_PYTHON = "requires-python"
+    PYTHON = "python"
+
 
 _ANALYZERS: dict[Language, str] = {
     Language.PYTHON: "archkeel-python-analyzer",
@@ -84,13 +90,13 @@ def python_requirement(root: Path) -> tuple[str | None, RuntimeRequirementState]
     except (OSError, ValueError):
         return None, RuntimeRequirementState.METADATA_INVALID
     project = metadata.get("project")
-    if isinstance(project, dict) and "requires-python" in project:
+    if isinstance(project, dict) and _MetadataField.REQUIRES_PYTHON in project:
         required = project["requires-python"]
     else:
         tool = metadata.get("tool")
         poetry = tool.get("poetry") if isinstance(tool, dict) else None
         dependencies = poetry.get("dependencies") if isinstance(poetry, dict) else None
-        if not isinstance(dependencies, dict) or "python" not in dependencies:
+        if not isinstance(dependencies, dict) or _MetadataField.PYTHON not in dependencies:
             return None, RuntimeRequirementState.REQUIREMENT_MISSING
         required = dependencies["python"]
         if not isinstance(required, str) or not required.strip():

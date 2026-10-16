@@ -29,6 +29,7 @@ from archkeel.ir.facts import (
     Language,
     LocalTarget,
     ResolutionInput,
+    ResolutionRole,
     SourceFacts,
     SourceInfo,
     SourceSectionName,
@@ -194,12 +195,12 @@ def _raw_evidence(item: Evidence) -> RawEvidence:
 
 
 def _inputs(root: Path, selected: tuple[Path, ...]) -> tuple[tuple[ResolutionInput, ...], str]:
-    paths: dict[str, tuple[Path, Literal["selected", "resolution"]]] = {
-        path.relative_to(root).as_posix(): (path, "selected") for path in selected
+    paths: dict[str, tuple[Path, ResolutionRole]] = {
+        path.relative_to(root).as_posix(): (path, ResolutionRole.SELECTED) for path in selected
     }
     config = root / "pyproject.toml"
     if config.is_file() and config.resolve().is_relative_to(root):
-        paths["pyproject.toml"] = (config, "resolution")
+        paths["pyproject.toml"] = (config, ResolutionRole.RESOLUTION)
     inputs: list[ResolutionInput] = []
     source = hashlib.sha256()
     for rel_path, (path, role) in sorted(paths.items()):
