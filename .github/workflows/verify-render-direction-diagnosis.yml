@@ -1,0 +1,35 @@
+name: Diagnose exact render direction fixture regression
+on:
+  push:
+    branches: [verify/542-render-direction-diagnosis]
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: c7444205d4fe87eaae0de5e2dc98b70909fd1cc7
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Print actual diagnostics before changing fixture or policy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path=Path("tests/test_target_navigation_graph.py")
+          source=path.read_text()
+          line='    assert encoded is not None and result.observation_complete == "PASS" and not result.diagnostics'
+          assert source.count(line)==1
+          source=source.replace(line,'    print("RENDER_DIAG="+json.dumps({"complete":result.observation_complete,"diagnostics":[repr(item) for item in result.diagnostics]},separators=(",",":")))\n'+line)
+          path.write_text(source)
+          PY
+          set +e
+          uv run --locked python -m pytest -q -s tests/test_target_navigation_graph.py::test_own_render_contract_enforces_output_direction
+          task_status=$?
+          test "$task_status" -eq 1
