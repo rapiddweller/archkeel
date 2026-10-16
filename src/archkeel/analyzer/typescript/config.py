@@ -17,7 +17,13 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Final, Literal
+from typing import Final
+
+
+from archkeel.ir.facts import ResolutionRole
+
+from .source_input import FileSuffix, SourceKind, SpecifierKind, classify_file, classify_specifier, split_file
+from .source_input import PathToken as PathToken
 
 
 class ModuleKind(Enum):
@@ -69,36 +75,13 @@ class ScriptTarget(Enum):
     ESNEXT = "esnext"
 
 
-class PathToken(Enum):
-    """Closed path/glob grammar, distinct from user-supplied path names."""
-
-    CURRENT = "."
-    PARENT = ".."
-    ROOT = "/"
-    RELATIVE = "./"
-    STAR = "*"
-    DEEP_STAR = "**"
-    QUESTION = "?"
-    NODE_MODULES = "node_modules"
-
-    @staticmethod
-    def parse(value: str) -> PathToken | None:
-        return _PATH_TOKENS.get(value)
-
-
 class _WildcardUsage(Enum):
     FILES = "files"
     DIRECTORIES = "directories"
     EXCLUDE = "exclude"
 
 
-class _ShadowKind(Enum):
-    DECLARATION = ".d.ts"
-    JAVASCRIPT = ".js"
-    JSX = ".jsx"
-
-
-Role = Literal["selected", "resolution"]
+Role = ResolutionRole
 Json = dict[str, object]
 
 OUTSIDE: Final = "Resolver input outside snapshot"
@@ -114,14 +97,12 @@ _UNMODELED: Final = (
     "allowArbitraryExtensions",
     "noDtsResolution",
 )
-_PATH_TOKENS: Final[dict[str, PathToken]] = {member.value: member for member in PathToken}
 _MODULE_VALUES: Final[dict[str, ModuleKind]] = {member.value: member for member in ModuleKind}
 _RESOLUTION_VALUES: Final[dict[str, ModuleResolution]] = {
     **{member.value: member for member in ModuleResolution},
     "node": ModuleResolution.NODE10,
 }
 _TARGET_VALUES: Final[dict[str, ScriptTarget]] = {member.value: member for member in ScriptTarget}
-_SHADOW_KINDS: Final[dict[str, _ShadowKind]] = {member.value: member for member in _ShadowKind}
 _ENUMS: Final[dict[str, dict[str, Enum]]] = {
     "module": dict(_MODULE_VALUES),
     "moduleResolution": dict(_RESOLUTION_VALUES),
@@ -162,14 +143,6 @@ _ESM_MODULES: Final = frozenset(
     {ModuleKind.ES6, ModuleKind.ES2015, ModuleKind.ES2020, ModuleKind.ES2022, ModuleKind.ESNEXT}
 )
 _NODE16_MODULES: Final = frozenset({ModuleKind.NODE16, ModuleKind.NODE18, ModuleKind.NODE20})
-_SUPPORTED: Final = (".ts", ".tsx", ".d.ts", ".cts", ".d.cts", ".mts", ".d.mts")
-_SUPPORTED_JS: Final = (".js", ".jsx", ".cjs", ".mjs")
-# Files of one group shadow each other: `a.ts` wins over `a.tsx`, `a.d.ts`, `a.js` and `a.jsx`.
-_PRIORITY: Final = (
-    (".ts", ".tsx", ".d.ts", ".js", ".jsx"),
-    (".cts", ".d.cts", ".cjs"),
-    (".mts", ".d.mts", ".mjs"),
-)
 # A string is captured so that a comment or a comma inside it survives.
 _CONFIG_DIRECTORY: Final = "${configDir}"
 _STRINGS: Final = r'("(?:[^"\\]|\\.)*")|//[^\n]*|/\*[\s\S]*?\*/'
@@ -260,7 +233,7 @@ def join(base: str, path: str) -> str:
 
 
 def is_outside(rel: str) -> bool:
-    return PathToken.parse(rel) is PathToken.PARENT or rel.startswith("../")
+    return classify_specifier(rel).kind in (SpecifierKind.PARENT, SpecifierKind.PARENT_PATH)
 
 
 def within(scope: str, path: str) -> bool:
@@ -276,7 +249,7 @@ class Snapshot:
         self.root = os.path.realpath(root)
         # Directories above the root, which the format lookup must also cover.
         self.depth = len(self.root.split(os.sep)) - 1
-        self.inputs: dict[str, tuple[str, Role]] = {}
+        self.inputs: dict[str, tuple[str, ResolutionRole]] = {}
         self.problems: set[str] = set()
 
     def _absolute(self, rel: str) -> str:
@@ -321,12 +294,12 @@ class Snapshot:
         except OSError:
             self.problems.add(f"Unreadable resolver input: {rel}")
             return None
-        role = self.inputs[rel][1] if rel in self.inputs else "resolution"
+        role = ResolutionRole(self.inputs[rel][1]) if rel in self.inputs else ResolutionRole.RESOLUTION
         self.inputs[rel] = (hashlib.sha256(raw).hexdigest(), role)
         return raw
 
     def select(self, rel: str) -> None:
-        self.inputs[rel] = (self.inputs[rel][0], "selected")
+        self.inputs[rel] = (self.inputs[rel][0], ResolutionRole.SELECTED)
 
     def entries(self, rel: str) -> tuple[list[str], list[str]]:
         """Sorted file and directory names; symlinks are followed only inside the snapshot."""
@@ -420,11 +393,11 @@ def _under(value: str, directory: str, final: str) -> str:
 def _extended(snapshot: Snapshot, entry: str, directory: str, problems: list[str]) -> str | None:
     """The TSConfig file an `extends` entry names; a package is not looked up."""
     named = _slashes(entry)
-    if not named.startswith(("./", "../")):
+    if not classify_specifier(named).relative_path:
         problems.append(f"TSConfig extends through a package is not observed: {named}")
         return None
     path: str = join(directory, named)
-    if not snapshot.is_file(path) and not path.endswith(".json"):
+    if not snapshot.is_file(path) and classify_file(path) is not FileSuffix.JSON:
         path = f"{path}.json"
     if snapshot.is_file(path):
         return path
@@ -644,12 +617,16 @@ def _matching(specs: list[str], base: str, usage: _WildcardUsage) -> list[str]:
 
 
 def _supported(path: str, options: Options) -> bool:
-    return path.endswith(_SUPPORTED + (_SUPPORTED_JS if options.allow_js else ()))
+    suffix = classify_file(path)
+    return suffix is not None and suffix.source_kind in (
+        SourceKind.TYPESCRIPT, SourceKind.DECLARATION,
+        *((SourceKind.JAVASCRIPT,) if options.allow_js else ()),
+    )
 
 
 def _base_path(spec: str) -> str:
     """The directory a spec's walk starts from: everything before its first wildcard."""
-    path: str = "/" + spec if not spec.startswith("/") else spec
+    path: str = spec if posixpath.isabs(spec) else "/" + spec
     found = re.search(r"[*?]", path)
     if found is None:
         return (
@@ -677,7 +654,7 @@ def _discover(
     )
     exclude = [spec for spec in exclude if not is_outside(spec)]
     for spec in include or []:
-        if spec.rstrip("/").endswith("**"):
+        if PathToken.parse(spec.rstrip("/")[-2:]) is PathToken.DEEP_STAR:
             problems.append(f"Compiler option 5010: '{spec}' cannot end in a recursive wildcard.")
     # A pattern that climbs out of the snapshot can select nothing the collector may read.
     inside = [spec for spec in include or [] if not is_outside(spec)]
@@ -720,21 +697,16 @@ def _is_excluded(patterns: list[str], path: str) -> bool:
 
 def _shadowed(rel: str, known: set[str]) -> bool:
     """A file loses to a sibling with the same stem and a higher-priority extension."""
-    for group in _PRIORITY:
-        own = next((ext for ext in sorted(group, key=len, reverse=True) if rel.endswith(ext)), None)
-        if own is None:
-            continue
-        stem = rel[: -len(own)]
-        # A JavaScript file is kept next to its declaration file.
-        return any(
-            f"{stem}{ext}" in known
-            and not (
-                _SHADOW_KINDS.get(ext) is _ShadowKind.DECLARATION
-                and _SHADOW_KINDS.get(own) in (_ShadowKind.JAVASCRIPT, _ShadowKind.JSX)
-            )
-            for ext in group[: group.index(own)]
-        )
-    return False
+    parts = split_file(rel)
+    if parts is None:
+        return False
+    suffix = parts.suffix
+    group = suffix.priority
+    return any(
+        f"{parts.stem}{extension}" in known
+        and not (extension is FileSuffix.DTS and suffix in (FileSuffix.JS, FileSuffix.JSX))
+        for extension in group[:group.index(suffix)]
+    ) if group else False
 
 
 def load_config(snapshot: Snapshot, tsconfig: str, roots: tuple[str, ...]) -> Config:

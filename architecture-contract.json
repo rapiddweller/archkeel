@@ -811,9 +811,10 @@
         "archkeel.analyzer.dart.snapshot",
         "archkeel.analyzer.dart.collect",
         "archkeel.ir.diagnostics",
-        "archkeel.render.summary_badges"
+        "archkeel.render.summary_badges",
+        "archkeel.analyzer.typescript.source_input"
       ],
-      "rationale": "Closed vocabularies belong to their domain and wire boundaries. State and source facts own shared controls; codecs own private tags; contract_version owns versions and feature availability. Python binding and receiver models own lexical controls. TypeScript and Dart syntax ports own parser DTO controls, while collectors own private states. Consumers use the published nominal types.",
+      "rationale": "Closed vocabularies belong to their domain and wire boundaries. State and source facts own shared controls; codecs own private tags; contract_version owns versions and feature availability. Python binding and receiver models own lexical controls. TypeScript and Dart syntax ports own parser DTO controls, while collectors own private states. Consumers use the published nominal types. TypeScript source_input owns shared filename/specifier grammar and source/format metadata.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],

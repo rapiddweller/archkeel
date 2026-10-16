@@ -15,43 +15,22 @@ import posixpath
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Final, TypeAlias
+from typing import TypeAlias
 
 from .config import (
     Config,
     Json,
     ModuleResolution,
     Options,
-    PathToken,
     Snapshot,
     decode,
     has_field,
     join,
 )
 
-
-class ModuleFormat(Enum):
-    """The loading format passed between resolution and collection."""
-
-    ESM = "esm"
-    CJS = "cjs"
-
-
-class SourceKind(Enum):
-    """The source categories enabled for one resolution pass."""
-
-    TYPESCRIPT = "ts"
-    DECLARATION = "dts"
-    JAVASCRIPT = "js"
-    JSON = "json"
-
-
-class _ExtensionFamily(Enum):
-    ESM = "esm"
-    CJS = "cjs"
-    JSX = "jsx"
-    JSON = "json"
-    PLAIN = "plain"
+from .source_input import FileSuffix, PathToken, SpecifierKind, classify_file, classify_specifier, split_file
+from .source_input import ModuleFormat as ModuleFormat
+from .source_input import SourceKind as SourceKind
 
 
 class _PackageType(Enum):
@@ -81,70 +60,6 @@ def _package_type(manifest: Json) -> _PackageType | None:
         return None
 
 
-# `module.builtinModules` of Node 22, plus the names that exist only with the `node:` prefix.
-_BUILTINS: Final = frozenset(
-    "_http_agent _http_client _http_common _http_incoming _http_outgoing _http_server "
-    "_stream_duplex _stream_passthrough _stream_readable _stream_transform _stream_wrap "
-    "_stream_writable _tls_common _tls_wrap assert assert/strict async_hooks buffer "
-    "child_process cluster console constants crypto dgram diagnostics_channel dns "
-    "dns/promises domain events fs fs/promises http http2 https inspector inspector/promises "
-    "module net os path path/posix path/win32 perf_hooks process punycode querystring readline "
-    "readline/promises repl stream stream/consumers stream/promises stream/web string_decoder "
-    "sys timers timers/promises tls trace_events tty url util util/types v8 vm wasi "
-    "worker_threads zlib".split()
-)
-_SCHEME_ONLY: Final = frozenset({"sea", "sqlite", "test", "test/reporters"})
-# The compiler removes the first of these that ends a path before it adds its own extension.
-_KNOWN_EXTENSIONS: Final = (
-    ".d.ts",
-    ".d.mts",
-    ".d.cts",
-    ".mjs",
-    ".mts",
-    ".cjs",
-    ".cts",
-    ".ts",
-    ".js",
-    ".tsx",
-    ".jsx",
-    ".json",
-)
-_ESM_EXTENSIONS: Final = (".mts", ".mjs", ".d.mts")
-_CJS_EXTENSIONS: Final = (".cts", ".cjs", ".d.cts")
-_SCOPE_FORMATS: Final = (".ts", ".tsx", ".js", ".jsx", ".d.ts")
-_RELATIVE: Final = re.compile(r"\.\.?(?:/|\Z)")
-_KIND_OF: Final = {
-    ".d.ts": SourceKind.DECLARATION,
-    ".d.mts": SourceKind.DECLARATION,
-    ".d.cts": SourceKind.DECLARATION,
-    ".ts": SourceKind.TYPESCRIPT,
-    ".tsx": SourceKind.TYPESCRIPT,
-    ".mts": SourceKind.TYPESCRIPT,
-    ".cts": SourceKind.TYPESCRIPT,
-    ".js": SourceKind.JAVASCRIPT,
-    ".jsx": SourceKind.JAVASCRIPT,
-    ".mjs": SourceKind.JAVASCRIPT,
-    ".cjs": SourceKind.JAVASCRIPT,
-}
-
-
-_FAMILY_OF: Final = {
-    ".mjs": _ExtensionFamily.ESM,
-    ".mts": _ExtensionFamily.ESM,
-    ".d.mts": _ExtensionFamily.ESM,
-    ".cjs": _ExtensionFamily.CJS,
-    ".cts": _ExtensionFamily.CJS,
-    ".d.cts": _ExtensionFamily.CJS,
-    ".tsx": _ExtensionFamily.JSX,
-    ".jsx": _ExtensionFamily.JSX,
-    ".json": _ExtensionFamily.JSON,
-    ".ts": _ExtensionFamily.PLAIN,
-    ".d.ts": _ExtensionFamily.PLAIN,
-    ".js": _ExtensionFamily.PLAIN,
-    "": _ExtensionFamily.PLAIN,
-}
-
-
 @dataclass(frozen=True, slots=True)
 class Unknown:
     reason: str
@@ -160,19 +75,15 @@ class Found:
 
 
 def is_builtin(specifier: str) -> bool:
-    name = specifier.removeprefix("node:")
-    if specifier.startswith("node:"):
-        return name in _BUILTINS or name in _SCHEME_ONLY
-    return name in _BUILTINS
+    return classify_specifier(specifier).builtin
 
 
 def is_relative(specifier: str) -> bool:
-    return _RELATIVE.match(specifier) is not None
+    return classify_specifier(specifier).relative
 
 
 def package_name(specifier: str) -> str:
-    parts = specifier.split("/")
-    return "/".join(parts[:2]) if specifier.startswith("@") else parts[0]
+    return classify_specifier(specifier).package
 
 
 def _declares_exports(manifest: Json) -> bool:
@@ -198,54 +109,18 @@ def _best_pattern(
 
 
 def _typed_name(specifier: str) -> str:
-    """The DefinitelyTyped directory of a package: `@scope/name` is stored as `scope__name`."""
-    parts = specifier.split("/")
-    if specifier.startswith("@") and len(parts) > 1:
-        return specifier.replace("/", "__", 1)[1:]
-    return specifier
-
-
-def _strip_extension(candidate: str) -> tuple[str, str] | None:
-    """Split a name into stem and extension the way the compiler does; None without a dot."""
-    if re.search(r"\.", posixpath.basename(candidate)) is None:
-        return None
-    known = next((ext for ext in _KNOWN_EXTENSIONS if candidate.endswith(ext)), None)
-    stem = candidate[: -len(known)] if known else candidate[: candidate.rindex(".")]
-    return stem, candidate[len(stem) :]
-
-
-def _extensions(original: str, kinds: Kinds) -> list[str]:
-    """The extensions tried after `original`, in the compiler's order, for the enabled kinds."""
-    ts, dts, js = (
-        SourceKind.TYPESCRIPT in kinds,
-        SourceKind.DECLARATION in kinds,
-        SourceKind.JAVASCRIPT in kinds,
-    )
-    family = _FAMILY_OF.get(original)
-    if family is _ExtensionFamily.ESM:
-        groups = [(ts, ".mts"), (dts, ".d.mts"), (js, ".mjs")]
-    elif family is _ExtensionFamily.CJS:
-        groups = [(ts, ".cts"), (dts, ".d.cts"), (js, ".cjs")]
-    elif family is _ExtensionFamily.JSX:
-        groups = [(ts, ".tsx"), (ts, ".ts"), (dts, ".d.ts"), (js, ".jsx"), (js, ".js")]
-    elif family is _ExtensionFamily.JSON:
-        groups = [(dts, ".d.json.ts"), (SourceKind.JSON in kinds, ".json")]
-    elif family is _ExtensionFamily.PLAIN:
-        groups = [(ts, ".ts"), (ts, ".tsx"), (dts, ".d.ts"), (js, ".js"), (js, ".jsx")]
-    else:
-        groups = []
-    return [extension for enabled, extension in groups if enabled]
+    """The DefinitelyTyped name, decoded at the same boundary as package identity."""
+    return classify_specifier(specifier).typed_name
 
 
 def _file_paths(candidate: str, esm: bool, kinds: Kinds) -> list[str]:
-    """Files a name may stand for: its extension swapped (`./a.js` for `a.ts`), then appended."""
+    """Swap a known suffix, then append permitted suffixes when inference is allowed."""
     paths: list[str] = []
-    split = _strip_extension(candidate)
-    if split is not None:
-        paths.extend(f"{split[0]}{extension}" for extension in _extensions(split[1], kinds))
-    # ECMAScript modules never infer an extension.
+    parts = split_file(candidate)
+    if parts is not None:
+        paths.extend(f"{parts.stem}{suffix}" for suffix in parts.suffix.replacements(kinds))
     if not esm:
-        paths.extend(f"{candidate}{extension}" for extension in _extensions("", kinds))
+        paths.extend(f"{candidate}{suffix}" for suffix in FileSuffix.NONE.replacements(kinds))
     return paths
 
 
@@ -323,12 +198,9 @@ class Resolver:
         """Whether Node loads a file as ESM or CommonJS; None where no format is defined."""
         if self.options.resolution not in (ModuleResolution.NODE16, ModuleResolution.NODENEXT):
             return None
-        if rel.endswith(_ESM_EXTENSIONS):
-            return ModuleFormat.ESM
-        if rel.endswith(_CJS_EXTENSIONS):
-            return ModuleFormat.CJS
-        if not rel.endswith(_SCOPE_FORMATS):
-            return None
+        suffix = classify_file(rel)
+        if suffix is None or not suffix.scoped_format:
+            return None if suffix is None else suffix.format_hint
         manifest = self.scope(rel)
         if isinstance(manifest, Unknown):
             return manifest
@@ -350,6 +222,7 @@ class Resolver:
         self._reads = set()
         if mode is not None and not isinstance(mode, ModuleFormat):
             raise TypeError("mode must be ModuleFormat or None")
+        source = classify_specifier(specifier)
         esm = mode is ModuleFormat.ESM
         node10 = self.options.resolution is ModuleResolution.NODE10
         # Under Node10 the compiler looks for TypeScript everywhere before it looks for JavaScript.
@@ -360,10 +233,10 @@ class Resolver:
             if node10
             else ((SourceKind.TYPESCRIPT, SourceKind.DECLARATION, *last),)
         )
-        if is_relative(specifier):
+        if source.relative:
             candidate = join(posixpath.dirname(importer) or ".", specifier)
             for kinds in passes:
-                found = self._by_name(candidate, specifier.endswith("/"), esm, kinds, True)
+                found = self._by_name(candidate, source.directory_only, esm, kinds, True)
                 if found is not None:
                     return self._found(found, False, candidate)
             return None
@@ -377,13 +250,13 @@ class Resolver:
                 prefer_builtin
                 and mode is not None
                 and self.options.resolution in (ModuleResolution.NODE16, ModuleResolution.NODENEXT)
-                and is_builtin(specifier)
+                and source.builtin
             ):
                 return None
             # The project's own names come first, then `imports`, then the package itself.
-            if self._exports_aware and specifier.startswith("#"):
+            if self._exports_aware and source.kind is SpecifierKind.IMPORTS:
                 return Unknown(f"Package imports are not observed: {specifier}")
-            if self._exports_aware and self._self_reference(importer, package_name(specifier)):
+            if self._exports_aware and self._self_reference(importer, source.package):
                 return Unknown(f"Package self-reference is not observed: {specifier}")
             for directory in _ancestors(importer):
                 found = self._modules(directory, specifier, esm, kinds)
@@ -404,7 +277,7 @@ class Resolver:
                     self.options.paths_base, target.replace("*", star, 1) if star else target
                 )
                 # A target that names its extension is a file, not a name to complete.
-                if target.endswith(_KNOWN_EXTENSIONS) and self.snapshot.is_file(candidate):
+                if classify_file(target) not in (None, FileSuffix.NONE) and self.snapshot.is_file(candidate):
                     return candidate
                 found = self._by_name(candidate, False, esm, kinds, True)
                 if found is not None:
@@ -514,8 +387,8 @@ class Resolver:
         package_dir = join(modules, name)
         candidate = join(package_dir, target[2:])
         # Only a recognized TS declaration/source target names its exact source file.
-        extension = _strip_extension(target)
-        if extension is not None and _KIND_OF.get(extension[1]) in {
+        suffix = classify_file(target)
+        if suffix is not None and suffix.source_kind in {
             SourceKind.TYPESCRIPT,
             SourceKind.DECLARATION,
         }:
@@ -578,8 +451,8 @@ class Resolver:
         )
         if named is not None:
             target = join(directory, named)
-            extension = next((ext for ext in _KNOWN_EXTENSIONS if target.endswith(ext)), "")
-            if _KIND_OF.get(extension) in kinds and self.snapshot.is_file(target):
+            suffix = classify_file(target)
+            if suffix is not None and suffix.source_kind in kinds and self.snapshot.is_file(target):
                 return target
             # A package that is not itself ECMAScript may name a file without its extension.
             strict = esm and _package_type(fields) is _PackageType.MODULE
