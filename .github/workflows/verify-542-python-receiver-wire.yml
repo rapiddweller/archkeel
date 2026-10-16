@@ -1,0 +1,77 @@
+name: Verify receiver call wire parity
+on:
+  push:
+    branches: [verify/542-python-receiver-wire]
+permissions:
+  contents: read
+jobs:
+  wire-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Compare actual complete call payload bytes from base and candidate
+        run: |
+          uv run --locked python - <<'PY'
+          import hashlib
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+          folder = Path(os.environ["RUNNER_TEMP"])
+          base = folder / "receiver-base"
+          subprocess.run(["git", "worktree", "add", "--detach", str(base), "6fba15000baaeff6a274058291654b7301f2077a"], check=True)
+          script = folder / "receiver_wire_probe.py"
+          script.write_text(r'''
+          import ast
+          import json
+          import sys
+          from pathlib import Path
+          from archkeel.analyzer.python import receiver_types
+          from archkeel.analyzer.python.calls import collect_calls
+          from archkeel.analyzer.python.imports import collect_imports
+          from archkeel.analyzer.python.resolve import build_symbol_index
+          from archkeel.analyzer.python.source import ParsedModule
+          from archkeel.analyzer.python.symbols import collect_symbols
+          assert Path(receiver_types.__file__).is_relative_to(Path(sys.argv[1]))
+          scenarios = [
+              "from pathlib import Path\n"
+              "def use(annotated: list[str]):\n"
+              "    literal = []\n    documented = Path('data')\n"
+              "    literal.append('data')\n    annotated.append('data')\n"
+              "    documented.read_text()\n",
+              "def use():\n    items = []\n    items = {}\n    items.append(1)\n",
+              "def use(list):\n    items = list()\n    items.append(1)\n",
+              "def use():\n    items = []\n    for items in (): pass\n    items.append(1)\n",
+              "from pathlib import Path\n"
+              "def use(Path):\n    value = Path('data')\n    value.read_text()\n",
+          ]
+          result = []
+          for source in scenarios:
+              module = ParsedModule(
+                  path=Path("sample/core.py"), rel_path="sample/core.py",
+                  module="sample.core", package="sample", source=source,
+                  source_bytes=source.encode(), lines=source.splitlines(), tree=ast.parse(source),
+              )
+              symbols, _, _ = collect_symbols([module], {})
+              collect_imports([module], set(), {}, namespace="sample")
+              result.append(collect_calls([module], build_symbol_index(symbols), {}))
+          Path(sys.argv[2]).write_bytes(json.dumps(result, sort_keys=True, separators=(",", ":")).encode())
+          print(json.dumps({"scenarios": len(result), "calls": sum(map(len, result))}))
+          ''')
+          before = folder / "receiver-before.json"
+          after = folder / "receiver-after.json"
+          for root, output in ((base, before), (Path.cwd(), after)):
+              environment = dict(os.environ, PYTHONPATH=str(root / "src"))
+              subprocess.run([sys.executable, str(script), str(root), str(output)], env=environment, check=True)
+          assert before.read_bytes() == after.read_bytes(), "receiver migration changed call wire payload bytes"
+          print("CALL_WIRE_PARITY=" + str({"bytes": len(after.read_bytes()), "sha256": hashlib.sha256(after.read_bytes()).hexdigest(), "identical": True}))
+          PY
