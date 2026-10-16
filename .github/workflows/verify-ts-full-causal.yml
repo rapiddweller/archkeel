@@ -1,0 +1,27 @@
+name: Diagnose exact TypeScript full-suite failures without changing expectations
+on:
+  push:
+    branches: [verify/542-ts-full-causal-diagnostics]
+permissions:
+  contents: read
+jobs:
+  causal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include: [{"name":"before-ts-constructs","ref":"fa37f59600cfae64ba0528cb56e609c6bbd756e4"},{"name":"ts-constructs-profile-fixed","ref":"ccd28126663a6ed11891d6d512b4f95c263c8ddc"},{"name":"root-with-existing-corrections","ref":"c7444205d4fe87eaae0de5e2dc98b70909fd1cc7"}]
+    name: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ matrix.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Run unchanged actual failing cases on each precise source
+        run: uv run --locked python -m pytest -q 'tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings[class-a-boundary-types-opaque-map-values]' 'tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings[class-a-boundary-types-opaque-map-values-missing]' 'tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings[class-a-boundary-types-opaque-map-values-unknown]' 'tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings[class-a-boundary-types-native-map-list-values]' 'tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings[class-a-boundary-types-native-map-list-values-missing]' 'tests/test_boundary_type_opaque_map_values.py::test_catalog_raw_map_decisions_retain_exact_cli_evidence[class-a-boundary-types-opaque-map-values-0-UNKNOWN]' 'tests/test_boundary_type_opaque_map_values.py::test_catalog_raw_map_decisions_retain_exact_cli_evidence[class-a-boundary-types-opaque-map-values-unknown-0-UNKNOWN]' 'tests/test_member_inventory.py::test_member_inventory_schema_is_generated_from_the_source_dataclass' 'tests/test_member_inventory.py::test_python_profile_embeds_the_generated_member_schema_for_existing_consumers' 'tests/test_references.py::test_the_claim_stays_small_enough_to_read' 'tests/test_self.py::test_self_analyzer_inside_covers_its_modules'
