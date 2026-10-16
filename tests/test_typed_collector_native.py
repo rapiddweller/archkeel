@@ -91,6 +91,24 @@ def _collector_contract(module):
                     },
                     {
                         **intent,
+                        "id": "error",
+                        "kind": "class",
+                        "qualified_name": "archkeel.ir.protocol.CollectionError",
+                        "parent_id": "module",
+                        "responsibilities": ["Carry typed local collector failures."],
+                    },
+                    {
+                        **intent,
+                        "id": "error-kind",
+                        "kind": "attribute",
+                        "qualified_name": "archkeel.ir.protocol.CollectionError.kind",
+                        "parent_id": "error",
+                        "annotation": "CollectionErrorKind",
+                        "responsibilities": ["Classify failures through the owned protocol enum."],
+                        "visibility": {"kind": "public", "basis": "declared"},
+                    },
+                    {
+                        **intent,
                         "id": "request",
                         "kind": "class",
                         "qualified_name": "archkeel.ir.protocol.CollectionRequest",
@@ -118,7 +136,7 @@ def _collector_contract(module):
 
 
 def _collector_repository(
-    tmp_path, module="facts_codec", probe="", *, weaken_version=False, weaken_language=False
+    tmp_path, module="facts_codec", probe="", *, weaken_version=False, weaken_language=False, weaken_error=False
 ):
     files = {"archkeel/__init__.py": "", "archkeel/ir/__init__.py": ""}
     for name in (*MODULES, "state_facts"):
@@ -129,6 +147,8 @@ def _collector_repository(
             text = text.replace("protocol_version: ProtocolVersion", "protocol_version: str")
         if name == "protocol" and weaken_language:
             text = text.replace("language: Literal[Language.PYTHON]", "language: str")
+        if name == "protocol" and weaken_error:
+            text = text.replace("kind: CollectionErrorKind", "kind: str")
         files[f"archkeel/ir/{name}.py"] = text
     parse_contract(_collector_contract(module))
     for runtime in RUNTIMES:
@@ -192,6 +212,17 @@ def test_native_protocol_version_type_weakening_fails_fixed_authored_target(tmp_
 
 def test_native_resolver_language_type_weakening_fails_fixed_authored_target(tmp_path):
     root, config = _collector_repository(tmp_path, module="protocol", weaken_language=True)
+    before = (root / "contract.json").read_bytes()
+    model = _model(root, config)
+    assert any(
+        row.kind == "uml_conformance" and row.data.get("aspect") == "annotation"
+        for row in trace_valid_violations(model)
+    )
+    assert (root / "contract.json").read_bytes() == before
+
+
+def test_native_collector_error_type_weakening_fails_fixed_authored_target(tmp_path):
+    root, config = _collector_repository(tmp_path, module="protocol", weaken_error=True)
     before = (root / "contract.json").read_bytes()
     model = _model(root, config)
     assert any(

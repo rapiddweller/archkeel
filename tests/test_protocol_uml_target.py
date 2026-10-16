@@ -158,4 +158,4 @@ def test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes(
     assert detail_positions[0].data.get("nested_annotation") == "RuleVerdict"
     assert detail_positions[0].data.get("reason") == "other"
     baseline = json.loads((ROOT / "architecture-baseline.json").read_text())
-    assert baseline["budgets"]["unknown_positions"] == 65
+    assert baseline["budgets"]["unknown_positions"] == 59
