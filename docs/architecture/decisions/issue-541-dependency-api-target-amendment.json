@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "c7345d5fbcfd8083fe3a618d23a806dea1eee1c1083aa3e163d59b5e260fa2ed",
+  "after_digest": "d0a70f76e13c807671e2ad56d907d43696795bfdfbecd645ff40d3174c6d0269",
+  "before_baseline_digest": "c7345d5fbcfd8083fe3a618d23a806dea1eee1c1083aa3e163d59b5e260fa2ed",
+  "before_digest": "0f4563402250d5727a25922bb084872355b3de9c65bdba9da1277b75e5cd2a7f",
+  "decided_by": "ake2l (requested enforceable typed APIs); Codex implementation, independent Astra review before merge",
+  "rationale": "Issue #541 adds 34 independently authored dependency API Target entities and a narrow native boundary_types rule for the shared dependency-policy module. Enum kinds, closed mode fields, selector/selection methods, legacy wrapper parameters and return types, and record conversion are explicit intent. Actual source mutation controls reject type widening and undeclared helper imports. This strengthens the intended contract; the fail-closed classifier cannot enumerate UML declaration changes. No publication, permission, baseline entry, measurement ceiling, wildcard exception or accepted debt is widened. docs/architecture/dependency-selector-target.md records the guarantee and limits.",
+  "schema_version": "2.0.0"
+}

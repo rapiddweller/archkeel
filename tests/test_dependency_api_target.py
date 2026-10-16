@@ -33,7 +33,10 @@ def _source_members(path, names):
             ]
         )
         for node in tree.body
-        if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in names
+        if (
+            isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in names
+            or isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id in names
+        )
     )
 
 
@@ -81,13 +84,15 @@ def _dependency_repository(
     """Observe real Python declarations in a disposable archkeel-named repository."""
     dependency = (ROOT / "src/archkeel/ir/dependency.py").read_text()
     model = (
-        "from dataclasses import dataclass\nfrom typing import Literal\n"
+        "from dataclasses import dataclass\nfrom typing import Literal, TypeAlias\n"
         "from .dependency import (ComponentOwnership, DependencySelection, DependencySelector, "
         "DependencyTargetKind, SelectorMatch)\n\n"
         + _source_members(
             "src/archkeel/ir/model.py",
             {
                 "ForbiddenDependencyRule",
+                "PackageComponentOwnership",
+                "ComponentOwnershipInput",
                 "declared_package_pair",
                 "forbidden_dependency_scopes",
             },
@@ -124,6 +129,35 @@ def _comparison(model):
     return comparison
 
 
+def _assert_dependency_boundary_positions(model, rule_id):
+    boundary = next(
+        row for row in rule_assessments(model, undecided_by_rule={}) if row.id == rule_id
+    )
+    assert boundary.status == "PASS" and boundary.evaluation_proven, boundary
+    receipt = next(
+        row for row in model.records("scope_observations")
+        if row.kind == "rule_evaluation" and row.rule_ids == (rule_id,)
+    )
+    for method in ("component_pair", "select"):
+        name = f"archkeel.ir.dependency.DependencySelector.{method}"
+        symbol = next(
+            row for row in model.records("symbols") if row.data.get("qualified_name") == name
+        )
+        parameter = next(
+            row for row in symbol.data.get("parameters") if row.get("name") == "components"
+        )
+        assert parameter.get("annotation") == "tuple[ComponentOwnership, ...]"
+        assert symbol.id in receipt.fact_ids, (name, receipt)
+        assert not [
+            row for row in model.records("unknowns")
+            if row.data.get("qualified_name") == name and row.data.get("position") == "components"
+        ]
+
+
+def test_own_native_dependency_boundary_covers_both_ownership_parameters(self_observation):
+    _assert_dependency_boundary_positions(self_observation, "ir:TARGET-DEPENDENCY-BOUNDARY-TYPES")
+
+
 def test_native_dependency_api_matches_the_independent_target(tmp_path):
     root, config = _dependency_repository(tmp_path)
     model = _model(root, config)
@@ -150,12 +184,7 @@ def test_native_dependency_api_matches_the_independent_target(tmp_path):
             row.subject_id == entity["id"] and row.aspect == aspect and row.status == "PASS"
             for row in comparison.assessments
         ), (name, aspect, comparison)
-    boundary = next(
-        row
-        for row in rule_assessments(model, undecided_by_rule={})
-        if row.id == "TARGET-DEPENDENCY-BOUNDARY-TYPES"
-    )
-    assert boundary.status == "PASS", boundary
+    _assert_dependency_boundary_positions(model, "TARGET-DEPENDENCY-BOUNDARY-TYPES")
     assert not trace_valid_violations(model)
 
 
