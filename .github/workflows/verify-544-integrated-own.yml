@@ -1,0 +1,49 @@
+name: Verify module-object grant own baseline
+on:
+  push:
+    branches: [verify/544-integrated-own]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Unchanged native own baseline
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > own-validation.json
+          native_exit=$?
+          python - <<'PY'
+          import pathlib
+          print(pathlib.Path("own-validation.json").read_text())
+          PY
+          exit "$native_exit"
+      - name: Bind exact independent Target amendment
+        if: always()
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 61404f1cf9e8579929119be093c3676075754661 --amendment docs/architecture/decisions/issue-544-module-object-grants-amendment.json --write-amendment --decided-by 'ake2l (requested caller-scoped module-object permissions); Codex implementation, independent Astra review before merge' --rationale 'Issue 544 adds exact caller-scoped module-object grant grammar in schema 3.6 and eight independently authored typed API entities to the own IR Target. Own contracts introduce no grant, exception or publication; the existing public inventory and all baseline ceilings remain unchanged.' --json > own-against.json
+          against_exit=$?
+          python - <<'PY'
+          import pathlib
+          print(pathlib.Path("own-against.json").read_text())
+          PY
+          exit "$against_exit"
+      - name: Export amendment
+        if: always()
+        run: |
+          python - <<'PY'
+          import pathlib,base64
+          path=pathlib.Path("docs/architecture/decisions/issue-544-module-object-grants-amendment.json")
+          if path.exists():
+              print("AMENDMENT="+base64.b64encode(path.read_bytes()).decode())
+          PY
