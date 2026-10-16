@@ -50,15 +50,20 @@ class Profile:
     # A section the profile never produces is null in the observation, so a claim built on it
     # reads UNKNOWN (signal missing) instead of "0 candidates".
     absent_sections: frozenset[ObservedSection] = frozenset()
-    # Some profiles publish older observations without these sections and newer observations
-    # with them. Null remains UNKNOWN; an array is a measured section receipt.
-    optional_sections: frozenset[ObservedSection] = frozenset()
+    # Each group's sections are one atomic receipt: all null or all arrays. Different groups
+    # may be measured independently, retaining compatibility with older observations.
+    optional_section_groups: tuple[frozenset[ObservedSection], ...] = ()
     # Top-level import names `complete_external_scope` exempts as the language's own library.
     standard_library: frozenset[str] = frozenset()
     # Library names a `forbidden_dependency` target may name although no scanned module has them.
     sdk_libraries: frozenset[str] = frozenset()
     # Exact caller/target grants may permit Python module-object imports.
     module_object_imports: bool = False
+
+    @property
+    def optional_sections(self) -> frozenset[ObservedSection]:
+        """The existing optional-section API, derived from the owned receipt groups."""
+        return frozenset(section for group in self.optional_section_groups for section in group)
 
 
 PYTHON: Final = Profile(
@@ -139,14 +144,17 @@ TYPESCRIPT: Final = Profile(
             UnmeasurableScalar.UNTYPED_PRIVATE_ACCESSES,
         }
     ),
-    absent_sections=frozenset({ObservedSection.TYPING_SIGNALS, ObservedSection.CONSTRUCTS}),
-    optional_sections=frozenset(
-        {
-            ObservedSection.SYMBOLS,
-            ObservedSection.REFERENCES,
-            ObservedSection.BINDINGS,
-            ObservedSection.CALLS,
-        }
+    absent_sections=frozenset({ObservedSection.TYPING_SIGNALS}),
+    optional_section_groups=(
+        frozenset(
+            {
+                ObservedSection.SYMBOLS,
+                ObservedSection.REFERENCES,
+                ObservedSection.BINDINGS,
+                ObservedSection.CALLS,
+            }
+        ),
+        frozenset({ObservedSection.CONSTRUCTS}),
     ),
 )
 

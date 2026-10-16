@@ -17,10 +17,13 @@ from archkeel.ir.facts import (
     BuiltinTarget,
     Capabilities,
     CollectionCoverage,
+    ConstructCapability,
+    ConstructSupport,
     EvidenceClass,
     ExternalPackageTarget,
     FactSection,
     FileFact,
+    ForbiddenConstructKind,
     ImportTarget,
     Language,
     LocalTarget,
@@ -89,6 +92,7 @@ _SECTIONS: tuple[SourceSectionName, ...] = (
     SourceSectionName.CALLS,
     SourceSectionName.REFERENCES,
     SourceSectionName.BINDINGS,
+    SourceSectionName.CONSTRUCTS,
 )
 _SOURCE: Final = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
 _DECLARATION: Final = (".d.ts", ".d.mts", ".d.cts")
@@ -164,6 +168,7 @@ class _Collection:
             SourceSectionName.CALLS: tuple(parse_record(item) for item in calls),
             SourceSectionName.REFERENCES: tuple(parse_record(item) for item in references),
             SourceSectionName.BINDINGS: tuple(parse_record(item) for item in bindings),
+            SourceSectionName.CONSTRUCTS: self._constructs(),
         }
         return SourceFacts(
             SourceProfile.TYPESCRIPT,
@@ -175,7 +180,15 @@ class _Collection:
                 hashlib.sha256(listing.encode("utf-8")).hexdigest(),
                 tuple(f"{root}/**" if self.snapshot.is_dir(root) else root for root in self.roots),
             ),
-            Capabilities(_SECTIONS, _FEATURES),
+            Capabilities(
+                _SECTIONS,
+                _FEATURES,
+                (
+                    ConstructCapability(
+                        ForbiddenConstructKind.STRING_LITERAL_COMPARE, ConstructSupport.PARTIAL
+                    ),
+                ),
+            ),
             inputs,
             tuple(sorted(self.files, key=lambda item: item.rel_path)),
             tuple(self.targets),
@@ -189,6 +202,36 @@ class _Collection:
             ),
             tuple(parse_evidence(item) for _, item in sorted(self.evidence.items())),
         )
+
+    def _constructs(self) -> tuple[Record, ...]:
+        """Publish witnessed lexical comparisons; this partial inventory cannot prove absence."""
+        kind = ForbiddenConstructKind.STRING_LITERAL_COMPARE
+        records: list[Record] = []
+        for rel, syntax in self.syntax.items():
+            module = self.modules[rel]
+            for comparison in syntax.string_comparisons:
+                owner = f"{module}.{comparison.scope}" if comparison.scope else module
+                records.append(
+                    parse_record(
+                        classified(
+                            item_id=stable_id(
+                                "TSCONSTRUCT",
+                                rel,
+                                comparison.span.line,
+                                comparison.span.column,
+                                kind.value,
+                            ),
+                            evidence_class=EvidenceClass.FACT,
+                            area="constructs",
+                            kind=kind.value,
+                            title=f"{owner} compares a written string literal",
+                            subjects=[owner],
+                            evidence_ids=[self._cite(rel, comparison.span)],
+                            data={"owner": owner, "construct": kind.value},
+                        )
+                    )
+                )
+        return tuple(sorted(records, key=lambda item: item.id))
 
     def _inner_facts(
         self,

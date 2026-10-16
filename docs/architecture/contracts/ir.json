@@ -7023,6 +7023,25 @@
           "provenance": [
             "docs/architecture/collector-wire-vocabulary.md"
           ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-written-string-controls.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-PROFILE-optional_section_groups",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.profiles.Profile.optional_section_groups",
+          "parent_id": "IR-MODULE-OBJECT-Profile",
+          "annotation": "tuple[frozenset[ObservedSection], ...]",
+          "responsibilities": [
+            "Declare independently optional atomic measurement receipts through the owned section vocabulary."
+          ]
         }
       ],
       "relationships": [

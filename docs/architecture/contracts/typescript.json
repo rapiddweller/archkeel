@@ -78,7 +78,8 @@
         "archkeel.analyzer.typescript.syntax:BaseRelationship",
         "archkeel.analyzer.typescript.syntax:SiteKind",
         "archkeel.analyzer.typescript.syntax:SiteUse",
-        "archkeel.analyzer.typescript.syntax:ReceiverKind"
+        "archkeel.analyzer.typescript.syntax:ReceiverKind",
+        "archkeel.analyzer.typescript.syntax:StringComparison"
       ]
     },
     {
@@ -1084,6 +1085,105 @@
           "annotation": "ReceiverKind",
           "responsibilities": [
             "Retain the nominal ReceiverKind domain across the syntax/collection boundary."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-written-string-controls.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-StringComparison",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.StringComparison",
+          "parent_id": "TS-SYNTAX-PORT",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry a source-bound written literal comparison without parser objects or evaluation authority."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-written-string-controls.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Syntax",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Syntax",
+          "parent_id": "TS-SYNTAX-PORT",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable lexical source inventories through the owned parser/collector port."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-written-string-controls.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-StringComparison.span",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.StringComparison.span",
+          "parent_id": "TS-SYNTAX-StringComparison",
+          "annotation": "Span",
+          "responsibilities": [
+            "Cite the participating written literal with the existing source coordinate definition."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-written-string-controls.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-StringComparison.scope",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.StringComparison.scope",
+          "parent_id": "TS-SYNTAX-StringComparison",
+          "annotation": "str | None",
+          "responsibilities": [
+            "Retain the existing named lexical scope as data, or its known absence."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-written-string-controls.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Syntax.string_comparisons",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Syntax.string_comparisons",
+          "parent_id": "TS-SYNTAX-Syntax",
+          "annotation": "tuple[StringComparison, ...]",
+          "responsibilities": [
+            "Publish immutable witnessed written-string occurrences without claiming complete absence."
           ]
         }
       ],

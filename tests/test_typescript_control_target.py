@@ -53,6 +53,9 @@ def _repository(tmp_path, *, changed=None):
             "docs/architecture/typescript-control-types.md": (
                 ROOT / "docs/architecture/typescript-control-types.md"
             ).read_text(),
+            "docs/architecture/typescript-written-string-controls.md": (
+                ROOT / "docs/architecture/typescript-written-string-controls.md"
+            ).read_text(),
             "docs/architecture/typescript-syntax-types.md": (
                 ROOT / "docs/architecture/typescript-syntax-types.md"
             ).read_text(),
@@ -226,6 +229,11 @@ def test_native_parser_and_collector_guards_are_proven_without_exceptions(tmp_pa
         ("kind: SiteKind", "kind: str"),
         ("use: SiteUse", "use: str"),
         ("receiver_kind: ReceiverKind", "receiver_kind: str"),
+        ("    span: Span\n    scope: str | None", "    span: object\n    scope: str | None"),
+        (
+            "string_comparisons: tuple[StringComparison, ...]",
+            "string_comparisons: tuple[object, ...]",
+        ),
     ],
 )
 def test_native_syntax_field_widening_fails_against_fixed_port_intent(tmp_path, old, new):

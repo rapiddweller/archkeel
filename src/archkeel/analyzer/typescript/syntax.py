@@ -169,6 +169,14 @@ class ImportBinding:
 
 
 @dataclass(frozen=True, slots=True)
+class StringComparison:
+    """A written literal participating in lexical equality, with its known named owner."""
+
+    span: Span
+    scope: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class Syntax:
     references: tuple[Reference, ...]
     concerns: tuple[Concern, ...]
@@ -179,3 +187,4 @@ class Syntax:
     sites: tuple[Site, ...] = ()
     import_bindings: tuple[ImportBinding, ...] = ()
     rebound_names: tuple[str, ...] = ()
+    string_comparisons: tuple[StringComparison, ...] = ()

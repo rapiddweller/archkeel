@@ -334,13 +334,10 @@ def _observation_profile(model: Mapping[str, RawJson]) -> Profile:
 
 
 def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -> None:
-    optional_values = [model.get(section, _MISSING_VALUE) for section in profile.optional_sections]
-    if (
-        optional_values
-        and any(value is None for value in optional_values)
-        and any(isinstance(value, list) for value in optional_values)
-    ):
-        raise ValueError("optional profile sections must be all null or all arrays")
+    for group in profile.optional_section_groups:
+        values = [model.get(section, _MISSING_VALUE) for section in group]
+        if any(value is None for value in values) and any(isinstance(value, list) for value in values):
+            raise ValueError("optional profile sections must be all null or all arrays")
     for section in CLASSIFIED_SECTIONS:
         raw = model.get(section, _MISSING_VALUE)
         if section in profile.absent_sections:
