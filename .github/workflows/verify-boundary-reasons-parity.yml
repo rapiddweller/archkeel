@@ -1,0 +1,184 @@
+name: Boundary reason native parity
+on:
+  push:
+    branches: [verify/542-boundary-reasons-parity]
+permissions:
+  contents: read
+jobs:
+  source-sites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: |
+          uv run --locked python - <<'PY'
+          from __future__ import annotations
+          import ast
+          from collections import Counter
+          from dataclasses import asdict
+          import gzip
+          import json
+          from pathlib import Path
+          import subprocess
+          import sys
+          import time
+          from archkeel.cli.config import parse_config
+          from archkeel.cli.observe import observer_for
+          from archkeel.check.run import observe_revision, inspect_observation
+          from archkeel.ir.codec import observation_payload
+          from archkeel.ir.facts_codec import raw_record
+          from archkeel.ir.trace import trace_valid_violations
+          
+          BASE="f264c77eb55b1761a37a8083e479c3f1bc45f5cc"
+          HEAD="ff6704a9a82745a8bd757ee47397643d231322fc"
+          root=Path.cwd()
+          out=root/"reason-evidence"
+          out.mkdir(exist_ok=True)
+          config=parse_config((root/"archkeel.toml").read_bytes())
+          models={}
+          for label, revision in (("before",BASE),("after",HEAD)):
+              started=time.perf_counter()
+              result=observe_revision(observer_for(config.language),root,revision,config,declared_at=revision)
+              assert result.observation is not None, result.diagnostics
+              model=result.observation
+              measurements,status=inspect_observation(model)
+              models[label]=model
+              payload=observation_payload(model)
+              (out/f"{label}.json.gz").write_bytes(gzip.compress(json.dumps(payload,sort_keys=True).encode()))
+              print("NATIVE_MEASURE="+json.dumps(dict(label=label,revision=revision,seconds=time.perf_counter()-started,measurements=asdict(measurements),status=str(status),diagnostics=[asdict(d) for d in result.diagnostics],violations=[raw_record(r) for r in trace_valid_violations(model)])),flush=True)
+          before,after=models.values()
+          def encoded(value):
+              return json.dumps(value,sort_keys=True,separators=(",",":"))
+          def semantic(record):
+              r=raw_record(record)
+              return {key:r[key] for key in ("kind","subjects","rule_ids","data")}
+          def multiset(rows):
+              return Counter(encoded(r) for r in rows)
+          def delta(a,b):
+              return dict(removed=list((a-b).elements()),added=list((b-a).elements()))
+          unknowns={}
+          for label,model in models.items():
+              unknowns[label]=dict(full=[raw_record(r) for r in model.records("unknowns") or ()],semantic=[semantic(r) for r in model.records("unknowns") or ()])
+          unknown_delta={level:delta(multiset(unknowns["before"][level]),multiset(unknowns["after"][level])) for level in ("full","semantic")}
+          (out/"unknown-delta.json").write_text(json.dumps(unknown_delta,indent=2,sort_keys=True))
+          print("UNKNOWN_DELTA="+json.dumps({k:{n:len(v) for n,v in d.items()} for k,d in unknown_delta.items()}),flush=True)
+          
+          # AST source association keeps actual line/column evidence alongside semantic paths.
+          def source_at(revision,path):
+              return subprocess.check_output(["git","show",f"{revision}:{path}"],text=True)
+          def calls(model,revision):
+              evidence={e.id:asdict(e) for e in model.evidence}
+              result=[]
+              for r in model.records("calls") or ():
+                  row=raw_record(r)
+                  if row["data"].get("status") not in {"unresolved","partially_resolved"}:
+                      continue
+                  cites=[evidence[e] for e in r.evidence_ids]
+                  row["citations"]=cites
+                  result.append(row)
+              return result
+          all_calls={label:calls(model,BASE if label=="before" else HEAD) for label,model in models.items()}
+          (out/"call-sites.json").write_text(json.dumps(all_calls,indent=2,sort_keys=True))
+          # Comparison excludes only IDs/citation location; every real data value, target and count remains.
+          call_delta=delta(multiset(semantic(r) for r in before.records("calls") or () if r.data.get("status") in {"unresolved","partially_resolved"}),multiset(semantic(r) for r in after.records("calls") or () if r.data.get("status") in {"unresolved","partially_resolved"}))
+          (out/"call-semantic-delta.json").write_text(json.dumps(call_delta,indent=2,sort_keys=True))
+          print("CALL_SEMANTIC_DELTA="+json.dumps({k:len(v) for k,v in call_delta.items()}),flush=True)
+          # Preserve and print every changed semantic call (bounded single row per line).
+          for side in ("removed","added"):
+              for entry in call_delta[side]:
+                  print("CALL_DELTA="+json.dumps(dict(side=side,record=json.loads(entry))),flush=True)
+          # Actual AST shapes for before/after changed owner support review of line movement.
+          for label,revision in (("before",BASE),("after",HEAD)):
+              path="src/archkeel/check/evaluation/boundary_types.py"
+              tree=ast.parse(source_at(revision,path))
+              nodes=[dict(type=type(n).__name__,line=n.lineno,column=n.col_offset,end_line=n.end_lineno,end_column=n.end_col_offset,dump=ast.dump(n,include_attributes=False)) for n in ast.walk(tree) if isinstance(n,(ast.Call,ast.Lambda,ast.GeneratorExp,ast.ListComp,ast.DictComp,ast.SetComp))]
+              (out/f"{label}-owner-ast.json").write_text(json.dumps(nodes,sort_keys=True,indent=2))
+          b,a=(inspect_observation(models[x])[0].scalars for x in ("before","after"))
+          assert a.violations==b.violations==0
+          assert a.unknown_positions<=b.unknown_positions
+          assert a.typing_positions<=b.typing_positions
+          assert a.calls_unresolved<=b.calls_unresolved
+          assert not unknown_delta["semantic"]["added"] and not unknown_delta["semantic"]["removed"], unknown_delta["semantic"]
+          print("NATIVE_BUDGET_PARITY=PASS",flush=True)
+          
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: boundary-reason-native-sites
+          path: reason-evidence
+  actual-fixture-wire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Two real runtimes differ only in existing reason owner
+        run: |
+          uv run --locked python - <<'PY'
+          import shutil, subprocess
+          from pathlib import Path
+          root=Path.cwd()
+          target=root/"reason-evidence"/"old-runtime"/"archkeel"
+          shutil.copytree(root/"src"/"archkeel",target)
+          source=subprocess.check_output(["git","show","f264c77eb55b1761a37a8083e479c3f1bc45f5cc:src/archkeel/check/evaluation/boundary_types.py"])
+          (target/"check"/"evaluation"/"boundary_types.py").write_bytes(source)
+          PY
+          uv run --locked python - <<'PY'
+          import os,subprocess,sys
+          from pathlib import Path
+          root=Path.cwd()
+          driver="from __future__ import annotations\nimport json\nfrom pathlib import Path\nimport sys\nimport time\nfrom archkeel.cli.config import parse_config\nfrom archkeel.cli.observe import observer_for\nfrom archkeel.check.ports import ScanConfig\nfrom archkeel.check.uml import assemble_uml\nfrom archkeel.check.uml_evaluation import evaluate_uml\nfrom archkeel.ir.codec import canonical_report_bytes, observation_payload\n\nroot=Path(sys.argv[1])\nout=Path(sys.argv[2])\nout.mkdir(parents=True,exist_ok=True)\nfor name in (\"E-runtime\",\"F-architecture\",\"H-uml\",\"K-python-realworld\"):\n    project=root/\"fixtures\"/name\n    c=parse_config((project/\"archkeel.toml\").read_bytes())\n    start=time.perf_counter()\n    result=observer_for(c.language)(\n        project,roots=c.roots,namespace=c.namespace,contract=c.contract,\n        git_head=\"a\"*40,dirty=False,contract_root=project,language=c.language)\n    result=evaluate_uml(assemble_uml(result,project,c.contract))\n    assert result.observation is not None,(name,result.diagnostics)\n    model=observation_payload(result.observation)\n    (out/f\"{name}.json\").write_text(json.dumps(model,sort_keys=True))\n    (out/f\"{name}.canonical.json\").write_bytes(canonical_report_bytes(result.observation))\n    print(\"REAL_FIXTURE_RUNTIME=\"+json.dumps(dict(name=name,seconds=time.perf_counter()-start,diagnostics=[str(x) for x in result.diagnostics],unknowns=len(model.get(\"unknowns\") or ()),violations=len(model.get(\"violations\") or ()))),flush=True)\n"
+          for label,source in (("old",root/"reason-evidence"/"old-runtime"),("new",root/"src")):
+              env={**os.environ,"PYTHONPATH":str(source)}
+              subprocess.run([sys.executable,"-c",driver,str(root),str(root/"reason-evidence"/label)],env=env,check=True)
+          PY
+      - name: Exact all-field comparison and canonical bytes
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          from pathlib import Path
+          from archkeel.ir.codec import canonical_report_bytes
+          root=Path("reason-evidence")
+          def diff(a,b,path=()):
+              if type(a) is not type(b):
+                  return [path]
+              if isinstance(a,dict):
+                  if a.keys()!=b.keys():return [path]
+                  return [q for key in a for q in diff(a[key],b[key],(*path,key))]
+              if isinstance(a,list):
+                  if len(a)!=len(b):return [path]
+                  return [q for i,(x,y) in enumerate(zip(a,b)) for q in diff(x,y,(*path,i))]
+              return [] if a==b else [path]
+          for name in ("E-runtime","F-architecture","H-uml","K-python-realworld"):
+              old=json.loads((root/"old"/f"{name}.json").read_text())
+              new=json.loads((root/"new"/f"{name}.json").read_text())
+              changes=diff(old,new)
+              assert changes==[("analyzer","code_digest")],(name,changes[:30])
+              new["analyzer"]["code_digest"]=old["analyzer"]["code_digest"]
+              assert canonical_report_bytes(old)==canonical_report_bytes(new),name
+              print("REAL_FIXTURE_WIRE_PARITY="+json.dumps(dict(name=name,only_changed_path=changes,bytes=len(canonical_report_bytes(old)),status="PASS")))
+          
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: boundary-reason-real-fixture-wire
+          path: |
+            reason-evidence/old/*.json
+            reason-evidence/new/*.json
