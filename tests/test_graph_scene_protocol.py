@@ -168,7 +168,9 @@ def test_graph_scene_keeps_wire_identity_json_and_primitive_tokens():
               const decoded = P.decodeGraph(graph);
               let zeroRejected = false;
               try {
-                P.decodeComparison({assessments:[{id:"a", subject_id:"a", observed_ids:[], status:0}]});
+                P.decodeComparison({assessments:[
+                  {id:"a", subject_id:"a", observed_ids:[], status:0},
+                ]});
               } catch { zeroRejected = true; }
               const mermaid = ArchkeelReportScene.sceneToMermaid({
                 nodes: [{id:"a", label:"A", assessments:[{status:G.AssessmentStatus.PASS}]}],
