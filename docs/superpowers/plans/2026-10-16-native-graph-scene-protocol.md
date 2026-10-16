@@ -82,3 +82,12 @@ The measured frozen first candidate was 2,029,535 bytes, above both unchanged 2M
 ## Astra compatibility correction
 
 Astra found that the original exposed projection accepted omitted options, an empty options object, directChildren-only options and an explicit undefined viewMode. Actual old-versus-frozen-source RED run38973113521/job117215992808 proved all four original calls matched explicit diagram mode while the frozen candidate threw TypeError. Test commit8aeff5b pins those real defaults in the independently authored TypeScript consumer and a permanent Chromium regression. Options and its viewMode are genuinely optional again; only absent/undefined mode normalizes to the existing DIAGRAM enum before strict decoding. Explicit invalid modes remain rejected. Source guards target the corrected actual optional declaration.
+
+
+## Compatibility follow-up: existing Evidence views
+
+Source851 rejected the existing visible Actual/Structure/Review buttons because its new ingress confused the six public report views with the three internal graph projection modes. The actual old/new VM programs prove all three old views valid and all three new calls throwing TypeError (run38978583933/job117233832671). Source851 and source union32d3 are superseded pending this correction; Publisher remains independent.
+
+1. Add real visible-button regression controls against the unchanged851 source and observe their causal RED.
+2. Close the actual six-valued public ViewMode domain, then map its three Evidence members explicitly to the existing Diagram projection. Keep ProjectionMode a precise three-member subset of that same nominal Enum, with no duplicated spelling catalog; reject unknown ingress values.
+3. Require actual consumer return/subset mutations, legacy defaults, all six views and visible buttons; regenerate committed protocol with the existing official compiler. Run strict Scene and existing Chromium controls, then independent Astra review of this exact delta. Preserve original wire/object identity, no extra graph walk or copy, no Publisher changes.
