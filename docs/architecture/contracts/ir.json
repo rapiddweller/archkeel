@@ -6658,18 +6658,137 @@
           }
         },
         {
+          "id": "IR-MODULE-OBJECT-ModuleObjectGrant",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.ModuleObjectGrant",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-model",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the typed module-object permission contract."
+          ],
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ]
+        },
+        {
+          "id": "IR-MODULE-OBJECT-ModuleObjectGrant.source_module",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ModuleObjectGrant.source_module",
+          "language": "python",
+          "parent_id": "IR-MODULE-OBJECT-ModuleObjectGrant",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the exact typed caller-scoped permission."
+          ],
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ],
+          "annotation": "str",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-MODULE-OBJECT-ModuleObjectGrant.target_module",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ModuleObjectGrant.target_module",
+          "language": "python",
+          "parent_id": "IR-MODULE-OBJECT-ModuleObjectGrant",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the exact typed caller-scoped permission."
+          ],
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ],
+          "annotation": "str",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-MODULE-OBJECT-InterfaceBoundaryRule",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.InterfaceBoundaryRule",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-model",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the typed module-object permission contract."
+          ],
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ]
+        },
+        {
+          "id": "IR-MODULE-OBJECT-InterfaceBoundaryRule.module_object_grants",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.InterfaceBoundaryRule.module_object_grants",
+          "language": "python",
+          "parent_id": "IR-MODULE-OBJECT-InterfaceBoundaryRule",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the exact typed caller-scoped permission."
+          ],
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ],
+          "annotation": "tuple[ModuleObjectGrant, ...] | None",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
           "language": "python",
           "presence": "planned",
           "provenance": [
-            "docs/architecture/collector-wire-vocabulary.md"
+            "docs/architecture/module-object-grants.md"
           ],
-          "id": "IR-COLLECTOR-PROFILES",
+          "id": "IR-MODULE-OBJECT-profiles",
           "kind": "module",
           "qualified_name": "archkeel.ir.profiles",
           "parent_id": "TARGET-PROFILES",
           "responsibilities": [
-            "Own declared source capabilities independently of collector identity."
+            "Own declared language support for module-object proof.",
+            "Own registered analyzer capabilities and their shared typed section and unmeasured-scalar vocabularies."
           ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ],
+          "id": "IR-MODULE-OBJECT-Profile",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.profiles.Profile",
+          "parent_id": "IR-MODULE-OBJECT-profiles",
+          "responsibilities": [
+            "Declare the capabilities an analyzer can prove."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/module-object-grants.md"
+          ],
+          "id": "IR-MODULE-OBJECT-Profile.module_object_imports",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.profiles.Profile.module_object_imports",
+          "parent_id": "IR-MODULE-OBJECT-Profile",
+          "responsibilities": [
+            "Require explicit module-object proof support."
+          ],
+          "annotation": "bool",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
         },
         {
           "language": "python",
@@ -6828,7 +6947,7 @@
           "id": "IR-COLLECTOR-profiles.UnmeasurableScalar",
           "kind": "enum",
           "qualified_name": "archkeel.ir.profiles.UnmeasurableScalar",
-          "parent_id": "IR-COLLECTOR-PROFILES",
+          "parent_id": "IR-MODULE-OBJECT-profiles",
           "responsibilities": [
             "Name measurements a source profile cannot prove."
           ]

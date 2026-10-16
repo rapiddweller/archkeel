@@ -85,7 +85,6 @@
       ],
       "public": [
         "archkeel.analyzer.dart.snapshot:Snapshot",
-        "archkeel.analyzer.dart.snapshot:SnapshotError",
         "archkeel.analyzer.dart.snapshot:SnapshotProblem",
         "archkeel.analyzer.dart.snapshot:Source",
         "archkeel.analyzer.dart.snapshot:read_snapshot",
@@ -3725,6 +3724,46 @@
           "qualified_name": "archkeel.analyzer.dart.snapshot.SnapshotProblem.kind",
           "parent_id": "archkeel.analyzer.dart.snapshot.SnapshotProblem",
           "annotation": "SnapshotProblemKind"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry the resolver-owned builtin URI classification to collection."
+          ],
+          "provenance": [
+            "docs/architecture/dart-nominal-controls.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "archkeel.analyzer.dart.resolve.ResolvedTarget",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.dart.resolve.ResolvedTarget",
+          "parent_id": "archkeel.analyzer.dart.resolve",
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry the resolver-owned builtin URI classification to collection."
+          ],
+          "provenance": [
+            "docs/architecture/dart-nominal-controls.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "archkeel.analyzer.dart.resolve.ResolvedTarget.builtin",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.dart.resolve.ResolvedTarget.builtin",
+          "parent_id": "archkeel.analyzer.dart.resolve.ResolvedTarget",
+          "annotation": "bool"
         }
       ],
       "relationships": [

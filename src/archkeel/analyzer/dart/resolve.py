@@ -126,6 +126,7 @@ class ResolvedTarget:
     package: str
     rel_path: str | None
     uri: str
+    builtin: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,7 +250,7 @@ class Resolver:
                 )
                 return None
             module = f"dart.{module_name}"
-            return ResolvedTarget(module, "dart", None, uri)
+            return ResolvedTarget(module, "dart", None, uri, builtin=True)
         if _uri_scheme(parsed.scheme) == _UriScheme.PACKAGE:
             package, separator, raw_target = uri.removeprefix("package:").partition("/")
             target_path = unquote(raw_target)
@@ -1166,30 +1167,23 @@ class Resolver:
                 if type_binding
                 else ()
             )
-        if len(receiver_parts) == 2:
-            imported = self._imported_bindings(module, receiver_parts[1], prefix=receiver_parts[0])
-            if len(imported) == 1 and imported[0].kind in {
-                DefinitionKind.CLASS,
-                DefinitionKind.INTERFACE,
-                DefinitionKind.ENUM,
-                DefinitionKind.MIXIN,
-            }:
-                type_binding = imported[0]
-                return self._site_members(
-                    site,
-                    self._member_bindings(
-                        type_binding.module, type_binding.name, site.name or "", static_only=True
-                    )
-                    or (
-                        self._constructor_bindings(
-                            type_binding.module, type_binding.name, site.name or ""
-                        )
-                        if self._constructor_namespace_closed(
-                            module, receiver_parts[1], receiver_parts[0]
-                        )
-                        else ()
-                    ),
+        type_binding = self._prefixed_class(module, receiver_parts)
+        if type_binding is not None:
+            return self._site_members(
+                site,
+                self._member_bindings(
+                    type_binding.module, type_binding.name, site.name or "", static_only=True
                 )
+                or (
+                    self._constructor_bindings(
+                        type_binding.module, type_binding.name, site.name or ""
+                    )
+                    if self._constructor_namespace_closed(
+                        module, receiver_parts[1], receiver_parts[0]
+                    )
+                    else ()
+                ),
+            )
         prefix = receiver.rpartition(".")[2]
         imports = self._imported_bindings(module, site.name or "", prefix=prefix)
         if imports:
@@ -1214,6 +1208,19 @@ class Resolver:
             if resolved_owner
             else ()
         )
+
+    def _prefixed_class(self, module: str, receiver_parts: list[str]) -> ResolvedBinding | None:
+        if len(receiver_parts) != 2:
+            return None
+        imported = self._imported_bindings(module, receiver_parts[1], prefix=receiver_parts[0])
+        if len(imported) == 1 and imported[0].kind in {
+            DefinitionKind.CLASS,
+            DefinitionKind.INTERFACE,
+            DefinitionKind.ENUM,
+            DefinitionKind.MIXIN,
+        }:
+            return imported[0]
+        return None
 
     def _constructor_namespace_closed(self, module: str, name: str, prefix: str) -> bool:
         imports = self._imports[module] if module in self._imports else ()

@@ -1,0 +1,5 @@
+# TypeScript JSON field presence
+
+The configuration input component owns the open Json mapping boundary and has_field(record: Json, name: str) -> bool. Keys are user/protocol field identities represented as string data. This API performs open mapping identity, including keys unknown to Archkeel. It distinguishes an absent key from a key whose value is null, false, zero or an empty container. It does not interpret compiler options, classify syntax, compare modes or dispatch on kinds. Those closed vocabularies are converted into their nominal owner types at the input boundary.
+
+The five consumers are the baseUrl and paths configuration overlays, project references presence, package-root typesVersions presence, and directory-manifest typesVersions presence. No semantic dispatch is moved into the field API and no field-key enumeration or parser allowance is introduced. Independent Target intent pins the named public function, its two inputs and boolean result. Existing whole-module guards remain unchanged; native controls must remain sensitive to real parser/protocol comparisons, including literal-on-left membership.

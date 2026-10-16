@@ -778,7 +778,20 @@ def _interface_verdicts(
                 or item["id"] in forbidden_rejected_ids
             ):
                 continue
-            verdict = _interface_verdict(data, target, exports_by_module, exporting)
+            module_object_granted = (
+                data["symbols_known"] is True
+                and data["symbol"] is None
+                and any(
+                    grant.source_module == data["source_module"]
+                    and grant.target_module == data["target_module"]
+                    for grant in rule.module_object_grants or ()
+                )
+            )
+            verdict = (
+                "allowed"
+                if module_object_granted
+                else _interface_verdict(data, target, exports_by_module, exporting)
+            )
             yield rule, item, source, target, verdict
 
 
@@ -1113,6 +1126,19 @@ def rule_subject_failures(
     return rule_failures
 
 
+def _unsupported_module_object_grants(
+    contract: ArchitectureContract, profile: Profile
+) -> list[tuple[str, list[str], str]]:
+    """Describe declared grants the profile lacks facts to decide."""
+    return [
+        (rule.id, [rule.id], "exact module-object grants")
+        for rule in contract.rules
+        if isinstance(rule, InterfaceBoundaryRule)
+        and rule.module_object_grants
+        and not profile.module_object_imports
+    ]
+
+
 def profile_failures(
     contract: ArchitectureContract,
     profile: Profile,
@@ -1130,7 +1156,7 @@ def profile_failures(
         "facade_budgets": bool(declarations.facade_budgets),
         "coupling_budgets": bool(declarations.coupling_budgets),
     }
-    items = [
+    items = _unsupported_module_object_grants(contract, profile) + [
         *(
             (rule.id, [rule.id], f"rule kind {rule.kind}")
             for rule in contract.rules

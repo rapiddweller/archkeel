@@ -391,13 +391,17 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
     return result
 
 
+def _field_selected(name: str, excluded: set[str]) -> bool:
+    """Apply an open JSON field grammar; field names do not select protocol states."""
+    return name not in excluded
+
+
 def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
     """Losslessly columnize and intern repeated IR strings for browser-safe reports."""
     profile = _observation_profile(model)
     _validate_profile_sections(model, profile)
-    encoded = model.copy()
-    for field in (*CLASSIFIED_SECTIONS, "evidence"):
-        encoded.pop(field, None)
+    excluded = {*CLASSIFIED_SECTIONS, "evidence"}
+    encoded = {key: value for key, value in model.items() if _field_selected(key, excluded)}
     section_data_fields: dict[str, list[str]] = {}
     # AD-2: rows hold the non-JSON _MISSING_VALUE sentinel until intern writes "$m".
     rows_by_section: dict[str, list[list[Any]]] = {}
@@ -510,9 +514,10 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
             return {key: expand(entry) for key, entry in value.items()}
         return value
 
-    model = encoded.copy()
-    for field in (*CLASSIFIED_SECTIONS, "evidence", "encoding", "string_table"):
-        model.pop(field, None)
+    excluded = {*CLASSIFIED_SECTIONS, "evidence", "encoding", "string_table"}
+    model: dict[str, RawJson] = {
+        key: value for key, value in encoded.items() if _field_selected(key, excluded)
+    }
     record_fields = _strings(encoding["record_fields"], "record_fields")
     section_data_fields = _object(encoding["section_data_fields"], "section_data_fields")
     for section in CLASSIFIED_SECTIONS:

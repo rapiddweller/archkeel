@@ -440,6 +440,7 @@ def _has_architecture_declarations(version: str, known: dict[str, Record]) -> bo
         "3.3.0",
         "3.4.0",
         "3.5.0",
+        "3.6.0",
     } or any(
         record.kind in TARGET_GRAPH_RECORD_KINDS
         or record.kind

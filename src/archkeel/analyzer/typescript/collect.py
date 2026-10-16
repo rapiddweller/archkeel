@@ -45,9 +45,9 @@ from archkeel.ir.facts_codec import (
 from archkeel.ir.identity import module_identity
 from archkeel.ir.protocol import CollectionRequest, TypeScriptSettings
 
-from .config import Snapshot, join, load_config, within
+from .config import ModuleKind, Snapshot, join, load_config, within
 from .parse import Base, Definition, Reference, Site, Span, Syntax, parse
-from .resolve import Format, Found, Resolver, Unknown, is_builtin, is_relative, package_name
+from .resolve import Found, ModuleFormat, Resolver, Unknown, is_builtin, is_relative, package_name
 
 _SECTIONS: tuple[SourceSectionName, ...] = (
     SourceSectionName.IMPORTS,
@@ -881,8 +881,11 @@ class _Collection:
         form = resolver.format_of(rel)
         cjs = (
             rel.endswith((".cjs", ".cts"))
-            or options.module == "commonjs"
-            or (form == "cjs" and options.module in ("nodenext", "node16"))
+            or options.module is ModuleKind.COMMONJS
+            or (
+                form is ModuleFormat.CJS
+                and options.module in (ModuleKind.NODENEXT, ModuleKind.NODE16)
+            )
         )
         for reference in syntax.references:
             evidence = self._cite(rel, reference.span)
@@ -909,7 +912,7 @@ class _Collection:
         module: str,
         reference: Reference,
         evidence: str,
-        form: Format | Unknown | None,
+        form: ModuleFormat | Unknown | None,
     ) -> None:
         specifier: str = reference.specifier or ""
         identity = stable_id(
@@ -964,7 +967,7 @@ class _Collection:
         module: str,
         reference: Reference,
         identity: str,
-        form: Format | Unknown | None,
+        form: ModuleFormat | Unknown | None,
     ) -> ImportTarget:
         specifier: str = reference.specifier or ""
         if not reference.type_only and specifier.startswith("node:") and is_builtin(specifier):
@@ -980,11 +983,11 @@ class _Collection:
             return self._unresolved(module, identity, specifier, blocked.reason)
         if isinstance(form, Unknown):
             return self._unresolved(module, identity, specifier, form.reason)
-        mode: Format | None = form
+        mode: ModuleFormat | None = form
         if reference.form == "dynamic_import":
-            mode = "esm" if form is not None else None
+            mode = ModuleFormat.ESM if form is not None else None
         elif reference.form in ("require", "import_equals"):
-            mode = "cjs" if form is not None else None
+            mode = ModuleFormat.CJS if form is not None else None
         found = self.resolver.resolve(specifier, rel, mode, prefer_builtin=not reference.type_only)
         if isinstance(found, Unknown):
             return self._unresolved(module, identity, specifier, found.reason)

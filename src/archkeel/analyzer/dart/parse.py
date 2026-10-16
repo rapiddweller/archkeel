@@ -228,6 +228,8 @@ def _lexeme(value: str) -> _Lexeme | None:
 class _Tree:
     """A parse-local identity map; raw nodes never leave the syntax implementation."""
 
+    __slots__ = ("_nodes",)
+
     def __init__(self) -> None:
         self._nodes: dict[int, _Node] = {}
 
@@ -245,29 +247,19 @@ class _Tree:
 class _Node:
     """Decode a concrete grammar kind once and delegate only operations we consume."""
 
+    __slots__ = ("_raw", "_tree", "kind", "start_byte", "end_byte", "is_error", "is_missing")
+
     def __init__(self, raw: RawNode, tree: _Tree) -> None:
         self._raw = raw
         self._tree = tree
+        self.start_byte: int = raw.start_byte
+        self.end_byte: int = raw.end_byte
+        self.is_error: bool = raw.is_error
+        self.is_missing: bool = raw.is_missing
         try:
             self.kind: _NodeKind | None = _NodeKind(raw.type)
         except ValueError:
             self.kind = None
-
-    @property
-    def start_byte(self) -> int:
-        return self._raw.start_byte
-
-    @property
-    def end_byte(self) -> int:
-        return self._raw.end_byte
-
-    @property
-    def is_error(self) -> bool:
-        return self._raw.is_error
-
-    @property
-    def is_missing(self) -> bool:
-        return self._raw.is_missing
 
     @property
     def children(self) -> list[_Node]:
@@ -707,23 +699,7 @@ def _library_directive(node: _Node, source: _Source, concerns: list[Concern]) ->
     if primary_node is None:
         primary_node = uri
     primary = _directive_uri(node, source) or _literal_uri(primary_node, source)
-    alternatives: list[tuple[str, str]] = []
-    if uri is not None:
-        configurable = uri if uri.kind == _NodeKind.CONFIGURABLE_URI else None
-        for choice in _named_all(configurable, _NodeKind.CONFIGURATION_URI):
-            condition_node = _named(choice, _NodeKind.CONFIGURATION_URI_CONDITION)
-            alternative = _literal_uri(_named(choice, _NodeKind.URI), source)
-            if condition_node is None or alternative is None:
-                concerns.append(
-                    Concern(
-                        ConcernKind.UNSUPPORTED_DIRECTIVE,
-                        "Conditional URI is not literal.",
-                        source.span(choice),
-                    )
-                )
-                continue
-            condition = source.text(condition_node).strip()[1:-1].strip()
-            alternatives.append((condition, alternative))
+    alternatives = _conditional_uris(uri, source, concerns)
     if primary is None:
         concerns.append(
             Concern(
@@ -768,8 +744,31 @@ def _library_directive(node: _Node, source: _Source, concerns: list[Concern]) ->
         tuple(show),
         tuple(hide),
         tuple(combinators),
-        tuple(alternatives),
+        alternatives,
     )
+
+
+def _conditional_uris(
+    uri: _Node | None, source: _Source, concerns: list[Concern]
+) -> tuple[tuple[str, str], ...]:
+    alternatives: list[tuple[str, str]] = []
+    if uri is not None:
+        configurable = uri if uri.kind == _NodeKind.CONFIGURABLE_URI else None
+        for choice in _named_all(configurable, _NodeKind.CONFIGURATION_URI):
+            condition_node = _named(choice, _NodeKind.CONFIGURATION_URI_CONDITION)
+            alternative = _literal_uri(_named(choice, _NodeKind.URI), source)
+            if condition_node is None or alternative is None:
+                concerns.append(
+                    Concern(
+                        ConcernKind.UNSUPPORTED_DIRECTIVE,
+                        "Conditional URI is not literal.",
+                        source.span(choice),
+                    )
+                )
+                continue
+            condition = source.text(condition_node).strip()[1:-1].strip()
+            alternatives.append((condition, alternative))
+    return tuple(alternatives)
 
 
 def _text_children(node: _Node, source: _Source) -> str:
@@ -1234,6 +1233,34 @@ def _parameter(node: _Node, kind: ParameterKind, source: _Source) -> Parameter:
     nested_parameters = _parameter_list(node)
     if annotation is not None and nested_parameters is not None:
         annotation = f"{annotation} Function{source.text(nested_parameters)}"
+    default = _parameter_default(node, source)
+    before = source.data[node.parent.start_byte : node.start_byte] if node.parent else b""
+    required = re.search(rb"\brequired\b", before.rsplit(b",", 1)[-1]) is not None
+    optional = kind == ParameterKind.NAMED and not required
+    if node.parent is not None and node.parent.kind == _NodeKind.OPTIONAL_FORMAL_PARAMETERS:
+        optional = source.text(node.parent).lstrip().startswith("[") or optional
+    nullable_or_dynamic = (
+        annotation is None
+        or annotation.endswith("?")
+        or re.fullmatch(r"dynamic", annotation) is not None
+    )
+    if default is None and optional and nullable_or_dynamic:
+        default = "null"
+    return Parameter(
+        name,
+        annotation,
+        kind,
+        default,
+        not super_formal,
+        source.span(node),
+        field is not None,
+        super_formal,
+        optional,
+        required,
+    )
+
+
+def _parameter_default(node: _Node, source: _Source) -> str | None:
     default = None
     for index, child in enumerate(node.children[:-1]):
         if child.kind in {_NodeKind.EQUALS, _NodeKind.COLON}:
@@ -1264,30 +1291,7 @@ def _parameter(node: _Node, kind: ParameterKind, source: _Source) -> Parameter:
                 ),
                 None,
             )
-    before = source.data[node.parent.start_byte : node.start_byte] if node.parent else b""
-    required = re.search(rb"\brequired\b", before.rsplit(b",", 1)[-1]) is not None
-    optional = kind == ParameterKind.NAMED and not required
-    if node.parent is not None and node.parent.kind == _NodeKind.OPTIONAL_FORMAL_PARAMETERS:
-        optional = source.text(node.parent).lstrip().startswith("[") or optional
-    nullable_or_dynamic = (
-        annotation is None
-        or annotation.endswith("?")
-        or re.fullmatch(r"dynamic", annotation) is not None
-    )
-    if default is None and optional and nullable_or_dynamic:
-        default = "null"
-    return Parameter(
-        name,
-        annotation,
-        kind,
-        default,
-        not super_formal,
-        source.span(node),
-        field is not None,
-        super_formal,
-        optional,
-        required,
-    )
+    return default
 
 
 @overload
@@ -1803,6 +1807,7 @@ def _canonical_range(root: _Node, source: _Source, start: int, end: int) -> str:
     for token in tokens:
         value = source.text(token)
         lexeme = _lexeme(value)
+        closes_group = lexeme in {_Lexeme.CLOSE_PAREN, _Lexeme.CLOSE_BRACKET, _Lexeme.CLOSE_BRACE}
         if lexeme == _Lexeme.COMMA:
             output = output.rstrip() + ", "
             previous_word = False
@@ -1820,28 +1825,10 @@ def _canonical_range(root: _Node, source: _Source, start: int, end: int) -> str:
         }:
             output = output.rstrip() + value
             prefix = output[:-1].rstrip()
-            if lexeme in {
-                _Lexeme.CLOSE_PAREN,
-                _Lexeme.CLOSE_BRACKET,
-                _Lexeme.CLOSE_BRACE,
-            } and prefix.endswith(","):
+            if closes_group and prefix.endswith(","):
                 output = prefix[:-1].rstrip() + value
-            previous_word = lexeme in {
-                _Lexeme.CLOSE_PAREN,
-                _Lexeme.CLOSE_BRACKET,
-                _Lexeme.CLOSE_BRACE,
-            }
-        elif lexeme in {
-            _Lexeme.OPEN_PAREN,
-            _Lexeme.OPEN_BRACKET,
-            _Lexeme.OPEN_BRACE,
-            _Lexeme.DOT,
-            _Lexeme.NULL_DOT,
-            _Lexeme.NULL_CASCADE,
-            _Lexeme.CASCADE,
-            _Lexeme.ASSERT_DOT,
-            _Lexeme.NULL_OPEN_INDEX,
-        }:
+            previous_word = closes_group
+        elif lexeme in {_Lexeme.OPEN_PAREN, _Lexeme.OPEN_BRACKET, _Lexeme.OPEN_BRACE}:
             output = output.rstrip() + value
             previous_word = False
         elif lexeme in {

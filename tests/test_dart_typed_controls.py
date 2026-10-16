@@ -80,13 +80,21 @@ def _contract():
         f"{owner.__module__}.{owner.__name__}.{field}": expected
         for owner, field, expected in FIELDS
     }
+    fields["archkeel.analyzer.dart.resolve.ResolvedTarget.builtin"] = "bool"
     selected = set(fields)
     for name in fields:
         selected.add(name.rsplit(".", 1)[0])
         selected.add(name.rsplit(".", 2)[0])
     uml = contract["declarations"]["uml"]
-    uml["entities"] = [entity for entity in uml["entities"] if entity["qualified_name"] in selected
-        or (entity["kind"] == "enum" and entity["qualified_name"].startswith("archkeel.analyzer.dart."))]
+    uml["entities"] = [
+        entity
+        for entity in uml["entities"]
+        if entity["qualified_name"] in selected
+        or (
+            entity["kind"] == "enum"
+            and entity["qualified_name"].startswith("archkeel.analyzer.dart.")
+        )
+    ]
     for entity in uml["entities"]:
         if entity["qualified_name"] in fields:
             entity["annotation"] = fields[entity["qualified_name"]]
@@ -161,12 +169,22 @@ def test_native_dart_control_guard_rejects_actual_source_string_dispatch(tmp_pat
     assert (root / "contract.json").read_bytes() == before
 
 
-def test_native_dart_nominal_annotation_widening_fails_without_target_change(tmp_path):
+@pytest.mark.parametrize(
+    "module,narrow,broad",
+    [
+        ("syntax", "kind: ParameterKind", "kind: str"),
+        ("resolve", "status: ResolutionStatus", "status: str"),
+        ("resolve", "builtin: bool", "builtin: str"),
+    ],
+)
+def test_native_dart_nominal_annotation_widening_fails_without_target_change(
+    tmp_path, module, narrow, broad
+):
     root, config = _repository(tmp_path)
-    path = root / "archkeel/analyzer/dart/syntax.py"
+    path = root / f"archkeel/analyzer/dart/{module}.py"
     source = path.read_text()
-    assert "kind: ParameterKind" in source
-    path.write_text(source.replace("kind: ParameterKind", "kind: str", 1))
+    assert narrow in source
+    path.write_text(source.replace(narrow, broad, 1))
     before = (root / "contract.json").read_bytes()
     comparison = architecture_report(_model(root, config)).comparison
     assert comparison is not None and any(
@@ -269,6 +287,7 @@ def test_own_dart_module_guards_are_proven_from_actual_source(self_observation):
         )
     ]
 
+
 def test_native_dart_enum_identity_cannot_be_replaced_by_a_string_alias(tmp_path):
     root, config = _repository(tmp_path)
     path = root / "archkeel/analyzer/dart/syntax.py"
@@ -280,8 +299,7 @@ def test_native_dart_enum_identity_cannot_be_replaced_by_a_string_alias(tmp_path
     comparison = architecture_report(_model(root, config)).comparison
     assert comparison is not None and comparison.status == "FAIL"
     assert any(
-        row.status == "FAIL"
-        and row.subject_id == "archkeel.analyzer.dart.syntax.ParameterKind"
+        row.status == "FAIL" and row.subject_id == "archkeel.analyzer.dart.syntax.ParameterKind"
         for row in comparison.assessments
     ), comparison
     assert (root / "contract.json").read_bytes() == before
@@ -296,7 +314,8 @@ def test_dart_parser_produces_nominal_values_at_the_syntax_boundary():
     assert all(isinstance(item.kind, parse.DirectiveKind) for item in result.directives)
     assert all(
         isinstance(mode, parse.Combinator)
-        for directive in result.directives for mode, _ in directive.combinators
+        for directive in result.directives
+        for mode, _ in directive.combinators
     )
     for definition in result.definitions:
         assert isinstance(definition.kind, parse.DefinitionKind)
@@ -307,3 +326,28 @@ def test_dart_parser_produces_nominal_values_at_the_syntax_boundary():
             assert all(isinstance(item.kind, parse.ParameterKind) for item in member.parameters)
     assert all(isinstance(item.kind, parse.SiteKind) for item in result.sites)
     assert all(isinstance(item.use, parse.SiteUse) for item in result.sites)
+
+
+def test_resolver_owns_builtin_classification_for_sdk_local_and_external_targets():
+    snap = snapshot.Snapshot(
+        sources=(
+            snapshot.Source("lib/main.dart", "sample.main", b""),
+            snapshot.Source("lib/other.dart", "sample.other", b""),
+        ),
+        package_name="sample",
+        sdk_constraint=">=3.0.0 <4.0.0",
+        sdk_constraint_state=snapshot.RuntimeRequirementState.DECLARED,
+        inputs=(),
+        problems=(),
+        roots=("lib",),
+    )
+    resolver = resolve.Resolver(snap, {})
+    for uri, expected in (
+        ("dart:async", True),
+        ("package:other/api.dart", False),
+        ("package:sample/other.dart", False),
+        ("other.dart", False),
+    ):
+        target = resolver.resolve_uri("lib/main.dart", uri)
+        assert target is not None and target.builtin is expected
+        assert target.uri == uri

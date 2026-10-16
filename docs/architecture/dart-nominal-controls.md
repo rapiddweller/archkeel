@@ -20,3 +20,7 @@ this does not claim Dart-project `forbidden_construct` capability.
 Native tests mutate actual source against unchanged Target intent. SDK-free,
 directive, resolver, false-positive, UML acceptance and Compass demo tests
 remain the behavior oracle. No exception or increased debt allowance is added.
+
+Builtin URI classification belongs to resolution. The existing ResolvedTarget
+carries its binary builtin flag to collection, which does not inspect the URI
+scheme a second time. Local/external package/alias resolution remains unchanged.

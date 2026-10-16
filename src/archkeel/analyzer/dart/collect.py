@@ -57,6 +57,7 @@ from .syntax import (
     ConcernKind,
     Definition,
     DefinitionKind,
+    Directive,
     DirectiveKind,
     Member,
     MemberKind,
@@ -786,13 +787,7 @@ class _Collection:
                 if directive.kind not in {DirectiveKind.IMPORT, DirectiveKind.EXPORT}:
                     continue
                 resolved = self.resolver.resolve_directive(rel, directive)
-                selected: set[str] | None = None
-                for mode, values in directive.combinators:
-                    names = set(values)
-                    if mode == Combinator.SHOW:
-                        selected = names if selected is None else selected & names
-                    elif selected is not None:
-                        selected -= names
+                selected = _selected_symbols(directive)
                 symbols: tuple[str | None, ...] = tuple(sorted(selected)) if selected else (None,)
                 for target in resolved:
                     for symbol in symbols:
@@ -852,7 +847,7 @@ class _Collection:
                             self.targets.append(
                                 LocalTarget(identity, target_module, target.rel_path)
                             )
-                        elif target.uri.startswith("dart:"):
+                        elif target.builtin:
                             self.targets.append(BuiltinTarget(identity, target_module))
                         elif target.package != self.snapshot.package_name:
                             self.targets.append(ExternalPackageTarget(identity, target.package))
@@ -1427,6 +1422,17 @@ class _Collection:
             evidence_ids=evidence_ids,
             data=data,
         )
+
+
+def _selected_symbols(directive: Directive) -> set[str] | None:
+    selected: set[str] | None = None
+    for mode, values in directive.combinators:
+        names = set(values)
+        if mode == Combinator.SHOW:
+            selected = names if selected is None else selected & names
+        elif selected is not None:
+            selected -= names
+    return selected
 
 
 def _inventory(kind: InventoryMemberKind, definition_ids: list[str]) -> RawData:

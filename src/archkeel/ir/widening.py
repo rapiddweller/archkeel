@@ -190,6 +190,31 @@ def _type_checking_rule_widenings(
     ]
 
 
+def _interface_boundary_widenings(
+    subject: str, before: InterfaceBoundaryRule, after: InterfaceBoundaryRule
+) -> list[WideningChange]:
+    return [
+        *[
+            WideningChange(
+                subject, "module_object_grants", f"{subject}.module_object_grants gained {grant!r}"
+            )
+            for grant in sorted(
+                set(after.module_object_grants or ()) - set(before.module_object_grants or ()),
+                key=lambda item: (item.source_module, item.target_module),
+            )
+        ],
+        *_include_type_checking_widening(
+            subject, before.include_type_checking, after.include_type_checking
+        ),
+        *_generic_field_widenings(
+            subject,
+            before,
+            after,
+            handled=frozenset({"include_type_checking", "module_object_grants"}),
+        ),
+    ]
+
+
 def _generic_field_widenings(
     subject: str, before: _DataclassInstance, after: _DataclassInstance, *, handled: frozenset[str]
 ) -> list[WideningChange]:
@@ -489,7 +514,7 @@ def _matched_rule_widenings(
             ),
         ]
     if isinstance(before, InterfaceBoundaryRule) and isinstance(after, InterfaceBoundaryRule):
-        return _type_checking_rule_widenings(subject, before, after)
+        return _interface_boundary_widenings(subject, before, after)
     if isinstance(before, SiblingIsolationRule) and isinstance(after, SiblingIsolationRule):
         return _sibling_isolation_widenings(subject, before, after)
     if isinstance(before, BoundaryTypesRule) and isinstance(after, BoundaryTypesRule):

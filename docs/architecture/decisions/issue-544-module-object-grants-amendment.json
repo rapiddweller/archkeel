@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "c7345d5fbcfd8083fe3a618d23a806dea1eee1c1083aa3e163d59b5e260fa2ed",
+  "after_digest": "236db237688182a255a00832b3a60483eea02144304482ac5b12bb7ded873f32",
+  "before_baseline_digest": "c7345d5fbcfd8083fe3a618d23a806dea1eee1c1083aa3e163d59b5e260fa2ed",
+  "before_digest": "c15e68a4c5519591dc9e0af4d5c38495ac3f57397ead5a7bc61021af875a04a7",
+  "decided_by": "ake2l (requested caller-scoped module-object permissions); Codex implementation, independent Astra review before merge",
+  "rationale": "Issue 544 adds exact caller-scoped module-object grant grammar in schema 3.6 and eight independently authored typed API entities to the own IR Target. Own contracts introduce no grant, exception or publication; the existing public inventory and all baseline ceilings remain unchanged.",
+  "schema_version": "2.0.0"
+}

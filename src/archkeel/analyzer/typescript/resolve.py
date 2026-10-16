@@ -14,12 +14,73 @@ import json
 import posixpath
 import re
 from dataclasses import dataclass
-from typing import Final, Literal
+from enum import Enum
+from typing import Final, TypeAlias
 
-from .config import Config, Json, Options, Snapshot, decode, join
+from .config import (
+    Config,
+    Json,
+    ModuleResolution,
+    Options,
+    PathToken,
+    Snapshot,
+    decode,
+    has_field,
+    join,
+)
 
-Format = Literal["esm", "cjs"]
-Kinds = tuple[str, ...]
+
+class ModuleFormat(Enum):
+    """The loading format passed between resolution and collection."""
+
+    ESM = "esm"
+    CJS = "cjs"
+
+
+class SourceKind(Enum):
+    """The source categories enabled for one resolution pass."""
+
+    TYPESCRIPT = "ts"
+    DECLARATION = "dts"
+    JAVASCRIPT = "js"
+    JSON = "json"
+
+
+class _ExtensionFamily(Enum):
+    ESM = "esm"
+    CJS = "cjs"
+    JSX = "jsx"
+    JSON = "json"
+    PLAIN = "plain"
+
+
+class _PackageType(Enum):
+    MODULE = "module"
+    COMMONJS = "commonjs"
+
+
+class _ExportCondition(Enum):
+    TYPES = "types"
+    DEFAULT = "default"
+    IMPORT = "import"
+    REQUIRE = "require"
+
+
+Format: TypeAlias = ModuleFormat
+Kinds: TypeAlias = tuple[SourceKind, ...]
+
+
+def _package_type(manifest: Json) -> _PackageType | None:
+    """Decode the manifest protocol once; unknown types keep Node's CJS default."""
+    value = manifest.get("type")
+    if not isinstance(value, str):
+        return None
+    try:
+        return _PackageType(value)
+    except ValueError:
+        return None
+
+
 # `module.builtinModules` of Node 22, plus the names that exist only with the `node:` prefix.
 _BUILTINS: Final = frozenset(
     "_http_agent _http_client _http_common _http_incoming _http_outgoing _http_server "
@@ -53,17 +114,34 @@ _CJS_EXTENSIONS: Final = (".cts", ".cjs", ".d.cts")
 _SCOPE_FORMATS: Final = (".ts", ".tsx", ".js", ".jsx", ".d.ts")
 _RELATIVE: Final = re.compile(r"\.\.?(?:/|\Z)")
 _KIND_OF: Final = {
-    ".d.ts": "dts",
-    ".d.mts": "dts",
-    ".d.cts": "dts",
-    ".ts": "ts",
-    ".tsx": "ts",
-    ".mts": "ts",
-    ".cts": "ts",
-    ".js": "js",
-    ".jsx": "js",
-    ".mjs": "js",
-    ".cjs": "js",
+    ".d.ts": SourceKind.DECLARATION,
+    ".d.mts": SourceKind.DECLARATION,
+    ".d.cts": SourceKind.DECLARATION,
+    ".ts": SourceKind.TYPESCRIPT,
+    ".tsx": SourceKind.TYPESCRIPT,
+    ".mts": SourceKind.TYPESCRIPT,
+    ".cts": SourceKind.TYPESCRIPT,
+    ".js": SourceKind.JAVASCRIPT,
+    ".jsx": SourceKind.JAVASCRIPT,
+    ".mjs": SourceKind.JAVASCRIPT,
+    ".cjs": SourceKind.JAVASCRIPT,
+}
+
+
+_FAMILY_OF: Final = {
+    ".mjs": _ExtensionFamily.ESM,
+    ".mts": _ExtensionFamily.ESM,
+    ".d.mts": _ExtensionFamily.ESM,
+    ".cjs": _ExtensionFamily.CJS,
+    ".cts": _ExtensionFamily.CJS,
+    ".d.cts": _ExtensionFamily.CJS,
+    ".tsx": _ExtensionFamily.JSX,
+    ".jsx": _ExtensionFamily.JSX,
+    ".json": _ExtensionFamily.JSON,
+    ".ts": _ExtensionFamily.PLAIN,
+    ".d.ts": _ExtensionFamily.PLAIN,
+    ".js": _ExtensionFamily.PLAIN,
+    "": _ExtensionFamily.PLAIN,
 }
 
 
@@ -99,7 +177,8 @@ def package_name(specifier: str) -> str:
 
 def _declares_exports(manifest: Json) -> bool:
     """Whether `exports` is truthy in JavaScript, where an empty object still counts."""
-    return manifest.get("exports") not in (None, False, 0, "")
+    value = manifest.get("exports")
+    return isinstance(value, (dict, list)) or bool(value)
 
 
 def _best_pattern(
@@ -120,14 +199,15 @@ def _best_pattern(
 
 def _typed_name(specifier: str) -> str:
     """The DefinitelyTyped directory of a package: `@scope/name` is stored as `scope__name`."""
-    if specifier.startswith("@") and "/" in specifier:
+    parts = specifier.split("/")
+    if specifier.startswith("@") and len(parts) > 1:
         return specifier.replace("/", "__", 1)[1:]
     return specifier
 
 
 def _strip_extension(candidate: str) -> tuple[str, str] | None:
     """Split a name into stem and extension the way the compiler does; None without a dot."""
-    if "." not in posixpath.basename(candidate):
+    if re.search(r"\.", posixpath.basename(candidate)) is None:
         return None
     known = next((ext for ext in _KNOWN_EXTENSIONS if candidate.endswith(ext)), None)
     stem = candidate[: -len(known)] if known else candidate[: candidate.rindex(".")]
@@ -136,16 +216,21 @@ def _strip_extension(candidate: str) -> tuple[str, str] | None:
 
 def _extensions(original: str, kinds: Kinds) -> list[str]:
     """The extensions tried after `original`, in the compiler's order, for the enabled kinds."""
-    ts, dts, js = "ts" in kinds, "dts" in kinds, "js" in kinds
-    if original in (".mjs", ".mts", ".d.mts"):
+    ts, dts, js = (
+        SourceKind.TYPESCRIPT in kinds,
+        SourceKind.DECLARATION in kinds,
+        SourceKind.JAVASCRIPT in kinds,
+    )
+    family = _FAMILY_OF.get(original)
+    if family is _ExtensionFamily.ESM:
         groups = [(ts, ".mts"), (dts, ".d.mts"), (js, ".mjs")]
-    elif original in (".cjs", ".cts", ".d.cts"):
+    elif family is _ExtensionFamily.CJS:
         groups = [(ts, ".cts"), (dts, ".d.cts"), (js, ".cjs")]
-    elif original in (".tsx", ".jsx"):
+    elif family is _ExtensionFamily.JSX:
         groups = [(ts, ".tsx"), (ts, ".ts"), (dts, ".d.ts"), (js, ".jsx"), (js, ".js")]
-    elif original == ".json":
-        groups = [(dts, ".d.json.ts"), ("json" in kinds, ".json")]
-    elif original in (".ts", ".d.ts", ".js", ""):
+    elif family is _ExtensionFamily.JSON:
+        groups = [(dts, ".d.json.ts"), (SourceKind.JSON in kinds, ".json")]
+    elif family is _ExtensionFamily.PLAIN:
         groups = [(ts, ".ts"), (ts, ".tsx"), (dts, ".d.ts"), (js, ".js"), (js, ".jsx")]
     else:
         groups = []
@@ -167,7 +252,7 @@ def _file_paths(candidate: str, esm: bool, kinds: Kinds) -> list[str]:
 def _ancestors(rel: str) -> list[str]:
     """Directories from the one holding `rel` up to the snapshot root."""
     chain = [posixpath.dirname(rel) or "."]
-    while chain[-1] != ".":
+    while PathToken.parse(chain[-1]) is not PathToken.CURRENT:
         chain.append(posixpath.dirname(chain[-1]) or ".")
     return chain
 
@@ -185,15 +270,24 @@ class Resolver:
 
     @property
     def _exports_aware(self) -> bool:
-        return self.options.resolution in ("node16", "nodenext", "bundler")
+        return self.options.resolution in (
+            ModuleResolution.NODE16,
+            ModuleResolution.NODENEXT,
+            ModuleResolution.BUNDLER,
+        )
 
     def _blocked(self) -> Unknown | None:
         if self.options.unmodeled:
             return Unknown(f"Compiler option is not observed: {', '.join(self.options.unmodeled)}")
         if self.partial:
             return Unknown("TSConfig settings are not fully observed")
-        if self.options.resolution not in ("node10", "node16", "nodenext", "bundler"):
-            return Unknown(f"moduleResolution {self.options.resolution} is not observed")
+        if self.options.resolution not in (
+            ModuleResolution.NODE10,
+            ModuleResolution.NODE16,
+            ModuleResolution.NODENEXT,
+            ModuleResolution.BUNDLER,
+        ):
+            return Unknown(f"moduleResolution {self.options.resolution.value} is not observed")
         return None
 
     def _manifest(self, directory: str) -> Json | Unknown | None:
@@ -219,43 +313,53 @@ class Resolver:
             *("/".join([".."] * level) for level in range(1, self.snapshot.depth + 1)),
         ]
         for current in chain:
-            if posixpath.basename(current) != "node_modules":
+            if PathToken.parse(posixpath.basename(current)) is not PathToken.NODE_MODULES:
                 manifest = self._manifest(current)
                 if manifest is not None:
                     return manifest
         return None
 
-    def format_of(self, rel: str) -> Format | Unknown | None:
+    def format_of(self, rel: str) -> ModuleFormat | Unknown | None:
         """Whether Node loads a file as ESM or CommonJS; None where no format is defined."""
-        if self.options.resolution not in ("node16", "nodenext"):
+        if self.options.resolution not in (ModuleResolution.NODE16, ModuleResolution.NODENEXT):
             return None
         if rel.endswith(_ESM_EXTENSIONS):
-            return "esm"
+            return ModuleFormat.ESM
         if rel.endswith(_CJS_EXTENSIONS):
-            return "cjs"
+            return ModuleFormat.CJS
         if not rel.endswith(_SCOPE_FORMATS):
             return None
         manifest = self.scope(rel)
         if isinstance(manifest, Unknown):
             return manifest
-        return "esm" if manifest is not None and manifest.get("type") == "module" else "cjs"
+        return (
+            ModuleFormat.ESM
+            if manifest is not None and _package_type(manifest) is _PackageType.MODULE
+            else ModuleFormat.CJS
+        )
 
     def resolve(
         self,
         specifier: str,
         importer: str,
-        mode: Format | None,
+        mode: ModuleFormat | None,
         *,
         prefer_builtin: bool = False,
     ) -> Found | Unknown | None:
         """The snapshot file `specifier` names, None when it names none, else why not known."""
         self._reads = set()
-        esm = mode == "esm"
-        node10 = self.options.resolution == "node10"
+        if mode is not None and not isinstance(mode, ModuleFormat):
+            raise TypeError("mode must be ModuleFormat or None")
+        esm = mode is ModuleFormat.ESM
+        node10 = self.options.resolution is ModuleResolution.NODE10
         # Under Node10 the compiler looks for TypeScript everywhere before it looks for JavaScript.
         # JSON modules are tried with the JavaScript files, which come last.
-        last = ("js", "json") if self._json else ("js",)
-        passes: tuple[Kinds, ...] = (("ts", "dts"), last) if node10 else (("ts", "dts", *last),)
+        last = (SourceKind.JAVASCRIPT, SourceKind.JSON) if self._json else (SourceKind.JAVASCRIPT,)
+        passes: tuple[Kinds, ...] = (
+            ((SourceKind.TYPESCRIPT, SourceKind.DECLARATION), last)
+            if node10
+            else ((SourceKind.TYPESCRIPT, SourceKind.DECLARATION, *last),)
+        )
         if is_relative(specifier):
             candidate = join(posixpath.dirname(importer) or ".", specifier)
             for kinds in passes:
@@ -272,7 +376,7 @@ class Resolver:
             if (
                 prefer_builtin
                 and mode is not None
-                and self.options.resolution in ("node16", "nodenext")
+                and self.options.resolution in (ModuleResolution.NODE16, ModuleResolution.NODENEXT)
                 and is_builtin(specifier)
             ):
                 return None
@@ -332,9 +436,13 @@ class Resolver:
             return None
         found = self._package(modules, specifier, esm, kinds)
         types = join(modules, "@types")
-        if found is not None or "dts" not in kinds or not self.snapshot.is_dir(types):
+        if (
+            found is not None
+            or SourceKind.DECLARATION not in kinds
+            or not self.snapshot.is_dir(types)
+        ):
             return found
-        return self._package(types, _typed_name(specifier), esm, ("dts",))
+        return self._package(types, _typed_name(specifier), esm, (SourceKind.DECLARATION,))
 
     def _package(
         self, modules: str, specifier: str, esm: bool, kinds: Kinds
@@ -344,7 +452,7 @@ class Resolver:
         root = self._manifest(join(modules, name))
         if isinstance(root, Unknown):
             return root
-        if root is not None and "typesVersions" in root:
+        if root is not None and has_field(root, "typesVersions"):
             return Unknown(f"Package typesVersions are not observed: {name}")
         if root is not None and self._exports_aware and _declares_exports(root):
             return self._export_target(modules, name, rest, root, esm, kinds)
@@ -369,17 +477,20 @@ class Resolver:
         exports = manifest.get("exports")
         key = "." if not rest else f"./{rest}"
         if isinstance(exports, str):
-            selected: Json | str | None = exports if key == "." else None
+            selected: Json | str | None = exports if not rest else None
         elif isinstance(exports, dict):
-            subpaths = [isinstance(item, str) and item[:1] == "." for item in exports]
+            subpaths = [
+                isinstance(item, str) and PathToken.parse(item[:1]) is PathToken.CURRENT
+                for item in exports
+            ]
             if any(subpaths) and not all(subpaths):
                 return Unknown(f"Package exports map shape is not observed: {name}")
             if exports and all(subpaths):
                 selected = exports.get(key)
-                if selected is None and rest and any("*" in item for item in exports):
+                if selected is None and rest and any(re.search(r"\*", item) for item in exports):
                     return Unknown(f"Package exports patterns are not observed: {name}/{rest}")
             else:
-                selected = exports if key == "." else None
+                selected = exports if not rest else None
         else:
             return Unknown(f"Package exports shape is not observed: {name}")
         if selected is None:
@@ -392,11 +503,11 @@ class Resolver:
             return target
         if target is None:
             return Unknown(f"Package exports conditions are not observed: {name}{key[1:]}")
-        if target[:2] != "./":
+        if PathToken.parse(target[:2]) is not PathToken.RELATIVE:
             return Unknown(f"Package exports target is not package-relative: {name}{key[1:]}")
-        if re.fullmatch(r"\./[^/]+(?:/[^/]+)*\Z", target) is None or any(
-            segment in {".", "..", "node_modules"}
-            or any(char in segment for char in ("%", "?", "#", "\\"))
+        if re.fullmatch(r"\./[^/%?#\\]+(?:/[^/%?#\\]+)*\Z", target) is None or any(
+            PathToken.parse(segment)
+            in {PathToken.CURRENT, PathToken.PARENT, PathToken.NODE_MODULES}
             for segment in re.split("/", target[2:])
         ):
             return Unknown(f"Package exports target path is not observed: {name}{key[1:]}")
@@ -404,7 +515,10 @@ class Resolver:
         candidate = join(package_dir, target[2:])
         # Only a recognized TS declaration/source target names its exact source file.
         extension = _strip_extension(target)
-        if extension is not None and _KIND_OF.get(extension[1]) in {"ts", "dts"}:
+        if extension is not None and _KIND_OF.get(extension[1]) in {
+            SourceKind.TYPESCRIPT,
+            SourceKind.DECLARATION,
+        }:
             paths = [candidate]
         else:
             paths = _file_paths(candidate, True, kinds)
@@ -417,17 +531,22 @@ class Resolver:
     def _export_condition(value: Json | str, esm: bool) -> str | Unknown | None:
         if isinstance(value, str):
             return value
-        for condition, target in value.items():
-            if condition in {"types", "default", "import" if esm else "require"}:
+        for name, target in value.items():
+            try:
+                condition = _ExportCondition(name)
+            except ValueError:
+                return Unknown(f"Package exports condition is not observed: {name}")
+            active = _ExportCondition.IMPORT if esm else _ExportCondition.REQUIRE
+            if condition in {_ExportCondition.TYPES, _ExportCondition.DEFAULT, active}:
                 if not isinstance(target, (dict, str)):
                     return Unknown("Package exports conditions are not observed")
                 selected = Resolver._export_condition(target, esm)
                 if selected is not None:
                     return selected
-            elif condition in {"import", "require"}:
+            elif condition in {_ExportCondition.IMPORT, _ExportCondition.REQUIRE}:
                 continue
             else:
-                return Unknown(f"Package exports condition is not observed: {condition}")
+                return Unknown(f"Package exports condition is not observed: {name}")
         return None
 
     def _by_name(
@@ -451,9 +570,9 @@ class Resolver:
     ) -> str | Unknown | None:
         """A package directory: the file `types` or `main` names, else its `index`."""
         fields = {} if manifest is None else manifest
-        if "typesVersions" in fields:
+        if has_field(fields, "typesVersions"):
             return Unknown(f"Package typesVersions are not observed: {directory}")
-        keys = [*(("typings", "types") if "dts" in kinds else ()), "main"]
+        keys = [*(("typings", "types") if SourceKind.DECLARATION in kinds else ()), "main"]
         named = next(
             (value for key in keys if isinstance(value := fields.get(key), str) and value), None
         )
@@ -463,8 +582,12 @@ class Resolver:
             if _KIND_OF.get(extension) in kinds and self.snapshot.is_file(target):
                 return target
             # A package that is not itself ECMAScript may name a file without its extension.
-            strict = esm and fields.get("type") == "module"
-            expanded = ("ts", "dts") if kinds == ("dts",) else kinds
+            strict = esm and _package_type(fields) is _PackageType.MODULE
+            expanded = (
+                (SourceKind.TYPESCRIPT, SourceKind.DECLARATION)
+                if kinds == (SourceKind.DECLARATION,)
+                else kinds
+            )
             found = self._by_name(target, False, strict, expanded, False)
             if found is not None:
                 return found
