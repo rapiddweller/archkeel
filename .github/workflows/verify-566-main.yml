@@ -1,0 +1,64 @@
+name: Publisher first on actual Main
+on:
+  push:
+    branches: [verify/566-publisher-first-e7]
+permissions:
+  contents: read
+jobs:
+  actual-main-source-and-publication:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Real Git three-way, resolve only publisher context
+        run: python prototype/publisher-first-main.py
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - run: uv sync --locked
+      - name: Reproduce actual Main derivative with official generator
+        run: |
+          make browser-runtime-generate
+          git diff --exit-code -- src/archkeel/render/assets/flow.runtime.js
+          make browser-runtime-check
+      - name: Permanent routing, gate and original size controls
+        run: uv run --locked python -m pytest -q tests/test_ci_changes.py tests/test_make_gate.py tests/test_flow_runtime_publication.py tests/test_atlas_report.py::test_default_report_is_one_authentic_repository_with_sparse_native_cells tests/test_atlas_report.py::test_atlas_inlines_pinned_elk_before_flow_script_under_offline_csp
+      - run: make lint typecheck
+      - name: Export regenerated Main asset and exact source-only proof
+        if: always()
+        run: |
+          python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          paths=["docs/superpowers/plans/2026-10-16-flow-runtime-publication.md","tests/test_flow_runtime_publication.py","tests/browser_runtime_ast.cjs","tools/browser-runtime/package.json","tools/browser-runtime/options.json","tools/browser-runtime/package-lock.json","tools/browser_runtime.py","src/archkeel/render/html.py",".gitignore","Makefile","tests/smoke_test.py","src/archkeel/render/assets/flow.runtime.js","tests/test_make_gate.py","tools/ci_changes.py","tests/test_ci_changes.py"]
+          print("MAIN_PUBLISHER_REGENERATED=" + json.dumps({path:Path(path).read_text() for path in paths if Path(path).is_file()}))
+          print("MAIN_FINAL_STATUS=" + subprocess.check_output(["git","diff","--stat","e7b586c10721007c55339659ed2e29064ff9e3ab"]).decode())
+          PY
+  actual-main-chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: python prototype/publisher-first-main.py
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - run: uv sync --locked
+      - run: make browser-runtime-check browser-install
+      - name: Actual Main Flow, routes, filters and Mermaid
+        run: |
+          uv run --locked --with playwright==1.62.0 python -m pytest -q             tests/test_own_uml_target.py::test_own_type_dependencies_have_visible_endpoints_and_connected_focus             tests/test_own_uml_target.py::test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence             tests/test_own_uml_target.py::test_own_class_overview_keeps_distinct_routes_and_type_cues             tests/test_uml_rendering.py::test_keyboard_drilldown_and_view_roundtrip_keep_the_source_scope             tests/test_uml_rendering.py::test_source_scope_retains_unresolved_calls_and_parameter_kinds             tests/test_uml_rendering.py::test_static_members_are_underlined_in_previews_and_drilldown             tests/test_atlas_report.py::test_offline_module_drilldown_reaches_native_classifiers_and_returns             tests/test_atlas_report.py::test_offline_scope_url_history_matches_direct_classifier_and_members             tests/test_atlas_report.py::test_atlas_browser_keeps_positions_and_unknown_cells_across_lenses
