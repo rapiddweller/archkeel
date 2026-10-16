@@ -205,6 +205,10 @@ def _contract():
             "decided_by": "architect",
         }
     ]
+    # Only these real codec helpers are migrated; unrelated version grammars remain pending.
+    codec_rule = copy.deepcopy(intent["rules"][0])
+    codec_rule.update(id="MEASURE-CODEC-CONTROL", source="archkeel.ir.codec_governance")
+    intent["rules"].append(codec_rule)
     return intent
 
 
@@ -215,6 +219,17 @@ def _repository(tmp_path):
         "archkeel/ir/measurements.py": (ROOT / "src/archkeel/ir/measurements.py").read_text(),
         "archkeel/ir/profiles.py": "from enum import StrEnum\n"
         + _source_members("src/archkeel/ir/profiles.py", {"UnmeasurableScalar"}),
+        "archkeel/ir/codec_governance.py": (
+            "from __future__ import annotations\n"
+            "from .model import RawJson\n"
+            "from .measurements import MeasurementBudgetName, NameBudgetKind, RatchetError\n"
+            "from .measurements import MeasurementResolution as _MeasurementResolution\n"
+            "from .codec_wire import _string\n"
+            + _source_members(
+                "src/archkeel/ir/codec_governance.py",
+                {"_measurement_budget_name", "_name_budget_kind", "_measurement_resolution"},
+            )
+        ),
         "archkeel/ir/model.py": (
             "from __future__ import annotations\nimport builtins\n"
             "from dataclasses import dataclass\n"
@@ -289,13 +304,17 @@ def test_native_type_widening_and_enum_substitution_fail_fixed_intent(tmp_path, 
         "def _probe(value):\n    return value == TAG\n",
     ],
 )
-def test_native_complete_measurement_owner_rejects_raw_dispatch(tmp_path, probe):
+@pytest.mark.parametrize("path", ["measurements.py", "codec_governance.py"])
+def test_native_owner_and_actual_migrated_codec_helpers_reject_raw_dispatch(tmp_path, probe, path):
     root, config = _repository(tmp_path)
     _valid(_model(root, config))
-    source = root / "archkeel/ir/measurements.py"
+    source = root / "archkeel/ir" / path
     source.write_text(source.read_text() + "\n" + probe)
     value = _model(root, config)
-    assert any("MEASURE-CONTROL" in row.rule_ids for row in trace_valid_violations(value))
+    assert any(
+        set(row.rule_ids) & {"MEASURE-CONTROL", "MEASURE-CODEC-CONTROL"}
+        for row in trace_valid_violations(value)
+    )
 
 
 def test_existing_profile_capability_domain_maps_to_eligible_budget_selectors():
