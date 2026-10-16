@@ -354,6 +354,8 @@ def _handled_types(caught: ast.expr) -> list[str]:
 class ConstructCollector(ast.NodeVisitor):
     """Walk one module, recording each construct under the scope that owns it."""
 
+    comparisons: _LiteralComparisons
+
     def __init__(self, module: ParsedModule, evidence: dict[str, RawEvidence]) -> None:
         self.module = module
         self.evidence = evidence
