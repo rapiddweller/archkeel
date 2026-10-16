@@ -298,7 +298,9 @@ def test_exact_parent_ban_does_not_prohibit_an_entire_child_component_pair():
         ("prefix", "exact", "sample.caller.child", "sample.errors", True),
     ],
 )
-def test_module_cells_obey_both_module_selectors(source_match, target_match, source, target, expected):
+def test_module_cells_obey_both_module_selectors(
+    source_match, target_match, source, target, expected
+):
     from archkeel.ir.architecture_graph import ComponentIntent, RuleAssessment
     from archkeel.ir.model import Record, RecordData
     from archkeel.ir.module_explore import _rule_applies
@@ -309,11 +311,17 @@ def test_module_cells_obey_both_module_selectors(source_match, target_match, sou
 
     def record(raw):
         return Record(
-            id=raw["id"], evidence_class=EvidenceClass(raw["evidence_class"]),
-            area=raw["area"], kind=raw["kind"], title=raw["title"],
-            subjects=tuple(raw["subjects"]), evidence_ids=tuple(raw["evidence_ids"]),
-            rule_ids=tuple(raw["rule_ids"]), fact_ids=tuple(raw["fact_ids"]),
-            provenance=tuple(raw["provenance"]), data=RecordData(tuple(raw["data"].items())),
+            id=raw["id"],
+            evidence_class=EvidenceClass(raw["evidence_class"]),
+            area=raw["area"],
+            kind=raw["kind"],
+            title=raw["title"],
+            subjects=tuple(raw["subjects"]),
+            evidence_ids=tuple(raw["evidence_ids"]),
+            rule_ids=tuple(raw["rule_ids"]),
+            fact_ids=tuple(raw["fact_ids"]),
+            provenance=tuple(raw["provenance"]),
+            data=RecordData(tuple(raw["data"].items())),
         )
 
     intents = {
@@ -323,12 +331,31 @@ def test_module_cells_obey_both_module_selectors(source_match, target_match, sou
         for identity, component in zip(("source", "target"), contract.components, strict=True)
     }
     assessment = RuleAssessment(
-        id="NO-AGGREGATE", kind="forbidden_dependency", status="PASS",
-        evaluation_proven=True, count=0, undecided=0, decided_by="architect",
-        rationale="Keep narrow dependencies.", provenance=("target.md",),
-        reason="Completed source proof.", scope="root", components=("source", "target"),
+        id="NO-AGGREGATE",
+        kind="forbidden_dependency",
+        status="PASS",
+        evaluation_proven=True,
+        count=0,
+        undecided=0,
+        decided_by="architect",
+        rationale="Keep narrow dependencies.",
+        provenance=("target.md",),
+        reason="Completed source proof.",
+        scope="root",
+        components=("source", "target"),
     )
-    assert _rule_applies(
-        record(raw_declaration), assessment, source, target, record(raw_site), (),
-        {"source"}, {"target"}, intents, {},
-    ) is expected
+    assert (
+        _rule_applies(
+            record(raw_declaration),
+            assessment,
+            source,
+            target,
+            record(raw_site),
+            (),
+            {"source"},
+            {"target"},
+            intents,
+            {},
+        )
+        is expected
+    )
