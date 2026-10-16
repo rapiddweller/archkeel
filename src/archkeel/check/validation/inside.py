@@ -10,6 +10,8 @@ from pathlib import Path
 
 from archkeel.ir.codec import InsideContractMount, InsideContractTree
 from archkeel.ir.model import (
+    DependencyTargetKind,
+    SelectorMatch,
     AllowedDependencyRule,
     ArchitectureContract,
     CompleteRequiresRule,
@@ -56,8 +58,8 @@ def _forbidden_targets(
         (rule.id, rule.target)
         for rule in contract.rules
         if isinstance(rule, ForbiddenDependencyRule)
-        and rule.source_match == rule.target_match == "prefix"
-        and rule.target_kind == "module"
+        and rule.source_match is rule.target_match is SelectorMatch.PREFIX
+        and rule.target_kind is DependencyTargetKind.MODULE
         and module_in_ownership(rule.source, component.packages, component.exact_modules or ())
     ]
 

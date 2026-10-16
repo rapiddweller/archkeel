@@ -138,7 +138,14 @@
         "archkeel.ir.module_explore:module_exploration",
         "archkeel.ir.source_records:classified",
         "archkeel.ir.source_records:file_evidence",
-        "archkeel.ir.source_records:record_evidence"
+        "archkeel.ir.source_records:record_evidence",
+        "archkeel.ir.dependency:ComponentOwnership",
+        "archkeel.ir.dependency:DependencySelection",
+        "archkeel.ir.dependency:DependencySelector",
+        "archkeel.ir.dependency:DependencyTargetKind",
+        "archkeel.ir.dependency:ModuleSelection",
+        "archkeel.ir.dependency:SelectorMatch",
+        "archkeel.ir.dependency:module_in_ownership"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
@@ -761,7 +768,8 @@
         "archkeel.ir.model",
         "archkeel.ir.facts",
         "archkeel.ir.type_shapes",
-        "archkeel.ir.architecture_graph"
+        "archkeel.ir.architecture_graph",
+        "archkeel.ir.dependency"
       ],
       "rationale": "Governance enums stay in ir.model; source facts, type shapes and the shared UML graph own their respective vocabularies.",
       "provenance": [

@@ -20,6 +20,8 @@ from .architecture_graph import (
     ReportFinding,
     RuleAssessment,
 )
+from .codec_contract import parse_dependency_selector
+from .dependency import DependencySelector
 from .decisions import _rule_receipt_complete, rule_assessments
 from .interfaces import component_owners, owner_of
 from .levels import inside_levels
@@ -100,35 +102,6 @@ def _count(value: JsonValue) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
 
 
-def _forbidden_rule_applies(
-    declaration: Record,
-    source: str,
-    target: str,
-    source_intent: ComponentIntent,
-    target_intent: ComponentIntent,
-) -> bool:
-    """Match a forbidden rule without expanding exact module selection through labels."""
-    source_selector = text_value(declaration.data.get("source"))
-    target_selector = text_value(declaration.data.get("target"))
-    source_exact = declaration.data.get("source_match") == "exact"
-    target_exact = declaration.data.get("target_match") == "exact"
-    component_labels = (
-        not (source_exact or target_exact)
-        and declaration.data.get("target_kind", "module") == "module"
-    )
-    source_match = (
-        source == source_selector
-        if source_exact
-        else module_in_ownership(source, (source_selector,), ())
-    ) or (component_labels and source_selector in {source_intent.component_id, source_intent.label})
-    target_match = (
-        target == target_selector
-        if target_exact
-        else module_in_ownership(target, (target_selector,), ())
-    ) or (component_labels and target_selector in {target_intent.component_id, target_intent.label})
-    return source_match and target_match
-
-
 def _rule_applies(
     declaration: Record | None,
     assessment: RuleAssessment,
@@ -140,6 +113,7 @@ def _rule_applies(
     target_owners: set[str],
     intents: dict[str, ComponentIntent],
     scope_ids: dict[str, str],
+    selectors: dict[str, DependencySelector],
 ) -> bool:
     if declaration is None or assessment.kind not in {
         "complete_requires",
@@ -161,6 +135,11 @@ def _rule_applies(
     if parent_scope is not None and parent_scope not in scope_ids:
         return False
     parent = scope_ids[parent_scope] if parent_scope is not None else None
+    ownership = tuple(
+        (item.component_id, item.packages, item.exact_modules)
+        for item in intents.values()
+        if item.parent_id == parent
+    )
     for source_id in source_owners:
         source_intent = intents[source_id]
         for target_id in target_owners:
@@ -172,13 +151,8 @@ def _rule_applies(
             ):
                 continue
             if assessment.kind == "forbidden_dependency":
-                if _forbidden_rule_applies(
-                    declaration,
-                    source,
-                    target,
-                    source_intent,
-                    target_intent,
-                ):
+                selection = selectors[declaration.id].select(ownership)
+                if selection.source.matches(source) and selection.target.matches(target):
                     return True
             elif assessment.kind == "interface_boundary":
                 if target_intent.public is not None and not any(
@@ -235,6 +209,11 @@ def _cells(
         )
     }
     declarations = {item.id: item for item in model.records("declarations") or ()}
+    selectors = {
+        item.id: parse_dependency_selector(item)
+        for item in declarations.values()
+        if item.kind == "forbidden_dependency"
+    }
     imports = {item.id: item for item in model.records("imports") or ()}
     weights = {
         (identities[source], identities[target]): count
@@ -265,6 +244,7 @@ def _cells(
             memberships,
             intents,
             scope_ids,
+            selectors,
         )
         for source, target in sorted(set(weights) | set(sites))
     )
@@ -284,6 +264,7 @@ def _import_cell(
     memberships: dict[str, set[str]],
     intents: dict[str, ComponentIntent],
     scope_ids: dict[str, str],
+    selectors: dict[str, DependencySelector],
 ) -> ModuleImportCell:
     edges = sites[source, target]
     relationships = tuple(sorted(item.id for item in edges))
@@ -325,6 +306,7 @@ def _import_cell(
                     memberships[target],
                     intents,
                     scope_ids,
+                    selectors,
                 )
             )
             proven, undecided_sites = _import_site_proof(

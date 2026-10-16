@@ -11,6 +11,7 @@ from typing import TypeVar
 
 from archkeel.ir.decisions import open_decision_summary
 from archkeel.ir.model import (
+    SelectorMatch,
     AllowedDependencyRule,
     ArchitectureContract,
     Diagnostic,
@@ -63,11 +64,11 @@ def _decided_pairs(
             components,
             source_match=rule.source_match
             if isinstance(rule, ForbiddenDependencyRule)
-            else "prefix",
+            else SelectorMatch.PREFIX,
             target_match=rule.target_match
             if isinstance(rule, ForbiddenDependencyRule)
-            else "prefix",
-            target_kind=rule.target_kind if isinstance(rule, ForbiddenDependencyRule) else "module",
+            else SelectorMatch.PREFIX,
+            target_kind=rule.target_kind if isinstance(rule, ForbiddenDependencyRule) else DependencyTargetKind.MODULE,
         )
         if pair is not None:
             pairs.append(pair)

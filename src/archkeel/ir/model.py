@@ -58,6 +58,13 @@ from .facts import (
 from .facts import (
     stable_id as stable_id,
 )
+from .dependency import ComponentOwnership as ComponentOwnership
+from .dependency import DependencySelection as DependencySelection
+from .dependency import DependencySelector as DependencySelector
+from .dependency import DependencyTargetKind as DependencyTargetKind
+from .dependency import ModuleSelection as ModuleSelection
+from .dependency import SelectorMatch as SelectorMatch
+from .dependency import module_in_ownership as module_in_ownership
 from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName, Measurements, NameBudgetKind
 
@@ -74,7 +81,6 @@ def public_api_id(selector: str) -> str:
 SCHEMA_VERSION = "2.0.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 Verdict: TypeAlias = Literal["PASS", "FAIL"]
-ComponentOwnership: TypeAlias = tuple[str, tuple[str, ...], tuple[str, ...]]
 PackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]
 ComponentOwnershipInput: TypeAlias = ComponentOwnership | PackageComponentOwnership
 # AD-26's full vocabulary, for the one verdict that can also fail to decide (AD-67).
@@ -324,9 +330,16 @@ class ForbiddenDependencyRule:
     decided_by: Literal["architect", "agent"]
     target_symbol: str | None = None
     allowed_sources: tuple[str, ...] = ()
-    source_match: Literal["prefix", "exact"] = "prefix"
-    target_match: Literal["prefix", "exact"] = "prefix"
-    target_kind: Literal["module", "import_namespace"] = "module"
+    source_match: SelectorMatch = SelectorMatch.PREFIX
+    target_match: SelectorMatch = SelectorMatch.PREFIX
+    target_kind: DependencyTargetKind = DependencyTargetKind.MODULE
+
+    @property
+    def selector(self) -> DependencySelector:
+        return DependencySelector(
+            self.source, self.target, self.target_symbol,
+            self.source_match, self.target_match, self.target_kind,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -607,11 +620,6 @@ def int_value(value: object, *, default: int = 0) -> int:
     return value if isinstance(value, int) and not isinstance(value, bool) else default
 
 
-def module_in_ownership(module: str, packages: Iterable[str], exact_modules: Iterable[str]) -> bool:
-    """Apply recursive package and exact module ownership selectors together."""
-    return module in exact_modules or any(in_scope(module, package) for package in packages)
-
-
 def component_owns_module(component: ContractComponent, module: str) -> bool:
     """Match one exact module or a descendant of one of the component's packages."""
     return module_in_ownership(module, component.packages, component.exact_modules or ())
@@ -635,45 +643,21 @@ def declared_package_pair(
     target_symbol: str | None,
     components: tuple[ComponentOwnership, ...],
     *,
-    source_match: str = "prefix",
-    target_match: str = "prefix",
-    target_kind: str = "module",
+    source_match: SelectorMatch = SelectorMatch.PREFIX,
+    target_match: SelectorMatch = SelectorMatch.PREFIX,
+    target_kind: DependencyTargetKind = DependencyTargetKind.MODULE,
 ) -> tuple[str, str] | None:
-    """Resolve an unqualified rule naming two uniquely declared package selectors."""
-    if (
-        target_symbol is not None
-        or source_match != "prefix"
-        or target_match != "prefix"
-        or target_kind != "module"
-    ):
-        return None
-    source_owners = {label for label, packages, _ in components if source in packages}
-    target_owners = {label for label, packages, _ in components if target in packages}
-    if len(source_owners) != 1 or len(target_owners) != 1:
-        return None
-    return next(iter(source_owners)), next(iter(target_owners))
+    """Compatibility facade for the owned dependency selection API."""
+    return DependencySelector(
+        source, target, target_symbol, source_match, target_match, target_kind
+    ).component_pair(components)
 
 
 def forbidden_dependency_scopes(
     rule: ForbiddenDependencyRule, components: tuple[ComponentOwnership, ...]
-) -> tuple[tuple[tuple[str, ...], tuple[str, ...]], tuple[tuple[str, ...], tuple[str, ...]]]:
-    """Use component ownership only for whole-pair bans; otherwise select modules."""
-    pair = declared_package_pair(
-        rule.source,
-        rule.target,
-        rule.target_symbol,
-        components,
-        source_match=rule.source_match,
-        target_match=rule.target_match,
-        target_kind=rule.target_kind,
-    )
-    if pair is not None:
-        owners = {label: (packages, exact) for label, packages, exact in components}
-        return owners[pair[0]], owners[pair[1]]
-    return (
-        ((), (rule.source,)) if rule.source_match == "exact" else ((rule.source,), ()),
-        ((), (rule.target,)) if rule.target_match == "exact" else ((rule.target,), ()),
-    )
+) -> DependencySelection:
+    """Use the shared selector for Core subjects, receipts and import matching."""
+    return rule.selector.select(components)
 
 
 @dataclass(frozen=True, slots=True)
@@ -859,7 +843,7 @@ def _rule_references(
     if isinstance(rule, ForbiddenDependencyRule):
         # AD-97: a forbidden SDK library (`dart.io`) is a real target outside the namespace.
         named += [
-            ("target", (rule.target,), rule.target not in external and rule.target_kind == "module")
+            ("target", (rule.target,), rule.target not in external and rule.target_kind is DependencyTargetKind.MODULE)
         ]
     if isinstance(
         rule,

@@ -202,6 +202,20 @@
           "component": "facts-codec",
           "rationale": "Decode validated source sections.",
           "decided_by": "agent"
+        },
+        {
+          "component": "dependency-policy",
+          "through": [
+            "archkeel.ir.dependency:ComponentOwnership",
+            "archkeel.ir.dependency:DependencySelection",
+            "archkeel.ir.dependency:DependencySelector",
+            "archkeel.ir.dependency:DependencyTargetKind",
+            "archkeel.ir.dependency:ModuleSelection",
+            "archkeel.ir.dependency:SelectorMatch",
+            "archkeel.ir.dependency:module_in_ownership"
+          ],
+          "rationale": "Use the single typed dependency selection API; retain model compatibility exports without a second matcher.",
+          "decided_by": "architect"
         }
       ],
       "public": [
@@ -248,6 +262,44 @@
         "archkeel.ir.module_explore:ModuleExploreLevel",
         "archkeel.ir.module_explore:module_exploration"
       ]
+    },
+    {
+      "id": "TARGET-DEPENDENCY",
+      "label": "dependency-policy",
+      "role": "component",
+      "packages": [
+        "archkeel.ir.dependency"
+      ],
+      "public": [
+        "archkeel.ir.dependency:ComponentOwnership",
+        "archkeel.ir.dependency:DependencySelection",
+        "archkeel.ir.dependency:DependencySelector",
+        "archkeel.ir.dependency:DependencyTargetKind",
+        "archkeel.ir.dependency:ModuleSelection",
+        "archkeel.ir.dependency:SelectorMatch",
+        "archkeel.ir.dependency:module_in_ownership"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "through": [
+            "archkeel.ir.facts:in_scope"
+          ],
+          "rationale": "Read the common dotted-name matching primitive; no policy or codecs enter source facts.",
+          "decided_by": "architect"
+        }
+      ],
+      "responsibilities": [
+        "Own the closed dependency selector vocabulary and immutable selections.",
+        "Apply module and component ownership selection consistently for evaluators and projections."
+      ],
+      "forbidden_responsibilities": [
+        "Wire decoding, source collection, receipt issuance, verdicts and report rendering."
+      ],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "rules": [

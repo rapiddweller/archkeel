@@ -11,13 +11,13 @@ from test_dependency_selectors import _contract, _ownership
 
 from archkeel.check.declarations import project_rule_declaration
 from archkeel.ir import codec
-from archkeel.ir.model import Record, RecordData, forbidden_dependency_scopes
+from archkeel.ir.model import EvidenceClass, Record, RecordData, forbidden_dependency_scopes
 
 
 def _record(raw):
     return Record(
         id=raw["id"],
-        evidence_class=raw["evidence_class"],
+        evidence_class=EvidenceClass(raw["evidence_class"]),
         area=raw["area"],
         kind=raw["kind"],
         title=raw["title"],

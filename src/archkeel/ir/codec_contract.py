@@ -23,6 +23,7 @@ from archkeel.ir.codec_wire import (
     _string,
     _strings,
 )
+from archkeel.ir.facts_codec import record_payload
 from archkeel.ir.graph_codec import parse_target
 from archkeel.ir.model import (
     AllowedDependencyRule,
@@ -47,6 +48,10 @@ from archkeel.ir.model import (
     ContractPath,
     ContractPathKind,
     ContractReviewScope,
+    DependencySelector,
+    DependencyTargetKind,
+    Record,
+    SelectorMatch,
     CouplingBudget,
     ExternalDependencyScopeRule,
     FacadeBudget,
@@ -440,12 +445,12 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         )
     if contract.schema_version not in {"3.4.0", "3.5.0"} and any(
         isinstance(rule, ForbiddenDependencyRule)
-        and (rule.source_match != "prefix" or rule.target_match != "prefix")
+        and (rule.source_match is not SelectorMatch.PREFIX or rule.target_match is not SelectorMatch.PREFIX)
         for rule in contract.rules
     ):
         raise ValueError("dependency module selectors require contract schema_version 3.4.0")
     if contract.schema_version != "3.5.0" and any(
-        isinstance(rule, ForbiddenDependencyRule) and rule.target_kind != "module"
+        isinstance(rule, ForbiddenDependencyRule) and rule.target_kind is not DependencyTargetKind.MODULE
         for rule in contract.rules
     ):
         raise ValueError("import namespace targets require contract schema_version 3.5.0")
@@ -459,9 +464,9 @@ def contract_bytes(contract: ArchitectureContract) -> bytes:
     for rule, encoded in zip(contract.rules, fields["rules"], strict=True):
         if isinstance(rule, ForbiddenDependencyRule):
             for name, default in (
-                ("source_match", "prefix"),
-                ("target_match", "prefix"),
-                ("target_kind", "module"),
+                ("source_match", SelectorMatch.PREFIX),
+                ("target_match", SelectorMatch.PREFIX),
+                ("target_kind", DependencyTargetKind.MODULE),
             ):
                 if encoded[name] == default:
                     del encoded[name]
@@ -801,46 +806,46 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
     include = item["include_type_checking"]
     if not isinstance(include, bool):
         raise ValueError(f"{label}.include_type_checking must be a boolean")
-    symbol = item.get("target_symbol")
-    if symbol is not None and (not isinstance(symbol, str) or not symbol.isidentifier()):
-        raise ValueError(f"{label}.target_symbol must be a Python identifier")
-    source = _nonempty(item["source"], f"{label}.source")
-    target = _nonempty(item["target"], f"{label}.target")
+    selected = _dependency_selector(item, label)
     rationale = _nonempty(item["rationale"], f"{label}.rationale")
     decided_by = _decided_by(item["decided_by"], f"{label}.decided_by")
     allowed = _contract_strings(item.get("allowed_sources", []), f"{label}.allowed_sources")
 
-    def selector(name: str) -> Literal["prefix", "exact"]:
-        value = item.get(name, "prefix")
-        if value == "prefix":
-            return "prefix"
-        if value == "exact":
-            return "exact"
-        raise ValueError(f"{label}.{name} must be prefix or exact")
-
-    target_kind: Literal["module", "import_namespace"]
-    if item.get("target_kind", "module") == "module":
-        target_kind = "module"
-    elif item.get("target_kind") == "import_namespace":
-        target_kind = "import_namespace"
-    else:
-        raise ValueError(f"{label}.target_kind must be module or import_namespace")
-
     return ForbiddenDependencyRule(
         item_id,
         "forbidden_dependency",
-        source,
-        target,
+        selected.source,
+        selected.target,
         include,
         rationale,
         provenance,
         decided_by,
-        symbol,
+        selected.target_symbol,
         allowed,
-        selector("source_match"),
-        selector("target_match"),
-        target_kind,
+        selected.source_match,
+        selected.target_match,
+        selected.target_kind,
     )
+
+
+def _dependency_selector(data: dict[str, RawJson], label: str) -> DependencySelector:
+    symbol = data.get("target_symbol")
+    if symbol is not None and (not isinstance(symbol, str) or not symbol.isidentifier()):
+        raise ValueError(f"{label}.target_symbol must be an identifier")
+    return DependencySelector(
+        _nonempty(data.get("source"), f"{label}.source"),
+        _nonempty(data.get("target"), f"{label}.target"),
+        symbol,
+        SelectorMatch(_string(data.get("source_match", SelectorMatch.PREFIX), f"{label}.source_match")),
+        SelectorMatch(_string(data.get("target_match", SelectorMatch.PREFIX), f"{label}.target_match")),
+        DependencyTargetKind(_string(data.get("target_kind", DependencyTargetKind.MODULE), f"{label}.target_kind")),
+    )
+
+
+def parse_dependency_selector(record: Record) -> DependencySelector:
+    """Decode a dependency selector once at the record-to-model boundary."""
+    data = _object(record_payload(record)["data"], "dependency declaration")
+    return _dependency_selector(data, "dependency declaration")
 
 
 def _parse_allowed_dependency(raw: RawJson, label: str) -> AllowedDependencyRule:
@@ -1301,9 +1306,9 @@ def _rule_payload(rule: ArchitectureRule) -> dict[str, RawJson]:
     fields = asdict(rule)
     if isinstance(rule, ForbiddenDependencyRule):
         for name, default in (
-            ("source_match", "prefix"),
-            ("target_match", "prefix"),
-            ("target_kind", "module"),
+            ("source_match", SelectorMatch.PREFIX),
+            ("target_match", SelectorMatch.PREFIX),
+            ("target_kind", DependencyTargetKind.MODULE),
         ):
             if fields[name] == default:
                 del fields[name]

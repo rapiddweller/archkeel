@@ -17,6 +17,7 @@ from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.graph import strongly_connected_components
 from archkeel.ir.model import (
+    DependencyTargetKind,
     AllowedDependencyRule,
     ArchitectureContract,
     ArchitectureRule,
@@ -1068,7 +1069,7 @@ def rule_subject_failures(
             rule_failures.extend(_layer_metadata_failures(contract, rule))
         scopes = rule_scopes(rule)
         if isinstance(rule, ForbiddenDependencyRule) and (
-            rule.target in sdk_libraries or rule.target_kind == "import_namespace"
+            rule.target in sdk_libraries or rule.target_kind is DependencyTargetKind.IMPORT_NAMESPACE
         ):
             scopes = {"source": scopes["source"]}
         source_subjects: AbstractSet[str] = module_names | planned_subjects

@@ -17,5 +17,19 @@ jobs:
         with:
           python-version: "3.11.12"
           version: "0.12.13"
-      - name: Reproduce typed dependency and real-label applicability gaps
-        run: uv run --locked python -m pytest -q tests/test_dependency_selectors.py tests/test_typed_dependency_api.py --maxfail=20
+      - name: Format and lint
+        run: |
+          uv run --locked ruff format src tests tools/architecture_graph_schema.py
+          uv run --locked ruff check --fix src tests tools/architecture_graph_schema.py
+      - name: Export exact formatting patch
+        if: always()
+        run: |
+          git diff --no-ext-diff > .task-format.patch
+          python -c "import base64,pathlib; print('FORMAT_PATCH='+base64.b64encode(pathlib.Path('.task-format.patch').read_bytes()).decode())"
+      - name: Verify dependency semantics and compatibility
+        run: uv run --locked python -m pytest -q tests/test_dependency_selectors.py tests/test_typed_dependency_api.py tests/test_absent_import_namespace.py tests/test_contract_model.py tests/test_widening.py --maxfail=8
+      - name: Verify source types
+        run: uv run --locked mypy src
+      - name: Verify function size
+        run: uv run --locked python -m pytest -q tests/test_repository_hygiene.py::test_long_functions_have_a_named_reason
+

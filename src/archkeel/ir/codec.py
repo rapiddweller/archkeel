@@ -10,6 +10,7 @@ from archkeel.ir.codec_contract import (
     contract_bytes,
     contract_digest,
     parse_contract,
+    parse_dependency_selector,
     parse_required_component,
 )
 from archkeel.ir.codec_contract import (
@@ -95,6 +96,7 @@ __all__ = (
     "parse_amendment",
     "parse_baseline",
     "parse_contract",
+    "parse_dependency_selector",
     "parse_delta",
     "parse_evidence",
     "parse_lock",

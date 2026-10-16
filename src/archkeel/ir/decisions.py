@@ -20,6 +20,7 @@ from typing import Final as _Final
 from .baseline import ViolationFingerprint as _ViolationFingerprint
 from .baseline import violation_rows
 from .bindings import unread_bindings
+from .codec_contract import parse_dependency_selector
 from .duplication import repeated_logic
 from .facts_validation import validate_source_bindings
 from .interfaces import component_owners, owner_of
@@ -391,22 +392,8 @@ def _decided_component_pairs(
     for record in observation.records("declarations") or ():
         if record.kind not in _DECIDING_KINDS or not _decides_this_level(record):
             continue
-        source_module = record.data.get("source")
-        target_module = record.data.get("target")
-        if not isinstance(source_module, str) or not isinstance(target_module, str):
-            continue
-        target_symbol = record.data.get("target_symbol")
-        if target_symbol is not None and not isinstance(target_symbol, str):
-            continue
-        pair = declared_package_pair(
-            source_module,
-            target_module,
-            target_symbol,
-            components,
-            source_match=text_value(record.data.get("source_match")) or "prefix",
-            target_match=text_value(record.data.get("target_match")) or "prefix",
-            target_kind=text_value(record.data.get("target_kind")) or "module",
-        )
+        selector = parse_dependency_selector(record)
+        pair = selector.component_pair(components)
         if pair is not None:
             decided.add(pair)
     return decided
