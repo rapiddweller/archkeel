@@ -1100,7 +1100,7 @@ def _parse_module_object_grants(raw: RawJson, label: str) -> tuple[ModuleObjectG
         source = _string(entry["source_module"], f"{entry_label}.source_module")
         target = _string(entry["target_module"], f"{entry_label}.target_module")
         for field, module in (("source_module", source), ("target_module", target)):
-            if _PACKAGE_NAME.fullmatch(module) is None:
+            if re.fullmatch(_PACKAGE_NAME.pattern, module) is None:
                 raise ValueError(f"{entry_label}.{field} must be a dotted module name")
         grants.append(ModuleObjectGrant(source, target))
     if len(set(grants)) != len(grants):
