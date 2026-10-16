@@ -16,7 +16,60 @@ import posixpath
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Final, Literal
+from enum import Enum
+from typing import Final, Literal, TypeVar
+
+class ModuleKind(Enum):
+    """TypeScript's accepted emit modes, owned by configuration."""
+
+    NONE = "none"
+    COMMONJS = "commonjs"
+    AMD = "amd"
+    SYSTEM = "system"
+    UMD = "umd"
+    ES6 = "es6"
+    ES2015 = "es2015"
+    ES2020 = "es2020"
+    ES2022 = "es2022"
+    ESNEXT = "esnext"
+    NODE16 = "node16"
+    NODE18 = "node18"
+    NODE20 = "node20"
+    NODENEXT = "nodenext"
+    PRESERVE = "preserve"
+
+
+class ModuleResolution(Enum):
+    """Accepted resolver modes; NODE is normalized to NODE10 at the input boundary."""
+
+    NODE = "node"
+    NODE10 = "node10"
+    CLASSIC = "classic"
+    NODE16 = "node16"
+    NODENEXT = "nodenext"
+    BUNDLER = "bundler"
+
+
+class ScriptTarget(Enum):
+    """Accepted compilation targets; defaults retain the explicit original value."""
+
+    ES3 = "es3"
+    ES5 = "es5"
+    ES6 = "es6"
+    ES2015 = "es2015"
+    ES2016 = "es2016"
+    ES2017 = "es2017"
+    ES2018 = "es2018"
+    ES2019 = "es2019"
+    ES2020 = "es2020"
+    ES2021 = "es2021"
+    ES2022 = "es2022"
+    ES2023 = "es2023"
+    ES2024 = "es2024"
+    ESNEXT = "esnext"
+
+
+_Option = TypeVar("_Option", bound=Enum)
 
 Role = Literal["selected", "resolution"]
 Json = dict[str, object]
@@ -34,12 +87,10 @@ _UNMODELED: Final = (
     "allowArbitraryExtensions",
     "noDtsResolution",
 )
-_ENUMS: Final = {
-    "module": "none commonjs amd system umd es6 es2015 es2020 es2022 esnext node16 node18 "
-    "node20 nodenext preserve".split(),
-    "moduleResolution": "node10 node classic node16 nodenext bundler".split(),
-    "target": "es3 es5 es6 es2015 es2016 es2017 es2018 es2019 es2020 es2021 es2022 es2023 "
-    "es2024 esnext".split(),
+_ENUMS: Final[dict[str, type[Enum]]] = {
+    "module": ModuleKind,
+    "moduleResolution": ModuleResolution,
+    "target": ScriptTarget,
 }
 _BOOLEAN_OPTIONS: Final = frozenset("allowJs checkJs resolveJsonModule".split())
 _STRING_OPTIONS: Final = frozenset("baseUrl declarationDir outDir".split())
@@ -72,9 +123,8 @@ _KNOWN_OPTIONS: Final = frozenset(
     "tsBuildInfoFile typeRoots types useDefineForClassFields useUnknownInCatchVariables "
     "verbatimModuleSyntax version".split()
 )
-_ESM_MODULES: Final = frozenset({"es6", "es2015", "es2020", "es2022", "esnext"})
-_NODE16_MODULES: Final = frozenset({"node16", "node18", "node20"})
-_RESOLUTIONS: Final = {"node": "node10", "node10": "node10", "node16": "node16"}
+_ESM_MODULES: Final = frozenset({ModuleKind.ES6, ModuleKind.ES2015, ModuleKind.ES2020, ModuleKind.ES2022, ModuleKind.ESNEXT})
+_NODE16_MODULES: Final = frozenset({ModuleKind.NODE16, ModuleKind.NODE18, ModuleKind.NODE20})
 _SUPPORTED: Final = (".ts", ".tsx", ".d.ts", ".cts", ".d.cts", ".mts", ".d.mts")
 _SUPPORTED_JS: Final = (".js", ".jsx", ".cjs", ".mjs")
 # Files of one group shadow each other: `a.ts` wins over `a.tsx`, `a.d.ts`, `a.js` and `a.jsx`.
@@ -100,9 +150,9 @@ _WILDCARDS: Final = {
 class Options:
     """The compiler settings a resolver reads; explicit values only, as the compiler keeps them."""
 
-    module: str | None = None
-    module_resolution: str | None = None
-    target: str | None = None
+    module: ModuleKind | None = None
+    module_resolution: ModuleResolution | None = None
+    target: ScriptTarget | None = None
     allow_js: bool = False
     # Snapshot-relative directory of `baseUrl`, the `paths` patterns with their targets, and the
     # directory those targets are relative to: `baseUrl`, else the TSConfig that sets them.
@@ -112,30 +162,51 @@ class Options:
     unmodeled: tuple[str, ...] = ()
     json_modules: bool | None = None
 
+    def __post_init__(self) -> None:
+        for name, value, kind in (
+            ("module", self.module, ModuleKind),
+            ("module_resolution", self.module_resolution, ModuleResolution),
+            ("target", self.target, ScriptTarget),
+        ):
+            if value is not None and not isinstance(value, kind):
+                raise TypeError(f"{name} must be {kind.__name__} or None")
+
     @property
     def resolve_json(self) -> bool:
-        """Whether `.json` files resolve: set explicitly, else on for NodeNext and Bundler."""
+        """Whether JSON resolves: explicit setting, else Node20/Next or Bundler."""
         if self.json_modules is not None:
             return self.json_modules
-        return self.emit_module in ("node20", "nodenext") or self.resolution == "bundler"
+        return self.emit_module in (ModuleKind.NODE20, ModuleKind.NODENEXT) or (
+            self.resolution is ModuleResolution.BUNDLER
+        )
 
     @property
-    def emit_module(self) -> str:
-        """`module` after the compiler's default, which follows `target`."""
+    def emit_module(self) -> ModuleKind:
+        """The emit mode after applying the compiler's target-dependent default."""
         if self.module is not None:
             return self.module
-        return "commonjs" if self.target in (None, "es3", "es5") else "es2015"
+        return (
+            ModuleKind.COMMONJS
+            if self.target in (None, ScriptTarget.ES3, ScriptTarget.ES5)
+            else ModuleKind.ES2015
+        )
 
     @property
-    def resolution(self) -> str:
-        """The resolution kind in force: the explicit one, else the one `module` implies."""
+    def resolution(self) -> ModuleResolution:
+        """The effective resolution mode, normalized once before resolver dispatch."""
+        if self.module_resolution is ModuleResolution.NODE:
+            return ModuleResolution.NODE10
         if self.module_resolution is not None:
             return self.module_resolution
-        implied = {"commonjs": "node10", "nodenext": "nodenext", "preserve": "bundler"}
+        implied = {
+            ModuleKind.COMMONJS: ModuleResolution.NODE10,
+            ModuleKind.NODENEXT: ModuleResolution.NODENEXT,
+            ModuleKind.PRESERVE: ModuleResolution.BUNDLER,
+        }
         return (
-            "node16"
+            ModuleResolution.NODE16
             if self.emit_module in _NODE16_MODULES
-            else implied.get(self.emit_module, "classic")
+            else implied.get(self.emit_module, ModuleResolution.CLASSIC)
         )
 
 
@@ -388,8 +459,8 @@ def _invalid(options: dict[str, object]) -> list[str]:
     ]
     refused = [
         f"Compiler option 6046: argument for '{name}' is not valid."
-        for name in _ENUMS
-        if options.get(name) is not None and _lowered(options, name) is None
+        for name, kind in _ENUMS.items()
+        if options.get(name) is not None and _enum_value(options.get(name), kind) is None
     ]
     malformed: list[str] = []
     booleans = _BOOLEAN_OPTIONS | (frozenset(_UNMODELED) - _STRING_LIST_OPTIONS)
@@ -407,10 +478,14 @@ def _invalid(options: dict[str, object]) -> list[str]:
     return [*unknown, *refused, *malformed]
 
 
-def _lowered(options: dict[str, object], key: str) -> str | None:
-    """An enum option's value, which the compiler matches without regard to case."""
-    value = options.get(key)
-    return value.lower() if isinstance(value, str) and value.lower() in _ENUMS[key] else None
+def _enum_value(value: object, kind: type[_Option]) -> _Option | None:
+    """Convert one case-insensitive wire option; unknown values stay unobserved."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return kind(value.lower())
+    except ValueError:
+        return None
 
 
 def _paths(raw: dict[str, object], problems: list[str]) -> tuple[tuple[str, tuple[str, ...]], ...]:
@@ -433,16 +508,18 @@ def _paths(raw: dict[str, object], problems: list[str]) -> tuple[tuple[str, tupl
 
 def _options(layer: _Layer, problems: list[str]) -> Options:
     raw = layer.compiler
-    resolution = _lowered(raw, "moduleResolution")
+    resolution = _enum_value(raw.get("moduleResolution"), ModuleResolution)
+    if resolution is ModuleResolution.NODE:
+        resolution = ModuleResolution.NODE10
     paths = _paths(raw, problems)
     unmodeled = [name for name in _UNMODELED if raw.get(name) not in (None, False, [])]
     if any("${configDir}" in target for _, targets in paths for target in targets):
         unmodeled.append("paths with ${configDir}")
     json_flag = raw.get("resolveJsonModule")
     options = Options(
-        _lowered(raw, "module"),
-        _RESOLUTIONS.get(resolution, resolution) if resolution is not None else None,
-        _lowered(raw, "target"),
+        _enum_value(raw.get("module"), ModuleKind),
+        resolution,
+        _enum_value(raw.get("target"), ScriptTarget),
         (raw.get("allowJs") if raw.get("allowJs") is not None else raw.get("checkJs")) is True,
         layer.base_url,
         paths,
@@ -452,20 +529,20 @@ def _options(layer: _Layer, problems: list[str]) -> Options:
     )
     emit, kind = options.emit_module, options.resolution
     # TS5110 and TS5095: the compiler refuses these pairs, so it observes no resolution.
-    if kind == "node16" and emit not in _NODE16_MODULES:
+    if kind is ModuleResolution.NODE16 and emit not in _NODE16_MODULES:
         problems.append("Compiler option 5110: 'module' must be node16 with this moduleResolution.")
-    elif kind == "nodenext" and emit != "nodenext":
+    elif kind is ModuleResolution.NODENEXT and emit is not ModuleKind.NODENEXT:
         problems.append(
             "Compiler option 5110: 'module' must be nodenext with this moduleResolution."
         )
-    elif kind == "bundler" and emit not in _ESM_MODULES | {"preserve"}:
+    elif kind is ModuleResolution.BUNDLER and emit not in _ESM_MODULES | {ModuleKind.PRESERVE}:
         problems.append(
             "Compiler option 5095: 'bundler' needs 'module' preserve or es2015 or later."
         )
-    elif emit in _NODE16_MODULES | {"nodenext"} and kind != (
-        "nodenext" if emit == "nodenext" else "node16"
+    elif emit in _NODE16_MODULES | {ModuleKind.NODENEXT} and kind != (
+        ModuleResolution.NODENEXT if emit is ModuleKind.NODENEXT else ModuleResolution.NODE16
     ):
-        problems.append(f"Compiler option 5110: 'moduleResolution' must follow 'module' {emit}.")
+        problems.append(f"Compiler option 5110: 'moduleResolution' must follow 'module' {emit.value}.")
     return options
 
 

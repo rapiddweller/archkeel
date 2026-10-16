@@ -60,9 +60,6 @@ def test_unrecognized_wire_value_is_partial_with_original_diagnostic(tmp_path, f
 
 
 def test_resolver_format_and_source_kinds_are_nominal():
-    assert get_type_hints(resolve.Resolver.resolve)["mode"] != resolve.Format | None or (
-        hasattr(resolve, "ModuleFormat") and resolve.Format is resolve.ModuleFormat
-    )
     assert hasattr(resolve, "ModuleFormat"), "ModuleFormat must be resolver-owned"
     assert not issubclass(resolve.ModuleFormat, str)
     assert get_type_hints(resolve.Resolver.resolve)["mode"] == resolve.ModuleFormat | None
@@ -89,3 +86,18 @@ def test_formats_are_typed_at_the_resolver_consumer_boundary(tmp_path):
     assert isinstance(result, Enum)
     assert result is resolve.ModuleFormat.ESM
     assert resolver.format_of("src/main.cts") is resolve.ModuleFormat.CJS
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("module", "commonjs"), ("module_resolution", "node10"), ("target", "es5")],
+)
+def test_direct_option_construction_refuses_untyped_protocol_values(field, value):
+    with pytest.raises(TypeError, match="must be"):
+        config.Options(**{field: value})
+
+
+def test_resolve_refuses_a_raw_format_instead_of_treating_it_as_cjs(tmp_path):
+    loaded, snapshot = _loaded(tmp_path, {"module": "NodeNext"})
+    with pytest.raises(TypeError, match="ModuleFormat"):
+        resolve.Resolver(snapshot, loaded).resolve("./main.js", "src/main.ts", "esm")

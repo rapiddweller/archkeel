@@ -11,7 +11,7 @@ import pytest
 
 from archkeel.analyzer.typescript.config import Snapshot, load_config
 from archkeel.analyzer.typescript.resolve import (
-    Format,
+    ModuleFormat,
     Found,
     Resolver,
     Unknown,
@@ -110,18 +110,18 @@ def test_parent_directories_are_followed_from_the_importing_file(tmp_path: Path)
     ("specifier", "files", "mode", "expected"),
     [
         # An ECMAScript importer never gets an extension or a directory index inferred.
-        ("./x", ["src/x.ts"], "esm", None),
-        ("./x", ["src/x/index.ts"], "esm", None),
-        ("./x/", ["src/x/index.ts"], "esm", None),
-        ("./x.js", ["src/x.ts"], "esm", "src/x.ts"),
-        ("./x/index.js", ["src/x/index.ts"], "esm", "src/x/index.ts"),
-        ("./x", ["src/x.ts"], "cjs", "src/x.ts"),
-        ("./x", ["src/x/index.ts"], "cjs", "src/x/index.ts"),
-        ("./x.js", ["src/x.js"], "esm", "src/x.js"),
+        ("./x", ["src/x.ts"], ModuleFormat.ESM, None),
+        ("./x", ["src/x/index.ts"], ModuleFormat.ESM, None),
+        ("./x/", ["src/x/index.ts"], ModuleFormat.ESM, None),
+        ("./x.js", ["src/x.ts"], ModuleFormat.ESM, "src/x.ts"),
+        ("./x/index.js", ["src/x/index.ts"], ModuleFormat.ESM, "src/x/index.ts"),
+        ("./x", ["src/x.ts"], ModuleFormat.CJS, "src/x.ts"),
+        ("./x", ["src/x/index.ts"], ModuleFormat.CJS, "src/x/index.ts"),
+        ("./x.js", ["src/x.js"], ModuleFormat.ESM, "src/x.js"),
     ],
 )
 def test_the_importing_files_module_format_decides_extension_and_index_rules(
-    tmp_path: Path, specifier: str, files: list[str], mode: Format, expected: str | None
+    tmp_path: Path, specifier: str, files: list[str], mode: ModuleFormat, expected: str | None
 ) -> None:
     resolver = _resolver(tmp_path, dict.fromkeys(files, _EMPTY), NODENEXT)
     assert _path(resolver.resolve(specifier, "src/main.ts", mode)) == expected
@@ -137,7 +137,7 @@ def test_paths_targets_obey_the_same_rules_as_relative_specifiers(
         {"src/lib/a/index.ts": _EMPTY, "src/lib/b.ts": _EMPTY, "src/lib/c.js": _EMPTY},
         compiler,
     )
-    esm = "esm" if options is NODENEXT else None
+    esm = ModuleFormat.ESM if options is NODENEXT else None
     assert _path(resolver.resolve("@x/c.js", "src/main.ts", esm)) == "src/lib/c.js"
     if esm:
         # The measured hazard: `paths` do not lift the ECMAScript restrictions.
@@ -265,7 +265,7 @@ def test_package_exports_and_typesversions_are_unknown_where_the_compiler_reads_
         },
         options,
     )
-    result = resolver.resolve(specifier, "src/main.ts", "cjs" if options is NODENEXT else None)
+    result = resolver.resolve(specifier, "src/main.ts", ModuleFormat.CJS if options is NODENEXT else None)
     if unknown is None:
         assert _path(result) == "node_modules/pkg/index.d.ts"
     else:
@@ -284,7 +284,7 @@ def test_package_exports_resolve_exact_javascript_target_to_declaration(tmp_path
         NODENEXT,
     )
 
-    assert _path(resolver.resolve("pkg", "src/main.ts", "cjs")) == "node_modules/pkg/index.d.ts"
+    assert _path(resolver.resolve("pkg", "src/main.ts", ModuleFormat.CJS)) == "node_modules/pkg/index.d.ts"
 
 
 def test_package_exports_keep_recognized_typescript_target_exact(tmp_path: Path) -> None:
@@ -298,7 +298,7 @@ def test_package_exports_keep_recognized_typescript_target_exact(tmp_path: Path)
         NODENEXT,
     )
 
-    assert _path(resolver.resolve("pkg", "src/main.ts", "esm")) == "node_modules/pkg/index.d.ts"
+    assert _path(resolver.resolve("pkg", "src/main.ts", ModuleFormat.ESM)) == "node_modules/pkg/index.d.ts"
 
 
 def test_missing_typescript_export_target_does_not_substitute_sibling(tmp_path: Path) -> None:
@@ -311,7 +311,7 @@ def test_missing_typescript_export_target_does_not_substitute_sibling(tmp_path: 
         NODENEXT,
     )
 
-    result = resolver.resolve("pkg", "src/main.ts", "esm")
+    result = resolver.resolve("pkg", "src/main.ts", ModuleFormat.ESM)
     assert isinstance(result, Unknown)
     assert result.reason == "Package exports target is unavailable: pkg"
 
@@ -328,7 +328,7 @@ def test_unsupported_export_target_kinds_remain_unknown(tmp_path: Path, target: 
         NODENEXT,
     )
 
-    result = resolver.resolve("pkg", "src/main.ts", "esm")
+    result = resolver.resolve("pkg", "src/main.ts", ModuleFormat.ESM)
     assert isinstance(result, Unknown)
     assert result.reason == "Package exports target is unavailable: pkg"
 
@@ -336,22 +336,22 @@ def test_unsupported_export_target_kinds_remain_unknown(tmp_path: Path, target: 
 @pytest.mark.parametrize(
     ("exports", "mode", "expected"),
     [
-        ('"./index.js"', "esm", "node_modules/pkg/index.d.ts"),
+        ('"./index.js"', ModuleFormat.ESM, "node_modules/pkg/index.d.ts"),
         (
             '{".": {"types": "./types.d.ts", "import": "./index.js", "default": "./fallback.js"}}',
-            "esm",
+            ModuleFormat.ESM,
             "node_modules/pkg/types.d.ts",
         ),
         (
             '{".": {"require": "./require.cjs", "default": "./fallback.js"}}',
-            "cjs",
+            ModuleFormat.CJS,
             "node_modules/pkg/require.cts",
         ),
-        ('{"./legacy": "./legacy/index.js"}', "cjs", "node_modules/pkg/legacy/index.d.ts"),
+        ('{"./legacy": "./legacy/index.js"}', ModuleFormat.CJS, "node_modules/pkg/legacy/index.d.ts"),
     ],
 )
 def test_package_exports_select_supported_exact_targets(
-    tmp_path: Path, exports: str, mode: Format, expected: str
+    tmp_path: Path, exports: str, mode: ModuleFormat, expected: str
 ) -> None:
     files = {
         "src/main.ts": _EMPTY,
@@ -379,7 +379,7 @@ def test_exports_do_not_use_commonjs_append_or_directory_fallback(tmp_path: Path
         },
         NODENEXT,
     )
-    result = resolver.resolve("pkg", "src/main.ts", "cjs")
+    result = resolver.resolve("pkg", "src/main.ts", ModuleFormat.CJS)
     assert isinstance(result, Unknown)
     assert result.reason == "Package exports target is unavailable: pkg"
 
@@ -397,7 +397,7 @@ def test_unrecognized_active_export_condition_remains_unknown(tmp_path: Path) ->
         },
         NODENEXT,
     )
-    result = resolver.resolve("pkg", "src/main.ts", "cjs")
+    result = resolver.resolve("pkg", "src/main.ts", ModuleFormat.CJS)
     assert isinstance(result, Unknown)
     assert result.reason == "Package exports condition is not observed: custom"
 
@@ -415,7 +415,7 @@ def test_mixed_export_condition_and_subpath_map_is_unknown(tmp_path: Path) -> No
         },
         NODENEXT,
     )
-    result = resolver.resolve("pkg", "src/main.ts", "cjs")
+    result = resolver.resolve("pkg", "src/main.ts", ModuleFormat.CJS)
     assert isinstance(result, Unknown)
     assert result.reason == "Package exports map shape is not observed: pkg"
 
@@ -431,7 +431,7 @@ def test_unobserved_export_pattern_is_not_guessed(tmp_path: Path) -> None:
         },
         NODENEXT,
     )
-    result = resolver.resolve("pkg/feature", "src/main.ts", "cjs")
+    result = resolver.resolve("pkg/feature", "src/main.ts", ModuleFormat.CJS)
     assert isinstance(result, Unknown)
     assert result.reason == "Package exports patterns are not observed: pkg/feature"
 
@@ -453,7 +453,7 @@ def test_unsupported_export_paths_are_unknown_without_reading_sentinel(
         },
         NODENEXT,
     )
-    result = resolver.resolve("pkg", "src/main.ts", "cjs")
+    result = resolver.resolve("pkg", "src/main.ts", ModuleFormat.CJS)
     assert isinstance(result, Unknown)
     assert not resolver.snapshot.problems
     assert f"../{outside.name}" not in resolver.snapshot.inputs
@@ -475,7 +475,7 @@ def test_node_builtin_precedes_conflicting_package_only_after_aliases(tmp_path: 
         },
         options,
     )
-    assert _path(resolver.resolve("crypto", "src/main.ts", "cjs", prefer_builtin=True)) == (
+    assert _path(resolver.resolve("crypto", "src/main.ts", ModuleFormat.CJS, prefer_builtin=True)) == (
         "src/crypto.ts"
     )
     no_alias = _resolver(
@@ -487,8 +487,8 @@ def test_node_builtin_precedes_conflicting_package_only_after_aliases(tmp_path: 
         },
         NODENEXT,
     )
-    assert no_alias.resolve("crypto", "src/main.ts", "cjs", prefer_builtin=True) is None
-    assert _path(no_alias.resolve("crypto", "src/main.ts", "cjs")) == (
+    assert no_alias.resolve("crypto", "src/main.ts", ModuleFormat.CJS, prefer_builtin=True) is None
+    assert _path(no_alias.resolve("crypto", "src/main.ts", ModuleFormat.CJS)) == (
         "node_modules/crypto/index.js"
     )
     assert _path(no_alias.resolve("crypto", "src/main.ts", None, prefer_builtin=True)) == (
@@ -518,7 +518,7 @@ def test_pinned_nest_imports_resolve_from_exact_captured_package_files(tmp_path:
     (tmp_path / "tsconfig.json").write_text(json.dumps(config))
     snapshot = Snapshot(str(tmp_path))
     resolver = Resolver(snapshot, load_config(snapshot, "tsconfig.json", ("src",)))
-    results = [resolver.resolve(specifier, "src/main.ts", "cjs") for specifier in specifiers]
+    results = [resolver.resolve(specifier, "src/main.ts", ModuleFormat.CJS) for specifier in specifiers]
     assert len(results) == 17
     assert all(isinstance(result, Found) and result.external for result in results)
     assert {result.path for result in results if isinstance(result, Found)} <= captured_paths
@@ -634,20 +634,20 @@ def test_json_modules_resolve_where_the_compiler_enables_them(tmp_path: Path) ->
 @pytest.mark.parametrize(
     ("path", "manifest", "expected"),
     [
-        ("src/a.mts", None, "esm"),
-        ("src/a.mjs", {"type": "commonjs"}, "esm"),
-        ("src/a.cts", {"type": "module"}, "cjs"),
-        ("src/a.d.cts", {"type": "module"}, "cjs"),
-        ("src/a.ts", {"type": "module"}, "esm"),
-        ("src/a.tsx", {"type": "module"}, "esm"),
-        ("src/a.js", {"type": "commonjs"}, "cjs"),
-        ("src/a.ts", {}, "cjs"),
-        ("src/a.ts", None, "cjs"),
-        ("src/sub/a.ts", {"type": "module"}, "esm"),
+        ("src/a.mts", None, ModuleFormat.ESM),
+        ("src/a.mjs", {"type": "commonjs"}, ModuleFormat.ESM),
+        ("src/a.cts", {"type": "module"}, ModuleFormat.CJS),
+        ("src/a.d.cts", {"type": "module"}, ModuleFormat.CJS),
+        ("src/a.ts", {"type": "module"}, ModuleFormat.ESM),
+        ("src/a.tsx", {"type": "module"}, ModuleFormat.ESM),
+        ("src/a.js", {"type": "commonjs"}, ModuleFormat.CJS),
+        ("src/a.ts", {}, ModuleFormat.CJS),
+        ("src/a.ts", None, ModuleFormat.CJS),
+        ("src/sub/a.ts", {"type": "module"}, ModuleFormat.ESM),
     ],
 )
 def test_module_format_comes_from_the_extension_then_the_nearest_package_type(
-    tmp_path: Path, path: str, manifest: dict[str, object] | None, expected: str
+    tmp_path: Path, path: str, manifest: dict[str, object] | None, expected: ModuleFormat
 ) -> None:
     files = {} if manifest is None else {"package.json": json.dumps(manifest)}
     assert _resolver(tmp_path, files, NODENEXT).format_of(path) == expected
@@ -663,8 +663,8 @@ def test_the_nearest_package_json_decides_and_an_unreadable_one_is_unknown(tmp_p
         },
         NODENEXT,
     )
-    assert resolver.format_of("src/a.ts") == "esm"
-    assert resolver.format_of("src/cjs/a.ts") == "cjs"
+    assert resolver.format_of("src/a.ts") == ModuleFormat.ESM
+    assert resolver.format_of("src/cjs/a.ts") == ModuleFormat.CJS
     assert isinstance(resolver.format_of("src/broken/a.ts"), Unknown)
 
 
