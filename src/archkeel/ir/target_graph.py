@@ -6,17 +6,21 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Literal, get_args
 
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ComponentIntent,
+    DecisionMaker,
     Entity,
+    EntityKind,
     ExternalDependencyScopeRule,
     GraphSchemaVersion,
     ModuleInventory,
+    OriginKind,
+    PresenceKind,
     PublicAPIEntry,
     Relationship,
+    RelationshipKind,
     RootLayoutRule,
     TargetDefinition,
 )
@@ -33,14 +37,14 @@ from archkeel.ir.model import (
 def _link_references(graph: ArchitectureGraph) -> ArchitectureGraph:
     definitions: dict[tuple[str, str, str], list[Entity]] = {}
     for entity in graph.entities:
-        if entity.presence == "planned":
+        if entity.presence == PresenceKind.PLANNED:
             group: list[Entity] = definitions.setdefault(
                 (entity.language, entity.kind, entity.qualified_name), []
             )
             group.append(entity)
     aliases: dict[str, Entity] = {}
     for entity in graph.entities:
-        if entity.presence != "referenced":
+        if entity.presence != PresenceKind.REFERENCED:
             continue
         matches = definitions.get((entity.language, entity.kind, entity.qualified_name), ())
         if len(matches) > 1:
@@ -53,7 +57,7 @@ def _link_references(graph: ArchitectureGraph) -> ArchitectureGraph:
             entity.qualified_name,
             entity.language,
             parent_id=entity.parent_id,
-            presence="referenced",
+            presence=PresenceKind.REFERENCED,
             provenance=entity.provenance,
         )
         if entity != reference:
@@ -113,21 +117,24 @@ def intent_graph(
     external_scopes: tuple[ExternalDependencyScopeRule, ...] = (),
 ) -> ArchitectureGraph:
     for entity in target.entities:
-        if entity.kind == "component":
+        if entity.kind == EntityKind.COMPONENT:
             raise ValueError("UML cannot redeclare an existing component owner")
-        if entity.presence not in {"planned", "referenced"} or entity.record_ids:
+        if (
+            entity.presence not in {PresenceKind.PLANNED, PresenceKind.REFERENCED}
+            or entity.record_ids
+        ):
             raise ValueError("UML entities need independent planned or referenced intent")
-        if entity.presence == "planned" and not entity.responsibilities:
+        if entity.presence == PresenceKind.PLANNED and not entity.responsibilities:
             raise ValueError("UML entities need a responsibility")
     if any(edge.record_ids for edge in target.relationships):
         raise ValueError("UML relationships cannot cite observed record IDs")
-    if any(edge.kind == "requires" for edge in target.relationships):
+    if any(edge.kind == RelationshipKind.REQUIRES for edge in target.relationships):
         raise ValueError("dependency permissions belong in component requires")
     graph = ArchitectureGraph(
-        "declared",
+        OriginKind.DECLARED,
         (*owners, *target.entities),
         target.relationships,
-        schema_version="1.2.0"
+        schema_version=GraphSchemaVersion.V1_2_0
         if any(item.layer is not None for item in component_intents)
         else target.schema_version,
         target_scopes=target.scopes,
@@ -146,7 +153,7 @@ def component_permissions(
     requires: tuple[RequiredComponent, ...],
     targets: dict[str, str],
     provenance: tuple[str, ...],
-    decided_by: Literal["architect", "agent"] | None,
+    decided_by: DecisionMaker | None,
 ) -> tuple[Relationship, ...]:
     seen: dict[RequiredComponent, int] = {}
     result: list[Relationship] = []
@@ -175,7 +182,7 @@ def component_permissions(
                     entry.decided_by,
                     occurrence,
                 ),
-                "requires",
+                RelationshipKind.REQUIRES,
                 owner_id,
                 target,
                 provenance=tuple(sorted(provenance)),
@@ -211,10 +218,10 @@ def declared_graph(
     entities = tuple(
         Entity(
             component.id,
-            "component",
+            EntityKind.COMPONENT,
             component.namespace or component.label,
             "architecture",
-            presence="planned",
+            presence=PresenceKind.PLANNED,
             responsibilities=tuple(sorted(component.responsibilities)),
             provenance=tuple(sorted(component.provenance)),
         )
@@ -323,12 +330,14 @@ def declared_tree_graph(tree: InsideContractTree, *, root_path: str) -> Architec
     graph = replace(
         root,
         schema_version=next(
-            version for version in get_args(GraphSchemaVersion) if version in versions
+            version for version in tuple(GraphSchemaVersion) if version in versions
         ),
-        entities=tuple(entity for entity in entities if entity.kind == "component")
-        + tuple(entity for entity in entities if entity.kind != "component"),
-        relationships=tuple(edge for edge in relationships if edge.kind == "requires")
-        + tuple(edge for edge in relationships if edge.kind != "requires"),
+        entities=tuple(entity for entity in entities if entity.kind == EntityKind.COMPONENT)
+        + tuple(entity for entity in entities if entity.kind != EntityKind.COMPONENT),
+        relationships=tuple(
+            edge for edge in relationships if edge.kind == RelationshipKind.REQUIRES
+        )
+        + tuple(edge for edge in relationships if edge.kind != RelationshipKind.REQUIRES),
         target_scopes=tuple(scopes),
         component_intents=tuple(intents.values()),
         module_inventories=tuple(inventories),

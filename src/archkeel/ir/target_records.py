@@ -10,8 +10,10 @@ from archkeel.ir.architecture_graph import (
     ComponentIntent,
     ContractModuleTarget,
     Entity,
+    EntityKind,
     ExternalDependencyScopeRule,
     ModuleInventory,
+    PresenceKind,
     Relationship,
     RootLayoutRule,
 )
@@ -127,10 +129,10 @@ def _recorded_owners(
         result.append(
             Entity(
                 owner.id,
-                "component",
+                EntityKind.COMPONENT,
                 namespace or owner.title,
                 "architecture",
-                presence="planned",
+                presence=PresenceKind.PLANNED,
                 responsibilities=tuple(duties),
                 provenance=owner.provenance,
             )

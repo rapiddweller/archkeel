@@ -20,7 +20,7 @@ jobs:
       - name: Check formatting
         run: uv run --locked ruff format --check src/archkeel/ir/contract_version.py src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py tests/test_contract_version_types.py src/archkeel/check/onboarding.py
       - name: Focused legacy and native version tests
-        run: uv run --locked pytest -q tests/test_contract_version_types.py tests/test_contract_model.py tests/test_module_object_grants.py tests/test_codec_compatibility.py tests/test_dependency_selectors.py tests/test_widening.py tests/test_onboarding.py tests/test_onboarding_guidance.py
+        run: uv run --locked pytest -q tests/test_contract_version_types.py tests/test_contract_model.py tests/test_module_object_grants.py tests/test_codec_compatibility.py tests/test_dependency_selectors.py tests/test_widening.py tests/test_onboarding.py tests/test_onboarding_guidance.py tests/test_typed_graph_vocabulary.py
       - name: Full lint and production typing
         run: make lint typecheck
       - name: Native own contract and exact debt
@@ -38,7 +38,7 @@ jobs:
       - name: Exact predecessor normal amendment
         run: |
           set +e
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against ff4cae52451f43550639959b6f87a77f96375597 --amendment docs/architecture/decisions/2026-10-16-contract-version-types.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'Own contract schema identities and feature introduction in one nominal domain; authored API intent and whole-module string-control guard; preserve wire compatibility and existing debt ceilings' > "$RUNNER_TEMP/version-amend.json"
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against a4a8c964ed3ddc29756a37794b60c76fd52109f0 --amendment docs/architecture/decisions/2026-10-16-contract-version-types.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'Own contract schema identities and feature introduction in one nominal domain; authored API intent and whole-module string-control guard; preserve wire compatibility and existing debt ceilings' > "$RUNNER_TEMP/version-amend.json"
           task_status=$?
           python - <<'PY'
           import json,os,pathlib
@@ -49,3 +49,47 @@ jobs:
               print("AMENDMENT_JSON="+amendment.read_text().replace("\n",""))
           PY
           exit "$task_status"
+
+  graph-exact-amendment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a4a8c964ed3ddc29756a37794b60c76fd52109f0
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Exact graph predecessor without amendment rewriting
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against ff4cae52451f43550639959b6f87a77f96375597 --amendment docs/architecture/decisions/issue-542-graph-vocabulary-amendment.json > "$RUNNER_TEMP/graph-exact.json"
+          task_status=$?
+          python - <<'PY'
+          import json,os,pathlib
+          data=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"graph-exact.json").read_text())
+          print("GRAPH_EXACT="+json.dumps({key:data.get(key) for key in ("exit_code","failures","diagnostics","measurements")}))
+          PY
+          exit "$task_status"
+  wire-nominal-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 0ca808642497dc3e26347bd7dd9d0195c003d0cc
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Install real report browser
+        run: make browser-install
+      - name: Check exact nominal UML field navigation
+        run: uv run --locked --with playwright==1.62.0 pytest -q tests/test_own_uml_target.py::test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation

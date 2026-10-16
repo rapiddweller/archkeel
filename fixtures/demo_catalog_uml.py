@@ -5,7 +5,6 @@
 
 import json
 from pathlib import Path
-from typing import get_args
 
 from archkeel.ir.architecture_graph import EntityKind, RelationshipKind
 from archkeel.ir.model import stable_id
@@ -150,10 +149,12 @@ for scope in ("demo-component", "init-module", "core-module", "app-module"):
             "rationale": "Declare every static demo definition and use.",
             "provenance": ["docs/target.md"],
             "entity_kinds": [
-                kind for kind in get_args(EntityKind) if kind not in {"component", "symbol"}
+                kind for kind in EntityKind if kind not in {EntityKind.COMPONENT, EntityKind.SYMBOL}
             ],
             "relationship_kinds": [
-                kind for kind in get_args(RelationshipKind) if kind not in {"requires", "publishes"}
+                kind
+                for kind in RelationshipKind
+                if kind not in {RelationshipKind.REQUIRES, RelationshipKind.PUBLISHES}
             ],
         }
     )

@@ -145,7 +145,15 @@
         "archkeel.ir.dependency:DependencySelector",
         "archkeel.ir.dependency:DependencyTargetKind",
         "archkeel.ir.dependency:ModuleSelection",
-        "archkeel.ir.dependency:SelectorMatch"
+        "archkeel.ir.dependency:SelectorMatch",
+        "archkeel.ir.architecture_graph:CompletenessMode",
+        "archkeel.ir.architecture_graph:CoverageStatus",
+        "archkeel.ir.architecture_graph:OriginKind",
+        "archkeel.ir.architecture_graph:ParameterKind",
+        "archkeel.ir.architecture_graph:PresenceKind",
+        "archkeel.ir.architecture_graph:ResolutionKind",
+        "archkeel.ir.architecture_graph:VisibilityBasis",
+        "archkeel.ir.architecture_graph:VisibilityKind"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
@@ -988,6 +996,58 @@
       "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
       "provenance": [
         "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "GRAPH-TYPED-ARCHITECTURE-GRAPH",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.architecture_graph",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The graph owner, parser and UML comparison use shared nominal control vocabulary without parser exceptions.",
+      "provenance": [
+        "docs/architecture/typed-graph-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "GRAPH-TYPED-GRAPH-CODEC",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.graph_codec",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The graph owner, parser and UML comparison use shared nominal control vocabulary without parser exceptions.",
+      "provenance": [
+        "docs/architecture/typed-graph-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "GRAPH-TYPED-TARGET-GRAPH",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.target_graph",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The graph owner, parser and UML comparison use shared nominal control vocabulary without parser exceptions.",
+      "provenance": [
+        "docs/architecture/typed-graph-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "GRAPH-TYPED-UML-COMPARE",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.uml_compare",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The graph owner, parser and UML comparison use shared nominal control vocabulary without parser exceptions.",
+      "provenance": [
+        "docs/architecture/typed-graph-vocabulary.md"
       ],
       "decided_by": "architect"
     },

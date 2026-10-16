@@ -6,7 +6,13 @@
 from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
-from .architecture_graph import AssessmentStatus, ComponentRole, RelationshipKind, RuleAssessment
+from .architecture_graph import (
+    AssessmentStatus,
+    ComponentRole,
+    DecisionMaker,
+    RelationshipKind,
+    RuleAssessment,
+)
 from .facts import Record, SourceInfo
 
 PermissionStatus: TypeAlias = Literal["allowed", "forbidden", "undecided"]
@@ -49,7 +55,7 @@ class RequiresProjection:
     target_id: str
     through: tuple[str, ...]
     rationale: str
-    decided_by: Literal["architect", "agent"] | None
+    decided_by: DecisionMaker | None
     observed_imports: int | None
 
 
@@ -82,7 +88,7 @@ class ComponentProjection:
     finding_ids: tuple[str, ...]
     status: AssessmentStatus
     reason: str
-    decided_by: Literal["architect", "agent"] | None
+    decided_by: DecisionMaker | None
     selector_prefix: str | None = None
     layer: str | None = None
 

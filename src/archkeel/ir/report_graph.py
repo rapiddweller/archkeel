@@ -9,12 +9,15 @@ from dataclasses import asdict
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
+    AssessmentStatus,
     ComponentMembership,
     DependencyDecisionGap,
     Entity,
     GraphComparison,
+    GraphSchemaVersion,
     Relationship,
     ReportFinding,
+    ReportSchemaVersion,
 )
 from archkeel.ir.codec import decode_json, value_bytes
 from archkeel.ir.decisions import open_decisions
@@ -26,6 +29,7 @@ from archkeel.ir.model import (
     UML_TARGET_KIND,
     Observation,
     Record,
+    Verdict,
     stable_id,
 )
 from archkeel.ir.source_graph import observed_graph, validated_member_inventory_proof
@@ -55,9 +59,9 @@ def architecture_report(model: Observation) -> ArchitectureReport:
             declared,
             unavailable=str(error),
             findings=_findings(model, None, declared),
-            schema_version="1.2.0"
-            if declared is not None and declared.schema_version == "1.2.0"
-            else "1.0.0",
+            schema_version=ReportSchemaVersion.V1_2_0
+            if declared is not None and declared.schema_version == GraphSchemaVersion.V1_2_0
+            else ReportSchemaVersion.V1_0_0,
         )
         report.validate()
         return report
@@ -88,9 +92,9 @@ def architecture_report(model: Observation) -> ArchitectureReport:
         observed,
         declared,
         comparison,
-        schema_version="1.2.0"
-        if declared is not None and declared.schema_version == "1.2.0"
-        else "1.0.0",
+        schema_version=ReportSchemaVersion.V1_2_0
+        if declared is not None and declared.schema_version == GraphSchemaVersion.V1_2_0
+        else ReportSchemaVersion.V1_0_0,
         findings=_findings(model, observed, declared),
         memberships=_memberships(model, observed, declared),
         decision_gaps=_decision_gaps(model, observed, declared),
@@ -116,9 +120,9 @@ def _inventory_comparison_is_bound(
         if declared is not None
         else ()
     )
-    inventory_pass = model.coverage.status != "PASS" and any(
+    inventory_pass = model.coverage.status != Verdict.PASS and any(
         a.aspect == "completeness"
-        and a.status == "PASS"
+        and a.status == AssessmentStatus.PASS
         and a.id
         == stable_id(
             "UML-ASSESSMENT",
@@ -238,14 +242,19 @@ def _findings(
                 identities: set[str] = subjects.setdefault(record_id, set())
                 identities.add(graph_item.id)
     findings = []
-    for section, status in (("violations", "FAIL"), ("unknowns", "UNKNOWN")):
+    for section, status in (
+        ("violations", AssessmentStatus.FAIL),
+        ("unknowns", AssessmentStatus.UNKNOWN),
+    ):
         for item in model.records(section) or ():
             findings.append(
                 ReportFinding(
                     item.id,
                     item.kind,
                     item.title,
-                    "FAIL" if status == "FAIL" else "UNKNOWN",
+                    AssessmentStatus.FAIL
+                    if status == AssessmentStatus.FAIL
+                    else AssessmentStatus.UNKNOWN,
                     item.rule_ids,
                     item.subjects,
                     tuple(

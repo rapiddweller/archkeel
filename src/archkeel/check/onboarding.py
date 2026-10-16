@@ -30,6 +30,7 @@ from archkeel.ir.model import (
     ComponentRole,
     ContractComponent,
     ContractVersion,
+    DecisionMaker,
     Diagnostic,
     DiagnosticError,
     DraftedComponentSize,
@@ -280,7 +281,7 @@ def draft_contract(
     # A drafted public list is the agent's interface decision, marked the way its rules are
     # (AD-50), so `agent_decisions` counts it and the architect sees what is still owed.
     components = tuple(
-        replace(component, public=entries, decided_by="agent")
+        replace(component, public=entries, decided_by=DecisionMaker.AGENT)
         if (entries := public.get(component.label)) is not None
         else component
         for component in draft_components

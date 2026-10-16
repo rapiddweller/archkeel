@@ -44,6 +44,9 @@ from archkeel.ir.decisions import (
 from archkeel.ir.facts import SourceSectionName
 from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.model import (
+    AssessmentStatus as _AssessmentStatus,
+)
+from archkeel.ir.model import (
     BaselineViolationComparison,
     CallRow,
     Diagnostic,
@@ -55,6 +58,9 @@ from archkeel.ir.model import (
     ReportFilter,
     ReportLocation,
     RunResult,
+)
+from archkeel.ir.model import (
+    RuleAssessmentStatus as _RuleAssessmentStatus,
 )
 from archkeel.ir.profiles import PROFILES
 from archkeel.ir.report_graph import architecture_report
@@ -296,7 +302,7 @@ def _report_filter(
 
 def _incomplete_report_result(result: ObservationResult) -> RunResult:
     model = result.observation
-    declared: _Literal["PASS", "FAIL", "UNKNOWN"] = "UNKNOWN"
+    declared = _AssessmentStatus.UNKNOWN
     if (
         model is not None
         and model.runtime is not None
@@ -308,7 +314,7 @@ def _incomplete_report_result(result: ObservationResult) -> RunResult:
     ):
         try:
             if trace_valid_violations(model):
-                declared = "FAIL"
+                declared = _AssessmentStatus.FAIL
         except ValueError:
             pass
     return RunResult(
@@ -352,14 +358,19 @@ def _scope_report_assessments(
             item
             for item in result.rule_assessments
             if item.id in selected_rules
-            and (not report_filter.only_violations or item.status in {"FAIL", "UNKNOWN"})
+            and (
+                not report_filter.only_violations
+                or item.status in {_RuleAssessmentStatus.FAIL, _RuleAssessmentStatus.UNKNOWN}
+            )
         )
         return replace(result, rule_assessments=assessments)
     if report_filter.only_violations:
         return replace(
             result,
             rule_assessments=tuple(
-                item for item in result.rule_assessments if item.status in {"FAIL", "UNKNOWN"}
+                item
+                for item in result.rule_assessments
+                if item.status in {_RuleAssessmentStatus.FAIL, _RuleAssessmentStatus.UNKNOWN}
             ),
         )
     return result

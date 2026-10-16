@@ -12,13 +12,15 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, TypeAlias, get_args, get_type_hints
 
-from .architecture_graph import AssessmentStatus, TargetDefinition
+from .architecture_graph import AssessmentStatus as AssessmentStatus
 from .architecture_graph import ComponentRole as ComponentRole
 from .architecture_graph import ContractModuleTarget as ContractModuleTarget
+from .architecture_graph import DecisionMaker as DecisionMaker
 from .architecture_graph import ExternalDependencyScopeRule as ExternalDependencyScopeRule
 from .architecture_graph import RootLayoutRule as RootLayoutRule
 from .architecture_graph import RuleAssessment as RuleAssessment
 from .architecture_graph import RuleAssessmentStatus as RuleAssessmentStatus
+from .architecture_graph import TargetDefinition
 from .architecture_graph import contract_relative_path as contract_relative_path
 from .contract_version import ContractVersion as ContractVersion
 from .dependency import ComponentOwnership as ComponentOwnership
@@ -92,7 +94,6 @@ class Verdict(StrEnum):
 
 PackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]
 ComponentOwnershipInput: TypeAlias = ComponentOwnership | PackageComponentOwnership
-# AD-26's full vocabulary, for the one verdict that can also fail to decide (AD-67).
 RuleVerdict: TypeAlias = AssessmentStatus
 ComparisonStatus: TypeAlias = Literal["SUPPORTED", "UNKNOWN"]
 CLASSIFIED_SECTIONS = (
@@ -166,7 +167,7 @@ class ContractComponent:
     planned: tuple[str, ...] | None = None
     # AD-50: who decided this component's `public` list, and every `requires` entry that
     # names nobody of its own. None records no attribution, the way a contract read before.
-    decided_by: Literal["architect", "agent"] | None = None
+    decided_by: DecisionMaker | None = None
     # The physical package where this component is expected to live. `packages` remains
     # the ownership set; modules owned by this component outside `namespace` are violations.
     namespace: str | None = None
@@ -226,7 +227,7 @@ class RequiredComponent:
     component: str
     rationale: str
     through: tuple[str, ...] = ()
-    decided_by: Literal["architect", "agent"] | None = None
+    decided_by: DecisionMaker | None = None
 
 
 def requires_covers(
@@ -1455,7 +1456,7 @@ class RunResult:
     command: str
     exit_code: Literal[0, 1, 2]
     observation_complete: Literal["PASS", "UNKNOWN"] = "UNKNOWN"
-    declared_rules: RuleVerdict = "UNKNOWN"
+    declared_rules: AssessmentStatus = AssessmentStatus.UNKNOWN
     expectation_fulfilled: Literal["PASS", "FAIL", "UNKNOWN", "n/a"] = "UNKNOWN"
     diagnostics: tuple[Diagnostic, ...] = ()
     coverage: Coverage | None = None

@@ -14,9 +14,13 @@ from .architecture_graph import (
     AssessmentStatus,
     ComponentIntent,
     Coverage,
+    CoverageStatus,
     Entity,
+    EntityKind,
     GraphAssessment,
+    PresenceKind,
     Relationship,
+    RelationshipKind,
     ReportFinding,
     RuleAssessment,
 )
@@ -30,6 +34,7 @@ from .model import (
     JsonValue,
     Observation,
     Record,
+    Verdict,
     dependency_owners,
     in_scope,
     text_value,
@@ -205,7 +210,7 @@ def _cells(
     modules = {
         item.id: item.qualified_name
         for item in report.observed.entities
-        if item.kind == "module" and item.presence == "defined"
+        if item.kind == EntityKind.MODULE and item.presence == PresenceKind.DEFINED
     }
     identities = {name: identity for identity, name in modules.items()}
     intents = (
@@ -225,7 +230,7 @@ def _cells(
         for item in rule_assessments(
             model,
             undecided_by_rule=undecided,
-            complete=model.coverage.status == "PASS",
+            complete=model.coverage.status == Verdict.PASS,
         )
     }
     declarations = {item.id: item for item in model.records("declarations") or ()}
@@ -239,7 +244,7 @@ def _cells(
     sites: dict[tuple[str, str], list[Relationship]] = defaultdict(list)
     for edge in report.observed.relationships:
         if (
-            edge.kind == "imports"
+            edge.kind == RelationshipKind.IMPORTS
             and edge.source_id in modules
             and edge.target_id is not None
             and edge.target_id in modules
@@ -390,18 +395,18 @@ def _cell_status(
     site_results: list[tuple[tuple[RuleAssessment, ...], frozenset[str], frozenset[str]]],
 ) -> AssessmentStatus:
     evidence = findings + graph_assessments
-    if any(item.status == "FAIL" for item in evidence):
-        return "FAIL"
+    if any(item.status == AssessmentStatus.FAIL for item in evidence):
+        return AssessmentStatus.FAIL
     if (
-        any(item.status == "UNKNOWN" for item in evidence)
+        any(item.status == AssessmentStatus.UNKNOWN for item in evidence)
         or not site_results
         or any(
             not applicable or len(proven) != len(applicable)
             for applicable, proven, _ in site_results
         )
     ):
-        return "UNKNOWN"
-    return "PASS"
+        return AssessmentStatus.UNKNOWN
+    return AssessmentStatus.PASS
 
 
 def _cell_reasons(
@@ -434,7 +439,7 @@ def _cell_reasons(
     reasons.update(
         f"{identity}: {core_assessments[identity].reason}"
         for finding in findings
-        if finding.status == "UNKNOWN"
+        if finding.status == AssessmentStatus.UNKNOWN
         for identity in finding.rule_ids
         if identity in core_assessments
     )
@@ -480,7 +485,7 @@ def _statistic(
         entity.file_path,
         owner,
         candidates,
-        "PASS" if owner is not None else "UNKNOWN",
+        AssessmentStatus.PASS if owner is not None else AssessmentStatus.UNKNOWN,
         "Authenticated component membership."
         if owner is not None
         else "Several components claim this module at this level."
@@ -508,7 +513,7 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
                 (),
                 (),
                 (),
-                "UNKNOWN",
+                AssessmentStatus.UNKNOWN,
                 report.unavailable or "Authenticated Target is unavailable.",
             ),
         )
@@ -521,10 +526,10 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
                 tuple(
                     _statistic(item, records[item.id], (), (), False, report.observed.coverage)
                     for item in sorted(report.observed.entities, key=lambda item: item.id)
-                    if item.kind == "module" and item.presence == "defined"
+                    if item.kind == EntityKind.MODULE and item.presence == PresenceKind.DEFINED
                 ),
                 _cells(model, report, {}),
-                "UNKNOWN",
+                AssessmentStatus.UNKNOWN,
                 "Authenticated Target is unavailable.",
             ),
         )
@@ -532,7 +537,9 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
     intents = {item.component_id: item for item in target.component_intents}
     scope_ids, owners = _scope_owners(model, intents)
     modules = tuple(
-        item for item in observed.entities if item.kind == "module" and item.presence == "defined"
+        item
+        for item in observed.entities
+        if item.kind == EntityKind.MODULE and item.presence == PresenceKind.DEFINED
     )
     records = {item.id: item for item in model.records("modules") or ()}
     memberships = {item.component_id: set(item.module_ids) for item in report.memberships}
@@ -565,7 +572,7 @@ def module_exploration(model: Observation) -> tuple[ModuleExploreLevel, ...]:
         replace(
             level,
             hint_candidates=_hint_candidates(
-                level, root, cells, intents, model.coverage.status == "PASS"
+                level, root, cells, intents, model.coverage.status == Verdict.PASS
             ),
         )
         for level in levels
@@ -586,7 +593,7 @@ def _hint_candidates(
         incoming[cell.target_id].append(cell)
     hints: list[HintCandidate] = []
 
-    if level.import_status == "PASS":
+    if level.import_status == AssessmentStatus.PASS:
         hints.extend(_used_elsewhere_hints(level, root_modules, incoming, intents))
         hubs = sorted(
             (item for item in level.modules if item.fan_in is not None and item.fan_in >= 10),
@@ -745,7 +752,7 @@ def _module_level(
             for item in cells
             if item.source_id in selected_ids and item.target_id in selected_ids
         ),
-        "PASS" if complete else "UNKNOWN",
+        AssessmentStatus.PASS if complete else AssessmentStatus.UNKNOWN,
         "Complete module import evidence."
         if complete
         else "Module/import coverage or resolved import-site evidence is incomplete.",
@@ -753,7 +760,7 @@ def _module_level(
             sorted(
                 item.id
                 for item in observed.relationships
-                if item.kind == "imports"
+                if item.kind == RelationshipKind.IMPORTS
                 and item.target_id is None
                 and item.source_id in selected_ids
             )
@@ -812,7 +819,8 @@ def _heavy_modules(
 ) -> tuple[ModuleStatistic, ...]:
     sizes = [item.symbols for item in level.modules if item.symbols is not None]
     symbols_complete = all(
-        item.symbol_coverage and all(entry.status == "complete" for entry in item.symbol_coverage)
+        item.symbol_coverage
+        and all(entry.status == CoverageStatus.COMPLETE for entry in item.symbol_coverage)
         for item in level.modules
     )
     if inventory_complete and symbols_complete and sizes and len(sizes) == len(level.modules):
@@ -839,16 +847,18 @@ def _imports_complete(
     covered = {
         item.scope_id
         for item in observed.coverage
-        if "imports" in item.relationship_kinds and item.status == "complete"
+        if RelationshipKind.IMPORTS in item.relationship_kinds
+        and item.status == CoverageStatus.COMPLETE
     }
     complete = (
-        model.coverage.status == "PASS"
+        model.coverage.status == Verdict.PASS
         and model.records("imports") is not None
         and model.records("dependency_edges") is not None
         and bool(modules)
         and all(item.id in covered for item in modules)
         and not any(
-            item.kind == "imports" and item.target_id is None for item in observed.relationships
+            item.kind == RelationshipKind.IMPORTS and item.target_id is None
+            for item in observed.relationships
         )
     )
     return complete and all(

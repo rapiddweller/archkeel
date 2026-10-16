@@ -773,7 +773,7 @@ def test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation(
         )
         page.locator('.flow-nodes [data-label="TypeScriptSettings"]').dblclick()
         language = page.locator('.flow-nodes [data-label="language"][data-uml-kind="attribute"]')
-        assert "Literal['typescript']" in language.text_content()
+        assert "Literal[Language.TYPESCRIPT]" in language.text_content()
         assert (
             page.locator('.flow-nodes [data-label="tsconfig"]').get_attribute("data-uml-kind")
             == "attribute"
@@ -782,7 +782,7 @@ def test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation(
         if page.locator(".flow-details-toggle").get_attribute("aria-expanded") != "true":
             page.locator(".flow-details-toggle").click()
         details = page.locator(".flow-inspector-content").inner_text()
-        assert "public" in details and "Literal['typescript']" in details
+        assert "public" in details and "Literal[Language.TYPESCRIPT]" in details
         heading = page.locator(".flow-inspector-content h2")
         assert heading.inner_text() == "language"
         qualified = page.locator(".flow-qualified-name")
