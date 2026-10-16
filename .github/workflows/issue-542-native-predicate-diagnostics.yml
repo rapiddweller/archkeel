@@ -1,0 +1,36 @@
+name: Native predicate Target input diagnostics
+on:
+  push:
+    branches: [verify/542-native-predicate-target-diagnostics]
+permissions:
+  contents: read
+jobs:
+  focused-observer-types:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 3ca0c0a2bbaa22dd66afe0b39523671845dfcd24
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+        - name: Read exact native Target diagnostics
+        run: |
+          uv run --locked python - <<'PY'
+          import json,sys,tempfile,subprocess
+          from pathlib import Path
+          sys.path.insert(0,"tests")
+          from test_python_string_predicate_target import _repository
+          from archkeel.check.report import run_report
+          from archkeel.cli.observe import observe
+          for label,source in (("before",subprocess.check_output(["git","show","de6f57f4f49b368373d40e8584e48761ab4b19b1:src/archkeel/analyzer/python/constructs.py"]).decode()),("after",Path("src/archkeel/analyzer/python/constructs.py").read_text())):
+              with tempfile.TemporaryDirectory() as folder:
+                  root,config=_repository(Path(folder),source)
+                  result,encoded=run_report(root,config=config,analyzer=observe)
+                  print("TARGET_REPORT_DIAGNOSTIC="+json.dumps({"label":label,"exit_code":result.exit_code,"diagnostics":repr(result.diagnostics),"has_observation":encoded is not None}),flush=True)
+          PY
