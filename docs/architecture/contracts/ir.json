@@ -287,7 +287,8 @@
         "archkeel.ir.dependency:DependencyTargetKind",
         "archkeel.ir.dependency:ModuleSelection",
         "archkeel.ir.dependency:SelectorMatch",
-        "archkeel.ir.dependency:module_in_ownership"
+        "archkeel.ir.dependency:module_in_ownership",
+        "archkeel.ir.dependency:ImportSymbolMarker"
       ],
       "requires": [
         {
@@ -7980,6 +7981,143 @@
               }
             ],
             "returns": "None"
+          }
+        },
+        {
+          "id": "IR-REQUIRES-ImportSymbolMarker",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.dependency.ImportSymbolMarker",
+          "parent_id": "IR-DEPENDENCY-dependency",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Preserve exact required import evidence without widening legacy permissions."
+          ],
+          "provenance": [
+            "docs/architecture/symbol-requires-ports.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-REQUIRES-ImportSymbolMarker.WILDCARD",
+          "kind": "enum_literal",
+          "qualified_name": "archkeel.ir.dependency.ImportSymbolMarker.WILDCARD",
+          "parent_id": "IR-REQUIRES-ImportSymbolMarker",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Preserve exact required import evidence without widening legacy permissions."
+          ],
+          "provenance": [
+            "docs/architecture/symbol-requires-ports.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "value": "*"
+        },
+        {
+          "id": "IR-REQUIRES-requires_covers",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.model.requires_covers",
+          "parent_id": "IR-DEPENDENCY-model",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Preserve exact required import evidence without widening legacy permissions."
+          ],
+          "provenance": [
+            "docs/architecture/symbol-requires-ports.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "source",
+                "annotation": "ContractComponent | tuple[RequiredComponent, ...]",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "target_label",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "target_module",
+                "annotation": "str | None",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "target_symbol",
+                "annotation": "str | None",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          }
+        },
+        {
+          "id": "IR-REQUIRES-requires_import_assessment",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.model.requires_import_assessment",
+          "parent_id": "IR-DEPENDENCY-model",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Preserve exact required import evidence without widening legacy permissions."
+          ],
+          "provenance": [
+            "docs/architecture/symbol-requires-ports.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "source",
+                "annotation": "ContractComponent",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "target_label",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "target_module",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "symbol",
+                "annotation": "str | None",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "symbols_known",
+                "annotation": "bool",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "AssessmentStatus"
           }
         }
       ],
