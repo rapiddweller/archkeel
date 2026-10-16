@@ -8,7 +8,8 @@
       "role": "component",
       "packages": [],
       "responsibilities": [
-        "Execute the configured collector, validate its protocol response, and record runtime provenance."
+        "Execute the configured collector, validate its protocol response, and record runtime provenance.",
+        "Own direct collector-start classification without invoking language callbacks."
       ],
       "forbidden_responsibilities": [
         "Parsing sources, importing language collectors, or deciding architecture policy."
@@ -21,13 +22,15 @@
         "archkeel.analyzer",
         "archkeel.analyzer.process",
         "archkeel.analyzer.runtime",
-        "archkeel.analyzer.windows_job"
+        "archkeel.analyzer.windows_job",
+        "archkeel.analyzer.bootstrap"
       ],
       "planned": [],
       "public": [
         "archkeel.analyzer.process:ProcessCollector",
         "archkeel.analyzer.runtime:collector_provenance",
-        "archkeel.analyzer.runtime:python_requirement"
+        "archkeel.analyzer.runtime:python_requirement",
+        "archkeel.analyzer.bootstrap:is_direct_entrypoint"
       ]
     },
     {
@@ -407,6 +410,64 @@
           "presence": "referenced",
           "provenance": [
             "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shared-runtime-bootstrap.md"
+          ],
+          "id": "BOOTSTRAP-MODULE",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.bootstrap",
+          "parent_id": "TARGET-PROCESS",
+          "responsibilities": [
+            "Own the closed direct-start protocol shared by language entries."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shared-runtime-bootstrap.md"
+          ],
+          "id": "BOOTSTRAP-MODE",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.bootstrap._EntryMode",
+          "parent_id": "BOOTSTRAP-MODULE",
+          "responsibilities": [
+            "Represent the direct module-start marker without string dispatch."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/shared-runtime-bootstrap.md"
+          ],
+          "id": "BOOTSTRAP-DIRECT",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.bootstrap.is_direct_entrypoint",
+          "parent_id": "BOOTSTRAP-MODULE",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "module_name",
+                "annotation": "str",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          },
+          "responsibilities": [
+            "Classify arbitrary incoming module names once and leave imports passive."
           ]
         }
       ],

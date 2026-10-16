@@ -780,7 +780,8 @@
         "archkeel.ir.profiles",
         "archkeel.analyzer.runtime",
         "archkeel.cli.config",
-        "archkeel.check.runtime"
+        "archkeel.check.runtime",
+        "archkeel.analyzer.bootstrap"
       ],
       "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags and consumers use published nominal types.",
       "provenance": [
@@ -987,6 +988,58 @@
       "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
       "provenance": [
         "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "BOOTSTRAP-TYPED-BOOTSTRAP",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.bootstrap",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The shared bootstrap owns nominal direct-start classification; language entries use its explicit decision port.",
+      "provenance": [
+        "docs/architecture/shared-runtime-bootstrap.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "BOOTSTRAP-TYPED-PYTHON-ENTRY",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.python.entry",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The shared bootstrap owns nominal direct-start classification; language entries use its explicit decision port.",
+      "provenance": [
+        "docs/architecture/shared-runtime-bootstrap.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "BOOTSTRAP-TYPED-DART-ENTRY",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.dart.entry",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The shared bootstrap owns nominal direct-start classification; language entries use its explicit decision port.",
+      "provenance": [
+        "docs/architecture/shared-runtime-bootstrap.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "BOOTSTRAP-TYPED-TYPESCRIPT-ENTRY",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.typescript.entry",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The shared bootstrap owns nominal direct-start classification; language entries use its explicit decision port.",
+      "provenance": [
+        "docs/architecture/shared-runtime-bootstrap.md"
       ],
       "decided_by": "architect"
     }
