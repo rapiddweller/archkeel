@@ -14,8 +14,10 @@ A scoped `forbidden_construct` rule selecting `string_literal_compare` rejects:
 - direct, unambiguous module/class literal bindings, including `Final` annotations;
 - direct named module literal collections whose visible loads are only membership;
 - explicit `LocalEnum.MEMBER.value` extraction when the local enum member has a
-  written text/bytes value, a direct unshadowed stdlib `Enum`/`IntEnum`/`StrEnum`
-  import as its base, and no override of `value`;
+  written text/bytes value, exactly one directly proven stdlib `Enum` or `StrEnum`
+  base, and only ordinary literal member declarations (plus docstrings or `pass`);
+  class keywords, decorators, additional bases and executable hooks prevent that
+  value evidence; `IntEnum` can convert a written string to an integer and is excluded;
 - the interpreter entry comparison `__name__ == "__main__"`.
 
 An enum member comparison or identity check remains legitimate. Its explicit
@@ -36,7 +38,11 @@ Mapping-pattern keys are structure; a string key alone is not a value comparison
 ## Explicit limits
 
 Imported runtime constants, arbitrary attribute properties, computed expressions,
-dynamic namespace changes and collection aliases are not followed. An undecidable
+dynamic namespace changes and collection aliases are not followed. Local enum
+value evidence deliberately excludes mixins, custom construction or attribute
+hooks, namespace directives and class decorators/metaclasses; it does not evaluate
+their behavior. External mutation of an otherwise ordinary enum remains outside
+this source observation. An undecidable
 value is not reported as a literal merely because its spelling resembles a keyword.
 Calls such as `startswith`, arbitrary data-variable membership and arbitrary
 string-to-string data comparisons are outside this syntactic construct. The rule

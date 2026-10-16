@@ -14,6 +14,7 @@ from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
 from .scopes import LexicalScopes
 from .source import ParsedModule, add_evidence, body_is_empty, decorator_names, location
+from .symbols import _static_enum_members
 
 _BROAD_NAMES = frozenset({"Exception", "BaseException"})
 _REFLECTION_CALLS = {"setattr": "setattr_call", "delattr": "delattr_call", "vars": "vars_call"}
@@ -224,6 +225,32 @@ def _literal_collections(module: ParsedModule, scopes: LexicalScopes) -> frozens
     return frozenset(candidates)
 
 
+def _literal_enum_body(node: ast.ClassDef) -> bool:
+    """Only ordinary literal members establish their written Enum value."""
+    members = set(_static_enum_members(node))
+    if not members:
+        return False
+    for child in node.body:
+        if (
+            isinstance(child, ast.Assign)
+            and len(child.targets) == 1
+            and isinstance(child.targets[0], ast.Name)
+            and child.targets[0].id in members
+            and _is_str(child.value)
+        ):
+            continue
+        if isinstance(child, ast.Pass):
+            continue
+        if (
+            isinstance(child, ast.Expr)
+            and isinstance(child.value, ast.Constant)
+            and isinstance(child.value.value, str)
+        ):
+            continue
+        return False
+    return True
+
+
 class _LiteralComparisons:
     """Classify written literal vocabularies without adding runtime binding proof."""
 
@@ -235,7 +262,12 @@ class _LiteralComparisons:
         self.enum_value_classes = frozenset(
             f"{module.module}.{node.name}"
             for node in module.tree.body
-            if isinstance(node, ast.ClassDef) and any(self._enum_base(base) for base in node.bases)
+            if isinstance(node, ast.ClassDef)
+            and len(node.bases) == 1
+            and self._enum_base(node.bases[0])
+            and not node.keywords
+            and not node.decorator_list
+            and _literal_enum_body(node)
         )
 
     def _module_name(self, node: ast.expr) -> bool:
@@ -258,7 +290,7 @@ class _LiteralComparisons:
             resolved = f"{binding.target}.{node.attr}" if binding else None
         else:
             return False
-        return resolved in {"enum.Enum", "enum.IntEnum", "enum.StrEnum"}
+        return resolved in {"enum.Enum", "enum.StrEnum"}
 
     def scalar(self, node: ast.expr) -> bool:
         if _is_str(node):

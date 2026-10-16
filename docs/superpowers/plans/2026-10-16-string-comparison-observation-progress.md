@@ -53,6 +53,8 @@ Ruling: enum members and arbitrary data variables stay unclassified as literal n
 ## Frozen Enum value evidence review scope
 
 - Base 61404f1cf9e8579929119be093c3676075754661.
-- [ ] Native RED for extra bases, construction/access hooks, class metaclass/decorator transformation, IntEnum conversion and namespace ignore; preserve plain Enum and StrEnum positives.
+- [x] Native RED for extra bases, construction/access hooks, class metaclass/decorator transformation, IntEnum conversion and namespace ignore; preserve plain Enum and StrEnum positives.
 - [ ] Admit only a single directly proven Enum/StrEnum base, no class keywords/decorators, and ordinary literal member declarations. Reuse existing static member inventory rather than MRO/runtime inference.
 - [ ] Preserve nominal enum-member controls and all alias/collection restrictions; run native source/binding/State safety, Ruff/Mypy/hygiene and 65/919 baseline.
+
+- Enum review RED 38938809344: exactly 9 failed / 51 passed. Ordinary Enum/StrEnum positives and the existing own-value-property exclusion passed; each newly reported transformation produced the expected false observation before the fix.
