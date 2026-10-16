@@ -52,7 +52,10 @@ def _source(newline, eof, alias):
     lines = ['marker = "' + "\u2028\u2029" + '"', "", ""]
     if alias:
         lines += ["from typing import Final", 'TOKEN: Final[str] = "node16"']
-    lines += ["def _probe(value):", "    return value == TOKEN" if alias else '    return value == "node16"']
+    lines += [
+        "def _probe(value):",
+        "    return value == TOKEN" if alias else '    return value == "node16"',
+    ]
     source = newline.join(lines) + (newline if eof else "")
     return source, len(lines), lines[-1]
 
@@ -60,7 +63,9 @@ def _source(newline, eof, alias):
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"], ids=["lf", "crlf", "cr"])
 @pytest.mark.parametrize("eof", [False, True], ids=["no-eof-newline", "eof-newline"])
 @pytest.mark.parametrize("alias", [False, True], ids=["literal", "final-alias"])
-def test_native_unicode_literal_preserves_exact_physical_source_trace(tmp_path, newline, eof, alias):
+def test_native_unicode_literal_preserves_exact_physical_source_trace(
+    tmp_path, newline, eof, alias
+):
     source, expected_line, expected_excerpt = _source(newline, eof, alias)
     root = _prepare_repo(
         tmp_path,

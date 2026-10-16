@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import re
 import sys
 from collections import Counter
 from collections.abc import Iterable, Iterator, Mapping, Sequence
@@ -2172,7 +2173,7 @@ def parse_sources(paths: Sequence[Path], *, root: Path, namespace: str) -> Parse
                 package=package_for(module_name),
                 source=source,
                 source_bytes=raw,
-                lines=source.replace("\r\n", "\n").replace("\r", "\n").split("\n"),
+                lines=re.split(r"\r\n?|\n", source),
                 tree=tree,
             )
         )
