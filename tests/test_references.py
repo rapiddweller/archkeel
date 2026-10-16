@@ -61,8 +61,22 @@ def test_the_claim_stays_small_enough_to_read(self_observation: Observation) -> 
     result = unreferenced_symbols(self_observation)
 
     assert result.symbols > 400
-    # The expanded scan adds three used Dart resolver methods behind an injected receiver.
-    assert len(result.candidates) <= 11
+    # This retained private TypedDict is a compatibility constructor for mapping/keyword
+    # callers. It remains visible in the report; production uses immutable PropertyBinding.
+    legacy = [
+        candidate
+        for candidate in result.candidates
+        if candidate.name == "archkeel.analyzer.python.source._PropertyBinding"
+    ]
+    assert len(legacy) == 1
+    assert (legacy[0].kind, legacy[0].visibility, legacy[0].module) == (
+        "class",
+        "private",
+        "archkeel.analyzer.python.source",
+    )
+    # The other review candidates retain the existing limit, including three used
+    # Dart resolver methods whose injected receiver remains outside the reference proof.
+    assert len([candidate for candidate in result.candidates if candidate not in legacy]) <= 11
 
 
 def test_enum_member_constructor_argument_references_its_class(
@@ -226,3 +240,28 @@ def test_construct_queries_have_direct_native_references(
         "archkeel.analyzer.python.constructs._comparison_form",
         "archkeel.analyzer.python.constructs._matches_literal",
     } <= targets
+
+
+def test_legacy_badge_state_is_an_import_of_its_owned_enum(
+    self_observation: Observation,
+) -> None:
+    from archkeel.render import summary, summary_badges
+
+    assert summary.State is summary.BadgeState is summary_badges.BadgeState
+    assert not any(
+        record.data.get("qualified_name") == "archkeel.render.summary.State"
+        for record in self_observation.records("symbols") or ()
+    )
+    imports = [
+        record
+        for record in self_observation.records("imports") or ()
+        if record.data.get("source_module") == "archkeel.render.summary"
+        and record.data.get("binding") == "State"
+    ]
+    assert len(imports) == 1
+    data = imports[0].data
+    assert imports[0].kind == "import"
+    assert data.get("target_module") == "archkeel.render.summary_badges"
+    assert data.get("symbol") == "BadgeState"
+    assert data.get("origin_definition") == "archkeel.render.summary_badges.BadgeState"
+    assert data.get("module_level_import") is True
