@@ -15,9 +15,9 @@ from archkeel.ir.target_graph import declared_graph
 
 ROOT = Path(__file__).parents[1]
 SETTINGS = {
-    "PythonSettings": {"language": "Literal['python']"},
-    "DartSettings": {"language": "Literal['dart']"},
-    "TypeScriptSettings": {"language": "Literal['typescript']", "tsconfig": "str"},
+    "PythonSettings": {"language": "Literal[Language.PYTHON]"},
+    "DartSettings": {"language": "Literal[Language.DART]"},
+    "TypeScriptSettings": {"language": "Literal[Language.TYPESCRIPT]", "tsconfig": "str"},
 }
 PROTOCOL_REFERENCES = {
     ("archkeel.ir.protocol", f"archkeel.ir.protocol.{name}") for name in SETTINGS
@@ -142,10 +142,10 @@ def test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes(
     counts = dict(unknown_positions_by_rule(self_observation))
     assert {rule: count for rule, count in counts.items() if not rule.startswith("UML-TARGET")} == {
         "RENDER-TYPES-DECLARED": 29,
-        "CHECK-TYPES-DECLARED": 26,
+        "CHECK-TYPES-DECLARED": 19,
         "ANALYZER-TYPES-DECLARED": 2,
     }
-    assert sum(counts.values()) == 65
+    assert sum(counts.values()) == 58
     detail_positions = [
         item
         for item in unknowns
@@ -158,4 +158,4 @@ def test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes(
     assert detail_positions[0].data.get("nested_annotation") == "RuleVerdict"
     assert detail_positions[0].data.get("reason") == "other"
     baseline = json.loads((ROOT / "architecture-baseline.json").read_text())
-    assert baseline["budgets"]["unknown_positions"] == 65
+    assert baseline["budgets"]["unknown_positions"] == 58

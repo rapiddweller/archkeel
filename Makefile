@@ -35,7 +35,7 @@ pr-test:
 		tests/test_responsibility_validation.py \
 		tests/test_contract_model.py tests/test_dependency_selectors.py tests/test_typed_dependency_api.py tests/test_dependency_api_target.py tests/test_module_object_grants.py tests/test_dependency_typed_control.py tests/test_typed_state_protocol.py tests/test_state_facts.py tests/test_boundary_type_nested_mapping.py tests/test_decisions.py \
 		tests/test_target_graph.py::test_contract_corpus_preserves_version_and_uml_presence \
-		tests/test_collection_protocol.py tests/test_source_trust_boundary.py \
+		tests/test_collection_protocol.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py tests/test_source_trust_boundary.py \
 		tests/test_typescript_owned_types.py tests/test_typescript_json_fields.py tests/test_typescript_control_target.py \
 		tests/test_analyzer.py tests/test_typescript_config.py tests/test_typescript_resolve.py \
 		tests/test_typescript_array_constants.py \
@@ -147,7 +147,7 @@ test:
 		-q $(PYTEST_STOP) --durations=20 --junitxml=test-artifacts/pytest/results.xml
 
 collector-safety:
-	$(UV) run --locked python -m pytest -q tests/test_collection_protocol.py \
+	$(UV) run --locked python -m pytest -q tests/test_collection_protocol.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py \
 		tests/test_collection_process.py tests/test_collection_runtime_gate.py \
 		tests/test_runtime.py tests/test_source_trust_boundary.py \
 		tests/test_collector_interrupt.py tests/test_windows_launcher_startup.py \

@@ -21,11 +21,14 @@ from archkeel.ir.facts import (
     FactSection,
     FileFact,
     ImportTarget,
+    Language,
     LocalTarget,
     Record,
     ResolutionInput,
+    ResolutionRole,
     SourceFacts,
     SourceInfo,
+    SourceProfile,
     SourceSectionName,
     UnresolvedTarget,
     stable_id,
@@ -47,12 +50,12 @@ from .parse import Base, Definition, Reference, Site, Span, Syntax, parse
 from .resolve import Found, ModuleFormat, Resolver, Unknown, is_builtin, is_relative, package_name
 
 _SECTIONS: tuple[SourceSectionName, ...] = (
-    "imports",
-    "unknowns",
-    "symbols",
-    "calls",
-    "references",
-    "bindings",
+    SourceSectionName.IMPORTS,
+    SourceSectionName.UNKNOWNS,
+    SourceSectionName.SYMBOLS,
+    SourceSectionName.CALLS,
+    SourceSectionName.REFERENCES,
+    SourceSectionName.BINDINGS,
 )
 _SOURCE: Final = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
 _DECLARATION: Final = (".d.ts", ".d.mts", ".d.cts")
@@ -108,29 +111,29 @@ class _Collection:
         for problem in sorted(self.snapshot.problems):
             self._gap(problem)
         inputs = tuple(
-            ResolutionInput(path, digest, role)
+            ResolutionInput(path, digest, ResolutionRole(role))
             for path, (digest, role) in sorted(self.snapshot.inputs.items())
         )
         unknowns = tuple(parse_record(item) for _, item in sorted(self.gaps.items()))
         imports = tuple(
             parse_record(item) for item in sorted(self.imports, key=lambda item: item["id"])
         )
-        adapter, runtime = collector_provenance("typescript")
+        adapter, runtime = collector_provenance(Language.TYPESCRIPT)
         listing: str = json.dumps(
             [{"path": item.path, "digest": item.digest, "role": item.role} for item in inputs],
             separators=(",", ":"),
             ensure_ascii=False,
         )
         records: dict[SourceSectionName, tuple[Record, ...]] = {
-            "imports": imports,
-            "unknowns": unknowns,
-            "symbols": tuple(parse_record(item) for item in symbols),
-            "calls": tuple(parse_record(item) for item in calls),
-            "references": tuple(parse_record(item) for item in references),
-            "bindings": tuple(parse_record(item) for item in bindings),
+            SourceSectionName.IMPORTS: imports,
+            SourceSectionName.UNKNOWNS: unknowns,
+            SourceSectionName.SYMBOLS: tuple(parse_record(item) for item in symbols),
+            SourceSectionName.CALLS: tuple(parse_record(item) for item in calls),
+            SourceSectionName.REFERENCES: tuple(parse_record(item) for item in references),
+            SourceSectionName.BINDINGS: tuple(parse_record(item) for item in bindings),
         }
         return SourceFacts(
-            "archkeel-typescript-imports",
+            SourceProfile.TYPESCRIPT,
             adapter,
             runtime,
             SourceInfo(

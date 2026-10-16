@@ -18,6 +18,7 @@ from .facts import (
     Record,
     RecordData,
     SourceFacts,
+    SourceProfile,
     UnresolvedTarget,
     in_scope,
     member_inventories,
@@ -514,10 +515,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         raise ValueError("observed module needs a selected input")
     if len(facts.files) > facts.coverage.files_parsed:
         raise ValueError("observed modules exceed parsed files")
-    if (
-        facts.profile != "archkeel-dart-analyzer"
-        and len(facts.files) != facts.coverage.files_parsed
-    ):
+    if facts.profile != SourceProfile.DART and len(facts.files) != facts.coverage.files_parsed:
         raise ValueError("each parsed source file needs an observed module")
     if facts.coverage.full_scope and facts.coverage.files_parsed and not facts.files:
         raise ValueError("complete parsed source needs an observed module")
@@ -600,7 +598,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         base_by_id,
         import_ids=imports,
         selected_inputs=selected_inputs,
-        allow_part_evidence=facts.profile == "archkeel-dart-analyzer",
+        allow_part_evidence=facts.profile == SourceProfile.DART,
     )
     for target in facts.imports:
         data = record_by_id[target.import_id].data

@@ -8,7 +8,6 @@ from __future__ import annotations
 import hashlib
 import sys
 from pathlib import Path
-from typing import Literal
 
 from archkeel.analyzer.runtime import (
     collector_provenance,
@@ -26,10 +25,13 @@ from archkeel.ir.facts import (
     FileFact,
     ForbiddenConstructKind,
     ImportTarget,
+    Language,
     LocalTarget,
     ResolutionInput,
+    ResolutionRole,
     SourceFacts,
     SourceInfo,
+    SourceProfile,
     SourceSectionName,
     UnresolvedTarget,
     stable_id,
@@ -51,14 +53,14 @@ from .type_shapes import collect_type_shapes, symbol_type_expressions
 from .typing_signals import collect_typing_signals
 
 _SECTION_NAMES: tuple[SourceSectionName, ...] = (
-    "symbols",
-    "imports",
-    "calls",
-    "references",
-    "bindings",
-    "typing_signals",
-    "constructs",
-    "unknowns",
+    SourceSectionName.SYMBOLS,
+    SourceSectionName.IMPORTS,
+    SourceSectionName.CALLS,
+    SourceSectionName.REFERENCES,
+    SourceSectionName.BINDINGS,
+    SourceSectionName.TYPING_SIGNALS,
+    SourceSectionName.CONSTRUCTS,
+    SourceSectionName.UNKNOWNS,
 )
 
 
@@ -123,14 +125,14 @@ def collect(request: CollectionRequest) -> SourceFacts:
     inputs, source_digest = _inputs(root, selected)
     import_targets = _import_targets(imports, files)
     records: dict[SourceSectionName, list[RawRecord]] = {
-        "symbols": symbols,
-        "imports": imports,
-        "calls": calls,
-        "references": references,
-        "bindings": bindings,
-        "typing_signals": typing_signals,
-        "constructs": constructs,
-        "unknowns": [
+        SourceSectionName.SYMBOLS: symbols,
+        SourceSectionName.IMPORTS: imports,
+        SourceSectionName.CALLS: calls,
+        SourceSectionName.REFERENCES: references,
+        SourceSectionName.BINDINGS: bindings,
+        SourceSectionName.TYPING_SIGNALS: typing_signals,
+        SourceSectionName.CONSTRUCTS: constructs,
+        SourceSectionName.UNKNOWNS: [
             *parsed_sources.failures,
             *(raw_record(record) for record in source_unknowns),
         ],
@@ -140,10 +142,10 @@ def collect(request: CollectionRequest) -> SourceFacts:
 
     required, requirement_state = python_requirement(root)
     adapter, runtime = collector_provenance(
-        "python", required=required, requirement_state=requirement_state
+        Language.PYTHON, required=required, requirement_state=requirement_state
     )
     return SourceFacts(
-        "archkeel-python-analyzer",
+        SourceProfile.PYTHON,
         adapter,
         runtime,
         SourceInfo(
@@ -193,12 +195,12 @@ def _raw_evidence(item: Evidence) -> RawEvidence:
 
 
 def _inputs(root: Path, selected: tuple[Path, ...]) -> tuple[tuple[ResolutionInput, ...], str]:
-    paths: dict[str, tuple[Path, Literal["selected", "resolution"]]] = {
-        path.relative_to(root).as_posix(): (path, "selected") for path in selected
+    paths: dict[str, tuple[Path, ResolutionRole]] = {
+        path.relative_to(root).as_posix(): (path, ResolutionRole.SELECTED) for path in selected
     }
     config = root / "pyproject.toml"
     if config.is_file() and config.resolve().is_relative_to(root):
-        paths["pyproject.toml"] = (config, "resolution")
+        paths["pyproject.toml"] = (config, ResolutionRole.RESOLUTION)
     inputs: list[ResolutionInput] = []
     source = hashlib.sha256()
     for rel_path, (path, role) in sorted(paths.items()):

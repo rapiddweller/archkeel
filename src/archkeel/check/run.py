@@ -30,6 +30,7 @@ from archkeel.ir.model import (
     RuleVerdict,
     RunResult,
     UnresolvedCallChange,
+    Verdict,
 )
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
@@ -345,7 +346,7 @@ def run_check(
         observation_complete="PASS",
         declared_rules=declared,
         expectation_fulfilled="FAIL" if failures else "PASS",
-        git_predicate="FAIL" if git_failures else "PASS",
+        git_predicate=Verdict.FAIL if git_failures else Verdict.PASS,
         host_source=(
             "github_initial_pr_head"
             if initial_pr is not None
@@ -353,7 +354,7 @@ def run_check(
             if host_records_path is not None
             else "gitlab_mr_versions"
         ),
-        host_order="FAIL" if ordering_failures else "PASS",
+        host_order=Verdict.FAIL if ordering_failures else Verdict.PASS,
         coverage=candidate.coverage,
         python_version=candidate.python_version,
         measurements=measurements,

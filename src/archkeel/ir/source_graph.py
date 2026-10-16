@@ -32,7 +32,13 @@ from archkeel.ir.architecture_graph import (
     VisibilityBasis,
     VisibilityKind,
 )
-from archkeel.ir.facts import SOURCE_RESOLUTION_GAP_KIND, ResolutionInput, member_inventories
+from archkeel.ir.facts import (
+    SOURCE_RESOLUTION_GAP_KIND,
+    MemberKind,
+    ResolutionInput,
+    ResolutionRole,
+    member_inventories,
+)
 from archkeel.ir.model import (
     TARGET_GRAPH_RECORD_KINDS,
     EvidenceClass,
@@ -41,6 +47,7 @@ from archkeel.ir.model import (
     RawJson,
     Record,
     RecordData,
+    Verdict,
     stable_id,
 )
 from archkeel.ir.profiles import PROFILES, profile_for
@@ -151,8 +158,8 @@ def _inventory_selected_inputs(model: Observation, inputs: tuple[RecordData, ...
     if (
         hashlib.sha256(listing.encode()).hexdigest() != model.source.source_digest
         or not selected
-        or coverage.status != "FAIL"
-        or coverage.rules != "PASS"
+        or coverage.status != Verdict.FAIL
+        or coverage.rules != Verdict.PASS
         or not coverage.failures
         or coverage.files_discovered != len(selected)
         or coverage.files_read != len(selected)
@@ -331,7 +338,9 @@ def validated_member_inventory_proof(model: Observation) -> Record | None:
                     ResolutionInput(
                         str(row.get("path")),
                         str(row.get("digest")),
-                        "selected" if row.get("role") == "selected" else "resolution",
+                        ResolutionRole.SELECTED
+                        if row.get("role") == "selected"
+                        else ResolutionRole.RESOLUTION,
                     )
                     for row in rows
                 ),
@@ -977,7 +986,7 @@ def _section_coverage(
     reason: str | None = None
     if not available:
         status, reason = "unavailable", "profile does not publish this section"
-    elif observation.coverage.status != "PASS":
+    elif observation.coverage.status != Verdict.PASS:
         status, reason = "partial", "source observation is incomplete"
     elif (
         section == "calls"
@@ -1054,7 +1063,7 @@ def _member_inventory_coverage(
             kinds: tuple[EntityKind, ...] = (
                 ("attribute", "enum_literal")
                 if inventory.kind == "attribute" and item.data.get("class_kind") == "enum"
-                else (inventory.kind,)
+                else (("attribute",) if inventory.kind is MemberKind.ATTRIBUTE else ("method",))
             )
             actual = {
                 entity.id
@@ -1065,7 +1074,7 @@ def _member_inventory_coverage(
                 raise ValueError("member inventory identities disagree with their owner")
             complete = (
                 inventory.status == "complete"
-                and (observation.coverage.status == "PASS" or item.id in approved)
+                and (observation.coverage.status == Verdict.PASS or item.id in approved)
                 and (
                     "enum_literal" not in kinds
                     or observation.analyzer.name
@@ -1127,7 +1136,7 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
         if item.data.get("base_declarations") is None:
             continue
         bases = _records(item.data.get("base_declarations"))
-        complete = observation.coverage.status == "PASS" and all(
+        complete = observation.coverage.status == Verdict.PASS and all(
             base.get("status") == "resolved" for base in bases
         )
         result.append(
@@ -1144,9 +1153,9 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
                 Coverage(
                     entity.id,
                     relationship_kinds=("owns",),
-                    status="complete" if observation.coverage.status == "PASS" else "partial",
+                    status="complete" if observation.coverage.status == Verdict.PASS else "partial",
                     reason=None
-                    if observation.coverage.status == "PASS"
+                    if observation.coverage.status == Verdict.PASS
                     else "source observation is incomplete",
                 )
             )

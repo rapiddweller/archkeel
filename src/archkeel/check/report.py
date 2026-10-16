@@ -8,7 +8,6 @@ from collections import Counter as _Counter
 from dataclasses import replace
 from pathlib import Path
 from typing import Literal as _Literal
-from typing import get_args
 
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
@@ -674,6 +673,13 @@ def run_saved_report(
         )
 
 
+def _source_section_name(name: str) -> SourceSectionName | None:
+    try:
+        return SourceSectionName(name)
+    except ValueError:
+        return None
+
+
 def _validate_saved_sources(model: Observation) -> None:
     module_paths: dict[str, str] = {}
     module_packages: dict[str, str] = {}
@@ -698,10 +704,10 @@ def _validate_saved_sources(model: Observation) -> None:
             record
             for section in model.sections
             if section.name == "modules"
-            or (section.name in get_args(SourceSectionName) and section.name != "unknowns")
+            or (_source_section_name(section.name) not in (None, SourceSectionName.UNKNOWNS))
             for record in section.records
             if not (
-                section.name == "typing_signals"
+                _source_section_name(section.name) is SourceSectionName.TYPING_SIGNALS
                 and record.kind in {"boundary_type_allowance", "type_ignore_allowance"}
                 and record.evidence_class == EvidenceClass.FACT
             )

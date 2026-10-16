@@ -13,7 +13,7 @@ import sys
 from collections.abc import Sequence
 from types import EllipsisType
 
-from archkeel.ir.facts import EvidenceClass, MemberInventory, stable_id
+from archkeel.ir.facts import EvidenceClass, InventoryStatus, MemberInventory, MemberKind, stable_id
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified, member_inventory_data
 
@@ -1158,8 +1158,8 @@ def _record_member_inventories(
         data["member_inventories"] = [
             member_inventory_data(
                 MemberInventory(
-                    "attribute",
-                    "complete" if attribute_complete else "partial",
+                    MemberKind.ATTRIBUTE,
+                    InventoryStatus.COMPLETE if attribute_complete else InventoryStatus.PARTIAL,
                     attributes,
                     None
                     if attribute_complete
@@ -1168,8 +1168,8 @@ def _record_member_inventories(
             ),
             member_inventory_data(
                 MemberInventory(
-                    "method",
-                    "complete" if method_complete else "partial",
+                    MemberKind.METHOD,
+                    InventoryStatus.COMPLETE if method_complete else InventoryStatus.PARTIAL,
                     methods,
                     None
                     if method_complete

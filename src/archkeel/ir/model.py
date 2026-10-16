@@ -81,7 +81,13 @@ def public_api_id(selector: str) -> str:
 
 SCHEMA_VERSION = "2.0.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
-Verdict: TypeAlias = Literal["PASS", "FAIL"]
+
+
+class Verdict(StrEnum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+
+
 PackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]
 ComponentOwnershipInput: TypeAlias = ComponentOwnership | PackageComponentOwnership
 # AD-26's full vocabulary, for the one verdict that can also fail to decide (AD-67).
@@ -1139,7 +1145,7 @@ class ObservationResult:
         if self.observation is not None and self.observation.coverage != self.coverage:
             raise ValueError("analyzer coverage differs from its observation")
         if (
-            self.observation is None or self.coverage is None or self.coverage.status != "PASS"
+            self.observation is None or self.coverage is None or self.coverage.status != Verdict.PASS
         ) and not self.diagnostics:
             raise ValueError("incomplete observation requires a diagnostic")
 
