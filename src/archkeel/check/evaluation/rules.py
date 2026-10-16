@@ -47,7 +47,7 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.model import requires_covers as _requires_covers
-from archkeel.ir.profiles import PYTHON_ANALYZER, DeclarationField, Profile
+from archkeel.ir.profiles import DeclarationField, Profile
 from archkeel.ir.type_shapes import TypeShapeIndex
 
 from .boundary_types import _AMBIGUOUS as _AMBIGUOUS
@@ -1149,7 +1149,7 @@ def profile_failures(
             for rule in contract.rules
             if isinstance(rule, InterfaceBoundaryRule)
             and rule.module_object_grants
-            and profile.analyzer != PYTHON_ANALYZER
+            and not profile.module_object_imports
         ),
         *(
             (rule.id, [rule.id], f"rule kind {rule.kind}")

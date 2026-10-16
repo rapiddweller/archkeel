@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 from test_architecture_demo import _prepare_repo
-from test_uml_evaluation import _model
 from test_dependency_api_target import _source_members
+from test_uml_evaluation import _model
 
 from archkeel.check.declarations import project_rule_declaration
 from archkeel.check.evaluation.rules import _interface_verdicts, profile_failures
@@ -22,8 +22,8 @@ from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import module_references
 from archkeel.ir.profiles import DART, TYPESCRIPT
 from archkeel.ir.renames import renamed_contract
-from archkeel.ir.trace import trace_valid_violations
 from archkeel.ir.report_graph import architecture_report
+from archkeel.ir.trace import trace_valid_violations
 from archkeel.ir.widening import contract_widening_changes
 
 ROOT = Path(__file__).parents[1]
@@ -69,8 +69,9 @@ def _repository(tmp_path, *, registry="", consumer="", child="", contract=None):
     contract = _contract() if contract is None else contract
     files = {
         "demo/__init__.py": "",
-        "demo/plugins/__init__.py": ("class Allowed: pass\n"
-                                    "class Secret: pass\nclass _Private: pass\n"),
+        "demo/plugins/__init__.py": (
+            "class Allowed: pass\nclass Secret: pass\nclass _Private: pass\n"
+        ),
         "demo/plugins/extra.py": "class Other: pass\n",
         "demo/plugins/forwarder.py": 'from . import Secret\n__all__ = ["Secret"]\n',
         "demo/registry/__init__.py": registry,
@@ -226,6 +227,8 @@ def test_older_versions_reject_even_empty_module_object_grants(version):
         [{**GRANT, "target_module": "demo.plugins.*"}],
         [{**GRANT, "target_module": ".demo.plugins"}],
         [{**GRANT, "source_module": ""}],
+        [{**GRANT, "source_module": "demo.registry\n"}],
+        [{**GRANT, "target_module": "demo.plugins\n"}],
         [GRANT, GRANT],
     ],
 )
@@ -341,6 +344,7 @@ def test_native_grant_types_follow_fixed_independent_own_intent(tmp_path, widen)
             "archkeel/__init__.py": "",
             "archkeel/ir/__init__.py": "",
             "archkeel/ir/model.py": source,
+            "archkeel/ir/profiles.py": (ROOT / "src/archkeel/ir/profiles.py").read_text(),
             "contract.json": json.dumps(contract),
             "docs/architecture/module-object-grants.md": "Independent module-object intent.",
         },

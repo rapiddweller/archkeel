@@ -49,8 +49,9 @@ roundtrips as empty.
 
 The model owns frozen `ModuleObjectGrant(source_module, target_module)` values.
 `InterfaceBoundaryRule.module_object_grants` is
-`tuple[ModuleObjectGrant, ...] | None`. Five independent declarations in the own
-IR Target pin the class, both identity fields, the owning rule and this field.
+`tuple[ModuleObjectGrant, ...] | None`. Eight independent declarations in the own
+IR Target pin the class, both identity fields, the owning rule and this field,
+and the profile module, class and boolean module-object proof capability.
 Native tests retain that Target while widening the Python field annotation to
 `str | None`; the mismatch produces a trace-valid failure. This bounded intent
 does not close the remaining model inventory or activate a broader model type

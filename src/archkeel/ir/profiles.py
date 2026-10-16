@@ -50,10 +50,13 @@ class Profile:
     standard_library: frozenset[str] = frozenset()
     # Library names a `forbidden_dependency` target may name although no scanned module has them.
     sdk_libraries: frozenset[str] = frozenset()
+    # Only profiles proving module-object imports can decide exact caller grants.
+    module_object_imports: bool = False
 
 
 PYTHON: Final = Profile(
     analyzer=PYTHON_ANALYZER,
+    module_object_imports=True,
     source_suffix=".py",
     complete_unread_binding_inventory=True,
     standard_library=frozenset(sys.stdlib_module_names) | frozenset(sys.builtin_module_names),
