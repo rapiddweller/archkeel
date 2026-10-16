@@ -14,7 +14,7 @@ from archkeel.ir.trace import trace_valid_violations
 _OWNERSHIP = "tuple[str, tuple[str, ...], tuple[str, ...]]"
 
 
-def _repository(root: Path, *, imported=True, provider=None, suffix="", prefix=""):
+def _repository(root: Path, *, imported=True, provider=None, suffix="", prefix="", duplicate_provider=False):
     provider = provider or f"Ownership = {_OWNERSHIP}\n"
     source = (
         "from __future__ import annotations\n"
@@ -27,6 +27,10 @@ def _repository(root: Path, *, imported=True, provider=None, suffix="", prefix="
     )
     _app(root, source=source, declared=("sample.app.impl:select",))
     (root / "sample/app/types.py").write_text(provider)
+    if duplicate_provider:
+        package = root / "sample/app/types"
+        package.mkdir()
+        (package / "__init__.py").write_text(provider)
     result = _observe(root)
     assert result.observation is not None and not result.diagnostics
     return result.observation
@@ -67,6 +71,8 @@ def test_native_builtin_alias_union_keeps_the_alias_shape_proven(tmp_path, impor
         "provider_namespace_write",
         "local_shadow",
         "class_shadow",
+        "annotated_custom_subscript",
+        "duplicate_provider",
     ],
 )
 def test_native_unsafe_union_operands_do_not_gain_builtin_proof(tmp_path, mutation):
@@ -77,11 +83,15 @@ def test_native_unsafe_union_operands_do_not_gain_builtin_proof(tmp_path, mutati
             "class Meta(type):\n    def __or__(cls, other):\n        return other\n"
             "class Ownership(metaclass=Meta):\n    pass\n"
         )
-    elif mutation == "custom_subscript":
+    elif mutation in {"custom_subscript", "annotated_custom_subscript"}:
         provider = (
             "class Meta(type):\n    def __getitem__(cls, value):\n        return value\n"
             "class Custom(metaclass=Meta):\n    pass\nOwnership = Custom[str]\n"
         )
+        if mutation == "annotated_custom_subscript":
+            provider = "from typing import TypeAlias\n" + provider.replace(
+                "Ownership = Custom[str]", "Ownership: TypeAlias = Custom[str]"
+            )
     elif mutation == "shadowed_container":
         provider = "tuple = Unknown\n" + provider
     elif mutation == "rebound_provider":
@@ -99,12 +109,14 @@ def test_native_unsafe_union_operands_do_not_gain_builtin_proof(tmp_path, mutati
             "def outer():\n    Ownership = Unknown\n"
             "    def inner(value: Ownership | PackageOwnership):\n        return value\n"
         )
-    else:
+    elif mutation == "class_shadow":
         suffix = (
             "class Outer:\n    Ownership = Unknown\n"
             "    def inner(self, value: Ownership | PackageOwnership):\n        return value\n"
         )
-    model = _repository(tmp_path, provider=provider, suffix=suffix)
+    model = _repository(
+        tmp_path, provider=provider, suffix=suffix, duplicate_provider=mutation == "duplicate_provider"
+    )
     assert _position_unknowns(model) or trace_valid_violations(model)
 
 
