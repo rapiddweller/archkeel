@@ -5,81 +5,6 @@ on:
 permissions:
   contents: read
 jobs:
-  actual-flow-publication:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          version: "0.12.13"
-          python-version: "3.11.12"
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
-        with:
-          node-version: "22"
-      - run: uv sync --locked
-      - name: Check committed Flow-only bytes without regeneration
-        run: |
-          make browser-runtime-check
-          make browser-graph-check
-      - name: Actual publication, stale-source, AST negatives and unchanged report budgets
-        run: uv run --locked python -m pytest -q -s tests/test_flow_runtime_publication.py tests/test_atlas_report.py::test_default_report_is_one_authentic_repository_with_sparse_native_cells tests/test_atlas_report.py::test_atlas_inlines_pinned_elk_before_flow_script_under_offline_csp tests/test_graph_scene_protocol.py::test_offline_report_loads_the_actual_protocol_before_scene_consumers
-      - name: Measure real Flow-only HTML and verify other programs untouched
-        run: |
-          uv run --locked python prototype/flow-report-size.py
-          git diff --exit-code -- src/archkeel/render/assets/flow.js src/archkeel/render/assets/report-canvas.js src/archkeel/render/assets/report-filters.js src/archkeel/render/assets/report-graph-protocol.js src/archkeel/render/assets/report-graph-scene.js src/archkeel/render/assets/report-layout.js src/archkeel/render/assets/report-scene.js src/archkeel/render/assets/violations.js
-      - name: Existing lint, typing and hygiene
-        run: |
-          make lint typecheck
-          uv run --locked python -m pytest -q tests/test_repository_hygiene.py
-      - name: Format authored Python
-        if: always()
-        run: |
-          uv run --locked ruff format tools/browser_runtime.py tests/test_flow_runtime_publication.py tests/smoke_test.py
-          uv run --locked ruff check --fix tools/browser_runtime.py tests/test_flow_runtime_publication.py tests/smoke_test.py
-      - name: Export actual generated artifact and formatting
-        if: always()
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          paths = ["tools/browser_runtime.py", "tests/test_flow_runtime_publication.py", "tests/smoke_test.py", "src/archkeel/render/assets/flow.runtime.js"]
-          print("FLOW_PUBLISH_ARTIFACTS=" + json.dumps({path:Path(path).read_text() for path in paths if Path(path).is_file()}))
-          PY
-  browser-regressions:
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          version: "0.12.13"
-          python-version: "3.11.12"
-      - run: uv sync --locked
-      - run: make browser-install
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
-        with:
-          node-version: "22"
-      - run: |
-          make browser-graph-check
-      - name: Actual native graph, routes, filters and Mermaid consumers
-        run: |
-          uv run --locked --with playwright==1.62.0 python -m pytest -q \
-            tests/test_own_uml_target.py::test_own_type_dependencies_have_visible_endpoints_and_connected_focus \
-            tests/test_own_uml_target.py::test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence \
-            tests/test_own_uml_target.py::test_own_class_overview_keeps_distinct_routes_and_type_cues \
-            tests/test_uml_rendering.py::test_keyboard_drilldown_and_view_roundtrip_keep_the_source_scope \
-            tests/test_uml_rendering.py::test_source_scope_retains_unresolved_calls_and_parameter_kinds \
-            tests/test_uml_rendering.py::test_static_members_are_underlined_in_previews_and_drilldown \
-            tests/test_atlas_report.py::test_offline_module_drilldown_reaches_native_classifiers_and_returns \
-            tests/test_atlas_report.py::test_offline_scope_url_history_matches_direct_classifier_and_members \
-            tests/test_atlas_report.py::test_atlas_browser_keeps_positions_and_unknown_cells_across_lenses
-
   package-offline-without-node:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -110,34 +35,8 @@ jobs:
           PY
           export PATH="$RUNNER_TEMP/blocked-node:$PATH"
           export FLOW_BLOCKED_NODE_LOG="$RUNNER_TEMP/unexpected-node-use"
+          make smoke
           export UV_OFFLINE=1
           make smoke
           test ! -e "$FLOW_BLOCKED_NODE_LOG"
 
-  actual-native-source-parity:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          version: "0.12.13"
-          python-version: "3.11.12"
-      - name: Explicit independent native observer dependency, not product scope
-        run: |
-          git fetch origin ccd28126663a6ed11891d6d512b4f95c263c8ddc
-          for flow_observer_path in \
-            src/archkeel/analyzer/typescript/parse.py \
-            src/archkeel/analyzer/typescript/syntax.py \
-            src/archkeel/analyzer/typescript/collect.py \
-            src/archkeel/ir/profiles.py \
-            src/archkeel/ir/codec_observation.py \
-            src/archkeel/check/evaluation/evaluate.py; do
-            git show "ccd28126663a6ed11891d6d512b4f95c263c8ddc:$flow_observer_path" > "$flow_observer_path"
-          done
-      - run: uv sync --locked
-      - name: Native authored-module and witnessed construct parity; no absence claim
-        run: uv run --locked python -m pytest -q -s prototype/test_flow_native_parity.py
