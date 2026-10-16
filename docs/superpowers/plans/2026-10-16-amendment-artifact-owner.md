@@ -30,3 +30,5 @@ The public command schema remains four-valued, CLI dispatch remains six-valued, 
 - Strict Mypy required narrowing the wire value to str before enum construction; malformed values retain the original unsupported-schema ValueError text. No cast or TypeGuard substitutes for conversion.
 
 - d5fd4f9 hosted GREEN: native34 (18 authored entities, six widening and ten dispatch controls), strict Mypy141, Ruff and hygiene11. Existing approval/widening/schema/CLI/codec regressions358 PASS. Added direct string-class substitution controls for both real enum owners and governance value/version facade identity before final freeze.
+
+- Ruling: reuse existing IR-DEPENDENCY-model and IR-GRAPH-RunResult Target anchors instead of declaring the same qualified objects twice. Sixteen new artifact/status declarations plus these two existing independently authored anchors form the eighteen-entity fixture; no observed snapshot is copied.

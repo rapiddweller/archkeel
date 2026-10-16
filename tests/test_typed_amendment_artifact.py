@@ -119,6 +119,7 @@ def _contract():
         row
         for row in contract["declarations"]["uml"]["entities"]
         if row["id"].startswith("IR-AMENDMENT-")
+        or row["id"] in {"IR-DEPENDENCY-model", "IR-GRAPH-RunResult"}
     ]
     contract["declarations"]["uml"]["relationships"] = []
     contract["declarations"]["uml"]["scopes"] = []

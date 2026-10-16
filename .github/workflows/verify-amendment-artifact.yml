@@ -99,8 +99,20 @@ jobs:
           if receipt.exists(): print("AMENDMENT_JSON="+json.dumps(json.loads(receipt.read_text()),separators=(",",":")))
           PY
           exit "$native_status"
+  amendment-site-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
       - name: Compare actual type and call sites with multiplicity and targets
-        if: always()
         run: |
           uv run --locked archkeel report --root . --output "$RUNNER_TEMP/amend-after.json" > "$RUNNER_TEMP/amend-after-result.json"
           git worktree add --detach "$RUNNER_TEMP/amend-before" b475e027f4384feb8cdf2cc9844b82cdf89185ea

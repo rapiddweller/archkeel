@@ -7926,44 +7926,10 @@
           }
         },
         {
-          "id": "IR-AMENDMENT-model",
-          "kind": "module",
-          "qualified_name": "archkeel.ir.model",
-          "responsibilities": [
-            "Preserve the nominal amendment artifact contract."
-          ],
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
-            "docs/architecture/typed-amendment-artifact.md"
-          ]
-        },
-        {
-          "id": "IR-AMENDMENT-result",
-          "kind": "class",
-          "qualified_name": "archkeel.ir.model.RunResult",
-          "parent_id": "IR-AMENDMENT-model",
-          "responsibilities": [
-            "Preserve the nominal amendment artifact contract."
-          ],
-          "modifiers": [
-            "frozen"
-          ],
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
-            "docs/architecture/typed-amendment-artifact.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          }
-        },
-        {
           "id": "IR-AMENDMENT-result-status",
           "kind": "attribute",
           "qualified_name": "archkeel.ir.model.RunResult.amendment_status",
-          "parent_id": "IR-AMENDMENT-result",
+          "parent_id": "IR-GRAPH-RunResult",
           "responsibilities": [
             "Preserve the nominal amendment artifact contract."
           ],
