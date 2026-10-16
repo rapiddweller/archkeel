@@ -73,6 +73,7 @@ from archkeel.ir.decisions import rule_assessment_applies_to_component
 from archkeel.ir.facts import Record
 from archkeel.ir.model import (
     RULE_KINDS,
+    ComponentOwnership,
     Diagnostic,
     DiagnosticError,
     Observation,
@@ -168,6 +169,27 @@ def _permission_rules(
     )
 
 
+def _pair_permission_rules(
+    level_rules: tuple[Record, ...],
+    owners: tuple[ComponentOwnership, ...],
+    pair: tuple[str, str],
+) -> tuple[Record, ...]:
+    return tuple(
+        rule
+        for rule in level_rules
+        if declared_package_pair(
+            text_value(rule.data.get("source")),
+            text_value(rule.data.get("target")),
+            text_value(rule.data.get("target_symbol")) or None,
+            owners,
+            source_match=text_value(rule.data.get("source_match")) or "prefix",
+            target_match=text_value(rule.data.get("target_match")) or "prefix",
+            target_kind=text_value(rule.data.get("target_kind")) or "module",
+        )
+        == pair
+    )
+
+
 def _permissions(
     target: ArchitectureGraph, rules: tuple[PermissionRuleProjection, ...]
 ) -> dict[str, tuple[PermissionProjection, ...]]:
@@ -191,20 +213,7 @@ def _permissions(
                 for edge in target.relationships
                 if edge.kind == "requires" and (edge.source_id, edge.target_id) == pair
             )
-            deciding = tuple(
-                rule
-                for rule in level_rules
-                if declared_package_pair(
-                    text_value(rule.data.get("source")),
-                    text_value(rule.data.get("target")),
-                    text_value(rule.data.get("target_symbol")) or None,
-                    owners,
-                    source_match=text_value(rule.data.get("source_match")) or "prefix",
-                    target_match=text_value(rule.data.get("target_match")) or "prefix",
-                    target_kind=text_value(rule.data.get("target_kind")) or "module",
-                )
-                == pair
-            )
+            deciding = _pair_permission_rules(level_rules, owners, pair)
             forbidden = tuple(
                 rule.id
                 for rule in deciding

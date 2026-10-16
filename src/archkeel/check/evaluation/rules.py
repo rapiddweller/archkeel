@@ -1004,6 +1004,42 @@ def _planned_subject_modules(contract: ArchitectureContract) -> frozenset[str]:
     )
 
 
+def _rule_subject_matches(
+    rule: ArchitectureRule,
+    contract: ArchitectureContract | None,
+    scopes: dict[str, tuple[str, ...]],
+    source_subjects: AbstractSet[str],
+    target_subjects: AbstractSet[str],
+) -> dict[str, int]:
+    """Count the same literal or owned selectors that enforcement evaluates."""
+    matches = {
+        side: sum(
+            any(in_scope(module, scope) for scope in side_scopes)
+            for module in (target_subjects if side == "target" else source_subjects)
+        )
+        for side, side_scopes in scopes.items()
+    }
+    if isinstance(rule, ForbiddenDependencyRule):
+        ownership = (
+            tuple(
+                (component.label, component.packages, component.exact_modules or ())
+                for component in contract.components
+            )
+            if contract is not None
+            else ()
+        )
+        source_selection, target_selection = forbidden_dependency_scopes(rule, ownership)
+        matches = {
+            side: sum(module_in_ownership(module, *selection) for module in subjects)
+            for side, selection, subjects in (
+                ("source", source_selection, source_subjects),
+                ("target", target_selection, target_subjects),
+            )
+            if side in scopes
+        }
+    return matches
+
+
 def rule_subject_failures(
     rules: Sequence[ArchitectureRule],
     module_names: set[str],
@@ -1054,31 +1090,9 @@ def rule_subject_failures(
             )
             source_subjects = source_subjects | planned_subjects
             facade_scoped = True
-        matches = {
-            side: sum(
-                any(in_scope(module, scope) for scope in side_scopes)
-                for module in (target_subjects if side == "target" else source_subjects)
-            )
-            for side, side_scopes in scopes.items()
-        }
-        if isinstance(rule, ForbiddenDependencyRule):
-            ownership = (
-                tuple(
-                    (component.label, component.packages, component.exact_modules or ())
-                    for component in contract.components
-                )
-                if contract is not None
-                else ()
-            )
-            source_selection, target_selection = forbidden_dependency_scopes(rule, ownership)
-            matches = {
-                side: sum(module_in_ownership(module, *selection) for module in subjects)
-                for side, selection, subjects in (
-                    ("source", source_selection, source_subjects),
-                    ("target", target_selection, target_subjects),
-                )
-                if side in scopes
-            }
+        matches = _rule_subject_matches(
+            rule, contract, scopes, source_subjects, target_subjects
+        )
         missing = [side for side, count in matches.items() if count == 0]
         if missing:
             reason = "no declared facade function" if facade_scoped else "no scanned modules"
@@ -1879,6 +1893,21 @@ def _contains(root: PurePosixPath, path: PurePosixPath) -> bool:
     return not root.is_absolute() and path.is_relative_to(root)
 
 
+def _forbidden_rule_modules(
+    rule: ForbiddenDependencyRule,
+    observed: Sequence[RawRecord],
+    contract: ArchitectureContract,
+) -> tuple[RawRecord, ...]:
+    ownership = tuple(
+        (component.label, component.packages, component.exact_modules or ())
+        for component in contract.components
+    )
+    sources, _ = forbidden_dependency_scopes(rule, ownership)
+    return tuple(
+        item for item in observed if module_in_ownership(item["data"]["qualified_name"], *sources)
+    )
+
+
 def rule_evaluation_facts(
     contract: ArchitectureContract,
     *,
@@ -1927,16 +1956,7 @@ def rule_evaluation_facts(
                     )
                 )
         elif isinstance(rule, ForbiddenDependencyRule):
-            ownership = tuple(
-                (component.label, component.packages, component.exact_modules or ())
-                for component in contract.components
-            )
-            sources, _ = forbidden_dependency_scopes(rule, ownership)
-            selected = tuple(
-                item
-                for item in observed
-                if module_in_ownership(item["data"]["qualified_name"], *sources)
-            )
+            selected = _forbidden_rule_modules(rule, observed, contract)
         elif isinstance(rule, SiblingIsolationRule):
             selected = tuple(
                 item

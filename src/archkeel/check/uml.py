@@ -430,6 +430,20 @@ def _validated_member_inventory_result(result: ObservationResult) -> Observation
     return evaluate_uml(result)
 
 
+def _has_architecture_declarations(version: str, known: dict[str, Record]) -> bool:
+    return version in {"2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"} or any(
+        record.kind in TARGET_GRAPH_RECORD_KINDS
+        or record.kind in {
+            "component_responsibility",
+            "inside_component_responsibility",
+            "module_target",
+            "root_layout",
+            "declared_public_api",
+        }
+        for record in known.values()
+    )
+
+
 def assemble_uml(result: ObservationResult, contract_root: Path, path: str) -> ObservationResult:
     result = _validated_member_inventory_result(result)
     model = result.observation
@@ -441,22 +455,7 @@ def assemble_uml(result: ObservationResult, contract_root: Path, path: str) -> O
     recorded_targets = tuple(
         record for record in known.values() if record.kind in TARGET_GRAPH_RECORD_KINDS
     )
-    if (
-        model.contract.schema_version
-        not in {"2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"}
-        and not recorded_targets
-        and not any(
-            record.kind
-            in {
-                "component_responsibility",
-                "inside_component_responsibility",
-                "module_target",
-                "root_layout",
-                "declared_public_api",
-            }
-            for record in known.values()
-        )
-    ):
+    if not _has_architecture_declarations(model.contract.schema_version, known):
         return replace(result, uml_eligibility=UmlEligibility.BLOCKED)
     root = contract_root.resolve()
     pointer = "/"

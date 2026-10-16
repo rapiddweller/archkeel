@@ -173,7 +173,11 @@ def _rule_applies(
                 continue
             if assessment.kind == "forbidden_dependency":
                 if _forbidden_rule_applies(
-                    declaration, source, target, source_intent, target_intent,
+                    declaration,
+                    source,
+                    target,
+                    source_intent,
+                    target_intent,
                 ):
                     return True
             elif assessment.kind == "interface_boundary":
