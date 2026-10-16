@@ -1,0 +1,52 @@
+name: Reproduce canonical ParameterKind owner comments
+on:
+  push:
+    branches: [verify/542-parameter-canonical-vocabulary-comments]
+permissions:
+  contents: read
+jobs:
+  actual-generation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 7d05e4148dd770f2ca09bdeb27859dfc5595e773
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+      - run: uv sync --locked
+      - name: Generate from actual canonical types and export exact changed bytes
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          def git(*args):
+              return subprocess.run(["git",*args],check=True,capture_output=True).stdout.decode()
+          subprocess.run(["make","browser-graph-generate"],check=True)
+          expected=["src/archkeel/render/assets/report-graph-protocol.js","src/archkeel/render/assets/report-graph-vocabulary.ts"]
+          actual=git("diff","--name-only").splitlines()
+          assert sorted(actual)==expected, actual
+          for path in expected:
+              before=git("show",f"HEAD:{path}")
+              after=Path(path).read_text()
+              marker="// archkeel.ir.architecture_graph.ParameterKind"
+              assert before.count(marker)==1,(path,"old canonical owner marker")
+              assert after==before.replace(marker,"// archkeel.ir.facts.ParameterKind"),path
+              subprocess.run(["git","add","--",path],check=True)
+          print("ONLY_CANONICAL_OWNER_COMMENTS_CHANGED=PASS")
+          paths = []
+          for line in git("diff", "--cached", "--name-status", "--no-renames", "HEAD").splitlines():
+              status, path = line.split("\t")
+              if status == "D":
+                  paths.append({"path": path, "deleted": True})
+                  continue
+              mode = git("ls-files", "--stage", "--", path).split()[0]
+              content = Path(path).read_text()
+              parts = [content[index:index + 12000] for index in range(0, len(content), 12000)] or [""]
+              paths.append({"path": path, "mode": mode, "parts": len(parts), "index_sha": git("ls-files", "--stage", "--", path).split()[1], "text_sha": subprocess.run(["git", "hash-object", "--stdin"], input=content.encode(), capture_output=True, check=True).stdout.decode().strip()})
+              for index, part in enumerate(parts):
+                  print("SOURCE_UNION_CHUNK=" + json.dumps({"path": path, "index": index, "content": part}, separators=(",", ":")))
+          print("SOURCE_UNION_PATHS=" + json.dumps(paths, separators=(",", ":")))
+          print("SOURCE_UNION_TREE=" + git("write-tree").strip())
+          
+          PY
