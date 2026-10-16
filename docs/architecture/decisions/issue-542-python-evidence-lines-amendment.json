@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "cf6163c6f1f29d9d30733a11f24464591114e417fef6a1bc2f02a6027deb2714",
+  "after_digest": "8aea00dcba2312ec6aadf842ec9a50ad252af4f2dab9cc3684dcdcc909c888e8",
+  "before_baseline_digest": "02279ca79283191bc1137034db4191abc1850cf3f290e974ec1caed594f95600",
+  "before_digest": "8aea00dcba2312ec6aadf842ec9a50ad252af4f2dab9cc3684dcdcc909c888e8",
+  "decided_by": "ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge",
+  "rationale": "Correct physical Python source evidence after Unicode line separators in literals; original bytes and digest stay unchanged. Lower calls_unresolved from918 to measured917; no increased limit, allowance or accepted debt.",
+  "schema_version": "2.0.0"
+}
