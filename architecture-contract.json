@@ -153,7 +153,13 @@
         "archkeel.ir.architecture_graph:PresenceKind",
         "archkeel.ir.architecture_graph:ResolutionKind",
         "archkeel.ir.architecture_graph:VisibilityBasis",
-        "archkeel.ir.architecture_graph:VisibilityKind"
+        "archkeel.ir.architecture_graph:VisibilityKind",
+        "archkeel.ir.amendment:AmendmentVersion",
+        "archkeel.ir.amendment:AmendmentStatus",
+        "archkeel.ir.amendment:Amendment",
+        "archkeel.ir.amendment:verify_amendment",
+        "archkeel.ir.amendment_codec:parse_amendment",
+        "archkeel.ir.amendment_codec:amendment_bytes"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
@@ -1061,6 +1067,32 @@
       "rationale": "Version and feature control uses the owned nominal API, with no parser or constant-string exemption.",
       "provenance": [
         "docs/architecture/contract-version-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "AMENDMENT-ARTIFACT-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.amendment",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Amendment artifact and wire decisions use their canonical nominal types, including parser/protocol tags.",
+      "provenance": [
+        "docs/architecture/typed-amendment-artifact.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "AMENDMENT-CODEC-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.amendment_codec",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Amendment artifact and wire decisions use their canonical nominal types, including parser/protocol tags.",
+      "provenance": [
+        "docs/architecture/typed-amendment-artifact.md"
       ],
       "decided_by": "architect"
     }

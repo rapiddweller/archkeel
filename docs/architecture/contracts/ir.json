@@ -170,7 +170,9 @@
         "archkeel.ir.graph_codec",
         "archkeel.ir.source_graph",
         "archkeel.ir.target_graph",
-        "archkeel.ir.target_records"
+        "archkeel.ir.target_records",
+        "archkeel.ir.amendment",
+        "archkeel.ir.amendment_codec"
       ],
       "responsibilities": [
         "Own governance models, codecs, policy metrics and pure derivations.",
@@ -263,7 +265,13 @@
         "archkeel.ir.module_explore:ModuleImportCell",
         "archkeel.ir.module_explore:HintCandidate",
         "archkeel.ir.module_explore:ModuleExploreLevel",
-        "archkeel.ir.module_explore:module_exploration"
+        "archkeel.ir.module_explore:module_exploration",
+        "archkeel.ir.amendment:AmendmentVersion",
+        "archkeel.ir.amendment:AmendmentStatus",
+        "archkeel.ir.amendment:Amendment",
+        "archkeel.ir.amendment:verify_amendment",
+        "archkeel.ir.amendment_codec:parse_amendment",
+        "archkeel.ir.amendment_codec:amendment_bytes"
       ]
     },
     {
@@ -7577,6 +7585,405 @@
           "presence": "planned",
           "provenance": [
             "docs/architecture/contract-version-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-owner",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.amendment",
+          "responsibilities": [
+            "Own immutable amendment values, versions and pure exact binding verification."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-version",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.amendment.AmendmentVersion",
+          "parent_id": "IR-AMENDMENT-owner",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-status",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.amendment.AmendmentStatus",
+          "parent_id": "IR-AMENDMENT-owner",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-value",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.amendment.Amendment",
+          "parent_id": "IR-AMENDMENT-owner",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-before_digest",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.amendment.Amendment.before_digest",
+          "parent_id": "IR-AMENDMENT-value",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "annotation": "str",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-after_digest",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.amendment.Amendment.after_digest",
+          "parent_id": "IR-AMENDMENT-value",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "annotation": "str",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.amendment.Amendment.decided_by",
+          "parent_id": "IR-AMENDMENT-value",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "annotation": "str",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-rationale",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.amendment.Amendment.rationale",
+          "parent_id": "IR-AMENDMENT-value",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "annotation": "str",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-before_baseline_digest",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.amendment.Amendment.before_baseline_digest",
+          "parent_id": "IR-AMENDMENT-value",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "annotation": "str | None",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-after_baseline_digest",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.amendment.Amendment.after_baseline_digest",
+          "parent_id": "IR-AMENDMENT-value",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "annotation": "str | None",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-schema_version",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.amendment.Amendment.schema_version",
+          "parent_id": "IR-AMENDMENT-value",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "annotation": "AmendmentVersion",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-verify",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.amendment.verify_amendment",
+          "parent_id": "IR-AMENDMENT-owner",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "amendment",
+                "annotation": "Amendment",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "before_digest",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "after_digest",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "before_baseline_digest",
+                "annotation": "str | None",
+                "kind": "keyword_only",
+                "default": "None",
+                "default_known": true
+              },
+              {
+                "name": "after_baseline_digest",
+                "annotation": "str | None",
+                "kind": "keyword_only",
+                "default": "None",
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          },
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-codec",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.amendment_codec",
+          "responsibilities": [
+            "Read and write the supported artifact grammar without authorizing it."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-parse",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.amendment_codec.parse_amendment",
+          "parent_id": "IR-AMENDMENT-codec",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "raw",
+                "annotation": "object",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "Amendment"
+          },
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-bytes",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.amendment_codec.amendment_bytes",
+          "parent_id": "IR-AMENDMENT-codec",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "amendment",
+                "annotation": "Amendment",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "bytes"
+          },
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-model",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.model",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-result",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.RunResult",
+          "parent_id": "IR-AMENDMENT-model",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-AMENDMENT-result-status",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.RunResult.amendment_status",
+          "parent_id": "IR-AMENDMENT-result",
+          "responsibilities": [
+            "Preserve the nominal amendment artifact contract."
+          ],
+          "annotation": "AmendmentStatus | None",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typed-amendment-artifact.md"
           ],
           "visibility": {
             "kind": "public",
