@@ -39,6 +39,10 @@ ENUM = 'from enum import Enum as ProtocolEnum\nclass Token(ProtocolEnum):\n    I
             'TOKENS = ["import", "export"]\ndef parse(value):\n    return value in TOKENS\n',
             "membership",
         ),
+        (
+            'TOKENS = ("import", "export")\ndef parse(value):\n    return value not in TOKENS\n',
+            "membership",
+        ),
         ('def parse(value):\n    return value == b"import"\n', "compare"),
         ('def parse(value):\n    return value in (b"import", b"export")\n', "membership"),
         (
@@ -64,6 +68,7 @@ ENUM = 'from enum import Enum as ProtocolEnum\nclass Token(ProtocolEnum):\n    I
         "named-tuple",
         "named-set",
         "named-list",
+        "named-not-in",
         "bytes-equality",
         "bytes-membership",
         "bytes-match",
@@ -180,3 +185,28 @@ def test_enum_value_requires_a_direct_stdlib_enum_base_import(tmp_path, prefix, 
         for row in result.observation.records("constructs")
         if row.kind == "string_literal_compare"
     ]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'TOKENS = alias = ["import"]\nalias.clear()\n'
+        "def parse(value):\n    return value in TOKENS\n",
+        'holder.tokens = TOKENS = ["import"]\nholder.tokens.clear()\n'
+        "def parse(value):\n    return value in TOKENS\n",
+        'TOKENS = ("import",)\n'
+        "def parse(value, expected):\n    return value in TOKENS == expected\n",
+        'TOKENS = ("import",)\n'
+        "def parse(value, others):\n    return value in TOKENS in others\n",
+    ],
+    ids=["chained-name-assignment", "chained-attribute-assignment", "equality-role", "membership-left-role"],
+)
+def test_native_collection_alias_and_chained_roles_are_unclassified(tmp_path, source):
+    result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
+    assert result.diagnostics == () and result.observation is not None
+    assert not [
+        row
+        for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
+    assert trace_valid_violations(result.observation) == ()

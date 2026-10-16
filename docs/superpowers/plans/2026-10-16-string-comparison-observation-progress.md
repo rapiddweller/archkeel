@@ -15,3 +15,11 @@ Ruling: reuse existing LexicalScopes only for name ownership — parameters, loc
 Ruling: named mutable literal collections require membership-only visible loads — mutation and alias escape invalidate classification — some genuine vocabularies remain intentionally unclassified.
 
 Ruling: inspect stdlib enum bases and member extraction through nominal AST Name/Attribute shapes — string splitting introduced two new unresolved calls and obscured the bounded supported API — removing that parsing restored the original 919 budget without inference changes.
+
+## Astra review follow-up on PR548
+
+- Review base: 36264ae3b40dbffd9943f88232efef6993fe785f, preserving the integrated State tree and Makefile checks.
+- [ ] Reproduce shared multi-target initializer mutation and middle-comparator escape with real native sources.
+- [ ] Exclude Assign nodes with multiple targets; accept named collection loads only as the final comparator of a final In/NotIn operation.
+- [ ] Preserve named In/NotIn positives, lexical shadowing and rebinding negatives.
+- [ ] Run native source/binding safety regressions, Ruff, Mypy, hygiene and the unchanged 65/919 baseline.
