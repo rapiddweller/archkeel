@@ -3747,7 +3747,9 @@ def _apply_property_methods(
         if any("property_binding" not in item["data"] for item in group):
             return None
         local: dict[int, _PropertyMethods] = {}
-        bindings = [(method, property_binding(method["data"]["property_binding"])) for method in group]
+        bindings = [
+            (method, property_binding(method["data"]["property_binding"])) for method in group
+        ]
         for method, binding in sorted(bindings, key=lambda item: item[1].line):
             method_data = method["data"]
             bound = _BoundMethod(method, data, imports, classes)

@@ -42,7 +42,9 @@ def _api():
     return binding
 
 
-@pytest.mark.parametrize("field,name", [("operation", "PropertyOperation"), ("source", "PropertyOrigin")])
+@pytest.mark.parametrize(
+    "field,name", [("operation", "PropertyOperation"), ("source", "PropertyOrigin")]
+)
 def test_consumed_property_fields_are_owned_nominal_enums(field, name):
     binding = _api()
     annotation = get_type_hints(binding)[field]
@@ -75,9 +77,16 @@ def test_property_decoder_reads_raw_mapping_and_immutable_record_identically():
 @pytest.mark.parametrize(
     "update",
     [
-        {"operation": "deleter"}, {"source": "unknown"}, {"line": True}, {"line": 0},
-        {"source_line": -1}, {"source_line": 6}, {"source_line": "4"},
-        {"source": "new"}, {"operation": "create"}, {"extra": True},
+        {"operation": "deleter"},
+        {"source": "unknown"},
+        {"line": True},
+        {"line": 0},
+        {"source_line": -1},
+        {"source_line": 6},
+        {"source_line": "4"},
+        {"source": "new"},
+        {"operation": "create"},
+        {"extra": True},
     ],
 )
 def test_shared_property_decoder_rejects_invalid_wire(update):
@@ -100,12 +109,15 @@ def test_actual_property_source_produces_nominal_local_and_base_operations():
     )
     bindings = [
         binding
-        for owner in module.tree.body if isinstance(owner, ast.ClassDef)
+        for owner in module.tree.body
+        if isinstance(owner, ast.ClassDef)
         for binding in source.property_bindings(module, owner).values()
     ]
     assert all(type(binding) is binding_type for binding in bindings)
     assert [(item.operation.value, item.source.value) for item in bindings] == [
-        ("create", "new"), ("setter", "local"), ("getter", "base")
+        ("create", "new"),
+        ("setter", "local"),
+        ("getter", "base"),
     ]
 
 
@@ -123,13 +135,17 @@ def test_actual_property_functions_have_no_raw_operation_dispatch(tmp_path, file
     owner = f"sample.core.{scope}"
     result = _observe_one_rule(
         tmp_path,
-        {"kind": "forbidden_construct", "source": "sample.core",
-         "constructs": ["string_literal_compare"]},
+        {
+            "kind": "forbidden_construct",
+            "source": "sample.core",
+            "constructs": ["string_literal_compare"],
+        },
         {"core.py": (ROOT / "src/archkeel" / filename).read_text()},
     )
     assert result.diagnostics == () and result.observation is not None
     assert not [
-        row for row in result.observation.records("constructs")
+        row
+        for row in result.observation.records("constructs")
         if row.kind == "string_literal_compare" and row.data.get("owner") == owner
     ]
     assert not [row for row in trace_valid_violations(result.observation) if owner in row.subjects]
@@ -141,33 +157,44 @@ def test_real_property_lifecycle_keeps_verdict_and_canonical_wire(tmp_path, sett
     assert report.declared_rules == expected
     assert report.measurements.scalars.unknown_positions == 0
     assert bool(trace_valid_violations(observation)) == (expected == "FAIL")
-    collected = collect(CollectionRequest(
-        SnapshotInput(str(tmp_path), "a" * 40, False),
-        SourceScope(("sample",), "sample"), PythonSettings(),
-    ))
+    collected = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
     payload = facts_codec.encode_response(CollectionResponse(collected))
     decoded = facts_codec.decode_response(payload)
     assert facts_codec.encode_response(decoded) == payload
     values = [
         record.data.get("property_binding")
-        for section in decoded.facts.sections for record in section.records
+        for section in decoded.facts.sections
+        for record in section.records
         if record.data.get("property_binding") is not None
     ]
     assert len(values) == 2
     _api()
-    assert [facts.property_binding(value).operation for value in values] == [
-        facts.PropertyOperation.CREATE, facts.PropertyOperation.SETTER
+    ordered = sorted((facts.property_binding(value) for value in values), key=lambda item: item.line)
+    assert [value.operation for value in ordered] == [
+        facts.PropertyOperation.CREATE,
+        facts.PropertyOperation.SETTER,
     ]
 
 
 def _repository(tmp_path, *, producer=False):
-    target = copy.deepcopy(json.loads((
-        ROOT / f"docs/architecture/contracts/{'python' if producer else 'ir'}.json"
-    ).read_text()))
+    target = copy.deepcopy(
+        json.loads(
+            (
+                ROOT / f"docs/architecture/contracts/{'python' if producer else 'ir'}.json"
+            ).read_text()
+        )
+    )
     target.pop("$schema", None)
     entities = target["declarations"]["uml"]["entities"]
     target["declarations"]["uml"]["entities"] = [
-        item for item in entities
+        item
+        for item in entities
         if item["id"].startswith("PYTHON-PROPERTY-" if producer else "IR-PROPERTY-")
         or (not producer and item["id"] == "archkeel.ir.facts")
     ]
@@ -175,12 +202,16 @@ def _repository(tmp_path, *, producer=False):
     target["declarations"]["uml"]["scopes"] = []
     target["declarations"]["modules"] = []
     root_contract = json.loads((ROOT / "architecture-contract.json").read_text())
-    target["rules"] = [] if producer else [
-        item for item in root_contract["rules"] if item["id"] == "COLLECTOR-TYPED-IR-FACTS"
-    ]
+    target["rules"] = (
+        []
+        if producer
+        else [item for item in root_contract["rules"] if item["id"] == "COLLECTOR-TYPED-IR-FACTS"]
+    )
     files = {
-        "archkeel/__init__.py": "", "archkeel/ir/__init__.py": "",
-        "archkeel/analyzer/__init__.py": "", "archkeel/analyzer/python/__init__.py": "",
+        "archkeel/__init__.py": "",
+        "archkeel/ir/__init__.py": "",
+        "archkeel/analyzer/__init__.py": "",
+        "archkeel/analyzer/python/__init__.py": "",
         "contract.json": json.dumps(target),
         "docs/architecture/typed-python-properties.md": "Owned property proof.\n",
         "docs/architecture/language-adapter-target.md": "Source-only facts.\n",
@@ -201,8 +232,11 @@ def test_native_property_api_fulfils_unchanged_authored_target(tmp_path, produce
     assert comparison is not None and comparison.status == "PASS", comparison
     assert not trace_valid_violations(model)
     if not producer:
-        assessment = next(row for row in rule_assessments(model, undecided_by_rule={})
-                          if row.id == "COLLECTOR-TYPED-IR-FACTS")
+        assessment = next(
+            row
+            for row in rule_assessments(model, undecided_by_rule={})
+            if row.id == "COLLECTOR-TYPED-IR-FACTS"
+        )
         assert assessment.status == "PASS" and assessment.evaluation_proven
 
 
@@ -224,8 +258,10 @@ def test_native_property_api_widening_fails_unchanged_target(tmp_path, producer,
     model = _model(root, config)
     comparison = architecture_report(model).comparison
     assert comparison is not None
-    assert any(item.aspect in {"annotation", "signature"} and item.status == "FAIL"
-               for item in comparison.assessments), comparison
+    assert any(
+        item.aspect in {"annotation", "signature"} and item.status == "FAIL"
+        for item in comparison.assessments
+    ), comparison
     assert trace_valid_violations(model)
     assert (root / "contract.json").read_bytes() == contract
 
@@ -244,6 +280,5 @@ def test_native_property_owner_rejects_raw_dispatch(tmp_path, probe):
     path.write_text(path.read_text() + "\n" + probe)
     model = _model(root, config)
     assert [
-        row for row in trace_valid_violations(model)
-        if "COLLECTOR-TYPED-IR-FACTS" in row.rule_ids
+        row for row in trace_valid_violations(model) if "COLLECTOR-TYPED-IR-FACTS" in row.rule_ids
     ]

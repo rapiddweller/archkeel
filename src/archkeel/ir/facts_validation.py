@@ -13,7 +13,6 @@ from .facts import (
     Evidence,
     EvidenceClass,
     ExternalPackageTarget,
-    JsonValue,
     LocalTarget,
     PropertyOrigin,
     Record,

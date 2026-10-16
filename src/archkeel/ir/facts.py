@@ -211,7 +211,9 @@ def property_binding(value: RecordData | Mapping[str, object]) -> PropertyBindin
     ):
         raise ValueError("invalid property binding operation or order")
     try:
-        return PropertyBinding(PropertyOperation(operation), PropertyOrigin(source), line, source_line)
+        return PropertyBinding(
+            PropertyOperation(operation), PropertyOrigin(source), line, source_line
+        )
     except ValueError as error:
         raise ValueError("invalid property binding operation or order") from error
 
