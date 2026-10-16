@@ -164,6 +164,7 @@ def _contract():
         item
         for item in contract["declarations"]["uml"]["entities"]
         if item["id"].startswith(("IR-GRAPH-", "IR-UML-architecture_graph"))
+        or item["id"] == "IR-DEPENDENCY-model"
     ]
     contract["declarations"]["uml"]["relationships"] = []
     contract["declarations"]["uml"]["scopes"] = []
@@ -196,8 +197,9 @@ def _repository(tmp_path):
     )
     model = (
         "from __future__ import annotations\nfrom collections.abc import Mapping, Sequence\n"
-        "from typing import TypeAlias\nfrom .facts import stable_id\n\n"
-        + _source_members("src/archkeel/ir/model.py", {"RawJson"})
+        "from typing import TypeAlias\nfrom dataclasses import dataclass\n"
+        "from .facts import stable_id\nfrom .architecture_graph import AssessmentStatus\n\n"
+        + _source_members("src/archkeel/ir/model.py", {"RawJson", "RunResult"})
     )
     files = {
         "archkeel/__init__.py": "",
@@ -252,6 +254,23 @@ def test_native_graph_enum_field_and_return_widening_fail_with_fixed_target(tmp_
         row.status == "FAIL"
         for row in _comparison(value).assessments
         if row.aspect in {"annotation", "signature"}
+    )
+    assert trace_valid_violations(value)
+    assert (root / "contract.json").read_bytes() == contract
+
+
+
+def test_native_run_result_exposes_canonical_assessment_type_with_fixed_target(tmp_path):
+    root, config = _repository(tmp_path)
+    path = root / "archkeel/ir/model.py"
+    source = path.read_text()
+    assert "declared_rules: AssessmentStatus" in source
+    contract = (root / "contract.json").read_bytes()
+    path.write_text(source.replace("declared_rules: AssessmentStatus", "declared_rules: str", 1))
+    value = _model(root, config)
+    assert any(
+        row.status == "FAIL" and row.subject_id == "IR-GRAPH-RunResult.declared_rules"
+        for row in _comparison(value).assessments
     )
     assert trace_valid_violations(value)
     assert (root / "contract.json").read_bytes() == contract

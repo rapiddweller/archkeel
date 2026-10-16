@@ -23,11 +23,11 @@ from archkeel.ir.lock import LOCK_PATH, AcceptedLock, LockError, verify_observat
 from archkeel.ir.measurements import Measurements, RatchetError
 from archkeel.ir.model import (
     CheckProvenance,
+    AssessmentStatus,
     Diagnostic,
     DiagnosticError,
     Observation,
     ObservationResult,
-    RuleVerdict,
     RuleAssessmentStatus,
     RunResult,
     UnresolvedCallChange,
@@ -64,25 +64,25 @@ from .uml import assemble_uml
 from .uml_evaluation import evaluate_uml
 
 
-def inspect_observation(model: Observation) -> tuple[Measurements, RuleVerdict]:
+def inspect_observation(model: Observation) -> tuple[Measurements, AssessmentStatus]:
     validate_evidence_classes(model)
     measurements = measure_python_ratchets(model)
     violations = trace_valid_violations(model)
     if len(violations) != len(model.records("violations") or ()):
         raise ValueError("violation records lack a complete rule/fact/source trace")
     if violations:
-        return measurements, RuleVerdict.FAIL
+        return measurements, AssessmentStatus.FAIL
     # AD-92: one count decides both the verdict and the scalar a budget can pin.
     if measurements.scalars.unknown_positions:
-        return measurements, RuleVerdict.UNKNOWN
+        return measurements, AssessmentStatus.UNKNOWN
     if any(
         assessment.status == RuleAssessmentStatus.UNKNOWN
         for assessment in rule_assessments(
             model, undecided_by_rule=unknown_positions_by_rule(model)
         )
     ):
-        return measurements, RuleVerdict.UNKNOWN
-    return measurements, RuleVerdict.PASS
+        return measurements, AssessmentStatus.UNKNOWN
+    return measurements, AssessmentStatus.PASS
 
 
 def materialize_declarations(

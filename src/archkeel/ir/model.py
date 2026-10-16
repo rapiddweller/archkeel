@@ -12,7 +12,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, TypeAlias, get_args, get_type_hints
 
 from .architecture_graph import TargetDefinition
-from .architecture_graph import AssessmentStatus as RuleVerdict
+from .architecture_graph import AssessmentStatus as AssessmentStatus
 from .architecture_graph import ComponentRole as ComponentRole
 from .architecture_graph import DecisionMaker as DecisionMaker
 from .architecture_graph import ContractModuleTarget as ContractModuleTarget
@@ -92,7 +92,7 @@ class Verdict(StrEnum):
 
 PackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]
 ComponentOwnershipInput: TypeAlias = ComponentOwnership | PackageComponentOwnership
-# AD-26's full vocabulary, for the one verdict that can also fail to decide (AD-67).
+RuleVerdict: TypeAlias = AssessmentStatus
 ComparisonStatus: TypeAlias = Literal["SUPPORTED", "UNKNOWN"]
 CLASSIFIED_SECTIONS = (
     "metrics",
@@ -1451,7 +1451,7 @@ class RunResult:
     command: str
     exit_code: Literal[0, 1, 2]
     observation_complete: Literal["PASS", "UNKNOWN"] = "UNKNOWN"
-    declared_rules: RuleVerdict = RuleVerdict.UNKNOWN
+    declared_rules: AssessmentStatus = AssessmentStatus.UNKNOWN
     expectation_fulfilled: Literal["PASS", "FAIL", "UNKNOWN", "n/a"] = "UNKNOWN"
     diagnostics: tuple[Diagnostic, ...] = ()
     coverage: Coverage | None = None

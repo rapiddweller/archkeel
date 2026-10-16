@@ -30,7 +30,6 @@ from archkeel.ir.model import (
     Diagnostic,
     FilteredViolation,
     ReportFilter,
-    RuleVerdict,
     RunResult,
 )
 
@@ -119,7 +118,7 @@ class ArchitectureCommandView:
 class ArchitectureCommandEnvelope:
     exit_code: Literal[0, 1, 2]
     observation_complete: Literal["PASS", "UNKNOWN"]
-    declared_rules: RuleVerdict
+    declared_rules: AssessmentStatus
     coverage: Coverage | None
     diagnostics: tuple[Diagnostic, ...]
     report_filter: ReportFilter | None

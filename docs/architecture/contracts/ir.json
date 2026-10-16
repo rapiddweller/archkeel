@@ -7383,6 +7383,35 @@
             "kind": "public",
             "basis": "declared"
           }
+        },
+        {
+          "id": "IR-GRAPH-RunResult",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.RunResult",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-model",
+          "presence": "planned",
+          "responsibilities": [
+            "Publish source observation completion separately from canonical rule assessments."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ]
+        },
+        {
+          "id": "IR-GRAPH-RunResult.declared_rules",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.RunResult.declared_rules",
+          "language": "python",
+          "parent_id": "IR-GRAPH-RunResult",
+          "presence": "planned",
+          "annotations": "AssessmentStatus",
+          "responsibilities": [
+            "Expose the canonical three-state rule assessment rather than a local string vocabulary."
+          ],
+          "provenance": [
+            "docs/architecture/typed-graph-vocabulary.md"
+          ]
         }
       ],
       "relationships": [
