@@ -39,7 +39,11 @@ changing semantic ownership. Choose a type's owner before applying placement rul
 
 With `complete_requires`, each source component's `requires` lists its permitted
 outbound pairs; missing or empty lists forbid them. Optional `through` restricts
-the required component's module prefixes. It also accepts exact `module:Symbol`\nports: a named import must prove both that module and that symbol. Unexpanded\nwildcards remain UNKNOWN when the decision needs a specific name; an unrelated\nmodule remains forbidden. Module-prefix and empty permissions are unchanged.\nTargets must exist in the same contract.
+the required component's module prefixes. It also accepts exact `module:Symbol`
+ports: a named import must prove both that module and that symbol. Unexpanded
+wildcards remain UNKNOWN when the decision needs a specific name; an unrelated
+module remains forbidden. Module-prefix and empty permissions are unchanged.
+Targets must exist in the same contract.
 Without this rule, pairs remain explicitly allowed/forbidden decisions; missing
 pairs are open. Narrow symbol/submodule rules do not decide a whole pair.
 `allowed_dependency` records permission even without an observed import.

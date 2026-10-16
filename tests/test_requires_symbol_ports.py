@@ -3,17 +3,26 @@
 # SPDX-License-Identifier: MIT
 """Native import facts must prove the exact required port, including uncertainty."""
 
+import copy
 import json
 
 import pytest
 from test_analyzer import _component
 from test_architecture_demo import _prepare_repo
+from test_dependency_api_target import _source_members
+from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.model import RequiredComponent, requires_covers
+from archkeel.ir.report_graph import architecture_report
+from archkeel.ir.trace import trace_valid_violations
+
+from pathlib import Path
+
+ROOT = Path(__file__).parents[1]
 
 RULE = {
     "id": "REQUIRES",
@@ -117,3 +126,73 @@ def test_existing_requires_query_remains_compatible_and_symbol_query_is_precise(
     legacy = (RequiredComponent("core", "Use module.", ("sample.core",)),)
     assert requires_covers(legacy, "core", "sample.core.child")
     assert requires_covers(legacy, "core", "sample.core", "Other")
+
+
+def _api_repository(tmp_path):
+    intent = copy.deepcopy(json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text()))
+    intent.pop("$schema", None)
+    intent["declarations"]["uml"]["entities"] = [
+        row for row in intent["declarations"]["uml"]["entities"]
+        if row["id"].startswith("IR-REQUIRES-")
+        or row["id"] in {"IR-DEPENDENCY-model", "IR-DEPENDENCY-dependency"}
+    ]
+    intent["declarations"]["uml"]["relationships"] = []
+    intent["declarations"]["uml"]["scopes"] = []
+    intent["rules"] = [{
+        "id": "REQUIRES-SELECTED-CONTROL",
+        "kind": "forbidden_construct",
+        "source": "archkeel.ir",
+        "constructs": ["string_literal_compare"],
+        "rationale": "Protect the actual selected matcher and marker declarations in this fixture.",
+        "provenance": ["docs/architecture/symbol-requires-ports.md"],
+        "decided_by": "architect",
+    }]
+    files = {
+        "archkeel/__init__.py": "",
+        "archkeel/ir/__init__.py": "",
+        "archkeel/ir/dependency.py": (ROOT / "src/archkeel/ir/dependency.py").read_text(),
+        "archkeel/ir/facts.py": _source_members("src/archkeel/ir/facts.py", {"in_scope"}),
+        "archkeel/ir/architecture_graph.py": "from enum import StrEnum\n" + _source_members(
+            "src/archkeel/ir/architecture_graph.py", {"AssessmentStatus"}
+        ),
+        "archkeel/ir/model.py": (
+            "from __future__ import annotations\nfrom dataclasses import dataclass\n"
+            "from .dependency import ImportSymbolMarker as _ImportSymbolMarker\n"
+            "from .facts import in_scope\n"
+            "from .architecture_graph import AssessmentStatus as AssessmentStatus\n"
+            + _source_members("src/archkeel/ir/model.py", {
+                "RequiredComponent", "ContractComponent", "requires_covers",
+                "_required_port_covers", "requires_import_assessment"
+            })
+        ),
+        "contract.json": json.dumps(intent),
+        "docs/architecture/symbol-requires-ports.md": "Exact required API intent.\n",
+    }
+    root = _prepare_repo(tmp_path, files)
+    return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("target_symbol: str | None = None", "target_symbol: object = None"),
+        (") -> AssessmentStatus:", ") -> str:"),
+        ("class ImportSymbolMarker(StrEnum):", "class ImportSymbolMarker(str):"),
+    ],
+)
+def test_native_requires_api_is_independent_and_rejects_source_widening(tmp_path, old, new):
+    root, config = _api_repository(tmp_path)
+    value = _model(root, config)
+    assert architecture_report(value).comparison.status == "PASS"
+    assert not trace_valid_violations(value)
+    source = root / (
+        "archkeel/ir/dependency.py" if old.startswith("class") else "archkeel/ir/model.py"
+    )
+    original = source.read_text()
+    assert old in original
+    intent = (root / "contract.json").read_bytes()
+    source.write_text(original.replace(old, new, 1))
+    changed = _model(root, config)
+    assert any(row.status == "FAIL" for row in architecture_report(changed).comparison.assessments)
+    assert trace_valid_violations(changed)
+    assert (root / "contract.json").read_bytes() == intent

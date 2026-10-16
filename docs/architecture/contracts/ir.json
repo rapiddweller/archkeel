@@ -8017,8 +8017,7 @@
           "visibility": {
             "kind": "public",
             "basis": "declared"
-          },
-          "value": "*"
+          }
         },
         {
           "id": "IR-REQUIRES-requires_covers",
