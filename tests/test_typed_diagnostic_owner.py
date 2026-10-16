@@ -223,11 +223,12 @@ def test_existing_public_diagnostic_reexports_reach_the_canonical_owner(tmp_path
         target = root / source.removeprefix("src/")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(_diagnostic_imports(source))
-    # Existing real helpers supply non-vacuous subjects for both consumer policies.
-    helper = root / "archkeel/check/validation/diagnostics.py"
-    helper.parent.mkdir(parents=True)
-    helper.write_text((ROOT / "src/archkeel/check/validation/diagnostics.py").read_text())
-    (helper.parent / "__init__.py").write_text("")
+    # Existing public functions give both boundary policies real signature subjects.
+    git = root / "archkeel/check/git.py"
+    git.write_text(
+        "from pathlib import PurePosixPath\n\n"
+        + _source_members("src/archkeel/check/git.py", {"relative_path"})
+    )
     terminal = root / "archkeel/render/terminal.py"
     terminal.write_text(
         terminal.read_text()
@@ -250,7 +251,7 @@ def test_existing_public_diagnostic_reexports_reach_the_canonical_owner(tmp_path
                 "archkeel.render.html:Diagnostic",
                 "archkeel.render.terminal:Diagnostic",
                 "archkeel.render.terminal:progress",
-                "archkeel.check.validation.diagnostics:_sorted",
+                "archkeel.check.git:relative_path",
             ],
             "responsibilities": ["Retain existing public diagnostic names with clear owned types."],
             "forbidden_responsibilities": [],
