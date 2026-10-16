@@ -364,6 +364,7 @@ def test_raw_data_ingress_preserves_boolean_null_and_missing_name_evidence(
         "source_module": "sample.caller",
         "target_module": "sample.core",
         "under_type_checking": False,
+        "reexport": False,
         **descriptor,
     }
     record = classified(
@@ -402,6 +403,7 @@ def test_raw_dictionary_subclass_cannot_spoof_the_stored_import_name(symbol, exp
         source_module="sample.caller",
         target_module="sample.core",
         under_type_checking=False,
+        reexport=False,
         symbol=symbol,
         symbols_known=True,
     )
