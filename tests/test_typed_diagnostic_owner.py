@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Diagnostic identity, legacy wire behavior and independent native control evidence."""
 
+import ast
 import copy
 import importlib
 import json
@@ -194,3 +195,70 @@ def test_native_diagnostic_owner_forbids_raw_control_dispatch(tmp_path, probe):
     path.write_text(path.read_text() + "\n" + probe)
     value = _model(root, config)
     assert any("DIAGNOSTIC-TYPED-CONTROL" in row.rule_ids for row in trace_valid_violations(value))
+
+
+def _diagnostic_imports(path):
+    """Project only real diagnostic import declarations, preserving their actual routes."""
+    source = (ROOT / path).read_text()
+    declarations = []
+    for node in ast.parse(source).body:
+        if isinstance(node, ast.ImportFrom):
+            names = [alias for alias in node.names if alias.name in NAMES]
+            if names:
+                declarations.append(
+                    ast.unparse(ast.ImportFrom(module=node.module, names=names, level=node.level))
+                )
+    return "\n".join(declarations) + "\n"
+
+
+def test_existing_public_diagnostic_reexports_reach_the_canonical_owner(tmp_path):
+    root, config = _repository(tmp_path)
+    paths = (
+        "src/archkeel/ir/model.py",
+        "src/archkeel/check/report.py",
+        "src/archkeel/render/html.py",
+        "src/archkeel/render/terminal.py",
+    )
+    for source in paths:
+        target = root / source.removeprefix("src/")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(_diagnostic_imports(source))
+    for package in ("check", "render"):
+        (root / "archkeel" / package / "__init__.py").write_text("")
+    contract = _contract()
+    contract["components"].append(
+        {
+            "id": "DIAGNOSTIC-CONSUMER",
+            "label": "consumer",
+            "role": "component",
+            "packages": ["archkeel.check", "archkeel.render"],
+            "public": [
+                "archkeel.check.report:Diagnostic",
+                "archkeel.check.report:DiagnosticError",
+                "archkeel.check.report:ReportLocation",
+                "archkeel.render.html:Diagnostic",
+                "archkeel.render.terminal:Diagnostic",
+            ],
+            "responsibilities": ["Retain existing public diagnostic names with clear owned types."],
+            "forbidden_responsibilities": [],
+            "provenance": ["docs/architecture/typed-diagnostic-owner.md"],
+        }
+    )
+    contract["rules"].append(
+        {
+            "id": "DIAGNOSTIC-PUBLIC-TYPES",
+            "kind": "boundary_types",
+            "source": "archkeel",
+            "rationale": "Existing public diagnostic names must resolve to their canonical owner.",
+            "provenance": ["docs/architecture/typed-diagnostic-owner.md"],
+            "decided_by": "architect",
+        }
+    )
+    (root / "contract.json").write_text(json.dumps(contract))
+    value = _model(root, config)
+    unknown = tuple(
+        row for row in value.records("unknowns") or ()
+        if "DIAGNOSTIC-PUBLIC-TYPES" in row.rule_ids
+    )
+    assert not unknown, unknown
+    assert not trace_valid_violations(value)
