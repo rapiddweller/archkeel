@@ -1,0 +1,64 @@
+name: Inspect actual parameter source and UNKNOWN associations
+on:
+  push:
+    branches: [verify/542-parameter-site-association]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  actual-associations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f6099877bdb325c095959f5df8f07f406c0f0dc2
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Read the exact original native observation artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api repos/rapiddweller/archkeel/actions/artifacts/12081643202/zip > /tmp/parameter-sites.zip
+      - name: Associate retained records without reobserving or deleting fields
+        run: |
+          python - <<'PY'
+          import gzip,json,zipfile,subprocess
+          from pathlib import Path
+          root=Path("/tmp/parameter-artifact")
+          with zipfile.ZipFile("/tmp/parameter-sites.zip") as z:
+              z.extractall(root)
+          paths={p.name:p for p in root.rglob("*") if p.is_file()}
+          models={label:json.loads(gzip.decompress(paths[f"{label}.json.gz"].read_bytes())) for label in ("before","after")}
+          def records(value,path=()):
+              if isinstance(value,dict):
+                  if {"id","kind","data"}<=value.keys():
+                      yield path,value
+                  for key,child in value.items():
+                      if key!="data":yield from records(child,(*path,key))
+              elif isinstance(value,list):
+                  for i,child in enumerate(value):yield from records(child,(*path,i))
+          indices={label:{r["id"]:(path,r) for path,r in records(model)} for label,model in models.items()}
+          print("ACTUAL_PAYLOAD_SHAPE="+json.dumps({label:{k:type(v).__name__ for k,v in model.items()} for label,model in models.items()}))
+          unknown=json.loads(paths["unknown-delta.json"].read_text())
+          for side,label in (("removed","before"),("added","after")):
+              for encoded in unknown["semantic"][side]:
+                  row=json.loads(encoded)
+                  print("UNKNOWN_ASSOCIATION_INPUT="+json.dumps(dict(side=side,row=row)))
+                  for key in ("fact_ids","observed_ids","evidence_ids"):
+                      for identifier in row["data"].get(key,[]):
+                          item=indices[label].get(identifier)
+                          if item:print("UNKNOWN_ACTUAL_RECORD="+json.dumps(dict(side=side,key=key,path=item[0],record=item[1])))
+                          else:
+                              evidence=[e for e in models[label].get("evidence",[]) if e.get("id")==identifier]
+                              print("UNKNOWN_ACTUAL_EVIDENCE="+json.dumps(dict(side=side,key=key,id=identifier,evidence=evidence)))
+          calls=json.loads(paths["call-semantic-delta.json"].read_text())
+          for side in ("removed","added"):
+              for encoded in calls[side][:3]:
+                  row=json.loads(encoded)
+                  print("CALL_ASSOCIATION_INPUT="+json.dumps(dict(side=side,row=row)))
+                  for identifier in row["data"].get("source_definition_ids",[]):
+                      item=indices["before" if side=="removed" else "after"].get(identifier)
+                      print("CALL_ACTUAL_SOURCE="+json.dumps(dict(side=side,id=identifier,record=item)))
+          print("PARAMETER_ASSOCIATION_DIAGNOSTIC_COMPLETE=PASS")
+          
+          PY
