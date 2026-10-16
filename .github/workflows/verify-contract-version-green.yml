@@ -1,0 +1,38 @@
+name: Verify contract version ownership
+on:
+  push:
+    branches: [verify/542-contract-version-green]
+permissions:
+  contents: read
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Format candidate and report exact patch
+        run: |
+          uv run --locked ruff check --fix src/archkeel/ir/contract_version.py src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py tests/test_contract_version_types.py
+          uv run --locked ruff format src/archkeel/ir/contract_version.py src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py tests/test_contract_version_types.py
+          git diff --no-ext-diff | python -c 'import base64,sys; print("FORMAT_PATCH="+base64.b64encode(sys.stdin.buffer.read()).decode())'
+      - name: Focused legacy and native version tests
+        run: uv run --locked pytest -q tests/test_contract_version_types.py tests/test_contract_model.py tests/test_module_object_grants.py tests/test_codec_compatibility.py tests/test_dependency_selectors.py tests/test_widening.py
+      - name: Full lint and production typing
+        run: make lint typecheck
+      - name: Native own contract and exact debt
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > "$RUNNER_TEMP/version-native.json"
+          task_native_status=$?
+          python - <<'PY'
+          import json,os,pathlib
+          data=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"version-native.json").read_text())
+          print(json.dumps({key:data.get(key) for key in ("exit_code","failures","diagnostics","measurements")}))
+          PY
+          exit "$task_native_status"
