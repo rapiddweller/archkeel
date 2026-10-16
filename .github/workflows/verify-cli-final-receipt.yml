@@ -1,0 +1,36 @@
+name: Verify final CLI receipt
+on:
+  push:
+    branches: [verify/542-cli-final-receipt]
+permissions:
+  contents: read
+jobs:
+  final-receipt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - run: uv python install 3.11.12 3.12.10
+      - name: Validate without writes against the exact final predecessor
+        env:
+          CLI_BASE: fe9d2ef80ba66c39579e8e3fb6c684a120adca14
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against "$CLI_BASE" --amendment docs/architecture/decisions/issue-542-cli-inputs-amendment.json > "$RUNNER_TEMP/cli-final.json"
+          cli_status=$?
+          uv run --locked python - <<'PY'
+          import json, os
+          from pathlib import Path
+          result = json.loads((Path(os.environ["RUNNER_TEMP"]) / "cli-final.json").read_text())
+          print("CLI_FINAL_RECEIPT=" + json.dumps({k: result.get(k) for k in ("exit_code", "amendment_status", "observation_complete", "declared_rules", "diagnostics", "failures", "measurements", "unresolved_call_changes", "unresolved_call_note")}))
+          PY
+          git diff --exit-code -- architecture-baseline.json docs/architecture/decisions/issue-542-cli-inputs-amendment.json
+          exit "$cli_status"
