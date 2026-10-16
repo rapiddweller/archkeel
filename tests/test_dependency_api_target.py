@@ -50,6 +50,11 @@ def _dependency_contract():
     ]
     contract["declarations"]["uml"]["relationships"] = []
     contract["declarations"]["uml"]["scopes"] = []
+    root_contract = json.loads((ROOT / "architecture-contract.json").read_text())
+    contract["rules"].extend(
+        rule for rule in root_contract["rules"]
+        if rule["kind"] == "forbidden_construct" and rule.get("source") == "archkeel.ir.dependency"
+    )
     contract["components"].append({
         "id": "DEPENDENCY-CONSUMER", "label": "consumer", "role": "component",
         "packages": ["archkeel.consumer"], "public": ["archkeel.consumer"],
@@ -126,7 +131,7 @@ def test_native_source_type_widening_fails_with_the_target_unchanged(tmp_path, m
     if mutation == "field":
         path, old, new = "dependency.py", "source_match: SelectorMatch", "source_match: str"
     elif mutation == "parameter":
-        path, old, new = "model.py", "source_match: SelectorMatch", "source_match: str"
+        path, old, new = "model.py", "source_match: SelectorMatch = SelectorMatch.PREFIX,", "source_match: str = SelectorMatch.PREFIX,"
     elif mutation == "selection":
         path, old, new = "model.py", ") -> DependencySelection:", ") -> tuple:"
     else:
@@ -155,6 +160,16 @@ def test_native_consumer_must_use_the_declared_dependency_api(tmp_path):
 def test_native_incomplete_member_proof_stays_unknown(tmp_path):
     root, config = _dependency_repository(tmp_path)
     model = _model(root, config)
-    # Methods with calls do not provide a complete member inventory. No closed
-    # scopes or rewritten coverage may turn these missing proofs into PASS.
-    assert any(row.status == "UNKNOWN" for row in _comparison(model).assessments)
+    source = root / "archkeel/ir/dependency.py"
+    source.write_text(source.read_text().replace("def select(", "def unavailable_select(", 1))
+    model = _model(root, config)
+    entity = next(
+        item for item in _dependency_contract()["declarations"]["uml"]["entities"]
+        if item["qualified_name"] == "archkeel.ir.dependency.DependencySelector.select"
+    )
+    # Calls leave this class's member inventory partial. An absent method cannot
+    # gain a closed-scope absence proof from this limited collector evidence.
+    assert any(
+        row.subject_id == entity["id"] and row.aspect == "existence" and row.status == "UNKNOWN"
+        for row in _comparison(model).assessments
+    )
