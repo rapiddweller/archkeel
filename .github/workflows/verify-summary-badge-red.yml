@@ -23,8 +23,36 @@ jobs:
           uv run --locked python -m pytest -q tests/test_summary_badge_types.py -k 'not legacy_summary_exports'
           red_status=$?
           test "$red_status" -eq 1
-      - name: Native authored intent assertion RED on unchanged production
+      - name: Native authored intent assertion RED on actual legacy Badge source
         run: |
+          uv run --locked python - <<'PY'
+          import ast
+          from pathlib import Path
+          source = Path("src/archkeel/render/summary.py").read_text()
+          tree = ast.parse(source)
+          nodes = [
+              node for node in tree.body
+              if (isinstance(node, ast.AnnAssign) and getattr(node.target, "id", None) == "State")
+              or (isinstance(node, ast.ClassDef) and node.name == "Badge")
+              or (isinstance(node, ast.FunctionDef) and node.name == "badge")
+          ]
+          legacy = "from dataclasses import dataclass\nfrom typing import Literal, TypeAlias\n\n"
+          for node in nodes:
+              if isinstance(node, ast.ClassDef):
+                  legacy += "@dataclass(frozen=True, slots=True)\n"
+              legacy += ast.get_source_segment(source, node) + "\n\n"
+          Path("src/archkeel/render/summary_badges.py").write_text(legacy)
+          import sys
+          sys.path.insert(0, "tests")
+          from tempfile import TemporaryDirectory
+          from test_summary_badge_target import _badge_repository
+          from archkeel.check.report import run_report
+          from archkeel.cli.observe import observe
+          with TemporaryDirectory() as directory:
+              root, config = _badge_repository(Path(directory))
+              result, _ = run_report(root, config=config, analyzer=observe)
+              print("NATIVE_RED_DIAGNOSTICS", result)
+          PY
           set +e
           uv run --locked python -m pytest -q tests/test_summary_badge_target.py::test_actual_badge_source_fulfills_authored_types_and_complete_module_guard
           red_status=$?

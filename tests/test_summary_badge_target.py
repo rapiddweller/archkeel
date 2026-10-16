@@ -25,6 +25,7 @@ def _badge_contract():
     render = json.loads((ROOT / "docs/architecture/contracts/render.json").read_text())
     component = copy.deepcopy(next(row for row in render["components"] if row["label"] == "summary"))
     component["exact_modules"] = ["archkeel.render.summary_badges"]
+    component["provenance"] = ["docs/architecture/summary-badges.md"]
     component["public"] = [
         port for port in component["public"] if port.startswith("archkeel.render.summary_badges:")
     ]
