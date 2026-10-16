@@ -1,0 +1,13 @@
+{
+  "ecma": 2022,
+  "compress": false,
+  "mangle": false,
+  "keep_fnames": true,
+  "keep_classnames": true,
+  "format": {
+    "comments": false,
+    "beautify": false,
+    "semicolons": true,
+    "keep_quoted_props": true
+  }
+}
