@@ -377,15 +377,16 @@ class _LiteralComparisons:
             isinstance(node, ast.Name) and node.id in self.collections and self._module_name(node)
         )
 
-    def predicate(self, node: ast.expr) -> bool:
-        if isinstance(node, ast.Tuple):
-            return any(self.scalar(item) for item in node.elts)
-        return self.scalar(node) or (
-            isinstance(node, ast.Name)
-            and node.id in self.collections
-            and isinstance(self.collections[node.id], ast.Tuple)
-            and self._module_name(node)
-        )
+
+def _predicate_matches(literals: _LiteralComparisons, node: ast.expr) -> bool:
+    if isinstance(node, ast.Tuple):
+        return any(literals.scalar(item) for item in node.elts)
+    return literals.scalar(node) or (
+        isinstance(node, ast.Name)
+        and node.id in literals.collections
+        and isinstance(literals.collections[node.id], ast.Tuple)
+        and literals._module_name(node)
+    )
 
 
 def _comparison_form(literals: _LiteralComparisons, node: ast.Compare) -> str | None:
@@ -476,7 +477,7 @@ class ConstructCollector(ast.NodeVisitor):
         if name is not None and name in _REFLECTION_CALLS:
             self._record(node, kind=_REFLECTION_CALLS[name], construct=name, handled=None)
         predicate = _string_predicate(node)
-        if predicate is not None and node.args and self.comparisons.predicate(node.args[0]):
+        if predicate is not None and node.args and _predicate_matches(self.comparisons, node.args[0]):
             self._record(
                 node,
                 kind="string_literal_compare",
