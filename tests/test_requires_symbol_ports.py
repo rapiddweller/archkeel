@@ -276,3 +276,18 @@ def test_native_selected_requires_code_rejects_raw_wildcard_dispatch(tmp_path, p
     source.write_text(source.read_text() + "\n" + probe)
     value = _model(root, config)
     assert any("REQUIRES-SELECTED-CONTROL" in row.rule_ids for row in trace_valid_violations(value))
+
+
+def test_required_symbol_port_uses_wire_text_even_for_overridden_string_partition():
+    from archkeel.ir.codec import parse_required_component
+
+    class MisleadingPort(str):
+        def partition(self, separator):
+            return ("sample.other", separator, "Other")
+
+    port = MisleadingPort("sample.core:Command")
+    raw = {"component": "core", "rationale": "Use exactly this wire port.", "through": [port]}
+    entry = parse_required_component(raw)
+    assert json.loads(json.dumps(raw))["through"] == ["sample.core:Command"]
+    assert requires_covers((entry,), "core", "sample.core", "Command")
+    assert not requires_covers((entry,), "core", "sample.other", "Other")

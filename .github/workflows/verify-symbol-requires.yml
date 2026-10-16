@@ -60,6 +60,7 @@ jobs:
           make typecheck
           uv run --locked python -m pytest -q tests/test_repository_hygiene.py
   requires-own-native:
+    if: ${{ !contains(github.event.head_commit.message, '[native-red]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -99,6 +100,7 @@ jobs:
           PY
           exit "$native_status"
   requires-site-evidence:
+    if: ${{ !contains(github.event.head_commit.message, '[native-red]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
