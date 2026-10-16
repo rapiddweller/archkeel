@@ -1,0 +1,34 @@
+name: Inspect Core command three-way integration
+on:
+  push:
+    branches: [fix/issue-542-command-three-way]
+permissions:
+  contents: read
+jobs:
+  three-way:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Perform actual Git three-way and expose exact conflict contents
+        run: |
+          git config user.name 'Codex verification'
+          git config user.email 'codex-verification@users.noreply.github.com'
+          git checkout --detach c7444205d4fe87eaae0de5e2dc98b70909fd1cc7
+          set +e
+          git merge --no-commit --no-ff 6d03204f1b804be71386a036337fd17b4c54e351
+          merge_status=$?
+          set -e
+          python - "$merge_status" <<'PY'
+          import base64,json,pathlib,subprocess,sys
+          status={"exit":int(sys.argv[1]),"base":"c7444205d4fe87eaae0de5e2dc98b70909fd1cc7","incoming":"6d03204f1b804be71386a036337fd17b4c54e351","conflicts":subprocess.check_output(["git","diff","--name-only","--diff-filter=U"]).decode().splitlines()}
+          print("MERGE_STATE="+json.dumps(status,separators=(",",":")))
+          paths=subprocess.check_output(["git","diff","--name-only","HEAD"]).decode().splitlines()
+          for path in paths:
+              raw=base64.b64encode(pathlib.Path(path).read_bytes()).decode()
+              for index in range(0,len(raw),8000):
+                  print("MERGED64="+json.dumps({"path":path,"index":index//8000,"data":raw[index:index+8000]},separators=(",",":")))
+          PY
