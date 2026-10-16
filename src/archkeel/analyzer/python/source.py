@@ -1744,7 +1744,8 @@ def intrinsic_generic_aliases(module: ParsedModule) -> frozenset[str]:
     return frozenset(
         name
         for node, name in module_scope_bindings(module)
-        if name in stable and counts[name] == 1
+        if name in stable
+        and counts[name] == 1
         and (value := admitted_type_alias_value(module, node)) is not None
         and _builtin_generic_alias(module, value)
     )
