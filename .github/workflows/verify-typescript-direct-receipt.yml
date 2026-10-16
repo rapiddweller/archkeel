@@ -1,0 +1,34 @@
+name: TypeScript direct syntax normal v2 receipt
+on:
+  push:
+    branches: [verify/issue-542-typescript-direct-receipt]
+permissions:
+  contents: read
+jobs:
+  normal-receipt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: e4e128481b6ae9b1756cce64df78abc711cf147e
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Bind the actual final intent and913baseline against exact8eb
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 8ebc1da53b3ac7290f78978d5e69e4f3c59185c3 --amendment docs/architecture/decisions/issue-542-typescript-syntax-amendment.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'One canonical TypeScript syntax decoder without a node facade or identity cache; preserve nominal moved DTOs, valid legacy constructor input and conservative unknown grammar. Five whole-module native guards and independent authored Target fields retain the closed control API. Lower calls_unresolved from actual predecessor917 to measured913 with exact UNKNOWN identities unchanged; no larger budget, new allowance or accepted debt.' > "$RUNNER_TEMP/ts-direct-receipt.json"
+          task_status=$?
+          uv run --locked python - <<'PY'
+          import json,os
+          from pathlib import Path
+          result=json.loads((Path(os.environ["RUNNER_TEMP"])/"ts-direct-receipt.json").read_text())
+          print("AMENDMENT_RESULT="+json.dumps({key:result.get(key) for key in ("exit_code","amendment_status","failures","diagnostics","measurements")}),flush=True)
+          print("AMENDMENT_JSON="+Path("docs/architecture/decisions/issue-542-typescript-syntax-amendment.json").read_text().replace("\n",""),flush=True)
+          PY
+          exit "$task_status"
