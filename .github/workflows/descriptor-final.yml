@@ -1,0 +1,48 @@
+name: Method descriptor frozen replay
+on:
+  push:
+    branches: [verify/542-descriptor-final]
+permissions:
+  contents: read
+jobs:
+  frozen-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - run: make lint typecheck
+      - run: uv run --locked python -m pytest -q tests/test_typed_method_descriptors.py tests/test_typed_python_properties.py --tb=short
+  receipt-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - run: uv run --locked python tools/descriptor_final_replay.py
+  frozen-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - run: git worktree add /tmp/descriptor-base 4493b0a944e6caf0c56802c6333d9fd0090041b4
+      - run: uv run --locked python tools/descriptor_deep_evidence.py /tmp/descriptor-base
