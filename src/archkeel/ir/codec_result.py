@@ -14,7 +14,7 @@ from archkeel.ir.codec_delta import delta_payload
 from archkeel.ir.codec_observation import _coverage_payload, observation_payload
 from archkeel.ir.codec_wire import _raw_object, _record_payload, canonical_json_bytes
 from archkeel.ir.command_view import ArchitectureComponentView, architecture_command_envelope
-from archkeel.ir.model import Command, FilteredViolation, OpenDecision, ReportFilter, RunResult
+from archkeel.ir.model import _Command, FilteredViolation, OpenDecision, ReportFilter, RunResult
 from archkeel.ir.model import RawJson as RawJson
 
 
@@ -235,7 +235,7 @@ def _filtered_violation_payload(
 
 def result_payload(result: RunResult) -> dict[str, RawJson]:
     if (
-        result.command is Command.REPORT
+        result.command is _Command.REPORT
         and result.report_filter is not None
         and result.report_filter.only_architecture
         and result.architecture_projection is not None

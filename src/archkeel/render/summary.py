@@ -9,7 +9,13 @@ from dataclasses import dataclass
 from typing import Final, TypeAlias
 
 from archkeel.ir.measurements import compare_measurements
-from archkeel.ir.model import AssessmentStatus, Command, ExpectationOutcome, DraftedComponentSize, RunResult
+from archkeel.ir.model import (
+    AssessmentStatus,
+    Command as _Command,
+    DraftedComponentSize,
+    ExpectationOutcome as _ExpectationOutcome,
+    RunResult,
+)
 
 from .summary_badges import Badge as Badge
 from .summary_badges import BadgeState as BadgeState
@@ -43,7 +49,11 @@ class Summary:
 
 def report_violates_rules(result: RunResult) -> bool:
     """Whether a completed report found violations its exit code does not express (AD-14)."""
-    return result.command is Command.REPORT and result.exit_code == 0 and result.declared_rules == "FAIL"
+    return (
+        result.command is _Command.REPORT
+        and result.exit_code == 0
+        and result.declared_rules == "FAIL"
+    )
 
 
 def check_leaves_a_verdict_undecided(result: RunResult) -> bool:
@@ -53,30 +63,33 @@ def check_leaves_a_verdict_undecided(result: RunResult) -> bool:
     decided nothing wrong and a run that could not decide everything both leave it at 0.
     """
     return (
-        result.command is Command.CHECK
+        result.command is _Command.CHECK
         and result.exit_code == 0
-        and any(badge(value).state is BadgeState.UNKNOWN for _label, _key, value in _check_verdict_values(result))
+        and any(
+            badge(value).state is BadgeState.UNKNOWN
+            for _label, _key, value in _check_verdict_values(result)
+        )
     )
 
 
 def report_leaves_rules_undecided(result: RunResult) -> bool:
     """Whether a completed report or validation could not decide its declared rules."""
     return (
-        result.command in {Command.REPORT, Command.VALIDATE}
+        result.command in {_Command.REPORT, _Command.VALIDATE}
         and result.exit_code == 0
         and result.declared_rules == "UNKNOWN"
     )
 
 
 def _decision_badge(result: RunResult) -> Badge:
-    if result.command is Command.REPORT and (
+    if result.command is _Command.REPORT and (
         result.exit_code == 0 or result.rule_assessments is not None
     ):
         return badge(result.declared_rules)
     if check_leaves_a_verdict_undecided(result) or report_leaves_rules_undecided(result):
         return badge("UNKNOWN")
     if (
-        result.command is Command.VALIDATE
+        result.command is _Command.VALIDATE
         and result.observation_complete is AssessmentStatus.PASS
         and result.exit_code == 2
     ):
@@ -242,7 +255,7 @@ def report_summary(result: RunResult) -> Summary:
         2: "Some checks could not complete. Read diagnostics and recorded findings.",
     }[result.exit_code]
     if (
-        result.command is Command.VALIDATE
+        result.command is _Command.VALIDATE
         and result.observation_complete is AssessmentStatus.PASS
         and result.exit_code == 2
     ):
@@ -278,10 +291,10 @@ def report_summary(result: RunResult) -> Summary:
         "UNKNOWN": "Available evidence does not establish the rule outcome.",
     }[result.declared_rules]
     expectation_reason = {
-        ExpectationOutcome.PASS: "The candidate matches its published expectation.",
-        ExpectationOutcome.FAIL: "The candidate does not match its published expectation.",
-        ExpectationOutcome.UNKNOWN: "The expectation could not be evaluated completely.",
-        ExpectationOutcome.NOT_APPLICABLE: "Report mode does not evaluate a published expectation.",
+        _ExpectationOutcome.PASS: "The candidate matches its published expectation.",
+        _ExpectationOutcome.FAIL: "The candidate does not match its published expectation.",
+        _ExpectationOutcome.UNKNOWN: "The expectation could not be evaluated completely.",
+        _ExpectationOutcome.NOT_APPLICABLE: "Report mode does not evaluate a published expectation.",
     }[result.expectation_fulfilled]
     verdicts = (
         VerdictRow(
@@ -448,7 +461,9 @@ def check_decision_sentence(result: RunResult) -> str:
         return f"Do not merge: {diagnostic.kind} — {diagnostic.unknown_claim}"
     if check_leaves_a_verdict_undecided(result):
         undecided = [
-            label for label, _key, value in _check_verdict_values(result) if badge(value).state is BadgeState.UNKNOWN
+            label
+            for label, _key, value in _check_verdict_values(result)
+            if badge(value).state is BadgeState.UNKNOWN
         ]
         return f"Read before merging: {' and '.join(undecided).lower()} could not be decided."
     if result.exit_code == 0:
@@ -470,5 +485,7 @@ def check_decision_sentence(result: RunResult) -> str:
         return (
             "Do not merge: the expectation was not published before the first candidate submission."
         )
-    failed_verdicts = sum(badge(value).state is BadgeState.FAIL for _, _, value in _check_verdict_values(result))
+    failed_verdicts = sum(
+        badge(value).state is BadgeState.FAIL for _, _, value in _check_verdict_values(result)
+    )
     return f"Do not merge: {failed_verdicts} of five verdicts failed."

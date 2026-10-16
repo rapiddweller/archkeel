@@ -53,12 +53,12 @@ from archkeel.ir.measurements import (
     selected_budgets,
 )
 from archkeel.ir.model import (
-    Command,
-    ExpectationOutcome,
-    AssessmentStatus,
     ArchitectureContract,
+    AssessmentStatus,
+    Command as _Command,
     ContractDeclarations,
     Diagnostic,
+    ExpectationOutcome as _ExpectationOutcome,
     InterfaceBudgetResult,
     NoComponentCyclesRule,
     Observation,
@@ -208,7 +208,7 @@ def _compared_budgets(
 
 def invalid_result(subject: str, error: Exception, pointer: str = "") -> RunResult:
     return RunResult(
-        Command.VALIDATE,
+        _Command.VALIDATE,
         2,
         diagnostics=(
             _diagnostic(
@@ -309,11 +309,15 @@ def _observed_result(
     # AD-51: a rejected run is where the breakdown is read, so it carries it too.
     counted = violation_counts(observation)
     return RunResult(
-        Command.VALIDATE,
+        _Command.VALIDATE,
         2 if diagnostics else 1 if failures else 0,
-        observation_complete=AssessmentStatus.PASS if measurements is not None else AssessmentStatus.UNKNOWN,
+        observation_complete=AssessmentStatus.PASS
+        if measurements is not None
+        else AssessmentStatus.UNKNOWN,
         declared_rules=declared,
-        expectation_fulfilled=ExpectationOutcome.NOT_APPLICABLE if measurements is not None else ExpectationOutcome.UNKNOWN,
+        expectation_fulfilled=_ExpectationOutcome.NOT_APPLICABLE
+        if measurements is not None
+        else _ExpectationOutcome.UNKNOWN,
         diagnostics=_sorted(diagnostics),
         coverage=observation.coverage,
         python_version=observation.python_version,
@@ -416,7 +420,7 @@ _BASELINE_INSIDE_ROOT = "Pass a --baseline path inside --root, relative to it or
 
 def _baseline_invalid(path: Path, error: Exception, remedy: str) -> RunResult:
     return RunResult(
-        Command.VALIDATE,
+        _Command.VALIDATE,
         2,
         diagnostics=(
             _diagnostic(
@@ -432,7 +436,7 @@ def _baseline_invalid(path: Path, error: Exception, remedy: str) -> RunResult:
 
 def _budget_baseline_missing() -> RunResult:
     return RunResult(
-        Command.VALIDATE,
+        _Command.VALIDATE,
         2,
         diagnostics=(
             _diagnostic(
@@ -451,7 +455,7 @@ def _against_invalid(against: str, error: Exception) -> RunResult:
     pointer = error.pointer if isinstance(error, ContractInputError) else ""
     subject = error.subject if isinstance(error, ContractInputError) else against
     return RunResult(
-        Command.VALIDATE,
+        _Command.VALIDATE,
         2,
         diagnostics=(
             _diagnostic(
@@ -468,7 +472,7 @@ def _against_invalid(against: str, error: Exception) -> RunResult:
 
 def _amendment_invalid(path: Path, error: Exception) -> RunResult:
     return RunResult(
-        Command.VALIDATE,
+        _Command.VALIDATE,
         2,
         diagnostics=(
             _diagnostic(
@@ -489,7 +493,7 @@ def _parse_contract_or_invalid(root: Path, config: ScanConfig) -> ArchitectureCo
         return parse_contract(decode_json((root / config.contract).read_bytes()))
     except ContractVersionError as error:
         return RunResult(
-            Command.VALIDATE,
+            _Command.VALIDATE,
             2,
             diagnostics=(
                 _diagnostic(
@@ -535,14 +539,14 @@ def _observed_or_invalid(
                 *extra,
             ]
             return RunResult(
-                Command.VALIDATE,
+                _Command.VALIDATE,
                 2,
                 diagnostics=tuple(dict.fromkeys(diagnostics)),
                 coverage=observed.coverage,
                 python_version=observation.python_version,
             )
         return RunResult(
-            Command.VALIDATE,
+            _Command.VALIDATE,
             2,
             diagnostics=tuple(
                 replace(item, pointer=item.pointer or "") for item in observed.diagnostics
@@ -1107,7 +1111,7 @@ def run_validate(
         return against_error, FilesToWrite()
     references = reference_diagnostics(root, config, contract)
     if references:
-        return RunResult(Command.VALIDATE, 2, diagnostics=references), FilesToWrite()
+        return RunResult(_Command.VALIDATE, 2, diagnostics=references), FilesToWrite()
     observed = _observed_or_invalid(root, config, analyzer, contract)
     if isinstance(observed, RunResult):
         return observed, FilesToWrite()

@@ -25,11 +25,11 @@ from archkeel.ir.architecture_projection import (
 )
 from archkeel.ir.facts import Record, SourceInfo
 from archkeel.ir.model import (
-    Command,
-    ExpectationOutcome,
     BaselineViolationComparison,
+    Command as _Command,
     Coverage,
     Diagnostic,
+    ExpectationOutcome as _ExpectationOutcome,
     FilteredViolation,
     ReportFilter,
     RunResult,
@@ -126,8 +126,10 @@ class ArchitectureCommandEnvelope:
     report_filter: ReportFilter | None
     architecture_projection: ArchitectureCommandView
     filtered_violations: tuple[FilteredViolation, ...]
-    command: Literal[Command.REPORT] = Command.REPORT
-    expectation_fulfilled: Literal[ExpectationOutcome.NOT_APPLICABLE] = ExpectationOutcome.NOT_APPLICABLE
+    command: Literal[_Command.REPORT] = _Command.REPORT
+    expectation_fulfilled: Literal[_ExpectationOutcome.NOT_APPLICABLE] = (
+        _ExpectationOutcome.NOT_APPLICABLE
+    )
     schema_version: Literal["1.0.0", "2.0.0"] = "1.0.0"
     baseline_path: str | None = None
     baseline_comparisons: tuple[BaselineViolationComparison, ...] | None = None

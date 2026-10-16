@@ -19,13 +19,13 @@ from test_result_schema import _validator
 from test_uml_evaluation import _model
 
 from archkeel import cli
+from archkeel.check.ports import ScanConfig
 from archkeel.ir import model
 from archkeel.ir.architecture_graph import AssessmentStatus
 from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.codec_result import result_payload
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
-from archkeel.check.ports import ScanConfig
 
 ROOT = Path(__file__).parents[1]
 MEMBERS = {"Command", "ExpectationOutcome", "RunResult"}
@@ -38,8 +38,12 @@ def test_command_has_one_core_owner_and_cli_keeps_identical_class():
     assert command is importlib.import_module("archkeel.cli.arguments").Command
     assert command.__module__ == "archkeel.ir.model"
     assert [(item.name, str(item)) for item in command] == [
-        ("REPORT", "report"), ("VALIDATE", "validate"), ("CHECK", "check"),
-        ("INIT", "init"), ("SKILL", "skill"), ("ARGUMENTS", "arguments"),
+        ("REPORT", "report"),
+        ("VALIDATE", "validate"),
+        ("CHECK", "check"),
+        ("INIT", "init"),
+        ("SKILL", "skill"),
+        ("ARGUMENTS", "arguments"),
     ]
 
 
@@ -50,7 +54,8 @@ def test_run_result_annotations_use_distinct_precise_nominal_domains():
     assert hasattr(model, "Command") and hints["command"] is model.Command
     assert hints["observation_complete"] == Literal[AssessmentStatus.PASS, AssessmentStatus.UNKNOWN]
     assert set(get_args(hints["observation_complete"])) == {
-        AssessmentStatus.PASS, AssessmentStatus.UNKNOWN
+        AssessmentStatus.PASS,
+        AssessmentStatus.UNKNOWN,
     }
     assert hasattr(model, "ExpectationOutcome")
     assert hints["expectation_fulfilled"] is model.ExpectationOutcome
@@ -86,7 +91,8 @@ def test_published_command_result_subset_stays_four_values_and_rejects_cli_failu
     schema = json.loads((ROOT / "schema/command-result.schema.json").read_text())
     assert schema["properties"]["command"]["enum"] == ["init", "check", "validate", "report"]
     result = model.RunResult(
-        command, 2,
+        command,
+        2,
         diagnostics=(model.Diagnostic("parse_error", "arguments", "invalid", "Repair."),),
     )
     payload = result_payload(result)
@@ -101,8 +107,10 @@ def test_actual_cli_error_context_keeps_legacy_wire_tag(tmp_path, monkeypatch, c
         argv = ["archkeel", "--not-an-option"]
     else:
         argv = ["archkeel", "skill", "install", "codex", "--root", str(tmp_path)]
+
         def fail_install(*args, **kwargs):
             raise ValueError("installation cannot complete")
+
         monkeypatch.setattr(cli, "install_skill", fail_install)
     monkeypatch.setattr(sys, "argv", argv)
     assert cli.main() == 2
@@ -117,26 +125,32 @@ def _contract():
     contract = copy.deepcopy(json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text()))
     contract.pop("$schema", None)
     contract["declarations"]["uml"]["entities"] = [
-        row for row in contract["declarations"]["uml"]["entities"]
+        row
+        for row in contract["declarations"]["uml"]["entities"]
         if row["id"].startswith("IR-RESULT-")
         or row["id"] in {"IR-DEPENDENCY-model", "IR-GRAPH-RunResult"}
     ]
     contract["declarations"]["uml"]["relationships"] = []
     contract["declarations"]["uml"]["scopes"] = []
-    contract["rules"] = [{
-        "id": GUARD, "kind": "forbidden_construct", "source": "archkeel.ir.model",
-        "constructs": ["string_literal_compare"],
-        "rationale": "Protect only actual selected Core declarations in this source-backed fixture.",
-        "provenance": ["docs/architecture/core-command-result-types.md"],
-        "decided_by": "architect",
-    }]
+    contract["rules"] = [
+        {
+            "id": GUARD,
+            "kind": "forbidden_construct",
+            "source": "archkeel.ir.model",
+            "constructs": ["string_literal_compare"],
+            "rationale": "Protect the actual selected Core declarations in this fixture.",
+            "provenance": ["docs/architecture/core-command-result-types.md"],
+            "decided_by": "architect",
+        }
+    ]
     return contract
 
 
 def _repository(tmp_path):
     source = (ROOT / "src/archkeel/ir/architecture_graph.py").read_text()
     assessment = next(
-        node for node in ast.parse(source).body
+        node
+        for node in ast.parse(source).body
         if isinstance(node, ast.ClassDef) and node.name == "AssessmentStatus"
     )
     model_source = (
@@ -146,10 +160,11 @@ def _repository(tmp_path):
         + _source_members("src/archkeel/ir/model.py", MEMBERS)
     )
     files = {
-        "archkeel/__init__.py": "", "archkeel/ir/__init__.py": "",
+        "archkeel/__init__.py": "",
+        "archkeel/ir/__init__.py": "",
         "archkeel/ir/model.py": model_source,
-        "archkeel/ir/architecture_graph.py":
-            "from enum import StrEnum\n\n" + ast.get_source_segment(source, assessment),
+        "archkeel/ir/architecture_graph.py": "from enum import StrEnum\n\n"
+        + ast.get_source_segment(source, assessment),
         "contract.json": json.dumps(_contract()),
         "docs/architecture/core-command-result-types.md": "Selected Core API intent.\n",
     }
@@ -169,14 +184,19 @@ def test_native_selected_core_source_matches_seven_independent_target_entities(t
     _valid(_model(root, config))
 
 
-@pytest.mark.parametrize("old,new", [
-    ("command: Command", "command: str"),
-    ("observation_complete: Literal[AssessmentStatus.PASS, AssessmentStatus.UNKNOWN]",
-     "observation_complete: AssessmentStatus"),
-    ("expectation_fulfilled: ExpectationOutcome", "expectation_fulfilled: str"),
-    ("class Command(StrEnum):", "class Command(str):"),
-    ("class ExpectationOutcome(StrEnum):", "class ExpectationOutcome(str):"),
-])
+@pytest.mark.parametrize(
+    "old,new",
+    [
+        ("command: Command", "command: str"),
+        (
+            "observation_complete: Literal[AssessmentStatus.PASS, AssessmentStatus.UNKNOWN]",
+            "observation_complete: AssessmentStatus",
+        ),
+        ("expectation_fulfilled: ExpectationOutcome", "expectation_fulfilled: str"),
+        ("class Command(StrEnum):", "class Command(str):"),
+        ("class ExpectationOutcome(StrEnum):", "class ExpectationOutcome(str):"),
+    ],
+)
 def test_native_field_widening_and_enum_substitution_fail_fixed_target(tmp_path, old, new):
     root, config = _repository(tmp_path)
     _valid(_model(root, config))
@@ -192,15 +212,18 @@ def test_native_field_widening_and_enum_substitution_fail_fixed_target(tmp_path,
     assert (root / "contract.json").read_bytes() == intent
 
 
-@pytest.mark.parametrize("probe", [
-    'def _probe(value):\n    return value == "report"\n',
-    'def _probe(value):\n    return value in ("PASS", "UNKNOWN")\n',
-    'def _probe(value):\n    return "command" in value\n',
-    'def _probe(value):\n    match value:\n        case "n/a":\n'
-    '            return True\n        case _:\n            return False\n',
-    'from typing import Final\nTAG: Final[str] = "report"\n'
-    'def _probe(value):\n    return value == TAG\n',
-])
+@pytest.mark.parametrize(
+    "probe",
+    [
+        'def _probe(value):\n    return value == "report"\n',
+        'def _probe(value):\n    return value in ("PASS", "UNKNOWN")\n',
+        'def _probe(value):\n    return "command" in value\n',
+        'def _probe(value):\n    match value:\n        case "n/a":\n'
+        "            return True\n        case _:\n            return False\n",
+        'from typing import Final\nTAG: Final[str] = "report"\n'
+        "def _probe(value):\n    return value == TAG\n",
+    ],
+)
 def test_native_selected_core_projection_rejects_raw_control_mutations(tmp_path, probe):
     root, config = _repository(tmp_path)
     _valid(_model(root, config))
