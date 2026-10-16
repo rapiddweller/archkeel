@@ -19,8 +19,16 @@ from archkeel.ir.codec_contract import ContractVersionError
 from archkeel.ir.model import ArchitectureContract
 
 VERSIONS = (
-    "2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0",
-    "3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0",
+    "2.1.0",
+    "2.2.0",
+    "2.3.0",
+    "3.0.0",
+    "3.1.0",
+    "3.2.0",
+    "3.3.0",
+    "3.4.0",
+    "3.5.0",
+    "3.6.0",
 )
 
 
@@ -52,6 +60,7 @@ def test_parser_keeps_rejecting_unsupported_or_nontext_versions(invalid):
     with pytest.raises(ContractVersionError):
         parse_contract({"schema_version": invalid, "components": [], "rules": []})
 
+
 @pytest.mark.parametrize(
     "feature,before,first",
     [
@@ -79,16 +88,16 @@ def _version_repository(tmp_path):
     from archkeel.check.ports import ScanConfig
 
     root = Path(__file__).parents[1]
-    contract = copy.deepcopy(
-        json.loads((root / "docs/architecture/contracts/ir.json").read_text())
-    )
+    contract = copy.deepcopy(json.loads((root / "docs/architecture/contracts/ir.json").read_text()))
     contract.pop("$schema", None)
     contract["rules"] = [
-        rule for rule in json.loads((root / "architecture-contract.json").read_text())["rules"]
+        rule
+        for rule in json.loads((root / "architecture-contract.json").read_text())["rules"]
         if rule["id"] == "CONTRACT-VERSION-TYPED-CONTROL"
     ]
     contract["declarations"]["uml"]["entities"] = [
-        entity for entity in contract["declarations"]["uml"]["entities"]
+        entity
+        for entity in contract["declarations"]["uml"]["entities"]
         if entity["id"].startswith("IR-VERSION-") or entity["id"] == "IR-DEPENDENCY-model"
     ]
     contract["declarations"]["uml"]["relationships"] = []
@@ -96,8 +105,9 @@ def _version_repository(tmp_path):
     files = {
         "archkeel/__init__.py": "",
         "archkeel/ir/__init__.py": "",
-        "archkeel/ir/contract_version.py":
-            (root / "src/archkeel/ir/contract_version.py").read_text(),
+        "archkeel/ir/contract_version.py": (
+            root / "src/archkeel/ir/contract_version.py"
+        ).read_text(),
         "archkeel/ir/model.py": (
             "from __future__ import annotations\nimport builtins\n"
             "from dataclasses import dataclass\n"
@@ -140,9 +150,7 @@ def test_native_version_api_matches_independent_intent_and_guard(tmp_path):
         ("contract_version.py", ") -> bool:", ") -> str:"),
     ],
 )
-def test_native_version_type_widening_fails_under_unchanged_intent(
-    tmp_path, path, before, after
-):
+def test_native_version_type_widening_fails_under_unchanged_intent(tmp_path, path, before, after):
     from archkeel.ir.trace import trace_valid_violations
 
     root, config = _version_repository(tmp_path)
@@ -168,11 +176,11 @@ def test_native_version_type_widening_fails_under_unchanged_intent(
         'def _probe(value):\n    return "3.6.0" in value\n',
         (
             'def _probe(value):\n    match value:\n        case "3.6.0":\n'
-            '            return True\n        case _:\n            return False\n'
+            "            return True\n        case _:\n            return False\n"
         ),
         (
             'from typing import Final\nVERSION: Final[str] = "3.6.0"\n'
-            'def _probe(value):\n    return value == VERSION\n'
+            "def _probe(value):\n    return value == VERSION\n"
         ),
     ],
 )
@@ -184,6 +192,5 @@ def test_native_version_guard_rejects_raw_protocol_control(tmp_path, probe):
     path.write_text(path.read_text() + "\n" + probe)
     model = _model(root, config)
     assert any(
-        "CONTRACT-VERSION-TYPED-CONTROL" in row.rule_ids
-        for row in trace_valid_violations(model)
+        "CONTRACT-VERSION-TYPED-CONTROL" in row.rule_ids for row in trace_valid_violations(model)
     )

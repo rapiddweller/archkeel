@@ -52,6 +52,6 @@ _FEATURE_START = {
     ContractFeature.MODULE_OBJECT_GRANTS: ContractVersion.V3_6,
 }
 _FEATURE_VERSIONS = {
-    feature: frozenset(_VERSIONS[_VERSIONS.index(first):])
+    feature: frozenset(_VERSIONS[_VERSIONS.index(first) :])
     for feature, first in _FEATURE_START.items()
 }

@@ -14,7 +14,7 @@ from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Final
 
-from archkeel.ir.codec import CONTRACT_SCHEMA_VERSION, contract_bytes
+from archkeel.ir.codec import contract_bytes
 from archkeel.ir.decisions import (
     DOCUMENT_PATH,
     identifier,
@@ -29,6 +29,7 @@ from archkeel.ir.model import (
     ComponentOwnership,
     ComponentRole,
     ContractComponent,
+    ContractVersion,
     Diagnostic,
     DiagnosticError,
     DraftedComponentSize,
@@ -272,7 +273,7 @@ def draft_contract(
             for label in labels
         )
     labels = tuple(component.label for component in draft_components)
-    scaffold = ArchitectureContract(CONTRACT_SCHEMA_VERSION, draft_components, ())
+    scaffold = ArchitectureContract(ContractVersion.V2_1, draft_components, ())
     edges = observed_component_edges(scaffold, observation)
     sizes = scope_metrics(observation, "component", module_labels)
     public = _drafted_public(observation, scaffold)
@@ -314,7 +315,7 @@ def draft_contract(
                 "agent",
             )
         )
-    return ArchitectureContract(CONTRACT_SCHEMA_VERSION, components, tuple(rules)), edges, sizes
+    return ArchitectureContract(ContractVersion.V2_1, components, tuple(rules)), edges, sizes
 
 
 def architecture_document(
@@ -443,7 +444,7 @@ def run_init(
     with TemporaryDirectory(prefix="archkeel-init-") as temporary:
         scaffold = Path(temporary)
         (scaffold / CONTRACT_PATH).write_bytes(
-            contract_bytes(ArchitectureContract(CONTRACT_SCHEMA_VERSION, (), ()))
+            contract_bytes(ArchitectureContract(ContractVersion.V2_1, (), ()))
         )
         try:
             observed = observe_repository(root, config, analyzer, contract_root=scaffold)
