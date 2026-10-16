@@ -180,6 +180,16 @@ def test_unknown_comparison_grammar_cannot_become_proven_absence(tmp_path, monke
     assert _assessment(model).status == "UNKNOWN"
 
 
+def test_unknown_template_child_is_not_promoted_to_a_plain_literal(tmp_path, monkeypatch):
+    monkeypatch.delitem(parser._NODE_KINDS, "template_substitution", raising=False)
+    facts, model = _model(
+        tmp_path, 'export function decide(value, left) { return value === `active-${left}`; }'
+    )
+    assert not _constructs(facts)
+    assert not trace_valid_violations(model)
+    assert _assessment(model).status == "UNKNOWN"
+
+
 def test_parse_error_cannot_become_a_clean_construct_rule(tmp_path):
     facts, model = _model(tmp_path, 'export function decide(value { return value === "active";')
     assert not facts.coverage.full_scope

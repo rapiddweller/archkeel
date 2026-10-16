@@ -20,6 +20,7 @@ from archkeel.ir.codec import (
     parse_lock,
     parse_measurements,
     parse_observation,
+    observation_payload,
     result_payload,
 )
 from archkeel.ir.lock import LockError, verify_observation
@@ -103,6 +104,36 @@ def test_typescript_optional_sections_are_an_atomic_measurement_receipt() -> Non
     mixed["references"] = None
     with pytest.raises(ValueError, match="all null or all arrays"):
         parse_observation(mixed)
+
+
+def test_legacy_typescript_inner_receipt_keeps_its_absent_construct_section() -> None:
+    legacy = _profile_model("archkeel-typescript-imports")
+    for section in ("symbols", "calls", "references", "bindings"):
+        legacy[section] = []
+    legacy["coverage"].update(
+        calls_analyzed=0,
+        calls_resolved=0,
+        calls_partially_resolved=0,
+        calls_unresolved=0,
+        call_resolution_percent=0.0,
+    )
+    restored = parse_observation(legacy)
+    replay = observation_payload(restored)
+    assert replay["constructs"] is None
+    assert all(replay[section] == [] for section in ("symbols", "calls", "references", "bindings"))
+    assert parse_observation(replay) == restored
+
+
+def test_typescript_construct_receipt_is_independent_of_the_inner_receipt() -> None:
+    payload = _profile_model("archkeel-typescript-imports")
+    payload["constructs"] = []
+    restored = parse_observation(payload)
+    replay = observation_payload(restored)
+    assert replay["constructs"] == []
+    assert all(
+        replay[section] is None for section in ("symbols", "calls", "references", "bindings")
+    )
+    assert parse_observation(replay) == restored
 
 
 def test_ratchets_skip_absent_typescript_sections_and_keep_python_validation() -> None:
