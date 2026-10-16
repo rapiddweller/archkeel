@@ -1,0 +1,46 @@
+name: Property Target diagnostics
+on:
+  push:
+    branches: [verify/542-property-diagnostics]
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Diagnose remaining Target and exact native control scopes
+        if: always()
+        run: |
+          PYTHONPATH=src:tests uv run --locked python - <<'PY'
+          import dataclasses, json, tempfile
+          from pathlib import Path
+          from test_typed_python_properties import _repository, ROOT
+          from test_uml_evaluation import _model
+          from test_analyzer import _observe_one_rule
+          from archkeel.ir.report_graph import architecture_report
+          for producer in (False, True):
+              root, config = _repository(Path(tempfile.mkdtemp()), producer=producer)
+              comparison = architecture_report(_model(root, config)).comparison
+              print("PROPERTY_TARGET_ASSESSMENTS",producer,json.dumps([
+                  dataclasses.asdict(row) for row in comparison.assessments if row.status != "PASS"
+              ],default=str))
+          for filename,scope in (("check/evaluation/boundary_types.py","_property_chains"),("check/evaluation/boundary_types.py","_apply_property_methods")):
+              result = _observe_one_rule(Path(tempfile.mkdtemp()),
+                  {"kind":"forbidden_construct","source":"sample.core","constructs":["string_literal_compare"]},
+                  {"core.py":(ROOT/"src/archkeel"/filename).read_text()})
+              observation = result.observation
+              evidence = {item.id:item for item in observation.evidence}
+              for row in observation.records("constructs"):
+                  if row.kind == "string_literal_compare" and row.data.get("owner") == "sample.core."+scope:
+                      print("PROPERTY_REMAINING_CONSTRUCT",scope,[(evidence[reference].line,evidence[reference].excerpt) for reference in row.evidence_ids])
+          PY
