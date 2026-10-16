@@ -1,0 +1,102 @@
+name: Verify Python binding control API
+
+on:
+  push:
+    branches: [verify/542-python-bindings-current]
+
+permissions:
+  contents: read
+
+jobs:
+  binding-types:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - name: Export canonical formatting patch
+        run: |
+          uv run --locked ruff format src/archkeel/analyzer/python/binding_types.py src/archkeel/analyzer/python/source.py src/archkeel/analyzer/python/scopes.py src/archkeel/analyzer/python/imports.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/calls.py tests/test_typed_python_bindings.py tests/test_binding_proof_reuse.py tests/test_boundary_types_aliases.py
+          uv run --locked ruff check --fix src/archkeel/analyzer/python/binding_types.py src/archkeel/analyzer/python/source.py src/archkeel/analyzer/python/scopes.py src/archkeel/analyzer/python/imports.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/calls.py tests/test_typed_python_bindings.py tests/test_binding_proof_reuse.py tests/test_boundary_types_aliases.py
+          uv run --locked ruff format src/archkeel/analyzer/python/binding_types.py src/archkeel/analyzer/python/source.py src/archkeel/analyzer/python/scopes.py src/archkeel/analyzer/python/imports.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/calls.py tests/test_typed_python_bindings.py tests/test_binding_proof_reuse.py tests/test_boundary_types_aliases.py
+          python - <<'PY'
+          import base64
+          import subprocess
+          patch = subprocess.check_output(["git", "diff", "--", "src", "tests"])
+          print("FORMAT_PATCH=" + base64.b64encode(patch).decode())
+          PY
+      - name: Native collector and source safety regressions
+        run: >-
+          uv run --locked python -m pytest -n 2 --dist=loadfile -q
+          tests/test_typed_python_bindings.py tests/test_boundary_types_aliases.py tests/test_make_gate.py tests/test_ci_changes.py
+          tests/test_string_comparison_observation.py tests/test_analyzer.py
+          tests/test_source_trust_boundary.py tests/test_collection_process.py
+          tests/test_source_types.py tests/test_source_namespace_acceptance.py
+          tests/test_definition_source_owners.py tests/test_binding_proof_reuse.py
+          tests/test_binding_claim_completeness.py tests/test_python_scope_certification.py
+          tests/test_boundary_type_ambiguous_bindings.py tests/test_boundary_type_enum_literals.py
+          tests/test_source_provenance_acceptance.py tests/test_repository_hygiene.py
+          tests/test_typed_state_protocol.py tests/test_state_facts.py
+      - run: uv run --locked ruff check src tests
+      - run: uv run --locked mypy src
+      - name: Capture actual carrier source sites
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/542-bindings-base" ff4cae52451f43550639959b6f87a77f96375597
+          cd "$RUNNER_TEMP/542-bindings-base"
+          uv sync --locked
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/542-bindings-before.json" --json > "$RUNNER_TEMP/542-bindings-before.stdout.json"
+      - name: Native baseline and normal bound amendment
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against ff4cae52451f43550639959b6f87a77f96375597 --amendment docs/architecture/decisions/issue-542-python-bindings-amendment.json --write-amendment --decided-by ake2l --rationale "Give Source binding controls one nominal owner, retain conservative compiler scope evidence and strengthen authored binding field types without additional allowances." > "$RUNNER_TEMP/542-python-bindings-native-result.json"
+          native_exit=$?
+          python - "$RUNNER_TEMP/542-python-bindings-native-result.json" "$native_exit" <<'PY'
+          import base64
+          import json
+          import sys
+          from pathlib import Path
+          result = json.loads(Path(sys.argv[1]).read_text())
+          print("NATIVE_RESULT=" + json.dumps({"exit_code": int(sys.argv[2]), "diagnostics": result.get("diagnostics"), "failures": result.get("failures"), "measurements": result.get("measurements")}))
+          path = Path("docs/architecture/decisions/issue-542-python-bindings-amendment.json")
+          if path.is_file():
+              print("AMENDMENT_BASE64=" + base64.b64encode(path.read_bytes()).decode())
+          PY
+          exit "$native_exit"
+      - name: Replay generated amendment without writes
+        run: |
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against ff4cae52451f43550639959b6f87a77f96375597 --amendment docs/architecture/decisions/issue-542-python-bindings-amendment.json > "$RUNNER_TEMP/542-python-bindings-replay.json"
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/542-bindings-after.json" --json > "$RUNNER_TEMP/542-bindings-after.stdout.json"
+      - name: Compare native unresolved call sites
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          import os
+          from collections import Counter
+          from pathlib import Path
+          from archkeel.ir.codec import decode_canonical_model
+          folder = Path(os.environ["RUNNER_TEMP"])
+          def sites(name):
+              model = decode_canonical_model(json.loads((folder / name).read_bytes()))
+              evidence = {row["id"]: row for row in model["evidence"]}
+              unresolved = Counter()
+              for row in model["calls"]:
+                  data = row["data"]
+                  if data["status"] != "unresolved":
+                      continue
+                  for identifier in row["evidence_ids"]:
+                      item = evidence[identifier]
+                      unresolved[(item["file"], data["expression"], data["reason"])] += 1
+              return model["coverage"], unresolved
+          before_coverage, before = sites("542-bindings-before.json")
+          after_coverage, after = sites("542-bindings-after.json")
+          print("SOURCE_SITE_PROOF=" + json.dumps({"before_coverage": before_coverage, "after_coverage": after_coverage, "removed": list((before - after).items()), "added": list((after - before).items())}))
+          assert before == after, "binding migration changed unresolved source sites"
+          PY

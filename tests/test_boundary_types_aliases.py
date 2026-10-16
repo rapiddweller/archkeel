@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from archkeel.analyzer.python.binding_types import ImportKind
 from archkeel.analyzer.python.source import AliasBinding, ParsedModule
 from archkeel.analyzer.python.symbols import collect_symbols
 from archkeel.analyzer.python.type_shapes import collect_type_shapes
@@ -48,8 +49,8 @@ def _module(source: str) -> ParsedModule:
         lines=source.splitlines(),
         tree=ast.parse(source),
     )
-    parsed.aliases["TypeAlias"] = AliasBinding("typing.TypeAlias", "import", "TypeAlias")
-    parsed.aliases["Annotated"] = AliasBinding("typing.Annotated", "import", "Annotated")
+    parsed.aliases["TypeAlias"] = AliasBinding("typing.TypeAlias", ImportKind.SYMBOL, "TypeAlias")
+    parsed.aliases["Annotated"] = AliasBinding("typing.Annotated", ImportKind.SYMBOL, "Annotated")
     return parsed
 
 

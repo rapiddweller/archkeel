@@ -13,6 +13,7 @@ from archkeel.ir.facts import EvidenceClass, stable_id
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
+from .binding_types import BindingKind
 from .receiver_types import ReceiverType, annotation_receiver_type, literal_receiver_type
 from .resolve import SymbolIndex, call_result_type, dotted_expression, resolve_name
 from .scopes import LexicalScopes
@@ -71,7 +72,7 @@ def _value_receiver_type(
     """Type an assigned value: a literal proves itself, a call result is documented (AD-40)."""
     literal_type = literal_receiver_type(value)
     if isinstance(value, ast.Call) and isinstance(value.func, ast.Name):
-        if scopes.lookup(value.func, value.func.id).kind != "unbound":
+        if scopes.lookup(value.func, value.func.id).kind is not BindingKind.UNBOUND:
             literal_type = None
     if literal_type:
         return ReceiverType(literal_type, "literal")

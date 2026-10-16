@@ -9,6 +9,7 @@ from test_analyzer import _parsed_module
 from test_boundary_types_reexport_proofs import _OVERLOAD_GROUP
 
 from archkeel.analyzer.python import source
+from archkeel.analyzer.python.binding_types import ImportKind
 from archkeel.analyzer.python.source import (
     AliasBinding,
     stable_direct_module_bindings,
@@ -206,10 +207,10 @@ def test_alias_changes_invalidate_even_an_empty_stable_proof() -> None:
     module = _parsed_module("from builtins import exec as run\nclass C: pass\nrun('x')\n")
     original = frozenset({"C", "run"})
     assert stable_direct_module_bindings(module) == original
-    module.aliases["run"] = AliasBinding("builtins.exec", "symbol", "exec")
+    module.aliases["run"] = AliasBinding("builtins.exec", ImportKind.SYMBOL, "exec")
     assert stable_direct_module_bindings(module) == frozenset()
     assert stable_direct_module_bindings(module) == frozenset()
-    module.aliases["run"] = AliasBinding("safe.run", "symbol", "run")
+    module.aliases["run"] = AliasBinding("safe.run", ImportKind.SYMBOL, "run")
     assert stable_direct_module_bindings(module) == original
     del module.aliases["run"]
     assert stable_direct_module_bindings(module) == original
@@ -221,10 +222,11 @@ def test_alias_kind_change_invalidates_import_origin_proof() -> None:
     )
     assert "second" in stable_direct_module_bindings(module)
     module.aliases.update(
-        route=AliasBinding("pkg", "module"), second=AliasBinding("pkg.X", "symbol", "X")
+        route=AliasBinding("pkg", ImportKind.MODULE),
+        second=AliasBinding("pkg.X", ImportKind.SYMBOL, "X"),
     )
     assert "second" not in stable_direct_module_bindings(module)
-    module.aliases["second"] = AliasBinding("pkg.X", "module", "X")
+    module.aliases["second"] = AliasBinding("pkg.X", ImportKind.MODULE, "X")
     assert "second" in stable_direct_module_bindings(module)
 
 
@@ -454,7 +456,9 @@ def test_rerunning_import_origins_replaces_the_map_union_proof() -> None:
     assert "SexKey" not in unproven_member_bindings(modules[1])
     imported = next(item for item in imports if item["data"]["binding"] == "SexKey")
     imported["data"]["target_module"] = "sample.missing"
-    modules[1].aliases["SexKey"] = AliasBinding("sample.missing.SexKey", "symbol", "SexKey")
+    modules[1].aliases["SexKey"] = AliasBinding(
+        "sample.missing.SexKey", ImportKind.SYMBOL, "SexKey"
+    )
     resolve_reexports(imports, {module.module: module.all_exports for module in modules}, modules)
     assert "SexKey" in unproven_member_bindings(modules[1])
 

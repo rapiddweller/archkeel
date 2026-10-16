@@ -17,6 +17,7 @@ from dataclasses import dataclass
 
 from archkeel.ir.facts_codec import RawRecord
 
+from .binding_types import BindingKind
 from .receiver_types import (
     ReceiverType,
     constructor_receiver_type,
@@ -166,7 +167,11 @@ def call_result_type(
         return None
     parts = dotted.split(".")
     binding = scopes.lookup(call.func, parts[0])
-    if binding.kind not in {"module", "symbol"} or binding.uncertain or len(binding.targets) != 1:
+    if (
+        binding.kind not in {BindingKind.MODULE, BindingKind.SYMBOL}
+        or binding.uncertain
+        or len(binding.targets) != 1
+    ):
         return None
     return constructor_receiver_type(".".join([binding.targets[0], *parts[1:]]))
 
@@ -210,15 +215,15 @@ def _resolve_name_node(
     if binding.targets:
         reason = (
             ("module-local symbol" if binding.owner is scopes.root else "lexical declaration")
-            if binding.kind == "declaration"
-            else (f"imported {binding.kind} binding")
+            if binding.kind is BindingKind.DECLARATION
+            else (f"imported {binding.kind.value} binding")
         )
         return _scoped_binding(binding, binding.targets, index, reason)
-    if value_reference and binding.kind == "local" and binding.owner is scopes.root:
+    if value_reference and binding.kind is BindingKind.LOCAL and binding.owner is scopes.root:
         target = f"{binding.owner.qualified_name}.{node.id}"
         if target in index.names:
             return _scoped_binding(binding, (target,), index, "namespace value binding")
-    if binding.kind != "unbound":
+    if binding.kind is not BindingKind.UNBOUND:
         return "unresolved", [], "lexical binding has no proven callable value", 0
     if node.id in _BUILTINS:
         return "resolved", [f"builtins.{node.id}"], "Python builtin", 1
@@ -276,10 +281,10 @@ def _resolve_dotted(
 ) -> tuple[str, list[str], str, int]:
     parts = dotted.split(".")
     binding = scopes.lookup(node, parts[0])
-    if binding.kind in {"module", "symbol"} and binding.targets:
+    if binding.kind in {BindingKind.MODULE, BindingKind.SYMBOL} and binding.targets:
         targets = tuple(".".join([target, *parts[1:]]) for target in binding.targets)
         return _scoped_binding(
-            binding, targets, index, f"attribute of imported {binding.kind} binding"
+            binding, targets, index, f"attribute of imported {binding.kind.value} binding"
         )
     receiver_result = _resolve_receiver_bound_call(parts, receiver_types)
     if receiver_result:
