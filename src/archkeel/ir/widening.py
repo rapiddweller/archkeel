@@ -260,7 +260,11 @@ def _forbidden_dependency_widenings(
             if old == "prefix" and new == "exact"
         ],
         *(
-            [WideningChange(subject, "target_kind", f"{subject} now permits an absent import namespace")]
+            [
+                WideningChange(
+                    subject, "target_kind", f"{subject} now permits an absent import namespace"
+                )
+            ]
             if before.target_kind == "module" and after.target_kind == "import_namespace"
             else []
         ),
@@ -269,7 +273,13 @@ def _forbidden_dependency_widenings(
             before,
             after,
             handled=frozenset(
-                {"allowed_sources", "include_type_checking", "source_match", "target_match", "target_kind"}
+                {
+                    "allowed_sources",
+                    "include_type_checking",
+                    "source_match",
+                    "target_match",
+                    "target_kind",
+                }
             ),
         ),
     ]

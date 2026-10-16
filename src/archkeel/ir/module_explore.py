@@ -100,6 +100,35 @@ def _count(value: JsonValue) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
 
 
+def _forbidden_rule_applies(
+    declaration: Record,
+    source: str,
+    target: str,
+    source_intent: ComponentIntent,
+    target_intent: ComponentIntent,
+) -> bool:
+    """Match a forbidden rule without expanding exact module selection through labels."""
+    source_selector = text_value(declaration.data.get("source"))
+    target_selector = text_value(declaration.data.get("target"))
+    source_exact = declaration.data.get("source_match") == "exact"
+    target_exact = declaration.data.get("target_match") == "exact"
+    component_labels = (
+        not (source_exact or target_exact)
+        and declaration.data.get("target_kind", "module") == "module"
+    )
+    source_match = (
+        source == source_selector
+        if source_exact
+        else module_in_ownership(source, (source_selector,), ())
+    ) or (component_labels and source_selector in {source_intent.component_id, source_intent.label})
+    target_match = (
+        target == target_selector
+        if target_exact
+        else module_in_ownership(target, (target_selector,), ())
+    ) or (component_labels and target_selector in {target_intent.component_id, target_intent.label})
+    return source_match and target_match
+
+
 def _rule_applies(
     declaration: Record | None,
     assessment: RuleAssessment,
@@ -143,25 +172,9 @@ def _rule_applies(
             ):
                 continue
             if assessment.kind == "forbidden_dependency":
-                source_selector = text_value(declaration.data.get("source"))
-                target_selector = text_value(declaration.data.get("target"))
-                source_exact = declaration.data.get("source_match") == "exact"
-                target_exact = declaration.data.get("target_match") == "exact"
-                component_labels = (
-                    not (source_exact or target_exact)
-                    and declaration.data.get("target_kind", "module") == "module"
-                )
-                source_match = (
-                    source == source_selector
-                    if source_exact
-                    else module_in_ownership(source, (source_selector,), ())
-                ) or (component_labels and source_selector in {source_id, source_intent.label})
-                target_match = (
-                    target == target_selector
-                    if target_exact
-                    else module_in_ownership(target, (target_selector,), ())
-                ) or (component_labels and target_selector in {target_id, target_intent.label})
-                if source_match and target_match:
+                if _forbidden_rule_applies(
+                    declaration, source, target, source_intent, target_intent,
+                ):
                     return True
             elif assessment.kind == "interface_boundary":
                 if target_intent.public is not None and not any(

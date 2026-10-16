@@ -700,7 +700,9 @@ class ContractDeclarations:
 
 @dataclass(frozen=True, slots=True)
 class ArchitectureContract:
-    schema_version: Literal["2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"]
+    schema_version: Literal[
+        "2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"
+    ]
     components: tuple[ContractComponent, ...]
     rules: tuple[ArchitectureRule, ...]
     schema: str | None = None
@@ -856,7 +858,9 @@ def _rule_references(
         named += [("target", (rule.target,), True)]
     if isinstance(rule, ForbiddenDependencyRule):
         # AD-97: a forbidden SDK library (`dart.io`) is a real target outside the namespace.
-        named += [("target", (rule.target,), rule.target not in external and rule.target_kind == "module")]
+        named += [
+            ("target", (rule.target,), rule.target not in external and rule.target_kind == "module")
+        ]
     if isinstance(
         rule,
         ForbiddenDependencyRule

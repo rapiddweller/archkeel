@@ -381,7 +381,11 @@ def _update_contract_schema(path: Path) -> None:
                 ]
             },
         }
-    if schema["properties"]["schema_version"] in ({"const": "3.3.0"}, {"const": "3.4.0"}, {"const": "3.5.0"}):
+    if schema["properties"]["schema_version"] in (
+        {"const": "3.3.0"},
+        {"const": "3.4.0"},
+        {"const": "3.5.0"},
+    ):
         selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
         selector["properties"]["native_mapping"] = {"const": True}
         selector["properties"]["annotation"] = {"$ref": "#/$defs/nonEmpty"}

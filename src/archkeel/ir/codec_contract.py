@@ -136,9 +136,9 @@ def parse_contract(raw: object) -> ArchitectureContract:
         "contract",
     )
     if root["schema_version"] == "2.1.0":
-        version: Literal["2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"] = (
-            "2.1.0"
-        )
+        version: Literal[
+            "2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"
+        ] = "2.1.0"
     elif root["schema_version"] == "2.2.0":
         version = "2.2.0"
     elif root["schema_version"] == "2.3.0":
@@ -389,12 +389,27 @@ def parse_contract(raw: object) -> ArchitectureContract:
 
 def contract_bytes(contract: ArchitectureContract) -> bytes:
     """Encode a contract in Contract 2.0 key order so parse_contract returns the same value."""
-    if contract.schema_version not in {"2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"} and (
+    if contract.schema_version not in {
+        "2.3.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0",
+        "3.4.0",
+        "3.5.0",
+    } and (
         any(component.layer is not None for component in contract.components)
         or any(isinstance(rule, LayerOrderRule) for rule in contract.rules)
     ):
         raise ValueError("layer and layer_order require contract schema_version 2.3.0")
-    if contract.schema_version not in {"3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0"} and any(
+    if contract.schema_version not in {
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0",
+        "3.4.0",
+        "3.5.0",
+    } and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.alias_body is not None for item in rule.allowed_positions)
         for rule in contract.rules
@@ -440,7 +455,9 @@ def contract_bytes(contract: ArchitectureContract) -> bytes:
     for rule, encoded in zip(contract.rules, fields["rules"], strict=True):
         if isinstance(rule, ForbiddenDependencyRule):
             for name, default in (
-                ("source_match", "prefix"), ("target_match", "prefix"), ("target_kind", "module")
+                ("source_match", "prefix"),
+                ("target_match", "prefix"),
+                ("target_kind", "module"),
             ):
                 if encoded[name] == default:
                     del encoded[name]
@@ -1280,7 +1297,9 @@ def _rule_payload(rule: ArchitectureRule) -> dict[str, RawJson]:
     fields = asdict(rule)
     if isinstance(rule, ForbiddenDependencyRule):
         for name, default in (
-            ("source_match", "prefix"), ("target_match", "prefix"), ("target_kind", "module")
+            ("source_match", "prefix"),
+            ("target_match", "prefix"),
+            ("target_kind", "module"),
         ):
             if fields[name] == default:
                 del fields[name]
