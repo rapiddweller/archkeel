@@ -8054,13 +8054,15 @@
                 "name": "target_module",
                 "annotation": "str | None",
                 "kind": "positional",
-                "default_known": true
+                "default_known": true,
+                "default": "None"
               },
               {
                 "name": "target_symbol",
                 "annotation": "str | None",
                 "kind": "positional",
-                "default_known": true
+                "default_known": true,
+                "default": "None"
               }
             ],
             "returns": "bool"

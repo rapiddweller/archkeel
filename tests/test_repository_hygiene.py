@@ -99,9 +99,6 @@ ALLOWED_LONG_FUNCTIONS = {
     ("src/archkeel/check/evaluation/boundary_types.py::public_api_exposed_types"): (
         "One type walk serves every declared public API entry."
     ),
-    ("src/archkeel/check/evaluation/rules.py::requires_violations"): (
-        "One import pass applies complete-requires rules and records each missing dependency."
-    ),
     ("src/archkeel/check/evaluation/rules.py::rule_violations"): (
         "One ordered pass retains each rule result and its evidence receipt."
     ),

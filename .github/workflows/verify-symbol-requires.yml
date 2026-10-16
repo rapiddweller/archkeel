@@ -59,3 +59,106 @@ jobs:
           uv run --locked ruff check src/archkeel/ir/dependency.py src/archkeel/ir/model.py src/archkeel/check/evaluation/rules.py src/archkeel/check/evaluation/rule_support.py tests/test_requires_symbol_ports.py tests/test_dependency_selectors.py tests/test_absent_import_namespace.py tools/rule_yield.py tests/test_rule_yield.py
           make typecheck
           uv run --locked python -m pytest -q tests/test_repository_hygiene.py
+  requires-own-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Validate exact native budget and normal amendment
+        run: |
+          git diff --exit-code 0e3b8a7f62b9b13417cda78e11b52d0de82986cd -- architecture-baseline.json schema src/archkeel/ir/decisions.py src/archkeel/ir/facts_codec.py
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --write-baseline --json > "$RUNNER_TEMP/requires-ratchet.json"
+          ratchet_status=$?
+          set -e
+          python - "$RUNNER_TEMP/requires-ratchet.json" <<'PY'
+          import json,pathlib,sys
+          result=json.loads(pathlib.Path(sys.argv[1]).read_text())
+          print("REQUIRES_RATCHET="+json.dumps({key:result.get(key) for key in ("exit_code","failures","diagnostics","measurements")},separators=(",",":")))
+          print("REQUIRES_BASELINE_JSON="+json.dumps(json.loads(pathlib.Path("architecture-baseline.json").read_text()),separators=(",",":")))
+          PY
+          if [ "$ratchet_status" -ne 0 ]; then exit "$ratchet_status"; fi
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 0e3b8a7f62b9b13417cda78e11b52d0de82986cd --amendment docs/architecture/decisions/issue-564-symbol-requires-amendment.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'Own exact required import ports through the existing matcher, shared nominal assessments and actual source/native controls; preserve module permissions, conservative wildcard evidence and all budgets; docs/architecture/symbol-requires-ports.md.' > "$RUNNER_TEMP/amend-native.json"
+          native_status=$?
+          set -e
+          python - "$RUNNER_TEMP/amend-native.json" <<'PY'
+          import json,pathlib,sys
+          result=json.loads(pathlib.Path(sys.argv[1]).read_text())
+          print("REQUIRES_NATIVE="+json.dumps({key:result.get(key) for key in ("exit_code","failures","diagnostics","measurements","amendment_status")},separators=(",",":")))
+          receipt=pathlib.Path("docs/architecture/decisions/issue-564-symbol-requires-amendment.json")
+          if receipt.exists(): print("REQUIRES_AMENDMENT_JSON="+json.dumps(json.loads(receipt.read_text()),separators=(",",":")))
+          PY
+          exit "$native_status"
+  requires-site-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Compare actual type and call sites with multiplicity and targets
+        run: |
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/amend-after.json" > "$RUNNER_TEMP/amend-after-result.json"
+          git worktree add --detach "$RUNNER_TEMP/amend-before" 0e3b8a7f62b9b13417cda78e11b52d0de82986cd
+          uv run --locked archkeel report --root "$RUNNER_TEMP/amend-before" --output "$RUNNER_TEMP/amend-before.json" > "$RUNNER_TEMP/amend-before-result.json"
+          uv run --locked python - "$RUNNER_TEMP/amend-before.json" "$RUNNER_TEMP/amend-after.json" "$RUNNER_TEMP/amend-before" . <<'PY'
+          import ast,json,pathlib,re,sys
+          from archkeel.ir.codec import decode_canonical_model,parse_observation
+          from archkeel.check.ratchets import unknown_positions_by_rule,call_rows
+          from archkeel.ir.codec_wire import _raw_value
+          def read(path): return parse_observation(decode_canonical_model(json.loads(pathlib.Path(path).read_text())))
+          before,after=(read(path) for path in sys.argv[1:3])
+          before_root,after_root=(pathlib.Path(path) for path in sys.argv[3:5])
+          def types(model):
+              return {row.id:{"id":row.id,"kind":row.kind,"rule_ids":row.rule_ids,**{key:row.data.get(key) for key in ("qualified_name","position","path","annotation","nested_annotation","reason")}} for row in model.records("unknowns") or () if row.kind in {"boundary_type_position","boundary_type_route"}}
+          def calls(model,source_root):
+              asts={}
+              def call_ast(site,expression):
+                  if site.file not in asts: asts[site.file]=ast.parse((source_root/site.file).read_text())
+                  tree=asts[site.file]
+                  matches=[ast.dump(node,include_attributes=False) for node in ast.walk(tree) if isinstance(node,ast.Call) and node.lineno==site.line and (site.column is None or node.col_offset==site.column) and ast.unparse(node.func)==expression]
+                  assert len(matches)==1,(site,expression,matches)
+                  return matches[0]
+              evidence={row.id:row for row in model.evidence}
+              result={}
+              for row in model.records("calls") or ():
+                  data=row.data
+                  status=data.get("status")
+                  if status not in {"unresolved","partially_resolved"}: continue
+                  sites=[evidence[identity] for identity in row.evidence_ids if identity in evidence]
+                  assert len(sites)==1
+                  site=sites[0]
+                  caller=re.sub(r"<(genexpr|listcomp|dictcomp|setcomp):[0-9]+:[0-9]+>",r"<\1>",str(data.get("source_scope")))
+                  key=(status,site.file,caller,data.get("expression"))
+                  result.setdefault(key,[]).append({"record_id":row.id,"status":status,"path":site.file,"line":site.line,"caller":caller,"expression":data.get("expression"),"reason":data.get("reason"),"targets":_raw_value(data.get("targets")),"candidate_count":data.get("candidate_count"),"call_ast":call_ast(site,data.get("expression"))})
+              assert sum(len(rows) for rows in result.values())==len(call_rows(model))
+              return result
+          old,new=types(before),types(after)
+          old_calls,new_calls=calls(before,before_root),calls(after,after_root)
+          added=[{"before":old_calls.get(key,[]),"after":new_calls[key]} for key in new_calls if len(new_calls[key])>len(old_calls.get(key,[]))]
+          removed=[{"before":old_calls[key],"after":new_calls.get(key,[])} for key in old_calls if len(old_calls[key])>len(new_calls.get(key,[]))]
+          target_changed=[{"before":old_calls[key],"after":new_calls[key]} for key in old_calls.keys()&new_calls.keys() if sorted(json.dumps(row["targets"],sort_keys=True) for row in old_calls[key])!=sorted(json.dumps(row["targets"],sort_keys=True) for row in new_calls[key])]
+          def payloads(rows):
+              return sorted(json.dumps({key:row[key] for key in ("status","expression","reason","targets","candidate_count","call_ast")},sort_keys=True) for row in rows)
+          new_debt=[{"before":old_calls.get(key,[]),"after":rows} for key,rows in new_calls.items() if payloads(rows)!=payloads(old_calls.get(key,[]))]
+          summary={"before_ref":"0e3b8a7f62b9b13417cda78e11b52d0de82986cd","before_unknown":unknown_positions_by_rule(before),"after_unknown":unknown_positions_by_rule(after),"new_type_positions":[new[key] for key in sorted(new.keys()-old.keys())],"removed_type_positions":[old[key] for key in sorted(old.keys()-new.keys())],"changed_type_positions":[{"before":old[key],"after":new[key]} for key in sorted(old.keys()&new.keys()) if old[key]!=new[key]],"added_call_sites":added,"removed_call_sites":removed,"changed_call_targets":target_changed,"new_or_changed_debt":new_debt,"before_unresolved":before.coverage.calls_unresolved,"after_unresolved":after.coverage.calls_unresolved,"before_partial":before.coverage.calls_partially_resolved,"after_partial":after.coverage.calls_partially_resolved}
+          print("REQUIRES_SITE_EVIDENCE="+json.dumps(summary,separators=(",",":")))
+          assert not summary["new_type_positions"]
+          assert not new_debt
+          assert not target_changed
+          PY
