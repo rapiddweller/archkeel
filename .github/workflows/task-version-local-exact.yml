@@ -1,0 +1,63 @@
+name: Verify final version and local observer products
+on:
+  push:
+    branches: [verify/542-final-version-local]
+permissions:
+  contents: read
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 5933ffbbfd588ac96e36748de937cb1f6e739655
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Exact product tests and formatting without writing
+        run: |
+          uv run --locked ruff format --check src tests
+          uv run --locked pytest -q tests/test_contract_version_types.py tests/test_repository_hygiene.py
+      - name: Exact native predecessor without amendment writing
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 6c0083535d34ba84c8bd648474e87b7142ab0653 --amendment docs/architecture/decisions/2026-10-16-contract-version-types.json > "$RUNNER_TEMP/exact-version.json"
+          task_status=$?
+          python - <<'PY'
+          import json,os,pathlib
+          data=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"exact-version.json").read_text())
+          print("EXACT_VERSION="+json.dumps({key:data.get(key) for key in ("exit_code","failures","diagnostics","measurements","amendment_status","unresolved_call_changes","unresolved_call_note")}))
+          PY
+          exit "$task_status"
+  local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fe9d2ef80ba66c39579e8e3fb6c684a120adca14
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Exact product tests and formatting without writing
+        run: |
+          uv run --locked ruff format --check src tests
+          uv run --locked pytest -q tests/test_local_string_comparisons.py tests/test_string_comparison_observation.py tests/test_repository_hygiene.py
+      - name: Exact native predecessor without amendment writing
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 7b2a14de58eb18be716c8eadef5c43928ec464a5 > "$RUNNER_TEMP/exact-local.json"
+          task_status=$?
+          python - <<'PY'
+          import json,os,pathlib
+          data=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"exact-local.json").read_text())
+          print("EXACT_LOCAL="+json.dumps({key:data.get(key) for key in ("exit_code","failures","diagnostics","measurements","amendment_status","unresolved_call_changes","unresolved_call_note")}))
+          PY
+          exit "$task_status"
