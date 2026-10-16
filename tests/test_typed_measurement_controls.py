@@ -330,3 +330,33 @@ def test_existing_profile_capability_domain_maps_to_eligible_budget_selectors():
         type(m.MeasurementBudgetName(item)) is m.MeasurementBudgetName
         for item in UnmeasurableScalar
     )
+
+
+@pytest.mark.parametrize(
+    ("path", "old", "new"),
+    [
+        (
+            "measurements.py",
+            "if after[label].name is MeasurementBudgetName.CALLS_UNRESOLVED and not against:",
+            'if label == "calls_unresolved" and not against:',
+        ),
+        (
+            "codec_governance.py",
+            "if resolution is not expected:",
+            'if raw != "measured":',
+        ),
+    ],
+)
+def test_native_real_budget_and_codec_decision_reversions_fail_fixed_guard(tmp_path, path, old, new):
+    root, config = _repository(tmp_path)
+    _valid(_model(root, config))
+    source = root / "archkeel/ir" / path
+    content = source.read_text()
+    assert old in content
+    intent = (root / "contract.json").read_bytes()
+    source.write_text(content.replace(old, new, 1))
+    assert any(
+        set(row.rule_ids) & {"MEASURE-CONTROL", "MEASURE-CODEC-CONTROL"}
+        for row in trace_valid_violations(_model(root, config))
+    )
+    assert (root / "contract.json").read_bytes() == intent
