@@ -24,6 +24,7 @@ GUARDS = (
     "TARGET-TYPESCRIPT-PARSER-TYPED-CONTROL",
     "TARGET-TYPESCRIPT-COLLECTOR-TYPED-CONTROL",
     "TARGET-TYPESCRIPT-SYNTAX-TYPED-CONTROL",
+    "TARGET-TYPESCRIPT-INPUT-TYPED-CONTROL",
 )
 
 
@@ -40,7 +41,8 @@ def _repository(tmp_path, *, changed=None):
         f"archkeel/analyzer/typescript/{name}.py": (
             ROOT / f"src/archkeel/analyzer/typescript/{name}.py"
         ).read_text()
-        for name in ("config", "resolve", "parse", "collect", "syntax")
+        for name in ("config", "resolve", "parse", "collect", "syntax", "source_input")
+        if (ROOT / f"src/archkeel/analyzer/typescript/{name}.py").exists()
     }
     sources.update(changed or {})
     root = _prepare_repo(
@@ -60,6 +62,7 @@ def _repository(tmp_path, *, changed=None):
             "docs/architecture/typescript-json-field-boundary.md": (
                 ROOT / "docs/architecture/typescript-json-field-boundary.md"
             ).read_text(),
+            "docs/architecture/typescript-source-input.md": (ROOT / "docs/architecture/typescript-source-input.md").read_text(),
             "docs/architecture/language-adapter-target.md": (
                 ROOT / "docs/architecture/language-adapter-target.md"
             ).read_text(),
@@ -146,7 +149,7 @@ def test_native_source_type_widening_fails_with_fixed_intent(tmp_path, module, o
     assert (root / "contract.json").read_bytes() == before
 
 
-@pytest.mark.parametrize("module", ["config", "resolve", "parse", "collect", "syntax"])
+@pytest.mark.parametrize("module", ["config", "resolve", "parse", "collect", "syntax", "source_input"])
 @pytest.mark.parametrize(
     "probe",
     [
@@ -168,7 +171,7 @@ def test_native_parser_and_protocol_strings_fail_without_exceptions(tmp_path, mo
     )
     before = (root / "contract.json").read_bytes()
     model = _model(root, config)
-    guard = _rule(model, GUARDS[("config", "resolve", "parse", "collect", "syntax").index(module)])
+    guard = _rule(model, GUARDS[("config", "resolve", "parse", "collect", "syntax", "source_input").index(module)])
     assert guard.status == "FAIL"
     assert any(guard.id in row.rule_ids for row in trace_valid_violations(model))
     assert (root / "contract.json").read_bytes() == before
@@ -185,7 +188,7 @@ def test_own_observation_proves_both_migrated_module_guards(self_observation):
         and any(
             row.data.get("owner") == f"{MODULE}.{module}"
             or row.data.get("owner", "").startswith(f"{MODULE}.{module}.")
-            for module in ("config", "resolve", "parse", "collect", "syntax")
+            for module in ("config", "resolve", "parse", "collect", "syntax", "source_input")
         )
     ]
 
@@ -194,7 +197,7 @@ def test_guards_cover_whole_migrated_modules_without_allowances():
     for identity in GUARDS:
         rule = next(row for row in _contract()["rules"] if row["id"] == identity)
         assert rule["source"] in {
-            f"{MODULE}.{name}" for name in ("config", "resolve", "parse", "collect", "syntax")
+            f"{MODULE}.{name}" for name in ("config", "resolve", "parse", "collect", "syntax", "source_input")
         }
         assert rule["constructs"] == ["string_literal_compare"]
         assert not rule.get("allowed_sources") and not rule.get("exact_sources")
