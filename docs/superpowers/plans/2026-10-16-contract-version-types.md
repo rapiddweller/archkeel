@@ -12,7 +12,7 @@ JSON key identity, supplied selectors, paths and field grammar remain data. This
 
 - Historical versions keep exact canonical bytes and reject unsupported/nontext input.
 - Legacy valid direct model construction produces actual enum instances.
-- Feature availability is monotonic and both read/write enforce the same introduction point, including new3.6 module-object grants.
+- Feature availability is monotonic and existing read/write gates share their introduction policy, including 3.6 module-object grants. The pre-existing missing UML writer gate is outside this bounded change.
 - Authored native Target binds schema_version and supports parameters/return. Widened source fails against unchanged intent.
 - The new pure module has a native whole-module string-control guard; raw equality/membership/match/Final probes fail.
 - No higher debt ceilings or allowances. Preserve #544 grants and all current shared migrations.

@@ -39,8 +39,8 @@ class ContractVersion(StrEnum):
 
 
 # Declaration order is the supported contract evolution order.
-_VERSIONS = tuple(ContractVersion)
-_FEATURE_START = {
+_VERSIONS: tuple[ContractVersion, ...] = tuple(ContractVersion)
+_FEATURE_START: dict[ContractFeature, ContractVersion] = {
     ContractFeature.UML: ContractVersion.V2_2,
     ContractFeature.LAYERS: ContractVersion.V2_3,
     ContractFeature.ALIAS_BODY: ContractVersion.V3_0,
@@ -51,7 +51,7 @@ _FEATURE_START = {
     ContractFeature.IMPORT_NAMESPACES: ContractVersion.V3_5,
     ContractFeature.MODULE_OBJECT_GRANTS: ContractVersion.V3_6,
 }
-_FEATURE_VERSIONS = {
+_FEATURE_VERSIONS: dict[ContractFeature, frozenset[ContractVersion]] = {
     feature: frozenset(_VERSIONS[_VERSIONS.index(first) :])
     for feature, first in _FEATURE_START.items()
 }
