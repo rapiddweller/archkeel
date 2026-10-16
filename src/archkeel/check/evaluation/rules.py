@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import builtins as _builtins
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from collections.abc import Set as AbstractSet
@@ -1378,8 +1379,8 @@ def _requires_import_verdicts(
                 source,
                 target.label,
                 data["target_module"],
-                dict.get(data, "symbol"),
-                symbols_known=dict.get(data, "symbols_known", False),
+                _builtins.dict.get(data, "symbol"),
+                symbols_known=_builtins.dict.get(data, "symbols_known", False),
             ),
         )
 

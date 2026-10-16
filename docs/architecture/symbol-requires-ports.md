@@ -7,3 +7,5 @@ The existing requires_covers API keeps its target-only and module queries; its o
 Python currently records a wildcard as symbol `*`, even with literal __all__; those records do not prove individual imported names. They stay UNKNOWN when an exact symbol is needed. An import from another module is still definitively forbidden. A plain module-prefix permission can decide such imports without name evidence. No new collector authority or wildcard expansion is introduced.
 
 Required selectors are wire string data. The existing parser accepts str subclasses unchanged, so the matcher uses the builtin string primitive to read their actual Unicode content. A native parser/constructor regression proves that an overridden partition method cannot redirect an approved symbol to another namespace; the same sibling remains forbidden.
+
+The source-backed native guard covers the complete dependency module and the selected real matcher declarations in a bounded fixture. Other model controls remain pending under #542; this change does not claim whole-model freedom from string dispatch or add an exception for that remaining work.
