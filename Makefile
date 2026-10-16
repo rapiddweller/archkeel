@@ -20,13 +20,13 @@ ci-check: ci-artifacts-clean ci-core-check ci-report-check
 
 ci-core-check: PYTEST_EXTRA = --with playwright==$(PLAYWRIGHT_VERSION)
 ci-core-check: PYTEST_STOP := --maxfail=1
-ci-core-check: browser-install gate typescript-compiler-check ci-typescript
+ci-core-check: browser-install gate typescript-compiler-check ci-typescript browser-runtime-check
 
 ci-report-check: report-timing report-browser-proof
 
 ci-pr-check: $(if $(strip $(BASE)),against,self-validate) lint typecheck pr-test
 
-ci-pr-report-check: browser-install pr-report-test
+ci-pr-report-check: browser-install browser-runtime-check pr-report-test
 
 pr-test:
 	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 \
@@ -184,7 +184,7 @@ LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/r
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/reproduce_typescript.py fixtures/typescript_differential.py fixtures/typescript_scenarios.py fixtures/typescript_realworld.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
-	tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py
+	tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py tools/browser_runtime.py
 
 # The same commit measured 80-96s on hosted runners; allow for runner noise.
 REPORT_MAX_SECONDS ?= 120
@@ -314,3 +314,16 @@ build:
 smoke:
 	$(UV) run --isolated --no-project --with dist/*.whl tests/smoke_test.py
 	$(UV) run --isolated --no-project --with dist/*.tar.gz tests/smoke_test.py
+
+# Development publication only; reports and Python package builds load committed assets.
+.PHONY: browser-runtime-install browser-runtime-generate browser-runtime-check
+browser-runtime-install:
+	npm ci --prefix tools/browser-runtime --ignore-scripts --no-audit --no-fund
+
+browser-runtime-generate: browser-runtime-install
+	uv run --locked python -m tools.browser_runtime
+
+browser-runtime-check: browser-runtime-install
+	uv run --locked mypy --strict tools/browser_runtime.py
+	uv run --locked python -m tools.browser_runtime --check
+	uv run --locked python -m pytest -q tests/test_flow_runtime_publication.py

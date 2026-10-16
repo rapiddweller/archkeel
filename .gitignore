@@ -15,3 +15,6 @@ fixtures/D-self/*.html
 fixtures/D-self/architecture.json
 **/.dart_tool/
 **/build/
+
+# Locked development-only Flow publication dependencies.
+/tools/browser-runtime/node_modules/
