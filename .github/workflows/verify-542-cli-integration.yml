@@ -1,0 +1,38 @@
+name: Verify integrated CLI input types
+on:
+  push:
+    branches: [verify/542-cli-integrated-final]
+permissions:
+  contents: read
+jobs:
+  integrated-cli:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Check integrated source and actual CLI target
+        run: |
+          uv python install 3.11.12 3.12.10
+          make lint typecheck
+          uv run --locked python -m pytest -q tests/test_cli_typed_inputs.py tests/test_cli_input_target.py tests/test_cli.py tests/test_local_string_comparisons.py tests/test_contract_version_types.py tests/test_repository_hygiene.py
+      - name: Tighten actual combined baseline and write normal amendment
+        run: |
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --write-baseline --json > "$RUNNER_TEMP/cli-baseline-result.json"
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 7f99d03afaaea57530c56d688ce84e4b0867152e --amendment docs/architecture/decisions/issue-542-cli-inputs-amendment.json --write-amendment --decided-by ake2l --rationale "Own CLI input vocabularies at argparse and installation boundaries; preserve existing help and wire values, declare the actual nominal API and enforce the whole CLI input owners without increased evidence debt." > "$RUNNER_TEMP/cli-amendment-result.json"
+          uv run --locked python - <<'PY'
+          import json, os
+          from pathlib import Path
+          for label, path in (
+              ("CLI_BASELINE", Path("architecture-baseline.json")),
+              ("CLI_AMENDMENT", Path("docs/architecture/decisions/issue-542-cli-inputs-amendment.json")),
+              ("CLI_VALIDATION", Path(os.environ["RUNNER_TEMP"]) / "cli-amendment-result.json"),
+          ):
+              print(label + "=" + json.dumps(json.loads(path.read_text()), separators=(",", ":")))
+          PY
