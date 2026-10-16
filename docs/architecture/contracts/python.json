@@ -1,6 +1,6 @@
 {
   "$schema": "../../../schema/architecture-contract.schema.json",
-  "schema_version": "2.1.0",
+  "schema_version": "2.2.0",
   "components": [
     {
       "id": "TARGET-ENTRY",
@@ -171,6 +171,19 @@
         "docs/architecture/language-adapter-target.md"
       ],
       "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-PYTHON-PREDICATE-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.python.constructs._string_predicate",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The bounded predicate-name decoder consumes its owned nominal syntax vocabulary; raw parser dispatch receives no exception.",
+      "provenance": [
+        "docs/architecture/python-string-predicates.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
@@ -227,6 +240,67 @@
         "path": "src/archkeel/analyzer/python/typing_signals.py",
         "responsibility": "Collect typing_signals source facts."
       }
-    ]
+    ],
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/python-string-predicates.md"
+          ],
+          "id": "PYTHON-PREDICATE-MODULE",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.python.constructs",
+          "parent_id": "TARGET-COLLECTORS",
+          "responsibilities": [
+            "Classify written Python constructs with lexical source evidence."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/python-string-predicates.md"
+          ],
+          "id": "PYTHON-PREDICATE-KIND",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.python.constructs._StringPredicate",
+          "parent_id": "PYTHON-PREDICATE-MODULE",
+          "responsibilities": [
+            "Own the two recognized written prefix and suffix method names."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/python-string-predicates.md"
+          ],
+          "id": "PYTHON-PREDICATE-DECODE",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.python.constructs._string_predicate",
+          "parent_id": "PYTHON-PREDICATE-MODULE",
+          "responsibilities": [
+            "Decode a written member-call name into its nominal syntax vocabulary without runtime receiver proof."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "node",
+                "annotation": "ast.Call",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "_StringPredicate | None"
+          }
+        }
+      ],
+      "relationships": [],
+      "scopes": []
+    }
   }
 }

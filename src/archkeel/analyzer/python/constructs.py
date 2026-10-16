@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Sequence
+from enum import Enum
 
 from archkeel.ir.facts import EvidenceClass, stable_id
 from archkeel.ir.facts_codec import RawData as RecordData
@@ -14,6 +15,22 @@ from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
 from .scopes import LexicalScopes
 from .source import ParsedModule, add_evidence, body_is_empty, decorator_names, location
+
+
+class _StringPredicate(Enum):
+    STARTSWITH = "startswith"
+    ENDSWITH = "endswith"
+
+
+def _string_predicate(node: ast.Call) -> _StringPredicate | None:
+    """Decode written member syntax without asserting the receiver's runtime type."""
+    if not isinstance(node.func, ast.Attribute):
+        return None
+    try:
+        return _StringPredicate(node.func.attr)
+    except ValueError:
+        return None
+
 
 _BROAD_NAMES = frozenset({"Exception", "BaseException"})
 _REFLECTION_CALLS = {"setattr": "setattr_call", "delattr": "delattr_call", "vars": "vars_call"}
@@ -183,9 +200,12 @@ def _static_string_constants(
     return module_values, class_values, enum_classes
 
 
-def _literal_collections(module: ParsedModule, scopes: LexicalScopes) -> frozenset[str]:
-    """Name direct literal collections whose visible loads are only membership tests."""
+def _literal_collections(
+    module: ParsedModule, scopes: LexicalScopes
+) -> tuple[frozenset[str], frozenset[str]]:
+    """Qualify literal collection loads; only tuples also serve predicate arguments."""
     candidates: set[str] = set()
+    predicate_tuples: set[str] = set()
     for statement in module.tree.body:
         if not isinstance(statement, ast.Assign | ast.AnnAssign):
             continue
@@ -199,13 +219,16 @@ def _literal_collections(module: ParsedModule, scopes: LexicalScopes) -> frozens
         ):
             continue
         targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
-        candidates.update(
+        names = {
             target.id
             for target in targets
             if isinstance(target, ast.Name)
             and module.scope_bound_names.count(target.id) == 1
             and target.id not in module.global_names
-        )
+        }
+        candidates.update(names)
+        if isinstance(value, ast.Tuple):
+            predicate_tuples.update(names)
     parents = {
         child: parent for parent in module.all_nodes for child in ast.iter_child_nodes(parent)
     }
@@ -215,13 +238,22 @@ def _literal_collections(module: ParsedModule, scopes: LexicalScopes) -> frozens
         if node.id not in candidates or scopes.lookup(node, node.id).owner is not scopes.root:
             continue
         parent = parents[node]
-        if (
-            not isinstance(parent, ast.Compare)
-            or parent.comparators[-1] is not node
-            or not isinstance(parent.ops[-1], ast.In | ast.NotIn)
-        ):
+        membership = (
+            isinstance(parent, ast.Compare)
+            and parent.comparators[-1] is node
+            and isinstance(parent.ops[-1], ast.In | ast.NotIn)
+        )
+        predicate = (
+            node.id in predicate_tuples
+            and isinstance(parent, ast.Call)
+            and bool(parent.args)
+            and parent.args[0] is node
+            and _string_predicate(parent) is not None
+        )
+        if not membership and not predicate:
             candidates.discard(node.id)
-    return frozenset(candidates)
+            predicate_tuples.discard(node.id)
+    return frozenset(candidates), frozenset(predicate_tuples)
 
 
 def _literal_enum_body(node: ast.ClassDef) -> bool:
@@ -254,7 +286,7 @@ class _LiteralComparisons:
         self.module = module
         self.scopes = LexicalScopes(module)
         self.module_values, self.class_values, self.enum_classes = _static_string_constants(module)
-        self.collections = _literal_collections(module, self.scopes)
+        self.collections, self.predicate_tuples = _literal_collections(module, self.scopes)
         self.enum_value_classes = frozenset(
             f"{module.module}.{node.name}"
             for node in module.tree.body
@@ -323,6 +355,16 @@ class _LiteralComparisons:
             return bool(node.elts) and all(self.scalar(item) for item in node.elts)
         return (
             isinstance(node, ast.Name) and node.id in self.collections and self._module_name(node)
+        )
+
+
+    def predicate(self, node: ast.expr) -> bool:
+        if isinstance(node, ast.Tuple):
+            return any(self.scalar(item) for item in node.elts)
+        return self.scalar(node) or (
+            isinstance(node, ast.Name)
+            and node.id in self.predicate_tuples
+            and self._module_name(node)
         )
 
 
@@ -413,6 +455,15 @@ class ConstructCollector(ast.NodeVisitor):
         name = _as_written(node.func)
         if name is not None and name in _REFLECTION_CALLS:
             self._record(node, kind=_REFLECTION_CALLS[name], construct=name, handled=None)
+        predicate = _string_predicate(node)
+        if predicate is not None and node.args and self.comparisons.predicate(node.args[0]):
+            self._record(
+                node,
+                kind="string_literal_compare",
+                construct="string_literal_compare",
+                handled=None,
+                form=predicate.value,
+            )
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
