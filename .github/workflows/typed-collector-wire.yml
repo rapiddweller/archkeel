@@ -19,6 +19,21 @@ jobs:
       - run: uv sync --locked
       - name: Typed collector controls
         run: uv run --locked python -m pytest -q tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py tests/test_collection_protocol.py tests/test_type_shapes.py tests/test_runtime.py tests/test_collection_conformance.py tests/test_codec.py tests/test_protocol_uml_target.py tests/test_collection_process.py tests/test_collection_runtime_gate.py tests/test_source_trust_boundary.py tests/test_collector_safety_acceptance.py tests/test_collection_boundary_regressions.py
+      - name: Own native evidence diagnosis
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          from pathlib import Path
+          from archkeel.ir.codec import decode_canonical_model
+          from archkeel.ir.decisions import unknown_positions_by_rule
+          from archkeel.ir.codec import parse_observation
+          for path in Path("/tmp/pytest-of-runner").glob("**/self-report/architecture.json"):
+              model = decode_canonical_model(json.loads(path.read_bytes()))
+              print("SELF_VIOLATIONS=" + json.dumps(model["violations"]))
+              print("SELF_TYPING=" + json.dumps(model["typing_signals"]))
+              print("SELF_UNKNOWNS=" + json.dumps(unknown_positions_by_rule(parse_observation(model))))
+          PY
       - name: Static typing
         if: always()
         run: uv run --locked mypy src/archkeel

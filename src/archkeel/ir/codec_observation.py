@@ -45,6 +45,7 @@ from archkeel.ir.profiles import ObservedSection, Profile, UnmeasurableScalar, p
 from .facts_codec import parse_evidence as parse_evidence
 from .facts_codec import parse_record as parse_record
 
+
 class _ObservationVersion(StrEnum):
     V1_2 = "1.2.0"
     V1_3 = "1.3.0"
