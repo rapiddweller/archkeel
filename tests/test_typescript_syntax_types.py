@@ -97,3 +97,16 @@ def test_parse_releases_its_node_identity_cache_on_every_exit(monkeypatch, faile
         parser.parse("sample.ts", b"class A {}")
     assert len(trees) == 1
     assert not trees[0].nodes
+
+
+@pytest.mark.parametrize(
+    "member",
+    [b"run(): void {}", b"constructor(public value: string) {}"],
+    ids=["method", "constructor"],
+)
+def test_unknown_member_name_kind_cannot_certify_named_inventory(monkeypatch, member):
+    monkeypatch.delitem(parser._NODE_KINDS, "property_identifier")
+    observed = parser.parse("main.ts", b"class Owner { " + member + b" }")
+    owner = next(item for item in observed.definitions if item.kind is parser.DefinitionKind.CLASS)
+    assert owner.members_complete is False
+    assert not any(item.kind is parser.DefinitionKind.METHOD for item in observed.definitions)
