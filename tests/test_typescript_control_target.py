@@ -204,3 +204,11 @@ def test_native_configuration_crossing_must_use_its_named_public_api(tmp_path):
     )
     model = _model(root, config)
     assert any("TARGET-INTERFACE_BOUNDARY" in row.rule_ids for row in trace_valid_violations(model))
+
+
+@pytest.mark.parametrize("identity", GUARDS[2:])
+def test_native_parser_and_collector_guards_are_proven_without_exceptions(tmp_path, identity):
+    root, config = _repository(tmp_path)
+    model = _model(root, config)
+    rule = _rule(model, identity)
+    assert rule.status == "PASS" and rule.evaluation_proven, rule
