@@ -1,0 +1,20 @@
+name: Read actual legacy TypeScript helper uses
+on:
+  push:
+    branches: [verify/542-legacy-helper-inventory]
+permissions:
+  contents: read
+jobs:
+  literal-api-uses:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 15f1fa127c37399541e09b16ccf23ebe246f3709
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Read all real written uses across source tests and docs
+        run: |
+          git grep -n -E 'is_builtin|is_relative|Role' -- src/archkeel/analyzer/typescript 'tests/test_typescript_*.py' 'docs/architecture/typescript*'
+          git status --porcelain
