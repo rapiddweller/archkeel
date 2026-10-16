@@ -153,3 +153,19 @@ def test_collection_error_kind_has_one_nominal_owner_and_keeps_its_wire_text():
     assert json.dumps(asdict(error), sort_keys=True, separators=(",", ":")) == (
         '{"kind":"timeout","message":"timed out","subject":"collector"}'
     )
+
+
+@pytest.mark.parametrize("value", ["PASS", "FAIL"])
+def test_coverage_verdict_decoder_returns_the_binary_domain_enum(value):
+    from archkeel.ir.codec_observation import _coverage_verdict
+    from archkeel.ir.model import Verdict
+
+    assert _coverage_verdict(value) is Verdict(value)
+
+
+@pytest.mark.parametrize("value", ["UNKNOWN", "pass", "", None, True, 1, [], {}])
+def test_binary_coverage_verdict_rejects_unknown_and_malformed_tags(value):
+    from archkeel.ir.codec_observation import _coverage_verdict
+
+    with pytest.raises(ValueError, match="coverage status/rules invalid"):
+        _coverage_verdict(value)
