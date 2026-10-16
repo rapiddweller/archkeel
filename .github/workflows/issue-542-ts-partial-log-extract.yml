@@ -10,6 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fa37f59600cfae64ba0528cb56e609c6bbd756e4
+          fetch-depth: 0
+          persist-credentials: false
       - name: Download completed exact-source proof log
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -35,37 +40,138 @@ jobs:
                   markers[match[1]].append(value)
           def emit(marker,value):
               print(marker+"="+json.dumps(value,sort_keys=True),flush=True)
+          
+          import ast,subprocess,types
+          BEFORE="8ebc1da53b3ac7290f78978d5e69e4f3c59185c3"
+          AFTER="fa37f59600cfae64ba0528cb56e609c6bbd756e4"
+          changed={"src/archkeel/analyzer/typescript/parse.py","src/archkeel/analyzer/typescript/collect.py","src/archkeel/analyzer/typescript/syntax.py"}
+          moves={
+           "archkeel.analyzer.typescript.parse._constant_definition":"archkeel.analyzer.typescript.parse._variables",
+           "archkeel.analyzer.typescript.parse._call_site":"archkeel.analyzer.typescript.parse._sites",
+           "archkeel.analyzer.typescript.collect._Collection._attribute_declaration":"archkeel.analyzer.typescript.collect._Collection._classifier_data",
+          }
+          def dump(node): return ast.dump(node,include_attributes=False)
+          class SourceIndex:
+              def __init__(self,label,path):
+                  self.calls=collections.defaultdict(list)
+                  self.scopes=collections.defaultdict(set)
+                  ref=BEFORE if label=="before" else AFTER
+                  result=subprocess.run(["git","show",ref+":"+path],stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=False)
+                  if result.returncode:
+                      assert label=="before" and path.endswith("/syntax.py"),result.stderr.decode()
+                      self.source=None
+                      return
+                  self.source=result.stdout
+                  self.tree=ast.parse(self.source)
+                  self.parents={child:parent for parent in ast.walk(self.tree) for child in ast.iter_child_nodes(parent)}
+                  module=path.removeprefix("src/").removesuffix(".py").replace("/",".")
+                  for node in ast.walk(self.tree):
+                      if not isinstance(node,ast.Call): continue
+                      self.calls[(node.lineno,node.col_offset)].append(node)
+                      enclosing=[]
+                      parent=self.parents.get(node)
+                      while parent is not None:
+                          if isinstance(parent,(ast.ClassDef,ast.FunctionDef,ast.AsyncFunctionDef)):
+                              enclosing.append(parent.name)
+                          parent=self.parents.get(parent)
+                      self.scopes[".".join((module,*reversed(enclosing)))].add(dump(node))
+              def locate(self,row):
+                  candidates=[call for call in self.calls[row["line"],row["column"]] if ast.unparse(call.func)==row["data"]["expression"]]
+                  return candidates[0] if len(candidates)==1 else None
+              def closure_signature(self,node):
+                  enclosing=[]
+                  parent=self.parents.get(node)
+                  while parent is not None:
+                      if isinstance(parent,(ast.ClassDef,ast.FunctionDef,ast.AsyncFunctionDef)): break
+                      if isinstance(parent,(ast.GeneratorExp,ast.ListComp,ast.SetComp,ast.DictComp)):
+                          enclosing.append({"kind":type(parent).__name__,"bindings":[{"target":dump(item.target),"iter":dump(item.iter),"is_async":item.is_async} for item in parent.generators]})
+                      elif isinstance(parent,ast.Lambda):
+                          enclosing.append({"kind":"Lambda","arguments":dump(parent.args)})
+                      parent=self.parents.get(parent)
+                  return enclosing
+          indexes={(label,path):SourceIndex(label,path) for label in ("before","after") for path in changed}
+          unmatched=[]
+          proofs=[]
+          def normalized(row):
+              label,path,caller=row["label"],row["normalized"]["path"],row["raw_caller"]
+              if path not in changed: return caller
+              index=indexes[label,path]
+              call=index.locate(row)
+              if call is None:
+                  unmatched.append({key:row[key] for key in ("label","id","line","column","raw_caller")}|{"expression":row["data"]["expression"]})
+                  return caller
+              body=dump(call)
+              named=re.sub(r"\.<(?:genexpr|listcomp|setcomp|dictcomp|lambda):\d+:\d+>","",caller)
+              canonical=moves.get(named,named) if label=="after" else named
+              moved=canonical!=named
+              if moved and body not in indexes["before",path].scopes.get(canonical,set()):
+                  canonical=named
+                  moved=False
+              # Only calls whose native lexical owner is a closure receive a closure anchor.
+              # A comprehension's first iterable is evaluated in the enclosing scope.
+              closures=index.closure_signature(call) if named!=caller else []
+              if closures:
+                  anchor=json.dumps({"call":body,"bindings":closures},sort_keys=True)
+                  canonical+=".<operation:"+hashlib.sha256(anchor.encode()).hexdigest()[:24]+">"
+              if moved or closures:
+                  proofs.append({"label":label,"path":path,"id":row["id"],"raw_caller":caller,"normalized_caller":canonical,"line":row["line"],"column":row["column"],"call_ast":body,"closure_bindings":closures,"moved_only_after_exact_old_call_match":moved})
+              return canonical
+          rows={label:collections.Counter() for label in ("before","after")}
+          normalized_records=[]
+          for row in markers["CALL_FULL"]:
+              value={**row["normalized"],"caller":normalized(row)}
+              rows[row["label"]][json.dumps(value,sort_keys=True)]+=1
+              normalized_records.append({**row,"normalized":value})
+          assert not unmatched,unmatched
+          deltas=[]
+          for key in sorted(rows["before"].keys()|rows["after"].keys()):
+              old,new=rows["before"][key],rows["after"][key]
+              if old!=new:
+                  deltas.append({**json.loads(key),"before":old,"after":new,"change":"added" if new>old else "removed"})
+          counts=[]
+          for status in ("unresolved","partially_resolved"):
+              chosen=[item for item in deltas if item["status"]==status]
+              counts.append({"status":status,"before":sum(count for key,count in rows["before"].items() if json.loads(key)["status"]==status),"after":sum(count for key,count in rows["after"].items() if json.loads(key)["status"]==status),"added_groups":sum(item["change"]=="added" for item in chosen),"removed_groups":sum(item["change"]=="removed" for item in chosen),"added_sites":sum(item["after"]-item["before"] for item in chosen if item["change"]=="added"),"removed_sites":sum(item["before"]-item["after"] for item in chosen if item["change"]=="removed")})
           assert len(markers["SNAPSHOT"])==2
-          assert len(markers["MULTISET_COUNTS"])==2
-          assert len(markers["DECODER_MAP_CALL"])==5, len(markers["DECODER_MAP_CALL"])
-          assert len(markers["UNKNOWN_DIFF"])==3
+          assert len(markers["DECODER_MAP_CALL"])==5
           assert all(not item["added"] and not item["removed"] for item in markers["UNKNOWN_DIFF"])
-          assert markers["EXACT_DIRTY"]==[""],markers["EXACT_DIRTY"]
-          for label in ("before","after"):
-              actual=collections.Counter(item["status"] for item in markers["MULTISET_FULL"] if item["label"]==label for _ in range(item["multiplicity"]))
-              raw_counts=collections.Counter(item["normalized"]["status"] for item in markers["CALL_FULL"] if item["label"]==label)
-              expected={item["status"]:item[label] for item in markers["MULTISET_COUNTS"]}
-              assert dict(actual)==dict(raw_counts)==expected,(actual,raw_counts,expected)
-          for marker in ("SNAPSHOT","UNKNOWN_DIFF","MULTISET_COUNTS","DECODER_MAP_CALL","NORMALIZATION_UNMATCHED","RAW_UNRESOLVED_CHANGE_COUNTS","RAW_UNRESOLVED_CHANGES","EVIDENCE_FILE","EXACT_DIRTY"):
-              for item in markers[marker]:
-                  emit(marker,item)
-          for item in markers["MULTISET_DIFF"]:
-              emit("MULTISET_DIFF",item)
-          # Complete multiset / operation-body mapping / counted-UNKNOWN data, bounded in the
-          # log by compression. Full raw source CallRecords remain in the artifact too.
-          archive={key:values for key,values in markers.items() if key!="CALL_FULL"}
+          assert markers["EXACT_DIRTY"]==[""]
+          for item in markers["MULTISET_COUNTS"]:
+              current=next(row for row in counts if row["status"]==item["status"])
+              assert (current["before"],current["after"])==(item["before"],item["after"])
+          emit("AST_JOIN",{"column_basis":"zero-based SourceEvidence.column equals ast.col_offset; exact callee expression disambiguates nested calls","records":len(normalized_records),"checked_changed_module_records":sum(row["normalized"]["path"] in changed for row in normalized_records),"unmatched":unmatched,"source_refs":{"before":BEFORE,"after":AFTER},"provenance":"Only existing CALL_FULL records from job117179516968; no SourceReport rerun","closure_identity":"exact AST call including arguments plus comprehension targets/iterables; whole filters/bodies are not claimed identical"})
+          for marker in ("SNAPSHOT","UNKNOWN_DIFF","DECODER_MAP_CALL","RAW_UNRESOLVED_CHANGE_COUNTS","RAW_UNRESOLVED_CHANGES","EVIDENCE_FILE","EXACT_DIRTY"):
+              for item in markers[marker]: emit(marker,item)
+          for item in counts: emit("MULTISET_COUNTS",item)
+          for item in deltas: emit("MULTISET_DIFF",item)
+          emit("NORMALIZATION_UNMATCHED",unmatched)
+          # Show each actually shifted operation's matching old/new AST proof, including
+          # unchanged targets/reason in the complete counter, without suppressing real adds.
+          grouped=collections.defaultdict(list)
+          for proof in proofs: grouped[proof["normalized_caller"],proof["call_ast"]].append(proof)
+          for key,items in sorted(grouped.items()):
+              labels={item["label"] for item in items}
+              if labels=={"before","after"} and ({item["raw_caller"] for item in items}.__len__()>1):
+                  emit("MATCHED_OPERATION",{"normalized_caller":key[0],"call_ast":key[1],"bindings":items[0]["closure_bindings"],"sites":[{field:item[field] for field in ("label","path","id","raw_caller","line","column","moved_only_after_exact_old_call_match")} for item in items]})
+          archive={key:markers[key] for key in ("SNAPSHOT","UNKNOWN_DIFF","UNKNOWN_FULL","DECODER_MAP_CALL","RAW_UNRESOLVED_CHANGES","RAW_UNRESOLVED_CHANGE_COUNTS","EXACT_DIRTY")}
+          archive["MULTISET_FULL"]=[{"label":label,**json.loads(key),"multiplicity":count} for label in ("before","after") for key,count in sorted(rows[label].items())]
+          archive["MULTISET_DIFF"]=deltas
+          archive["MULTISET_COUNTS"]=counts
+          archive["NORMALIZATION_PROOF"]=proofs
+          archive["NORMALIZATION_UNMATCHED"]=unmatched
           payload=json.dumps(archive,sort_keys=True,separators=(",",":")).encode()
           compressed=gzip.compress(payload,mtime=0)
           encoded=base64.b64encode(compressed).decode()
-          emit("COMPLETE_ARCHIVE",{"format":"base64(gzip(canonical-json))","bytes":len(payload),"gzip_bytes":len(compressed),"sha256":hashlib.sha256(payload).hexdigest(),"gzip_sha256":hashlib.sha256(compressed).hexdigest(),"marker_counts":{key:len(values) for key,values in markers.items()}})
+          emit("COMPLETE_ARCHIVE",{"format":"base64(gzip(canonical-json))","bytes":len(payload),"gzip_bytes":len(compressed),"sha256":hashlib.sha256(payload).hexdigest(),"gzip_sha256":hashlib.sha256(compressed).hexdigest(),"original_marker_counts":{key:len(values) for key,values in markers.items()}})
           chunks=[encoded[start:start+24000] for start in range(0,len(encoded),24000)]
           for index,chunk in enumerate(chunks):
               emit("COMPLETE_ARCHIVE_CHUNK",{"index":index,"chunks":len(chunks),"base64":chunk})
           (root/"complete-counter-proof.json").write_bytes(payload)
           (root/"complete-counter-proof.json.gz").write_bytes(compressed)
-          (root/"complete-call-records.json.gz").write_bytes(gzip.compress(json.dumps(markers["CALL_FULL"],sort_keys=True).encode(),mtime=0))
+          (root/"complete-call-records.json.gz").write_bytes(gzip.compress(json.dumps(normalized_records,sort_keys=True).encode(),mtime=0))
           (root/"original-job.log.gz").write_bytes(gzip.compress(raw,mtime=0))
           emit("ORIGINAL_LOG",{"source_job":117179516968,"bytes":len(raw),"sha256":hashlib.sha256(raw).hexdigest()})
+          emit("EXACT_CHECKOUT",{"head":subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip(),"dirty":subprocess.check_output(["git","status","--porcelain"]).decode()})
           PY
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
