@@ -52,6 +52,7 @@ def _dependency_contract():
         rule
         for rule in contract["rules"]
         if rule["kind"] in {"interface_boundary", "boundary_types"}
+        and (rule.get("source") is None or rule["source"] == "archkeel.ir.dependency")
     ]
     contract["declarations"]["uml"]["entities"] = [
         entity

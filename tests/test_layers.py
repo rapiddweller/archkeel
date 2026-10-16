@@ -519,4 +519,5 @@ def test_own_target_retains_layer_and_report_version_intent():
     assert layer.kind == "attribute" and layer.annotation == "str | None"
     assert entities[
         "archkeel.ir.architecture_graph.ArchitectureReport.schema_version"
-    ].annotation == ("Literal['1.2.0', '1.0.0']")
+    ].annotation == "ReportSchemaVersion"
+    assert entities["archkeel.ir.architecture_graph.ReportSchemaVersion"].kind == "enum"
