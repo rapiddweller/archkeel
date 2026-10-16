@@ -43,14 +43,38 @@ jobs:
         run: make lint typecheck
       - name: Exact native validation and site deltas
         run: |
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 0aee692c767150847089dbcfdcf1765464837ab6 --amendment docs/architecture/decisions/atlas-deviation-types-amendment.json --write-amendment --decided-by ake2l --rationale 'Own recorded Atlas deviation values and pair derivation, preserve their wire facade and publish the actual typed consumer boundary.' --json > "$RUNNER_TEMP/atlas-against.json"
+          atlas_validation_status=0
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 0aee692c767150847089dbcfdcf1765464837ab6 --amendment docs/architecture/decisions/atlas-deviation-types-amendment.json --write-amendment --decided-by ake2l --rationale 'Own recorded Atlas deviation values and pair derivation, preserve their wire facade and publish the actual typed consumer boundary.' --json > "$RUNNER_TEMP/atlas-against.json" || atlas_validation_status=$?
           python - <<'PY'
           import json
           import os
           from pathlib import Path
           data = json.loads((Path(os.environ["RUNNER_TEMP"]) / "atlas-against.json").read_text())
           print("ATLAS_NATIVE_AGAINST=" + json.dumps(data))
-          print("ATLAS_AMENDMENT=" + Path("docs/architecture/decisions/atlas-deviation-types-amendment.json").read_text())
+          amendment = Path("docs/architecture/decisions/atlas-deviation-types-amendment.json")
+          print("ATLAS_AMENDMENT=" + (amendment.read_text() if amendment.is_file() else "NOT_WRITTEN"))
           PY
+          if [ "$atlas_validation_status" -ne 0 ]; then exit "$atlas_validation_status"; fi
           uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 0aee692c767150847089dbcfdcf1765464837ab6 --amendment docs/architecture/decisions/atlas-deviation-types-amendment.json --json
 
+  actual-native-js-mutation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - name: Explicit auxiliary observer dependency, not feature product
+        run: |
+          git fetch origin ccd28126663a6ed11891d6d512b4f95c263c8ddc
+          for atlas_observer_path in src/archkeel/analyzer/typescript/parse.py src/archkeel/analyzer/typescript/syntax.py src/archkeel/analyzer/typescript/collect.py src/archkeel/ir/profiles.py src/archkeel/ir/codec_observation.py src/archkeel/check/evaluation/evaluate.py; do
+            git show "ccd28126663a6ed11891d6d512b4f95c263c8ddc:$atlas_observer_path" > "$atlas_observer_path"
+          done
+      - run: uv sync --locked
+      - name: Actual source positive witness under independent fixed rule
+        run: uv run --locked python -m pytest -q -s prototype/test_atlas_deviation_native_js.py
