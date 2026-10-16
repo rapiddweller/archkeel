@@ -21,6 +21,8 @@ MODULE = "archkeel.analyzer.typescript"
 GUARDS = (
     "TARGET-TYPESCRIPT-CONFIG-TYPED-CONTROL",
     "TARGET-TYPESCRIPT-RESOLVE-TYPED-CONTROL",
+    "TARGET-TYPESCRIPT-PARSER-TYPED-CONTROL",
+    "TARGET-TYPESCRIPT-COLLECTOR-TYPED-CONTROL",
 )
 
 
@@ -37,7 +39,7 @@ def _repository(tmp_path, *, changed=None):
         f"archkeel/analyzer/typescript/{name}.py": (
             ROOT / f"src/archkeel/analyzer/typescript/{name}.py"
         ).read_text()
-        for name in ("config", "resolve")
+        for name in ("config", "resolve", "parse", "collect")
     }
     sources.update(changed or {})
     root = _prepare_repo(
@@ -50,6 +52,9 @@ def _repository(tmp_path, *, changed=None):
             "contract.json": json.dumps(_contract()),
             "docs/architecture/typescript-control-types.md": (
                 ROOT / "docs/architecture/typescript-control-types.md"
+            ).read_text(),
+            "docs/architecture/typescript-syntax-types.md": (
+                ROOT / "docs/architecture/typescript-syntax-types.md"
             ).read_text(),
             "docs/architecture/typescript-json-field-boundary.md": (
                 ROOT / "docs/architecture/typescript-json-field-boundary.md"
@@ -179,7 +184,7 @@ def test_own_observation_proves_both_migrated_module_guards(self_observation):
         and any(
             row.data.get("owner") == f"{MODULE}.{module}"
             or row.data.get("owner", "").startswith(f"{MODULE}.{module}.")
-            for module in ("config", "resolve")
+            for module in ("config", "resolve", "parse", "collect")
         )
     ]
 
@@ -187,7 +192,7 @@ def test_own_observation_proves_both_migrated_module_guards(self_observation):
 def test_guards_cover_whole_migrated_modules_without_allowances():
     for identity in GUARDS:
         rule = next(row for row in _contract()["rules"] if row["id"] == identity)
-        assert rule["source"] in {f"{MODULE}.config", f"{MODULE}.resolve"}
+        assert rule["source"] in {f"{MODULE}.{name}" for name in ("config", "resolve", "parse", "collect")}
         assert rule["constructs"] == ["string_literal_compare"]
         assert not rule.get("allowed_sources") and not rule.get("exact_sources")
 

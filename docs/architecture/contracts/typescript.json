@@ -47,7 +47,8 @@
       "label": "source",
       "role": "component",
       "packages": [
-        "archkeel.analyzer.typescript.parse"
+        "archkeel.analyzer.typescript.parse",
+        "archkeel.analyzer.typescript.syntax"
       ],
       "responsibilities": [
         "Own tree-sitter parsing and lexical TypeScript syntax facts; do not select files or resolve imports."
@@ -60,7 +61,24 @@
       ],
       "decided_by": "agent",
       "public": [
-        "archkeel.analyzer.typescript.parse"
+        "archkeel.analyzer.typescript.parse:parse",
+        "archkeel.analyzer.typescript.syntax:Span",
+        "archkeel.analyzer.typescript.syntax:Reference",
+        "archkeel.analyzer.typescript.syntax:Concern",
+        "archkeel.analyzer.typescript.syntax:Parameter",
+        "archkeel.analyzer.typescript.syntax:Member",
+        "archkeel.analyzer.typescript.syntax:Base",
+        "archkeel.analyzer.typescript.syntax:Definition",
+        "archkeel.analyzer.typescript.syntax:Site",
+        "archkeel.analyzer.typescript.syntax:ImportBinding",
+        "archkeel.analyzer.typescript.syntax:Syntax",
+        "archkeel.analyzer.typescript.syntax:ReferenceForm",
+        "archkeel.analyzer.typescript.syntax:DefinitionKind",
+        "archkeel.analyzer.typescript.syntax:Visibility",
+        "archkeel.analyzer.typescript.syntax:BaseRelationship",
+        "archkeel.analyzer.typescript.syntax:SiteKind",
+        "archkeel.analyzer.typescript.syntax:SiteUse",
+        "archkeel.analyzer.typescript.syntax:ReceiverKind"
       ]
     },
     {
@@ -192,6 +210,32 @@
       "rationale": "Enforce the native string_literal_compare observation scope across this whole module without allowances. Compiler and resolver dispatch use owned nominal domains; remaining prefix/suffix grammar entry points are explicitly listed in the migration ledger.",
       "provenance": [
         "docs/architecture/typescript-control-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "TARGET-TYPESCRIPT-PARSER-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.typescript.parse",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The native comparison guard covers this complete migrated module without parser/protocol exceptions; closed syntax and semantic dispatch use owned nominal domains.",
+      "provenance": [
+        "docs/architecture/typescript-syntax-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "TARGET-TYPESCRIPT-COLLECTOR-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.typescript.collect",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The native comparison guard covers this complete migrated module without parser/protocol exceptions; closed syntax and semantic dispatch use owned nominal domains.",
+      "provenance": [
+        "docs/architecture/typescript-syntax-types.md"
       ],
       "decided_by": "architect"
     }
@@ -645,6 +689,402 @@
             "kind": "public",
             "basis": "declared"
           }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "id": "TS-SYNTAX-PORT",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.typescript.syntax",
+          "responsibilities": [
+            "Own the single frozen lexical DTO port and its closed semantic domains."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-ReferenceForm",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.ReferenceForm",
+          "parent_id": "TS-SYNTAX-PORT",
+          "responsibilities": [
+            "Own the closed ReferenceForm vocabulary passed from parsing to collection."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-DefinitionKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.DefinitionKind",
+          "parent_id": "TS-SYNTAX-PORT",
+          "responsibilities": [
+            "Own the closed DefinitionKind vocabulary passed from parsing to collection."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Visibility",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Visibility",
+          "parent_id": "TS-SYNTAX-PORT",
+          "responsibilities": [
+            "Own the closed Visibility vocabulary passed from parsing to collection."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-BaseRelationship",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.BaseRelationship",
+          "parent_id": "TS-SYNTAX-PORT",
+          "responsibilities": [
+            "Own the closed BaseRelationship vocabulary passed from parsing to collection."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-SiteKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.SiteKind",
+          "parent_id": "TS-SYNTAX-PORT",
+          "responsibilities": [
+            "Own the closed SiteKind vocabulary passed from parsing to collection."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-SiteUse",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.SiteUse",
+          "parent_id": "TS-SYNTAX-PORT",
+          "responsibilities": [
+            "Own the closed SiteUse vocabulary passed from parsing to collection."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-ReceiverKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.ReceiverKind",
+          "parent_id": "TS-SYNTAX-PORT",
+          "responsibilities": [
+            "Own the closed ReceiverKind vocabulary passed from parsing to collection."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Reference",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Reference",
+          "parent_id": "TS-SYNTAX-PORT",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable lexical Reference facts without exposing parser objects."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Definition",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Definition",
+          "parent_id": "TS-SYNTAX-PORT",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable lexical Definition facts without exposing parser objects."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Member",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Member",
+          "parent_id": "TS-SYNTAX-PORT",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable lexical Member facts without exposing parser objects."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Base",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Base",
+          "parent_id": "TS-SYNTAX-PORT",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable lexical Base facts without exposing parser objects."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Site",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Site",
+          "parent_id": "TS-SYNTAX-PORT",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable lexical Site facts without exposing parser objects."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Reference.form",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Reference.form",
+          "parent_id": "TS-SYNTAX-Reference",
+          "annotation": "ReferenceForm",
+          "responsibilities": [
+            "Retain the nominal ReferenceForm domain across the syntax/collection boundary."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Definition.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Definition.kind",
+          "parent_id": "TS-SYNTAX-Definition",
+          "annotation": "DefinitionKind",
+          "responsibilities": [
+            "Retain the nominal DefinitionKind domain across the syntax/collection boundary."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Definition.visibility",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Definition.visibility",
+          "parent_id": "TS-SYNTAX-Definition",
+          "annotation": "Visibility | None",
+          "responsibilities": [
+            "Retain the nominal Visibility | None domain across the syntax/collection boundary."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Member.visibility",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Member.visibility",
+          "parent_id": "TS-SYNTAX-Member",
+          "annotation": "Visibility | None",
+          "responsibilities": [
+            "Retain the nominal Visibility | None domain across the syntax/collection boundary."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Base.relationship",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Base.relationship",
+          "parent_id": "TS-SYNTAX-Base",
+          "annotation": "BaseRelationship",
+          "responsibilities": [
+            "Retain the nominal BaseRelationship domain across the syntax/collection boundary."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Site.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Site.kind",
+          "parent_id": "TS-SYNTAX-Site",
+          "annotation": "SiteKind",
+          "responsibilities": [
+            "Retain the nominal SiteKind domain across the syntax/collection boundary."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Site.use",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Site.use",
+          "parent_id": "TS-SYNTAX-Site",
+          "annotation": "SiteUse",
+          "responsibilities": [
+            "Retain the nominal SiteUse domain across the syntax/collection boundary."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-syntax-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-SYNTAX-Site.receiver_kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.syntax.Site.receiver_kind",
+          "parent_id": "TS-SYNTAX-Site",
+          "annotation": "ReceiverKind",
+          "responsibilities": [
+            "Retain the nominal ReceiverKind domain across the syntax/collection boundary."
+          ]
         }
       ],
       "relationships": [],
