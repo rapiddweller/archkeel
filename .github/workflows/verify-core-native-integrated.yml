@@ -1,0 +1,74 @@
+name: Verify reviewed Core and native owners together
+on:
+  push:
+    branches: [verify/542-core-native-integrated]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f264c77eb55b1761a37a8083e479c3f1bc45f5cc
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Derive measured baseline and normal source-change receipt
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --write-baseline --json > "$RUNNER_TEMP/graph-baseline.json"
+          task_baseline=$?
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against c7444205d4fe87eaae0de5e2dc98b70909fd1cc7 --amendment docs/architecture/decisions/2026-10-16-reviewed-core-native-amendment.json --write-amendment --decided-by ake2l --rationale "Integrate independently reviewed native syntax, method descriptors and exact Core command ports with unchanged source-policy budgets and corrected fixture inventories." > "$RUNNER_TEMP/graph-amendment.json"
+          task_amendment=$?
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against c7444205d4fe87eaae0de5e2dc98b70909fd1cc7 --amendment docs/architecture/decisions/2026-10-16-reviewed-core-native-amendment.json > "$RUNNER_TEMP/graph-replay.json"
+          task_replay=$?
+          python - <<'PY'
+          import json,os,pathlib
+          for stage in ("baseline","amendment","replay"):
+              data=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/f"graph-{stage}.json").read_text())
+              print("CORE_NATIVE_RESULT="+json.dumps({"stage":stage,**{key:data.get(key) for key in ("exit_code","failures","widenings","diagnostics","measurements","amendment_status")}},separators=(",",":")))
+          print("CORE_NATIVE_BASELINE="+pathlib.Path("architecture-baseline.json").read_text().replace("\n",""))
+          receipt=pathlib.Path("docs/architecture/decisions/2026-10-16-reviewed-core-native-amendment.json")
+          if receipt.exists():
+              print("CORE_NATIVE_AMENDMENT="+receipt.read_text().replace("\n",""))
+          PY
+          test "$task_baseline" -eq 0 && test "$task_amendment" -eq 0 && test "$task_replay" -eq 0
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f264c77eb55b1761a37a8083e479c3f1bc45f5cc
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Check combined production and tests
+        run: |
+          uv run --locked ruff check src tests tools
+          uv run --locked ruff format --check src tests tools
+          uv run --locked mypy src/archkeel tools/github_pr_report.py
+  regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f264c77eb55b1761a37a8083e479c3f1bc45f5cc
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: All previously failing inventories and actual API regressions
+        run: |
+          uv run --locked python -m pytest -q tests/test_self.py tests/test_references.py tests/test_levels.py tests/test_protocol_uml_target.py tests/test_target_navigation_graph.py tests/test_atlas_report.py::test_default_report_is_one_authentic_repository_with_sparse_native_cells tests/test_typed_method_descriptors.py tests/test_core_command_result.py tests/test_requires_symbol_ports.py tests/test_typed_python_properties.py tests/test_typed_contract_rule_grammar.py tests/test_typed_contract_rule_native.py tests/test_typed_amendment_artifact.py tests/test_summary_badge_types.py tests/test_repository_hygiene.py
