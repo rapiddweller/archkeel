@@ -254,7 +254,7 @@ jobs:
           import json,os,pathlib
           result=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"diagnostic-no-write.json").read_text())
           print("DIAGNOSTIC_NO_WRITE="+json.dumps({key:result.get(key) for key in ("exit_code","amendment_status","failures","diagnostics","measurements")},separators=(",",":")))
-          assert result["exit_code"]==0 and result["amendment_status"]=="PASS"
+          assert result["exit_code"]==0 and result["amendment_status"]=="valid"
           PY
       - name: Verify native authority and actual position/call deltas
         run: |

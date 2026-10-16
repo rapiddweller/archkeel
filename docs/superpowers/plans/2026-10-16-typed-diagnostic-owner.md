@@ -31,9 +31,9 @@
 **Modify:** src/archkeel/ir/model.py, necessary diagnostic producers/decisions and existing enum-iteration tests; architecture-contract.json, docs/architecture/contracts/ir.json, Makefile and diagnostic scope notes.
 **Interfaces:** Existing model.DiagnosticKind/DiagnosticCode/Diagnostic/DiagnosticError/ReportLocation imports retain identity. Diagnostic.kind:DiagnosticKind; code:DiagnosticCode|None; locations:tuple[ReportLocation,...]. New owner classes preserve existing constructors and errors.
 
-- [ ] Write nominal identity, legacy-byte/error, independent API Target, actual-source widening and guard mutation tests.
-- [ ] Run hosted RED on unchanged production; inspect that nominal owner/protection are absent.
-- [ ] Extract and normalize the diagnostic owner, retain explicit model facades, update real producers and decisions without a second vocabulary.
+- [x] Write nominal identity, legacy-byte/error, independent API Target, actual-source widening and guard mutation tests.
+- [x] Run hosted RED on unchanged production; inspect that nominal owner/protection are absent.
+- [x] Extract and normalize the diagnostic owner, retain explicit model facades, update real producers and decisions without a second vocabulary.
 - [ ] Run diagnostic/schema/report/validation regressions, native controls, strict Mypy, Ruff and hygiene; fix only demonstrated defects.
 - [ ] Run actual own validation and exact before/after type-position and unresolved-call evidence; generate normal amendment only for owned contract intent.
 - [ ] Freeze a clean product ref with notes and evidence for parent's independent Astra, combined full-suite gate and separate PR.

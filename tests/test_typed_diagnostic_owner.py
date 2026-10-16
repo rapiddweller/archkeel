@@ -147,12 +147,23 @@ def test_native_diagnostic_owner_matches_independent_intent_and_module_guard(tmp
     [
         ("kind: DiagnosticKind", "kind: str"),
         ("code: DiagnosticCode | None", "code: str | None"),
+        ("    diagnostic: Diagnostic\n", "    diagnostic: str\n"),
+        (
+            "def __init__(self, diagnostic: Diagnostic) -> None:",
+            "def __init__(self, diagnostic: str) -> None:",
+        ),
         (
             "def __init__(self, diagnostic: Diagnostic) -> None:",
             "def __init__(self, diagnostic: Diagnostic) -> str:",
         ),
     ],
-    ids=["kind-field", "code-field", "exception-constructor-return"],
+    ids=[
+        "kind-field",
+        "code-field",
+        "exception-diagnostic-field",
+        "exception-constructor-parameter",
+        "exception-constructor-return",
+    ],
 )
 def test_native_diagnostic_widening_fails_with_fixed_authored_target(tmp_path, old, new):
     root, config = _repository(tmp_path)
