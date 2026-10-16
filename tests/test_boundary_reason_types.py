@@ -18,8 +18,8 @@ from test_delta import _record
 from archkeel.check.evaluation import boundary_types as boundary
 from archkeel.check.evaluation import rules
 from archkeel.check.ports import ScanConfig
-from archkeel.check.run import inspect_observation
 from archkeel.check.report import run_report
+from archkeel.check.run import inspect_observation
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
 from archkeel.ir.report_graph import architecture_report
@@ -27,9 +27,18 @@ from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 REASONS = (
-    "missing_annotation", "inherited_surface", "forward_reference", "dotted_name",
-    "generic", "union", "ambiguous_binding", "ambiguous_facade", "unresolved_name",
-    "external_type", "nested_type", "other",
+    "missing_annotation",
+    "inherited_surface",
+    "forward_reference",
+    "dotted_name",
+    "generic",
+    "union",
+    "ambiguous_binding",
+    "ambiguous_facade",
+    "unresolved_name",
+    "external_type",
+    "nested_type",
+    "other",
 )
 
 
@@ -89,16 +98,31 @@ def test_legacy_facade_keys_are_plain_strings_in_the_existing_order():
 
 def test_unknown_future_wire_reason_keeps_exact_text_and_conservative_verdict():
     detail = dict(
-        module="sample.api", qualified_name="sample.api.load", position="return",
-        annotation="Opaque", reason="future:reason", occurrence=0,
+        module="sample.api",
+        qualified_name="sample.api.load",
+        position="return",
+        annotation="Opaque",
+        reason="future:reason",
+        occurrence=0,
     )
-    position = _record("POSITION", kind="boundary_type_position", evidence_class="UNKNOWN", data=detail)
+    position = _record(
+        "POSITION", kind="boundary_type_position", evidence_class="UNKNOWN", data=detail
+    )
     limit = _record(
-        "LIMIT", kind="boundary_type_limit", evidence_class="UNKNOWN",
-        data=dict(positions=1, decided=0, undecided=1, undecidable_positions=[detail], **{"future:reason": 1}),
+        "LIMIT",
+        kind="boundary_type_limit",
+        evidence_class="UNKNOWN",
+        data=dict(
+            positions=1,
+            decided=0,
+            undecided=1,
+            undecidable_positions=[detail],
+            **{"future:reason": 1},
+        ),
     )
     position["rule_ids"] = limit["rule_ids"] = ["BOUNDARY"]
     declaration = _record("BOUNDARY", kind="boundary_types", evidence_class="DECLARED_RULE")
+    declaration["provenance"] = ["contract.json"]
     observation = parse_observation(
         wire_model(git_head="a" * 40, declarations=[declaration], unknowns=[position, limit])
     )
@@ -112,14 +136,17 @@ def test_unknown_future_wire_reason_keeps_exact_text_and_conservative_verdict():
 
 
 def _repository(tmp_path):
-    target = copy.deepcopy(json.loads((ROOT / "docs/architecture/contracts/check.json").read_text()))
+    target = copy.deepcopy(
+        json.loads((ROOT / "docs/architecture/contracts/check.json").read_text())
+    )
     target.pop("$schema", None)
     target["rules"] = []
     target["declarations"]["modules"] = []
     target["declarations"]["uml"]["relationships"] = []
     target["declarations"]["uml"]["scopes"] = []
     target["declarations"]["uml"]["entities"] = [
-        row for row in target["declarations"]["uml"]["entities"]
+        row
+        for row in target["declarations"]["uml"]["entities"]
         if row["id"].startswith("BOUNDARY-")
     ]
     files = {
@@ -152,15 +179,20 @@ def _comparison(model):
 def test_native_real_private_ports_match_the_independent_target(tmp_path):
     root, config = _repository(tmp_path)
     comparison = _comparison(_model(root, config))
-    assert comparison.status == "PASS", comparison
+    assert comparison.status == "PASS", [
+        (row.subject_id, row.aspect, row.status, row.evidence_ids)
+        for row in comparison.assessments if row.status != "PASS"
+    ]
 
 
 @pytest.mark.parametrize(
     "old,new",
     [
         ("undecidable: _UndecidableReason | None", "undecidable: str | None"),
-        ("def _unresolvable_shape(annotation: str) -> _UndecidableReason:",
-         "def _unresolvable_shape(annotation: str) -> str:"),
+        (
+            "def _unresolvable_shape(annotation: str) -> _UndecidableReason:",
+            "def _unresolvable_shape(annotation: str) -> str:",
+        ),
     ],
 )
 def test_native_real_port_widening_fails_the_unchanged_target(tmp_path, old, new):
