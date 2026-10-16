@@ -1,0 +1,244 @@
+name: TypeScript direct nominal syntax complete gates
+on:
+  push:
+    branches: [verify/issue-542-typescript-direct-kind]
+permissions:
+  contents: read
+jobs:
+  parser-legacy-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 5ffbff09f22fa3e5fc1938483b481433378911e7
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Check exact product formatting and types
+        run: |
+          uv run --locked ruff format src/archkeel/analyzer/typescript tests/test_typescript_syntax_types.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_control_target.py
+          uv run --locked python - <<'PY'
+          import base64,subprocess
+          patch=subprocess.check_output(["git","diff","--","src/archkeel/analyzer/typescript","tests/test_typescript_syntax_types.py","tests/test_typescript_syntax_compatibility.py","tests/test_typescript_control_target.py"])
+          print("FORMAT_PATCH="+base64.b64encode(patch).decode(),flush=True)
+          PY
+          uv run --locked ruff check src/archkeel/analyzer/typescript tests/test_typescript_syntax_types.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_control_target.py
+          uv run --locked mypy src/archkeel
+      - run: make typescript-native
+      - run: uv run --locked python -m pytest -q tests/test_typescript_decorated_inventory.py tests/test_typescript_parameter_properties.py tests/test_typescript_array_constants.py tests/test_python_source_evidence_lines.py tests/test_repository_hygiene.py
+  native-identities-and-calls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 5ffbff09f22fa3e5fc1938483b481433378911e7
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Compare exact actual predecessor and direct source with one fixed native observer
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/ts-review-before" 8ebc1da53b3ac7290f78978d5e69e4f3c59185c3
+          uv run --locked archkeel report --root "$RUNNER_TEMP/ts-review-before" --output "$RUNNER_TEMP/ts-review-before.json" > "$RUNNER_TEMP/ts-review-before.stdout"
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/ts-review-after.json" > "$RUNNER_TEMP/ts-review-after.stdout"
+          uv run --locked python - <<'PY'
+          import collections, dataclasses, hashlib, json, os
+          from pathlib import Path
+          from archkeel.check.ratchets import measure_python_ratchets, unresolved_call_changes
+          from archkeel.ir.codec import decode_canonical_model, parse_observation
+          from archkeel.ir.codec_wire import value_bytes
+          from archkeel.ir.decisions import rule_uncertainty_evidence, unknown_positions_by_rule
+          
+          def read(label):
+              path = Path(os.environ["RUNNER_TEMP"]) / ("ts-review-" + label + ".json")
+              return parse_observation(decode_canonical_model(json.loads(path.read_bytes())))
+          
+          def fingerprints(model):
+              positions, routes, other = [], [], []
+              for rule, uncertainty in rule_uncertainty_evidence(model).items():
+                  for record in uncertainty.evidence:
+                      row = {"rule": rule, "id":record.id, "kind": record.kind, "data": json.loads(value_bytes(record.data))}
+                      if record.kind == "boundary_type_position":
+                          if record.data.get("reason") != "external_type":
+                              positions.append(row)
+                      elif record.kind == "boundary_type_route":
+                          routes.append(row)
+                      elif record.kind != "boundary_type_limit":
+                          other.append(row)
+              return [collections.Counter(json.dumps(row, sort_keys=True) for row in rows) for rows in (positions, routes, other)]
+          
+          before, after = read("before"), read("after")
+          for label, model in (("before", before), ("after", after)):
+              measured = measure_python_ratchets(model)
+              print("REVIEW_SNAPSHOT=" + json.dumps({"label": label, "git_head": model.source.git_head, "digest": model.source.source_digest, "scalars": dict(measured.scalars.items()), "calls_total": measured.calls_total, "unknown_by_rule": unknown_positions_by_rule(model)}, sort_keys=True))
+          a, b = fingerprints(before), fingerprints(after)
+          for label, old, new in zip(("positions", "routes", "other"), a, b, strict=True):
+              added, removed = list((new-old).elements()), list((old-new).elements())
+              print("REVIEW_UNKNOWN_DIFF=" + json.dumps({"kind": label, "before": sum(old.values()), "after": sum(new.values()), "added": [json.loads(item) for item in sorted(added)], "removed": [json.loads(item) for item in sorted(removed)]}, sort_keys=True))
+          changes = [dataclasses.asdict(item) for item in unresolved_call_changes(before, after)]
+          print("REVIEW_UNRESOLVED_CHANGES=" + json.dumps(changes, sort_keys=True))
+          print("REVIEW_UNRESOLVED_CHANGE_COUNTS=" + json.dumps({"added_groups": sum(row["change"]=="added" for row in changes), "removed_groups": sum(row["change"]=="removed" for row in changes), "added_sites": sum(row["after"]-row["before"] for row in changes if row["change"]=="added"), "removed_sites": sum(row["before"]-row["after"] for row in changes if row["change"]=="removed")}, sort_keys=True))
+          
+          PY
+  dto-wire-and-cost:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 5ffbff09f22fa3e5fc1938483b481433378911e7
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Compare actual DTOs, exact Core wire bytes, source cost and Python allocation
+        run: |
+          uv run --locked python - <<'PY'
+          import ast, dataclasses, enum, gc, hashlib, importlib.util, json, os, platform, statistics, subprocess, sys, time, tracemalloc
+          from pathlib import Path
+          from archkeel.analyzer.typescript import parse as current
+          
+          temporary = Path(os.environ["RUNNER_TEMP"])
+          def load_source(name, source):
+              path = temporary / (name.rsplit(".", 1)[-1] + ".py")
+              path.write_text(source)
+              spec = importlib.util.spec_from_file_location(name, path)
+              module = importlib.util.module_from_spec(spec)
+              sys.modules[name] = module
+              spec.loader.exec_module(module)
+              return module
+          
+          before_source = subprocess.check_output(["git", "show", "8ebc1da53b3ac7290f78978d5e69e4f3c59185c3:src/archkeel/analyzer/typescript/parse.py"]).decode()
+          after_source = Path("src/archkeel/analyzer/typescript/parse.py").read_text()
+          before = load_source("_review_legacy_parser", before_source)
+          cached_source = subprocess.check_output(["git","show","3ba489e4019950c24edc974bb3242620704c5b34:src/archkeel/analyzer/typescript/parse.py"]).decode()
+          cached = load_source("archkeel.analyzer.typescript._review_cached_parser",cached_source)
+          paths = sorted(path for folder in ("fixtures/H-uml-typescript", "fixtures/L-nest-realworld") for path in Path(folder).rglob("*") if path.is_file() and path.suffix in {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"})
+          cases = [(path.as_posix(), path.read_bytes()) for path in paths]
+          assert cases, "actual H/NestJS corpus must exist"
+          
+          def normalized(value):
+              if isinstance(value, enum.Enum):
+                  return value.value
+              if dataclasses.is_dataclass(value):
+                  result = {field.name: normalized(getattr(value, field.name)) for field in dataclasses.fields(value) if field.name!="receiver_kind"}
+                  if "import_bindings" in result:
+                      result["import_bindings"].sort(key=lambda row: json.dumps(row,sort_keys=True))
+                  return result
+              if isinstance(value, (tuple, list)):
+                  return [normalized(item) for item in value]
+              return value
+          
+          def strict(value):
+              if isinstance(value, enum.Enum):
+                  return value.value
+              if dataclasses.is_dataclass(value):
+                  result = {field.name: strict(getattr(value, field.name)) for field in dataclasses.fields(value)}
+                  if "import_bindings" in result:
+                      result["import_bindings"].sort(key=lambda row: json.dumps(row,sort_keys=True))
+                  return result
+              if isinstance(value, (tuple, list)):
+                  return [strict(item) for item in value]
+              return value
+          
+          def differences(before, after, path=""):
+              if type(before) is not type(after):
+                  return [{"path": path, "before": before, "after": after}]
+              if isinstance(before, dict):
+                  return [row for key in before.keys()|after.keys() for row in differences(before.get(key), after.get(key), path+"."+key)]
+              if isinstance(before, list):
+                  if len(before)!=len(after):
+                      return [{"path": path+".length", "before": len(before), "after": len(after)}]
+                  return [row for index, (old,new) in enumerate(zip(before,after,strict=True)) for row in differences(old,new,path+"["+str(index)+"]")]
+              return [] if before==after else [{"path": path, "before": before, "after": after}]
+          legacy_differences, alternative_differences = [], []
+          for path, raw in cases:
+              old, new, small = before.parse(path, raw), current.parse(path, raw), cached.parse(path, raw)
+              legacy_delta = differences(normalized(old),normalized(new))
+              alternative_delta = differences(strict(new),strict(small))
+              if legacy_delta:
+                  legacy_differences.append({"file": path, "differences": legacy_delta[:20]})
+              if alternative_delta:
+                  alternative_differences.append({"file": path, "differences": alternative_delta[:20]})
+          print("REVIEW_BENCH_EQUIVALENCE=" + json.dumps({"files": len(cases), "bytes": sum(len(raw) for _, raw in cases), "legacy_projection": not legacy_differences, "alternative_full_projection": not alternative_differences, "legacy_differences": legacy_differences, "alternative_differences": alternative_differences, "comparison": "one canonical direct decoder versus the cached controlled candidate; both keep one syntax owner"}, sort_keys=True))
+          modules = {"legacy8eb": before, "cached3ba": cached, "direct": current}
+          samples = {key: [] for key in modules}
+          for round in range(7):
+              order = list(modules) if round%2==0 else list(reversed(modules))
+              for key in order:
+                  gc.collect()
+                  start = time.perf_counter()
+                  for repeat in range(3):
+                      for path, raw in cases:
+                          result = modules[key].parse(path, raw)
+                  samples[key].append((time.perf_counter()-start)/3)
+          for key, module in modules.items():
+              gc.collect()
+              tracemalloc.start()
+              for path, raw in cases:
+                  result = module.parse(path, raw)
+              _, peak = tracemalloc.get_traced_memory()
+              tracemalloc.stop()
+              print("REVIEW_BENCH_RESULT=" + json.dumps({"variant": key, "seconds_per_corpus": samples[key], "median_seconds": statistics.median(samples[key]), "peak_python_bytes": peak}, sort_keys=True))
+          print("REVIEW_BENCH_CONTEXT=" + json.dumps({"python": platform.python_version(), "before_ref": "8ebc1da", "after_ref": "5ffbff09", "after_source_sha256": hashlib.sha256(after_source.encode()).hexdigest(), "ast_nodes_before": sum(1 for _ in ast.walk(ast.parse(before_source))), "ast_nodes_nominal": sum(1 for _ in ast.walk(ast.parse(after_source))), "ast_nodes_cached": sum(1 for _ in ast.walk(ast.parse(cached_source)))}, sort_keys=True))
+          
+          import tempfile
+          sys.path.insert(0,str(Path("tests").resolve()))
+          import test_typescript_collect as helpers
+          from archkeel.analyzer.typescript import collect as frontend
+          from archkeel.ir.facts_codec import encode_response
+          from archkeel.ir.protocol import CollectionResponse
+          legacy_collect_source=subprocess.check_output(["git","show","8ebc1da53b3ac7290f78978d5e69e4f3c59185c3:src/archkeel/analyzer/typescript/collect.py"]).decode()
+          legacy_collect=load_source("archkeel.analyzer.typescript._review_legacy_collect",legacy_collect_source)
+          legacy_collect.parse=before.parse
+          original_parser=frontend.parse
+          with tempfile.TemporaryDirectory(prefix="ts-wire-review-",dir=temporary) as folder:
+              for case in ("H-uml-typescript","L-nest-realworld"):
+                  fixture=Path("fixtures")/case
+                  files={path.relative_to(fixture).as_posix():path.read_bytes() for path in fixture.rglob("*") if path.is_file() and path.suffix in {".json",".ts",".tsx",".mts",".cts",".js",".jsx",".mjs",".cjs"}}
+                  results={}
+                  for label in ("before8eb","cached3ba","direct"):
+                      if label=="before8eb":
+                          helpers.collect=legacy_collect.collect
+                      else:
+                          frontend.parse=cached.parse if label=="cached3ba" else original_parser
+                          helpers.collect=frontend.collect
+                      facts=helpers._facts(Path(folder)/case,files)
+                      payload=encode_response(CollectionResponse(facts))
+                      results[label]=payload
+                      print("REVIEW_WIRE="+json.dumps({"case":case,"variant":label,"source_files":len(facts.files),"imports":len(facts.imports),"coverage_gaps":len(facts.coverage.gaps),"bytes":len(payload),"sha256":hashlib.sha256(payload).hexdigest()}),flush=True)
+                  assert results["before8eb"]==results["cached3ba"]==results["direct"],"actual compiler-facing SourceFacts wire must remain byte identical"
+          frontend.parse=original_parser
+          helpers.collect=frontend.collect
+          
+          PY
+  compiler-differential:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 5ffbff09f22fa3e5fc1938483b481433378911e7
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: make typescript-compiler-check typescript-differential
