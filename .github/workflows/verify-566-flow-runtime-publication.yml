@@ -27,7 +27,7 @@ jobs:
           make browser-runtime-check
           make browser-graph-check
       - name: Actual publication, stale-source, AST negatives and unchanged report budgets
-        run: uv run --locked python -m pytest -q -s tests/test_flow_runtime_publication.py tests/test_atlas_report.py::test_default_report_is_one_authentic_repository_with_sparse_native_cells
+        run: uv run --locked python -m pytest -q -s tests/test_flow_runtime_publication.py tests/test_atlas_report.py::test_default_report_is_one_authentic_repository_with_sparse_native_cells tests/test_atlas_report.py::test_atlas_inlines_pinned_elk_before_flow_script_under_offline_csp tests/test_graph_scene_protocol.py::test_offline_report_loads_the_actual_protocol_before_scene_consumers
       - name: Measure real Flow-only HTML and verify other programs untouched
         run: |
           uv run --locked python prototype/flow-report-size.py

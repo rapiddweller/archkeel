@@ -28,15 +28,14 @@ def runtime_bytes() -> bytes:
     result = subprocess.run(
         [node, str(_COMPILER), "--config-file", str(_OPTIONS)],
         input=source,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         check=True,
     )
     provenance = (
         f"// Generated from flow.js; source-sha256={sha256(source).hexdigest()}\n"
         "// Owner: tools/browser_runtime.py. Edit flow.js; make browser-runtime-generate.\n"
     )
-    return provenance.encode("utf-8") + result.stdout
+    return result.stdout + b"\n" + provenance.encode("utf-8")
 
 
 def check() -> None:
