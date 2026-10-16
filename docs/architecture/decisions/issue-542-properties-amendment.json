@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "02279ca79283191bc1137034db4191abc1850cf3f290e974ec1caed594f95600",
+  "after_digest": "71140696c127e91dd367916c81f9ae8df25f63d7747c10c05ddfb6e3b9b13906",
+  "before_baseline_digest": "02279ca79283191bc1137034db4191abc1850cf3f290e974ec1caed594f95600",
+  "before_digest": "360d24c0e65e127f2296d95b8b78ec36dd0fea7acf0ffe2b89a8e3a8dfdb4baf",
+  "decided_by": "ake2l",
+  "rationale": "Use one immutable source-facts property binding across Source and Core while preserving property proof and wire semantics.",
+  "schema_version": "2.0.0"
+}
