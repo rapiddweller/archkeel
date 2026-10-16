@@ -773,7 +773,10 @@
         "archkeel.ir.state_facts",
         "archkeel.ir.state_codec",
         "archkeel.analyzer.typescript.config",
-        "archkeel.analyzer.typescript.resolve"
+        "archkeel.analyzer.typescript.resolve",
+        "archkeel.analyzer.typescript.parse",
+        "archkeel.analyzer.typescript.syntax",
+        "archkeel.analyzer.typescript.collect"
       ],
       "rationale": "Each vocabulary belongs to its domain owner: source/graph/dependency models, state_facts state controls, state_codec private event tags, and TypeScript configuration/resolver APIs.",
       "provenance": [

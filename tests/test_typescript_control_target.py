@@ -39,7 +39,7 @@ def _repository(tmp_path, *, changed=None):
         f"archkeel/analyzer/typescript/{name}.py": (
             ROOT / f"src/archkeel/analyzer/typescript/{name}.py"
         ).read_text()
-        for name in ("config", "resolve", "parse", "collect")
+        for name in ("config", "resolve", "parse", "collect", "syntax")
     }
     sources.update(changed or {})
     root = _prepare_repo(
