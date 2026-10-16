@@ -1,0 +1,62 @@
+name: Boundary reason nominal source GREEN
+on:
+  push:
+    branches: [verify/542-boundary-reasons-green]
+permissions:
+  contents: read
+jobs:
+  owned-ports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -q tests/test_boundary_reason_types.py --tb=short
+      - name: Exact source quality
+        if: ${{ always() }}
+        run: |
+          uv run --locked ruff check src/archkeel tests/test_boundary_reason_types.py
+          uv run --locked ruff format --check --diff src/archkeel/check/evaluation/boundary_types.py tests/test_boundary_reason_types.py
+          uv run --locked mypy src/archkeel
+      - name: Hosted formatter evidence
+        if: ${{ always() }}
+        run: |
+          uv run --locked ruff format src/archkeel/check/evaluation/boundary_types.py tests/test_boundary_reason_types.py
+          uv run --locked python - <<'PY'
+          import json
+          from pathlib import Path
+          for filename in ("src/archkeel/check/evaluation/boundary_types.py", "tests/test_boundary_reason_types.py"):
+              print("HOSTED_REASON_FORMAT=" + json.dumps(dict(path=filename, content=Path(filename).read_text())))
+          PY
+  affected-boundaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -q tests/test_boundary_alias_contract.py tests/test_boundary_permission_presentation.py tests/test_boundary_type_allowances.py tests/test_boundary_type_alternative_maps.py tests/test_boundary_type_ambiguous_bindings.py tests/test_boundary_type_bound_aliases.py tests/test_boundary_type_direct_defaults.py tests/test_boundary_type_dto_native_values.py tests/test_boundary_type_enum_literals.py tests/test_boundary_type_finding_ids.py tests/test_boundary_type_literal_mapping_arms.py tests/test_boundary_type_literals_aliases.py tests/test_boundary_type_native_iterables.py tests/test_boundary_type_native_map_lists.py tests/test_boundary_type_native_open_maps.py tests/test_boundary_type_native_payloads.py tests/test_boundary_type_nested_mapping.py tests/test_boundary_type_nullable_fields.py tests/test_boundary_type_opaque_map_values.py tests/test_boundary_type_quoted_builtins.py tests/test_boundary_type_unknown_verdict.py tests/test_boundary_types_abstract_methods.py tests/test_boundary_types_aliases.py tests/test_boundary_types_chain_proof.py tests/test_boundary_types_contained_mapping.py tests/test_boundary_types_datetime.py tests/test_boundary_types_facades.py tests/test_boundary_types_mappings.py tests/test_boundary_types_nested_dtos.py tests/test_boundary_types_non_init_facades.py tests/test_boundary_types_reexport_proofs.py tests/test_collection_boundary_regressions.py tests/test_inherited_boundary_diagnostics.py tests/test_property_proof_transport.py tests/test_public_api_boundary.py tests/test_recursive_boundary_index_work.py tests/test_source_trust_boundary.py tests/test_typed_dict_bound_aliases.py tests/test_repository_hygiene.py --tb=short
+  full-suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -q --tb=short
