@@ -12,14 +12,6 @@ namespace ArchkeelGraphProtocol {
   export function isOriginKind(value: unknown): value is OriginKind {
     return originKindValues.has(value);
   }
-  export function decodeOriginKind(value: unknown): OriginKind {
-    const token = originKindValues.get(value);
-    if (token === undefined) throw new TypeError("Unsupported OriginKind");
-    return token;
-  }
-  export function encodeOriginKind(value: OriginKind): string {
-    return decodeOriginKind(value);
-  }
   // archkeel.ir.architecture_graph.EntityKind
   export enum EntityKind {
     COMPONENT = "component",
@@ -44,14 +36,6 @@ namespace ArchkeelGraphProtocol {
   export function isEntityKind(value: unknown): value is EntityKind {
     return entityKindValues.has(value);
   }
-  export function decodeEntityKind(value: unknown): EntityKind {
-    const token = entityKindValues.get(value);
-    if (token === undefined) throw new TypeError("Unsupported EntityKind");
-    return token;
-  }
-  export function encodeEntityKind(value: EntityKind): string {
-    return decodeEntityKind(value);
-  }
   // archkeel.ir.architecture_graph.RelationshipKind
   export enum RelationshipKind {
     IMPORTS = "imports",
@@ -72,14 +56,6 @@ namespace ArchkeelGraphProtocol {
   export function isRelationshipKind(value: unknown): value is RelationshipKind {
     return relationshipKindValues.has(value);
   }
-  export function decodeRelationshipKind(value: unknown): RelationshipKind {
-    const token = relationshipKindValues.get(value);
-    if (token === undefined) throw new TypeError("Unsupported RelationshipKind");
-    return token;
-  }
-  export function encodeRelationshipKind(value: RelationshipKind): string {
-    return decodeRelationshipKind(value);
-  }
   // archkeel.ir.architecture_graph.PresenceKind
   export enum PresenceKind {
     DEFINED = "defined",
@@ -92,14 +68,6 @@ namespace ArchkeelGraphProtocol {
   );
   export function isPresenceKind(value: unknown): value is PresenceKind {
     return presenceKindValues.has(value);
-  }
-  export function decodePresenceKind(value: unknown): PresenceKind {
-    const token = presenceKindValues.get(value);
-    if (token === undefined) throw new TypeError("Unsupported PresenceKind");
-    return token;
-  }
-  export function encodePresenceKind(value: PresenceKind): string {
-    return decodePresenceKind(value);
   }
   // archkeel.ir.architecture_graph.ResolutionKind
   export enum ResolutionKind {
@@ -114,14 +82,6 @@ namespace ArchkeelGraphProtocol {
   export function isResolutionKind(value: unknown): value is ResolutionKind {
     return resolutionKindValues.has(value);
   }
-  export function decodeResolutionKind(value: unknown): ResolutionKind {
-    const token = resolutionKindValues.get(value);
-    if (token === undefined) throw new TypeError("Unsupported ResolutionKind");
-    return token;
-  }
-  export function encodeResolutionKind(value: ResolutionKind): string {
-    return decodeResolutionKind(value);
-  }
   // archkeel.ir.architecture_graph.VisibilityKind
   export enum VisibilityKind {
     PUBLIC = "public",
@@ -135,14 +95,6 @@ namespace ArchkeelGraphProtocol {
   );
   export function isVisibilityKind(value: unknown): value is VisibilityKind {
     return visibilityKindValues.has(value);
-  }
-  export function decodeVisibilityKind(value: unknown): VisibilityKind {
-    const token = visibilityKindValues.get(value);
-    if (token === undefined) throw new TypeError("Unsupported VisibilityKind");
-    return token;
-  }
-  export function encodeVisibilityKind(value: VisibilityKind): string {
-    return decodeVisibilityKind(value);
   }
   // archkeel.ir.architecture_graph.ParameterKind
   export enum ParameterKind {
@@ -159,14 +111,6 @@ namespace ArchkeelGraphProtocol {
   export function isParameterKind(value: unknown): value is ParameterKind {
     return parameterKindValues.has(value);
   }
-  export function decodeParameterKind(value: unknown): ParameterKind {
-    const token = parameterKindValues.get(value);
-    if (token === undefined) throw new TypeError("Unsupported ParameterKind");
-    return token;
-  }
-  export function encodeParameterKind(value: ParameterKind): string {
-    return decodeParameterKind(value);
-  }
   // archkeel.ir.architecture_graph.ModifierKind
   export enum ModifierKind {
     ABSTRACT = "abstract",
@@ -182,14 +126,6 @@ namespace ArchkeelGraphProtocol {
   export function isModifierKind(value: unknown): value is ModifierKind {
     return modifierKindValues.has(value);
   }
-  export function decodeModifierKind(value: unknown): ModifierKind {
-    const token = modifierKindValues.get(value);
-    if (token === undefined) throw new TypeError("Unsupported ModifierKind");
-    return token;
-  }
-  export function encodeModifierKind(value: ModifierKind): string {
-    return decodeModifierKind(value);
-  }
   // archkeel.ir.architecture_graph.ComponentRole
   export enum ComponentRole {
     COMPONENT = "component",
@@ -204,14 +140,6 @@ namespace ArchkeelGraphProtocol {
   export function isComponentRole(value: unknown): value is ComponentRole {
     return componentRoleValues.has(value);
   }
-  export function decodeComponentRole(value: unknown): ComponentRole {
-    const token = componentRoleValues.get(value);
-    if (token === undefined) throw new TypeError("Unsupported ComponentRole");
-    return token;
-  }
-  export function encodeComponentRole(value: ComponentRole): string {
-    return decodeComponentRole(value);
-  }
   // archkeel.ir.architecture_graph.AssessmentStatus
   export enum AssessmentStatus {
     PASS = "PASS",
@@ -223,14 +151,6 @@ namespace ArchkeelGraphProtocol {
   );
   export function isAssessmentStatus(value: unknown): value is AssessmentStatus {
     return assessmentStatusValues.has(value);
-  }
-  export function decodeAssessmentStatus(value: unknown): AssessmentStatus {
-    const token = assessmentStatusValues.get(value);
-    if (token === undefined) throw new TypeError("Unsupported AssessmentStatus");
-    return token;
-  }
-  export function encodeAssessmentStatus(value: AssessmentStatus): string {
-    return decodeAssessmentStatus(value);
   }
   // archkeel.ir.architecture_graph.AssessmentChange
   export enum AssessmentChange {
@@ -247,14 +167,6 @@ namespace ArchkeelGraphProtocol {
   export function isAssessmentChange(value: unknown): value is AssessmentChange {
     return assessmentChangeValues.has(value);
   }
-  export function decodeAssessmentChange(value: unknown): AssessmentChange {
-    const token = assessmentChangeValues.get(value);
-    if (token === undefined) throw new TypeError("Unsupported AssessmentChange");
-    return token;
-  }
-  export function encodeAssessmentChange(value: AssessmentChange): string {
-    return decodeAssessmentChange(value);
-  }
   // archkeel.ir.architecture_graph.GraphSchemaVersion
   export enum GraphSchemaVersion {
     V1_2_0 = "1.2.0",
@@ -266,13 +178,5 @@ namespace ArchkeelGraphProtocol {
   );
   export function isGraphSchemaVersion(value: unknown): value is GraphSchemaVersion {
     return graphSchemaVersionValues.has(value);
-  }
-  export function decodeGraphSchemaVersion(value: unknown): GraphSchemaVersion {
-    const token = graphSchemaVersionValues.get(value);
-    if (token === undefined) throw new TypeError("Unsupported GraphSchemaVersion");
-    return token;
-  }
-  export function encodeGraphSchemaVersion(value: GraphSchemaVersion): string {
-    return decodeGraphSchemaVersion(value);
   }
 }

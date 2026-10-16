@@ -14,17 +14,6 @@ var ArchkeelGraphProtocol;
         return originKindValues.has(value);
     }
     ArchkeelGraphProtocol.isOriginKind = isOriginKind;
-    function decodeOriginKind(value) {
-        const token = originKindValues.get(value);
-        if (token === undefined)
-            throw new TypeError("Unsupported OriginKind");
-        return token;
-    }
-    ArchkeelGraphProtocol.decodeOriginKind = decodeOriginKind;
-    function encodeOriginKind(value) {
-        return decodeOriginKind(value);
-    }
-    ArchkeelGraphProtocol.encodeOriginKind = encodeOriginKind;
     // archkeel.ir.architecture_graph.EntityKind
     let EntityKind;
     (function (EntityKind) {
@@ -49,17 +38,6 @@ var ArchkeelGraphProtocol;
         return entityKindValues.has(value);
     }
     ArchkeelGraphProtocol.isEntityKind = isEntityKind;
-    function decodeEntityKind(value) {
-        const token = entityKindValues.get(value);
-        if (token === undefined)
-            throw new TypeError("Unsupported EntityKind");
-        return token;
-    }
-    ArchkeelGraphProtocol.decodeEntityKind = decodeEntityKind;
-    function encodeEntityKind(value) {
-        return decodeEntityKind(value);
-    }
-    ArchkeelGraphProtocol.encodeEntityKind = encodeEntityKind;
     // archkeel.ir.architecture_graph.RelationshipKind
     let RelationshipKind;
     (function (RelationshipKind) {
@@ -80,17 +58,6 @@ var ArchkeelGraphProtocol;
         return relationshipKindValues.has(value);
     }
     ArchkeelGraphProtocol.isRelationshipKind = isRelationshipKind;
-    function decodeRelationshipKind(value) {
-        const token = relationshipKindValues.get(value);
-        if (token === undefined)
-            throw new TypeError("Unsupported RelationshipKind");
-        return token;
-    }
-    ArchkeelGraphProtocol.decodeRelationshipKind = decodeRelationshipKind;
-    function encodeRelationshipKind(value) {
-        return decodeRelationshipKind(value);
-    }
-    ArchkeelGraphProtocol.encodeRelationshipKind = encodeRelationshipKind;
     // archkeel.ir.architecture_graph.PresenceKind
     let PresenceKind;
     (function (PresenceKind) {
@@ -104,17 +71,6 @@ var ArchkeelGraphProtocol;
         return presenceKindValues.has(value);
     }
     ArchkeelGraphProtocol.isPresenceKind = isPresenceKind;
-    function decodePresenceKind(value) {
-        const token = presenceKindValues.get(value);
-        if (token === undefined)
-            throw new TypeError("Unsupported PresenceKind");
-        return token;
-    }
-    ArchkeelGraphProtocol.decodePresenceKind = decodePresenceKind;
-    function encodePresenceKind(value) {
-        return decodePresenceKind(value);
-    }
-    ArchkeelGraphProtocol.encodePresenceKind = encodePresenceKind;
     // archkeel.ir.architecture_graph.ResolutionKind
     let ResolutionKind;
     (function (ResolutionKind) {
@@ -128,17 +84,6 @@ var ArchkeelGraphProtocol;
         return resolutionKindValues.has(value);
     }
     ArchkeelGraphProtocol.isResolutionKind = isResolutionKind;
-    function decodeResolutionKind(value) {
-        const token = resolutionKindValues.get(value);
-        if (token === undefined)
-            throw new TypeError("Unsupported ResolutionKind");
-        return token;
-    }
-    ArchkeelGraphProtocol.decodeResolutionKind = decodeResolutionKind;
-    function encodeResolutionKind(value) {
-        return decodeResolutionKind(value);
-    }
-    ArchkeelGraphProtocol.encodeResolutionKind = encodeResolutionKind;
     // archkeel.ir.architecture_graph.VisibilityKind
     let VisibilityKind;
     (function (VisibilityKind) {
@@ -153,17 +98,6 @@ var ArchkeelGraphProtocol;
         return visibilityKindValues.has(value);
     }
     ArchkeelGraphProtocol.isVisibilityKind = isVisibilityKind;
-    function decodeVisibilityKind(value) {
-        const token = visibilityKindValues.get(value);
-        if (token === undefined)
-            throw new TypeError("Unsupported VisibilityKind");
-        return token;
-    }
-    ArchkeelGraphProtocol.decodeVisibilityKind = decodeVisibilityKind;
-    function encodeVisibilityKind(value) {
-        return decodeVisibilityKind(value);
-    }
-    ArchkeelGraphProtocol.encodeVisibilityKind = encodeVisibilityKind;
     // archkeel.ir.architecture_graph.ParameterKind
     let ParameterKind;
     (function (ParameterKind) {
@@ -179,17 +113,6 @@ var ArchkeelGraphProtocol;
         return parameterKindValues.has(value);
     }
     ArchkeelGraphProtocol.isParameterKind = isParameterKind;
-    function decodeParameterKind(value) {
-        const token = parameterKindValues.get(value);
-        if (token === undefined)
-            throw new TypeError("Unsupported ParameterKind");
-        return token;
-    }
-    ArchkeelGraphProtocol.decodeParameterKind = decodeParameterKind;
-    function encodeParameterKind(value) {
-        return decodeParameterKind(value);
-    }
-    ArchkeelGraphProtocol.encodeParameterKind = encodeParameterKind;
     // archkeel.ir.architecture_graph.ModifierKind
     let ModifierKind;
     (function (ModifierKind) {
@@ -205,17 +128,6 @@ var ArchkeelGraphProtocol;
         return modifierKindValues.has(value);
     }
     ArchkeelGraphProtocol.isModifierKind = isModifierKind;
-    function decodeModifierKind(value) {
-        const token = modifierKindValues.get(value);
-        if (token === undefined)
-            throw new TypeError("Unsupported ModifierKind");
-        return token;
-    }
-    ArchkeelGraphProtocol.decodeModifierKind = decodeModifierKind;
-    function encodeModifierKind(value) {
-        return decodeModifierKind(value);
-    }
-    ArchkeelGraphProtocol.encodeModifierKind = encodeModifierKind;
     // archkeel.ir.architecture_graph.ComponentRole
     let ComponentRole;
     (function (ComponentRole) {
@@ -230,17 +142,6 @@ var ArchkeelGraphProtocol;
         return componentRoleValues.has(value);
     }
     ArchkeelGraphProtocol.isComponentRole = isComponentRole;
-    function decodeComponentRole(value) {
-        const token = componentRoleValues.get(value);
-        if (token === undefined)
-            throw new TypeError("Unsupported ComponentRole");
-        return token;
-    }
-    ArchkeelGraphProtocol.decodeComponentRole = decodeComponentRole;
-    function encodeComponentRole(value) {
-        return decodeComponentRole(value);
-    }
-    ArchkeelGraphProtocol.encodeComponentRole = encodeComponentRole;
     // archkeel.ir.architecture_graph.AssessmentStatus
     let AssessmentStatus;
     (function (AssessmentStatus) {
@@ -253,17 +154,6 @@ var ArchkeelGraphProtocol;
         return assessmentStatusValues.has(value);
     }
     ArchkeelGraphProtocol.isAssessmentStatus = isAssessmentStatus;
-    function decodeAssessmentStatus(value) {
-        const token = assessmentStatusValues.get(value);
-        if (token === undefined)
-            throw new TypeError("Unsupported AssessmentStatus");
-        return token;
-    }
-    ArchkeelGraphProtocol.decodeAssessmentStatus = decodeAssessmentStatus;
-    function encodeAssessmentStatus(value) {
-        return decodeAssessmentStatus(value);
-    }
-    ArchkeelGraphProtocol.encodeAssessmentStatus = encodeAssessmentStatus;
     // archkeel.ir.architecture_graph.AssessmentChange
     let AssessmentChange;
     (function (AssessmentChange) {
@@ -279,17 +169,6 @@ var ArchkeelGraphProtocol;
         return assessmentChangeValues.has(value);
     }
     ArchkeelGraphProtocol.isAssessmentChange = isAssessmentChange;
-    function decodeAssessmentChange(value) {
-        const token = assessmentChangeValues.get(value);
-        if (token === undefined)
-            throw new TypeError("Unsupported AssessmentChange");
-        return token;
-    }
-    ArchkeelGraphProtocol.decodeAssessmentChange = decodeAssessmentChange;
-    function encodeAssessmentChange(value) {
-        return decodeAssessmentChange(value);
-    }
-    ArchkeelGraphProtocol.encodeAssessmentChange = encodeAssessmentChange;
     // archkeel.ir.architecture_graph.GraphSchemaVersion
     let GraphSchemaVersion;
     (function (GraphSchemaVersion) {
@@ -302,17 +181,6 @@ var ArchkeelGraphProtocol;
         return graphSchemaVersionValues.has(value);
     }
     ArchkeelGraphProtocol.isGraphSchemaVersion = isGraphSchemaVersion;
-    function decodeGraphSchemaVersion(value) {
-        const token = graphSchemaVersionValues.get(value);
-        if (token === undefined)
-            throw new TypeError("Unsupported GraphSchemaVersion");
-        return token;
-    }
-    ArchkeelGraphProtocol.decodeGraphSchemaVersion = decodeGraphSchemaVersion;
-    function encodeGraphSchemaVersion(value) {
-        return decodeGraphSchemaVersion(value);
-    }
-    ArchkeelGraphProtocol.encodeGraphSchemaVersion = encodeGraphSchemaVersion;
 })(ArchkeelGraphProtocol || (ArchkeelGraphProtocol = {}));
 // Native graph scene values. Wire vocabularies are generated from Python owners.
 var ArchkeelGraphSceneProtocol;

@@ -22,7 +22,6 @@ jobs:
       - run: uv sync --locked
       - name: Exact committed artifacts, actual checkJs and authored Target
         run: |
-          make browser-graph-generate
           make browser-graph-check
       - name: Whole existing lint, mypy and repository hygiene
         run: |
