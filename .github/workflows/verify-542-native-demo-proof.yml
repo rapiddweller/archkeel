@@ -30,6 +30,7 @@ jobs:
       - run: uv sync --locked
       - name: Unchanged native full-source Compass and Nest reports
         run: |
+          mkdir -p test-artifacts
           uv run --locked python -m pytest -q --tb=short --durations=5 --basetemp=test-artifacts/native-demo-proof --junitxml=test-artifacts/native-demo-proof.xml \
             tests/test_compass_project_report.py::test_compass_reports_keep_target_comparison_and_partial_coverage_distinct \
             tests/test_nest_realworld_project_report.py::test_nest_realworld_catalog_and_reports_preserve_full_target_with_partial_coverage
