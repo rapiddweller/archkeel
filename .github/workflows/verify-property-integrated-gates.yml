@@ -1,0 +1,54 @@
+name: Verify integrated Property owner against pinned reviewed predecessor
+on:
+  push:
+    branches: [verify/542-property-integrated-gates]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: e5215b1403d98522003220b4c240aae9b011575f
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Generate normal Property receipt and replay without debt acceptance
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 8a56d6d09e16372b43064798cc0b24428daa5e5f --amendment docs/architecture/decisions/issue-542-property-owner-amendment.json --write-amendment --decided-by ake2l --rationale "Give existing property binding facts one immutable typed owner and preserve the legacy wire and constructor ports." > "$RUNNER_TEMP/property-intent.json"
+          task_write=$?
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 8a56d6d09e16372b43064798cc0b24428daa5e5f --amendment docs/architecture/decisions/issue-542-property-owner-amendment.json > "$RUNNER_TEMP/property-replay.json"
+          task_replay=$?
+          python - <<'PY'
+          import json,os,pathlib
+          for stage in ("intent","replay"):
+              data=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/f"property-{stage}.json").read_text())
+              print("INTEGRATED_PROPERTY_RESULT="+json.dumps({"stage":stage,**{k:data.get(k) for k in ("exit_code","failures","diagnostics","measurements","widenings","amendment_status")}},separators=(",",":")))
+          receipt=pathlib.Path("docs/architecture/decisions/issue-542-property-owner-amendment.json")
+          if receipt.exists():
+              print("INTEGRATED_PROPERTY_AMENDMENT="+receipt.read_text().replace("\n",""))
+          PY
+          test "$task_write" -eq 0 && test "$task_replay" -eq 0
+  compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: e5215b1403d98522003220b4c240aae9b011575f
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Check real combined Property Source/Core compatibility and quality
+        run: |
+          make lint typecheck
+          uv run --locked python -m pytest -n 2 --dist=loadfile -q tests/test_typed_python_properties.py tests/test_property_uml.py tests/test_uml_properties.py tests/test_collection_protocol.py tests/test_typed_amendment_artifact.py tests/test_repository_hygiene.py
