@@ -9,6 +9,10 @@ the comparison is SUPPORTED (AD-5). It also needs a decision to contradict: the 
 read from the observation's own declaration records, never from a contract file (AD-10),
 and without a declared owner the claim stays empty rather than reporting every structural
 twin in the repository, which no architect ever decided.
+
+Complete existing call evidence can distinguish structural twins that call different
+canonical declarations. This only refines a review question; it proves no runtime behavior
+or constructor result type. Missing or ambiguous evidence retains the original candidate.
 """
 
 from __future__ import annotations
@@ -16,7 +20,18 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 
-from .model import FUNCTION_KINDS, ComparisonStatus, Observation, in_scope, int_value, text_value
+from .architecture_graph import ResolutionKind
+from .model import (
+    FUNCTION_KINDS,
+    ComparisonStatus,
+    Evidence,
+    Observation,
+    Record,
+    Verdict,
+    in_scope,
+    int_value,
+    text_value,
+)
 
 # Measured on Archkeel: below ten nodes the twins are shapes Python forces, not copies. The
 # eight-node group is visit_FunctionDef/visit_AsyncFunctionDef, which ast.NodeVisitor makes
@@ -74,8 +89,92 @@ def _shapes(observation: Observation) -> dict[tuple[str, int], list[str]] | None
     return dict(grouped) if seen_shape else None
 
 
+def _call_target(record: Record) -> str | None:
+    """Accept one already-resolved callee, without interpreting constructor results."""
+    try:
+        status = ResolutionKind(text_value(record.data.get("status")))
+    except ValueError:
+        return None
+    targets = record.data.get("targets")
+    count = record.data.get("candidate_count")
+    if (
+        status != ResolutionKind.RESOLVED
+        or record.data.get("candidates_truncated") is not False
+        or not isinstance(count, int)
+        or isinstance(count, bool)
+        or count != 1
+        or not isinstance(targets, tuple)
+        or len(targets) != 1
+        or not isinstance(targets[0], str)
+        or not targets[0]
+    ):
+        return None
+    return targets[0]
+
+
+def _resolved_calls(observation: Observation) -> dict[str, tuple[str, ...]]:
+    """Keep complete ordered call sequences; absence means no basis to exclude a pair."""
+    calls = observation.records("calls")
+    if (
+        calls is None
+        or observation.coverage.status != Verdict.PASS
+        or observation.coverage.calls_analyzed != len(calls)
+    ):
+        return {}
+    definitions: dict[str, Record | None] = {}
+    for symbol in observation.records("symbols") or ():
+        if symbol.kind in FUNCTION_KINDS and (
+            name := text_value(symbol.data.get("qualified_name"))
+        ):
+            definitions[name] = None if name in definitions else symbol
+    grouped: dict[str, list[Record]] = defaultdict(list)
+    for record in calls:
+        name = text_value(record.data.get("source_scope"))
+        if name in definitions:
+            rows: list[Record] = grouped[name]
+            rows.append(record)
+    evidence: dict[str, Evidence] = {item.id: item for item in observation.evidence}
+    result: dict[str, tuple[str, ...]] = {}
+    for name, rows in grouped.items():
+        definition = definitions[name]
+        if definition is None or len(definition.evidence_ids) != 1:
+            continue
+        origin = evidence.get(definition.evidence_ids[0])
+        if origin is None:
+            continue
+        positions: dict[tuple[int, int], str] = {}
+        for record in rows:
+            if (
+                record.data.get("source_definition_id") != definition.id
+                or len(record.evidence_ids) != 1
+            ):
+                break
+            location = evidence.get(record.evidence_ids[0])
+            target = _call_target(record)
+            if (
+                location is None
+                or location.file != origin.file
+                or not origin.line <= location.line <= origin.end_line
+                or location.column < 0
+                or (location.line, location.column) in positions
+                or target is None
+            ):
+                break
+            positions[(location.line, location.column)] = target
+        else:
+            result[name] = tuple(positions[position] for position in sorted(positions))
+    return result
+
+
+def _compatible_calls(left: tuple[str, ...] | None, right: tuple[str, ...] | None) -> bool:
+    return not left or not right or len(left) != len(right) or left == right
+
+
 def _repetitions(
-    owner: str, responsibility: str, groups: dict[tuple[str, int], list[str]]
+    owner: str,
+    responsibility: str,
+    groups: dict[tuple[str, int], list[str]],
+    calls: dict[str, tuple[str, ...]],
 ) -> list[RepeatedLogic]:
     found: list[RepeatedLogic] = []
     for (_, nodes), names in groups.items():
@@ -85,16 +184,17 @@ def _repetitions(
         outside = sorted(name for name in names if not in_scope(name, owner))
         if not inside or not outside:
             continue
-        found.extend(
-            RepeatedLogic(
-                owner=owner,
-                responsibility=responsibility,
-                inside=inside[0],
-                outside=name,
-                shape_nodes=nodes,
+        for name in outside:
+            match = next(
+                (
+                    candidate
+                    for candidate in inside
+                    if _compatible_calls(calls.get(candidate), calls.get(name))
+                ),
+                None,
             )
-            for name in outside
-        )
+            if match is not None:
+                found.append(RepeatedLogic(owner, responsibility, match, name, nodes))
     return found
 
 
@@ -104,9 +204,10 @@ def repeated_logic(observation: Observation) -> OwnedLogic:
     if groups is None:
         return OwnedLogic("UNKNOWN")
     owners = _owners(observation)
+    calls = _resolved_calls(observation)
     candidates: list[RepeatedLogic] = []
     for owner, responsibility in owners:
-        candidates.extend(_repetitions(owner, responsibility, groups))
+        candidates.extend(_repetitions(owner, responsibility, groups, calls))
     return OwnedLogic(
         "SUPPORTED",
         owners=len(owners),
