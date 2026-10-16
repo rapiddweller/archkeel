@@ -1,0 +1,81 @@
+name: Native dependency regression verification
+on:
+  push:
+    branches: [aux/issue-542-native-boundary-regressions]
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.12.13
+          python-version: 3.11.12
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - run: make lint typecheck
+      - run: uv run --locked pytest -q tests/test_repository_hygiene.py
+  dependency-and-layers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.12.13
+          python-version: 3.11.12
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - name: Verify real Target, source mutations, guard and complete layer tests
+        run: uv run --locked pytest -n 2 --dist=loadfile --max-worker-restart=0 -q tests/test_dependency_api_target.py tests/test_dependency_typed_control.py tests/test_layers.py --tb=short
+      - name: Actual CLI stays usable with the bounded fixture
+        run: |
+          uv run --locked python - <<'PY'
+          import contextlib,io,json,sys,tempfile
+          from pathlib import Path
+          sys.path.insert(0,str(Path("tests").resolve()))
+          from test_dependency_api_target import _dependency_repository
+          from archkeel.cli import main
+          with tempfile.TemporaryDirectory() as directory:
+              root,_=_dependency_repository(Path(directory))
+              (root/"archkeel.toml").write_text('[scan]\nroots = ["archkeel"]\nnamespace = "archkeel"\ncontract = "contract.json"\n')
+              stream=io.StringIO()
+              with contextlib.redirect_stdout(stream):
+                  code=main(["report","--root",str(root),"--output",str(Path(directory)/"cli-report.json"),"--json"])
+              result=json.loads(stream.getvalue())
+              print("NATIVE_DEPENDENCY_CLI_GREEN",json.dumps({"exit_code":code,"diagnostics":result["diagnostics"]}))
+              assert code==0 and result["diagnostics"]==[]
+          PY
+      - name: Export existing API identity and prove the diagnostic leaf did not change
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import ast,json,subprocess,tempfile
+          from pathlib import Path
+          from archkeel.ir.codec import decode_canonical_model,parse_observation
+          from archkeel.ir.facts_codec import thaw_data
+          for path in sorted(Path(tempfile.gettempdir()).glob("pytest-of-*/pytest-*/self-report/architecture.json")):
+              model=parse_observation(decode_canonical_model(json.loads(path.read_text())))
+              rows=[{"id":row.id,"kind":row.kind,"data":thaw_data(row.data)} for row in model.records("unknowns") or () if row.kind=="boundary_type_position" and row.data.get("qualified_name")=="archkeel.render.html.render_architecture_details"]
+              print("NATIVE_EXISTING_RENDER_API_POSITION",json.dumps(rows,sort_keys=True))
+          def definitions(source):
+              tree=ast.parse(source)
+              diagnostic=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=="Diagnostic")
+              alias=next(node for node in tree.body if isinstance(node,ast.AnnAssign) and isinstance(node.target,ast.Name) and node.target.id=="DiagnosticKind")
+              result=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=="RunResult")
+              field=next(node for node in result.body if isinstance(node,ast.AnnAssign) and isinstance(node.target,ast.Name) and node.target.id=="diagnostics")
+              return {name:ast.dump(node,include_attributes=False) for name,node in (("Diagnostic",diagnostic),("DiagnosticKind",alias),("RunResult.diagnostics",field))}
+          before=definitions(subprocess.check_output(["git","show","7b2a14de58eb18be716c8eadef5c43928ec464a5:src/archkeel/ir/model.py"],text=True))
+          after=definitions(Path("src/archkeel/ir/model.py").read_text())
+          print("NATIVE_EXISTING_DIAGNOSTIC_LEAF_DEFINITIONS",json.dumps({key:before[key]==after[key] for key in before}))
+          assert before==after
+          PY
