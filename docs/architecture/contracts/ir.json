@@ -269,9 +269,7 @@
         "archkeel.ir.amendment:AmendmentVersion",
         "archkeel.ir.amendment:AmendmentStatus",
         "archkeel.ir.amendment:Amendment",
-        "archkeel.ir.amendment:verify_amendment",
-        "archkeel.ir.amendment_codec:parse_amendment",
-        "archkeel.ir.amendment_codec:amendment_bytes"
+        "archkeel.ir.amendment:verify_amendment"
       ]
     },
     {

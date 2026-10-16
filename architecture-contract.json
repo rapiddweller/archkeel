@@ -157,9 +157,7 @@
         "archkeel.ir.amendment:AmendmentVersion",
         "archkeel.ir.amendment:AmendmentStatus",
         "archkeel.ir.amendment:Amendment",
-        "archkeel.ir.amendment:verify_amendment",
-        "archkeel.ir.amendment_codec:parse_amendment",
-        "archkeel.ir.amendment_codec:amendment_bytes"
+        "archkeel.ir.amendment:verify_amendment"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
@@ -795,11 +793,13 @@
         "archkeel.analyzer.runtime",
         "archkeel.cli.config",
         "archkeel.check.runtime",
-        "archkeel.ir.contract_version"
+        "archkeel.ir.contract_version",
+        "archkeel.ir.amendment"
       ],
-      "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags and consumers use published nominal types. Contract versions and feature availability belong to contract_version.",
+      "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags and consumers use published nominal types. Contract versions and feature availability belong to contract_version. Amendment versions and verification outcomes belong to the coherent immutable amendment artifact owner.",
       "provenance": [
-        "docs/architecture/archkeel.md"
+        "docs/architecture/archkeel.md",
+        "docs/architecture/typed-amendment-artifact.md"
       ],
       "decided_by": "architect"
     },

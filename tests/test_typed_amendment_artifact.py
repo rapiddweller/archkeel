@@ -127,7 +127,8 @@ def _contract():
     contract["rules"] = [
         row
         for row in root["rules"]
-        if row["id"] in {"AMENDMENT-ARTIFACT-TYPED-CONTROL", "AMENDMENT-CODEC-TYPED-CONTROL"}
+        if row["id"] in {"AMENDMENT-ARTIFACT-TYPED-CONTROL", "AMENDMENT-CODEC-TYPED-CONTROL",
+            "TYPES-ENUM-IN-MODEL"}
     ]
     return contract
 
@@ -283,3 +284,17 @@ def test_governance_legacy_value_and_version_names_keep_owned_identity():
     owner = _owner()
     assert codec_governance.Amendment is owner.Amendment
     assert codec_governance.AMENDMENT_SCHEMA_VERSION is owner.AMENDMENT_SCHEMA_VERSION
+
+
+def test_native_enum_placement_keeps_the_codec_outside_the_domain_owner(tmp_path):
+    root, config = _repository(tmp_path)
+    _valid(_observe(root, config))
+    source = root / "archkeel/ir/amendment_codec.py"
+    source.write_text(
+        source.read_text()
+        + '\nfrom enum import StrEnum\n\nclass _CodecControl(StrEnum):\n    V1 = "1.0.0"\n'
+    )
+    value = _observe(root, config)
+    assert any(
+        "TYPES-ENUM-IN-MODEL" in row.rule_ids for row in trace_valid_violations(value)
+    )
