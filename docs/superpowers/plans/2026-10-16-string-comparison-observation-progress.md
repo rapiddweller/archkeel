@@ -32,3 +32,20 @@ Ruling: inspect stdlib enum bases and member extraction through nominal AST Name
 Ruling: reject multi-target Assign nodes instead of adding an alias graph — chained initializers can expose a container through another name or attribute — shared initializers remain conservatively unclassified even if no later mutation is visible.
 
 Ruling: require a named collection load to be the final comparator under a final In/NotIn operator — a middle comparator also supplies the next comparison's left operand — ordinary named In and NotIn detection remains covered by native positive controls.
+
+## Literal membership needle expansion
+
+- Base 95f514d362eef18cdd07fec50de1b7f46e94545c preserves the Astra-approved collection-role fix, State and the full-suite test-only corrections.
+- AD48 originally covered literal collections and AD80 adds existing local scalar binding evidence. The expanded parser/protocol requirement also needs the literal scalar as a membership needle.
+- [x] Reproduce literal/bytes/local-scalar left needles with native trace-valid failures; keep enum/data-variable/shadow/import controls accepted.
+- [x] Extend only the In/NotIn branch through existing scalar(left); retain collection-side role restrictions and all binding limits.
+- [x] Run collector/source-binding/State regressions, Ruff/Mypy/hygiene and the unchanged 65/919 native baseline; report any newly exposed protected protocol sites.
+
+- Needle RED 38936689361: 10 expected failures / 40 passed; nine real needle forms and the old literal-in-text exclusion exposed missing observations.
+- Needle GREEN 38936967356, candidate 2825b514e90c4afad7f2433b87bf61116ef06c3c: 496 collector, State, source/binding and hygiene tests passed; Ruff passed; Mypy passed for 132 source files.
+- Native validation exit 0, no diagnostics/failures: 65 unknown positions / 919 unresolved calls / 0 violations. The stronger observer exposes no newly failing protected State site.
+- The formatter changed only the new native test formatting; that exported patch is applied to the product file. Product source and legacy test changes were already unchanged by formatting.
+
+Ruling: membership can have a literal vocabulary on either side — a literal or already supported module/class scalar needle is sufficient syntax evidence — reusing scalar(left) adds no runtime type or namespace inference and preserves collection-side alias/role exclusions.
+
+Ruling: enum members and arbitrary data variables stay unclassified as literal needles; explicit enum value extraction uses the existing scalar proof, while imported arbitrary values remain unsupported — native controls distinguish these boundaries — this does not claim a universal semantic string ban.

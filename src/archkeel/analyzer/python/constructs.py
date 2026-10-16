@@ -304,7 +304,9 @@ class _LiteralComparisons:
                 self.scalar(left) or self.scalar(right)
             ):
                 return "compare"
-            if isinstance(operator, ast.In | ast.NotIn) and self.collection(right):
+            if isinstance(operator, ast.In | ast.NotIn) and (
+                self.scalar(left) or self.collection(right)
+            ):
                 return "membership"
         return None
 

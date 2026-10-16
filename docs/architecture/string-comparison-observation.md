@@ -8,6 +8,8 @@ A scoped `forbidden_construct` rule selecting `string_literal_compare` rejects:
 
 - equality and inequality with text or bytes literals;
 - membership in a nonempty literal tuple, list or set of those values;
+- text/bytes literals or supported module/class scalar bindings as the needle
+  of `in`/`not in`, including parser tokens such as `"node_modules" in path.split("/")`;
 - literal value patterns in `match`, including nested sequence patterns;
 - direct, unambiguous module/class literal bindings, including `Final` annotations;
 - direct named module literal collections whose visible loads are only membership;
@@ -36,7 +38,7 @@ Mapping-pattern keys are structure; a string key alone is not a value comparison
 Imported runtime constants, arbitrary attribute properties, computed expressions,
 dynamic namespace changes and collection aliases are not followed. An undecidable
 value is not reported as a literal merely because its spelling resembles a keyword.
-Calls such as `startswith`, substring/byte-subsequence tests and arbitrary
+Calls such as `startswith`, arbitrary data-variable membership and arbitrary
 string-to-string data comparisons are outside this syntactic construct. The rule
 therefore cannot certify a semantic ban on every possible raw protocol comparison.
 No compiler, signature, member-binding or native type-proof receipt is added.

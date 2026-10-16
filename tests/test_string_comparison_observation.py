@@ -136,13 +136,14 @@ def test_native_controls_do_not_infer_literal_runtime_values(tmp_path, source):
     assert trace_valid_violations(result.observation) == ()
 
 
-def test_cross_module_imported_runtime_values_remain_an_explicit_limit(tmp_path):
+@pytest.mark.parametrize("expression", ["value == TOKEN", "TOKEN in value", "TOKEN not in value"])
+def test_cross_module_imported_runtime_values_remain_an_explicit_limit(tmp_path, expression):
     result = _observe_one_rule(
         tmp_path,
         RULE,
         {
             "core.py": "from sample.cli import TOKEN\n"
-            "def parse(value):\n    return value == TOKEN\n",
+            f"def parse(value):\n    return {expression}\n",
             "cli.py": 'TOKEN = "import"\n',
         },
     )
@@ -206,6 +207,70 @@ def test_enum_value_requires_a_direct_stdlib_enum_base_import(tmp_path, prefix, 
     ],
 )
 def test_native_collection_alias_and_chained_roles_are_unclassified(tmp_path, source):
+    result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
+    assert result.diagnostics == () and result.observation is not None
+    assert not [
+        row
+        for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
+    assert trace_valid_violations(result.observation) == ()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'def parse(path):\n    return "node_modules" in path.split("/")\n',
+        'def parse(text):\n    return "import" not in text\n',
+        'def parse(content):\n    return b"import" in content\n',
+        'def parse(content):\n    return b"import" not in content\n',
+        'NEEDLE = "import"\ndef parse(values):\n    return NEEDLE in values\n',
+        'from typing import Final\nNEEDLE: Final[str] = "import"\n'
+        "def parse(values):\n    return NEEDLE not in values\n",
+        'NEEDLE = b"import"\ndef parse(values):\n    return NEEDLE in values\n',
+        'class Words:\n    IMPORT = "import"\n'
+        "def parse(values):\n    return Words.IMPORT in values\n",
+        ENUM + "def parse(values):\n    return Token.IMPORT.value in values\n",
+    ],
+    ids=[
+        "parser-literal-needle",
+        "not-in-text",
+        "bytes-needle",
+        "not-in-bytes",
+        "module-scalar",
+        "final-scalar-not-in",
+        "module-bytes",
+        "class-scalar",
+        "enum-value",
+    ],
+)
+def test_native_literal_membership_needles_have_trace_valid_failures(tmp_path, source):
+    result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
+    assert result.diagnostics == () and result.observation is not None
+    comparisons = [
+        row
+        for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
+    assert [row.data.get("form") for row in comparisons] == ["membership"]
+    assert [(row.kind, row.rule_ids) for row in trace_valid_violations(result.observation)] == [
+        ("forbidden_construct", ("RULE",))
+    ]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        ENUM + "def parse(values):\n    return Token.IMPORT in values\n",
+        "def parse(needle: str, values: tuple[str, ...]):\n    return needle in values\n",
+        'NEEDLE = "import"\ndef parse(NEEDLE, values):\n    return NEEDLE in values\n',
+        'NEEDLE = "import"\ndef parse(values):\n'
+        "    NEEDLE = read_word()\n    return NEEDLE in values\n",
+        "NEEDLE = read_word()\ndef parse(values):\n    return NEEDLE in values\n",
+    ],
+    ids=["enum-needle", "data-needle", "shadowed-scalar-needle", "local-needle", "dynamic-needle"],
+)
+def test_native_typed_or_unproven_membership_needles_have_no_literal_claim(tmp_path, source):
     result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
     assert result.diagnostics == () and result.observation is not None
     assert not [

@@ -1232,7 +1232,7 @@ def test_collect_constructs_detects_reflection_as_written(
         ("ok = mode in ()\n", []),
         ('ok = mode in {"a": 1}\n', []),
         ("ok = mode in names\n", []),
-        ('ok = "a" in text\n', []),
+        ('ok = "a" in text\n', [("sample.mod", "membership")]),
         ('ok = mode.startswith("a")\n', []),
         (
             "match point:\n    case Point():\n        pass\n"
