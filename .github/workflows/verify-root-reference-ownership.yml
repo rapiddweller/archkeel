@@ -1,0 +1,23 @@
+name: Root reference and ownership regression RED
+on:
+  push:
+    branches: [verify/542-root-reference-ownership-red]
+permissions:
+  contents: read
+jobs:
+  actual-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 309b0c6388c5906c6b314ce72ad947a8fd272613
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Verify actual State alias and explicit retained legacy candidate
+        run: |
+          uv run --locked python -m pytest -q tests/test_references.py::test_the_claim_stays_small_enough_to_read tests/test_references.py::test_legacy_badge_state_is_an_import_of_its_owned_enum tests/test_self.py::test_self_analyzer_inside_covers_its_modules
