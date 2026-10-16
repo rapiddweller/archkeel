@@ -18,6 +18,7 @@ fingerprint without reading Git itself.
 
 from __future__ import annotations
 
+import builtins as _builtins
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from dataclasses import fields as dataclass_fields
@@ -238,11 +239,15 @@ def _generic_field_widenings(
         before_value = before_values[field.name]
         after_value = after_values[field.name]
         if before_value != after_value:
+            before_text, after_text = (
+                repr(_builtins.str.__str__(value) if isinstance(value, str) else value)
+                for value in (before_value, after_value)
+            )
             findings.append(
                 WideningChange(
                     subject,
                     field.name,
-                    f"{subject}.{field.name} changed from {before_value!r} to {after_value!r}",
+                    f"{subject}.{field.name} changed from {before_text} to {after_text}",
                 )
             )
     return findings
