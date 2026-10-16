@@ -84,6 +84,9 @@ jobs:
               def evidence_key(e):
                   if e["file"]!=OWNER:return e["id"]
                   pos=(e["line"],e["end_line"],e["column"])
+                  if not positions.get(pos) and pos==(1,1,0):
+                      assert e["excerpt"]==source(rev).splitlines()[0],("module_header",label,e)
+                      return e["id"]
                   assert positions.get(pos),("missing_ast",label,e)
                   return encode(("source-evidence",OWNER,sorted(positions[pos],key=encode)))
               references.update({e["id"]:evidence_key(e) for e in model["evidence"]})
