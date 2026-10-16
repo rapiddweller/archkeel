@@ -72,8 +72,9 @@ jobs:
                   location=(node.lineno,node.end_lineno,node.col_offset)
                   positions[location].append(key)
                   if isinstance(node,ast.Call):
-                      assert location not in call_positions,location
-                      call_positions[location]=(key,scope.qualified_name,ast.unparse(node.func))
+                      call_key=(*location,ast.unparse(node.func))
+                      assert call_key not in call_positions,call_key
+                      call_positions[call_key]=(key,scope.qualified_name,ast.unparse(node.func))
               return positions,call_positions,scope_names
           def canonical(label,rev):
               model=json.loads(gzip.decompress((DIR/f"{label}.json.gz").read_bytes()))
@@ -97,7 +98,7 @@ jobs:
                   if d["source_module"]=="archkeel.check.evaluation.boundary_types":
                       assert len(row["evidence_ids"])==1
                       e=citations[row["evidence_ids"][0]]
-                      key,scope,expression=call_positions[(e["line"],e["end_line"],e["column"])]
+                      key,scope,expression=call_positions[(e["line"],e["end_line"],e["column"],d["expression"])]
                       assert scope==d["source_scope"],(scope,d["source_scope"])
                       assert expression==d["expression"],(expression,d["expression"])
                       references[row["id"]]=encode(("call",OWNER,key))
