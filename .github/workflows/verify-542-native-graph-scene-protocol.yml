@@ -27,6 +27,9 @@ jobs:
           npx --yes --package typescript@5.9.3 tsc --strict --target ES2022 --module none --outFile src/archkeel/render/assets/report-graph-protocol.js src/archkeel/render/assets/report-graph-vocabulary.ts src/archkeel/render/assets/report-graph-protocol.ts
       - name: Check the actual native graph scene consumer
         run: npx --yes --package typescript@5.9.3 tsc --strict --allowJs --checkJs --noEmit --target ES2022 --module none src/archkeel/render/assets/report-graph-vocabulary.ts src/archkeel/render/assets/report-graph-protocol.ts src/archkeel/render/assets/report-graph-scene.js
+      - run: make browser-install
+      - name: Actual ingress and existing scene/layout runtime
+        run: uv run --locked --with playwright==1.62.0 python -m pytest -q tests/test_graph_scene_protocol.py tests/test_report_renderer_units.py
       - name: Export deterministic artifacts and source formatting
         if: always()
         run: |

@@ -187,7 +187,12 @@ def test_report_scene_projection_is_stable_and_does_not_mutate_payload():
             ],
             "component_intents": [],
         },
-        "target": {"origin": "declared", "entities": [], "relationships": [], "component_intents": []},
+        "target": {
+            "origin": "declared",
+            "entities": [],
+            "relationships": [],
+            "component_intents": [],
+        },
         "memberships": [],
         "findings": [],
         "decision_gaps": [],

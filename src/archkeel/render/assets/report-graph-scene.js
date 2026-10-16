@@ -28,6 +28,12 @@ var ArchkeelGraphScene = (function () {
       if (!index) throw new Error("Scene graph index was not initialized");
       return index;
     }
+    /** @param {Graph} graph @param {string | undefined} id @returns {string} */
+    function endpointName(graph, id) {
+      const entity = graph.entities.find((item) => item.id === id);
+      if (!entity) throw new TypeError("Scene relationship endpoint is missing");
+      return entity.qualified_name;
+    }
     /** @param {Context} context @returns {ArchkeelGraphSceneProtocol.Comparison | null} */
     function comparisonFor(context) {
       const comparison = context.comparison ?? null;
@@ -93,7 +99,8 @@ var ArchkeelGraphScene = (function () {
     /** @param {Entity} entity @param {Graph} graph @returns {string | null} */
     function architectureParent(entity, graph) {
       const parents = graphIndexes.get(graph)?.parents;
-      if (parents?.has(entity.id)) return parents.get(entity.id);
+      const recordedParent = parents?.get(entity.id);
+      if (recordedParent !== undefined) return recordedParent;
       if (entity.kind === G.EntityKind.COMPONENT) return componentIntents(graph.origin === G.OriginKind.OBSERVED ? DATA.target : graph)
         .find((item) => item.component_id === entity.id)?.parent_id ?? entity.parent_id;
       if (graph.origin === G.OriginKind.OBSERVED && entity.kind === G.EntityKind.MODULE) {
@@ -132,6 +139,7 @@ var ArchkeelGraphScene = (function () {
       if (entity.kind === G.EntityKind.ENUM_LITERAL) return name;
       let text = `${visibility.get(entity.visibility?.kind ?? G.VisibilityKind.UNKNOWN)} ${includeName ? name : ""}`;
       if (entity.signature) {
+        /** @type {string[]} */
         const parameters = [];
         let keywordSeparator = false;
         entity.signature.parameters.forEach((parameter, index, all) => {
@@ -185,7 +193,8 @@ var ArchkeelGraphScene = (function () {
         && entity.presence !== G.PresenceKind.REFERENCED && (!componentOverview || entity.kind === G.EntityKind.COMPONENT));
       const visible = new Map(local.map((entity) => [entity.id, entity]));
       const localIds = new Set(visible.keys());
-      const operationScope = [G.EntityKind.METHOD, G.EntityKind.FUNCTION].includes((scope === null ? undefined : byId.get(scope))?.kind);
+      const scopeKind = scope === null ? undefined : byId.get(scope)?.kind;
+      const operationScope = scopeKind === G.EntityKind.METHOD || scopeKind === G.EntityKind.FUNCTION;
       const coarse = scope === null || (scope === null ? undefined : byId.get(scope))?.kind === G.EntityKind.COMPONENT;
       /** @param {string | null} id @returns {string | null} */
       const representative = (id) => {
@@ -194,10 +203,11 @@ var ArchkeelGraphScene = (function () {
         let classifier = null;
         let module = null;
         let component = null;
-        while (current !== null && byId.has(current)) {
-          if (localIds.has(current)) return current;
-          if (current === scope) return current === id && byId.get(current).kind !== G.EntityKind.COMPONENT ? current : null;
+        while (current !== null) {
           const entity = byId.get(current);
+          if (!entity) break;
+          if (localIds.has(current)) return current;
+          if (current === scope) return current === id && entity.kind !== G.EntityKind.COMPONENT ? current : null;
           if (!classifier && [G.EntityKind.CLASS, G.EntityKind.INTERFACE, G.EntityKind.ENUM, G.EntityKind.MIXIN].includes(entity.kind)) classifier = current;
           if (!module && entity.kind === G.EntityKind.MODULE) module = current;
           if (coarse && !component && entity.kind === G.EntityKind.COMPONENT) component = current;
@@ -240,8 +250,13 @@ var ArchkeelGraphScene = (function () {
       };
       /** @param {string} id @returns {Entry | null} */
       const observedRepresentative = (id) => {
-        let current = id, child = id, classifier = null, module = null;
-        while (current !== null && observedById.has(current)) {
+        if (!observed) return null;
+        /** @type {string | null} */
+        let current = id;
+        let child = id, classifier = null, module = null;
+        while (current !== null) {
+          const entity = observedById.get(current);
+          if (!entity) break;
           if (current === scope) return observedEntry(classifier || child, true);
           if (byId.get(current)?.kind === G.EntityKind.COMPONENT) return targetEntry(representative(current));
           const mapped = [...new Set([...(counterparts.get(current) || [])]
@@ -256,7 +271,6 @@ var ArchkeelGraphScene = (function () {
             return targetEntry(choices[0]);
           }
           if (observedLocalIds.has(current)) return observedEntry(current, true);
-          const entity = observedById.get(current);
           if (!classifier && [G.EntityKind.CLASS, G.EntityKind.INTERFACE, G.EntityKind.ENUM, G.EntityKind.MIXIN].includes(entity.kind)) classifier = current;
           if (!module && entity.kind === G.EntityKind.MODULE) module = current;
           child = current;
@@ -269,7 +283,7 @@ var ArchkeelGraphScene = (function () {
       for (const id of visible.keys()) { const entry = targetEntry(id); if (entry) entries.set(id, entry); }
       const observedLocalIds = new Set((observed ? architectureEntities(observed) : []).filter((entity) =>
         [G.EntityKind.PACKAGE, G.EntityKind.MODULE].includes(entity.kind) && entity.presence !== G.PresenceKind.REFERENCED
-        && architectureParent(entity, observed) === scope).map((entity) => entity.id));
+        && observed !== null && observed !== undefined && architectureParent(entity, observed) === scope).map((entity) => entity.id));
       for (const id of observedLocalIds) {
         if (componentOverview || comparison && scope !== null) continue;
         const entry = observedRepresentative(id);
@@ -391,8 +405,8 @@ var ArchkeelGraphScene = (function () {
         return { ...edge, observedSites, assessments, findings, decisionGaps,
           state: statuses.includes(G.AssessmentStatus.FAIL) ? P.EdgeState.VIOLATION : statuses.includes(G.AssessmentStatus.UNKNOWN) || decisionGaps.length ? P.EdgeState.UNDECIDED : edge.state,
           tooltip: `${edge.relationshipKind === G.RelationshipKind.REQUIRES ? "Allowed component import" : edge.relationshipKind}${edge.resolution === G.ResolutionKind.PARTIAL ? " candidate; not confirmed" : ""}: ${
-            edge.sourceGraph.entities.find((item) => item.id === edge.sites[0].source_id).qualified_name} → ${
-            edge.sourceGraph.entities.find((item) => item.id === (edge.sites[0].target_id || edge.sites[0].candidate_ids[0])).qualified_name}; ${
+            endpointName(edge.sourceGraph, edge.sites[0].source_id)} → ${
+            endpointName(edge.sourceGraph, edge.sites[0].target_id || edge.sites[0].candidate_ids[0])}; ${
             edge.sites.length + observedSites.length} source or declaration site${edge.sites.length + observedSites.length === 1 ? "" : "s"}.${statuses.length ? ` Core ${statuses.join("/")}${assessments.some((item) => item.change === G.AssessmentChange.UNEXPECTED) ? " · unlisted observed relationship" : ""}.` : ""}`,
         };
       });
@@ -404,8 +418,11 @@ var ArchkeelGraphScene = (function () {
       const components = new Set(componentIntents(DATA.target).map((item) => item.component_id));
       const observed = DATA.observed;
       if (!observed) return [];
-      return observed.entities.filter((item) => item.kind === G.EntityKind.MODULE
-        && item.presence === G.PresenceKind.DEFINED && !components.has(architectureParent(item, observed)))
+      return observed.entities.filter((item) => {
+        const parent = architectureParent(item, observed);
+        return item.kind === G.EntityKind.MODULE && item.presence === G.PresenceKind.DEFINED
+          && (parent === null || !components.has(parent));
+      })
         .sort((left, right) => (left.file_path || left.qualified_name).localeCompare(right.file_path || right.qualified_name));
     }
 

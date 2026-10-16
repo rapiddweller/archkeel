@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from test_report_renderer_units import _asset_page
 
 

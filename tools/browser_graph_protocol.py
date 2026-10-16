@@ -23,9 +23,18 @@ from archkeel.ir.architecture_graph import (
 )
 
 _DOMAINS: tuple[type[StrEnum], ...] = (
-    OriginKind, EntityKind, RelationshipKind, PresenceKind, ResolutionKind,
-    VisibilityKind, ParameterKind, ModifierKind, ComponentRole,
-    AssessmentStatus, AssessmentChange, GraphSchemaVersion,
+    OriginKind,
+    EntityKind,
+    RelationshipKind,
+    PresenceKind,
+    ResolutionKind,
+    VisibilityKind,
+    ParameterKind,
+    ModifierKind,
+    ComponentRole,
+    AssessmentStatus,
+    AssessmentChange,
+    GraphSchemaVersion,
 )
 _OUTPUT = Path(__file__).parents[1] / "src/archkeel/render/assets/report-graph-vocabulary.ts"
 
@@ -42,23 +51,25 @@ def vocabulary_source() -> str:
         lines.append(f"  // {domain.__module__}.{name}")
         lines.append(f"  export enum {name} {{")
         lines.extend(f"    {entry.name} = {json.dumps(entry.value)}," for entry in domain)
-        lines.extend([
-            "  }",
-            f"  const {mapping}: ReadonlyMap<unknown, {name}> = new Map(",
-            f"    Object.values({name}).map((value): [unknown, {name}] => [value, value]),",
-            "  );",
-            f"  export function is{name}(value: unknown): value is {name} {{",
-            f"    return {mapping}.has(value);",
-            "  }",
-            f"  export function decode{name}(value: unknown): {name} {{",
-            f"    const token = {mapping}.get(value);",
-            f'    if (token === undefined) throw new TypeError("Unsupported {name}");',
-            "    return token;",
-            "  }",
-            f"  export function encode{name}(value: {name}): string {{",
-            f"    return decode{name}(value);",
-            "  }",
-        ])
+        lines.extend(
+            [
+                "  }",
+                f"  const {mapping}: ReadonlyMap<unknown, {name}> = new Map(",
+                f"    Object.values({name}).map((value): [unknown, {name}] => [value, value]),",
+                "  );",
+                f"  export function is{name}(value: unknown): value is {name} {{",
+                f"    return {mapping}.has(value);",
+                "  }",
+                f"  export function decode{name}(value: unknown): {name} {{",
+                f"    const token = {mapping}.get(value);",
+                f'    if (token === undefined) throw new TypeError("Unsupported {name}");',
+                "    return token;",
+                "  }",
+                f"  export function encode{name}(value: {name}): string {{",
+                f"    return decode{name}(value);",
+                "  }",
+            ]
+        )
     return "\n".join([*lines, "}", ""])
 
 
