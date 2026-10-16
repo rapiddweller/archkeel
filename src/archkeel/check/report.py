@@ -59,7 +59,13 @@ from archkeel.ir.model import (
     ReportFilter,
     RunResult,
 )
+from archkeel.ir.model import (
+    Command as _Command,
+)
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
+from archkeel.ir.model import (
+    ExpectationOutcome as _ExpectationOutcome,
+)
 from archkeel.ir.model import (
     RuleAssessmentStatus as _RuleAssessmentStatus,
 )
@@ -200,7 +206,7 @@ def _baseline_status(
     return "known"
 
 
-def unknown_result(command: str, subject: str, error: Exception) -> RunResult:
+def unknown_result(command: _Command, subject: str, error: Exception) -> RunResult:
     if isinstance(error, DiagnosticError):
         diagnostic = error.diagnostic
     else:
@@ -326,7 +332,7 @@ def _incomplete_report_result(result: ObservationResult) -> RunResult:
         except ValueError:
             pass
     return RunResult(
-        "report",
+        _Command.REPORT,
         2,
         diagnostics=result.diagnostics,
         coverage=result.coverage,
@@ -451,7 +457,7 @@ def _architecture_result(
     only_violations = report_filter is not None and report_filter.only_violations
     only_architecture = report_filter is not None and report_filter.only_architecture
     component = report_filter.component if report_filter is not None else None
-    complete = command_result.observation_complete == "PASS"
+    complete = command_result.observation_complete is _AssessmentStatus.PASS
     findings_available = complete or command_result.declared_rules == "FAIL"
     component_rules: set[str] = set()
     try:
@@ -512,7 +518,7 @@ def _architecture_result(
         )
     except ValueError as error:
         command_result = replace(
-            unknown_result("report", "architecture projection", error),
+            unknown_result(_Command.REPORT, "architecture projection", error),
             coverage=model.coverage,
             python_version=model.python_version,
         )
@@ -564,7 +570,7 @@ def _report_result(
             )
         except ValueError as error:
             command_result = replace(
-                unknown_result("report", "observation", error),
+                unknown_result(_Command.REPORT, "observation", error),
                 coverage=model.coverage,
                 python_version=model.python_version,
             )
@@ -583,11 +589,11 @@ def _report_result(
                     baseline_root, baseline, model, current_rules
                 )
             command_result = RunResult(
-                "report",
+                _Command.REPORT,
                 0,
-                observation_complete="PASS",
+                observation_complete=_AssessmentStatus.PASS,
                 declared_rules=declared,
-                expectation_fulfilled="n/a",
+                expectation_fulfilled=_ExpectationOutcome.NOT_APPLICABLE,
                 coverage=model.coverage,
                 measurements=measurements,
                 python_version=model.python_version,
@@ -687,7 +693,7 @@ def run_saved_report(
             require_source_graph=True,
         )
     except (OSError, ValueError, TypeError, KeyError, IndexError) as error:
-        result = unknown_result("report", str(path), error)
+        result = unknown_result(_Command.REPORT, str(path), error)
         return replace(
             result,
             diagnostics=tuple(

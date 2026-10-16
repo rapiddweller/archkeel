@@ -9593,6 +9593,99 @@
             ],
             "returns": "AssessmentStatus"
           }
+        },
+        {
+          "id": "IR-RESULT-Command",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.model.Command",
+          "parent_id": "IR-DEPENDENCY-model",
+          "responsibilities": [
+            "Keep the shared Core command/result control domain nominal and precise."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/core-command-result-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-RESULT-ExpectationOutcome",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.model.ExpectationOutcome",
+          "parent_id": "IR-DEPENDENCY-model",
+          "responsibilities": [
+            "Keep the shared Core command/result control domain nominal and precise."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/core-command-result-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-RESULT-command",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.RunResult.command",
+          "parent_id": "IR-GRAPH-RunResult",
+          "responsibilities": [
+            "Keep the shared Core command/result control domain nominal and precise."
+          ],
+          "annotation": "Command",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/core-command-result-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-RESULT-observation_complete",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.RunResult.observation_complete",
+          "parent_id": "IR-GRAPH-RunResult",
+          "responsibilities": [
+            "Keep the shared Core command/result control domain nominal and precise."
+          ],
+          "annotation": "Literal[AssessmentStatus.PASS, AssessmentStatus.UNKNOWN]",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/core-command-result-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-RESULT-expectation_fulfilled",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.RunResult.expectation_fulfilled",
+          "parent_id": "IR-GRAPH-RunResult",
+          "responsibilities": [
+            "Keep the shared Core command/result control domain nominal and precise."
+          ],
+          "annotation": "ExpectationOutcome",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/core-command-result-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
         }
       ],
       "relationships": [

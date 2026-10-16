@@ -33,8 +33,14 @@ from archkeel.ir.model import (
     UnresolvedCallChange,
     Verdict,
 )
+from archkeel.ir.model import (
+    Command as _Command,
+)
 from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
+from archkeel.ir.model import (
+    ExpectationOutcome as _ExpectationOutcome,
+)
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
 from .delta import build_architecture_delta
@@ -223,7 +229,7 @@ def _incomplete(result: ObservationResult) -> RunResult:
     """Build the shared exit-2 result for a snapshot that failed to observe."""
     observation = result.observation
     return RunResult(
-        "check",
+        _Command.CHECK,
         2,
         diagnostics=result.diagnostics,
         coverage=result.coverage,
@@ -234,7 +240,7 @@ def _incomplete(result: ObservationResult) -> RunResult:
 
 def _measurement_incomplete(observation: Observation, error: RatchetError) -> RunResult:
     return RunResult(
-        "check",
+        _Command.CHECK,
         2,
         diagnostics=(
             Diagnostic(
@@ -344,11 +350,11 @@ def run_check(
     result = evaluate_expectation(delta, expectation)
     failures = sorted([*git_failures, *ordering_failures, *result.failures])
     return RunResult(
-        "check",
+        _Command.CHECK,
         1 if failures or declared == "FAIL" else 0,
-        observation_complete="PASS",
+        observation_complete=AssessmentStatus.PASS,
         declared_rules=declared,
-        expectation_fulfilled="FAIL" if failures else "PASS",
+        expectation_fulfilled=_ExpectationOutcome.FAIL if failures else _ExpectationOutcome.PASS,
         git_predicate=Verdict.FAIL if git_failures else Verdict.PASS,
         host_source=(
             "github_initial_pr_head"

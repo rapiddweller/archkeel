@@ -249,7 +249,8 @@
         {
           "component": "ir",
           "through": [
-            "archkeel.ir.codec"
+            "archkeel.ir.codec",
+            "archkeel.ir.model:Command"
           ],
           "rationale": "Serialize the typed observation to the legacy JSON payload at the CLI compatibility boundary."
         },

@@ -30,6 +30,7 @@ from archkeel.ir.host_records import (
     validate_sha,
 )
 from archkeel.ir.lock import LOCK_PATH, LockError
+from archkeel.ir.model import Command as _Command
 from archkeel.ir.model import Diagnostic, RunResult
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.render.html import render_check_html
@@ -535,7 +536,7 @@ def github_pr_report(
     )
     if result is None:
         result = replace(
-            unknown_result("check", "GitHub order evidence", OrderingError(HISTORY_LIMIT)),
+            unknown_result(_Command.CHECK, "GitHub order evidence", OrderingError(HISTORY_LIMIT)),
             diagnostics=tuple(diagnostics),
         )
     output.write_bytes(render_result(result))
