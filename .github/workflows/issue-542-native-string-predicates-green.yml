@@ -1,0 +1,41 @@
+name: Native string predicates focused GREEN candidate
+on:
+  push:
+    branches: [verify/542-native-string-predicates-green]
+permissions:
+  contents: read
+jobs:
+  focused-observer-types:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 3ca0c0a2bbaa22dd66afe0b39523671845dfcd24
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Inspect fixed intent diagnostics and format actual candidate
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          from archkeel.ir.codec import parse_contract
+          from pathlib import Path
+          try:
+              parse_contract(json.loads(Path("docs/architecture/contracts/python.json").read_bytes()))
+          except Exception as error:
+              print("TARGET_PARSE_DIAGNOSTIC="+repr(error),flush=True)
+          PY
+          uv run --locked ruff format src/archkeel/analyzer/python/constructs.py tests/test_string_predicate_observation.py tests/test_python_string_predicate_target.py
+          uv run --locked python - <<'PY'
+          import base64,subprocess
+          patch=subprocess.check_output(["git","diff","--","src/archkeel/analyzer/python/constructs.py","tests/test_string_predicate_observation.py","tests/test_python_string_predicate_target.py"])
+          print("FORMAT_PATCH="+base64.b64encode(patch).decode(),flush=True)
+          PY
+          uv run --locked ruff check src/archkeel/analyzer/python/constructs.py tests/test_string_predicate_observation.py tests/test_python_string_predicate_target.py
+      - run: uv run --locked mypy src/archkeel
+      - run: uv run --locked python -m pytest -q tests/test_string_predicate_observation.py tests/test_python_string_predicate_target.py tests/test_string_comparison_observation.py tests/test_analyzer.py tests/test_python_scope_certification.py tests/test_native_violation_filter.py tests/test_enum_graph.py tests/test_enum_reference_claims.py tests/test_violations.py tests/test_trace.py tests/test_repository_hygiene.py tests/test_contract_model.py
