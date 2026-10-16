@@ -318,8 +318,16 @@ def test_native_typed_or_unproven_membership_needles_have_no_literal_claim(tmp_p
         '    _ignore_ = "IMPORT"\n    IMPORT = "import"\n',
     ],
     ids=[
-        "mixin-value", "custom-new", "custom-init", "custom-getattribute", "custom-setattr",
-        "metaclass-keyword", "class-decorator", "intenum-conversion", "own-value", "namespace-ignore",
+        "mixin-value",
+        "custom-new",
+        "custom-init",
+        "custom-getattribute",
+        "custom-setattr",
+        "metaclass-keyword",
+        "class-decorator",
+        "intenum-conversion",
+        "own-value",
+        "namespace-ignore",
     ],
 )
 def test_native_custom_enum_does_not_establish_string_value(tmp_path, source):
@@ -327,7 +335,8 @@ def test_native_custom_enum_does_not_establish_string_value(tmp_path, source):
     result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
     assert result.diagnostics == () and result.observation is not None
     assert not [
-        row for row in result.observation.records("constructs")
+        row
+        for row in result.observation.records("constructs")
         if row.kind == "string_literal_compare"
     ]
     assert trace_valid_violations(result.observation) == ()
@@ -344,7 +353,8 @@ def test_native_simple_enum_retains_literal_value_evidence(tmp_path, base):
     result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
     assert result.diagnostics == () and result.observation is not None
     assert [
-        row.data.get("form") for row in result.observation.records("constructs")
+        row.data.get("form")
+        for row in result.observation.records("constructs")
         if row.kind == "string_literal_compare"
     ] == ["membership"]
     assert [(row.kind, row.rule_ids) for row in trace_valid_violations(result.observation)] == [

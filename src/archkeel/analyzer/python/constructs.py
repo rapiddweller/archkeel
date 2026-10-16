@@ -231,10 +231,10 @@ def _literal_enum_body(node: ast.ClassDef) -> bool:
             isinstance(child, ast.Assign)
             and len(child.targets) == 1
             and isinstance(child.targets[0], ast.Name)
-            and not child.targets[0].id.startswith("_")
-            and _is_str(child.value)
         ):
-            continue
+            member_name: str = child.targets[0].id
+            if not member_name.startswith("_") and _is_str(child.value):
+                continue
         if isinstance(child, ast.Pass):
             continue
         if (

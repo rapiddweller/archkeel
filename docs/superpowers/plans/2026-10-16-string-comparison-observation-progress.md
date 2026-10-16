@@ -60,3 +60,5 @@ Ruling: enum members and arbitrary data variables stay unclassified as literal n
 - Enum review RED 38938809344: exactly 9 failed / 51 passed. Ordinary Enum/StrEnum positives and the existing own-value-property exclusion passed; each newly reported transformation produced the expected false observation before the fix.
 
 - Intermediate review run 38939305130: the 60 comparison controls and 507 focused tests passed, but the native self-report correctly rejected a private collector-to-collector inventory import (COLLECTORS-ISOLATED). The import is removed; this observer checks only its smaller ordinary-literal body shape. Existing scalar binding evidence still handles duplicate assignments. No contract exception or shared compiler API is added.
+
+- Intermediate run 38939942683: 508 focused tests, Ruff and Mypy passed; native measurement had no diagnostics or violations but exposed one new unresolved AST-field method call (919 to 920). The ordinary member identifier now has its explicit local str boundary type; no resolver or measurement allowance is changed.
