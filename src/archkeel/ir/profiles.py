@@ -10,17 +10,26 @@ than 0. One table, so the two can never disagree about what a Dart scan saw.
 
 import sys
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Final, Literal, TypeAlias
 
 from .facts import Language as Language
 
-UnmeasurableScalar: TypeAlias = Literal[
-    "private_crossings", "typing_positions", "calls_unresolved", "untyped_private_accesses"
-]
+class UnmeasurableScalar(StrEnum):
+    PRIVATE_CROSSINGS = "private_crossings"
+    TYPING_POSITIONS = "typing_positions"
+    CALLS_UNRESOLVED = "calls_unresolved"
+    UNTYPED_PRIVATE_ACCESSES = "untyped_private_accesses"
+
 DeclarationField: TypeAlias = Literal["context_roots", "facade_budgets", "coupling_budgets"]
-ObservedSection: TypeAlias = Literal[
-    "symbols", "references", "bindings", "calls", "typing_signals", "constructs"
-]
+class ObservedSection(StrEnum):
+    SYMBOLS = "symbols"
+    REFERENCES = "references"
+    BINDINGS = "bindings"
+    CALLS = "calls"
+    TYPING_SIGNALS = "typing_signals"
+    CONSTRUCTS = "constructs"
+
 
 PYTHON_ANALYZER: Final = "archkeel-python-analyzer"
 DART_ANALYZER: Final = "archkeel-dart-analyzer"
@@ -69,9 +78,9 @@ DART: Final = Profile(
     # AD-99: Dart has no `__all__` and its public names are UNKNOWN, so no facade count exists.
     unsupported_declarations=frozenset({"context_roots", "facade_budgets", "coupling_budgets"}),
     unmeasured=frozenset(
-        {"typing_positions", "calls_unresolved", "private_crossings", "untyped_private_accesses"}
+        {UnmeasurableScalar.TYPING_POSITIONS, UnmeasurableScalar.CALLS_UNRESOLVED, UnmeasurableScalar.PRIVATE_CROSSINGS, UnmeasurableScalar.UNTYPED_PRIVATE_ACCESSES}
     ),
-    absent_sections=frozenset({"typing_signals", "constructs"}),
+    absent_sections=frozenset({ObservedSection.TYPING_SIGNALS, ObservedSection.CONSTRUCTS}),
     # Only `dart:` URIs are the SDK; reusing Python's set would exempt `package:http` (A2).
     standard_library=frozenset({"dart"}),
     sdk_libraries=frozenset(
@@ -117,10 +126,10 @@ TYPESCRIPT: Final = Profile(
     ),
     unsupported_declarations=frozenset({"context_roots", "facade_budgets", "coupling_budgets"}),
     unmeasured=frozenset(
-        {"typing_positions", "calls_unresolved", "private_crossings", "untyped_private_accesses"}
+        {UnmeasurableScalar.TYPING_POSITIONS, UnmeasurableScalar.CALLS_UNRESOLVED, UnmeasurableScalar.PRIVATE_CROSSINGS, UnmeasurableScalar.UNTYPED_PRIVATE_ACCESSES}
     ),
-    absent_sections=frozenset({"typing_signals", "constructs"}),
-    optional_sections=frozenset({"symbols", "references", "bindings", "calls"}),
+    absent_sections=frozenset({ObservedSection.TYPING_SIGNALS, ObservedSection.CONSTRUCTS}),
+    optional_sections=frozenset({ObservedSection.SYMBOLS, ObservedSection.REFERENCES, ObservedSection.BINDINGS, ObservedSection.CALLS}),
 )
 
 PROFILES: Final[dict[Language, Profile]] = {
@@ -147,8 +156,8 @@ def delta_dimension_applicable(profile: Profile, dimension: str) -> bool:
     """Whether the profile provides complete evidence for this historical dimension."""
     if dimension == "api_crossings":
         return profile.complete_api_crossings
-    if dimension == "private_crossings":
-        return "private_crossings" not in profile.unmeasured
-    if dimension == "typing_signals":
-        return "typing_positions" not in profile.unmeasured
+    if dimension == UnmeasurableScalar.PRIVATE_CROSSINGS:
+        return UnmeasurableScalar.PRIVATE_CROSSINGS not in profile.unmeasured
+    if dimension == ObservedSection.TYPING_SIGNALS:
+        return UnmeasurableScalar.TYPING_POSITIONS not in profile.unmeasured
     return True

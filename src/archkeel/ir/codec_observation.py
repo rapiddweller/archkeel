@@ -24,7 +24,7 @@ from archkeel.ir.codec_wire import (
     _strings,
     canonical_json_bytes,
 )
-from archkeel.ir.facts import Language, RuntimeRequirementState, parse_runtime_requirement_state, source_dirty
+from archkeel.ir.facts import RuntimeRequirementState, parse_runtime_requirement_state, source_dirty
 from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
@@ -41,7 +41,7 @@ from archkeel.ir.model import (
     identity_is_known,
 )
 from archkeel.ir.model import RawJson as RawJson
-from archkeel.ir.profiles import PROFILES, Profile, profile_for
+from archkeel.ir.profiles import ObservedSection, Profile, UnmeasurableScalar, profile_for
 
 from .facts_codec import parse_evidence as parse_evidence
 from .facts_codec import parse_record as parse_record
@@ -270,13 +270,13 @@ def _parse_coverage(
         for key in call_counts
     }
     call_percent = coverage["call_resolution_percent"]
-    if profile is PROFILES[Language.TYPESCRIPT]:
+    if ObservedSection.CALLS in profile.optional_sections:
         if not calls_measured:
             if any(value is not None for value in call_values.values()) or call_percent is not None:
                 raise ValueError("TypeScript call measurements must be null")
         elif any(value is None for value in call_values.values()) or call_percent is None:
             raise ValueError("TypeScript call measurements are required with a calls section")
-    elif profile is PROFILES[Language.PYTHON]:
+    elif UnmeasurableScalar.CALLS_UNRESOLVED not in profile.unmeasured:
         if any(value is None for value in call_values.values()) or call_percent is None:
             raise ValueError("coverage call measurements are required for this profile")
     else:
