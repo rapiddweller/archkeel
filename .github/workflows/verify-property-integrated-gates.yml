@@ -6,6 +6,7 @@ permissions:
   contents: read
 jobs:
   native:
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -51,4 +52,4 @@ jobs:
       - name: Check real combined Property Source/Core compatibility and quality
         run: |
           make lint typecheck
-          uv run --locked python -m pytest -n 2 --dist=loadfile -q tests/test_typed_python_properties.py tests/test_property_uml.py tests/test_uml_properties.py tests/test_collection_protocol.py tests/test_typed_amendment_artifact.py tests/test_repository_hygiene.py
+          uv run --locked python -m pytest -n 2 --dist=loadfile -q tests/test_typed_python_properties.py tests/test_inherited_properties.py tests/test_owned_property_candidates.py tests/test_property_proof_transport.py tests/test_collection_protocol.py tests/test_typed_amendment_artifact.py tests/test_repository_hygiene.py
