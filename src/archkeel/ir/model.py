@@ -652,9 +652,10 @@ def declared_package_pair(
     target_kind: DependencyTargetKind = DependencyTargetKind.MODULE,
 ) -> tuple[str, str] | None:
     """Compatibility facade for the owned dependency selection API."""
-    return DependencySelector(
+    selector = DependencySelector(
         source, target, target_symbol, source_match, target_match, target_kind
-    ).component_pair(components)
+    )
+    return selector.component_pair(components)
 
 
 def forbidden_dependency_scopes(

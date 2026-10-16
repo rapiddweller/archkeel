@@ -176,11 +176,12 @@ def _pair_permission_rules(
     pair: tuple[str, str],
     selectors: dict[str, DependencySelector],
 ) -> tuple[Record, ...]:
-    return tuple(
-        rule
-        for rule in level_rules
-        if rule.id in selectors and selectors[rule.id].component_pair(owners) == pair
-    )
+    deciding = []
+    for rule in level_rules:
+        selector = selectors.get(rule.id)
+        if selector is not None and selector.component_pair(owners) == pair:
+            deciding.append(rule)
+    return tuple(deciding)
 
 
 def _permissions(
