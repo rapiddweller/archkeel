@@ -1,0 +1,151 @@
+name: Profile compatibility and native sites GREEN
+on:
+  push:
+    branches: [verify/542-typescript-profile-compat-green]
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Real constructors, replace, codec, lexical evidence and eight authored ports
+        run: uv run --locked python -m pytest -q tests/test_nullable_profile_measurements.py tests/test_typescript_string_constructs.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_control_target.py -k 'not native_source_type_widening and not native_parser_and_protocol_strings and not native_syntax_field_widening and not native_typescript_api and not native_configuration_crossing and not native_parser_and_collector_guards and not own_observation' --tb=short
+      - name: Ruff, formatter and mypy
+        if: ${{ always() }}
+        run: |
+          uv run --locked ruff check src/archkeel tests/test_nullable_profile_measurements.py tests/test_typescript_control_target.py
+          uv run --locked ruff format --diff src/archkeel/ir/profiles.py src/archkeel/ir/codec_observation.py tests/test_nullable_profile_measurements.py tests/test_typescript_control_target.py
+          uv run --locked mypy src/archkeel
+  affected:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Language profiles, collection protocol, decoded schema and demo receipts
+        run: uv run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q tests/test_dart_profile.py tests/test_interface_profile.py tests/test_profile_comparison.py tests/test_collection_capabilities.py tests/test_collection_boundary_regressions.py tests/test_source_trust_boundary.py tests/test_typescript_demo.py tests/test_result_schema.py tests/test_schema_drift.py --tb=short
+  native-sites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Complete actual uncertain call sites with AST closure mapping
+        run: |
+          uv run --locked python - <<'PY'
+          import ast
+          import hashlib
+          import json
+          import re
+          import subprocess
+          from collections import Counter
+          from pathlib import Path
+          from archkeel.cli.config import parse_config
+          from archkeel.cli.observe import observer_for
+          from archkeel.check.run import observe_revision, inspect_observation
+          from archkeel.ir.facts_codec import raw_record
+          base = "fa37f59600cfae64ba0528cb56e609c6bbd756e4"
+          after = "79ae48ea405b0e20159f367773fc3356ada153e4"
+          root = Path.cwd()
+          config = parse_config((root / "archkeel.toml").read_bytes())
+          analyzer = observer_for(config.language)
+          source_cache = {}
+          closure_maps = []
+          pattern = re.compile(r"<(lambda|listcomp|setcomp|dictcomp|genexpr):(\d+):(\d+)>")
+          kinds = {"lambda": ast.Lambda, "listcomp": ast.ListComp, "setcomp": ast.SetComp, "dictcomp": ast.DictComp, "genexpr": ast.GeneratorExp}
+          def source_ast(revision, path):
+              key = (revision, path)
+              if key not in source_cache:
+                  text = subprocess.run(["git", "show", f"{revision}:{path}"], check=True, capture_output=True, text=True).stdout
+                  tree = ast.parse(text)
+                  nodes = list(ast.walk(tree))
+                  source_cache[key] = nodes
+              return source_cache[key]
+          def without_binding_citations(value):
+              if isinstance(value, dict):
+                  return {key: without_binding_citations(item) for key, item in value.items() if key not in {"id", "evidence_ids"}}
+              if isinstance(value, list):
+                  return [without_binding_citations(item) for item in value]
+              return value
+          def projection(model, revision):
+              counts = Counter()
+              evidence = {item.id: item for item in model.evidence}
+              for record in model.records("calls"):
+                  raw = raw_record(record)
+                  data = raw["data"]
+                  if data["status"] not in {"unresolved", "partially_resolved"}:
+                      continue
+                  assert len(record.evidence_ids) == 1
+                  cite = evidence[record.evidence_ids[0]]
+                  nodes = source_ast(revision, cite.file)
+                  calls = [node for node in nodes if isinstance(node, ast.Call) and (node.lineno, node.col_offset) == (cite.line, cite.column) and ast.unparse(node.func) == data["expression"]]
+                  assert len(calls) == 1, (revision, cite, data["expression"], len(calls))
+                  def scope(match):
+                      kind, line, column = match.groups()
+                      candidates = [node for node in nodes if isinstance(node, kinds[kind]) and (node.lineno, node.col_offset) == (int(line), int(column))]
+                      assert len(candidates) == 1, (revision, cite.file, match.group(), len(candidates))
+                      dump = ast.dump(candidates[0], include_attributes=False)
+                      digest = hashlib.sha256(dump.encode()).hexdigest()
+                      closure_maps.append({"revision": revision, "path": cite.file, "native_scope": match.group(), "ast_kind": type(candidates[0]).__name__, "ast_sha256": digest, "ast": dump})
+                      return f"<{kind}:{digest}>"
+                  caller = pattern.sub(scope, data["source_scope"])
+                  semantics = {
+                      "path": cite.file,
+                      "caller": caller,
+                      "source_module": data["source_module"],
+                      "expression": data["expression"],
+                      "call_ast": ast.dump(calls[0], include_attributes=False),
+                      **{key: data[key] for key in ("status", "reason", "targets", "candidate_count", "candidates_truncated", "construction")},
+                      "result_bindings": without_binding_citations(data["result_bindings"]),
+                  }
+                  counts[json.dumps(semantics, sort_keys=True)] += 1
+              return counts
+          projections = []
+          for revision in (base, after):
+              result = observe_revision(analyzer, root, revision, config, declared_at=revision)
+              assert result.observation is not None, result.diagnostics
+              model = result.observation
+              measured, verdict = inspect_observation(model)
+              print("ACTUAL_MEASUREMENT", revision, measured, verdict, flush=True)
+              rows = projection(model, revision)
+              print("ACTUAL_UNCERTAIN_SITE_COUNTS", revision, dict(Counter({status: sum(count for row, count in rows.items() if json.loads(row)["status"] == status) for status in ("unresolved", "partially_resolved")})), flush=True)
+              projections.append(rows)
+          changes = []
+          for key in sorted(set(projections[0]) | set(projections[1])):
+              before_count, after_count = projections[0][key], projections[1][key]
+              if before_count != after_count:
+                  change = {"site": json.loads(key), "before": before_count, "after": after_count}
+                  changes.append(change)
+                  print("ACTUAL_AST_SITE_DELTA=" + json.dumps(change), flush=True)
+          summary = {"before": dict(projections[0]), "after": dict(projections[1]), "changes": changes, "closure_maps": closure_maps}
+          output = Path("/tmp/ts-construct-native-sites.json")
+          output.write_text(json.dumps(summary, sort_keys=True, indent=2))
+          print("AST_SITE_COMPARISON_COMPLETE", len(changes), "closures_verified", len(closure_maps), flush=True)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: typescript-construct-complete-native-site-projection
+          path: /tmp/ts-construct-native-sites.json
