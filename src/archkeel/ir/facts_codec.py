@@ -170,6 +170,8 @@ def _string(value: RawJson, label: str) -> str:
 
 
 def _runtime_requirement_state(value: RawJson) -> RuntimeRequirementState:
+    if not isinstance(value, str):
+        raise ProtocolError("runtime.requirement_state is invalid")
     try:
         return parse_runtime_requirement_state(value)
     except ValueError as error:
@@ -213,8 +215,11 @@ def decode_request(payload: bytes) -> CollectionRequest:
         )
     ):
         raise ProtocolError("snapshot.root must be an absolute path")
+    dirty_raw = snapshot["dirty"]
+    if not isinstance(dirty_raw, (bool, str)):
+        raise ProtocolError("snapshot.dirty must be a boolean or unknown")
     try:
-        dirty_value = source_dirty(snapshot["dirty"])
+        dirty_value = source_dirty(dirty_raw)
     except ValueError as error:
         raise ProtocolError("snapshot.dirty must be a boolean or unknown") from error
     scope = _object(raw["scope"], {"roots", "namespace"}, "scope")
@@ -675,8 +680,11 @@ def _shape_payload(shape: TypeShape) -> dict[str, RawJson]:
 
 def _source(value: RawJson) -> SourceInfo:
     item = _object(value, {"git_head", "dirty", "source_digest", "scope"}, "source")
+    dirty_raw = item["dirty"]
+    if not isinstance(dirty_raw, (bool, str)):
+        raise ProtocolError("source.dirty is invalid")
     try:
-        dirty = source_dirty(item["dirty"])
+        dirty = source_dirty(dirty_raw)
     except ValueError as error:
         raise ProtocolError("source.dirty is invalid") from error
     return SourceInfo(

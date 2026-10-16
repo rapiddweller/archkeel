@@ -10,13 +10,13 @@ from typing import Final, Literal, TypeAlias
 from .facts import Language, SourceFacts
 
 
+PROTOCOL_VERSION: Final = "3.0.0"
+
+
 class ProtocolVersion(StrEnum):
     V1 = "1.0.0"
     V2 = "2.0.0"
-    V3 = "3.0.0"
-
-
-PROTOCOL_VERSION: Final = ProtocolVersion.V3
+    V3 = PROTOCOL_VERSION
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,13 +56,13 @@ class CollectionRequest:
     snapshot: SnapshotInput
     scope: SourceScope
     resolver: ResolverSettings
-    protocol_version: ProtocolVersion = PROTOCOL_VERSION
+    protocol_version: ProtocolVersion = ProtocolVersion(PROTOCOL_VERSION)
 
 
 @dataclass(frozen=True, slots=True)
 class CollectionResponse:
     facts: SourceFacts
-    protocol_version: ProtocolVersion = PROTOCOL_VERSION
+    protocol_version: ProtocolVersion = ProtocolVersion(PROTOCOL_VERSION)
 
 
 @dataclass(frozen=True, slots=True)

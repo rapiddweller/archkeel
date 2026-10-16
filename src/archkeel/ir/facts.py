@@ -29,10 +29,8 @@ class RuntimeRequirementState(StrEnum):
     REQUIREMENT_INVALID = "requirement_invalid"
 
 
-def parse_runtime_requirement_state(value: object) -> RuntimeRequirementState:
+def parse_runtime_requirement_state(value: str) -> RuntimeRequirementState:
     """Validate the shared runtime vocabulary once, at a wire or metadata boundary."""
-    if not isinstance(value, str):
-        raise ValueError("runtime.requirement_state is invalid")
     try:
         return RuntimeRequirementState(value)
     except ValueError as error:
@@ -62,12 +60,10 @@ class ResolutionRole(StrEnum):
     RESOLUTION = "resolution"
 
 
-def source_dirty(value: object) -> bool | Literal["unknown"]:
+def source_dirty(value: bool | str) -> bool | Literal["unknown"]:
     """Validate the dirty sentinel without changing its legacy wire spelling."""
     if isinstance(value, bool):
         return value
-    if not isinstance(value, str):
-        raise ValueError("source.dirty is invalid")
     try:
         SourceDirty(value)
     except ValueError as error:

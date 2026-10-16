@@ -33,6 +33,7 @@ jobs:
               print("SELF_VIOLATIONS=" + json.dumps(model["violations"]))
               print("SELF_TYPING=" + json.dumps(model["typing_signals"]))
               print("SELF_UNKNOWNS=" + json.dumps(unknown_positions_by_rule(parse_observation(model))))
+              print("SELF_UML_UNKNOWNS=" + json.dumps([row for row in model["unknowns"] if row["kind"] == "uml_conformance"]))
           PY
       - name: Static typing
         if: always()

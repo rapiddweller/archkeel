@@ -84,7 +84,9 @@ def _collector_contract(module):
                         "qualified_name": "archkeel.ir.protocol.PythonSettings.language",
                         "parent_id": "python-settings",
                         "annotation": "Literal[Language.PYTHON]",
-                        "responsibilities": ["Keep the resolver variant tied to its language enum."],
+                        "responsibilities": [
+                            "Keep the resolver variant tied to its language enum."
+                        ],
                         "visibility": {"kind": "public", "basis": "declared"},
                     },
                     {
@@ -115,7 +117,9 @@ def _collector_contract(module):
     }
 
 
-def _collector_repository(tmp_path, module="facts_codec", probe="", *, weaken_version=False, weaken_language=False):
+def _collector_repository(
+    tmp_path, module="facts_codec", probe="", *, weaken_version=False, weaken_language=False
+):
     files = {"archkeel/__init__.py": "", "archkeel/ir/__init__.py": ""}
     for name in (*MODULES, "state_facts"):
         text = (ROOT / f"src/archkeel/ir/{name}.py").read_text()
@@ -148,8 +152,7 @@ def test_native_collector_codec_uses_no_raw_string_control(tmp_path, module):
     assert _guard(model).status == "PASS" and _guard(model).evaluation_proven
     if module == "protocol":
         target = next(
-            row for row in rule_assessments(model, undecided_by_rule={})
-            if row.kind == "uml_target"
+            row for row in rule_assessments(model, undecided_by_rule={}) if row.kind == "uml_target"
         )
         assert target.status == "PASS" and target.evaluation_proven
     assert not [row for row in trace_valid_violations(model) if GUARD in row.rule_ids]
