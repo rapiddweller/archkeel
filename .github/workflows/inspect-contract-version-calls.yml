@@ -1,0 +1,34 @@
+name: Inspect contract version call evidence
+on:
+  push:
+    branches: [verify/542-contract-version-call-evidence]
+permissions:
+  contents: read
+jobs:
+  calls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Inspect native call evidence in the actual new source owner
+        run: |
+          uv run --locked python - <<'PY'
+          import json,sys,tempfile
+          from pathlib import Path
+          sys.path.insert(0,str(Path("tests").resolve()))
+          from test_contract_version_types import _version_repository
+          from test_uml_evaluation import _model
+          from archkeel.ir.facts_codec import thaw_data
+          with tempfile.TemporaryDirectory() as directory:
+              root,config=_version_repository(Path(directory))
+              model=_model(root,config)
+              for record in model.records("calls") or ():
+                  if record.data.get("source_module") == "archkeel.ir.contract_version":
+                      print("NATIVE_VERSION_CALL="+json.dumps(thaw_data(record.data)))
+          PY
