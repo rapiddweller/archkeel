@@ -266,6 +266,7 @@
       ],
       "public": [
         "archkeel.ir.dependency:ComponentOwnership",
+        "archkeel.ir.dependency:DependencyOwner",
         "archkeel.ir.dependency:DependencySelection",
         "archkeel.ir.dependency:DependencySelector",
         "archkeel.ir.dependency:DependencyTargetKind",
@@ -5788,7 +5789,7 @@
                 "name": "components",
                 "kind": "positional",
                 "default_known": true,
-                "annotation": "tuple[ComponentOwnership, ...]"
+                "annotation": "tuple[DependencyOwner, ...]"
               }
             ],
             "returns": "tuple[str, str] | None"
@@ -5822,7 +5823,7 @@
                 "name": "components",
                 "kind": "positional",
                 "default_known": true,
-                "annotation": "tuple[ComponentOwnership, ...]"
+                "annotation": "tuple[DependencyOwner, ...]"
               }
             ],
             "returns": "DependencySelection"
@@ -6109,6 +6110,94 @@
           "visibility": {
             "kind": "public",
             "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencyOwner",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.dependency.DependencyOwner",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency",
+          "presence": "planned",
+          "responsibilities": [
+            "Name one caller-provided ownership identity and its shared module selection."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencyOwner.identity",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.dependency.DependencyOwner.identity",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencyOwner",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the caller's opaque ownership key without inferring a label or package."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "str"
+        },
+        {
+          "id": "IR-DEPENDENCY-dependency.DependencyOwner.modules",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.dependency.DependencyOwner.modules",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-dependency.DependencyOwner",
+          "presence": "planned",
+          "responsibilities": [
+            "Reuse the owned package/exact-module selection instead of duplicating its representation."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "ModuleSelection"
+        },
+        {
+          "id": "IR-DEPENDENCY-model.dependency_owners",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.model.dependency_owners",
+          "language": "python",
+          "parent_id": "IR-DEPENDENCY-model",
+          "presence": "planned",
+          "responsibilities": [
+            "Adapt legacy ownership triples once into the pure policy API without changing identities, order or duplicates."
+          ],
+          "provenance": [
+            "docs/architecture/dependency-selector-target.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "components",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "tuple[ComponentOwnership, ...]"
+              }
+            ],
+            "returns": "tuple[DependencyOwner, ...]"
           }
         }
       ],

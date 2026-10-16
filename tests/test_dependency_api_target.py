@@ -34,8 +34,11 @@ def _source_members(path, names):
         )
         for node in tree.body
         if (
-            isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in names
-            or isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id in names
+            isinstance(node, (ast.FunctionDef, ast.ClassDef))
+            and node.name in names
+            or isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id in names
         )
     )
 
@@ -85,12 +88,14 @@ def _dependency_repository(
     dependency = (ROOT / "src/archkeel/ir/dependency.py").read_text()
     model = (
         "from dataclasses import dataclass\nfrom typing import Literal, TypeAlias\n"
-        "from .dependency import (ComponentOwnership, DependencySelection, DependencySelector, "
-        "DependencyTargetKind, SelectorMatch)\n\n"
+        "from .dependency import (ComponentOwnership, DependencyOwner, DependencySelection, "
+        "DependencySelector, "
+        "DependencyTargetKind, ModuleSelection, SelectorMatch)\n\n"
         + _source_members(
             "src/archkeel/ir/model.py",
             {
                 "ForbiddenDependencyRule",
+                "dependency_owners",
                 "PackageComponentOwnership",
                 "ComponentOwnershipInput",
                 "declared_package_pair",
@@ -135,7 +140,8 @@ def _assert_dependency_boundary_positions(model, rule_id):
     )
     assert boundary.status == "PASS" and boundary.evaluation_proven, boundary
     receipt = next(
-        row for row in model.records("scope_observations")
+        row
+        for row in model.records("scope_observations")
         if row.kind == "rule_evaluation" and row.rule_ids == (rule_id,)
     )
     for method in ("component_pair", "select"):
@@ -146,10 +152,11 @@ def _assert_dependency_boundary_positions(model, rule_id):
         parameter = next(
             row for row in symbol.data.get("parameters") if row.get("name") == "components"
         )
-        assert parameter.get("annotation") == "tuple[ComponentOwnership, ...]"
+        assert parameter.get("annotation") == "tuple[DependencyOwner, ...]"
         assert symbol.id in receipt.fact_ids, (name, receipt)
         assert not [
-            row for row in model.records("unknowns")
+            row
+            for row in model.records("unknowns")
             if row.data.get("qualified_name") == name and row.data.get("position") == "components"
         ]
 
@@ -169,9 +176,12 @@ def test_native_dependency_api_matches_the_independent_target(tmp_path):
     )
     assert rule.status == "PASS" and rule.evaluation_proven
     protected = {
+        "archkeel.ir.dependency.DependencyOwner.identity": "annotation",
+        "archkeel.ir.dependency.DependencyOwner.modules": "annotation",
         "archkeel.ir.dependency.DependencySelector.source_match": "annotation",
         "archkeel.ir.dependency.DependencySelector.target_kind": "annotation",
         "archkeel.ir.dependency.DependencySelector.select": "signature",
+        "archkeel.ir.model.dependency_owners": "signature",
         "archkeel.ir.model.declared_package_pair": "signature",
         "archkeel.ir.model.forbidden_dependency_scopes": "signature",
         "archkeel.ir.model.ForbiddenDependencyRule.selector": "signature",

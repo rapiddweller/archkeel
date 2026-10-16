@@ -45,6 +45,7 @@ from .model import (
     RuntimeInfo,
     Section,
     ViolationCounts,
+    dependency_owners,
     in_scope,
     module_in_ownership,
     stable_id,
@@ -387,11 +388,12 @@ def _decided_component_pairs(
     exact members. A submodule endpoint or `target_symbol` remains partial.
     """
     decided: set[tuple[str, str]] = set()
+    owners = dependency_owners(components)
     for record in observation.records("declarations") or ():
         if record.kind not in _DECIDING_KINDS or not _decides_this_level(record):
             continue
         selector = parse_dependency_selector(record)
-        pair = selector.component_pair(components)
+        pair = selector.component_pair(owners)
         if pair is not None:
             decided.add(pair)
     return decided

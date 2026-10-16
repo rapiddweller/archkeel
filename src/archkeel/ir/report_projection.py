@@ -71,15 +71,15 @@ from archkeel.ir.command_view import (
     unknown_groups as unknown_groups,
 )
 from archkeel.ir.decisions import rule_assessment_applies_to_component
-from archkeel.ir.dependency import DependencySelector
+from archkeel.ir.dependency import DependencyOwner, DependencySelector
 from archkeel.ir.facts import Record
 from archkeel.ir.model import (
     RULE_KINDS,
-    ComponentOwnership,
     Diagnostic,
     DiagnosticError,
     Observation,
     RequiredComponent,
+    dependency_owners,
     module_in_ownership,
     requires_covers,
     text_value,
@@ -172,7 +172,7 @@ def _permission_rules(
 
 def _pair_permission_rules(
     level_rules: tuple[Record, ...],
-    owners: tuple[ComponentOwnership, ...],
+    owners: tuple[DependencyOwner, ...],
     pair: tuple[str, str],
     selectors: dict[str, DependencySelector],
 ) -> tuple[Record, ...]:
@@ -197,7 +197,9 @@ def _permissions(
         siblings = tuple(
             item for item in target.component_intents if item.parent_id == source.parent_id
         )
-        owners = tuple((item.component_id, item.packages, item.exact_modules) for item in siblings)
+        owners = dependency_owners(
+            tuple((item.component_id, item.packages, item.exact_modules) for item in siblings)
+        )
         level_rules = tuple(
             item.declaration for item in rules if item.parent_id == source.parent_id
         )
