@@ -736,12 +736,29 @@ def test_open_record_strings_are_canonical_primitives_before_json(wire, dependen
     assert repr(initial) == repr(replay)
 
 
+def _dependency_model_before_wire(root):
+    config = _project(root)
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    result = Observer(_TypeScriptCollector())(
+        root,
+        roots=config.roots,
+        namespace=config.namespace,
+        contract=config.contract,
+        git_head=commit,
+        dirty=False,
+        contract_root=root,
+        language=config.language,
+    )
+    assert result.observation is not None
+    return result.observation
+
+
 def test_dependency_binding_is_identical_before_and_after_the_real_json_boundary(tmp_path):
+    from archkeel.ir.codec import observation_payload
     from archkeel.ir.decisions import dependency_binding_id
 
-    result, _, replay = _report(tmp_path / "project")
-    initial = result.observation
-    assert initial is not None
+    initial = _dependency_model_before_wire(tmp_path / "project")
+    replay = parse_observation(json.loads(json.dumps(observation_payload(initial))))
     initial_id = dependency_binding_id(
         initial.sections, initial.coverage.failures, initial.evidence
     )

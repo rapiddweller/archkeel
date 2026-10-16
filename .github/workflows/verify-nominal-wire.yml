@@ -23,12 +23,12 @@ jobs:
           uv run --locked python - <<'PY'
           import json,pathlib,sys,tempfile
           sys.path.insert(0,"tests")
-          from test_scoped_dependency_proof import _report
+          from test_scoped_dependency_proof import _dependency_model_before_wire
+          from archkeel.ir.codec import observation_payload,parse_observation
           from archkeel.ir.decisions import dependency_binding_id
           with tempfile.TemporaryDirectory() as root:
-              result,encoded,replay=_report(pathlib.Path(root)/"project")
-              initial=result.observation
-              assert initial is not None
+              initial=_dependency_model_before_wire(pathlib.Path(root)/"project")
+              replay=parse_observation(json.loads(json.dumps(observation_payload(initial))))
               def binding(value): return dependency_binding_id(value.sections,value.coverage.failures,value.evidence)
               previous={record.id:record for section in initial.sections for record in section.records}
               diffs=[{"id":record.id,"initial":repr(previous[record.id]),"replay":repr(record)} for section in replay.sections for record in section.records if record.id in previous and repr(previous[record.id])!=repr(record)]
