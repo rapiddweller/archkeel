@@ -1,0 +1,27 @@
+name: Verify shared layout label decoder and unchanged report limit
+on:
+  push:
+    branches: [verify/542-layout-label-decoder]
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 9da7723e84cb2af4d1a370305169bdcc2e2f982f
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Install browser
+        run: make browser-install
+      - name: Check actual layouts, malformed geometry, routes and fixed small-report limit
+        run: uv run --locked --with playwright==1.62.0 python -m pytest -q tests/test_report_renderer_units.py tests/test_atlas_report.py::test_default_report_is_one_authentic_repository_with_sparse_native_cells tests/test_own_uml_target.py
