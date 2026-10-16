@@ -1,0 +1,26 @@
+name: Verify nominal UML field navigation
+on:
+  push:
+    branches: [verify/551-nominal-browser]
+permissions:
+  contents: read
+jobs:
+  wire-nominal-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 7b2a14de58eb18be716c8eadef5c43928ec464a5
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Install real report browser
+        run: make browser-install
+      - name: Check exact nominal UML field navigation
+        run: uv run --locked --with playwright==1.62.0 pytest -q tests/test_own_uml_target.py::test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation
