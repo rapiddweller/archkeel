@@ -1,0 +1,53 @@
+name: Prepare Dart shadowing and private reason source union
+on:
+  push:
+    branches: [verify/542-shadowing-reasons-on-parameter]
+permissions:
+  contents: read
+jobs:
+  source-union:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 7d05e4148dd770f2ca09bdeb27859dfc5595e773
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Apply explicit bounded source patches without remote writes
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          
+          def git(*args):
+              return subprocess.run(["git", *args], check=True, capture_output=True).stdout.decode()
+          
+          stages = [{"name":"reviewed-dart-lexical-shadowing","base":"0e3b8a7f62b9b13417cda78e11b52d0de82986cd","head":"620374305b7d45383458f62bccd20a183fdcd82a","paths":["docs/superpowers/plans/2026-10-16-dart-local-callable-shadowing.md","src/archkeel/analyzer/dart/parse.py","src/archkeel/analyzer/dart/resolve.py","tests/test_dart_local_callable_shadowing.py"]},{"name":"bounded-private-boundary-reasons","base":"f264c77eb55b1761a37a8083e479c3f1bc45f5cc","head":"1a47c6ce16c2834df8988d852bb3dac5d4d0112b","paths":["docs/architecture/boundary-reason-types.md","docs/superpowers/plans/2026-10-16-boundary-reason-types.md","src/archkeel/check/evaluation/boundary_types.py","tests/test_boundary_reason_types.py"]}]
+          for stage in stages:
+              patch = subprocess.run(["git", "diff", "--binary", stage["base"], stage["head"], "--", *stage["paths"]], check=True, capture_output=True).stdout
+              if patch:
+                  applied = subprocess.run(["git", "apply", "--3way", "--index", "-"], input=patch, capture_output=True)
+                  if applied.returncode:
+                      print("MERGE_CONFLICT=" + stage["name"])
+                      print(applied.stderr.decode()[-6000:])
+                      print(git("diff", "--name-only", "--diff-filter=U"))
+                      raise SystemExit(1)
+              print("SOURCE_STAGE=" + stage["name"])
+          
+          paths = []
+          for line in git("diff", "--cached", "--name-status", "--no-renames", "HEAD").splitlines():
+              status, path = line.split("\t")
+              if status == "D":
+                  paths.append({"path": path, "deleted": True})
+                  continue
+              mode = git("ls-files", "--stage", "--", path).split()[0]
+              content = Path(path).read_text()
+              parts = [content[index:index + 12000] for index in range(0, len(content), 12000)] or [""]
+              paths.append({"path": path, "mode": mode, "parts": len(parts), "index_sha": git("ls-files", "--stage", "--", path).split()[1], "text_sha": subprocess.run(["git", "hash-object", "--stdin"], input=content.encode(), capture_output=True, check=True).stdout.decode().strip()})
+              for index, part in enumerate(parts):
+                  print("SOURCE_UNION_CHUNK=" + json.dumps({"path": path, "index": index, "content": part}, separators=(",", ":")))
+          print("SOURCE_UNION_PATHS=" + json.dumps(paths, separators=(",", ":")))
+          print("SOURCE_UNION_TREE=" + git("write-tree").strip())
+          
+          PY
