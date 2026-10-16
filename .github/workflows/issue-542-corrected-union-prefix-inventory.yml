@@ -1,0 +1,66 @@
+name: Corrected union native prefix inventory
+on:
+  push:
+    branches: [verify/542-corrected-union-prefix-inventory]
+permissions:
+  contents: read
+jobs:
+  readonly-combination-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: bbcba3ae4e79ca72329d382333c1fba9546586cd
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -q tests/test_string_predicate_observation.py
+      - name: Measure selected prefix forms under exact corrected union policy
+        run: |
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/combined-predicate-report.json" > "$RUNNER_TEMP/combined-predicate-report.stdout"
+          uv run --locked python - <<'PY'
+          import collections,gzip,hashlib,json,os,subprocess
+          from pathlib import Path
+          from archkeel.ir.codec import decode_canonical_model,parse_observation,value_bytes
+          from archkeel.ir.trace import trace_valid_violations
+          from archkeel.check.ratchets import measure_python_ratchets
+          temporary=Path(os.environ["RUNNER_TEMP"])
+          raw=(temporary/"combined-predicate-report.json").read_bytes()
+          model=parse_observation(decode_canonical_model(json.loads(raw)))
+          def emit(marker,value): print(marker+"="+json.dumps(value,sort_keys=True),flush=True)
+          constructs={row.id:row for row in model.records("constructs")}
+          evidence={row.id:row for row in model.evidence}
+          selected=[]
+          other=[]
+          for violation in trace_valid_violations(model):
+              matches=[constructs[identity] for identity in violation.fact_ids if identity in constructs]
+              prefix=[row for row in matches if row.data.get("form") in {"startswith","endswith"}]
+              if not prefix:
+                  other.append({"id":violation.id,"kind":violation.kind,"rules":list(violation.rule_ids),"data":json.loads(value_bytes(violation.data))})
+                  continue
+              for record in prefix:
+                  sites=[evidence[identity] for identity in record.evidence_ids]
+                  for site in sites:
+                      selected.append({"violation":violation.id,"construct":record.id,"rules":list(violation.rule_ids),"owner":record.data.get("owner"),"form":record.data.get("form"),"path":site.file,"line":site.line,"column":site.column,"excerpt":site.excerpt})
+          for row in sorted(selected,key=lambda item:(item["path"],item["line"],item["column"],item["rules"])):
+              emit("NEW_PREFIX_VIOLATION",row)
+          for row in other: emit("OTHER_VIOLATION",row)
+          counts=collections.Counter((row["path"],row["form"]) for row in selected)
+          emit("COMBINED_INVENTORY",{"union":"0e3b8a7f62b9b13417cda78e11b52d0de82986cd","overlay_source":"f624d99286983fa0e26aff5e87835c359ba63d55:src/archkeel/analyzer/python/constructs.py","head":model.source.git_head,"digest":model.source.source_digest,"selected_prefix_sites":len(selected),"selected_prefix_violations":len({row["violation"] for row in selected}),"counts":[{"path":path,"form":form,"sites":count} for (path,form),count in sorted(counts.items())],"other_violations":len(other),"scalars":dict(measure_python_ratchets(model).scalars.items()),"report_sha256":hashlib.sha256(raw).hexdigest()})
+          emit("PRESERVED_POLICY",subprocess.check_output(["git","diff","0e3b8a7f62b9b13417cda78e11b52d0de82986cd","HEAD","--","architecture-contract.json","architecture-baseline.json","docs/architecture/contracts"]).decode())
+          folder=temporary/"combined-predicate-evidence"
+          folder.mkdir()
+          (folder/"prefix-inventory.json").write_text(json.dumps(selected,sort_keys=True))
+          (folder/"other-violations.json").write_text(json.dumps(other,sort_keys=True))
+          (folder/"actual-combined-report.json.gz").write_bytes(gzip.compress(raw,mtime=0))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: corrected-union-prefix-inventory
+          path: ${{ runner.temp }}/combined-predicate-evidence
+          retention-days: 14
