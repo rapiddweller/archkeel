@@ -1,0 +1,45 @@
+name: TypeScript typed API stack verification
+on:
+  push:
+    branches: [verify/542-typescript-owned-stack]
+permissions:
+  contents: read
+jobs:
+  typed-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 4f97dd71182fd98984446c5dfc27684034253e27
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Typed TypeScript behavior and native Target with inherited State and grant APIs
+        run: |
+          uv run --locked python -m pytest -q tests/test_typescript_owned_types.py tests/test_typescript_json_fields.py tests/test_typescript_control_target.py tests/test_typescript_config.py tests/test_typescript_config_reference.py tests/test_typescript_resolve.py tests/test_typescript_collect.py tests/test_module_object_grants.py tests/test_typed_state_protocol.py tests/test_repository_hygiene.py
+      - name: Source lint and typing
+        run: make lint typecheck
+      - name: Generate normal v2 amendment against exact State and grant predecessor
+        if: always()
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 3901fbd831514e1e019bc1649173cccc52681a06 --amendment docs/architecture/decisions/issue-542-typescript-control-amendment.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'Typed TypeScript compiler options and resolver modes, owned grammar classifiers, 18 independent API Target entities, whole-module native comparison guards and named component ports including open JSON field presence. Preserve inherited State and module-object grant intent; lower calls_unresolved from 919 to measured 918 without increased limits, allowances or accepted debt. Remaining TypeScript syntax and prefix grammar are explicitly listed under issue 542.' > "$RUNNER_TEMP/tsstack-amend-result.json"
+          task_status=$?
+          python - <<'PY'
+          import json, os, pathlib
+          result = json.loads((pathlib.Path(os.environ["RUNNER_TEMP"]) / "tsstack-amend-result.json").read_text())
+          print("AMENDMENT_RESULT=" + json.dumps({key: result.get(key) for key in ("exit_code", "failures", "diagnostics", "measurements")}))
+          print("AMENDMENT_JSON=" + pathlib.Path("docs/architecture/decisions/issue-542-typescript-control-amendment.json").read_text().replace("\n", ""))
+          PY
+          exit "$task_status"
+      - name: Existing pinned compiler and differential corpus
+        if: always()
+        run: make typescript-compiler-check typescript-differential
