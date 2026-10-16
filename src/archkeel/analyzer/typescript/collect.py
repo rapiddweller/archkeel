@@ -44,7 +44,7 @@ from archkeel.ir.protocol import CollectionRequest, TypeScriptSettings
 
 from .config import ModuleKind, Snapshot, join, load_config, within
 from .parse import Base, Definition, Reference, Site, Span, Syntax, parse
-from .resolve import ModuleFormat, Found, Resolver, Unknown, is_builtin, is_relative, package_name
+from .resolve import Found, ModuleFormat, Resolver, Unknown, is_builtin, is_relative, package_name
 
 _SECTIONS: tuple[SourceSectionName, ...] = (
     "imports",

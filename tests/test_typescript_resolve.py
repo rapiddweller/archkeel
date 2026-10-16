@@ -11,8 +11,8 @@ import pytest
 
 from archkeel.analyzer.typescript.config import Snapshot, load_config
 from archkeel.analyzer.typescript.resolve import (
-    ModuleFormat,
     Found,
+    ModuleFormat,
     Resolver,
     Unknown,
     is_builtin,

@@ -39,8 +39,8 @@ def test_option_fields_have_nominal_owner_types(field, type_name):
 
 
 def test_derived_configuration_returns_owned_types():
-    assert get_type_hints(config.Options.emit_module.fget)["return"] != str
-    assert get_type_hints(config.Options.resolution.fget)["return"] != str
+    assert get_type_hints(config.Options.emit_module.fget)["return"] is config.ModuleKind
+    assert get_type_hints(config.Options.resolution.fget)["return"] is config.ModuleResolution
     assert config.Options().emit_module is config.ModuleKind.COMMONJS
     assert config.Options().resolution is config.ModuleResolution.NODE10
 

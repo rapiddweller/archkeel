@@ -74,7 +74,8 @@ def test_native_typescript_api_matches_the_independent_target(tmp_path):
     assert comparison is not None and comparison.assessments
     assert comparison.status == "PASS", [
         (row.subject_id, row.aspect, row.reason)
-        for row in comparison.assessments if row.status != "PASS"
+        for row in comparison.assessments
+        if row.status != "PASS"
     ]
     target = next(
         row for row in rule_assessments(model, undecided_by_rule={}) if row.kind == "uml_target"
@@ -176,12 +177,7 @@ def test_guards_cover_whole_migrated_modules_without_allowances():
 def test_native_configuration_crossing_must_use_its_named_public_api(tmp_path):
     root, config = _repository(
         tmp_path,
-        changed={
-            "archkeel/analyzer/typescript/collect.py": "from .config import _normalized\n"
-        },
+        changed={"archkeel/analyzer/typescript/collect.py": "from .config import _normalized\n"},
     )
     model = _model(root, config)
-    assert any(
-        "TARGET-INTERFACE_BOUNDARY" in row.rule_ids
-        for row in trace_valid_violations(model)
-    )
+    assert any("TARGET-INTERFACE_BOUNDARY" in row.rule_ids for row in trace_valid_violations(model))
