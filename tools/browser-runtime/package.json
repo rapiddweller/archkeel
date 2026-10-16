@@ -1,0 +1,10 @@
+{
+  "name": "archkeel-browser-runtime-tools",
+  "private": true,
+  "version": "0.0.0",
+  "devDependencies": {
+    "acorn": "8.15.0",
+    "acorn-walk": "8.3.4",
+    "terser": "5.44.0"
+  }
+}

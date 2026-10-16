@@ -114,6 +114,9 @@ def _asset_page(api, assets):
     playwright, browser, page = _browser_page(api, "<!doctype html><html><body></body></html>")
     try:
         for asset in assets:
+            if asset == "report-scene.js":
+                for dependency in ("report-graph-protocol.js", "report-graph-scene.js"):
+                    page.add_script_tag(path=str(ASSET_DIR / dependency))
             page.add_script_tag(path=str(ASSET_DIR / asset))
     except Exception:
         browser.close()
@@ -184,7 +187,12 @@ def test_report_scene_projection_is_stable_and_does_not_mutate_payload():
             ],
             "component_intents": [],
         },
-        "target": {"component_intents": []},
+        "target": {
+            "origin": "declared",
+            "entities": [],
+            "relationships": [],
+            "component_intents": [],
+        },
         "memberships": [],
         "findings": [],
         "decision_gaps": [],
