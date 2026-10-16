@@ -1,0 +1,152 @@
+name: Verify Summary badge native integration
+on:
+  push:
+    branches: [verify/542-summary-badge-native]
+permissions:
+  contents: read
+jobs:
+  native-sites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Real native before and after source inventories
+        run: |
+          uv run --locked python - <<'PY'
+          import json, os, subprocess, sys, tempfile
+          from collections import Counter
+          from dataclasses import asdict
+          from pathlib import Path
+          sys.path.insert(0, "tests")
+          from test_summary_badge_target import test_own_badge_guard_is_scoped_to_the_real_complete_badge_module, test_own_badge_target_pins_actual_state_and_factory
+          from archkeel.check.report import run_report
+          from archkeel.check.ratchets import call_rows, unresolved_call_changes
+          from archkeel.cli.config import load_config
+          from archkeel.cli.observe import observe
+          from archkeel.ir.codec import decode_canonical_model, parse_observation
+          from archkeel.ir.decisions import rule_assessments
+          from archkeel.ir.report_graph import architecture_report
+          from archkeel.ir.trace import trace_valid_violations
+          root = Path.cwd()
+          with tempfile.TemporaryDirectory() as directory:
+              before_root = Path(directory) / "before"
+              subprocess.run(["git", "worktree", "add", "--detach", str(before_root), "7f99d03afaaea57530c56d688ce84e4b0867152e"], check=True)
+              observations = []
+              results = []
+              for label, repository in (("before", before_root), ("after", root)):
+                  result, encoded = run_report(repository, config=load_config(repository), analyzer=observe)
+                  assert encoded is not None, result
+                  model = parse_observation(decode_canonical_model(json.loads(encoded)))
+                  observations.append(model)
+                  results.append(result)
+                  (Path(os.environ["RUNNER_TEMP"]) / ("badge-" + label + ".json")).write_bytes(encoded)
+                  print("BADGE_NATIVE_" + label.upper() + "=" + json.dumps({
+                      "exit_code": result.exit_code, "declared_rules": result.declared_rules,
+                      "diagnostics": [asdict(row) for row in result.diagnostics],
+                      "measurements": asdict(result.measurements),
+                      "violations": [{"rules": row.rule_ids, "kind": row.kind, "data": dict(row.data.entries)} for row in trace_valid_violations(model)],
+                  }, default=str))
+              before, after = observations
+              print("BADGE_UNRESOLVED_SITE_CHANGES=" + json.dumps([asdict(row) for row in unresolved_call_changes(before, after)], default=str))
+              def partial(model):
+                  return Counter((row.path, row.caller, row.expression, row.reason) for row in call_rows(model) if row.status == "partially_resolved")
+              old_partial, new_partial = partial(before), partial(after)
+              print("BADGE_PARTIAL_SITE_CHANGES=" + json.dumps({
+                  "added": list((new_partial - old_partial).elements()), "removed": list((old_partial - new_partial).elements())
+              }, default=str))
+              old_unknown = {row.id: row for row in before.records("unknowns") or ()}
+              new_unknown = {row.id: row for row in after.records("unknowns") or ()}
+              def unknown_rows(keys, rows):
+                  return [{"id": key, "kind": rows[key].kind, "subjects": rows[key].subjects, "data": dict(rows[key].data.entries)} for key in sorted(keys)]
+              print("BADGE_UNKNOWN_ID_CHANGES=" + json.dumps({
+                  "added": unknown_rows(new_unknown.keys() - old_unknown.keys(), new_unknown),
+                  "removed": unknown_rows(old_unknown.keys() - new_unknown.keys(), old_unknown),
+                  "changed": [{"id": key, "before": dict(old_unknown[key].data.entries), "after": dict(new_unknown[key].data.entries)}
+                              for key in sorted(old_unknown.keys() & new_unknown.keys()) if old_unknown[key].data != new_unknown[key].data],
+              }, default=str))
+              print("BADGE_GUARD_RECEIPT=" + repr([(row.id, row.status, row.evaluation_proven) for row in rule_assessments(after, undecided_by_rule={}) if "RENDER-BADGE-" in row.id]))
+              comparison = architecture_report(after).comparison
+              print("BADGE_OWN_TARGET=" + repr([(row.subject_id, row.aspect, row.status) for row in comparison.assessments if row.subject_id.startswith("render:RENDER-BADGE-")]))
+              test_own_badge_guard_is_scoped_to_the_real_complete_badge_module(after)
+              test_own_badge_target_pins_actual_state_and_factory(after)
+              assert not trace_valid_violations(after)
+              measured = results[1].measurements.scalars
+              assert measured.calls_unresolved <= 918, measured
+              assert measured.typing_positions <= 52, measured
+              assert measured.unknown_positions <= 58, measured
+              assert not results[1].diagnostics, results[1].diagnostics
+          
+          PY
+  strict:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - run: make lint typecheck
+      - run: uv run --locked python -m pytest -q tests/test_summary_badge_target.py -k 'not own_'
+      - run: uv run --locked python -m pytest -q tests/test_summary_badge_types.py tests/test_terminal.py tests/test_html_report.py -k 'not chromium'
+      - name: Full output byte parity against exact predecessor
+        run: |
+          uv run --locked python - <<'PY'
+          import subprocess, sys, types
+          from dataclasses import asdict
+          from io import StringIO
+          from rich.console import Console
+          from archkeel.ir.architecture_graph import RuleAssessment, RuleAssessmentStatus
+          from archkeel.ir.model import RunResult
+          from archkeel.render import html, summary, terminal
+          base = "7f99d03afaaea57530c56d688ce84e4b0867152e"
+          def previous(name):
+              source = subprocess.run(["git", "show", base + ":src/archkeel/render/" + name + ".py"], capture_output=True, text=True, check=True).stdout
+              module = types.ModuleType("archkeel.render._before_badges_" + name)
+              module.__package__ = "archkeel.render"
+              sys.modules[module.__name__] = module
+              exec(compile(source, "<before-badges-" + name + ">", "exec"), module.__dict__)
+              return module
+          old_summary, old_html, old_terminal = (previous(name) for name in ("summary", "html", "terminal"))
+          old_html.badge = old_summary.badge
+          old_html.report_summary = old_summary.report_summary
+          old_html.check_summary = old_summary.check_summary
+          old_terminal.badge = old_summary.badge
+          for value in ("PASS", "FAIL", "UNKNOWN", "n/a", "other", ""):
+              assert asdict(old_summary.badge(value)) == asdict(summary.badge(value)), value
+              old_row = old_summary.VerdictRow("Verdict", "key", value, "Evidence")
+              new_row = summary.VerdictRow("Verdict", "key", value, "Evidence")
+              assert old_html._verdict_card(old_row) == html._verdict_card(new_row), value
+          for status in RuleAssessmentStatus:
+              assessment = RuleAssessment("rule", "permission", status, True, 0, 0, "", "", (), "", "", ())
+              assert old_html._rule_assessment_row(assessment) == html._rule_assessment_row(assessment), status
+          def output(module, result, display):
+              sink = StringIO()
+              console = Console(file=sink, width=80, force_terminal=True, color_system="standard")
+              module.print_result(result, display, artifacts=("architecture.json",), console=console)
+              return sink.getvalue()
+          cases = 0
+          for status in ("PASS", "FAIL", "UNKNOWN"):
+              for command in ("report", "validate", "check", "init"):
+                  result = RunResult(command, 0, "PASS", status, "n/a")
+                  name = "init_summary" if command == "init" else "check_summary" if command == "check" else "report_summary"
+                  before, after = getattr(old_summary, name)(result), getattr(summary, name)(result)
+                  assert asdict(before) == asdict(after), (command, status)
+                  assert output(old_terminal, result, before) == output(terminal, result, after), (command, status)
+                  assert old_html.render_html(result, None, repository="sample", architecture_href=None) == html.render_html(result, None, repository="sample", architecture_href=None), (command, status)
+                  cases += 1
+          print("BADGE_WIRE_AND_FULL_HTML_TERMINAL_BYTES_UNCHANGED", cases)
+          
+          PY
