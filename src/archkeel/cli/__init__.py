@@ -19,6 +19,7 @@ from rich_argparse import RawDescriptionRichHelpFormatter
 
 from ..check.git import read_blob
 from ..check.onboarding import run_init
+from ..check.ports import Language
 from ..check.report import render_result, run_report, run_saved_report, unknown_result
 from ..check.run import run_check
 from ..check.snapshot import resolve_commit
@@ -27,6 +28,18 @@ from ..host.gitlab import load_gitlab_records
 from ..render.html import render_architecture_details, render_architecture_html, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
+from .arguments import (
+    CLIArguments,
+    Command,
+    ConfigurationSource,
+    ReportMode,
+    SkillAction,
+    configuration_source,
+    installation_agent,
+    report_mode,
+    skill_action,
+    source_language,
+)
 from .config import (
     CONFIG_PATH,
     ConfigFileMissingError,
@@ -36,7 +49,7 @@ from .config import (
     project_name,
 )
 from .observe import observer_for
-from .skill import install_skill
+from .skill import InstallationAgent, install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
 
@@ -48,6 +61,12 @@ def _sha(value: str) -> str:
 
 
 class _Parser(argparse.ArgumentParser):
+    def parse_cli_args(self, args: Sequence[str] | None = None) -> CLIArguments:
+        arguments = argparse.ArgumentParser.parse_args(self, args, CLIArguments())
+        if arguments.command is not None:
+            arguments.command = Command(arguments.command)
+        return arguments
+
     def error(self, message: str) -> NoReturn:
         raise ValueError(message)
 
@@ -108,7 +127,7 @@ def build_parser() -> _Parser:
     )
 
     report = commands.add_parser(
-        "report",
+        Command.REPORT.value,
         parents=[configured],
         help="Observe the repository and write architecture evidence.",
         formatter_class=RawDescriptionRichHelpFormatter,
@@ -156,7 +175,8 @@ def build_parser() -> _Parser:
     )
     report.add_argument(
         "--only",
-        choices=["violations", "calls", "architecture"],
+        choices=list(ReportMode),
+        type=report_mode,
         help="violations: show only the declared-rule violations table, hiding component flow, "
         "component communication, review claims and size and coupling, for a small review "
         "surface on a large repository (AD-60). calls: list every unresolved and partially "
@@ -186,7 +206,7 @@ def build_parser() -> _Parser:
     )
 
     validate = commands.add_parser(
-        "validate",
+        Command.VALIDATE.value,
         parents=[configured],
         help="Validate the architecture contract for this repository.",
         formatter_class=RawDescriptionRichHelpFormatter,
@@ -284,7 +304,7 @@ def build_parser() -> _Parser:
     validate.add_argument("--rationale", help="Free text for --write-amendment: why.")
 
     check = commands.add_parser(
-        "check",
+        Command.CHECK.value,
         help="Check a candidate against its published expectation.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
@@ -327,7 +347,7 @@ def build_parser() -> _Parser:
     )
 
     init = commands.add_parser(
-        "init",
+        Command.INIT.value,
         help="Draft archkeel.toml, a closed contract and its architecture page.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
@@ -366,8 +386,9 @@ def build_parser() -> _Parser:
         init.add_argument(option, help=help_text)
     init.add_argument(
         "--language",
-        choices=["python", "dart", "typescript"],
-        default="python",
+        choices=list(Language),
+        type=source_language,
+        default=Language.PYTHON,
         help="Source language of --source. Dart needs --source and --namespace (the pubspec "
         "name). TypeScript also needs --tsconfig. Default: python.",
     )
@@ -388,7 +409,7 @@ def build_parser() -> _Parser:
     init.add_argument("--force", action="store_true", help="Replace existing onboarding files.")
 
     skill = commands.add_parser(
-        "skill",
+        Command.SKILL.value,
         help="Install the Archkeel instructions for a coding agent.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
@@ -404,8 +425,18 @@ def build_parser() -> _Parser:
             f"Onboarding: {_DOCS}/onboarding.md"
         ),
     )
-    skill.add_argument("action", choices=["install"], help="The only supported action.")
-    skill.add_argument("agent", choices=["claude", "codex"], help="Coding agent to instruct.")
+    skill.add_argument(
+        "action",
+        choices=list(SkillAction),
+        type=skill_action,
+        help="The only supported action.",
+    )
+    skill.add_argument(
+        "agent",
+        choices=list(InstallationAgent),
+        type=installation_agent,
+        help="Coding agent to instruct.",
+    )
     _observing(skill, None)
 
     return parser
@@ -413,39 +444,39 @@ def build_parser() -> _Parser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
-    command = "arguments"
+    command = Command.ARGUMENTS
     subject = "command-line arguments"
     interactive = sys.stdout.isatty()
     artifacts: list[Path] = []
     files: Mapping[str, bytes] = {}
     try:
-        args = parser.parse_args(argv)
+        args = parser.parse_cli_args(argv)
         if args.command is None:
             parser.print_help()
             return 0
         command = args.command
         interactive = interactive and not args.json
-        if command == "skill":
+        if command is Command.SKILL:
             path = install_skill(args.root.resolve(), args.agent)
             print(
                 f"Installed Archkeel instructions: {path}\n"
-                f"Use {'$archkeel' if args.agent == 'codex' else '/archkeel'} "
+                f"Use {'$archkeel' if args.agent is InstallationAgent.CODEX else '/archkeel'} "
                 "in your agent session; start a new session if needed."
                 if interactive
-                else json.dumps({"command": "skill", "exit_code": 0, "path": str(path)})
+                else json.dumps({"command": Command.SKILL, "exit_code": 0, "path": str(path)})
             )
             return 0
-        if args.config is None and (command != "report" or args.input is None):
+        if args.config is None and (command is not Command.REPORT or args.input is None):
             args.config = CONFIG_PATH
         root = (args.root or Path.cwd()).resolve()
         subject = str(root / (args.config or CONFIG_PATH))
         activity = (
             f"reading recorded {args.input.name}"
-            if command == "report" and args.input is not None
+            if command is Command.REPORT and args.input is not None
             else f"observing {root.name}"
         )
         with progress(f"archkeel {command}: {activity}"):
-            if command == "init":
+            if command is Command.INIT:
                 subject = str(root)
                 result, files = run_init(
                     root,
@@ -464,10 +495,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                     collector_argv=tuple(args.collector_argv) if args.collector_argv else None,
                     collector_output_limit_bytes=args.collector_output_limit_bytes,
                 )
-            elif command == "report" and args.input is not None:
-                if args.full and args.only != "architecture":
+            elif command is Command.REPORT and args.input is not None:
+                if args.full and args.only is not ReportMode.ARCHITECTURE:
                     parser.error("--full requires --only architecture")
-                if args.only in {"calls", "architecture"} and args.rule is not None:
+                if (
+                    args.only in {ReportMode.CALLS, ReportMode.ARCHITECTURE}
+                    and args.rule is not None
+                ):
                     parser.error(
                         "--rule narrows violations; --only calls or architecture "
                         "cannot select a rule"
@@ -487,22 +521,25 @@ def main(argv: Sequence[str] | None = None) -> int:
                     parser.error(f"--input cannot be combined with {', '.join(conflicts)}")
                 result = run_saved_report(
                     args.input,
-                    only_violations=args.only == "violations",
-                    only_calls=args.only == "calls",
-                    only_architecture=args.only == "architecture",
+                    only_violations=args.only is ReportMode.VIOLATIONS,
+                    only_calls=args.only is ReportMode.CALLS,
+                    only_architecture=args.only is ReportMode.ARCHITECTURE,
                     rule=args.rule,
                     component=args.component,
                     full_architecture=args.full,
                 )
-            elif command == "report":
+            elif command is Command.REPORT:
                 config = load_config(root, args.config or CONFIG_PATH)
                 subject = str(root)
-                if args.only in {"calls", "architecture"} and args.rule is not None:
+                if (
+                    args.only in {ReportMode.CALLS, ReportMode.ARCHITECTURE}
+                    and args.rule is not None
+                ):
                     parser.error(
                         "--rule narrows violations; --only calls or architecture "
                         "cannot select a rule"
                     )
-                if args.full and args.only != "architecture":
+                if args.full and args.only is not ReportMode.ARCHITECTURE:
                     parser.error("--full requires --only architecture")
                 result, architecture = run_report(
                     root,
@@ -513,9 +550,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                         tsconfig=config.tsconfig or "tsconfig.json",
                         output_limit_bytes=config.collector_output_limit_bytes,
                     ),
-                    only_violations=args.only == "violations",
-                    only_calls=args.only == "calls",
-                    only_architecture=args.only == "architecture",
+                    only_violations=args.only is ReportMode.VIOLATIONS,
+                    only_calls=args.only is ReportMode.CALLS,
+                    only_architecture=args.only is ReportMode.ARCHITECTURE,
                     rule=args.rule,
                     component=args.component,
                     full_architecture=args.full,
@@ -530,14 +567,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                     result = replace(
                         result,
                         artifact=None
-                        if args.only == "architecture"
+                        if args.only is ReportMode.ARCHITECTURE
                         else (
                             str(resolved.relative_to(root))
                             if resolved.is_relative_to(root)
                             else str(resolved)
                         ),
                     )
-                    report_html = html_path(artifact, "report")
+                    report_html = html_path(artifact, Command.REPORT)
                     repository = project_name(root, config)
                     details = render_architecture_details(
                         result,
@@ -566,7 +603,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                             if re.fullmatch(obsolete, previous.name):
                                 previous.unlink()
                     artifacts.extend((artifact, report_html))
-            elif command == "validate":
+            elif command is Command.VALIDATE:
                 config = load_config(root, args.config)
                 if args.write_baseline and args.baseline is None:
                     parser.error("--write-baseline needs --baseline to name the file to write")
@@ -646,7 +683,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
                     args.output.write_bytes(render_result(result))
-                    check_html = html_path(args.output, "check")
+                    check_html = html_path(args.output, Command.CHECK)
                     check_html.write_bytes(
                         render_check_html(
                             result,
@@ -663,13 +700,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ConfigFileMissingError as error:
         result = (
             invalid_result(subject, error)
-            if command == "validate"
+            if command is Command.VALIDATE
             else unknown_result(command, subject, error)
         )
         remedy = (
             "For a new repository, run archkeel init; otherwise restore archkeel.toml "
             "or select the existing configuration with --config PATH."
-            if args.config in {None, CONFIG_PATH}
+            if configuration_source(args.config, CONFIG_PATH) is ConfigurationSource.DEFAULT
             else "Restore the selected configuration or correct --config PATH and retry."
         )
         result = replace(
@@ -679,15 +716,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     except Exception as error:
         result = (
             invalid_result(subject, error)
-            if command == "validate"
+            if command is Command.VALIDATE
             else unknown_result(command, subject, error)
         )
     if interactive:
         summary = (
             check_summary(result)
-            if command == "check"
+            if command is Command.CHECK
             else init_summary(result)
-            if command == "init"
+            if command is Command.INIT
             else report_summary(result)
         )
         print_result(result, summary, artifacts=tuple(str(path) for path in artifacts))
