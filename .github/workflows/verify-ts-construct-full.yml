@@ -1,0 +1,93 @@
+name: TS construct full project and wire regression
+on:
+  push:
+    branches: [verify/542-typescript-construct-full]
+permissions:
+  contents: read
+jobs:
+  full-project:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Complete project suite
+        run: uv run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q --tb=short --junitxml="$RUNNER_TEMP/ts-construct-full.xml"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: typescript-construct-full-project-junit
+          path: ${{ runner.temp }}/ts-construct-full.xml
+  schema-wire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual legacy UML and Nest fact wire bytes
+        run: |
+          uv run --locked python - <<'PY'
+          import importlib
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+          from archkeel.analyzer.typescript.collect import collect
+          from archkeel.cli.config import parse_config
+          from archkeel.ir.facts_codec import encode_response
+          from archkeel.ir.protocol import CollectionRequest, CollectionResponse, SnapshotInput, SourceScope, TypeScriptSettings
+          base = "fa37f59600cfae64ba0528cb56e609c6bbd756e4"
+          repository = Path.cwd()
+          with TemporaryDirectory(prefix="archkeel-prior-ts-") as temp:
+              package_root = Path(temp) / "prior_typescript"
+              package_root.mkdir()
+              for name in ("__init__", "collect", "config", "parse", "resolve", "syntax"):
+                  payload = subprocess.run(["git", "show", f"{base}:src/archkeel/analyzer/typescript/{name}.py"], check=True, capture_output=True).stdout
+                  (package_root / f"{name}.py").write_bytes(payload)
+              sys.path.insert(0, temp)
+              prior_collect = importlib.import_module("prior_typescript.collect").collect
+              for fixture in ("H-uml-typescript", "L-nest-realworld"):
+                  root = repository / "fixtures" / fixture
+                  config = parse_config((root / "archkeel.toml").read_bytes())
+                  request = CollectionRequest(SnapshotInput(str(root), "a" * 40, False), SourceScope(config.roots, config.namespace), TypeScriptSettings(tsconfig=config.tsconfig or "tsconfig.json"))
+                  before = json.loads(encode_response(CollectionResponse(prior_collect(request))))
+                  after = json.loads(encode_response(CollectionResponse(collect(request))))
+                  facts = after["facts"]
+                  section = next(row for row in facts["sections"] if row["name"] == "constructs")
+                  construct_evidence = {key for row in section["records"] for key in row["evidence_ids"]}
+                  prior_evidence = {row["id"] for row in before["facts"]["evidence"]}
+                  extras = {row["id"] for row in facts["evidence"]} - prior_evidence
+                  assert extras <= construct_evidence, (fixture, extras - construct_evidence)
+                  assert facts["capabilities"]["constructs"] == [{"name": "string_literal_compare", "status": "partial"}]
+                  facts["sections"].remove(section)
+                  facts["capabilities"]["sections"].remove("constructs")
+                  facts["capabilities"]["constructs"] = []
+                  facts["evidence"] = [row for row in facts["evidence"] if row["id"] not in extras]
+                  expected = json.dumps(before, sort_keys=True, separators=(",", ":")).encode()
+                  observed = json.dumps(after, sort_keys=True, separators=(",", ":")).encode()
+                  assert observed == expected, fixture
+                  print("LEGACY_FACT_WIRE_BYTES_UNCHANGED", fixture, len(expected), "NEW_NATIVE_CONSTRUCTS", len(section["records"]), "NEW_EVIDENCE", len(extras), flush=True)
+          PY
+      - name: Four schema receipts and real JS revision
+        run: uv run --locked python -m pytest -q tests/test_typescript_demo.py -k 'decoded_schema or decoded_profile_schema or committed_js_only_revision' --tb=short
+      - name: Ruff, formatter and mypy
+        if: ${{ always() }}
+        run: |
+          uv run --locked ruff check src/archkeel tests/test_typescript_string_constructs.py tests/test_nullable_profile_measurements.py tests/test_typescript_control_target.py tests/test_typescript_demo.py
+          uv run --locked ruff format --diff src/archkeel/analyzer/typescript/parse.py src/archkeel/analyzer/typescript/syntax.py src/archkeel/analyzer/typescript/collect.py src/archkeel/ir/profiles.py src/archkeel/ir/codec_observation.py src/archkeel/check/evaluation/evaluate.py tests/test_typescript_string_constructs.py tests/test_nullable_profile_measurements.py tests/test_typescript_control_target.py tests/test_typescript_demo.py
+          uv run --locked mypy src/archkeel
