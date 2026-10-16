@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "7eaa2c0c849583c8d9c921b5300ad443f6d55ef7c3c889b180d5872b846019c5",
+  "after_digest": "9f25fddb81f564e24c8af559ac8937ceded128c35e49ffb468e6b70860317a8a",
+  "before_baseline_digest": "02279ca79283191bc1137034db4191abc1850cf3f290e974ec1caed594f95600",
+  "before_digest": "8aea00dcba2312ec6aadf842ec9a50ad252af4f2dab9cc3684dcdcc909c888e8",
+  "decided_by": "ake2l (explicit parser and protocol typing request); Codex implementation, independent Astra review required before merge",
+  "rationale": "Move existing immutable Dart syntax DTOs to their real owner, declare nominal control fields and resolver results, publish used named APIs, protect five implementation modules, reuse runtime state and resolver builtin classification, and tighten measured debt without exceptions.",
+  "schema_version": "2.0.0"
+}

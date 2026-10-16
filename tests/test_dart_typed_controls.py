@@ -384,3 +384,18 @@ def test_parse_releases_its_node_cache_on_success_and_failure(monkeypatch, fails
     else:
         assert parse.parse(b"class Example {}").definitions
     assert len(cleared) == 1 and not cleared[0]._nodes
+
+
+def test_resolver_outcomes_exclude_collector_only_partial_evidence_status():
+    assert set(resolve.ResolutionStatus) == {
+        resolve.ResolutionStatus.RESOLVED,
+        resolve.ResolutionStatus.UNKNOWN,
+        resolve.ResolutionStatus.UNRESOLVED,
+    }
+    for status in resolve.ResolutionStatus:
+        resolution = resolve.ConstructionResolution(status, None, None)
+        record, outcome = collect._Collection._construction_record(resolution)
+        assert isinstance(outcome, collect._FactStatus)
+        assert outcome is collect._FactStatus.UNRESOLVED
+        assert record["status"] is outcome
+    assert not isinstance(collect._FactStatus.PARTIALLY_RESOLVED, resolve.ResolutionStatus)

@@ -46,7 +46,6 @@ class ResolutionStatus(StrEnum):
     RESOLVED = "resolved"
     UNKNOWN = "unknown"
     UNRESOLVED = "unresolved"
-    PARTIALLY_RESOLVED = "partially_resolved"
 
 
 class BindingRole(StrEnum):

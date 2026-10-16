@@ -84,6 +84,12 @@ class _SymbolKind(StrEnum):
     BINDING = "binding"
 
 
+class _FactStatus(StrEnum):
+    RESOLVED = ResolutionStatus.RESOLVED
+    PARTIALLY_RESOLVED = "partially_resolved"
+    UNRESOLVED = ResolutionStatus.UNRESOLVED
+
+
 class _ClassKind(StrEnum):
     CLASS = DefinitionKind.CLASS
     PROTOCOL = "protocol"
@@ -914,9 +920,9 @@ class _Collection:
                                     "DARTBASE", rel, definition.span.start_byte, kind, name
                                 ),
                                 "relationship_kind": kind,
-                                "status": ResolutionStatus.RESOLVED
+                                "status": _FactStatus.RESOLVED
                                 if resolved
-                                else ResolutionStatus.UNRESOLVED,
+                                else _FactStatus.UNRESOLVED,
                                 "targets": [target] if resolved else [],
                                 "candidate_count": 1 if resolved else len(targets),
                                 "candidates_truncated": False,
@@ -1079,14 +1085,14 @@ class _Collection:
             "source_file": rel,
             "expression": site.expression_source or site.expression,
             "status": status,
-            "targets": target_names if status != ResolutionStatus.UNRESOLVED else [],
+            "targets": target_names if status != _FactStatus.UNRESOLVED else [],
             "candidate_count": len(target_names),
             "candidates_truncated": False,
             "reason": (
                 "Analyzer resolved the source element"
-                if status == ResolutionStatus.RESOLVED
+                if status == _FactStatus.RESOLVED
                 else "multiple local source candidates remain"
-                if status == ResolutionStatus.PARTIALLY_RESOLVED
+                if status == _FactStatus.PARTIALLY_RESOLVED
                 else "target is external, dynamic, or unresolved"
             ),
         }
@@ -1120,7 +1126,7 @@ class _Collection:
 
     def _site_target_state(
         self, rel: str, resolved: ResolvedSite, call: bool
-    ) -> tuple[list[str], RawData | None, ResolutionStatus]:
+    ) -> tuple[list[str], RawData | None, _FactStatus]:
         site = resolved.site
         target_names = sorted(
             {name for item in resolved.bindings if (name := self._binding_name(item)) is not None}
@@ -1164,48 +1170,48 @@ class _Collection:
                 if self._symbol_kind(target) in {_SymbolKind.METHOD, _SymbolKind.FUNCTION}
             ]
         status = (
-            ResolutionStatus.RESOLVED
+            _FactStatus.RESOLVED
             if len(target_names) == 1
             and (
                 not call
                 or construction is not None
                 or self._symbol_kind(target_names[0]) in {_SymbolKind.METHOD, _SymbolKind.FUNCTION}
             )
-            else ResolutionStatus.UNRESOLVED
+            else _FactStatus.UNRESOLVED
         )
         if resolved.status != ResolutionStatus.RESOLVED:
             status = (
-                ResolutionStatus.PARTIALLY_RESOLVED
+                _FactStatus.PARTIALLY_RESOLVED
                 if call and target_names
-                else ResolutionStatus.UNRESOLVED
+                else _FactStatus.UNRESOLVED
             )
         if construction_status is not None:
             status = (
-                ResolutionStatus.RESOLVED
-                if construction_status != ResolutionStatus.UNRESOLVED
-                else ResolutionStatus.UNRESOLVED
+                _FactStatus.RESOLVED
+                if construction_status != _FactStatus.UNRESOLVED
+                else _FactStatus.UNRESOLVED
             )
         return target_names, construction, status
 
     @staticmethod
     def _construction_record(
         resolution: ConstructionResolution,
-    ) -> tuple[RawData, ResolutionStatus]:
+    ) -> tuple[RawData, _FactStatus]:
         binding = resolution.binding
         class_name = binding.name.split(".", 1)[0] if binding else None
         target = f"{binding.module}.{class_name}" if binding and class_name else None
         if resolution.status == ResolutionStatus.RESOLVED and target:
-            status = ResolutionStatus.RESOLVED
+            status = _FactStatus.RESOLVED
             targets = [target]
         elif binding is not None and target:
-            status = ResolutionStatus.PARTIALLY_RESOLVED
+            status = _FactStatus.PARTIALLY_RESOLVED
             targets = [target]
         else:
-            status = ResolutionStatus.UNRESOLVED
+            status = _FactStatus.UNRESOLVED
             targets = []
-        if status == ResolutionStatus.RESOLVED:
+        if status == _FactStatus.RESOLVED:
             reason = "Analyzer resolved a local generative constructor"
-        elif status == ResolutionStatus.PARTIALLY_RESOLVED:
+        elif status == _FactStatus.PARTIALLY_RESOLVED:
             reason = "factory construction does not prove a local instance target"
         else:
             reason = resolution.reason or "constructor target is external, dynamic, or unresolved"
