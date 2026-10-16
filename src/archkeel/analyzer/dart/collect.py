@@ -22,6 +22,7 @@ from archkeel.ir.facts import (
     FileFact,
     InventoryStatus,
     InventoryVersion,
+    JsonValue,
     Language,
     LocalTarget,
     Record,
@@ -81,6 +82,22 @@ class _SymbolKind(StrEnum):
     ATTRIBUTE = "attribute"
     CONSTANT = "constant"
     BINDING = "binding"
+
+
+class _ClassKind(StrEnum):
+    CLASS = DefinitionKind.CLASS
+    PROTOCOL = "protocol"
+    MIXIN = DefinitionKind.MIXIN
+    ENUM = DefinitionKind.ENUM
+
+
+def _class_kind(value: JsonValue) -> _ClassKind | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return _ClassKind(value)
+    except ValueError:
+        return None
 
 
 class _BaseKind(StrEnum):
@@ -176,21 +193,13 @@ class _Collection:
                 if concern.kind == ConcernKind.SYNTAX_ERROR and syntax.first_error is not None:
                     continue
                 kind = {
-                    "unsupported_directive": "DirectiveError",
-                    "unsupported_declaration": "UnsupportedDeclaration",
-                    "unsupported_member": "UnsupportedMember",
-                    "unsupported_parameter": "UnsupportedParameter",
+                    ConcernKind.UNSUPPORTED_DIRECTIVE: "DirectiveError",
+                    ConcernKind.UNSUPPORTED_DECLARATION: "UnsupportedDeclaration",
                 }.get(concern.kind, concern.kind)
                 self._gap(source.rel_path, concern.span, kind, concern.message)
 
         for problem in self.snapshot.problems:
-            kind = {
-                "SymlinkError": "DartSourceLink"
-                if problem.path.endswith(".dart")
-                else problem.kind,
-                "ModuleIdCollision": "DartModuleCollision",
-            }.get(problem.kind, problem.kind)
-            self._gap(problem.path, _file_span(), kind, problem.message)
+            self._gap(problem.path, _file_span(), problem.kind, problem.message)
         self._sdk_constraints()
 
         for rel in tuple(self.parsed):
@@ -216,8 +225,7 @@ class _Collection:
     def _resolver_gaps(self) -> None:
         for problem in self.resolver.problems:
             kind = {
-                "ImportError": "DirectiveError",
-                "PartError": "PartError",
+                ResolutionProblemKind.IMPORT_ERROR: "DirectiveError",
             }.get(problem.kind, problem.kind)
             self._gap(
                 problem.path,
@@ -393,7 +401,7 @@ class _Collection:
         qualified = f"{parent}.{name}" if parent else f"{module}.{name}"
         kind = definition.kind
         record_kind = {
-            DefinitionKind.TYPEDEF: "alias",
+            DefinitionKind.TYPEDEF: _SymbolKind.ALIAS,
             DefinitionKind.MIXIN: DefinitionKind.CLASS,
             DefinitionKind.ENUM: DefinitionKind.CLASS,
             DefinitionKind.INTERFACE: DefinitionKind.CLASS,
@@ -432,7 +440,7 @@ class _Collection:
         elif kind == DefinitionKind.TYPEDEF:
             data.update(symbol_category="type_alias", annotation=definition.alias, constant=None)
         elif kind == DefinitionKind.VARIABLE:
-            record_kind = "constant" if definition.constant else "attribute"
+            record_kind = _SymbolKind.CONSTANT if definition.constant else _SymbolKind.ATTRIBUTE
             data.update(
                 symbol_category=record_kind,
                 annotation=definition.return_type,
@@ -459,7 +467,7 @@ class _Collection:
         name: str,
         qualified: str,
         kind: DefinitionKind,
-        record_kind: str,
+        record_kind: DefinitionKind | _SymbolKind,
         symbol_id: str,
         definition: Definition,
         data: RawData,
@@ -507,10 +515,10 @@ class _Collection:
         data: RawData,
     ) -> None:
         class_kind = {
-            "class": "class",
-            "interface": "protocol",
-            "mixin": "mixin",
-            "enum": "enum",
+            DefinitionKind.CLASS: _ClassKind.CLASS,
+            DefinitionKind.INTERFACE: _ClassKind.PROTOCOL,
+            DefinitionKind.MIXIN: _ClassKind.MIXIN,
+            DefinitionKind.ENUM: _ClassKind.ENUM,
         }[definition.kind]
         attributes: list[RawData] = []
         methods: list[str] = []
@@ -893,7 +901,7 @@ class _Collection:
                         mixin_target = bool(
                             target_record is not None
                             and (
-                                target_record["data"].get("class_kind") == DefinitionKind.MIXIN
+                                _class_kind(target_record["data"].get("class_kind")) == _ClassKind.MIXIN
                                 or target_record["data"].get("mixin_capable") is True
                             )
                         )
@@ -1136,8 +1144,10 @@ class _Collection:
             if call and (site.kind == SiteKind.CREATION or constructor_binding is not None)
             else None
         )
-        construction = (
-            self._construction_record(construction_resolution) if construction_resolution else None
+        construction, construction_status = (
+            self._construction_record(construction_resolution)
+            if construction_resolution is not None
+            else (None, None)
         )
         if construction_resolution and construction_resolution.binding:
             class_name = construction_resolution.binding.name.split(".", 1)[0]
@@ -1167,10 +1177,10 @@ class _Collection:
                 if call and target_names
                 else ResolutionStatus.UNRESOLVED
             )
-        if construction is not None:
+        if construction_status is not None:
             status = (
                 ResolutionStatus.RESOLVED
-                if construction["status"] != ResolutionStatus.UNRESOLVED
+                if construction_status != ResolutionStatus.UNRESOLVED
                 else ResolutionStatus.UNRESOLVED
             )
         return target_names, construction, status
@@ -1178,7 +1188,7 @@ class _Collection:
     @staticmethod
     def _construction_record(
         resolution: ConstructionResolution,
-    ) -> RawData:
+    ) -> tuple[RawData, ResolutionStatus]:
         binding = resolution.binding
         class_name = binding.name.split(".", 1)[0] if binding else None
         target = f"{binding.module}.{class_name}" if binding and class_name else None
@@ -1202,7 +1212,7 @@ class _Collection:
             "targets": targets,
             "candidates_truncated": False,
             "reason": reason,
-        }
+        }, status
 
     def _scope(self, rel: str, module: str, site: Site) -> tuple[str, str | None]:
         name = site.scope

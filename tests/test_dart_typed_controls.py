@@ -14,7 +14,7 @@ from typing import get_type_hints
 import pytest
 from test_architecture_demo import _prepare_repo
 
-from archkeel.analyzer.dart import parse, resolve, snapshot
+from archkeel.analyzer.dart import collect, parse, resolve, snapshot
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
@@ -351,3 +351,13 @@ def test_resolver_owns_builtin_classification_for_sdk_local_and_external_targets
         target = resolver.resolve_uri("lib/main.dart", uri)
         assert target is not None and target.builtin is expected
         assert target.uri == uri
+
+
+@pytest.mark.parametrize("value", ["mixin", "class", "protocol", "enum", None, "foreign", 1, []])
+def test_collector_decodes_only_its_owned_class_fact_vocabulary(value):
+    result = collect._class_kind(value)
+    if isinstance(value, str) and value in {item.value for item in collect._ClassKind}:
+        assert isinstance(result, collect._ClassKind)
+        assert str(result) == value
+    else:
+        assert result is None
