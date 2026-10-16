@@ -1,0 +1,95 @@
+name: TS construct exact committed no-write
+on:
+  push:
+    branches: [verify/542-typescript-construct-nowrite]
+permissions:
+  contents: read
+jobs:
+  no-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual committed no-write comparison
+        run: |
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against fa37f59600cfae64ba0528cb56e609c6bbd756e4 --amendment docs/architecture/decisions/issue-542-typescript-written-controls-amendment.json > "$RUNNER_TEMP/construct-nowrite.json"
+      - name: Verify result and clean checkout
+        if: ${{ always() }}
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+          result = json.loads((Path(os.environ["RUNNER_TEMP"]) / "construct-nowrite.json").read_text())
+          print("EXACT_COMMITTED_RESULT=" + json.dumps({key: result.get(key) for key in ("exit_code", "amendment_status", "failures", "diagnostics", "measurements")}), flush=True)
+          assert result["exit_code"] == 0
+          assert result["amendment_status"] == "valid"
+          assert result["measurements"]["scalars"]["calls_unresolved"] == 913
+          assert result["measurements"]["scalars"]["typing_positions"] == 52
+          assert result["measurements"]["scalars"]["unknown_positions"] == 58
+          assert result["measurements"]["scalars"]["violations"] == 0
+          status = subprocess.run(["git", "status", "--porcelain"], check=True, capture_output=True, text=True).stdout
+          assert status == "", status
+          print("EXACT_NO_WRITE_GIT_CLEAN", flush=True)
+          PY
+  parse-cost:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Frozen real fixture parser cost against exact base
+        run: |
+          uv run --locked python - <<'PY'
+          import importlib
+          import json
+          import statistics
+          import subprocess
+          import sys
+          import time
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+          from archkeel.analyzer.typescript.parse import parse
+          repository = Path.cwd()
+          base = "fa37f59600cfae64ba0528cb56e609c6bbd756e4"
+          with TemporaryDirectory(prefix="archkeel-prior-ts-") as temp:
+              package_root = Path(temp) / "prior_typescript"
+              package_root.mkdir()
+              for name in ("__init__", "config", "parse", "syntax"):
+                  payload = subprocess.run(["git", "show", f"{base}:src/archkeel/analyzer/typescript/{name}.py"], check=True, capture_output=True).stdout
+                  (package_root / f"{name}.py").write_bytes(payload)
+              sys.path.insert(0, temp)
+              prior_parse = importlib.import_module("prior_typescript.parse").parse
+              for fixture in ("H-uml-typescript", "L-nest-realworld"):
+                  root = repository / "fixtures" / fixture
+                  source = [(path.relative_to(root).as_posix(), path.read_bytes()) for path in sorted((root / "src").rglob("*")) if path.is_file() and path.suffix in {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}]
+                  functions = {"before": prior_parse, "after": parse}
+                  for function in functions.values():
+                      for rel, data in source:
+                          function(rel, data)
+                  measured = {label: [] for label in functions}
+                  for repeat in range(7):
+                      for label in (("before", "after") if repeat % 2 == 0 else ("after", "before")):
+                          started = time.perf_counter()
+                          for rel, data in source:
+                              functions[label](rel, data)
+                          measured[label].append(time.perf_counter() - started)
+                  medians = {key: statistics.median(values) for key, values in measured.items()}
+                  print("ACTUAL_PARSER_COST=" + json.dumps({"fixture": fixture, "files": len(source), "source_bytes": sum(len(data) for _, data in source), "seconds_median": medians, "delta_percent": (medians["after"] / medians["before"] - 1) * 100, "samples": 7}), flush=True)
+          PY
