@@ -8684,7 +8684,7 @@
                 "name": "value",
                 "kind": "positional",
                 "default_known": true,
-                "annotation": "object"
+                "annotation": "JsonValue | RawJson | MethodKind"
               }
             ],
             "returns": "MethodKind | None"

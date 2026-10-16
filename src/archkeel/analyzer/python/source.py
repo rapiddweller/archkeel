@@ -740,8 +740,7 @@ def unproven_class_body(
             child.name in {"__init_subclass__", "__class_getitem__"}
             or (
                 child not in properties
-                and method_descriptor(module, child, node).signature_decorators_proven
-                is not True
+                and method_descriptor(module, child, node).signature_decorators_proven is not True
             )
         ):
             return True
@@ -1006,7 +1005,11 @@ def _class_members_receive_owner(module: ParsedModule, owner: ast.ClassDef) -> b
         if exposes_dynamic_namespace(module, node, local_namespace=True):
             return True
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            if method_descriptor(module, node, owner).signature_decorators_proven is not True and node not in property_bindings(module, owner):
+            if method_descriptor(
+                module, node, owner
+            ).signature_decorators_proven is not True and node not in property_bindings(
+                module, owner
+            ):
                 return True
         elif isinstance(node, ast.ClassDef):
             if not class_header_static(node) or node.bases:
@@ -1553,8 +1556,7 @@ def _unproven_member_roots(
                 )
                 or isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
                 and node not in properties
-                and method_descriptor(module, node, None).signature_decorators_proven
-                is not True
+                and method_descriptor(module, node, None).signature_decorators_proven is not True
             )
         }
         if member_surface and include_creation_uncertainty
