@@ -17,5 +17,7 @@ jobs:
         with:
           python-version: "3.11.12"
           version: "0.12.13"
-      - name: Native RED
-        run: uv run --locked python -m pytest -q tests/test_module_object_grants.py --maxfail=1
+      - name: Grammar positive
+        run: uv run --locked python -m pytest -q tests/test_module_object_grants.py -k "roundtrip or absence"
+      - name: Native policy RED
+        run: uv run --locked python -m pytest -q tests/test_module_object_grants.py -k native_exact --maxfail=1
