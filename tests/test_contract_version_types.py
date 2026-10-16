@@ -30,7 +30,8 @@ def test_parser_normalizes_each_historical_version_to_a_nominal_owner(version):
     contract = parse_contract(raw)
     assert isinstance(contract.schema_version, StrEnum)
     assert str(contract.schema_version) == version
-    assert contract_bytes(contract) == (json.dumps(raw, indent=2, ensure_ascii=False) + "\n").encode()
+    expected = (json.dumps(raw, indent=2, ensure_ascii=False) + "\n").encode()
+    assert contract_bytes(contract) == expected
     assert parse_contract(raw) == contract
 
 
