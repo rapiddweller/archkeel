@@ -7581,6 +7581,847 @@
             "kind": "public",
             "basis": "declared"
           }
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-CompatibilityLifetime",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.model.CompatibilityLifetime",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "responsibilities": [
+            "Own the closed CompatibilityLifetime grammar used by contract authoring."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-CycleLevel",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.model.CycleLevel",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "responsibilities": [
+            "Own the closed CycleLevel grammar used by contract authoring."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-ForbiddenDependencyRule.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ForbiddenDependencyRule.kind",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model.ForbiddenDependencyRule",
+          "annotation": "Literal[ArchitectureRuleKind.FORBIDDEN_DEPENDENCY]",
+          "responsibilities": [
+            "Retain the fixed rule variant from the shared architecture vocabulary."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-ForbiddenDependencyRule.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ForbiddenDependencyRule.decided_by",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model.ForbiddenDependencyRule",
+          "annotation": "DecisionMaker",
+          "responsibilities": [
+            "Attribute contract decisions through the shared nominal decision-maker type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-AllowedDependencyRule",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.AllowedDependencyRule",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable typed contract authoring intent."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-AllowedDependencyRule.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.AllowedDependencyRule.kind",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-AllowedDependencyRule",
+          "annotation": "Literal[ArchitectureRuleKind.ALLOWED_DEPENDENCY]",
+          "responsibilities": [
+            "Retain the fixed rule variant from the shared architecture vocabulary."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-AllowedDependencyRule.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.AllowedDependencyRule.decided_by",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-AllowedDependencyRule",
+          "annotation": "DecisionMaker",
+          "responsibilities": [
+            "Attribute contract decisions through the shared nominal decision-maker type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-ForbiddenConstructRule",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.ForbiddenConstructRule",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable typed contract authoring intent."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-ForbiddenConstructRule.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ForbiddenConstructRule.kind",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-ForbiddenConstructRule",
+          "annotation": "Literal[ArchitectureRuleKind.FORBIDDEN_CONSTRUCT]",
+          "responsibilities": [
+            "Retain the fixed rule variant from the shared architecture vocabulary."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-ForbiddenConstructRule.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ForbiddenConstructRule.decided_by",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-ForbiddenConstructRule",
+          "annotation": "DecisionMaker",
+          "responsibilities": [
+            "Attribute contract decisions through the shared nominal decision-maker type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-CompleteAssignmentRule",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.CompleteAssignmentRule",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable typed contract authoring intent."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-CompleteAssignmentRule.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.CompleteAssignmentRule.kind",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-CompleteAssignmentRule",
+          "annotation": "Literal[ArchitectureRuleKind.COMPLETE_ASSIGNMENT]",
+          "responsibilities": [
+            "Retain the fixed rule variant from the shared architecture vocabulary."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-CompleteAssignmentRule.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.CompleteAssignmentRule.decided_by",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-CompleteAssignmentRule",
+          "annotation": "DecisionMaker",
+          "responsibilities": [
+            "Attribute contract decisions through the shared nominal decision-maker type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-CompleteRequiresRule",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.CompleteRequiresRule",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable typed contract authoring intent."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-CompleteRequiresRule.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.CompleteRequiresRule.kind",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-CompleteRequiresRule",
+          "annotation": "Literal[ArchitectureRuleKind.COMPLETE_REQUIRES]",
+          "responsibilities": [
+            "Retain the fixed rule variant from the shared architecture vocabulary."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-CompleteRequiresRule.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.CompleteRequiresRule.decided_by",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-CompleteRequiresRule",
+          "annotation": "DecisionMaker",
+          "responsibilities": [
+            "Attribute contract decisions through the shared nominal decision-maker type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-LayerOrderRule",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.LayerOrderRule",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable typed contract authoring intent."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-LayerOrderRule.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.LayerOrderRule.kind",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-LayerOrderRule",
+          "annotation": "Literal[ArchitectureRuleKind.LAYER_ORDER]",
+          "responsibilities": [
+            "Retain the fixed rule variant from the shared architecture vocabulary."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-LayerOrderRule.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.LayerOrderRule.decided_by",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-LayerOrderRule",
+          "annotation": "DecisionMaker",
+          "responsibilities": [
+            "Attribute contract decisions through the shared nominal decision-maker type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-CompleteExternalScopeRule",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.CompleteExternalScopeRule",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable typed contract authoring intent."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-CompleteExternalScopeRule.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.CompleteExternalScopeRule.kind",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-CompleteExternalScopeRule",
+          "annotation": "Literal[ArchitectureRuleKind.COMPLETE_EXTERNAL_SCOPE]",
+          "responsibilities": [
+            "Retain the fixed rule variant from the shared architecture vocabulary."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-CompleteExternalScopeRule.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.CompleteExternalScopeRule.decided_by",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-CompleteExternalScopeRule",
+          "annotation": "DecisionMaker",
+          "responsibilities": [
+            "Attribute contract decisions through the shared nominal decision-maker type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-NoComponentCyclesRule",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.NoComponentCyclesRule",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable typed contract authoring intent."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-NoComponentCyclesRule.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.NoComponentCyclesRule.kind",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-NoComponentCyclesRule",
+          "annotation": "Literal[ArchitectureRuleKind.NO_COMPONENT_CYCLES]",
+          "responsibilities": [
+            "Retain the fixed rule variant from the shared architecture vocabulary."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-NoComponentCyclesRule.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.NoComponentCyclesRule.decided_by",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-NoComponentCyclesRule",
+          "annotation": "DecisionMaker",
+          "responsibilities": [
+            "Attribute contract decisions through the shared nominal decision-maker type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-InterfaceBoundaryRule.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.InterfaceBoundaryRule.kind",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-MODULE-OBJECT-InterfaceBoundaryRule",
+          "annotation": "Literal[ArchitectureRuleKind.INTERFACE_BOUNDARY]",
+          "responsibilities": [
+            "Retain the fixed rule variant from the shared architecture vocabulary."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-InterfaceBoundaryRule.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.InterfaceBoundaryRule.decided_by",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-MODULE-OBJECT-InterfaceBoundaryRule",
+          "annotation": "DecisionMaker",
+          "responsibilities": [
+            "Attribute contract decisions through the shared nominal decision-maker type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-SiblingIsolationRule",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.SiblingIsolationRule",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable typed contract authoring intent."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-SiblingIsolationRule.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.SiblingIsolationRule.kind",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-SiblingIsolationRule",
+          "annotation": "Literal[ArchitectureRuleKind.SIBLING_ISOLATION]",
+          "responsibilities": [
+            "Retain the fixed rule variant from the shared architecture vocabulary."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-SiblingIsolationRule.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.SiblingIsolationRule.decided_by",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-SiblingIsolationRule",
+          "annotation": "DecisionMaker",
+          "responsibilities": [
+            "Attribute contract decisions through the shared nominal decision-maker type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-SymbolPlacementRule",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.SymbolPlacementRule",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable typed contract authoring intent."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-SymbolPlacementRule.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.SymbolPlacementRule.kind",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-SymbolPlacementRule",
+          "annotation": "Literal[ArchitectureRuleKind.SYMBOL_PLACEMENT]",
+          "responsibilities": [
+            "Retain the fixed rule variant from the shared architecture vocabulary."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-SymbolPlacementRule.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.SymbolPlacementRule.decided_by",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-SymbolPlacementRule",
+          "annotation": "DecisionMaker",
+          "responsibilities": [
+            "Attribute contract decisions through the shared nominal decision-maker type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-BoundaryTypesRule",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.BoundaryTypesRule",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable typed contract authoring intent."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-BoundaryTypesRule.kind",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.BoundaryTypesRule.kind",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-BoundaryTypesRule",
+          "annotation": "Literal[ArchitectureRuleKind.BOUNDARY_TYPES]",
+          "responsibilities": [
+            "Retain the fixed rule variant from the shared architecture vocabulary."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-BoundaryTypesRule.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.BoundaryTypesRule.decided_by",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-BoundaryTypesRule",
+          "annotation": "DecisionMaker",
+          "responsibilities": [
+            "Attribute contract decisions through the shared nominal decision-maker type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-CompatibilityShim",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.CompatibilityShim",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable typed contract authoring intent."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-CompatibilityShim.lifetime",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.CompatibilityShim.lifetime",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-CompatibilityShim",
+          "annotation": "CompatibilityLifetime",
+          "responsibilities": [
+            "Retain the closed contract grammar as a nominal API type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-NoComponentCyclesRule.level",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.NoComponentCyclesRule.level",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-NoComponentCyclesRule",
+          "annotation": "Literal[CycleLevel.MODULE] | None",
+          "responsibilities": [
+            "Retain the closed contract grammar as a nominal API type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-ContractComponent",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.ContractComponent",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable typed contract authoring intent."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-ContractComponent.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ContractComponent.decided_by",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-ContractComponent",
+          "annotation": "DecisionMaker | None",
+          "responsibilities": [
+            "Attribute contract decisions through the shared nominal decision-maker type."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-RequiredComponent",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.RequiredComponent",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ],
+          "responsibilities": [
+            "Carry immutable typed contract authoring intent."
+          ]
+        },
+        {
+          "id": "IR-RULE-GRAMMAR-RequiredComponent.decided_by",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.RequiredComponent.decided_by",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "parent_id": "IR-RULE-GRAMMAR-RequiredComponent",
+          "annotation": "DecisionMaker | None",
+          "responsibilities": [
+            "Attribute contract decisions through the shared nominal decision-maker type."
+          ]
         }
       ],
       "relationships": [

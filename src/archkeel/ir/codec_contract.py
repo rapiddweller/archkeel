@@ -10,7 +10,7 @@ import json
 import re
 from collections.abc import Callable
 from dataclasses import asdict
-from typing import Final, Literal, TypeGuard, get_args
+from typing import Final, Literal
 
 from archkeel.ir.architecture_graph import (
     ArchitectureRuleKind,
@@ -22,6 +22,7 @@ from archkeel.ir.codec_governance import _measurement_budget_name
 from archkeel.ir.codec_wire import (
     _count,
     _exact,
+    _has_field,
     _nonempty,
     _object,
     _raw_object,
@@ -56,6 +57,7 @@ from archkeel.ir.model import (
     ContractPathKind,
     ContractReviewScope,
     CouplingBudget,
+    CycleLevel,
     DependencySelector,
     DependencyTargetKind,
     ExternalDependencyScopeRule,
@@ -75,7 +77,6 @@ from archkeel.ir.model import (
     SymbolClassKind,
     SymbolPlacementRule,
     TypeIgnoreAllowance,
-    contract_relative_path,
 )
 from archkeel.ir.model import ContractInputError as ContractInputError
 from archkeel.ir.model import RawJson as RawJson
@@ -97,10 +98,6 @@ class ContractVersionError(ValueError):
         super().__init__(f"contract.schema_version {actual!r} is not {CONTRACT_SCHEMA_VERSION}")
 
 
-def _is_compatibility_lifetime(value: RawJson) -> TypeGuard[CompatibilityLifetime]:
-    return value in get_args(CompatibilityLifetime)
-
-
 def _contract_fields(
     raw: RawJson, required: set[str], optional: set[str], label: str
 ) -> dict[str, RawJson]:
@@ -110,14 +107,12 @@ def _contract_fields(
     return item
 
 
-def _decided_by(raw: RawJson, label: str) -> Literal["architect", "agent"]:
-    """Narrow to the Literal by value, never by cast (AD-16)."""
+def _decided_by(raw: RawJson, label: str) -> DecisionMaker:
     value = _nonempty(raw, label)
-    if value == "architect":
-        return "architect"
-    if value == "agent":
-        return "agent"
-    raise ValueError(f"{label} must be architect or agent")
+    try:
+        return DecisionMaker(value)
+    except ValueError as error:
+        raise ValueError(f"{label} must be architect or agent") from error
 
 
 def _contract_strings(raw: RawJson, label: str, *, required: bool = False) -> tuple[str, ...]:
@@ -236,7 +231,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
             _parse_facade_budget(value, f"facade_budgets[{index}]")
             for index, value in enumerate(records("facade_budgets"))
         )
-        if "facade_budgets" in declarations
+        if _has_field(declarations, "facade_budgets")
         else None
     )
     coupling_budgets = (
@@ -244,7 +239,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
             _parse_coupling_budget(value, f"coupling_budgets[{index}]")
             for index, value in enumerate(records("coupling_budgets"))
         )
-        if "coupling_budgets" in declarations
+        if _has_field(declarations, "coupling_budgets")
         else None
     )
     modules = (
@@ -252,33 +247,34 @@ def parse_contract(raw: object) -> ArchitectureContract:
             _parse_module_target(value, f"modules[{index}]")
             for index, value in enumerate(records("modules"))
         )
-        if "modules" in declarations
+        if _has_field(declarations, "modules")
         else None
     )
     if modules is not None and len({item.path for item in modules}) != len(modules):
         raise ValueError("contract.declarations.modules repeats a path")
-    if "uml" in declarations and not version.supports(ContractFeature.UML):
+    if _has_field(declarations, "uml") and not version.supports(ContractFeature.UML):
         raise ValueError("UML declarations require contract schema_version 2.2.0")
-    uml = parse_target(declarations["uml"]) if "uml" in declarations else None
-    if not version.supports(ContractFeature.LAYERS):
-        for raw in rules_raw:
-            rule_data: dict[str, RawJson] = _object(raw, "rule")
-            if rule_data.get("kind") == "layer_order":
-                raise ValueError("layer_order requires contract schema_version 2.3.0")
+    uml = parse_target(declarations["uml"]) if _has_field(declarations, "uml") else None
+    kinds = tuple(_rule_kind(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
+    if not version.supports(ContractFeature.LAYERS) and ArchitectureRuleKind.LAYER_ORDER in kinds:
+        raise ValueError("layer_order requires contract schema_version 2.3.0")
     if not version.supports(ContractFeature.MODULE_SELECTORS) and any(
-        "source_match" in _object(value, "rule") or "target_match" in _object(value, "rule")
+        _has_field(_object(value, "rule"), "source_match") or _has_field(_object(value, "rule"), "target_match")
         for value in rules_raw
     ):
         raise ValueError("dependency module selectors require contract schema_version 3.4.0")
     if not version.supports(ContractFeature.IMPORT_NAMESPACES) and any(
-        "target_kind" in _object(value, "rule") for value in rules_raw
+        _has_field(_object(value, "rule"), "target_kind") for value in rules_raw
     ):
         raise ValueError("import namespace targets require contract schema_version 3.5.0")
     if not version.supports(ContractFeature.MODULE_OBJECT_GRANTS) and any(
-        "module_object_grants" in _object(value, "rule") for value in rules_raw
+        _has_field(_object(value, "rule"), "module_object_grants") for value in rules_raw
     ):
         raise ValueError("module_object_grants require contract schema_version 3.6.0")
-    rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
+    rules = tuple(
+        _parse_rule(value, f"rules[{index}]", kind)
+        for index, (value, kind) in enumerate(zip(rules_raw, kinds, strict=True))
+    )
     if not version.supports(ContractFeature.ALIAS_BODY) and any(
         isinstance(rule, BoundaryTypesRule)
         and any(item.alias_body is not None for item in rule.allowed_positions)
@@ -522,24 +518,18 @@ def _parse_compat(raw: RawJson, label: str) -> CompatibilityShim:
     if module == target:
         raise ValueError(f"{label}.module and target must differ")
     lifetime = item["lifetime"]
-    if not _is_compatibility_lifetime(lifetime):
+    if not isinstance(lifetime, str):
         raise ValueError(f"{label}.lifetime must be permanent or migration")
-    return CompatibilityShim(module, target, lifetime)
+    try:
+        parsed_lifetime = CompatibilityLifetime(lifetime)
+    except ValueError as error:
+        raise ValueError(f"{label}.lifetime must be permanent or migration") from error
+    return CompatibilityShim(module, target, parsed_lifetime)
 
 
 def _parse_module_target(raw: RawJson, label: str) -> ContractModuleTarget:
     item = _contract_fields(raw, {"path", "responsibility"}, set(), label)
     path = _nonempty(item["path"], f"{label}.path")
-    relative = contract_relative_path(path)
-    if (
-        relative is None
-        or "\x00" in path
-        or str(relative) != path
-        or re.match(r"^[A-Za-z]:", path) is not None
-        or relative.suffix
-        not in {".py", ".dart", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
-    ):
-        raise ValueError(f"{label}.path must be a repository-relative source path")
     responsibility = _nonempty(item["responsibility"], f"{label}.responsibility")
     target = ContractModuleTarget(path, responsibility)
     try:
@@ -571,7 +561,7 @@ def parse_required_component(raw: RawJson, label: str = "requires") -> RequiredC
         _nonempty(item["component"], f"{label}.component"),
         _nonempty(item["rationale"], f"{label}.rationale"),
         _contract_strings(item.get("through", []), f"{label}.through"),
-        DecisionMaker(_decided_by(decided_by, f"{label}.decided_by"))
+        _decided_by(decided_by, f"{label}.decided_by")
         if decided_by is not None
         else None,
     )
@@ -583,7 +573,7 @@ def _component_names(
     packages = _contract_strings(item["packages"], f"{label}.packages")
     exact = (
         _contract_strings(item["exact_modules"], f"{label}.exact_modules")
-        if "exact_modules" in item
+        if _has_field(item, "exact_modules")
         else ()
     )
     if any(re.fullmatch(_PACKAGE_NAME.pattern, name) is None for name in exact):
@@ -594,7 +584,7 @@ def _component_names(
 
 
 def _parse_component(raw: RawJson, label: str, *, version: ContractVersion) -> ContractComponent:
-    if "layer" in _object(raw, label) and not version.supports(ContractFeature.LAYERS):
+    if _has_field(_object(raw, label), "layer") and not version.supports(ContractFeature.LAYERS):
         raise ValueError(f"{label}.layer requires contract schema_version 2.3.0")
     item, item_id, provenance = _contract_record(
         raw,
@@ -656,12 +646,12 @@ def _parse_component(raw: RawJson, label: str, *, version: ContractVersion) -> C
         _nonempty(inside, f"{label}.inside") if inside is not None else None,
         public,
         planned,
-        DecisionMaker(_decided_by(decided_by, f"{label}.decided_by"))
+        _decided_by(decided_by, f"{label}.decided_by")
         if decided_by is not None
         else None,
         namespace,
         exact_modules or None,
-        _nonempty(item["layer"], f"{label}.layer") if "layer" in item else None,
+        _nonempty(item["layer"], f"{label}.layer") if _has_field(item, "layer") else None,
     )
 
 
@@ -784,8 +774,6 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
         {"target_symbol", "allowed_sources", "source_match", "target_match", "target_kind"},
         label,
     )
-    if item["kind"] != "forbidden_dependency":
-        raise ValueError(f"{label}.kind is unsupported")
     include = item["include_type_checking"]
     if not isinstance(include, bool):
         raise ValueError(f"{label}.include_type_checking must be a boolean")
@@ -796,7 +784,7 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
 
     return ForbiddenDependencyRule(
         item_id,
-        "forbidden_dependency",
+        ArchitectureRuleKind.FORBIDDEN_DEPENDENCY,
         selected.source,
         selected.target,
         include,
@@ -841,11 +829,9 @@ def _parse_allowed_dependency(raw: RawJson, label: str) -> AllowedDependencyRule
     item, item_id, provenance = _contract_record(
         raw, {"kind", "source", "target", "rationale", "decided_by"}, set(), label
     )
-    if item["kind"] != "allowed_dependency":
-        raise ValueError(f"{label}.kind is unsupported")
     return AllowedDependencyRule(
         item_id,
-        "allowed_dependency",
+        ArchitectureRuleKind.ALLOWED_DEPENDENCY,
         _nonempty(item["source"], f"{label}.source"),
         _nonempty(item["target"], f"{label}.target"),
         _nonempty(item["rationale"], f"{label}.rationale"),
@@ -890,7 +876,7 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
         raise ValueError(f"{label}.allowed_type_ignores must contain unique entries")
     return ForbiddenConstructRule(
         item_id,
-        "forbidden_construct",
+        ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
         _nonempty(item["source"], f"{label}.source"),
         constructs,
         _nonempty(item["rationale"], f"{label}.rationale"),
@@ -926,7 +912,7 @@ def _parse_external_dependency_scope(raw: RawJson, label: str) -> ExternalDepend
         allowed,
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
-        DecisionMaker(_decided_by(item["decided_by"], f"{label}.decided_by")),
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
         exact,
     )
 
@@ -937,7 +923,7 @@ def _parse_complete_assignment(raw: RawJson, label: str) -> CompleteAssignmentRu
     )
     return CompleteAssignmentRule(
         item_id,
-        "complete_assignment",
+        ArchitectureRuleKind.COMPLETE_ASSIGNMENT,
         _nonempty(item["source"], f"{label}.source"),
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
@@ -958,7 +944,7 @@ def _parse_root_layout(raw: RawJson, label: str) -> RootLayoutRule:
         allowed_children,
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
-        DecisionMaker(_decided_by(item["decided_by"], f"{label}.decided_by")),
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
     )
     try:
         validate_layout_rule(rule)
@@ -973,7 +959,7 @@ def _parse_complete_external_scope(raw: RawJson, label: str) -> CompleteExternal
     )
     return CompleteExternalScopeRule(
         item_id,
-        "complete_external_scope",
+        ArchitectureRuleKind.COMPLETE_EXTERNAL_SCOPE,
         _nonempty(item["source"], f"{label}.source"),
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
@@ -990,7 +976,7 @@ def _parse_complete_requires(raw: RawJson, label: str) -> CompleteRequiresRule:
         raise ValueError(f"{label}.include_type_checking must be a boolean")
     return CompleteRequiresRule(
         item_id,
-        "complete_requires",
+        ArchitectureRuleKind.COMPLETE_REQUIRES,
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
         _decided_by(item["decided_by"], f"{label}.decided_by"),
@@ -1005,25 +991,24 @@ def _parse_layer_order(raw: RawJson, label: str) -> LayerOrderRule:
     layers = _contract_strings(item["layers"], f"{label}.layers", required=True)
     return LayerOrderRule(
         item_id,
-        "layer_order",
+        ArchitectureRuleKind.LAYER_ORDER,
         layers,
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
         _decided_by(item["decided_by"], f"{label}.decided_by"),
         _contract_strings(item["components"], f"{label}.components", required=True)
-        if "components" in item
+        if _has_field(item, "components")
         else None,
     )
 
 
-def _cycle_level(raw: RawJson, label: str) -> Literal["module"] | None:
-    """Narrow to the Literal by value; the default component level parses to absent (AD-98)."""
+def _cycle_level(raw: RawJson, label: str) -> Literal[CycleLevel.MODULE] | None:
     value = _nonempty(raw, label)
-    if value == "component":
-        return None
-    if value == "module":
-        return "module"
-    raise ValueError(f"{label} must be component or module")
+    try:
+        level = CycleLevel(value)
+    except ValueError as error:
+        raise ValueError(f"{label} must be component or module") from error
+    return None if level is CycleLevel.COMPONENT else level
 
 
 def _parse_no_component_cycles(raw: RawJson, label: str) -> NoComponentCyclesRule:
@@ -1034,7 +1019,7 @@ def _parse_no_component_cycles(raw: RawJson, label: str) -> NoComponentCyclesRul
     components = item.get("components")
     return NoComponentCyclesRule(
         item_id,
-        "no_component_cycles",
+        ArchitectureRuleKind.NO_COMPONENT_CYCLES,
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
         _decided_by(item["decided_by"], f"{label}.decided_by"),
@@ -1075,12 +1060,12 @@ def _parse_interface_boundary(raw: RawJson, label: str) -> InterfaceBoundaryRule
         raise ValueError(f"{label}.include_type_checking must be a boolean")
     grants = (
         _parse_module_object_grants(item["module_object_grants"], f"{label}.module_object_grants")
-        if "module_object_grants" in item
+        if _has_field(item, "module_object_grants")
         else None
     )
     return InterfaceBoundaryRule(
         item_id,
-        "interface_boundary",
+        ArchitectureRuleKind.INTERFACE_BOUNDARY,
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
         _decided_by(item["decided_by"], f"{label}.decided_by"),
@@ -1101,7 +1086,7 @@ def _parse_sibling_isolation(raw: RawJson, label: str) -> SiblingIsolationRule:
         raise ValueError(f"{label}.include_type_checking must be a boolean")
     return SiblingIsolationRule(
         item_id,
-        "sibling_isolation",
+        ArchitectureRuleKind.SIBLING_ISOLATION,
         members,
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
@@ -1128,7 +1113,7 @@ def _parse_symbol_placement(raw: RawJson, label: str) -> SymbolPlacementRule:
         raise ValueError(f"{label} must name allowed_sources or exact_sources")
     return SymbolPlacementRule(
         item_id,
-        "symbol_placement",
+        ArchitectureRuleKind.SYMBOL_PLACEMENT,
         _nonempty(item["source"], f"{label}.source"),
         class_kinds,
         _nonempty(item["rationale"], f"{label}.rationale"),
@@ -1140,7 +1125,8 @@ def _parse_symbol_placement(raw: RawJson, label: str) -> SymbolPlacementRule:
 
 
 # Bare mappings do not name their members; exact object payloads explicitly accept opacity.
-_BARE_BROAD_ANNOTATIONS: Final = frozenset({"Dict", "Mapping", "MutableMapping"})
+_BARE_BROAD_ANNOTATION = re.compile(r"(?:Dict|Mapping|MutableMapping)")
+_NATIVE_MAPPING_ANNOTATION = re.compile(r"(?:dict(?: \| None)?|list\[dict\])")
 
 
 def _parse_boundary_type_allowance(value: RawJson, label: str) -> BoundaryTypeAllowance:
@@ -1160,20 +1146,20 @@ def _parse_boundary_type_allowance(value: RawJson, label: str) -> BoundaryTypeAl
     )
     qualified_name = _nonempty(entry["qualified_name"], f"{label}.qualified_name")
     position = _nonempty(entry["position"], f"{label}.position")
+    raw_field_path = entry.get("field_path", "")
     field_path = (
-        ""
-        if entry.get("field_path", "") == ""
-        else _nonempty(entry["field_path"], f"{label}.field_path")
+        "" if isinstance(raw_field_path, str) and not raw_field_path
+        else _nonempty(raw_field_path, f"{label}.field_path")
     )
     annotation = _nonempty(entry["annotation"], f"{label}.annotation")
     depth: int | None = None
-    if "container_depth" in entry:
+    if _has_field(entry, "container_depth"):
         raw_depth = entry["container_depth"]
         if isinstance(raw_depth, bool) or not isinstance(raw_depth, int) or raw_depth < 1:
             raise ValueError(f"{label}.container_depth must be a positive integer")
         depth = raw_depth
     mapping_depth: int | None = None
-    if "mapping_depth" in entry:
+    if _has_field(entry, "mapping_depth"):
         raw_mapping_depth = entry["mapping_depth"]
         if type(raw_mapping_depth) is not int or raw_mapping_depth < 1:
             raise ValueError(f"{label}.mapping_depth must be a positive integer")
@@ -1183,7 +1169,7 @@ def _parse_boundary_type_allowance(value: RawJson, label: str) -> BoundaryTypeAl
         if depth is not None and depth != mapping_depth + 1:
             raise ValueError(f"{label}.container_depth must be mapping_depth plus one")
     alias_body: BoundaryAliasBody | None = None
-    if "alias_body" in entry:
+    if _has_field(entry, "alias_body"):
         body_label = f"{label}.alias_body"
         body = _exact(entry["alias_body"], {"origin", "shape"}, body_label)
         alias_body = BoundaryAliasBody(
@@ -1193,7 +1179,7 @@ def _parse_boundary_type_allowance(value: RawJson, label: str) -> BoundaryTypeAl
         if field_path or mapping_depth is not None:
             raise ValueError(f"{body_label} requires empty field_path and absent mapping_depth")
     key_alias_body: BoundaryAliasBody | None = None
-    if "key_alias_body" in entry:
+    if _has_field(entry, "key_alias_body"):
         body_label = f"{label}.key_alias_body"
         body = _exact(entry["key_alias_body"], {"origin", "shape"}, body_label)
         key_alias_body = BoundaryAliasBody(
@@ -1206,9 +1192,9 @@ def _parse_boundary_type_allowance(value: RawJson, label: str) -> BoundaryTypeAl
             )
     literal_mapping_arm = _parse_literal_mapping_arm(entry, field_path, label)
     native_mapping = _parse_native_mapping(entry, label)
-    if annotation == "dict" and not native_mapping:
+    if re.fullmatch(r"dict", annotation) is not None and not native_mapping:
         raise ValueError(f"{label}.annotation cannot allow bare dict")
-    if not field_path and annotation in _BARE_BROAD_ANNOTATIONS:
+    if not field_path and _BARE_BROAD_ANNOTATION.fullmatch(annotation) is not None:
         raise ValueError(f"{label}.annotation cannot allow bare {annotation} at the root")
     return BoundaryTypeAllowance(
         qualified_name,
@@ -1225,11 +1211,11 @@ def _parse_boundary_type_allowance(value: RawJson, label: str) -> BoundaryTypeAl
 
 
 def _parse_native_mapping(entry: dict[str, RawJson], label: str) -> bool:
-    if "native_mapping" not in entry:
+    if not _has_field(entry, "native_mapping"):
         return False
     if entry["native_mapping"] is not True:
         raise ValueError(f"{label}.native_mapping must be true")
-    if entry["annotation"] not in ("dict", "dict | None", "list[dict]") or any(
+    if _NATIVE_MAPPING_ANNOTATION.fullmatch(_nonempty(entry["annotation"], f"{label}.annotation")) is None or any(
         name in entry
         for name in (
             "container_depth",
@@ -1248,7 +1234,7 @@ def _parse_literal_mapping_arm(
     field_path: str,
     label: str,
 ) -> str | None:
-    if "literal_mapping_arm" not in entry:
+    if not _has_field(entry, "literal_mapping_arm"):
         return None
     arm = _nonempty(entry["literal_mapping_arm"], f"{label}.literal_mapping_arm")
     if field_path or any(
@@ -1282,7 +1268,7 @@ def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
         raise ValueError(f"{label}.allowed_positions must contain unique entries")
     return BoundaryTypesRule(
         item_id,
-        "boundary_types",
+        ArchitectureRuleKind.BOUNDARY_TYPES,
         _nonempty(item["source"], f"{label}.source"),
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
@@ -1293,28 +1279,35 @@ def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
     )
 
 
-_RULE_PARSERS: Final[dict[str, Callable[[RawJson, str], ArchitectureRule]]] = {
-    "forbidden_dependency": _parse_forbidden_dependency,
-    "allowed_dependency": _parse_allowed_dependency,
-    "forbidden_construct": _parse_forbidden_construct,
-    "external_dependency_scope": _parse_external_dependency_scope,
-    "complete_assignment": _parse_complete_assignment,
-    "root_layout": _parse_root_layout,
-    "complete_external_scope": _parse_complete_external_scope,
-    "complete_requires": _parse_complete_requires,
-    "layer_order": _parse_layer_order,
-    "no_component_cycles": _parse_no_component_cycles,
-    "interface_boundary": _parse_interface_boundary,
-    "sibling_isolation": _parse_sibling_isolation,
-    "symbol_placement": _parse_symbol_placement,
-    "boundary_types": _parse_boundary_types,
+_RULE_PARSERS: Final[dict[ArchitectureRuleKind, Callable[[RawJson, str], ArchitectureRule]]] = {
+    ArchitectureRuleKind.FORBIDDEN_DEPENDENCY: _parse_forbidden_dependency,
+    ArchitectureRuleKind.ALLOWED_DEPENDENCY: _parse_allowed_dependency,
+    ArchitectureRuleKind.FORBIDDEN_CONSTRUCT: _parse_forbidden_construct,
+    ArchitectureRuleKind.EXTERNAL_DEPENDENCY_SCOPE: _parse_external_dependency_scope,
+    ArchitectureRuleKind.COMPLETE_ASSIGNMENT: _parse_complete_assignment,
+    ArchitectureRuleKind.ROOT_LAYOUT: _parse_root_layout,
+    ArchitectureRuleKind.COMPLETE_EXTERNAL_SCOPE: _parse_complete_external_scope,
+    ArchitectureRuleKind.COMPLETE_REQUIRES: _parse_complete_requires,
+    ArchitectureRuleKind.LAYER_ORDER: _parse_layer_order,
+    ArchitectureRuleKind.NO_COMPONENT_CYCLES: _parse_no_component_cycles,
+    ArchitectureRuleKind.INTERFACE_BOUNDARY: _parse_interface_boundary,
+    ArchitectureRuleKind.SIBLING_ISOLATION: _parse_sibling_isolation,
+    ArchitectureRuleKind.SYMBOL_PLACEMENT: _parse_symbol_placement,
+    ArchitectureRuleKind.BOUNDARY_TYPES: _parse_boundary_types,
 }
 
 
-def _parse_rule(raw: RawJson, label: str) -> ArchitectureRule:
-    kind = _object(raw, label).get("kind")
-    if not isinstance(kind, str) or kind not in _RULE_PARSERS:
+def _rule_kind(raw: RawJson, label: str) -> ArchitectureRuleKind:
+    value = _object(raw, label).get("kind")
+    if not isinstance(value, str):
         raise ValueError(f"{label}.kind is unsupported")
+    try:
+        return ArchitectureRuleKind(value)
+    except ValueError as error:
+        raise ValueError(f"{label}.kind is unsupported") from error
+
+
+def _parse_rule(raw: RawJson, label: str, kind: ArchitectureRuleKind) -> ArchitectureRule:
     return _RULE_PARSERS[kind](raw, label)
 
 

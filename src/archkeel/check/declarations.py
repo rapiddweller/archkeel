@@ -23,6 +23,7 @@ from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
     BoundaryTypesRule,
+    CompatibilityLifetime,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
@@ -658,7 +659,7 @@ def project_declarations(
             )
         )
     migration = tuple(
-        sorted(shim.module for shim in declarations.compat if shim.lifetime == "migration")
+        sorted(shim.module for shim in declarations.compat if shim.lifetime == CompatibilityLifetime.MIGRATION)
     )
     if migration:
         items.append(

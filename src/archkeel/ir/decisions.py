@@ -28,9 +28,11 @@ from .measurements import RatchetError
 from .model import (
     RULE_RECORD_KINDS,
     AllowedDependencyRule,
+    ArchitectureRuleKind,
     ComparisonStatus,
     ComponentOwnership,
     ComponentOwnershipInput,
+    DecisionMaker,
     Evidence,
     EvidenceClass,
     ForbiddenDependencyRule,
@@ -452,22 +454,22 @@ def _open_decision(
         import_sites,
         ForbiddenDependencyRule(
             forbidden_id,
-            "forbidden_dependency",
+            ArchitectureRuleKind.FORBIDDEN_DEPENDENCY,
             source_package,
             target_package,
             True,
             _PLACEHOLDER_RATIONALE,
             (DOCUMENT_PATH,),
-            "agent",
+            DecisionMaker.AGENT,
         ),
         AllowedDependencyRule(
             allowed_id,
-            "allowed_dependency",
+            ArchitectureRuleKind.ALLOWED_DEPENDENCY,
             source_package,
             target_package,
             _PLACEHOLDER_RATIONALE,
             (DOCUMENT_PATH,),
-            "agent",
+            DecisionMaker.AGENT,
         ),
     )
 
