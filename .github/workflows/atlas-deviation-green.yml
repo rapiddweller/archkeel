@@ -1,0 +1,56 @@
+name: Actual Atlas deviation boundary first GREEN
+on:
+  push:
+    branches: [verify/542-atlas-deviation-green]
+permissions:
+  contents: read
+jobs:
+  actual-deviation-green:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - run: uv sync --locked
+      - name: Generate canonical vocabulary with the existing tool and compiler
+        run: make browser-graph-generate browser-graph-check
+      - run: make browser-install
+      - name: Actual Atlas producer, native target and public Scene ingress
+        run: |
+          uv run --locked --with playwright==1.62.0 python -m pytest -q -s tests/test_atlas_deviation_boundary.py tests/test_atlas_deviation_target.py tests/test_graph_scene_protocol.py tests/test_report_renderer_units.py tests/test_ci_changes.py
+      - name: Format and export actual generated artifacts and bounded source cost
+        if: always()
+        run: |
+          uv run --locked ruff format src/archkeel/render/atlas_deviations.py src/archkeel/render/atlas.py tools/browser_graph_protocol.py tests/test_atlas_deviation_boundary.py tests/test_atlas_deviation_target.py tests/test_report_renderer_units.py tests/smoke_test.py tests/test_graph_scene_protocol.py tests/test_ci_changes.py tools/ci_changes.py
+          uv run --locked ruff check --fix src/archkeel/render/atlas_deviations.py src/archkeel/render/atlas.py tools/browser_graph_protocol.py tests/test_atlas_deviation_boundary.py tests/test_atlas_deviation_target.py tests/test_report_renderer_units.py tests/smoke_test.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          paths = ["src/archkeel/render/atlas_deviations.py", "src/archkeel/render/atlas.py", "tools/browser_graph_protocol.py", "tests/test_atlas_deviation_boundary.py", "tests/test_atlas_deviation_target.py", "tests/test_report_renderer_units.py", "tests/smoke_test.py", "tests/test_graph_scene_protocol.py", "tests/test_ci_changes.py", "tools/ci_changes.py", "src/archkeel/render/assets/report-graph-vocabulary.ts", "src/archkeel/render/assets/report-graph-protocol.js"]
+          print("ATLAS_GREEN_FILES=" + json.dumps({path: Path(path).read_text() for path in paths}))
+          PY
+          git diff 0aee692c767150847089dbcfdcf1765464837ab6 --numstat -- src/archkeel/render/atlas_deviations.py src/archkeel/render/atlas.py src/archkeel/render/assets/report-atlas-deviations.js src/archkeel/render/assets/report-graph-protocol.ts src/archkeel/render/assets/report-scene.js src/archkeel/render/html.py tools/browser_graph_protocol.py Makefile
+      - name: Full Python strict/style check
+        run: make lint typecheck
+      - name: Exact native validation and site deltas
+        run: |
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 0aee692c767150847089dbcfdcf1765464837ab6 --amendment docs/architecture/decisions/atlas-deviation-types-amendment.json --write-amendment --decided-by ake2l --rationale 'Own recorded Atlas deviation values and pair derivation, preserve their wire facade and publish the actual typed consumer boundary.' --json > "$RUNNER_TEMP/atlas-against.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          data = json.loads((Path(os.environ["RUNNER_TEMP"]) / "atlas-against.json").read_text())
+          print("ATLAS_NATIVE_AGAINST=" + json.dumps(data))
+          print("ATLAS_AMENDMENT=" + Path("docs/architecture/decisions/atlas-deviation-types-amendment.json").read_text())
+          PY
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 0aee692c767150847089dbcfdcf1765464837ab6 --amendment docs/architecture/decisions/atlas-deviation-types-amendment.json --json
+

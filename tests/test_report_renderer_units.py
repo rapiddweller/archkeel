@@ -115,7 +115,11 @@ def _asset_page(api, assets):
     try:
         for asset in assets:
             if asset == "report-scene.js":
-                for dependency in ("report-graph-protocol.js", "report-graph-scene.js"):
+                for dependency in (
+                    "report-graph-protocol.js",
+                    "report-graph-scene.js",
+                    "report-atlas-deviations.js",
+                ):
                     page.add_script_tag(path=str(ASSET_DIR / dependency))
             page.add_script_tag(path=str(ASSET_DIR / asset))
     except Exception:

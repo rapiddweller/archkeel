@@ -4,6 +4,8 @@
 """Independent authored intent checks the actual deviation value owner."""
 
 import copy
+
+import pytest
 import json
 from pathlib import Path
 
@@ -79,3 +81,52 @@ def test_actual_deviation_owner_whole_module_guard_is_proven(tmp_path):
     guard = next(row for row in rule_assessments(model, undecided_by_rule={}) if row.id == GUARD)
     assert guard.status == "PASS" and guard.evaluation_proven, guard
     assert not trace_valid_violations(model)
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        ("kind: AtlasDeviationKind", "kind: str"),
+        (") -> tuple[AtlasDeviation, ...]:", ") -> tuple[str, ...]:"),
+    ],
+    ids=["actual-kind-field", "actual-producer-return"],
+)
+def test_actual_deviation_type_widening_fails_fixed_native_intent(tmp_path, before, after):
+    root, config = _repository(tmp_path)
+    original = _model(root, config)
+    assert architecture_report(original).comparison.status == "PASS"
+    intent = (root / "contract.json").read_bytes()
+    path = root / "archkeel/render/atlas_deviations.py"
+    source = path.read_text()
+    assert source.count(before) == 1
+    path.write_text(source.replace(before, after, 1))
+    model = _model(root, config)
+    comparison = architecture_report(model).comparison
+    assert comparison is not None and any(row.status == "FAIL" for row in comparison.assessments)
+    assert trace_valid_violations(model)
+    assert (root / "contract.json").read_bytes() == intent
+
+
+@pytest.mark.parametrize(
+    "control",
+    [
+        '        if self.kind == "undeclared":\n            pass\n',
+        '        if self.kind in ("undeclared", "allowed_unused"):\n            pass\n',
+        '        marker = "undeclared"\n        if self.kind == marker:\n            pass\n',
+        '        match self.kind:\n            case "undeclared":\n                pass\n',
+    ],
+    ids=["equality", "membership", "local-alias", "match"],
+)
+def test_real_deviation_constructor_raw_control_fails_native_guard(tmp_path, control):
+    root, config = _repository(tmp_path, include_guard=True)
+    intent = (root / "contract.json").read_bytes()
+    path = root / "archkeel/render/atlas_deviations.py"
+    source = path.read_text()
+    marker = "    def __post_init__(self) -> None:\n"
+    assert source.count(marker) == 1
+    path.write_text(source.replace(marker, marker + control, 1))
+    model = _model(root, config)
+    guard = next(row for row in rule_assessments(model, undecided_by_rule={}) if row.id == GUARD)
+    assert guard.status == "FAIL"
+    assert any(GUARD in row.rule_ids for row in trace_valid_violations(model))
+    assert (root / "contract.json").read_bytes() == intent
