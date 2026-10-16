@@ -10,7 +10,7 @@ import json
 import re
 from collections.abc import Callable
 from dataclasses import asdict
-from typing import Literal, TypeGuard, get_args
+from typing import Final, Literal, TypeGuard, get_args
 
 from archkeel.ir.architecture_graph import validate_layout_rule, validate_module_target
 from archkeel.ir.codec_governance import _measurement_budget_name
