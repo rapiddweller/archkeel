@@ -1,0 +1,110 @@
+name: Diagnose process-tree heartbeat stability
+on:
+  push:
+    branches: [verify/550-cleanup-repeat]
+permissions:
+  contents: read
+jobs:
+  repeat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        revision: ["b1d1e5fc8c3ef230a9155ccad5f790223078d43e", "c50b4c728247dca63e0c4638b8bdda3a7b46287d"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.revision }}
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Repeat original four parameter cases twenty times without changes
+        run: |
+          uv run --locked python - <<'PY'
+          import json, tempfile, time, traceback, sys
+          from pathlib import Path
+          import pytest
+          sys.path.insert(0, str(Path("tests").resolve()))
+          from test_source_trust_boundary import test_process_limit_stops_spawned_worker
+          failures = []
+          counts = {}
+          with tempfile.TemporaryDirectory(prefix="cleanup-repeat-") as temporary:
+              for delay in (0, 0.75):
+                  for limit in ("timeout", "output"):
+                      key = f"{delay}:{limit}"
+                      counts[key] = {"passed": 0, "failed": 0}
+                      for index in range(20):
+                          root = Path(temporary) / f"{delay}-{limit}-{index}"
+                          root.mkdir()
+                          patch = pytest.MonkeyPatch()
+                          started = time.monotonic()
+                          try:
+                              test_process_limit_stops_spawned_worker(root, patch, limit, delay)
+                          except BaseException as error:
+                              counts[key]["failed"] += 1
+                              receipt = {"case": key, "iteration": index, "type": type(error).__name__, "error": str(error), "seconds": time.monotonic() - started}
+                              failures.append(receipt)
+                              print("CLEANUP_EXACT_FAILURE=" + json.dumps(receipt), flush=True)
+                              traceback.print_exc()
+                          else:
+                              counts[key]["passed"] += 1
+                          finally:
+                              patch.undo()
+                      print("CLEANUP_EXACT_CASE=" + json.dumps({"case": key, **counts[key]}), flush=True)
+          print("CLEANUP_EXACT_SUMMARY=" + json.dumps({"counts": counts, "failures": failures}), flush=True)
+          assert not failures, failures
+          PY
+      - name: Diagnose immediate-timeout signal and heartbeat observations
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import json, os, tempfile, time, traceback, sys
+          from pathlib import Path
+          import pytest
+          sys.path.insert(0, str(Path("tests").resolve()))
+          from test_source_trust_boundary import test_process_limit_stops_spawned_worker
+          from archkeel.analyzer.process import ProcessCollector
+          collect = ProcessCollector.collect
+          read_text = Path.read_text
+          outcomes = []
+          def state(root):
+              try:
+                  pid = int(read_text(root / "worker.pid"))
+                  status = read_text(Path(f"/proc/{pid}/status"))
+                  selected = [line for line in status.splitlines() if line.startswith(("State:", "PPid:", "NSpgid:", "SigPnd:", "ShdPnd:"))]
+                  return {"pid": pid, "status": selected}
+              except (FileNotFoundError, ValueError, ProcessLookupError):
+                  return {"gone": True}
+          with tempfile.TemporaryDirectory(prefix="cleanup-observe-") as temporary:
+              for index in range(20):
+                  root = Path(temporary) / str(index)
+                  root.mkdir()
+                  events = []
+                  patch = pytest.MonkeyPatch()
+                  def observed_collect(self, request):
+                      result = collect(self, request)
+                      events.append({"event": "collect_return", "t": time.monotonic(), "worker": state(root)})
+                      return result
+                  def observed_read(path, *args, **kwargs):
+                      value = read_text(path, *args, **kwargs)
+                      if path == root / "heartbeat":
+                          events.append({"event": "heartbeat_read", "t": time.monotonic(), "value": value, "worker": state(root)})
+                      return value
+                  patch.setattr(ProcessCollector, "collect", observed_collect)
+                  patch.setattr(Path, "read_text", observed_read)
+                  try:
+                      test_process_limit_stops_spawned_worker(root, patch, "timeout", 0)
+                      result = "pass"
+                  except BaseException as error:
+                      result = f"{type(error).__name__}: {error}"
+                      traceback.print_exc()
+                  finally:
+                      patch.undo()
+                  receipt = {"iteration": index, "result": result, "events": events}
+                  outcomes.append(receipt)
+                  print("CLEANUP_OBSERVED=" + json.dumps(receipt), flush=True)
+          print("CLEANUP_OBSERVED_SUMMARY=" + json.dumps({"passed": sum(row["result"] == "pass" for row in outcomes), "failed": sum(row["result"] != "pass" for row in outcomes)}), flush=True)
+          PY
