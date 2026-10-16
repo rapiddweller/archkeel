@@ -17,7 +17,14 @@ jobs:
         with:
           python-version: "3.11.12"
           version: "0.12.13"
-      - name: Grammar positive
-        run: uv run --locked python -m pytest -q tests/test_module_object_grants.py -k "roundtrip or absence"
-      - name: Native policy RED
-        run: uv run --locked python -m pytest -q tests/test_module_object_grants.py -k native_exact --maxfail=1
+      - name: Full permission and lifecycle RED
+        run: uv run --locked python -m pytest -q tests/test_module_object_grants.py --maxfail=12
+      - name: Capture formatter output
+        if: always()
+        run: |
+          uv run --locked ruff format src/archkeel/ir/model.py src/archkeel/ir/codec_contract.py src/archkeel/check/declarations.py tests/test_module_object_grants.py
+          python - <<'PY'
+          import json,pathlib,base64
+          paths=["src/archkeel/ir/model.py","src/archkeel/ir/codec_contract.py","src/archkeel/check/declarations.py","tests/test_module_object_grants.py"]
+          print("FILES="+base64.b64encode(json.dumps({p:pathlib.Path(p).read_text() for p in paths}).encode()).decode())
+          PY

@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """Exact module-object permissions use native import evidence and one public inventory."""
 
-import copy
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -12,16 +11,19 @@ import pytest
 from jsonschema import Draft202012Validator
 from test_architecture_demo import _prepare_repo
 from test_uml_evaluation import _model
+from test_dependency_api_target import _source_members
 
 from archkeel.check.declarations import project_rule_declaration
 from archkeel.check.evaluation.rules import _interface_verdicts, profile_failures
 from archkeel.check.ports import ScanConfig
-from archkeel.ir.codec import contract_bytes, parse_contract
+from archkeel.check.validation.references import reference_diagnostics
+from archkeel.ir.codec import contract_bytes, parse_contract, parse_record
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import module_references
 from archkeel.ir.profiles import DART, TYPESCRIPT
 from archkeel.ir.renames import renamed_contract
 from archkeel.ir.trace import trace_valid_violations
+from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.widening import contract_widening_changes
 
 ROOT = Path(__file__).parents[1]
@@ -166,6 +168,8 @@ def test_grants_roundtrip_through_wire_and_projected_rule_records():
     assert parse_contract(json.loads(contract_bytes(contract))) == contract
     record = project_rule_declaration(rule)
     assert record["data"]["module_object_grants"] == [GRANT]
+    decoded = parse_record(record)
+    assert dict(decoded.data.get("module_object_grants")[0].entries) == GRANT
 
 
 def test_absence_preserves_historical_bytes_and_empty_grants_remain_authored():
@@ -228,3 +232,81 @@ def test_grant_addition_is_widening_and_removal_is_narrowing():
 def test_profiles_without_proven_module_objects_reject_grant_semantics(profile):
     errors = profile_failures(parse_contract(_contract()), profile, ())
     assert errors and any("module" in row["title"].lower() for row in errors)
+
+
+def test_grant_namespace_diagnostics_retain_endpoint_pointers(tmp_path):
+    raw = _contract([{**GRANT, "source_module": "elsewhere.registry",
+                      "target_module": "outside.plugins"}])
+    root, config = _repository(tmp_path, contract=raw)
+    diagnostics = reference_diagnostics(root, config, parse_contract(raw))
+    assert {(row.pointer, row.subject) for row in diagnostics if row.code == "reference.namespace"} == {
+        ("/rules/0/module_object_grants/0/source_module", "elsewhere.registry"),
+        ("/rules/0/module_object_grants/0/target_module", "outside.plugins"),
+    }
+
+
+def test_native_mounted_grants_remain_local_to_their_rule(tmp_path):
+    inside = _contract()
+    raw = {"schema_version": "3.6.0", "components": [{
+        "id": "all", "label": "all", "role": "component", "packages": ["demo"],
+        "inside": "inside.json", "responsibilities": ["Own the mounted synthetic application."],
+        "forbidden_responsibilities": [], "provenance": ["target.md"],
+    }], "rules": []}
+    root, config = _repository(tmp_path, registry="import demo.plugins as plugins\n",
+                               consumer="import demo.plugins as plugins\n", contract=raw)
+    (root / "inside.json").write_text(json.dumps(inside))
+    model = _model(root, config)
+    assert _interface(model, "all:INTERFACE").status == "FAIL"
+    violations = [row for row in trace_valid_violations(model) if row.rule_ids == ("all:INTERFACE",)]
+    assert len(violations) == 1
+    assert violations[0].data.get("source_module") == "demo.consumer"
+
+
+@pytest.mark.parametrize("widen", [False, True])
+def test_native_grant_types_follow_fixed_independent_own_intent(tmp_path, widen):
+    source = ("from dataclasses import dataclass\nfrom typing import Literal\n\n"
+              + _source_members("src/archkeel/ir/model.py", {"ModuleObjectGrant", "InterfaceBoundaryRule"}))
+    contract = json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text())
+    contract.pop("$schema", None)
+    contract["rules"] = []
+    contract["declarations"]["uml"]["entities"] = [
+        item for item in contract["declarations"]["uml"]["entities"]
+        if item["id"].startswith("IR-MODULE-OBJECT-") or item["id"] == "IR-DEPENDENCY-model"
+    ]
+    contract["declarations"]["uml"]["relationships"] = []
+    contract["declarations"]["uml"]["scopes"] = []
+    if widen:
+        original = "module_object_grants: tuple[ModuleObjectGrant, ...] | None"
+        assert original in source
+        source = source.replace(original, "module_object_grants: str | None", 1)
+    root = _prepare_repo(tmp_path, {
+        "archkeel/__init__.py": "", "archkeel/ir/__init__.py": "",
+        "archkeel/ir/model.py": source, "contract.json": json.dumps(contract),
+        "docs/architecture/module-object-grants.md": "Bounded independent module-object intent.",
+    })
+    before = (root / "contract.json").read_bytes()
+    model = _model(root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64))
+    comparison = architecture_report(model).comparison
+    assert comparison is not None and comparison.assessments
+    assert comparison.status == ("FAIL" if widen else "PASS")
+    assert (root / "contract.json").read_bytes() == before
+    protected = next(item for item in contract["declarations"]["uml"]["entities"]
+                     if item["qualified_name"] == "archkeel.ir.model.InterfaceBoundaryRule.module_object_grants")
+    assert any(row.subject_id == protected["id"] and row.aspect == "annotation"
+               and row.status == ("FAIL" if widen else "PASS") for row in comparison.assessments)
+    assert bool(trace_valid_violations(model)) is widen
+
+
+def test_encoding_rejects_a_typed_grant_under_an_older_schema_version():
+    contract = parse_contract(_contract())
+    with pytest.raises(ValueError, match="module.object.grants.*3.6"):
+        contract_bytes(replace(contract, schema_version="3.5.0"))
+
+
+@pytest.mark.parametrize("grants", [None, ()])
+def test_native_absent_or_empty_grants_do_not_infer_discovery_permissions(tmp_path, grants):
+    root, config = _repository(tmp_path, registry="import demo.plugins as plugins\n",
+                               contract=_contract(grants))
+    model = _model(root, config)
+    assert _interface(model).status == "FAIL"
+    assert any(row.rule_ids == ("INTERFACE",) for row in trace_valid_violations(model))
