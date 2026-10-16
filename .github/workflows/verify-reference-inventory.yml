@@ -1,0 +1,31 @@
+name: Inspect exact unreferenced candidates without changing limits
+on:
+  push:
+    branches: [verify/542-reference-claim-inventory]
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: ["8a56d6d09e16372b43064798cc0b24428daa5e5f", "c7444205d4fe87eaae0de5e2dc98b70909fd1cc7"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ matrix.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Inspect actual source observation with existing trusted fixture
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          Path("tests/_reference_diag.py").write_text("import json\nfrom dataclasses import asdict\nfrom archkeel.ir.references import unreferenced_symbols\n\ndef test_dump_reference_inventory(self_observation):\n    result=unreferenced_symbols(self_observation)\n    print(\"REFERENCE_INVENTORY=\"+json.dumps({\"symbols\":result.symbols,\"exempt\":result.exempt,\"candidates\":[asdict(item) for item in result.candidates]},separators=(\",\",\":\")))\n")
+          PY
+          uv run --locked python -m pytest -q -s tests/_reference_diag.py
