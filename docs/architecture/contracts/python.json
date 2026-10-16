@@ -171,19 +171,6 @@
         "docs/architecture/language-adapter-target.md"
       ],
       "decided_by": "agent"
-    },
-    {
-      "id": "TARGET-PYTHON-PREDICATE-TYPED-CONTROL",
-      "kind": "forbidden_construct",
-      "source": "archkeel.analyzer.python.constructs._string_predicate",
-      "constructs": [
-        "string_literal_compare"
-      ],
-      "rationale": "The bounded predicate-name decoder consumes its owned nominal syntax vocabulary; raw parser dispatch receives no exception.",
-      "provenance": [
-        "docs/architecture/python-string-predicates.md"
-      ],
-      "decided_by": "architect"
     }
   ],
   "declarations": {

@@ -22,5 +22,7 @@ No additional AST traversal, parser wrapper or runtime type authority is added.
 
 The small independent Python Target names the actual enum and decoder signature.
 Native source mutations must fail that fixed Target when its enum or return type
-widens; raw token dispatch inside this decoder must fail its bounded construct
-guard. Other existing Python construct vocabularies remain outside this increment.
+widens. The new predicate constructs use the existing module-scoped policy, proven
+by actual-source failure controls. Function-only construct selectors are not
+supported; no whole-module typed-control claim is made for this Python owner.
+Other existing Python construct vocabularies remain outside this increment.

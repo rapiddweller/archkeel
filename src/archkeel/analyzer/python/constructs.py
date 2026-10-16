@@ -202,10 +202,9 @@ def _static_string_constants(
 
 def _literal_collections(
     module: ParsedModule, scopes: LexicalScopes
-) -> tuple[frozenset[str], frozenset[str]]:
-    """Qualify literal collection loads; only tuples also serve predicate arguments."""
-    candidates: set[str] = set()
-    predicate_tuples: set[str] = set()
+) -> dict[str, ast.Tuple | ast.List | ast.Set]:
+    """Retain qualified literal nodes; only tuples also serve predicate arguments."""
+    candidates: dict[str, ast.Tuple | ast.List | ast.Set] = {}
     for statement in module.tree.body:
         if not isinstance(statement, ast.Assign | ast.AnnAssign):
             continue
@@ -219,16 +218,15 @@ def _literal_collections(
         ):
             continue
         targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
-        names = {
-            target.id
-            for target in targets
-            if isinstance(target, ast.Name)
-            and module.scope_bound_names.count(target.id) == 1
-            and target.id not in module.global_names
-        }
-        candidates.update(names)
-        if isinstance(value, ast.Tuple):
-            predicate_tuples.update(names)
+        candidates.update(
+            {
+                target.id: value
+                for target in targets
+                if isinstance(target, ast.Name)
+                and module.scope_bound_names.count(target.id) == 1
+                and target.id not in module.global_names
+            }
+        )
     parents = {
         child: parent for parent in module.all_nodes for child in ast.iter_child_nodes(parent)
     }
@@ -244,16 +242,15 @@ def _literal_collections(
             and isinstance(parent.ops[-1], ast.In | ast.NotIn)
         )
         predicate = (
-            node.id in predicate_tuples
+            isinstance(candidates[node.id], ast.Tuple)
             and isinstance(parent, ast.Call)
             and bool(parent.args)
             and parent.args[0] is node
             and _string_predicate(parent) is not None
         )
         if not membership and not predicate:
-            candidates.discard(node.id)
-            predicate_tuples.discard(node.id)
-    return frozenset(candidates), frozenset(predicate_tuples)
+            candidates.pop(node.id, None)
+    return candidates
 
 
 def _literal_enum_body(node: ast.ClassDef) -> bool:
@@ -286,7 +283,7 @@ class _LiteralComparisons:
         self.module = module
         self.scopes = LexicalScopes(module)
         self.module_values, self.class_values, self.enum_classes = _static_string_constants(module)
-        self.collections, self.predicate_tuples = _literal_collections(module, self.scopes)
+        self.collections = _literal_collections(module, self.scopes)
         self.enum_value_classes = frozenset(
             f"{module.module}.{node.name}"
             for node in module.tree.body
@@ -357,13 +354,13 @@ class _LiteralComparisons:
             isinstance(node, ast.Name) and node.id in self.collections and self._module_name(node)
         )
 
-
     def predicate(self, node: ast.expr) -> bool:
         if isinstance(node, ast.Tuple):
             return any(self.scalar(item) for item in node.elts)
         return self.scalar(node) or (
             isinstance(node, ast.Name)
-            and node.id in self.predicate_tuples
+            and node.id in self.collections
+            and isinstance(self.collections[node.id], ast.Tuple)
             and self._module_name(node)
         )
 

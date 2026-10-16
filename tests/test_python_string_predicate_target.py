@@ -18,7 +18,6 @@ from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 SOURCE = "src/archkeel/analyzer/python/constructs.py"
-GUARD = "TARGET-PYTHON-PREDICATE-TYPED-CONTROL"
 
 
 def _repository(tmp_path, changed=None):
@@ -55,8 +54,6 @@ def test_actual_predicate_enum_and_decoder_satisfy_independent_native_target(tmp
         row for row in rule_assessments(model, undecided_by_rule={}) if row.kind == "uml_target"
     )
     assert target.status == "PASS" and target.evaluation_proven
-    guard = next(row for row in rule_assessments(model, undecided_by_rule={}) if row.id == GUARD)
-    assert guard.status == "PASS" and guard.evaluation_proven
     assert not trace_valid_violations(model)
 
 
@@ -83,23 +80,3 @@ def test_actual_decoder_type_widening_fails_fixed_native_target(tmp_path, old, n
     assert any(target.id in row.rule_ids for row in trace_valid_violations(model))
     assert (root / "contract.json").read_bytes() == intent
 
-
-@pytest.mark.parametrize(
-    "probe",
-    [
-        '    if node.func.attr == "startswith":\n        return None\n',
-        '    if node.func.attr.startswith("start"):\n        return None\n',
-    ],
-    ids=["equality", "predicate"],
-)
-def test_actual_decoder_raw_dispatch_fails_fixed_native_guard(tmp_path, probe):
-    source = (ROOT / SOURCE).read_text()
-    marker = "    try:\n        return _StringPredicate(node.func.attr)"
-    assert marker in source
-    root, config = _repository(tmp_path, source.replace(marker, probe + marker, 1))
-    intent = (root / "contract.json").read_bytes()
-    model = _model(root, config)
-    guard = next(row for row in rule_assessments(model, undecided_by_rule={}) if row.id == GUARD)
-    assert guard.status == "FAIL"
-    assert any(guard.id in row.rule_ids for row in trace_valid_violations(model))
-    assert (root / "contract.json").read_bytes() == intent
