@@ -19,10 +19,16 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Final
 
-
 from archkeel.ir.facts import ResolutionRole
 
-from .source_input import FileSuffix, SourceKind, SpecifierKind, classify_file, classify_specifier, split_file
+from .source_input import (
+    FileSuffix,
+    SourceKind,
+    SpecifierKind,
+    classify_file,
+    classify_specifier,
+    split_file,
+)
 from .source_input import PathToken as PathToken
 
 
@@ -245,11 +251,13 @@ def within(scope: str, path: str) -> bool:
 class Snapshot:
     """Every read of the snapshot goes through here: contained, digested, never executed."""
 
+    inputs: dict[str, tuple[str, ResolutionRole]]
+
     def __init__(self, root: str) -> None:
         self.root = os.path.realpath(root)
         # Directories above the root, which the format lookup must also cover.
         self.depth = len(self.root.split(os.sep)) - 1
-        self.inputs: dict[str, tuple[str, ResolutionRole]] = {}
+        self.inputs = {}
         self.problems: set[str] = set()
 
     def _absolute(self, rel: str) -> str:
@@ -294,7 +302,9 @@ class Snapshot:
         except OSError:
             self.problems.add(f"Unreadable resolver input: {rel}")
             return None
-        role = ResolutionRole(self.inputs[rel][1]) if rel in self.inputs else ResolutionRole.RESOLUTION
+        role = (
+            ResolutionRole(self.inputs[rel][1]) if rel in self.inputs else ResolutionRole.RESOLUTION
+        )
         self.inputs[rel] = (hashlib.sha256(raw).hexdigest(), role)
         return raw
 
@@ -619,7 +629,8 @@ def _matching(specs: list[str], base: str, usage: _WildcardUsage) -> list[str]:
 def _supported(path: str, options: Options) -> bool:
     suffix = classify_file(path)
     return suffix is not None and suffix.source_kind in (
-        SourceKind.TYPESCRIPT, SourceKind.DECLARATION,
+        SourceKind.TYPESCRIPT,
+        SourceKind.DECLARATION,
         *((SourceKind.JAVASCRIPT,) if options.allow_js else ()),
     )
 
@@ -702,11 +713,15 @@ def _shadowed(rel: str, known: set[str]) -> bool:
         return False
     suffix = parts.suffix
     group = suffix.priority
-    return any(
-        f"{parts.stem}{extension}" in known
-        and not (extension is FileSuffix.DTS and suffix in (FileSuffix.JS, FileSuffix.JSX))
-        for extension in group[:group.index(suffix)]
-    ) if group else False
+    return (
+        any(
+            f"{parts.stem}{extension}" in known
+            and not (extension is FileSuffix.DTS and suffix in (FileSuffix.JS, FileSuffix.JSX))
+            for extension in group[: group.index(suffix)]
+        )
+        if group
+        else False
+    )
 
 
 def load_config(snapshot: Snapshot, tsconfig: str, roots: tuple[str, ...]) -> Config:

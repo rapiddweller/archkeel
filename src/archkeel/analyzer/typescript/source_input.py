@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from enum import Enum, StrEnum
 from typing import Final
 
+
 class PathToken(Enum):
     """Closed path/glob grammar, distinct from user-supplied path names."""
 
@@ -75,7 +76,10 @@ class FileSuffix(StrEnum):
 
     @property
     def parser_typescript(self) -> bool:
-        return self.source_kind in (SourceKind.TYPESCRIPT, SourceKind.DECLARATION) and self is not FileSuffix.TSX
+        return (
+            self.source_kind in (SourceKind.TYPESCRIPT, SourceKind.DECLARATION)
+            and self is not FileSuffix.TSX
+        )
 
     @property
     def explicit_runtime(self) -> bool:
@@ -87,7 +91,8 @@ class FileSuffix(StrEnum):
 
     def replacements(self, kinds: tuple[SourceKind, ...]) -> list[FileSuffix]:
         return [
-            suffix for suffix in _FILE_RULES[self].family
+            suffix
+            for suffix in _FILE_RULES[self].family
             if (SourceKind.JSON if suffix is FileSuffix.JSON else suffix.source_kind) in kinds
         ]
 
@@ -128,10 +133,13 @@ _FILE_RULES: Final[dict[FileSuffix, _FileRule]] = {
 }
 # Longest recognized input suffix wins, including declarations and dotfiles.
 _SUFFIX: Final = re.compile(
-    "(?:" + "|".join(
-        re.escape(suffix) for suffix in sorted(FileSuffix, key=len, reverse=True)
+    "(?:"
+    + "|".join(
+        re.escape(suffix)
+        for suffix in sorted(FileSuffix, key=len, reverse=True)
         if suffix not in (FileSuffix.NONE, FileSuffix.JSON_DECLARATION)
-    ) + r")\Z"
+    )
+    + r")\Z"
 )
 _PATH_TOKENS: Final[dict[str, PathToken]] = {member.value: member for member in PathToken}
 
@@ -149,7 +157,7 @@ def split_file(name: str) -> FileParts | None:
     suffix = classify_file(name)
     if suffix is None or suffix is FileSuffix.NONE:
         return None
-    return FileParts(name[:-len(suffix)], suffix)
+    return FileParts(name[: -len(suffix)], suffix)
 
 
 class SpecifierKind(Enum):
@@ -216,7 +224,7 @@ def classify_specifier(text: str) -> SpecifierInfo:
     """Classify reserved syntax once; all remaining module-name text is open input data."""
     found = _SPECIFIER.match(text)
     kind = SpecifierKind(found.lastgroup) if found is not None else SpecifierKind.BARE
-    name = text[found.end():] if kind is SpecifierKind.NODE and found is not None else text
+    name = text[found.end() :] if kind is SpecifierKind.NODE and found is not None else text
     parts = text.split("/")
     package = "/".join(parts[:2]) if kind is SpecifierKind.SCOPED else parts[0]
     return SpecifierInfo(text, kind, name, package, PathToken.parse(text[-1:]) is PathToken.ROOT)

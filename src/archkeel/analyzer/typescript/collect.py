@@ -48,7 +48,13 @@ from archkeel.ir.protocol import CollectionRequest, TypeScriptSettings
 from .config import ModuleKind, PathToken, Snapshot, join, load_config, within
 from .parse import parse
 from .resolve import Found, Resolver, Unknown
-from .source_input import FileSuffix, ModuleFormat, SourceKind, SpecifierKind, classify_file, classify_specifier
+from .source_input import (
+    ModuleFormat,
+    SourceKind,
+    SpecifierKind,
+    classify_file,
+    classify_specifier,
+)
 from .syntax import (
     Base,
     Definition,
@@ -870,7 +876,12 @@ class _Collection:
         """Read a local dependency; it joins the walk when it is a source file in scope."""
         content = self.snapshot.read(rel)
         suffix = classify_file(rel)
-        if content is not None and self._selected(rel) and suffix is not None and suffix.source_kind is not None:
+        if (
+            content is not None
+            and self._selected(rel)
+            and suffix is not None
+            and suffix.source_kind is not None
+        ):
             if rel not in self.queue:
                 self.queue.append(rel)
         elif content is not None:
@@ -1070,7 +1081,9 @@ class _Collection:
         type_only = reference.type_only
         relative = source.relative_path
         lookup = join(posixpath.dirname(rel) or ".", specifier)
-        declaration = path if suffix is not None and suffix.source_kind is SourceKind.DECLARATION else None
+        declaration = (
+            path if suffix is not None and suffix.source_kind is SourceKind.DECLARATION else None
+        )
         runtime = None if declaration else path
         named_suffix = classify_file(specifier)
         explicit = relative and named_suffix is not None and named_suffix.explicit_runtime

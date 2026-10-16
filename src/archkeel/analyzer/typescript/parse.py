@@ -24,7 +24,6 @@ from tree_sitter import Language, Parser, Query, QueryCursor
 from tree_sitter import Node as _RawNode
 
 from .source_input import classify_file
-
 from .syntax import (
     Base as Base,
 )

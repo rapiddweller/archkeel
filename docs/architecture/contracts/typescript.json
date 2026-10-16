@@ -1450,6 +1450,35 @@
             "kind": "public",
             "basis": "declared"
           }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-TYPED-Snapshot",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.typescript.config.Snapshot",
+          "parent_id": "TS-TYPED-CONFIG",
+          "responsibilities": [
+            "Own contained source reads and canonical resolution-input roles."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/typescript-source-input.md"
+          ],
+          "id": "TS-TYPED-Snapshot.inputs",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.config.Snapshot.inputs",
+          "parent_id": "TS-TYPED-Snapshot",
+          "annotation": "dict[str, tuple[str, ResolutionRole]]",
+          "responsibilities": [
+            "Keep canonical IR roles in input bookkeeping from the source boundary onward."
+          ]
         }
       ],
       "relationships": [],

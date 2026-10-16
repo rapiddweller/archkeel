@@ -62,7 +62,9 @@ def _repository(tmp_path, *, changed=None):
             "docs/architecture/typescript-json-field-boundary.md": (
                 ROOT / "docs/architecture/typescript-json-field-boundary.md"
             ).read_text(),
-            "docs/architecture/typescript-source-input.md": (ROOT / "docs/architecture/typescript-source-input.md").read_text(),
+            "docs/architecture/typescript-source-input.md": (
+                ROOT / "docs/architecture/typescript-source-input.md"
+            ).read_text(),
             "docs/architecture/language-adapter-target.md": (
                 ROOT / "docs/architecture/language-adapter-target.md"
             ).read_text(),
@@ -149,7 +151,9 @@ def test_native_source_type_widening_fails_with_fixed_intent(tmp_path, module, o
     assert (root / "contract.json").read_bytes() == before
 
 
-@pytest.mark.parametrize("module", ["config", "resolve", "parse", "collect", "syntax", "source_input"])
+@pytest.mark.parametrize(
+    "module", ["config", "resolve", "parse", "collect", "syntax", "source_input"]
+)
 @pytest.mark.parametrize(
     "probe",
     [
@@ -164,7 +168,15 @@ def test_native_source_type_widening_fails_with_fixed_intent(tmp_path, module, o
             "def _probe(value):\n    return value == TOKEN\n"
         ),
     ],
-    ids=["equality", "prefix", "suffix", "membership", "literal-left-membership", "match", "final-alias"],
+    ids=[
+        "equality",
+        "prefix",
+        "suffix",
+        "membership",
+        "literal-left-membership",
+        "match",
+        "final-alias",
+    ],
 )
 def test_native_parser_and_protocol_strings_fail_without_exceptions(tmp_path, module, probe):
     source = (ROOT / f"src/archkeel/analyzer/typescript/{module}.py").read_text()
@@ -173,7 +185,10 @@ def test_native_parser_and_protocol_strings_fail_without_exceptions(tmp_path, mo
     )
     before = (root / "contract.json").read_bytes()
     model = _model(root, config)
-    guard = _rule(model, GUARDS[("config", "resolve", "parse", "collect", "syntax", "source_input").index(module)])
+    guard = _rule(
+        model,
+        GUARDS[("config", "resolve", "parse", "collect", "syntax", "source_input").index(module)],
+    )
     assert guard.status == "FAIL"
     assert any(guard.id in row.rule_ids for row in trace_valid_violations(model))
     assert (root / "contract.json").read_bytes() == before
@@ -199,7 +214,8 @@ def test_guards_cover_whole_migrated_modules_without_allowances():
     for identity in GUARDS:
         rule = next(row for row in _contract()["rules"] if row["id"] == identity)
         assert rule["source"] in {
-            f"{MODULE}.{name}" for name in ("config", "resolve", "parse", "collect", "syntax", "source_input")
+            f"{MODULE}.{name}"
+            for name in ("config", "resolve", "parse", "collect", "syntax", "source_input")
         }
         assert rule["constructs"] == ["string_literal_compare"]
         assert not rule.get("allowed_sources") and not rule.get("exact_sources")

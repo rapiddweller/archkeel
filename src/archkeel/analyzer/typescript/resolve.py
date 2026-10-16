@@ -27,8 +27,14 @@ from .config import (
     has_field,
     join,
 )
-
-from .source_input import FileSuffix, PathToken, SpecifierKind, classify_file, classify_specifier, split_file
+from .source_input import (
+    FileSuffix,
+    PathToken,
+    SpecifierKind,
+    classify_file,
+    classify_specifier,
+    split_file,
+)
 from .source_input import ModuleFormat as ModuleFormat
 from .source_input import SourceKind as SourceKind
 
@@ -277,7 +283,9 @@ class Resolver:
                     self.options.paths_base, target.replace("*", star, 1) if star else target
                 )
                 # A target that names its extension is a file, not a name to complete.
-                if classify_file(target) not in (None, FileSuffix.NONE) and self.snapshot.is_file(candidate):
+                if classify_file(target) not in (None, FileSuffix.NONE) and self.snapshot.is_file(
+                    candidate
+                ):
                     return candidate
                 found = self._by_name(candidate, False, esm, kinds, True)
                 if found is not None:
