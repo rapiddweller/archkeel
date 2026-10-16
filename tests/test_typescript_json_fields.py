@@ -32,7 +32,7 @@ def _write(root, files):
 @pytest.mark.parametrize("present", [False, True])
 def test_real_config_overlay_distinguishes_an_absent_field_from_null(tmp_path, field, present):
     options = {field: None} if present else {}
-    inherited = {"baseUrl": ".", "paths": {"@x": ["x.ts"]}}
+    inherited = {field: "." if field == "baseUrl" else {"@x": ["x.ts"]}}
     selected, _ = _write(
         tmp_path,
         {
@@ -46,6 +46,7 @@ def test_real_config_overlay_distinguishes_an_absent_field_from_null(tmp_path, f
     else:
         # The input config owns a declared paths field even when that value is invalid null.
         assert selected.options.paths == (() if present else (("@x", ("x.ts",)),))
+        assert selected.options.paths_base == ("." if present else "base")
 
 
 @pytest.mark.parametrize("value", [None, False, 0, "", [], {}])

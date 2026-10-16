@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Final, TypeAlias
 
-from .config import Config, Json, ModuleResolution, Options, PathToken, Snapshot, decode, join
+from .config import Config, Json, ModuleResolution, Options, PathToken, Snapshot, decode, has_field, join
 
 
 class ModuleFormat(Enum):
@@ -442,7 +442,7 @@ class Resolver:
         root = self._manifest(join(modules, name))
         if isinstance(root, Unknown):
             return root
-        if root is not None and "typesVersions" in root:
+        if root is not None and has_field(root, "typesVersions"):
             return Unknown(f"Package typesVersions are not observed: {name}")
         if root is not None and self._exports_aware and _declares_exports(root):
             return self._export_target(modules, name, rest, root, esm, kinds)
@@ -560,7 +560,7 @@ class Resolver:
     ) -> str | Unknown | None:
         """A package directory: the file `types` or `main` names, else its `index`."""
         fields = {} if manifest is None else manifest
-        if "typesVersions" in fields:
+        if has_field(fields, "typesVersions"):
             return Unknown(f"Package typesVersions are not observed: {directory}")
         keys = [*(("typings", "types") if SourceKind.DECLARATION in kinds else ()), "main"]
         named = next(

@@ -350,6 +350,11 @@ class Snapshot:
         )
 
 
+def has_field(record: Json, name: str) -> bool:
+    """Test an open JSON field identity; present null and falsy values remain present."""
+    return name in record
+
+
 def decode(raw: bytes) -> str:
     """A JSON file's text without its byte order mark, as the compiler reads it."""
     text: str = str(raw, "utf-8", "replace")
@@ -391,8 +396,8 @@ def _overlay(low: _Layer, high: _Layer) -> _Layer:
     """`high` wins key by key; `paths` carries the directory of the config that set it."""
     return _Layer(
         {**low.compiler, **high.compiler},
-        high.base_url if "baseUrl" in high.compiler else low.base_url,
-        high.paths_directory if "paths" in high.compiler else low.paths_directory,
+        high.base_url if has_field(high.compiler, "baseUrl") else low.base_url,
+        high.paths_directory if has_field(high.compiler, "paths") else low.paths_directory,
         {**low.specs, **high.specs},
         {**low.outputs, **high.outputs},
         low.partial or high.partial,
@@ -737,7 +742,7 @@ def load_config(snapshot: Snapshot, tsconfig: str, roots: tuple[str, ...]) -> Co
     own = posixpath.dirname(tsconfig) or "."
     layer = _layer(snapshot, tsconfig, own, problems, [])
     raw, _ = _read_json(snapshot, tsconfig)
-    references = raw is not None and "references" in raw
+    references = raw is not None and has_field(raw, "references")
     if references:
         problems.append("Project references require separately observed projects")
     options_before = len(problems)
