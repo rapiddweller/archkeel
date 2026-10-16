@@ -23,10 +23,14 @@ def _amendment_digest(raw: RawJson, label: str) -> str:
 def parse_amendment(raw: object) -> Amendment:
     document = _object(raw, "amendment")
     raw_version = document.get("schema_version")
-    try:
-        version = AmendmentVersion(raw_version)
-    except (TypeError, ValueError) as error:
-        raise ValueError(f"unsupported amendment schema {raw_version!r}") from error
+    version = None
+    if isinstance(raw_version, str):
+        try:
+            version = AmendmentVersion(raw_version)
+        except ValueError:
+            pass
+    if version is None:
+        raise ValueError(f"unsupported amendment schema {raw_version!r}")
     fields = {"schema_version", "before_digest", "after_digest", "decided_by", "rationale"}
     if version == AmendmentVersion.V2:
         fields |= {"before_baseline_digest", "after_baseline_digest"}

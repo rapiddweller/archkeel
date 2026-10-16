@@ -7602,11 +7602,7 @@
           "presence": "planned",
           "provenance": [
             "docs/architecture/typed-amendment-artifact.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          }
+          ]
         },
         {
           "id": "IR-AMENDMENT-version",
@@ -7867,11 +7863,7 @@
           "presence": "planned",
           "provenance": [
             "docs/architecture/typed-amendment-artifact.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          }
+          ]
         },
         {
           "id": "IR-AMENDMENT-parse",
@@ -7944,11 +7936,7 @@
           "presence": "planned",
           "provenance": [
             "docs/architecture/typed-amendment-artifact.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          }
+          ]
         },
         {
           "id": "IR-AMENDMENT-result",

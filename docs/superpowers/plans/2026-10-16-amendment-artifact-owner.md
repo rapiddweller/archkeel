@@ -25,3 +25,6 @@ The public command schema remains four-valued, CLI dispatch remains six-valued, 
 - Plan committed before code: 3fa4e24.
 - Hosted RED 38964695412 / 117188142018: 26 failed, 8 passed on unchanged production; nominal owner/codec absent and native guards have no subjects. Original wire errors/binding cases remain passing.
 - Ruling: split the existing artifact codec from the model-free value owner because codec_wire imports model; combining them creates model→amendment→codec_wire→model. Reuse shared validators and keep old facade function identity instead of duplicating validators.
+
+- Ruling: remove visibility requirements only from the three module Target declarations. Module visibility is unavailable by design; actual public class/enum/function visibility and all fields/signatures remain required. The positive native result must not be made UNKNOWN by an inapplicable module property.
+- Strict Mypy required narrowing the wire value to str before enum construction; malformed values retain the original unsupported-schema ValueError text. No cast or TypeGuard substitutes for conversion.
