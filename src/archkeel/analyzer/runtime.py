@@ -44,6 +44,7 @@ def collector_provenance(
     shared = repository / "ir"
     sources = [
         package / "runtime.py",
+        package / "bootstrap.py",
         *sorted((package / language).rglob("*.py")),
         *(
             shared / name

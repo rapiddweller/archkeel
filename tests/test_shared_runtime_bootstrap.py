@@ -15,6 +15,7 @@ import pytest
 from test_architecture_demo import _prepare_repo
 from test_uml_evaluation import _model
 
+from archkeel.check.ports import ScanConfig
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.facts_codec import encode_request
 from archkeel.ir.protocol import (
@@ -25,7 +26,6 @@ from archkeel.ir.protocol import (
     SourceScope,
     TypeScriptSettings,
 )
-from archkeel.check.ports import ScanConfig
 from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]

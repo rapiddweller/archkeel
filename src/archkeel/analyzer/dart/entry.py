@@ -5,6 +5,7 @@
 
 import sys
 
+from archkeel.analyzer.bootstrap import is_direct_entrypoint
 from archkeel.ir.facts_codec import decode_request, encode_response
 from archkeel.ir.protocol import CollectionResponse, DartSettings
 
@@ -19,5 +20,5 @@ def main() -> int:
     return 0
 
 
-if __name__ == "__main__":
+if is_direct_entrypoint(__name__):
     raise SystemExit(main())
