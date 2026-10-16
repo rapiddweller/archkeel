@@ -17,8 +17,8 @@ from test_dependency_api_target import _source_members
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
-from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir import model
+from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.codec_result import result_bytes, result_payload
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
@@ -56,8 +56,14 @@ def test_every_existing_code_normalizes_legacy_string_construction(code):
 def test_diagnostic_wire_bytes_and_legacy_locations_remain_exact():
     location = model.ReportLocation("src/a.py", 1)
     diagnostic = model.Diagnostic(
-        "contract_invalid", "rule", "unknown", "Fix.", "/rules/0",
-        "rule.violated", (location,), "contract.json"
+        "contract_invalid",
+        "rule",
+        "unknown",
+        "Fix.",
+        "/rules/0",
+        "rule.violated",
+        (location,),
+        "contract.json",
     )
     result = model.RunResult("validate", 2, diagnostics=(diagnostic,))
     expected = (
@@ -80,15 +86,14 @@ def _contract():
     contract = copy.deepcopy(json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text()))
     contract.pop("$schema", None)
     contract["declarations"]["uml"]["entities"] = [
-        row for row in contract["declarations"]["uml"]["entities"]
+        row
+        for row in contract["declarations"]["uml"]["entities"]
         if row["id"].startswith("IR-DIAGNOSTIC-")
     ]
     contract["declarations"]["uml"]["relationships"] = []
     contract["declarations"]["uml"]["scopes"] = []
     root = json.loads((ROOT / "architecture-contract.json").read_text())
-    contract["rules"] = [
-        row for row in root["rules"] if row["id"] == "DIAGNOSTIC-TYPED-CONTROL"
-    ]
+    contract["rules"] = [row for row in root["rules"] if row["id"] == "DIAGNOSTIC-TYPED-CONTROL"]
     return contract
 
 
@@ -188,6 +193,4 @@ def test_native_diagnostic_owner_forbids_raw_control_dispatch(tmp_path, probe):
     path = root / "archkeel/ir/diagnostics.py"
     path.write_text(path.read_text() + "\n" + probe)
     value = _model(root, config)
-    assert any(
-        "DIAGNOSTIC-TYPED-CONTROL" in row.rule_ids for row in trace_valid_violations(value)
-    )
+    assert any("DIAGNOSTIC-TYPED-CONTROL" in row.rule_ids for row in trace_valid_violations(value))

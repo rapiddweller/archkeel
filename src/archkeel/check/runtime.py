@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """Compare the actual collector runtime with its declared requirement."""
 
-from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from enum import StrEnum
 
 from packaging.specifiers import SpecifierSet
@@ -11,6 +10,7 @@ from packaging.version import InvalidVersion, Version
 
 from archkeel.ir.facts import Language, RuntimeRequirementState
 from archkeel.ir.model import Diagnostic, RuntimeInfo
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 
 
 class _LowerBoundOperator(StrEnum):

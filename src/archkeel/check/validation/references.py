@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
-
 from pathlib import Path
 
 from archkeel.ir.codec import InsideContractTree, contract_digest, load_inside_contract_tree
@@ -20,6 +18,7 @@ from archkeel.ir.model import (
     in_scope,
     module_references,
 )
+from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
 from archkeel.ir.profiles import PROFILES
 
 from ..ports import ScanConfig

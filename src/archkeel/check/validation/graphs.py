@@ -5,11 +5,10 @@
 
 from __future__ import annotations
 
-from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
-
 import re
 
 from archkeel.ir.model import ArchitectureContract, Diagnostic, Observation
+from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
 
 from .closed_world import observed_component_edges, target_component_edges
 from .diagnostics import _diagnostic

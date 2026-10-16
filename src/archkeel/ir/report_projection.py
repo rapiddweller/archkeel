@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """Project the authenticated shared report for focused architecture consumers."""
 
-from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from dataclasses import replace
 from posixpath import commonpath
 
@@ -90,6 +89,7 @@ from archkeel.ir.model import (
     requires_covers,
     text_value,
 )
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 
 
 def _scope_names(target: ArchitectureGraph) -> dict[str, str]:

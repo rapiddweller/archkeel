@@ -165,7 +165,7 @@ def observation_diagnostics(
         if rule_failure is None and runtime is not None:
             diagnostics.append(runtime)
             continue
-        kind, remedy = rule_failure or ("parse_error", _SOURCE_REMEDY[language])
+        kind, remedy = rule_failure or (DiagnosticKind.PARSE_ERROR, _SOURCE_REMEDY[language])
         diagnostics.append(
             Diagnostic(
                 kind,

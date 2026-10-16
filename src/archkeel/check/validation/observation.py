@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
-
 from archkeel.ir.model import (
     ArchitectureContract,
     Diagnostic,
@@ -15,6 +13,7 @@ from archkeel.ir.model import (
     ReportLocation,
     text_value,
 )
+from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
 
 from ..report import VIOLATION_REMEDY
 from .closed_world import closed_world_diagnostics

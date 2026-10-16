@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
-
 from dataclasses import replace
 from pathlib import Path
 
@@ -28,6 +26,7 @@ from archkeel.ir.model import (
     interface_covers_import,
     module_in_ownership,
 )
+from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
 
 from ..ports import ScanConfig
 from .diagnostics import _diagnostic, _sorted

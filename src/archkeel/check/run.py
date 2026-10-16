@@ -3,8 +3,6 @@
 # SPDX-License-Identifier: MIT
 """Compose immutable inputs, host evidence and architecture checks."""
 
-from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
-from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from collections.abc import Mapping
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -35,6 +33,8 @@ from archkeel.ir.model import (
     UnresolvedCallChange,
     Verdict,
 )
+from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
 from .delta import build_architecture_delta

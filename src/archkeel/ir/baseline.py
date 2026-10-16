@@ -11,11 +11,11 @@ already on the record, and that is what this module derives, counts and compares
 
 from __future__ import annotations
 
-from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
-
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
+
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 
 from .interfaces import component_owners, owner_of
 from .measurements import MeasurementBudget

@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
-
 import hashlib
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -37,6 +35,7 @@ from archkeel.ir.model import (
     identity_is_known,
     stable_id,
 )
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.ir.profiles import delta_dimension_applicable, profile_for
 
 from .python_profile import crossing_imports

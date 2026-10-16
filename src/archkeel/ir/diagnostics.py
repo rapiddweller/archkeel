@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass
 from enum import StrEnum
 
+
 class DiagnosticKind(StrEnum):
     MISSING_TOOL = "missing_tool"
     TIMEOUT = "timeout"

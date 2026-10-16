@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
-
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
@@ -67,6 +65,7 @@ from archkeel.ir.model import (
     WideningFinding,
     text_value,
 )
+from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
 from archkeel.ir.renames import Renamed, module_layouts, observed_names, renames_since
 from archkeel.ir.widening import (
     Amendment,

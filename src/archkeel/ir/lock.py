@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: MIT
 """Accepted state is data; only the CI accept path may write it."""
 
-from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from dataclasses import dataclass
+
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 
 from .measurements import Measurements
 from .model import Diagnostic, DiagnosticError

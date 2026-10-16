@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
-
 import json
 import re
 import tomllib
@@ -43,6 +41,7 @@ from archkeel.ir.model import (
     RunResult,
     in_scope,
 )
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.ir.profiles import Language
 from archkeel.ir.structure import StructureMetric, scope_metrics
 

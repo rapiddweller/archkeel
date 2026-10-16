@@ -5,9 +5,6 @@
 
 from __future__ import annotations
 
-from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
-from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
-
 import hashlib
 import json
 from dataclasses import asdict, replace
@@ -42,6 +39,8 @@ from archkeel.ir.model import (
     public_api_id,
     stable_id,
 )
+from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.ir.source_graph import MEMBER_INVENTORY_PROOF, validated_member_inventory_proof
 from archkeel.ir.target_graph import component_permissions, declared_tree_graph
 
@@ -461,7 +460,9 @@ def _has_architecture_declarations(version: str, known: dict[str, Record]) -> bo
 def assemble_uml(result: ObservationResult, contract_root: Path, path: str) -> ObservationResult:
     result = _validated_member_inventory_result(result)
     model = result.observation
-    if model is None or any(item.code == _DiagnosticCode.CONTRACT_INVALID for item in result.diagnostics):
+    if model is None or any(
+        item.code == _DiagnosticCode.CONTRACT_INVALID for item in result.diagnostics
+    ):
         return replace(_revoke_dependency_proofs(result), uml_eligibility=UmlEligibility.BLOCKED)
     if any(item.kind == "inside_contract_incomplete" for item in model.coverage.failures):
         return replace(result, uml_eligibility=UmlEligibility.BLOCKED)

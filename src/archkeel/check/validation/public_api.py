@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
-
 from collections.abc import Iterable
 from dataclasses import replace
 from typing import Final
@@ -31,6 +29,7 @@ from archkeel.ir.model import (
     in_scope,
     text_value,
 )
+from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
 
 from .diagnostics import _diagnostic
 

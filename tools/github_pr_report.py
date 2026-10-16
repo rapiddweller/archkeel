@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
-
 import argparse
 import io
 import json
@@ -33,6 +31,7 @@ from archkeel.ir.host_records import (
 )
 from archkeel.ir.lock import LOCK_PATH, LockError
 from archkeel.ir.model import Diagnostic, RunResult
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.render.html import render_check_html
 
 HISTORY_LIMIT = (

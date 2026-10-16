@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """Build typed report results and canonical observation bytes."""
 
-from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 import subprocess
 from collections import Counter as _Counter
 from dataclasses import replace
@@ -60,6 +59,7 @@ from archkeel.ir.model import (
     ReportLocation,
     RunResult,
 )
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.ir.model import (
     RuleAssessmentStatus as _RuleAssessmentStatus,
 )
@@ -205,7 +205,9 @@ def unknown_result(command: str, subject: str, error: Exception) -> RunResult:
         diagnostic = error.diagnostic
     else:
         diagnostic = Diagnostic(
-            _DiagnosticKind.TIMEOUT if isinstance(error, subprocess.TimeoutExpired) else _DiagnosticKind.PARSE_ERROR,
+            _DiagnosticKind.TIMEOUT
+            if isinstance(error, subprocess.TimeoutExpired)
+            else _DiagnosticKind.PARSE_ERROR,
             subject,
             f"The {command} result cannot be established: {error}",
             "Repair the reported input or execution failure and retry.",
@@ -309,7 +311,12 @@ def _incomplete_report_result(result: ObservationResult) -> RunResult:
         and model.runtime is not None
         and runtime_diagnostic(model.runtime) is None
         and not any(
-            item.kind in {_DiagnosticKind.CONTRACT_INVALID, _DiagnosticKind.RUNTIME_MISMATCH, _DiagnosticKind.INCOMPARABLE_RUNTIME}
+            item.kind
+            in {
+                _DiagnosticKind.CONTRACT_INVALID,
+                _DiagnosticKind.RUNTIME_MISMATCH,
+                _DiagnosticKind.INCOMPARABLE_RUNTIME,
+            }
             for item in result.diagnostics
         )
     ):
@@ -514,7 +521,12 @@ def _architecture_result(
 
 def _projection_result(result: ObservationResult) -> ObservationResult:
     if any(
-        item.kind in {_DiagnosticKind.CONTRACT_INVALID, _DiagnosticKind.RUNTIME_MISMATCH, _DiagnosticKind.INCOMPARABLE_RUNTIME}
+        item.kind
+        in {
+            _DiagnosticKind.CONTRACT_INVALID,
+            _DiagnosticKind.RUNTIME_MISMATCH,
+            _DiagnosticKind.INCOMPARABLE_RUNTIME,
+        }
         for item in result.diagnostics
     ):
         return _revoke_dependency_proofs(result)

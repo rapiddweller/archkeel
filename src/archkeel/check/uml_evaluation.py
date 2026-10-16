@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """Record pure UML comparison through the existing Core rule/evidence pipeline."""
 
-from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 import json
 from dataclasses import asdict, replace
 
@@ -26,6 +25,7 @@ from archkeel.ir.model import (
     UmlEligibility,
     stable_id,
 )
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.ir.source_graph import (
     MEMBER_INVENTORY_PROOF,
     observed_graph,
