@@ -8,7 +8,6 @@ from collections import Counter as _Counter
 from dataclasses import replace
 from pathlib import Path
 from typing import Literal as _Literal
-from typing import get_args
 
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,

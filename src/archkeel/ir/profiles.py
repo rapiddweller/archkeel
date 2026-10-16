@@ -15,7 +15,10 @@ from typing import Final, Literal, TypeAlias
 
 from .facts import Language as Language
 from .facts import SourceProfile
-from .facts import SourceSectionName as ObservedSection
+from .facts import SourceSectionName
+
+
+ObservedSection: TypeAlias = SourceSectionName
 
 
 class UnmeasurableScalar(StrEnum):

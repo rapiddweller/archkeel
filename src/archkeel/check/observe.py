@@ -35,6 +35,7 @@ from archkeel.ir.model import (
 from archkeel.ir.profiles import PROFILES, Language
 from archkeel.ir.protocol import (
     CollectionError,
+    CollectionErrorKind,
     CollectionRequest,
     DartSettings,
     PythonSettings,
@@ -327,9 +328,9 @@ def _observe(
         if isinstance(facts, CollectionError):
             kind: DiagnosticKind = (
                 "timeout"
-                if facts.kind == "timeout"
+                if facts.kind == CollectionErrorKind.TIMEOUT
                 else "missing_tool"
-                if facts.kind == "missing_tool"
+                if facts.kind == CollectionErrorKind.MISSING_TOOL
                 else "parse_error"
             )
             return _failure(

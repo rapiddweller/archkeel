@@ -134,10 +134,7 @@ def test_registered_profiles_keep_imports_and_unknowns_mandatory(language, secti
     from archkeel.ir.profiles import PROFILES
 
     profile = PROFILES[Language(language)]
-    model = {
-        name: None if name in profile.absent_sections else []
-        for name in CLASSIFIED_SECTIONS
-    }
+    model = {name: None if name in profile.absent_sections else [] for name in CLASSIFIED_SECTIONS}
     _validate_profile_sections(model, profile)
     model[section] = None
     with pytest.raises(ValueError, match=section):

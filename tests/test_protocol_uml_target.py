@@ -142,10 +142,10 @@ def test_expanded_self_target_retains_exactly_eight_incomplete_member_scopes(
     counts = dict(unknown_positions_by_rule(self_observation))
     assert {rule: count for rule, count in counts.items() if not rule.startswith("UML-TARGET")} == {
         "RENDER-TYPES-DECLARED": 29,
-        "CHECK-TYPES-DECLARED": 26,
+        "CHECK-TYPES-DECLARED": 20,
         "ANALYZER-TYPES-DECLARED": 2,
     }
-    assert sum(counts.values()) == 65
+    assert sum(counts.values()) == 59
     detail_positions = [
         item
         for item in unknowns

@@ -4472,7 +4472,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "Literal['missing_tool', 'timeout', 'execution_error', 'protocol_error']",
+          "annotation": "CollectionErrorKind",
           "presence": "planned",
           "responsibilities": [
             "Carry kind as source-only protocol data."
@@ -6412,6 +6412,24 @@
             "kind": "public",
             "basis": "declared"
           }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COLLECTOR-protocol.CollectionErrorKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.protocol.CollectionErrorKind",
+          "parent_id": "archkeel.ir.protocol",
+          "responsibilities": [
+            "Own local collector failure classification without raw protocol-string control."
+          ]
         }
       ],
       "relationships": [

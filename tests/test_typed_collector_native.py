@@ -166,8 +166,9 @@ def test_native_collector_codec_uses_no_raw_string_control(tmp_path, module):
         'def _control(value):\n    match value:\n        case "local":\n            return True\n',
         'from typing import Final\nLOCAL: Final[str] = "local"\n'
         "def _control(value):\n    return value == LOCAL\n",
+        'def _control(values):\n    return "local" in values\n',
     ],
-    ids=["equality", "membership", "match", "final-alias"],
+    ids=["equality", "membership", "match", "final-alias", "needle"],
 )
 def test_native_collector_guard_rejects_actual_source_mutations(tmp_path, probe):
     root, config = _collector_repository(tmp_path, probe=probe)
