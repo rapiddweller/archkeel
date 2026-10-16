@@ -1,0 +1,53 @@
+name: Prepare reviewed amendment artifact source union
+on:
+  push:
+    branches: [verify/542-amendment-artifact-union]
+permissions:
+  contents: read
+jobs:
+  source-union:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 8d905cfce41534b138a7f4a88cd9fb497248ba3b
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Calculate exact Git source union without remote writes
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          
+          def git(*args):
+              return subprocess.run(["git", *args], check=True, capture_output=True).stdout.decode()
+          
+          stages = [{"name":"amendment-artifact","base":"b475e027f4384feb8cdf2cc9844b82cdf89185ea","head":"8d597b516c4ea3b95c1e009aa5009204d473cc00","paths":["docs/architecture/typed-amendment-artifact.md","docs/superpowers/plans/2026-10-16-amendment-artifact-owner.md","src/archkeel/check/validation/__init__.py","src/archkeel/ir/amendment.py","src/archkeel/ir/amendment_codec.py","src/archkeel/ir/codec_governance.py","src/archkeel/ir/model.py","src/archkeel/ir/widening.py","tests/test_typed_amendment_artifact.py"],"policyPaths":["architecture-contract.json","docs/architecture/contracts/ir.json"]}]
+          for stage in stages:
+              patch = subprocess.run(["git", "diff", "--binary", stage["base"], stage["head"], "--", *stage["paths"]], check=True, capture_output=True).stdout
+              if patch:
+                  applied = subprocess.run(["git", "apply", "--3way", "--index", "-"], input=patch, capture_output=True)
+                  if applied.returncode:
+                      print("MERGE_CONFLICT=" + stage["name"])
+                      print(applied.stderr.decode()[-6000:])
+                      print(git("diff", "--name-only", "--diff-filter=U"))
+                      raise SystemExit(1)
+              print("SOURCE_STAGE=" + stage["name"])
+          
+          paths = []
+          for line in git("diff", "--cached", "--name-status", "--no-renames", "HEAD").splitlines():
+              status, path = line.split("\t")
+              if status == "D":
+                  paths.append({"path": path, "deleted": True})
+                  continue
+              mode = git("ls-files", "--stage", "--", path).split()[0]
+              content = Path(path).read_text()
+              parts = [content[index:index + 12000] for index in range(0, len(content), 12000)] or [""]
+              paths.append({"path": path, "mode": mode, "parts": len(parts)})
+              for index, part in enumerate(parts):
+                  print("SOURCE_UNION_CHUNK=" + json.dumps({"path": path, "index": index, "content": part}, separators=(",", ":")))
+          print("SOURCE_UNION_PATHS=" + json.dumps(paths, separators=(",", ":")))
+          print("SOURCE_UNION_TREE=" + git("write-tree").strip())
+          
+          PY
