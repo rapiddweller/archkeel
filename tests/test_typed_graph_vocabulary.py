@@ -16,7 +16,13 @@ from test_uml_evaluation import _model
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import architecture_graph as graph
 from archkeel.ir.decisions import rule_assessments
-from archkeel.ir.graph_codec import graph_bytes, parse_comparison, parse_component_intent, parse_graph, parse_report
+from archkeel.ir.graph_codec import (
+    graph_bytes,
+    parse_comparison,
+    parse_component_intent,
+    parse_graph,
+    parse_report,
+)
 from archkeel.ir.model import RuleVerdict, Verdict
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
@@ -110,7 +116,6 @@ def test_legacy_direct_construction_normalizes_to_nominal_graph_controls():
     comparison = graph.GraphComparison.from_assessments((item,))
     assert isinstance(item.status, StrEnum)
     assert comparison.status is graph.AssessmentStatus.UNKNOWN
-
 
 
 def test_component_layer_presence_preserves_missing_and_explicit_null_distinction():
@@ -257,7 +262,6 @@ def test_native_graph_enum_field_and_return_widening_fail_with_fixed_target(tmp_
     )
     assert trace_valid_violations(value)
     assert (root / "contract.json").read_bytes() == contract
-
 
 
 def test_native_run_result_exposes_canonical_assessment_type_with_fixed_target(tmp_path):

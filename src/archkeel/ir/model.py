@@ -11,15 +11,15 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, TypeAlias, get_args, get_type_hints
 
-from .architecture_graph import TargetDefinition
 from .architecture_graph import AssessmentStatus as AssessmentStatus
 from .architecture_graph import ComponentRole as ComponentRole
-from .architecture_graph import DecisionMaker as DecisionMaker
 from .architecture_graph import ContractModuleTarget as ContractModuleTarget
+from .architecture_graph import DecisionMaker as DecisionMaker
 from .architecture_graph import ExternalDependencyScopeRule as ExternalDependencyScopeRule
 from .architecture_graph import RootLayoutRule as RootLayoutRule
 from .architecture_graph import RuleAssessment as RuleAssessment
 from .architecture_graph import RuleAssessmentStatus as RuleAssessmentStatus
+from .architecture_graph import TargetDefinition
 from .architecture_graph import contract_relative_path as contract_relative_path
 from .dependency import ComponentOwnership as ComponentOwnership
 from .dependency import DependencyOwner as DependencyOwner
@@ -1146,7 +1146,9 @@ class ObservationResult:
         if self.observation is not None and self.observation.coverage != self.coverage:
             raise ValueError("analyzer coverage differs from its observation")
         if (
-            self.observation is None or self.coverage is None or self.coverage.status != Verdict.PASS
+            self.observation is None
+            or self.coverage is None
+            or self.coverage.status != Verdict.PASS
         ) and not self.diagnostics:
             raise ValueError("incomplete observation requires a diagnostic")
 

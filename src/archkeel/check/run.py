@@ -22,8 +22,8 @@ from archkeel.ir.host_records import InitialPRHeadEvidence, OrderingError, parse
 from archkeel.ir.lock import LOCK_PATH, AcceptedLock, LockError, verify_observation
 from archkeel.ir.measurements import Measurements, RatchetError
 from archkeel.ir.model import (
-    CheckProvenance,
     AssessmentStatus,
+    CheckProvenance,
     Diagnostic,
     DiagnosticError,
     Observation,

@@ -7405,13 +7405,13 @@
           "language": "python",
           "parent_id": "IR-GRAPH-RunResult",
           "presence": "planned",
-          "annotations": "AssessmentStatus",
           "responsibilities": [
             "Expose the canonical three-state rule assessment rather than a local string vocabulary."
           ],
           "provenance": [
             "docs/architecture/typed-graph-vocabulary.md"
-          ]
+          ],
+          "annotation": "AssessmentStatus"
         }
       ],
       "relationships": [

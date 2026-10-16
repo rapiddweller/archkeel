@@ -560,8 +560,7 @@ def _closed_relationship_assessments(
         all(_complete(observed, actual, kind) for kind in wanted.entity_kinds)
         and all(_complete(observed, actual, kind) for kind in wanted.relationship_kinds)
         and not any(
-            item.resolution in {ResolutionKind.PARTIAL, ResolutionKind.UNRESOLVED}
-            for item in sites
+            item.resolution in {ResolutionKind.PARTIAL, ResolutionKind.UNRESOLVED} for item in sites
         )
     )
     return (
