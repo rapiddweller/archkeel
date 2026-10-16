@@ -32,3 +32,11 @@ Ruling: inspect stdlib enum bases and member extraction through nominal AST Name
 Ruling: reject multi-target Assign nodes instead of adding an alias graph — chained initializers can expose a container through another name or attribute — shared initializers remain conservatively unclassified even if no later mutation is visible.
 
 Ruling: require a named collection load to be the final comparator under a final In/NotIn operator — a middle comparator also supplies the next comparison's left operand — ordinary named In and NotIn detection remains covered by native positive controls.
+
+## Literal membership needle expansion
+
+- Base 95f514d362eef18cdd07fec50de1b7f46e94545c preserves the Astra-approved collection-role fix, State and the full-suite test-only corrections.
+- AD48 originally covered literal collections and AD80 adds existing local scalar binding evidence. The expanded parser/protocol requirement also needs the literal scalar as a membership needle.
+- [ ] Reproduce literal/bytes/local-scalar left needles with native trace-valid failures; keep enum/data-variable/shadow/import controls accepted.
+- [ ] Extend only the In/NotIn branch through existing scalar(left); retain collection-side role restrictions and all binding limits.
+- [ ] Run collector/source-binding/State regressions, Ruff/Mypy/hygiene and the unchanged 65/919 native baseline; report any newly exposed protected protocol sites.
