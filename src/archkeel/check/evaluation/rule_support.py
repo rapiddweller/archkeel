@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
-from typing import Literal as _Literal
 from typing import TypeAlias
 
+from archkeel.ir.architecture_graph import AssessmentStatus as _Verdict
 from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.model import (
     ArchitectureRule,
@@ -23,7 +23,6 @@ from archkeel.ir.model import (
 
 # AD-97: an import either decides a symbol rule or, when the scan cannot see which names it
 # uses (a Dart import without `show`), leaves it undecided -- never a pass, never a violation.
-_Verdict: TypeAlias = _Literal["violation", "allowed", "undecided"]
 
 
 UncertainReexportOrigins: TypeAlias = dict[str, frozenset[str]]
@@ -107,9 +106,9 @@ def _forbidden_dependency_verdicts(
             if data["under_type_checking"] and not rule.include_type_checking:
                 continue
             if rule.target_symbol is None or data["symbol"] == rule.target_symbol:
-                yield rule, item, "violation"
+                yield rule, item, _Verdict.FAIL
             else:
-                yield rule, item, "allowed" if data["symbols_known"] else "undecided"
+                yield rule, item, _Verdict.PASS if data["symbols_known"] else _Verdict.UNKNOWN
 
 
 def _forbidden_dependency_matches(
@@ -126,7 +125,7 @@ def _forbidden_dependency_matches(
     for rule, item, verdict in _forbidden_dependency_verdicts(
         imports, rules, components, source_modules
     ):
-        if verdict == "violation":
+        if verdict is _Verdict.FAIL:
             yield rule, item
 
 

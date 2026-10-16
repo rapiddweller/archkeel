@@ -15,6 +15,10 @@ from .facts import in_scope
 ComponentOwnership: TypeAlias = tuple[str, tuple[str, ...], tuple[str, ...]]
 
 
+class ImportSymbolMarker(StrEnum):
+    WILDCARD = "*"
+
+
 class SelectorMatch(StrEnum):
     PREFIX = "prefix"
     EXACT = "exact"
@@ -112,6 +116,7 @@ class DependencySelector:
 
 __all__ = (
     "ComponentOwnership",
+    "ImportSymbolMarker",
     "DependencyOwner",
     "DependencySelection",
     "DependencySelector",
