@@ -103,7 +103,9 @@ def test_actual_query_raw_token_is_observed_without_claiming_a_function_guard(tm
     source = (ROOT / SOURCE).read_text()
     signature = "def _predicate_matches(literals: _LiteralComparisons, node: ast.expr) -> bool:\n"
     assert source.count(signature) == 1
-    changed = source.replace(signature, signature + '    if node == "raw_protocol":\n        return False\n', 1)
+    changed = source.replace(
+        signature, signature + '    if node == "raw_protocol":\n        return False\n', 1
+    )
     root, config = _repository(tmp_path, changed)
     intent = (root / "contract.json").read_bytes()
     model = _model(root, config)
