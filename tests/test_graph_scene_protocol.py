@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.test_report_renderer_units import _asset_page
+from test_report_renderer_units import _asset_page
 
 
 @pytest.mark.parametrize(
