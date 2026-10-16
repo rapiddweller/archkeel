@@ -53,7 +53,7 @@ jobs:
           print("DART_NATIVE_RESULT=" + json.dumps({key: value.get(key) for key in ("exit_code", "failures", "diagnostics", "measurements")}))
           PY
           test "$task_status" -eq 0
-          python -c 'import pathlib; print("DART_BASELINE_JSON="+pathlib.Path("architecture-baseline.json").read_text().replace("\\n",""))'
+          python -c 'import json,pathlib; print("DART_BASELINE_JSON="+json.dumps(json.loads(pathlib.Path("architecture-baseline.json").read_text())))'
       - name: Bind the Dart contract and tighter baseline to the actual predecessor
         run: |
           set +e
@@ -65,7 +65,7 @@ jobs:
           print("DART_AMENDMENT_RESULT=" + json.dumps({key: result.get(key) for key in ("exit_code", "failures", "diagnostics", "measurements")}))
           path = pathlib.Path("docs/architecture/decisions/issue-542-dart-vocabulary-amendment.json")
           if path.exists():
-              print("DART_AMENDMENT_JSON=" + path.read_text().replace("\\n", ""))
+              print("DART_AMENDMENT_JSON=" + json.dumps(json.loads(path.read_text())))
           PY
           exit "$task_status"
       - name: Repository hygiene
