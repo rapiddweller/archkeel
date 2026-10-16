@@ -32,7 +32,9 @@ RULE = {
 }
 
 
-def _report(tmp_path, statement, *, through=("sample.core:Command",), exports=None):
+def _report(
+    tmp_path, statement, *, through=("sample.core:Command",), exports=None, mounted=False
+):
     caller = _component("caller")
     caller["requires"] = [
         {"component": "core", "through": list(through), "rationale": "Use this API."}
@@ -42,6 +44,9 @@ def _report(tmp_path, statement, *, through=("sample.core:Command",), exports=No
     if exports is not None:
         source += "__all__ = " + repr(exports) + "\n"
     contract = {"schema_version": "2.2.0", "components": [caller, core], "rules": [RULE]}
+    outer = {"schema_version": "2.2.0", "components": [
+        {**_component("app", packages=["sample"]), "inside": "inside.json"}
+    ], "rules": []}
     root = _prepare_repo(
         tmp_path,
         {
@@ -49,7 +54,8 @@ def _report(tmp_path, statement, *, through=("sample.core:Command",), exports=No
             "sample/caller.py": statement + "\n",
             "sample/core.py": source,
             "sample/other.py": "class Command:\n    pass\n",
-            "contract.json": json.dumps(contract),
+            "contract.json": json.dumps(outer if mounted else contract),
+            "inside.json": json.dumps(contract),
             "docs/architecture/sample.md": "Exact API responsibilities.\n",
         },
     )
@@ -57,7 +63,8 @@ def _report(tmp_path, statement, *, through=("sample.core:Command",), exports=No
     result, encoded = run_report(root, config=config, analyzer=observe)
     assert encoded is not None, result.diagnostics
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
-    rows = [row for row in result.rule_assessments or () if row.id == RULE["id"]]
+    identity = "app:" + RULE["id"] if mounted else RULE["id"]
+    rows = [row for row in result.rule_assessments or () if row.id == identity]
     assert len(rows) == 1, result.rule_assessments
     return root, rows[0], model
 
@@ -216,3 +223,48 @@ def test_native_requires_api_is_independent_and_rejects_source_widening(tmp_path
     assert any(row.status == "FAIL" for row in architecture_report(changed).comparison.assessments)
     assert trace_valid_violations(changed)
     assert (root / "contract.json").read_bytes() == intent
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize(
+    ("statement", "expected"),
+    [
+        ("from sample.core import Command", "PASS"),
+        ("from sample.core import Other", "FAIL"),
+        ("from sample.core import *", "UNKNOWN"),
+    ],
+)
+def test_exact_port_assessments_survive_nested_scope_and_saved_replay(
+    tmp_path, mounted, statement, expected
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    _, row, model = _report(tmp_path, statement, mounted=mounted)
+    assert row.status == expected
+    saved = tmp_path / "saved.json"
+    saved.write_bytes(canonical_report_bytes(model))
+    replay = run_saved_report(saved)
+    assert next(item for item in replay.rule_assessments if item.id == row.id).status == expected
+
+
+@pytest.mark.parametrize(
+    "probe",
+    [
+        'def _probe(symbol):\n    return symbol == "*"\n',
+        'def _probe(symbol):\n    return symbol in ("*",)\n',
+        'def _probe(symbol):\n    match symbol:\n        case "*":\n'
+        '            return True\n        case _:\n            return False\n',
+        'from typing import Final\nSTAR: Final[str] = "*"\n'
+        'def _probe(symbol):\n    return symbol == STAR\n',
+    ],
+)
+def test_native_selected_requires_code_rejects_raw_wildcard_dispatch(tmp_path, probe):
+    root, config = _api_repository(tmp_path)
+    assert not trace_valid_violations(_model(root, config))
+    source = root / "archkeel/ir/model.py"
+    source.write_text(source.read_text() + "\n" + probe)
+    value = _model(root, config)
+    assert any(
+        "REQUIRES-SELECTED-CONTROL" in row.rule_ids for row in trace_valid_violations(value)
+    )
