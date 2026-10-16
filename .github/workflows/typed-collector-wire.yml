@@ -1,0 +1,86 @@
+name: Typed collector wire boundaries
+on:
+  push:
+    branches: [verify/542-collector-wire-types-final]
+permissions:
+  contents: read
+jobs:
+  collector-types:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: 0.12.13
+      - run: uv python install 3.11.12 3.12.10
+      - run: uv sync --locked
+      - name: Typed collector controls
+        run: uv run --locked python -m pytest --basetemp="$RUNNER_TEMP/pytest" -q tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py tests/test_collection_protocol.py tests/test_type_shapes.py tests/test_runtime.py tests/test_collection_conformance.py tests/test_codec.py tests/test_protocol_uml_target.py tests/test_collection_process.py tests/test_collection_runtime_gate.py tests/test_source_trust_boundary.py tests/test_collector_safety_acceptance.py tests/test_collection_boundary_regressions.py tests/test_delta.py tests/test_runtime_delta.py tests/test_typed_state_protocol.py tests/test_string_comparison_observation.py
+      - name: Own native evidence diagnosis
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from archkeel.ir.codec import decode_canonical_model
+          from archkeel.ir.decisions import unknown_positions_by_rule
+          from archkeel.ir.codec import parse_observation
+          for path in Path(os.environ["RUNNER_TEMP"]).glob("pytest/**/self-report/architecture.json"):
+              model = decode_canonical_model(json.loads(path.read_bytes()))
+              print("SELF_VIOLATIONS=" + json.dumps(model["violations"]))
+              print("SELF_TYPING=" + json.dumps(model["typing_signals"]))
+              print("SELF_UNKNOWNS=" + json.dumps(unknown_positions_by_rule(parse_observation(model))))
+              print("SELF_UML_UNKNOWNS=" + json.dumps([row for row in model["unknowns"] if row["kind"] == "uml_conformance"]))
+          PY
+      - name: Static typing
+        if: always()
+        run: uv run --locked mypy src/archkeel
+      - name: Ruff
+        if: always()
+        run: |
+          uv run --locked ruff check --fix src tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py || true
+          uv run --locked ruff format src tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py
+          python - <<'PY'
+          import base64, subprocess
+          patch = subprocess.check_output(["git", "diff"])
+          print("FORMAT_PATCH=" + base64.b64encode(patch).decode())
+          PY
+          uv run --locked ruff check src tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py
+      - name: Native own baseline
+        if: always()
+        run: uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: 0.12.13
+      - run: uv sync --locked
+      - name: Fast strict typing
+        run: uv run --locked mypy src/archkeel
+      - name: Fast formatter receipt
+        if: always()
+        run: |
+          uv run --locked ruff check --fix src tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py || true
+          uv run --locked ruff format src tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py
+          python - <<'PY'
+          import base64, subprocess
+          print("FORMAT_PATCH=" + base64.b64encode(subprocess.check_output(["git", "diff"])).decode())
+          PY
+          uv run --locked ruff check src tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py
+      - name: Repository hygiene
+        if: always()
+        run: uv run --locked python -m pytest -q tests/test_repository_hygiene.py
+  profile-vocabulary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: 0.12.13
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -q tests/test_typed_collector_protocol.py::test_response_decoder_returns_nominal_profile_and_section_names tests/test_typed_collector_protocol.py::test_nominal_profile_and_section_decoders_keep_the_exact_wire_vocabulary tests/test_typed_collector_protocol.py::test_registered_profiles_keep_imports_and_unknowns_mandatory tests/test_typed_collector_protocol.py::test_collection_error_kind_has_one_nominal_owner_and_keeps_its_wire_text tests/test_typed_collector_protocol.py::test_coverage_verdict_decoder_returns_the_binary_domain_enum tests/test_typed_collector_protocol.py::test_binary_coverage_verdict_rejects_unknown_and_malformed_tags
