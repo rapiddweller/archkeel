@@ -145,7 +145,8 @@
         "archkeel.ir.dependency:DependencySelector",
         "archkeel.ir.dependency:DependencyTargetKind",
         "archkeel.ir.dependency:ModuleSelection",
-        "archkeel.ir.dependency:SelectorMatch"
+        "archkeel.ir.dependency:SelectorMatch",
+        "archkeel.ir.profiles:ObservedSection"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
@@ -249,7 +250,8 @@
       ],
       "decided_by": "architect",
       "public": [],
-      "layer": "Edge"
+      "layer": "Edge",
+      "inside": "docs/architecture/contracts/cli.json"
     },
     {
       "id": "COMP-HOST",
@@ -769,9 +771,18 @@
         "archkeel.ir.facts",
         "archkeel.ir.type_shapes",
         "archkeel.ir.architecture_graph",
-        "archkeel.ir.dependency"
+        "archkeel.ir.dependency",
+        "archkeel.ir.protocol",
+        "archkeel.ir.facts_codec",
+        "archkeel.ir.codec_observation",
+        "archkeel.ir.profiles",
+        "archkeel.analyzer.runtime",
+        "archkeel.cli.config",
+        "archkeel.check.runtime",
+        "archkeel.cli.arguments",
+        "archkeel.cli.skill"
       ],
-      "rationale": "Governance enums stay in ir.model; source facts, type shapes, the shared UML graph and pure dependency policy own their respective vocabularies.",
+      "rationale": "Each domain and wire boundary owns its closed control vocabulary; codecs keep private wire tags while consumers share published nominal types. CLI argument, installer and configuration owners retain their local input vocabularies.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],
@@ -859,6 +870,97 @@
       "rationale": "Dependency policy branches on its owned SelectorMatch and DependencyTargetKind enums; raw protocol conversion belongs to the contract codec.",
       "provenance": [
         "docs/architecture/typed-control-migration.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COLLECTOR-TYPED-IR-FACTS",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.facts",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
+      "provenance": [
+        "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COLLECTOR-TYPED-IR-PROTOCOL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.protocol",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
+      "provenance": [
+        "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COLLECTOR-TYPED-IR-FACTS-CODEC",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.facts_codec",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
+      "provenance": [
+        "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COLLECTOR-TYPED-IR-TYPE-SHAPES",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.type_shapes",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
+      "provenance": [
+        "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COLLECTOR-TYPED-IR-CODEC-OBSERVATION",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.codec_observation",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
+      "provenance": [
+        "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COLLECTOR-TYPED-ANALYZER-RUNTIME",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.runtime",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
+      "provenance": [
+        "docs/architecture/collector-wire-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COLLECTOR-TYPED-CHECK-RUNTIME",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.runtime",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed collector and runtime vocabulary is decoded into owned types before control flow; arbitrary identities and declarative schema labels remain data.",
+      "provenance": [
+        "docs/architecture/collector-wire-vocabulary.md"
       ],
       "decided_by": "architect"
     }

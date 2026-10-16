@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Literal
 
-from archkeel.ir.facts import ResolutionInput, dart_module_name
+from archkeel.ir.facts import ResolutionInput, ResolutionRole, dart_module_name
 from archkeel.ir.protocol import CollectionRequest
 
 
@@ -206,7 +206,7 @@ def _read_source_file(
         )
         return None
     source = Source(rel, f"{namespace}.{short}", content)
-    item = ResolutionInput(rel, hashlib.sha256(content).hexdigest(), "selected")
+    item = ResolutionInput(rel, hashlib.sha256(content).hexdigest(), ResolutionRole.SELECTED)
     return source, item
 
 
@@ -295,7 +295,9 @@ def _read_pubspec(
         package_name, sdk_constraint, parsed_state = _pubspec_metadata(raw)
         if package_name is None:
             raise SnapshotError("pubspec.yaml must declare a valid package name")
-        item = ResolutionInput("pubspec.yaml", hashlib.sha256(raw).hexdigest(), "resolution")
+        item = ResolutionInput(
+            "pubspec.yaml", hashlib.sha256(raw).hexdigest(), ResolutionRole.RESOLUTION
+        )
         return package_name, sdk_constraint, parsed_state, item
     except OSError as error:
         raise SnapshotError(f"cannot read regular pubspec.yaml: {error}") from error

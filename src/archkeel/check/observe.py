@@ -138,15 +138,17 @@ _RULE_FAILURES: Final[dict[str, tuple[DiagnosticKind, str]]] = {
     ),
 }
 _SOURCE_NAME: Final[dict[Language, str]] = {
-    "python": "Python",
-    "dart": "Dart",
-    "typescript": "TypeScript",
+    Language.PYTHON: "Python",
+    Language.DART: "Dart",
+    Language.TYPESCRIPT: "TypeScript",
 }
 _SOURCE_REMEDY: Final[dict[Language, str]] = {
-    "python": "Inspect the reported failure using the declared target runtime; "
+    Language.PYTHON: "Inspect the reported failure using the declared target runtime; "
     "rerun after resolving its cause.",
-    "typescript": "Correct the reported TypeScript configuration or import resolution and retry.",
-    "dart": "Correct the reported Dart source syntax, directive, URI, part declaration or "
+    Language.TYPESCRIPT: (
+        "Correct the reported TypeScript configuration or import resolution and retry."
+    ),
+    Language.DART: "Correct the reported Dart source syntax, directive, URI, part declaration or "
     "pubspec name; rerun after resolving its cause.",
 }
 
@@ -281,7 +283,7 @@ def _observe(
     git_head: str,
     dirty: bool,
     contract_root: Path,
-    language: Language = "python",
+    language: Language = Language.PYTHON,
 ) -> ObservationResult:
     source_root = source_root.resolve()
     contract_root = contract_root.resolve()
@@ -292,7 +294,7 @@ def _observe(
             return failure
         for root in roots:
             directory = source_root / root
-            file_root = language == "typescript" and directory.is_file()
+            file_root = language == Language.TYPESCRIPT and directory.is_file()
             if not directory.is_dir() and not file_root:
                 return _failure(
                     "scope_empty",
@@ -311,9 +313,9 @@ def _observe(
                     )
         resolver: ResolverSettings = (
             PythonSettings()
-            if language == "python"
+            if language == Language.PYTHON
             else DartSettings()
-            if language == "dart"
+            if language == Language.DART
             else TypeScriptSettings(tsconfig)
         )
         request = CollectionRequest(
@@ -383,7 +385,7 @@ class Observer:
         git_head: str,
         dirty: bool,
         contract_root: Path,
-        language: Language = "python",
+        language: Language = Language.PYTHON,
     ) -> ObservationResult:
         return _observe(
             self.collector,

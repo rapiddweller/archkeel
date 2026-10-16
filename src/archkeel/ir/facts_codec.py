@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import json
 import re
+from enum import StrEnum
 from math import isfinite
 from pathlib import PurePosixPath, PureWindowsPath
-from typing import Literal, TypeAlias, TypeGuard, get_args
+from typing import TypeAlias, TypeGuard, get_args
 
 from .facts import (
     EVIDENCE_FIELDS,
@@ -28,10 +29,12 @@ from .facts import (
     ForbiddenConstructKind,
     ImportTarget,
     JsonValue,
+    Language,
     LocalTarget,
     Record,
     RecordData,
     ResolutionInput,
+    ResolutionRole,
     RuntimeInfo,
     RuntimeRequirementState,
     SourceFacts,
@@ -39,13 +42,15 @@ from .facts import (
     SourceProfile,
     SourceSectionName,
     UnresolvedTarget,
+    parse_runtime_requirement_state,
+    source_dirty,
 )
 from .facts_validation import validate_source_facts
 from .protocol import (
-    PROTOCOL_VERSION,
     CollectionRequest,
     CollectionResponse,
     DartSettings,
+    ProtocolVersion,
     PythonSettings,
     SnapshotInput,
     SourceScope,
@@ -87,6 +92,32 @@ from .type_shapes import (
 )
 
 RawJson: TypeAlias = str | int | float | bool | None | list["RawJson"] | dict[str, "RawJson"]
+
+
+class _TargetKind(StrEnum):
+    LOCAL = "local"
+    EXTERNAL = "external"
+    BUILTIN = "builtin"
+    UNRESOLVED = "unresolved"
+
+
+class _ShapeKind(StrEnum):
+    NAME = "name"
+    MEMBER = "member"
+    APPLICATION = "application"
+    UNION = "union"
+    LIST = "list"
+    LITERAL = "literal"
+    UNPACK = "unpack"
+    UNRESOLVED = "unresolved"
+
+
+class _PathToken(StrEnum):
+    NUL = "\x00"
+    PARENT = ".."
+    BACKSLASH = "\\"
+    COLON = ":"
+    SLASH = "/"
 
 
 class ProtocolError(ValueError):
@@ -133,39 +164,38 @@ def _object(value: RawJson, fields: set[str], label: str) -> dict[str, RawJson]:
 
 
 def _string(value: RawJson, label: str) -> str:
-    if not isinstance(value, str) or not value or "\x00" in value:
+    if not isinstance(value, str) or not value or _PathToken.NUL in value:
         raise ProtocolError(f"{label} must be a nonempty string")
     return value
 
 
 def _runtime_requirement_state(value: RawJson) -> RuntimeRequirementState:
-    if value == "declared":
-        return "declared"
-    if value == "metadata_missing":
-        return "metadata_missing"
-    if value == "metadata_invalid":
-        return "metadata_invalid"
-    if value == "requirement_missing":
-        return "requirement_missing"
-    if value == "requirement_invalid":
-        return "requirement_invalid"
-    if not isinstance(value, str):
-        raise ProtocolError("runtime.requirement_state is invalid")
-    raise ProtocolError("runtime.requirement_state is invalid")
+    try:
+        return parse_runtime_requirement_state(value)
+    except ValueError as error:
+        raise ProtocolError(str(error)) from error
 
 
 def _relative(value: RawJson, label: str) -> str:
     path = _string(value, label)
     parsed = PurePosixPath(path)
-    if parsed.is_absolute() or ".." in parsed.parts or "\\" in path or ":" in path:
+    if (
+        parsed.is_absolute()
+        or _PathToken.PARENT in parsed.parts
+        or _PathToken.BACKSLASH in path
+        or _PathToken.COLON in path
+    ):
         raise ProtocolError(f"{label} must stay inside the snapshot")
     return path
 
 
-def _version(value: RawJson) -> str:
-    if not isinstance(value, str) or value not in ("1.0.0", "2.0.0", PROTOCOL_VERSION):
+def _version(value: RawJson) -> ProtocolVersion:
+    if not isinstance(value, str):
         raise ProtocolError("unsupported collection protocol version")
-    return value
+    try:
+        return ProtocolVersion(value)
+    except ValueError as error:
+        raise ProtocolError("unsupported collection protocol version") from error
 
 
 def decode_request(payload: bytes) -> CollectionRequest:
@@ -176,17 +206,17 @@ def decode_request(payload: bytes) -> CollectionRequest:
     snapshot = _object(raw["snapshot"], {"root", "git_head", "dirty"}, "snapshot")
     source_root = _string(snapshot["root"], "snapshot.root")
     if not (
-        (PurePosixPath(source_root).is_absolute() and "\\" not in source_root)
+        (PurePosixPath(source_root).is_absolute() and _PathToken.BACKSLASH not in source_root)
         or (
             PureWindowsPath(source_root).is_absolute()
-            and not ("/" in source_root and "\\" in source_root)
+            and not (_PathToken.SLASH in source_root and _PathToken.BACKSLASH in source_root)
         )
     ):
         raise ProtocolError("snapshot.root must be an absolute path")
-    dirty = snapshot["dirty"]
-    if not isinstance(dirty, bool) and dirty != "unknown":
-        raise ProtocolError("snapshot.dirty must be a boolean or unknown")
-    dirty_value: bool | Literal["unknown"] = dirty if isinstance(dirty, bool) else "unknown"
+    try:
+        dirty_value = source_dirty(snapshot["dirty"])
+    except ValueError as error:
+        raise ProtocolError("snapshot.dirty must be a boolean or unknown") from error
     scope = _object(raw["scope"], {"roots", "namespace"}, "scope")
     roots_raw = scope["roots"]
     if not isinstance(roots_raw, list) or not roots_raw:
@@ -207,14 +237,17 @@ def decode_request(payload: bytes) -> CollectionRequest:
     resolver_raw = raw["resolver"]
     if not isinstance(resolver_raw, dict):
         raise ProtocolError("resolver fields mismatch")
-    language = resolver_raw.get("language")
-    if language == "python":
+    try:
+        language = Language(_string(resolver_raw.get("language"), "resolver.language"))
+    except ValueError as error:
+        raise ProtocolError("unsupported collection language") from error
+    if language is Language.PYTHON:
         _object(resolver_raw, {"language"}, "resolver")
         resolver: PythonSettings | DartSettings | TypeScriptSettings = PythonSettings()
-    elif language == "dart":
+    elif language is Language.DART:
         _object(resolver_raw, {"language"}, "resolver")
         resolver = DartSettings()
-    elif language == "typescript":
+    elif language is Language.TYPESCRIPT:
         _object(resolver_raw, {"language", "tsconfig"}, "resolver")
         resolver = TypeScriptSettings(_relative(resolver_raw["tsconfig"], "resolver.tsconfig"))
     else:
@@ -456,21 +489,25 @@ def _file(value: RawJson) -> FileFact:
 
 def _input(value: RawJson) -> ResolutionInput:
     item = _object(value, {"path", "digest", "role"}, "input")
-    role = item["role"]
-    if role not in ("selected", "resolution"):
-        raise ProtocolError("input.role is invalid")
+    try:
+        role = ResolutionRole(_string(item["role"], "input.role"))
+    except ValueError as error:
+        raise ProtocolError("input.role is invalid") from error
     return ResolutionInput(
         _relative(item["path"], "input.path"),
         _digest(item["digest"], "input.digest"),
-        "selected" if role == "selected" else "resolution",
+        role,
     )
 
 
 def _target(value: RawJson) -> ImportTarget:
     if not isinstance(value, dict):
         raise ProtocolError("import target must be an object")
-    kind = value.get("kind")
-    if kind == "local":
+    try:
+        kind = _TargetKind(_string(value.get("kind"), "target.kind"))
+    except ValueError as error:
+        raise ProtocolError("invalid import target kind") from error
+    if kind is _TargetKind.LOCAL:
         item = _object(
             value,
             {"kind", "import_id", "module", "file", "runtime_file", "declaration_file"},
@@ -487,18 +524,18 @@ def _target(value: RawJson) -> ImportTarget:
             if item["declaration_file"] is not None
             else None,
         )
-    if kind == "external":
+    if kind is _TargetKind.EXTERNAL:
         item = _object(value, {"kind", "import_id", "package"}, "external target")
         return ExternalPackageTarget(
             _string(item["import_id"], "target.import_id"),
             _string(item["package"], "target.package"),
         )
-    if kind == "builtin":
+    if kind is _TargetKind.BUILTIN:
         item = _object(value, {"kind", "import_id", "name"}, "builtin target")
         return BuiltinTarget(
             _string(item["import_id"], "target.import_id"), _string(item["name"], "target.name")
         )
-    if kind == "unresolved":
+    if kind is _TargetKind.UNRESOLVED:
         item = _object(value, {"kind", "import_id", "specifier", "reason"}, "unresolved target")
         return UnresolvedTarget(
             _string(item["import_id"], "target.import_id"),
@@ -511,7 +548,7 @@ def _target(value: RawJson) -> ImportTarget:
 def _target_payload(target: ImportTarget) -> dict[str, RawJson]:
     if isinstance(target, LocalTarget):
         return {
-            "kind": "local",
+            "kind": _TargetKind.LOCAL.value,
             "import_id": target.import_id,
             "module": target.module,
             "file": target.file,
@@ -519,33 +556,44 @@ def _target_payload(target: ImportTarget) -> dict[str, RawJson]:
             "declaration_file": target.declaration_file,
         }
     if isinstance(target, ExternalPackageTarget):
-        return {"kind": "external", "import_id": target.import_id, "package": target.package}
+        return {
+            "kind": _TargetKind.EXTERNAL.value,
+            "import_id": target.import_id,
+            "package": target.package,
+        }
     if isinstance(target, BuiltinTarget):
-        return {"kind": "builtin", "import_id": target.import_id, "name": target.name}
+        return {
+            "kind": _TargetKind.BUILTIN.value,
+            "import_id": target.import_id,
+            "name": target.name,
+        }
     return {
-        "kind": "unresolved",
+        "kind": _TargetKind.UNRESOLVED.value,
         "import_id": target.import_id,
         "specifier": target.specifier,
         "reason": target.reason,
     }
 
 
-def _shape(value: RawJson, protocol_version: str) -> TypeShape:
+def _shape(value: RawJson, protocol_version: ProtocolVersion) -> TypeShape:
     if not isinstance(value, dict):
         raise ProtocolError("type shape must be an object")
-    kind = value.get("kind")
+    try:
+        kind = _ShapeKind(_string(value.get("kind"), "type shape.kind"))
+    except ValueError as error:
+        raise ProtocolError("invalid type shape kind") from error
     text = _record_string(value.get("text"), "type shape.text")
-    if kind == "name":
+    if kind is _ShapeKind.NAME:
         _object(value, {"kind", "text", "name"}, "type name")
         return TypeName(text, _string(value["name"], "type name.name"))
-    if kind == "member":
+    if kind is _ShapeKind.MEMBER:
         _object(value, {"kind", "text", "owner", "member"}, "type member")
         return TypeMember(
             text,
             _shape(value["owner"], protocol_version),
             _string(value["member"], "type member.member"),
         )
-    if kind == "application":
+    if kind is _ShapeKind.APPLICATION:
         _object(value, {"kind", "text", "head", "arguments", "tuple_arguments"}, "type application")
         return TypeApplication(
             text,
@@ -556,12 +604,12 @@ def _shape(value: RawJson, protocol_version: str) -> TypeShape:
             ),
             _boolean(value["tuple_arguments"], "type tuple arguments"),
         )
-    if kind == "union":
+    if kind is _ShapeKind.UNION:
         _object(value, {"kind", "text", "left", "right"}, "type union")
         return TypeUnion(
             text, _shape(value["left"], protocol_version), _shape(value["right"], protocol_version)
         )
-    if kind == "list" and protocol_version == "3.0.0":
+    if kind is _ShapeKind.LIST and protocol_version is ProtocolVersion.V3:
         _object(value, {"kind", "text", "elements"}, "type list")
         return TypeList(
             text,
@@ -570,17 +618,17 @@ def _shape(value: RawJson, protocol_version: str) -> TypeShape:
                 for item in _array(value["elements"], "type list elements")
             ),
         )
-    if kind == "literal":
+    if kind is _ShapeKind.LITERAL:
         _object(value, {"kind", "text", "literal_kind"}, "type literal")
         try:
             literal = LiteralKind(_string(value["literal_kind"], "literal kind"))
         except ValueError as error:
             raise ProtocolError("invalid literal kind") from error
         return TypeLiteral(text, literal)
-    if kind == "unpack":
+    if kind is _ShapeKind.UNPACK:
         _object(value, {"kind", "text", "argument"}, "type unpack")
         return TypeUnpack(text, _shape(value["argument"], protocol_version))
-    if kind == "unresolved":
+    if kind is _ShapeKind.UNRESOLVED:
         _object(value, {"kind", "text", "valid_syntax"}, "unresolved type")
         return UnresolvedType(text, _boolean(value["valid_syntax"], "type valid syntax"))
     raise ProtocolError("invalid type shape kind")
@@ -589,18 +637,18 @@ def _shape(value: RawJson, protocol_version: str) -> TypeShape:
 def _shape_payload(shape: TypeShape) -> dict[str, RawJson]:
     base: dict[str, RawJson] = {"text": shape.text}
     if isinstance(shape, TypeName):
-        return {**base, "kind": "name", "name": shape.name}
+        return {**base, "kind": _ShapeKind.NAME.value, "name": shape.name}
     if isinstance(shape, TypeMember):
         return {
             **base,
-            "kind": "member",
+            "kind": _ShapeKind.MEMBER.value,
             "owner": _shape_payload(shape.owner),
             "member": shape.member,
         }
     if isinstance(shape, TypeApplication):
         return {
             **base,
-            "kind": "application",
+            "kind": _ShapeKind.APPLICATION.value,
             "head": _shape_payload(shape.head),
             "arguments": [_shape_payload(item) for item in shape.arguments],
             "tuple_arguments": shape.tuple_arguments,
@@ -608,31 +656,32 @@ def _shape_payload(shape: TypeShape) -> dict[str, RawJson]:
     if isinstance(shape, TypeUnion):
         return {
             **base,
-            "kind": "union",
+            "kind": _ShapeKind.UNION.value,
             "left": _shape_payload(shape.left),
             "right": _shape_payload(shape.right),
         }
     if isinstance(shape, TypeList):
         return {
             **base,
-            "kind": "list",
+            "kind": _ShapeKind.LIST.value,
             "elements": [_shape_payload(element) for element in shape.elements],
         }
     if isinstance(shape, TypeLiteral):
-        return {**base, "kind": "literal", "literal_kind": shape.kind.value}
+        return {**base, "kind": _ShapeKind.LITERAL.value, "literal_kind": shape.kind.value}
     if isinstance(shape, TypeUnpack):
-        return {**base, "kind": "unpack", "argument": _shape_payload(shape.argument)}
-    return {**base, "kind": "unresolved", "valid_syntax": shape.valid_syntax}
+        return {**base, "kind": _ShapeKind.UNPACK.value, "argument": _shape_payload(shape.argument)}
+    return {**base, "kind": _ShapeKind.UNRESOLVED.value, "valid_syntax": shape.valid_syntax}
 
 
 def _source(value: RawJson) -> SourceInfo:
     item = _object(value, {"git_head", "dirty", "source_digest", "scope"}, "source")
-    dirty = item["dirty"]
-    if not isinstance(dirty, bool) and dirty != "unknown":
-        raise ProtocolError("source.dirty is invalid")
+    try:
+        dirty = source_dirty(item["dirty"])
+    except ValueError as error:
+        raise ProtocolError("source.dirty is invalid") from error
     return SourceInfo(
         _string(item["git_head"], "source.git_head"),
-        dirty if isinstance(dirty, bool) else "unknown",
+        dirty,
         _digest(item["source_digest"], "source.source_digest"),
         _record_strings(item["scope"], "source.scope"),
     )
@@ -699,10 +748,10 @@ def _file_payload(entry: FileFact) -> dict[str, RawJson]:
     }
 
 
-def _runtime_info(value: RawJson, protocol_version: str) -> RuntimeInfo:
+def _runtime_info(value: RawJson, protocol_version: ProtocolVersion) -> RuntimeInfo:
     expected = (
         {"name", "version", "required", "requirement_state"}
-        if protocol_version in {"2.0.0", "3.0.0"}
+        if protocol_version in {ProtocolVersion.V2, ProtocolVersion.V3}
         else {"name", "version", "required"}
     )
     if not isinstance(value, dict) or set(value) != expected:
@@ -788,8 +837,11 @@ def decode_response(payload: bytes) -> CollectionResponse:
 
 def encode_response(response: CollectionResponse) -> bytes:
     facts = response.facts
-    _version(response.protocol_version)
-    if response.protocol_version == "1.0.0" and facts.runtime.requirement_state != "declared":
+    version = _version(response.protocol_version)
+    if (
+        version is ProtocolVersion.V1
+        and facts.runtime.requirement_state != RuntimeRequirementState.DECLARED
+    ):
         raise ProtocolError("protocol 1.0.0 cannot carry runtime.requirement_state")
     raw: dict[str, RawJson] = {
         "protocol_version": response.protocol_version,
@@ -808,7 +860,7 @@ def encode_response(response: CollectionResponse) -> bytes:
                 "required": facts.runtime.required,
                 **(
                     {"requirement_state": facts.runtime.requirement_state}
-                    if response.protocol_version in {"2.0.0", "3.0.0"}
+                    if version in {ProtocolVersion.V2, ProtocolVersion.V3}
                     else {}
                 ),
             },

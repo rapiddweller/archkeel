@@ -21,9 +21,11 @@ from archkeel.ir.facts import (
     FactSection,
     FileFact,
     ImportTarget,
+    Language,
     LocalTarget,
     Record,
     ResolutionInput,
+    ResolutionRole,
     SourceFacts,
     SourceInfo,
     SourceSectionName,
@@ -108,14 +110,14 @@ class _Collection:
         for problem in sorted(self.snapshot.problems):
             self._gap(problem)
         inputs = tuple(
-            ResolutionInput(path, digest, role)
+            ResolutionInput(path, digest, ResolutionRole(role))
             for path, (digest, role) in sorted(self.snapshot.inputs.items())
         )
         unknowns = tuple(parse_record(item) for _, item in sorted(self.gaps.items()))
         imports = tuple(
             parse_record(item) for item in sorted(self.imports, key=lambda item: item["id"])
         )
-        adapter, runtime = collector_provenance("typescript")
+        adapter, runtime = collector_provenance(Language.TYPESCRIPT)
         listing: str = json.dumps(
             [{"path": item.path, "digest": item.digest, "role": item.role} for item in inputs],
             separators=(",", ":"),

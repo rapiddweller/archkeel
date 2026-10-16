@@ -8,7 +8,6 @@ from __future__ import annotations
 import hashlib
 import sys
 from pathlib import Path
-from typing import Literal
 
 from archkeel.analyzer.runtime import (
     collector_provenance,
@@ -26,8 +25,10 @@ from archkeel.ir.facts import (
     FileFact,
     ForbiddenConstructKind,
     ImportTarget,
+    Language,
     LocalTarget,
     ResolutionInput,
+    ResolutionRole,
     SourceFacts,
     SourceInfo,
     SourceSectionName,
@@ -140,7 +141,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
 
     required, requirement_state = python_requirement(root)
     adapter, runtime = collector_provenance(
-        "python", required=required, requirement_state=requirement_state
+        Language.PYTHON, required=required, requirement_state=requirement_state
     )
     return SourceFacts(
         "archkeel-python-analyzer",
@@ -193,12 +194,12 @@ def _raw_evidence(item: Evidence) -> RawEvidence:
 
 
 def _inputs(root: Path, selected: tuple[Path, ...]) -> tuple[tuple[ResolutionInput, ...], str]:
-    paths: dict[str, tuple[Path, Literal["selected", "resolution"]]] = {
-        path.relative_to(root).as_posix(): (path, "selected") for path in selected
+    paths: dict[str, tuple[Path, ResolutionRole]] = {
+        path.relative_to(root).as_posix(): (path, ResolutionRole.SELECTED) for path in selected
     }
     config = root / "pyproject.toml"
     if config.is_file() and config.resolve().is_relative_to(root):
-        paths["pyproject.toml"] = (config, "resolution")
+        paths["pyproject.toml"] = (config, ResolutionRole.RESOLUTION)
     inputs: list[ResolutionInput] = []
     source = hashlib.sha256()
     for rel_path, (path, role) in sorted(paths.items()):

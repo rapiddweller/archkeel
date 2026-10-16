@@ -9,8 +9,9 @@ import re
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import asdict
+from enum import StrEnum
 from math import isfinite
-from typing import Any, Literal, TypeGuard, get_args
+from typing import Any, TypeGuard, get_args
 
 from archkeel.ir.codec_wire import (
     _count,
@@ -23,12 +24,11 @@ from archkeel.ir.codec_wire import (
     _strings,
     canonical_json_bytes,
 )
-from archkeel.ir.facts import RuntimeRequirementState
+from archkeel.ir.facts import RuntimeRequirementState, parse_runtime_requirement_state, source_dirty
 from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
-    SCHEMA_VERSION,
     AnalyzerInfo,
     ContractInfo,
     Coverage,
@@ -40,10 +40,52 @@ from archkeel.ir.model import (
     identity_is_known,
 )
 from archkeel.ir.model import RawJson as RawJson
-from archkeel.ir.profiles import Profile, profile_for
+from archkeel.ir.profiles import ObservedSection, Profile, UnmeasurableScalar, profile_for
 
 from .facts_codec import parse_evidence as parse_evidence
 from .facts_codec import parse_record as parse_record
+
+
+class _ObservationVersion(StrEnum):
+    V1_2 = "1.2.0"
+    V1_3 = "1.3.0"
+    V2 = "2.0.0"
+
+
+class _EncodingKind(StrEnum):
+    COLUMNAR = "architecture-ir-columnar-v1"
+
+
+class _StringSentinel(StrEnum):
+    MISSING = "$m"
+    ESCAPED_MISSING = "$$m"
+
+
+def _string_sentinel(value: str) -> _StringSentinel | None:
+    try:
+        return _StringSentinel(value)
+    except ValueError:
+        return None
+
+
+def _observation_version(value: RawJson) -> _ObservationVersion:
+    try:
+        return _ObservationVersion(_string(value, "schema_version"))
+    except ValueError as error:
+        raise ValueError("unsupported observation schema_version") from error
+
+
+def _is_columnar(value: RawJson) -> TypeGuard[dict[str, RawJson]]:
+    if not isinstance(value, dict):
+        return False
+    kind = value.get("kind")
+    if not isinstance(kind, str):
+        return False
+    try:
+        return _EncodingKind(kind) is _EncodingKind.COLUMNAR
+    except ValueError:
+        return False
+
 
 _STRING_REFERENCE = re.compile(r"^\$\d+$")
 
@@ -110,26 +152,13 @@ def parse_observation(raw: object) -> Observation:
     optional = {"python_version", "runtime", "producer"}
     if set(item) - optional != _TOP_LEVEL:
         raise ValueError("observation fields mismatch")
-    schema_version = _string(item["schema_version"], "schema_version")
-    if schema_version not in {"1.2.0", "1.3.0", SCHEMA_VERSION}:
-        raise ValueError("unsupported observation schema_version")
-    analyzer = _object(item["analyzer"], "analyzer")
-    source = _object(item["source"], "source")
-    contract = _object(item["contract"], "contract")
+    schema_version = _observation_version(item["schema_version"])
+    analyzer = _exact(item["analyzer"], {"name", "version", "code_digest"}, "analyzer")
+    source = _exact(item["source"], {"git_head", "dirty", "source_digest", "scope"}, "source")
+    contract = _exact(item["contract"], {"schema_version", "digest", "path"}, "contract")
     coverage = _object(item["coverage"], "coverage")
-    if set(analyzer) != {"name", "version", "code_digest"}:
-        raise ValueError("analyzer fields mismatch")
     profile = profile_for(_string(analyzer["name"], "analyzer.name"))
-    if set(source) != {"git_head", "dirty", "source_digest", "scope"}:
-        raise ValueError("source fields mismatch")
-    if set(contract) != {"schema_version", "digest", "path"}:
-        raise ValueError("contract fields mismatch")
-    dirty = source["dirty"]
-    if dirty is not True and dirty is not False and dirty != "unknown":
-        raise ValueError("source.dirty is invalid")
-    dirty_value: bool | Literal["unknown"] = (
-        True if dirty is True else False if dirty is False else "unknown"
-    )
+    dirty_value = source_dirty(source["dirty"])
     coverage_value = _parse_coverage(
         coverage,
         profile,
@@ -162,14 +191,16 @@ def parse_observation(raw: object) -> Observation:
         sections=sections,
         evidence=tuple(parse_evidence(value, "evidence[]") for value in evidence_raw),
         python_version=_python_version(item["python_version"])
-        if "python_version" in item
+        if item.get("python_version", _MISSING_VALUE) is not _MISSING_VALUE
         else None,
         runtime=_parse_runtime(
-            item["runtime"], allow_requirement_state=schema_version == SCHEMA_VERSION
+            item["runtime"], allow_requirement_state=schema_version is _ObservationVersion.V2
         )
-        if "runtime" in item
+        if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE
         else None,
-        producer=_parse_analyzer(item["producer"], "producer") if "producer" in item else None,
+        producer=_parse_analyzer(item["producer"], "producer")
+        if item.get("producer", _MISSING_VALUE) is not _MISSING_VALUE
+        else None,
     )
 
 
@@ -192,7 +223,10 @@ def _known_identity(raw: RawJson, label: str) -> str:
 
 def _parse_runtime(raw: RawJson, *, allow_requirement_state: bool) -> RuntimeInfo:
     item = _object(raw, "runtime")
-    if not allow_requirement_state and "requirement_state" in item:
+    if (
+        not allow_requirement_state
+        and item.get("requirement_state", _MISSING_VALUE) is not _MISSING_VALUE
+    ):
         raise ValueError("runtime.requirement_state requires observation/Delta schema 2.0.0")
     if set(item) - {"name", "version", "required", "requirement_state"} or not {
         "name",
@@ -202,19 +236,7 @@ def _parse_runtime(raw: RawJson, *, allow_requirement_state: bool) -> RuntimeInf
     requirement_state_raw = _string(
         item.get("requirement_state", "declared"), "runtime.requirement_state"
     )
-    requirement_state: RuntimeRequirementState
-    if requirement_state_raw == "declared":
-        requirement_state = "declared"
-    elif requirement_state_raw == "metadata_missing":
-        requirement_state = "metadata_missing"
-    elif requirement_state_raw == "metadata_invalid":
-        requirement_state = "metadata_invalid"
-    elif requirement_state_raw == "requirement_missing":
-        requirement_state = "requirement_missing"
-    elif requirement_state_raw == "requirement_invalid":
-        requirement_state = "requirement_invalid"
-    else:
-        raise ValueError("runtime.requirement_state is invalid")
+    requirement_state = parse_runtime_requirement_state(requirement_state_raw)
     return RuntimeInfo(
         _known_identity(item["name"], "runtime.name"),
         _known_identity(item["version"], "runtime.version"),
@@ -253,13 +275,13 @@ def _parse_coverage(
         for key in call_counts
     }
     call_percent = coverage["call_resolution_percent"]
-    if profile.analyzer == "archkeel-typescript-imports":
+    if ObservedSection.CALLS in profile.optional_sections:
         if not calls_measured:
             if any(value is not None for value in call_values.values()) or call_percent is not None:
                 raise ValueError("TypeScript call measurements must be null")
         elif any(value is None for value in call_values.values()) or call_percent is None:
             raise ValueError("TypeScript call measurements are required with a calls section")
-    elif "calls_unresolved" not in profile.unmeasured:
+    elif UnmeasurableScalar.CALLS_UNRESOLVED not in profile.unmeasured:
         if any(value is None for value in call_values.values()) or call_percent is None:
             raise ValueError("coverage call measurements are required for this profile")
     else:
@@ -328,9 +350,9 @@ def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -
 
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
     if (
-        observation.schema_version != SCHEMA_VERSION
+        _observation_version(observation.schema_version) is not _ObservationVersion.V2
         and observation.runtime is not None
-        and observation.runtime.requirement_state != "declared"
+        and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED
     ):
         raise ValueError("runtime.requirement_state requires observation schema 2.0.0")
     result = _raw_object(asdict(observation))
@@ -343,7 +365,7 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
         if isinstance(runtime, dict):
             if observation.runtime.required is None:
                 del runtime["required"]
-            if observation.runtime.requirement_state == "declared":
+            if observation.runtime.requirement_state == RuntimeRequirementState.DECLARED:
                 del runtime["requirement_state"]
     if observation.producer is None:
         del result["producer"]
@@ -427,8 +449,7 @@ def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
             if value in string_indexes:
                 return f"${string_indexes[value]}"
             if (
-                value == "$m"
-                or value == "$$m"
+                _string_sentinel(value) is not None
                 or _STRING_REFERENCE.fullmatch(value)
                 or _ESCAPED_STRING_REFERENCE.fullmatch(value)
             ):
@@ -443,7 +464,7 @@ def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
     encoded.update({section: intern(rows) for section, rows in rows_by_section.items()})
     encoded["evidence"] = intern(evidence_rows)
     encoding: dict[str, RawJson] = {
-        "kind": "architecture-ir-columnar-v1",
+        "kind": _EncodingKind.COLUMNAR.value,
         "record_fields": list(RECORD_FIELDS),
         "evidence_fields": list(EVIDENCE_FIELDS),
         "section_data_fields": section_data_fields,
@@ -458,7 +479,7 @@ def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
 def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
     """Inflate the canonical columnar report into the in-memory ArchitectureIR."""
     encoding = encoded.get("encoding")
-    if not isinstance(encoding, dict) or encoding.get("kind") != "architecture-ir-columnar-v1":
+    if not _is_columnar(encoding):
         _validate_profile_sections(encoded, _observation_profile(encoded))
         return encoded
     profile = _observation_profile(encoded)
@@ -468,9 +489,10 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
     def expand(value: Any) -> Any:
         # AD-2: expanded rows may hold the non-JSON _MISSING_VALUE sentinel at any depth.
         if isinstance(value, str):
-            if value == "$m":
+            sentinel = _string_sentinel(value)
+            if sentinel is _StringSentinel.MISSING:
                 return _MISSING_VALUE
-            if value == "$$m":
+            if sentinel is _StringSentinel.ESCAPED_MISSING:
                 return "$m"
             if _STRING_REFERENCE.fullmatch(value):
                 return string_table[int(value[1:])]
