@@ -245,14 +245,16 @@ class _LiteralComparisons:
         return binding.owner is self.scopes.root and not binding.uncertain
 
     def _enum_base(self, node: ast.expr) -> bool:
-        name = _dotted_name(node)
-        if name is None or not self._module_name(node):
+        if not self._module_name(node):
             return False
-        parts = name.split(".")
-        binding = self.module.aliases.get(parts[0])
-        if binding is None:
+        if isinstance(node, ast.Name):
+            binding = self.module.aliases.get(node.id)
+            resolved = binding.target if binding else None
+        elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            binding = self.module.aliases.get(node.value.id)
+            resolved = f"{binding.target}.{node.attr}" if binding else None
+        else:
             return False
-        resolved = ".".join([binding.target, *parts[1:]])
         return resolved in {"enum.Enum", "enum.IntEnum", "enum.StrEnum"}
 
     def scalar(self, node: ast.expr) -> bool:
@@ -270,15 +272,19 @@ class _LiteralComparisons:
         class_name = f"{self.module.module}.{owner}"
         if class_name in self.class_values and class_name not in self.enum_classes:
             return self.class_values[class_name].get(node.attr) is not None
-        if node.attr != "value" or "." not in owner:
+        member = node.value
+        if (
+            node.attr != "value"
+            or not isinstance(member, ast.Attribute)
+            or not isinstance(member.value, ast.Name)
+        ):
             return False
-        enum_name, member = owner.rsplit(".", 1)
-        enum_class = f"{self.module.module}.{enum_name}"
+        enum_class = f"{self.module.module}.{member.value.id}"
         values = self.class_values.get(enum_class, {})
         return (
             enum_class in self.enum_value_classes
             and "value" not in values
-            and values.get(member) is not None
+            and values.get(member.attr) is not None
         )
 
     def collection(self, node: ast.expr) -> bool:

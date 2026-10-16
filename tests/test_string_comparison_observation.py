@@ -159,6 +159,7 @@ def test_record_ids_are_distinct_and_collection_order_does_not_change_evidence()
     assert len({row["id"] for row in records}) == 2
     assert first == second
 
+
 @pytest.mark.parametrize(
     ("prefix", "base"),
     [
@@ -175,6 +176,7 @@ def test_enum_value_requires_a_direct_stdlib_enum_base_import(tmp_path, prefix, 
     result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
     assert result.diagnostics == () and result.observation is not None
     assert not [
-        row for row in result.observation.records("constructs")
+        row
+        for row in result.observation.records("constructs")
         if row.kind == "string_literal_compare"
     ]
