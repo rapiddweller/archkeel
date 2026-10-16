@@ -20,6 +20,22 @@ from archkeel.ir.target_graph import declared_graph
 from archkeel.render.html import render_html
 
 ROOT = Path(__file__).parents[1]
+# The observed classifier includes implementation methods beyond the authored Target.
+OBSERVED_GRAPH_METHODS = frozenset(
+    {
+        "__post_init__",
+        "validate",
+        "_validate_public_api",
+        "_validate_physical_intent",
+        "_validate_entities",
+        "_validate_permission_metadata",
+        "_validate_classifier_relationship",
+        "_validate_relationships",
+        "_validate_scopes",
+        "_validate_evidence",
+    }
+)
+
 TYPE_DEPENDENCIES = {
     ("ComponentIntent", "ComponentRole"),
     ("TargetDefinition", "GraphSchemaVersion"),
@@ -566,7 +582,7 @@ def test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence(
         previews = page.get_by_role("button", name="Member previews", exact=True)
         assert previews.get_attribute("aria-pressed") == "false"
         assert card.locator(".uml-member").count() == 0
-        expected_methods = 8 if view == "As-Is" else 7
+        expected_methods = len(OBSERVED_GRAPH_METHODS) if view == "As-Is" else 7
         assert f"12 fields · {expected_methods} methods" in card.locator(".meta").text_content()
         details = page.locator(".flow-inspector-content").inner_text()
         assert "+ origin: OriginKind" in details and "+ validate(self): None" in details
@@ -857,3 +873,17 @@ def test_own_dense_scenes_remain_actionable_at_reduced_cpu(view, self_observatio
     finally:
         browser.close()
         playwright.stop()
+
+
+def test_own_graph_observes_the_normalizer_and_classifier_relationship_validator(self_observation):
+    graph = observed_graph(self_observation)
+    classifier = next(
+        entity for entity in graph.entities
+        if entity.qualified_name == "archkeel.ir.architecture_graph.ArchitectureGraph"
+    )
+    methods = {
+        entity.qualified_name.rsplit(".", 1)[-1]
+        for entity in graph.entities
+        if entity.parent_id == classifier.id and entity.kind == "method"
+    }
+    assert methods == OBSERVED_GRAPH_METHODS
