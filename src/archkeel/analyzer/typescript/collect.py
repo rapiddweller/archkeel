@@ -29,7 +29,6 @@ from archkeel.ir.facts import (
     LocalTarget,
     Record,
     ResolutionInput,
-    ResolutionRole,
     SourceFacts,
     SourceInfo,
     SourceProfile,
@@ -49,9 +48,17 @@ from archkeel.ir.facts_codec import (
 from archkeel.ir.identity import module_identity
 from archkeel.ir.protocol import CollectionRequest, TypeScriptSettings
 
-from .config import ModuleKind, PathToken, Snapshot, join, load_config, within
+from .config import ModuleKind, Snapshot, join, load_config, within
 from .parse import parse
-from .resolve import Found, ModuleFormat, Resolver, Unknown, is_builtin, is_relative, package_name
+from .resolve import Found, Resolver, Unknown
+from .source_input import (
+    ModuleFormat,
+    PathToken,
+    SourceKind,
+    SpecifierKind,
+    classify_file,
+    classify_specifier,
+)
 from .syntax import (
     Base,
     Definition,
@@ -94,9 +101,6 @@ _SECTIONS: tuple[SourceSectionName, ...] = (
     SourceSectionName.BINDINGS,
     SourceSectionName.CONSTRUCTS,
 )
-_SOURCE: Final = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
-_DECLARATION: Final = (".d.ts", ".d.mts", ".d.cts")
-_EXPLICIT_RUNTIME: Final = (".cjs", ".mjs", ".js")
 # What the compiler's `trim()` removes, which Python's `strip()` does not match exactly.
 _WHITESPACE: Final = " \t\n\v\f\r                 　﻿"
 _FEATURES: Final = (
@@ -148,7 +152,7 @@ class _Collection:
         for problem in sorted(self.snapshot.problems):
             self._gap(problem)
         inputs = tuple(
-            ResolutionInput(path, digest, ResolutionRole(role))
+            ResolutionInput(path, digest, role)
             for path, (digest, role) in sorted(self.snapshot.inputs.items())
         )
         unknowns = tuple(parse_record(item) for _, item in sorted(self.gaps.items()))
@@ -915,7 +919,13 @@ class _Collection:
     def _observe(self, rel: str) -> bytes | None:
         """Read a local dependency; it joins the walk when it is a source file in scope."""
         content = self.snapshot.read(rel)
-        if content is not None and self._selected(rel) and rel.endswith(_SOURCE):
+        suffix = classify_file(rel)
+        if (
+            content is not None
+            and self._selected(rel)
+            and suffix is not None
+            and suffix.source_kind is not None
+        ):
             if rel not in self.queue:
                 self.queue.append(rel)
         elif content is not None:
@@ -971,8 +981,9 @@ class _Collection:
         options = self.config.options
         resolver: Resolver = self.resolver
         form = resolver.format_of(rel)
+        suffix = classify_file(rel)
         cjs = (
-            rel.endswith((".cjs", ".cts"))
+            (suffix is not None and suffix.format_hint is ModuleFormat.CJS)
             or options.module is ModuleKind.COMMONJS
             or (
                 form is ModuleFormat.CJS
@@ -1062,7 +1073,8 @@ class _Collection:
         form: ModuleFormat | Unknown | None,
     ) -> ImportTarget:
         specifier: str = reference.specifier or ""
-        if not reference.type_only and specifier.startswith("node:") and is_builtin(specifier):
+        source = classify_specifier(specifier)
+        if not reference.type_only and source.kind is SpecifierKind.NODE and source.builtin:
             return BuiltinTarget(identity, specifier)
         if reference.mode_override:
             return self._unresolved(
@@ -1084,7 +1096,7 @@ class _Collection:
         if isinstance(found, Unknown):
             return self._unresolved(module, identity, specifier, found.reason)
         if found is None:
-            if is_builtin(specifier):
+            if source.builtin:
                 return BuiltinTarget(identity, specifier)
             return self._unresolved(module, identity, specifier, f"Unresolved module: {specifier}")
         return self._local(rel, module, reference, identity, found)
@@ -1093,7 +1105,9 @@ class _Collection:
         self, rel: str, module: str, reference: Reference, identity: str, found: Found
     ) -> ImportTarget:
         specifier: str = reference.specifier or ""
+        source = classify_specifier(specifier)
         path: str = found.path
+        suffix = classify_file(path)
         if self.snapshot.read(path) is None:
             return self._unresolved(
                 module, identity, specifier, f"Unavailable local target: {specifier}"
@@ -1101,19 +1115,22 @@ class _Collection:
         if any(
             PathToken.parse(segment) is PathToken.NODE_MODULES for segment in path.split("/")
         ) or (not self._selected(path) and found.external):
-            if specifier.startswith("#"):
+            if source.kind is SpecifierKind.IMPORTS:
                 reason = f"External package alias identity is not observed: {specifier}"
-            elif is_relative(specifier):
+            elif source.relative:
                 reason = f"Unidentified external package: {specifier}"
             else:
-                return ExternalPackageTarget(identity, package_name(specifier))
+                return ExternalPackageTarget(identity, source.package)
             return self._unresolved(module, identity, specifier, reason)
         type_only = reference.type_only
-        relative = specifier.startswith(("./", "../"))
+        relative = source.relative_path
         lookup = join(posixpath.dirname(rel) or ".", specifier)
-        declaration = path if path.endswith(_DECLARATION) else None
+        declaration = (
+            path if suffix is not None and suffix.source_kind is SourceKind.DECLARATION else None
+        )
         runtime = None if declaration else path
-        explicit = relative and specifier.endswith(_EXPLICIT_RUNTIME)
+        named_suffix = classify_file(specifier)
+        explicit = relative and named_suffix is not None and named_suffix.explicit_runtime
         direct = reference.form in (ReferenceForm.REQUIRE, ReferenceForm.IMPORT_EQUALS)
         common_lookup = relative and direct and not explicit
         if not type_only:

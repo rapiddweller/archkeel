@@ -23,6 +23,7 @@ import tree_sitter_typescript
 from tree_sitter import Language, Parser, Query, QueryCursor
 from tree_sitter import Node as _RawNode
 
+from .source_input import classify_file
 from .syntax import (
     Base as Base,
 )
@@ -306,7 +307,9 @@ def _query(kind: _Grammar, name: str) -> Query:
 
 def parse(rel_path: str, data: bytes) -> Syntax:
     # JSX and JavaScript need the TSX grammar; `<T>x` assertions exist only without it.
-    kind = _Grammar.TYPESCRIPT if re.search(r"\.[cm]?ts$", rel_path) else _Grammar.TSX
+    # Preserve the old filename regex boundary: $ also accepted one final newline.
+    suffix = classify_file(rel_path.removesuffix("\n"))
+    kind = _Grammar.TYPESCRIPT if suffix is not None and suffix.parser_typescript else _Grammar.TSX
     root = Parser(_grammar(kind)).parse(data).root_node
     source = _Source(kind, root, data, [0, *(found.end() for found in _LINE_BREAK.finditer(data))])
     found = source.captures("references")
