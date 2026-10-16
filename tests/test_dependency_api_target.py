@@ -146,6 +146,11 @@ def test_native_dependency_api_matches_the_independent_target(tmp_path):
             row.subject_id == entity["id"] and row.aspect == aspect and row.status == "PASS"
             for row in comparison.assessments
         ), (name, aspect, comparison)
+    boundary = next(
+        row for row in rule_assessments(model, undecided_by_rule={})
+        if row.id == "TARGET-DEPENDENCY-BOUNDARY-TYPES"
+    )
+    assert boundary.status == "PASS", boundary
     assert not trace_valid_violations(model)
 
 
