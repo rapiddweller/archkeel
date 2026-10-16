@@ -69,7 +69,9 @@ def _legacy(observed, family):
         )
         for item in observed.sites
     )
-    return dataclasses.replace(observed, references=references, definitions=definitions, sites=sites)
+    return dataclasses.replace(
+        observed, references=references, definitions=definitions, sites=sites
+    )
 
 
 @pytest.mark.parametrize("family", FAMILIES)
@@ -82,7 +84,9 @@ def test_valid_legacy_dtos_preserve_real_collector_wire_facts(tmp_path, monkeypa
 
     monkeypatch.setattr(frontend, "parse", legacy_parse)
     observed = _facts(tmp_path, FILES, options=NODE10)
-    assert encode_response(CollectionResponse(observed)) == encode_response(CollectionResponse(expected))
+    assert encode_response(CollectionResponse(observed)) == encode_response(
+        CollectionResponse(expected)
+    )
 
 
 def _examples():
@@ -129,7 +133,12 @@ def test_invalid_closed_dto_inputs_fail_at_their_owned_constructor(owner, field,
 )
 def test_omitted_receiver_kind_preserves_legacy_receiver_semantics(receiver, expected):
     item = syntax.Site(
-        syntax.SiteKind.REFERENCE, "value", syntax.Span(1, 1, 1, "value"), None, None, receiver=receiver
+        syntax.SiteKind.REFERENCE,
+        "value",
+        syntax.Span(1, 1, 1, "value"),
+        None,
+        None,
+        receiver=receiver,
     )
     assert item.receiver_kind is expected
 

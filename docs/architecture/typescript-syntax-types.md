@@ -24,3 +24,9 @@ Reserved path/package-prefix and file-extension grammar remains explicitly track
 [the migration ledger](typescript-control-types.md) as the next coherent input-decoder
 increment under #542. Native construct observations are bounded evidence, so this
 increment does not claim complete grammar migration.
+
+Valid direct construction through the old parser imports stays supported: each owning
+frozen DTO normalizes only its own closed fields at construction. Invalid closed values
+fail there; nominal field annotations remain narrow. Names and type annotations stay data.
+The legacy omitted receiver category derives `this` or other from a supplied receiver;
+an explicit parser-owned OTHER category is preserved even when the source text is `this`.
