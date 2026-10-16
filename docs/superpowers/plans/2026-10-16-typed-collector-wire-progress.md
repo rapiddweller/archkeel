@@ -13,3 +13,14 @@ The final observer is the independently verified 61404f1cf9e8579929119be093c3676
 PROTOCOL_VERSION remains a genuine literal constant and ProtocolVersion derives its current value. Nominal Literal[Language.MEMBER] fields were proven by actual Python source projection and failed when changed to str against unchanged Target intent. SourceGraph's necessary typed producer adjustments are part of this change, not a verifier-only overlay.
 
 Final verification receipts and reduced baseline budgets are recorded after checking the complete product tree. No temporary workflow belongs to the product commit.
+
+## Final verified product
+
+The final source carrier is PR #551, based on `2f4fd495fadc5c9d7154b8df710b842147d1e784`. State, the four final conservative observer blobs, module-object grants and owned TypeScript options are preserved by real ancestry. No temporary workflow is part of the product.
+
+- [Complete collector job](https://github.com/rapiddweller/archkeel/actions/runs/38943949462/job/117118246416): 947 tests passed, strict mypy passed for 132 source files, Ruff passed, own native validation and the exact-base normal-amendment comparison both exited 0.
+- Native measurements: 918 unresolved calls, 52 typing positions, 58 UNKNOWN positions, zero violations, cycles and private crossings. The prior 65-UNKNOWN ceiling is tightened to 58; the inherited 918-call ceiling is unchanged. UNKNOWN receipts remain CHECK 19, RENDER 29, ANALYZER 2 and the same eight incomplete UML scopes.
+- [Repository quality job](https://github.com/rapiddweller/archkeel/actions/runs/38943949462/job/117118246371): strict typing, Ruff and all 11 hygiene checks passed. The formatter's sole mechanical patch was applied to the actual product source.
+- [Actual receiver comparison](https://github.com/rapiddweller/archkeel/actions/runs/38944326923/job/117119499569): original `encoded.update` and the final directly constructed dictionary are both resolved. Only open field-selection grammar is shared; dictionaries are created locally rather than hidden behind a generic projection helper. No permanent test mirrors a local annotation.
+
+The normal amendment was freshly generated and verified against the exact final predecessor. Its policy/baseline hashes match the committed nine-line receipt. There are no additional allowances, increased budgets, new accepted debt, collector mocks, or evaluator changes. The seven actual-source module guards and fixed independent API/type mutation controls remain the permanent enforcement.

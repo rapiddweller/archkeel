@@ -22,13 +22,13 @@
 - Runtime facade imports remain compatible and both language definitions become one owner.
 
 ### Task 1: Typed protocol and shared facts
-- [ ] Add failing tests asserting decoded language/version/state identity, malformed inputs, legacy wire bytes and runtime reexport identity.
-- [ ] Run hosted RED tests on unchanged production.
-- [ ] Implement owned enums and single runtime-state conversion; migrate necessary consumers.
-- [ ] Run protocol/facts/runtime/type-shape tests, mypy and Ruff.
+- [x] Add failing tests asserting decoded language/version/state identity, malformed inputs, legacy wire bytes and runtime reexport identity.
+- [x] Run hosted RED tests on unchanged production.
+- [x] Implement owned enums and single runtime-state conversion; migrate necessary consumers.
+- [x] Run protocol/facts/runtime/type-shape tests, mypy and Ruff.
 
 ### Task 2: Typed codec control grammar
-- [ ] Add native literal equality/membership/match/alias mutation guard and authored field-type weakening control.
-- [ ] Migrate private wire discriminators and codec field grammar; preserve domain unions.
-- [ ] Run native source controls, existing safety/conformance tests and own native baseline.
-- [ ] Return clean intended commit and explicit shared-contract deltas for independent Astra review.
+- [x] Add native literal equality/membership/match/alias mutation guard and authored field-type weakening control.
+- [x] Migrate private wire discriminators and codec field grammar; preserve domain unions.
+- [x] Run native source controls, existing safety/conformance tests and own native baseline.
+- [x] Return clean intended commit and explicit shared-contract deltas for independent Astra review.

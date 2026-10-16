@@ -57,7 +57,7 @@ class Profile:
     standard_library: frozenset[str] = frozenset()
     # Library names a `forbidden_dependency` target may name although no scanned module has them.
     sdk_libraries: frozenset[str] = frozenset()
-    # Nested type grants may inspect exact published Python module objects.
+    # Exact caller/target grants may permit Python module-object imports.
     module_object_imports: bool = False
 
 

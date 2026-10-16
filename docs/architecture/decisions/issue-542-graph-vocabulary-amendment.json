@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "02279ca79283191bc1137034db4191abc1850cf3f290e974ec1caed594f95600",
+  "after_digest": "a99efdb99e83f97bb0444bec8edf310f1b7e92d9496dea3d2042b37ea9b9cd7f",
+  "before_baseline_digest": "02279ca79283191bc1137034db4191abc1850cf3f290e974ec1caed594f95600",
+  "before_digest": "8aea00dcba2312ec6aadf842ec9a50ad252af4f2dab9cc3684dcdcc909c888e8",
+  "decided_by": "ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge",
+  "rationale": "Graph and UML control vocabulary has one domain owner, a shared assessment type through the model facade, independently authored API Target and whole migrated module guards. Graph parser has no string-control exception. Historical schemas and valid wire/default behavior remain. No baseline, cap or allowance changes. See docs/architecture/typed-graph-vocabulary.md.",
+  "schema_version": "2.0.0"
+}

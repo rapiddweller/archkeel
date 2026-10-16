@@ -34,6 +34,6 @@
 - [x] Run hosted RED on the clean State predecessor.
 - [x] Replace graph vocabulary aliases, convert wire tags once and update actual builders/decisions.
 - [x] Reuse collector Language predecessor when available, preserving its exact implementation and ancestry.
-- [x] Protect genuinely migrated whole modules, with no parser exemption; document remaining source-profile control stages.
-- [ ] Verify graph/UML/source/Target/codec/report regressions, exact schema drift, Ruff/mypy/hygiene and own baseline.
-- [ ] Supply the clean implementation and normal v2 amendment to parent for full combined tests, independent Astra and PR integration.
+- [x] Protect genuinely migrated whole modules, with no parser exemption; document the remaining evidence-record control stages.
+- [x] Verify graph/UML/source/Target/codec/report regressions, exact schema drift, Ruff/mypy/hygiene and own baseline.
+- [x] Supply the clean implementation and normal v2 amendment to parent for full combined tests, independent Astra and PR integration.
