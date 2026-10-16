@@ -206,13 +206,7 @@
         {
           "component": "dependency-policy",
           "through": [
-            "archkeel.ir.dependency:ComponentOwnership",
-            "archkeel.ir.dependency:DependencySelection",
-            "archkeel.ir.dependency:DependencySelector",
-            "archkeel.ir.dependency:DependencyTargetKind",
-            "archkeel.ir.dependency:ModuleSelection",
-            "archkeel.ir.dependency:SelectorMatch",
-            "archkeel.ir.dependency:module_in_ownership"
+            "archkeel.ir.dependency"
           ],
           "rationale": "Use the single typed dependency selection API; retain model compatibility exports without a second matcher.",
           "decided_by": "architect"
@@ -283,7 +277,7 @@
         {
           "component": "facts",
           "through": [
-            "archkeel.ir.facts:in_scope"
+            "archkeel.ir.facts"
           ],
           "rationale": "Read the common dotted-name matching primitive; no policy or codecs enter source facts.",
           "decided_by": "architect"

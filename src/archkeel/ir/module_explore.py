@@ -186,7 +186,8 @@ def _dependency_selections(
         parent = scope_ids[parent_scope] if parent_scope is not None else None
         ownership = tuple(
             (intent.component_id, intent.packages, intent.exact_modules)
-            for intent in intents.values() if intent.parent_id == parent
+            for intent in intents.values()
+            if intent.parent_id == parent
         )
         selections[item.id] = parse_dependency_selector(item).select(ownership)
     return selections
@@ -261,6 +262,24 @@ def _cells(
     )
 
 
+def _cell_findings(
+    report: ArchitectureReport, references: set[str]
+) -> tuple[tuple[ReportFinding, ...], tuple[GraphAssessment, ...]]:
+    findings = tuple(
+        item for item in report.findings if references.intersection(item.graph_subject_ids)
+    )
+    graph_assessments = (
+        tuple(
+            item
+            for item in report.comparison.assessments
+            if references.intersection(item.observed_ids)
+        )
+        if report.comparison
+        else ()
+    )
+    return findings, graph_assessments
+
+
 def _import_cell(
     source: str,
     target: str,
@@ -280,18 +299,7 @@ def _import_cell(
     edges = sites[source, target]
     relationships = tuple(sorted(item.id for item in edges))
     references = set(relationships)
-    findings = tuple(
-        item for item in report.findings if references.intersection(item.graph_subject_ids)
-    )
-    graph_assessments = (
-        tuple(
-            item
-            for item in report.comparison.assessments
-            if references.intersection(item.observed_ids)
-        )
-        if report.comparison
-        else ()
-    )
+    findings, graph_assessments = _cell_findings(report, references)
     site_results: list[tuple[tuple[RuleAssessment, ...], frozenset[str], frozenset[str]]] = []
     for edge in edges:
         site_records = tuple(

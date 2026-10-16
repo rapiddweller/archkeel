@@ -51,7 +51,7 @@ jobs:
       - name: Validate own native contract without budget changes
         run: |
           set +e
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > .task-self-validate.json
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 63437df6734275850838ba1026b276c2f930bf2f > .task-self-validate.json
           task_audit_status=$?
           python - <<'PY'
           import json,pathlib

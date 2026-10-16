@@ -89,7 +89,9 @@ def test_new_intent_roundtrips_and_is_visible_in_declarations():
     schema = json.loads((ROOT / "schema/architecture-contract-3.5.schema.json").read_bytes())
     assert Draft202012Validator(schema).is_valid(encoded)
     assert project_rule_declaration(contract.rules[0])["data"]["target_kind"] == "import_namespace"
-    ordinary = replace(contract, rules=(replace(contract.rules[0], target_kind=DependencyTargetKind.MODULE),))
+    ordinary = replace(
+        contract, rules=(replace(contract.rules[0], target_kind=DependencyTargetKind.MODULE),)
+    )
     assert "target_kind" not in json.loads(contract_bytes(ordinary))["rules"][0]
     assert any(
         change.field == "target_kind" for change in contract_widening_changes(ordinary, contract)

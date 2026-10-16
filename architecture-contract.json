@@ -144,8 +144,7 @@
         "archkeel.ir.dependency:DependencySelector",
         "archkeel.ir.dependency:DependencyTargetKind",
         "archkeel.ir.dependency:ModuleSelection",
-        "archkeel.ir.dependency:SelectorMatch",
-        "archkeel.ir.dependency:module_in_ownership"
+        "archkeel.ir.dependency:SelectorMatch"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
