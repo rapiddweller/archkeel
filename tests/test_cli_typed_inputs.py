@@ -8,8 +8,10 @@ from pathlib import Path
 
 import pytest
 
+from archkeel.check.ports import Language
 from archkeel.cli import build_parser
-from archkeel.cli.skill import install_skill
+from archkeel.cli.arguments import CLIArguments, Command, ReportMode, SkillAction
+from archkeel.cli.skill import InstallationAgent, install_skill
 
 
 @pytest.mark.parametrize(
@@ -33,8 +35,17 @@ from archkeel.cli.skill import install_skill
 )
 def test_parser_returns_typed_closed_inputs(argv, field, wire):
     arguments = build_parser().parse_args(argv)
+    assert isinstance(arguments, CLIArguments)
+    expected = {
+        "command": Command,
+        "only": ReportMode,
+        "action": SkillAction,
+        "agent": InstallationAgent,
+        "language": Language,
+    }[field]
     value = getattr(arguments, field)
-    assert isinstance(value, StrEnum), (field, value)
+    assert isinstance(value, expected), (field, value)
+    assert isinstance(value, StrEnum)
     assert str(value) == wire
 
 
@@ -72,3 +83,18 @@ def test_installer_rejects_an_invalid_agent_before_writing(tmp_path: Path, agent
     with pytest.raises(ValueError):
         install_skill(tmp_path, agent)
     assert list(tmp_path.iterdir()) == []
+
+def test_no_subcommand_remains_an_overview_request():
+    assert build_parser().parse_args([]).command is None
+
+
+def test_check_subcommand_is_typed_after_required_inputs_are_validated():
+    arguments = build_parser().parse_args(
+        [
+            "check", "--baseline", "a" * 40, "--expectation-commit", "b" * 40,
+            "--head", "c" * 40, "--expected", "expectation.json",
+            "--expected-digest", "d" * 64, "--branch", "origin/topic",
+            "--accepted-branch", "origin/main",
+        ]
+    )
+    assert arguments.command is Command.CHECK

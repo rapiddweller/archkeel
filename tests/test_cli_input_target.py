@@ -22,9 +22,7 @@ GUARD = "CLI-TYPED-CONTROL"
 
 
 def _cli_contract():
-    return copy.deepcopy(
-        json.loads((ROOT / "docs/architecture/contracts/cli.json").read_text())
-    )
+    return copy.deepcopy(json.loads((ROOT / "docs/architecture/contracts/cli.json").read_text()))
 
 
 def _cli_repository(tmp_path):
@@ -58,9 +56,7 @@ def _cli_repository(tmp_path):
 
 
 def _guard(model, rule_id=GUARD):
-    return next(
-        row for row in rule_assessments(model, undecided_by_rule={}) if row.id == rule_id
-    )
+    return next(row for row in rule_assessments(model, undecided_by_rule={}) if row.id == rule_id)
 
 
 def test_native_cli_input_target_and_whole_module_guard_are_proven(tmp_path):
@@ -83,7 +79,7 @@ def test_native_cli_input_target_and_whole_module_guard_are_proven(tmp_path):
         ),
         (
             'from typing import Final\nREPORT: Final[str] = "report"\n'
-            '\ndef _probe(value):\n    return value == REPORT\n'
+            "\ndef _probe(value):\n    return value == REPORT\n"
         ),
     ],
     ids=["equality", "membership", "match", "final-string"],
@@ -105,7 +101,11 @@ def test_native_cli_guard_rejects_string_protocol_dispatch(tmp_path, probe):
         ("arguments.py", "command: Command | None", "command: str | None"),
         ("arguments.py", "agent: InstallationAgent", "agent: str"),
         ("__init__.py", ") -> CLIArguments:", ") -> argparse.Namespace:"),
-        ("arguments.py", "def report_mode(value: str) -> ReportMode:", "def report_mode(value: str) -> str:"),
+        (
+            "arguments.py",
+            "def report_mode(value: str) -> ReportMode:",
+            "def report_mode(value: str) -> str:",
+        ),
     ],
     ids=["command-field", "agent-field", "parser-return", "mode-return"],
 )
@@ -133,3 +133,34 @@ def test_own_native_cli_guard_covers_the_whole_package(self_observation):
     own_guard = next(rule for rule in contract["rules"] if rule["id"] == GUARD)
     assert own_guard["source"] == "archkeel.cli"
     assert not own_guard.get("exact_sources") and not own_guard.get("allowed_sources")
+
+def test_native_cli_guard_accepts_owned_enums_and_path_data(tmp_path):
+    root, config = _cli_repository(tmp_path)
+    source = root / "archkeel/cli/arguments.py"
+    source.write_text(
+        source.read_text()
+        + "\n\ndef _command_probe(value: Command) -> bool:\n"
+        "    return value is Command.REPORT\n"
+        "\n\ndef _path_probe(actual: str, expected: str) -> bool:\n"
+        "    return actual == expected\n"
+    )
+    model = _model(root, config)
+    assert _guard(model).status == "PASS" and _guard(model).evaluation_proven
+    assert not any(GUARD in row.rule_ids for row in trace_valid_violations(model))
+
+
+def test_own_native_cli_target_pins_actual_closed_fields_and_parser(self_observation):
+    comparison = architecture_report(self_observation).comparison
+    assert comparison is not None
+    for name, aspect in (
+        ("CLIArguments.command", "annotation"),
+        ("CLIArguments.only", "annotation"),
+        ("CLIArguments.agent", "annotation"),
+        ("CLIArguments.language", "annotation"),
+        ("Parser.parse_args", "signature"),
+    ):
+        target_id = "cli:CLI-INPUT-" + name
+        assert any(
+            row.subject_id == target_id and row.aspect == aspect and row.status == "PASS"
+            for row in comparison.assessments
+        ), (target_id, aspect)

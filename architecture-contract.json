@@ -249,7 +249,8 @@
       ],
       "decided_by": "architect",
       "public": [],
-      "layer": "Edge"
+      "layer": "Edge",
+      "inside": "docs/architecture/contracts/cli.json"
     },
     {
       "id": "COMP-HOST",
@@ -769,9 +770,12 @@
         "archkeel.ir.facts",
         "archkeel.ir.type_shapes",
         "archkeel.ir.architecture_graph",
-        "archkeel.ir.dependency"
+        "archkeel.ir.dependency",
+        "archkeel.cli.arguments",
+        "archkeel.cli.skill",
+        "archkeel.cli.config"
       ],
-      "rationale": "Governance enums stay in ir.model; source facts, type shapes, the shared UML graph and pure dependency policy own their respective vocabularies.",
+      "rationale": "Governance enums stay in ir.model; source facts, type shapes, the shared UML graph and pure dependency policy own their respective vocabularies. CLI argument, installer and configuration owners retain their local input vocabularies.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],

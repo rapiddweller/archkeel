@@ -19,6 +19,7 @@ from rich_argparse import RawDescriptionRichHelpFormatter
 
 from ..check.git import read_blob
 from ..check.onboarding import run_init
+from ..check.ports import Language
 from ..check.report import render_result, run_report, run_saved_report, unknown_result
 from ..check.run import run_check
 from ..check.snapshot import resolve_commit
@@ -47,7 +48,6 @@ from .config import (
     parse_config,
     project_name,
 )
-from ..check.ports import Language
 from .observe import observer_for
 from .skill import InstallationAgent, install_skill
 
@@ -435,11 +435,15 @@ def build_parser() -> _Parser:
     )
     skill.set_defaults(command=Command.SKILL)
     skill.add_argument(
-        "action", choices=[item.value for item in SkillAction], type=skill_action,
+        "action",
+        choices=[item.value for item in SkillAction],
+        type=skill_action,
         help="The only supported action.",
     )
     skill.add_argument(
-        "agent", choices=[item.value for item in InstallationAgent], type=installation_agent,
+        "agent",
+        choices=[item.value for item in InstallationAgent],
+        type=installation_agent,
         help="Coding agent to instruct.",
     )
     _observing(skill, None)
@@ -503,7 +507,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             elif command is Command.REPORT and args.input is not None:
                 if args.full and args.only is not ReportMode.ARCHITECTURE:
                     parser.error("--full requires --only architecture")
-                if args.only in {ReportMode.CALLS, ReportMode.ARCHITECTURE} and args.rule is not None:
+                if (
+                    args.only in {ReportMode.CALLS, ReportMode.ARCHITECTURE}
+                    and args.rule is not None
+                ):
                     parser.error(
                         "--rule narrows violations; --only calls or architecture "
                         "cannot select a rule"
@@ -533,7 +540,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             elif command is Command.REPORT:
                 config = load_config(root, args.config or CONFIG_PATH)
                 subject = str(root)
-                if args.only in {ReportMode.CALLS, ReportMode.ARCHITECTURE} and args.rule is not None:
+                if (
+                    args.only in {ReportMode.CALLS, ReportMode.ARCHITECTURE}
+                    and args.rule is not None
+                ):
                     parser.error(
                         "--rule narrows violations; --only calls or architecture "
                         "cannot select a rule"

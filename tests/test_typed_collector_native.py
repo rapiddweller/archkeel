@@ -11,6 +11,7 @@ from test_architecture_demo import _prepare_repo
 from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
+from archkeel.ir.codec import parse_contract
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.trace import trace_valid_violations
 
@@ -43,6 +44,7 @@ def _collector_contract(module):
             {**intent, "id": "version", "kind": "attribute",
              "qualified_name": "archkeel.ir.protocol.CollectionRequest.protocol_version",
              "parent_id": "request", "annotation": "ProtocolVersion",
+             "responsibilities": ["Identify the supported closed collector wire protocol."],
              "visibility": {"kind": "public", "basis": "declared"}},
         ], "relationships": [], "scopes": []}},
     }
@@ -57,6 +59,7 @@ def _collector_repository(tmp_path, module="facts_codec", probe="", *, weaken_ve
         if name == "protocol" and weaken_version:
             text = text.replace("protocol_version: ProtocolVersion", "protocol_version: str")
         files[f"archkeel/ir/{name}.py"] = text
+    parse_contract(_collector_contract(module))
     files["contract.json"] = json.dumps(_collector_contract(module))
     files["docs/target.md"] = "Collector wire vocabulary and protocol version are typed intent.\n"
     root = _prepare_repo(tmp_path, files)

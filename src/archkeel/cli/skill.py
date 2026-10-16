@@ -7,6 +7,7 @@ from enum import StrEnum
 from importlib.resources import files
 from pathlib import Path
 
+
 class InstallationAgent(StrEnum):
     CLAUDE = "claude"
     CODEX = "codex"
@@ -31,12 +32,20 @@ def install_skill(root: Path, agent: InstallationAgent | str) -> Path:
         start_index = existing.find(_LegacyMarker.START)
         end_index = existing.find(_LegacyMarker.END, start_index)
         if _LegacyMarker.START in existing or _LegacyMarker.END in existing:
-            if existing.count(_LegacyMarker.START) != 1 or existing.count(_LegacyMarker.END) != 1 or end_index < start_index:
+            if (
+                existing.count(_LegacyMarker.START) != 1
+                or existing.count(_LegacyMarker.END) != 1
+                or end_index < start_index
+            ):
                 raise ValueError(f"{agents_path} has malformed Archkeel markers")
             # Validate before writing either file; leave surrounding user text byte-for-byte.
             updated = existing[:start_index] + existing[end_index + len(_LegacyMarker.END) :]
 
-    target = root / (".claude" if agent is InstallationAgent.CLAUDE else ".agents") / "skills/archkeel/SKILL.md"
+    target = (
+        root
+        / (".claude" if agent is InstallationAgent.CLAUDE else ".agents")
+        / "skills/archkeel/SKILL.md"
+    )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(_skill_text(), encoding="utf-8")
     if updated is not None:

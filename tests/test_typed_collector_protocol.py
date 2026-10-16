@@ -38,7 +38,13 @@ def test_wire_request_decodes_owned_language_and_version(language, version):
 
 @pytest.mark.parametrize(
     "state",
-    ["declared", "metadata_missing", "metadata_invalid", "requirement_missing", "requirement_invalid"],
+    [
+        "declared",
+        "metadata_missing",
+        "metadata_invalid",
+        "requirement_missing",
+        "requirement_invalid",
+    ],
 )
 def test_response_decodes_runtime_state_once_and_preserves_wire_bytes(state):
     from archkeel.ir.facts import RuntimeRequirementState

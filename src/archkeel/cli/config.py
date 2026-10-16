@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import re
 import tomllib
+from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from typing import Final
 
@@ -15,6 +16,19 @@ from archkeel.check.git import read_blob
 from archkeel.check.ports import Language, ScanConfig
 
 CONFIG_PATH: Final = "archkeel.toml"
+
+
+class _PathToken(StrEnum):
+    NUL = "\x00"
+    BACKSLASH = "\\"
+    COLON = ":"
+    PARENT = ".."
+    CURRENT = "."
+
+
+def _fields_match(fields: set[str], required: set[str], optional: set[str]) -> bool:
+    """Field names describe TOML structure rather than selecting a protocol variant."""
+    return fields - optional == required
 
 
 class ConfigError(ValueError):
@@ -34,14 +48,14 @@ def _path(value: object, *, field: str, allow_dot: bool = True) -> str:
     if not isinstance(value, str) or not value:
         raise ConfigError(f"{field} must be a non-empty string")
     if (
-        "\x00" in value
-        or "\\" in value
-        or ":" in value
+        _PathToken.NUL in value
+        or _PathToken.BACKSLASH in value
+        or _PathToken.COLON in value
         or any(char in value for char in _GLOB_SYNTAX)
     ):
         raise ConfigError(f"{field} must be a safe POSIX relative path")
     parsed = PurePosixPath(value)
-    if parsed.is_absolute() or ".." in parsed.parts or (not allow_dot and value == "."):
+    if parsed.is_absolute() or _PathToken.PARENT in parsed.parts or (not allow_dot and value == _PathToken.CURRENT):
         raise ConfigError(f"{field} must be a safe POSIX relative path")
     return value
 
@@ -70,11 +84,11 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
         raw = tomllib.loads(payload.decode("utf-8"))
     except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
         raise ConfigError(f"invalid {name}: {exc}") from exc
-    if set(raw) != {"scan"} or not isinstance(raw["scan"], dict):
+    if not _fields_match(set(raw), {"scan"}, set()) or not isinstance(raw["scan"], dict):
         raise ConfigError("configuration must contain only [scan]")
     scan = raw["scan"]
     optional = {"language", "tsconfig", "collector_argv", "collector_output_limit_bytes"}
-    if set(scan) - optional != _REQUIRED_SCAN:
+    if not _fields_match(set(scan), _REQUIRED_SCAN, optional):
         raise ConfigError(
             "[scan] requires roots, namespace, and contract; language, tsconfig, "
             "collector_argv, and collector_output_limit_bytes are optional"
@@ -101,7 +115,7 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
             not isinstance(argv_raw, list)
             or not argv_raw
             or not all(
-                isinstance(value, str) and value and "\x00" not in value for value in argv_raw
+                isinstance(value, str) and value and _PathToken.NUL not in value for value in argv_raw
             )
         ):
             raise ConfigError("scan.collector_argv must be a non-empty array of non-empty strings")
@@ -171,8 +185,12 @@ def load_config(root: Path, path: str = CONFIG_PATH) -> ScanConfig:
     config = parse_config(payload, path)
     for relative in config.roots:
         target = _contained(repository, relative, field="scan.roots")
-        if not target.is_dir() and not (config.language == Language.TYPESCRIPT and target.is_file()):
-            expected = "directory or file" if config.language == Language.TYPESCRIPT else "directory"
+        if not target.is_dir() and not (
+            config.language == Language.TYPESCRIPT and target.is_file()
+        ):
+            expected = (
+                "directory or file" if config.language == Language.TYPESCRIPT else "directory"
+            )
             raise ConfigError(f"scan root is not a {expected}: {relative}")
     contract = _contained(repository, config.contract, field="scan.contract")
     if not contract.is_file():

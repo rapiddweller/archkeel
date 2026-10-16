@@ -12,7 +12,6 @@ from typing import Final
 
 from archkeel.analyzer.runtime import collector_provenance
 from archkeel.ir.facts import (
-    Language,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
     Capabilities,
@@ -22,9 +21,11 @@ from archkeel.ir.facts import (
     FactSection,
     FileFact,
     ImportTarget,
+    Language,
     LocalTarget,
     Record,
     ResolutionInput,
+    ResolutionRole,
     SourceFacts,
     SourceInfo,
     SourceSectionName,
@@ -109,7 +110,7 @@ class _Collection:
         for problem in sorted(self.snapshot.problems):
             self._gap(problem)
         inputs = tuple(
-            ResolutionInput(path, digest, role)
+            ResolutionInput(path, digest, ResolutionRole(role))
             for path, (digest, role) in sorted(self.snapshot.inputs.items())
         )
         unknowns = tuple(parse_record(item) for _, item in sorted(self.gaps.items()))

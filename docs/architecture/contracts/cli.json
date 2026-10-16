@@ -21,7 +21,9 @@
       "responsibilities": [
         "Decode closed CLI arguments into the declared Namespace fields and preserve argument wire behavior."
       ],
-      "forbidden_responsibilities": [],
+      "forbidden_responsibilities": [
+        "Executing workflows, scanning source or writing installed instructions."
+      ],
       "provenance": [
         "docs/architecture/cli-input-types.md"
       ],
@@ -37,7 +39,8 @@
       ],
       "exact_modules": [
         "archkeel.cli.arguments"
-      ]
+      ],
+      "packages": []
     },
     {
       "id": "CLI-INSTALLER",
@@ -50,14 +53,17 @@
       "responsibilities": [
         "Install the canonical agent instructions and parse only the owned legacy managed-section protocol."
       ],
-      "forbidden_responsibilities": [],
+      "forbidden_responsibilities": [
+        "Deciding Core rule verdicts, owning command grammar or reconstructing source evidence."
+      ],
       "provenance": [
         "docs/architecture/cli-input-types.md"
       ],
       "decided_by": "architect",
       "exact_modules": [
         "archkeel.cli.skill"
-      ]
+      ],
+      "packages": []
     },
     {
       "id": "CLI-COMPOSITION",
@@ -69,7 +75,9 @@
       "responsibilities": [
         "Compose typed argument input, configuration, observation, Core workflows and rendered output."
       ],
-      "forbidden_responsibilities": [],
+      "forbidden_responsibilities": [
+        "Redefining shared language identity or reconstructing closed protocol states from literal strings."
+      ],
       "provenance": [
         "docs/architecture/cli-input-types.md"
       ],
@@ -93,7 +101,8 @@
         "archkeel.cli.__main__",
         "archkeel.cli.config",
         "archkeel.cli.observe"
-      ]
+      ],
+      "packages": []
     }
   ],
   "declarations": {
@@ -108,7 +117,7 @@
           "parent_id": "CLI-ARGUMENTS",
           "presence": "planned",
           "responsibilities": [
-            "Own this bounded CLI input responsibility."
+            "Own command grammar, typed closed Namespace fields and wire-compatible choice conversion."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -122,7 +131,7 @@
           "parent_id": "CLI-INSTALLER",
           "presence": "planned",
           "responsibilities": [
-            "Own this bounded CLI input responsibility."
+            "Own supported agent installation and the legacy managed-section grammar."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -136,7 +145,7 @@
           "parent_id": "CLI-COMPOSITION",
           "presence": "planned",
           "responsibilities": [
-            "Own this bounded CLI input responsibility."
+            "Compose parsed inputs with configuration, Core workflows and rendered output."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -150,7 +159,7 @@
           "parent_id": "CLI-INPUT-arguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Name supported CLI commands and the pre-parse failure context."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -164,7 +173,7 @@
           "parent_id": "CLI-INPUT-arguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Name the mutually exclusive report projections selected by --only."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -178,7 +187,7 @@
           "parent_id": "CLI-INPUT-arguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Name supported skill installation actions."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -192,7 +201,7 @@
           "parent_id": "CLI-INPUT-arguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Distinguish canonical configuration requests from arbitrary selected path data."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -206,7 +215,7 @@
           "parent_id": "CLI-INPUT-skill",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Name supported coding agents and select their instruction installation directory."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -220,7 +229,7 @@
           "parent_id": "CLI-INPUT-arguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Carry the actual closed CLI parser fields as their owned types."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -234,7 +243,7 @@
           "parent_id": "CLI-INPUT-CLIArguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Retain the recognized command or absent subcommand."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -249,7 +258,7 @@
           "parent_id": "CLI-INPUT-CLIArguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Retain the selected report projection or an unfiltered report request."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -264,7 +273,7 @@
           "parent_id": "CLI-INPUT-CLIArguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Retain the recognized skill installation action."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -279,7 +288,7 @@
           "parent_id": "CLI-INPUT-CLIArguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Retain the installer-owned coding-agent selection."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -294,7 +303,7 @@
           "parent_id": "CLI-INPUT-CLIArguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Retain shared source-fact language identity at the CLI boundary."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -309,7 +318,7 @@
           "parent_id": "CLI-INPUT-composition",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Return the bounded CLI argument Namespace and reject incompatible supplied Namespace types."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -323,7 +332,7 @@
           "parent_id": "CLI-INPUT-Parser",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Parse actual arguments into CLIArguments while preserving argparse validation behavior."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -361,7 +370,7 @@
           "parent_id": "CLI-INPUT-composition",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Declare command grammar, typed subcommand defaults and option converters once."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -379,7 +388,7 @@
           "parent_id": "CLI-INPUT-arguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Decode --only protocol text into ReportMode."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -404,7 +413,7 @@
           "parent_id": "CLI-INPUT-arguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Decode --language protocol text into the shared Language vocabulary."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -429,7 +438,7 @@
           "parent_id": "CLI-INPUT-arguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Decode agent argument text into the installer-owned InstallationAgent vocabulary."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -454,7 +463,7 @@
           "parent_id": "CLI-INPUT-arguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Decode action argument text into SkillAction."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -479,7 +488,7 @@
           "parent_id": "CLI-INPUT-arguments",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Classify default configuration path data for existing diagnostic guidance."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -510,7 +519,7 @@
           "parent_id": "CLI-INPUT-skill",
           "presence": "planned",
           "responsibilities": [
-            "Retain the independently declared CLI input type and API."
+            "Install canonical instructions for a supported agent and migrate only a valid owned legacy section."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
